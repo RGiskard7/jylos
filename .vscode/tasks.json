@@ -1,0 +1,113 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "maven-compile",
+            "type": "shell",
+            "command": "mvn",
+            "args": [
+                "-f",
+                "jylos/pom.xml",
+                "clean",
+                "compile"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$tsc"],
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "maven-package",
+            "type": "shell",
+            "command": "mvn",
+            "args": [
+                "-f",
+                "jylos/pom.xml",
+                "clean",
+                "package",
+                "-DskipTests"
+            ],
+            "group": "build",
+            "problemMatcher": ["$tsc"],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "maven-test",
+            "type": "shell",
+            "command": "mvn",
+            "args": [
+                "-f",
+                "jylos/pom.xml",
+                "test"
+            ],
+            "group": "test",
+            "problemMatcher": ["$tsc"],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "maven-exec-java",
+            "type": "shell",
+            "command": "mvn",
+            "args": [
+                "-f",
+                "jylos/pom.xml",
+                "javafx:run"
+            ],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "maven-javafx-run",
+            "type": "shell",
+            "command": "mvn",
+            "args": [
+                "-f",
+                "jylos/pom.xml",
+                "javafx:run",
+                "-q"
+            ],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": [],
+            "isBackground": true
+        },
+        {
+            "label": "run-jylos-script",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/run_all.sh",
+            "windows": {
+                "command": "${workspaceFolder}\\scripts\\run_all.ps1"
+            },
+            "linux": {
+                "command": "${workspaceFolder}/scripts/run_all.sh"
+            },
+            "osx": {
+                "command": "${workspaceFolder}/scripts/run_all.sh"
+            },
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        }
+    ]
+}

@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.web.WebView?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" 
+            fx:controller="com.example.jylos.ui.controller.MainController"
+            styleClass="root-container">
+    
+    <!-- Top Menu Bar -->
+    <top>
+        <fx:include source="ToolbarView.fxml" fx:id="toolbar"/>
+    </top>
+    
+    <!-- Main Content Area -->
+    <center>
+        <StackPane fx:id="centerStack">
+            <SplitPane fx:id="mainSplitPane" dividerPositions="0.22" styleClass="main-split"
+                       maxWidth="Infinity" maxHeight="Infinity">
+                <!-- Left Sidebar -->
+                <fx:include source="SidebarView.fxml" fx:id="sidebar"/>            
+                <!-- Right Content Area -->
+                <SplitPane fx:id="contentSplitPane" dividerPositions="0.25" styleClass="content-split">
+                    <!-- Notes List Panel -->
+                    <fx:include source="NotesListView.fxml" fx:id="notesList"/>
+                    
+                    <!-- Editor + Preview Panel -->
+                    <fx:include source="EditorView.fxml" fx:id="editor"/>
+                </SplitPane>
+            </SplitPane>
+
+            <!-- Graph overlay (hidden until toggled) -->
+            <fx:include source="GraphView.fxml" fx:id="graphView"/>
+        </StackPane>
+    </center>
+    
+    <!-- Right Panel (multiple collapsible sections) -->
+    <right>
+        <VBox fx:id="rightPanel" visible="false" managed="false" styleClass="right-panel" minWidth="260" prefWidth="300" maxWidth="340">
+            <!-- Panel Header -->
+            <HBox alignment="CENTER_LEFT" styleClass="panel-header">
+                <padding>
+                    <Insets top="12" right="12" bottom="12" left="16"/>
+                </padding>
+                <Label text="%panel.right.title" styleClass="panel-title"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button fx:id="closeRightPanelBtn" text="×" onAction="#handleCloseRightPanel" styleClass="panel-close-btn">
+                    <tooltip><Tooltip text="%tooltip.close_panel"/></tooltip>
+                </Button>
+            </HBox>
+            
+            <!-- Scrollable Content Area -->
+            <ScrollPane fitToWidth="true" hbarPolicy="NEVER" VBox.vgrow="ALWAYS" styleClass="panel-scroll">
+                <VBox fx:id="rightPanelContent" spacing="0" styleClass="panel-content">
+                    <padding>
+                        <Insets top="8" right="12" bottom="16" left="12"/>
+                    </padding>
+                    
+                    <!-- Note Info Section (collapsible) -->
+                    <VBox fx:id="noteInfoSection" styleClass="panel-section">
+                        <HBox fx:id="noteInfoHeader" alignment="CENTER_LEFT" styleClass="section-header">
+                            <Label text="▼" fx:id="noteInfoCollapseIcon" styleClass="collapse-icon"/>
+                            <Label text="%section.note_info" styleClass="section-title"/>
+                        </HBox>
+                        <VBox fx:id="noteInfoContent" spacing="12" styleClass="section-content">
+                            <padding>
+                                <Insets top="8" left="8"/>
+                            </padding>
+                            <VBox spacing="2">
+                                <Label text="%info.created" styleClass="info-label"/>
+                                <Label fx:id="infoCreatedLabel" text="-" styleClass="info-value"/>
+                            </VBox>
+                            <VBox spacing="2">
+                                <Label text="%info.modified" styleClass="info-label"/>
+                                <Label fx:id="infoModifiedLabel" text="-" styleClass="info-value"/>
+                            </VBox>
+                            <HBox spacing="24">
+                                <VBox spacing="2">
+                                    <Label text="%info.words" styleClass="info-label"/>
+                                    <Label fx:id="infoWordsLabel" text="0" styleClass="info-value"/>
+                                </VBox>
+                                <VBox spacing="2">
+                                    <Label text="%info.chars" styleClass="info-label"/>
+                                    <Label fx:id="infoCharsLabel" text="0" styleClass="info-value"/>
+                                </VBox>
+                            </HBox>
+                            <VBox spacing="2">
+                                <Label text="%info.location" styleClass="info-label"/>
+                                <Label fx:id="infoLatitudeLabel" text="Lat: -" styleClass="info-value-small"/>
+                                <Label fx:id="infoLongitudeLabel" text="Lon: -" styleClass="info-value-small"/>
+                            </VBox>
+                            <VBox spacing="2">
+                                <Label text="%info.metadata" styleClass="info-label"/>
+                                <Label fx:id="infoAuthorLabel" text="Author: -" styleClass="info-value-small"/>
+                                <Label fx:id="infoSourceUrlLabel" text="URL: -" styleClass="info-value-small" wrapText="true"/>
+                            </VBox>
+                        </VBox>
+                    </VBox>
+                    
+                    <!-- Backlinks (notes that link to the current one) -->
+                    <VBox fx:id="backlinksSection" styleClass="panel-section">
+                        <HBox fx:id="backlinksHeader" alignment="CENTER_LEFT" styleClass="section-header">
+                            <Label text="▼" fx:id="backlinksCollapseIcon" styleClass="collapse-icon"/>
+                            <Label text="%section.backlinks" styleClass="section-title"/>
+                        </HBox>
+                        <VBox fx:id="backlinksContent" spacing="2" styleClass="section-content">
+                            <padding>
+                                <Insets top="8" left="8"/>
+                            </padding>
+                        </VBox>
+                    </VBox>
+
+                    <!-- Plugin Panels Container (dynamic) -->
+                    <VBox fx:id="pluginPanelsContainer" spacing="0">
+                        <!-- Plugin panels are added dynamically here -->
+                    </VBox>
+                </VBox>
+            </ScrollPane>
+        </VBox>
+    </right>
+    
+    <!-- Bottom Status Bar -->
+    <bottom>
+        <HBox fx:id="statusBar" alignment="CENTER_LEFT" spacing="10" styleClass="status-bar">
+            <padding>
+                <Insets top="8" right="20" bottom="8" left="20"/>
+            </padding>
+            <!-- Left: storage switcher (first) + transient status message -->
+            <Label fx:id="storageLabel" text="Local" styleClass="status-storage" onMouseClicked="#handleStorageClick">
+                <tooltip><Tooltip text="%tooltip.switch_storage"/></tooltip>
+            </Label>
+            <Separator fx:id="gitSeparator" orientation="VERTICAL" styleClass="status-separator" visible="false" managed="false"/>
+            <!-- Git bar (vault storage only): remote · changes · commit · sync · history -->
+            <HBox fx:id="gitBar" alignment="CENTER_LEFT" spacing="8" minWidth="-Infinity" visible="false" managed="false">
+                <Label fx:id="gitInitLabel" styleClass="status-git" onMouseClicked="#handleGitInitClick"
+                       contentDisplay="LEFT" graphicTextGap="5" visible="false" managed="false">
+                    <graphic><FontIcon iconLiteral="fth-git-branch" styleClass="feather-icon-faint"/></graphic>
+                </Label>
+                <Label fx:id="gitRemoteLabel" styleClass="status-git" onMouseClicked="#handleGitRemoteClick"
+                       contentDisplay="LEFT" graphicTextGap="5">
+                    <graphic><FontIcon iconLiteral="fth-git-branch" styleClass="feather-icon-faint"/></graphic>
+                </Label>
+                <Separator orientation="VERTICAL" styleClass="status-separator"/>
+                <Label fx:id="gitChangesLabel" styleClass="status-git" onMouseClicked="#handleGitChangesClick"
+                       contentDisplay="LEFT" graphicTextGap="5">
+                    <graphic><FontIcon iconLiteral="fth-edit-3" styleClass="feather-icon-faint"/></graphic>
+                </Label>
+                <Separator orientation="VERTICAL" styleClass="status-separator"/>
+                <Label fx:id="gitCommitLabel" styleClass="status-git" onMouseClicked="#handleGitCommitClick"
+                       contentDisplay="LEFT" graphicTextGap="5">
+                    <graphic><FontIcon iconLiteral="fth-git-commit" styleClass="feather-icon-faint"/></graphic>
+                </Label>
+                <Separator orientation="VERTICAL" styleClass="status-separator"/>
+                <Label fx:id="gitSyncLabel" styleClass="status-git" onMouseClicked="#handleGitStatusClick"
+                       contentDisplay="LEFT" graphicTextGap="5">
+                    <graphic><FontIcon iconLiteral="fth-refresh-cw" styleClass="feather-icon-faint"/></graphic>
+                </Label>
+                <Separator orientation="VERTICAL" styleClass="status-separator"/>
+                <Label fx:id="gitHistoryLabel" styleClass="status-git" onMouseClicked="#handleGitHistoryClick"
+                       contentDisplay="LEFT" graphicTextGap="5">
+                    <graphic><FontIcon iconLiteral="fth-activity" styleClass="feather-icon-faint"/></graphic>
+                </Label>
+            </HBox>
+            <Separator orientation="VERTICAL" styleClass="status-separator"/>
+            <!-- Flexible filler: takes remaining width and truncates long messages
+                 (e.g. git errors) with an ellipsis instead of squeezing the git bar. -->
+            <Label fx:id="statusLabel" text="Ready" styleClass="status-text"
+                   maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+
+            <!-- Right: plugin items | note count | word / char counts -->
+            <HBox fx:id="pluginStatusBarContainer" spacing="12" alignment="CENTER_LEFT"/>
+            <Label fx:id="noteCountLabel" text="0 notes" styleClass="status-text-muted"/>
+            <Separator fx:id="statsSeparator" orientation="VERTICAL" styleClass="status-separator" visible="false" managed="false"/>
+            <Label fx:id="wordCountLabel" text="" styleClass="status-text-muted" visible="false" managed="false"/>
+            <Separator fx:id="wordCharSeparator" orientation="VERTICAL" styleClass="status-separator" visible="false" managed="false"/>
+            <Label fx:id="charCountLabel" text="" styleClass="status-text-muted" visible="false" managed="false"/>
+        </HBox>
+    </bottom>
+</BorderPane>

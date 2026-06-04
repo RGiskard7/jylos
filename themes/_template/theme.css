@@ -1,0 +1,39 @@
+/*
+ * External theme starter for Jylos.
+ *
+ * By default the app loads ONLY this stylesheet. Set base=dark (or light) in
+ * theme.properties to stack the built-in theme underneath, then override here.
+ * Style JavaFX controls with the
+ * `-fx-*` properties; reuse the app's style classes (e.g. .note-cell-title,
+ * .editor-header, .status-bar, .modern-toggle-btn) to restyle each area.
+ *
+ * Tip: start from the built-in modern-theme.css / dark-theme.css as reference.
+ */
+
+.root,
+.root-container {
+    -fx-font-family: "Segoe UI", "SF Pro Text", -apple-system, sans-serif;
+    -fx-font-size: 13px;
+
+    /* Define your palette once here, then reference the variables below. */
+    -fx-base-bg: #ffffff;
+    -fx-sidebar-bg: #f5f5f5;
+    -fx-header-bg: #f0f0f0;
+    -fx-accent: #7c3aed;
+    -fx-accent-hover: #6d28d9;
+    -fx-accent-contrast: #ffffff;
+    -fx-text-main: #222222;
+    -fx-text-muted: #616161;
+    -fx-text-faint: #8a8a8a;
+    -fx-fn-border-color: #d4d4d4;
+    -fx-hover-bg: #ebebeb;
+    -fx-hover-text: #111111;
+    -fx-selected-bg: #7c3aed;
+    -fx-selected-text: #ffffff;
+    -fx-success: #10b981;
+    -fx-warning: #f59e0b;
+    -fx-danger: #ef4444;
+
+    -fx-background-color: -fx-base-bg;
+    -fx-text-fill: -fx-text-main;
+}

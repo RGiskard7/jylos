@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
+
+<VBox fx:id="graphRoot" styleClass="graph-view" maxWidth="Infinity" maxHeight="Infinity"
+      xmlns="http://javafx.com/javafx/21"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.example.jylos.ui.controller.GraphController">
+
+    <HBox alignment="CENTER_LEFT" spacing="8" styleClass="graph-toolbar">
+        <padding>
+            <Insets top="8" right="12" bottom="8" left="14"/>
+        </padding>
+
+        <FontIcon iconLiteral="fth-share-2" styleClass="feather-icon"/>
+        <Label fx:id="graphTitleLabel" text="%graph.title" styleClass="graph-title"/>
+
+        <Region HBox.hgrow="ALWAYS"/>
+
+        <ToggleButton fx:id="localGraphBtn" onAction="#handleToggleScope" styleClass="modern-toggle-btn">
+            <tooltip><Tooltip text="%graph.local"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-target" styleClass="feather-icon"/></graphic>
+        </ToggleButton>
+        <ToggleButton fx:id="showTagsBtn" onAction="#handleToggleTags" selected="false" styleClass="modern-toggle-btn">
+            <tooltip><Tooltip text="%graph.show_tags"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-hash" styleClass="feather-icon"/></graphic>
+        </ToggleButton>
+        <ToggleButton fx:id="settingsBtn" onAction="#handleToggleSettings" styleClass="modern-toggle-btn">
+            <tooltip><Tooltip text="%graph.settings"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-settings" styleClass="feather-icon"/></graphic>
+        </ToggleButton>
+        <Button fx:id="zoomOutBtn" onAction="#handleZoomOut" styleClass="toolbar-btn">
+            <tooltip><Tooltip text="%graph.zoom_out"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-zoom-out" styleClass="feather-icon"/></graphic>
+        </Button>
+        <Button fx:id="zoomInBtn" onAction="#handleZoomIn" styleClass="toolbar-btn">
+            <tooltip><Tooltip text="%graph.zoom_in"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-zoom-in" styleClass="feather-icon"/></graphic>
+        </Button>
+        <Button fx:id="resetViewBtn" onAction="#handleResetView" styleClass="toolbar-btn">
+            <tooltip><Tooltip text="%graph.reset_view"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-maximize-2" styleClass="feather-icon"/></graphic>
+        </Button>
+        <Button fx:id="refreshGraphBtn" onAction="#handleRefresh" styleClass="toolbar-btn">
+            <tooltip><Tooltip text="%graph.refresh"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-refresh-cw" styleClass="feather-icon"/></graphic>
+        </Button>
+        <Button fx:id="closeGraphBtn" onAction="#handleClose" styleClass="toolbar-btn toolbar-btn-danger">
+            <tooltip><Tooltip text="%graph.close"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-x" styleClass="feather-icon-danger"/></graphic>
+        </Button>
+    </HBox>
+
+    <StackPane fx:id="graphCanvasHolder" VBox.vgrow="ALWAYS" styleClass="graph-canvas-holder">
+        <!-- Settings panel overlay (canvas is added behind it by the controller). -->
+        <VBox fx:id="settingsPanel" visible="false" managed="false" spacing="6"
+              styleClass="graph-settings" maxWidth="250" maxHeight="-Infinity"
+              pickOnBounds="false" StackPane.alignment="TOP_RIGHT">
+            <padding><Insets top="14" right="14" bottom="14" left="14"/></padding>
+            <StackPane.margin><Insets top="14" right="14" bottom="0" left="0"/></StackPane.margin>
+
+            <Label text="%graph.filters" styleClass="graph-settings-header"/>
+            <CheckBox fx:id="orphansCheck" text="%graph.show_orphans" selected="true" onAction="#handleFilters"/>
+            <CheckBox fx:id="ghostsCheck" text="%graph.show_unresolved" selected="true" onAction="#handleFilters"/>
+
+            <Separator/>
+            <Label text="%graph.display" styleClass="graph-settings-header"/>
+            <CheckBox fx:id="arrowsCheck" text="%graph.arrows" onAction="#handleArrows"/>
+            <CheckBox fx:id="colorFolderCheck" text="%graph.color_by_folder" onAction="#handleColorMode"/>
+            <Label text="%graph.label_threshold" styleClass="graph-settings-label"/>
+            <Slider fx:id="labelThresholdSlider" min="0" max="200"/>
+            <Label text="%graph.node_size" styleClass="graph-settings-label"/>
+            <Slider fx:id="nodeScaleSlider" min="30" max="300"/>
+            <Label text="%graph.line_thickness" styleClass="graph-settings-label"/>
+            <Slider fx:id="lineThicknessSlider" min="30" max="400"/>
+
+            <Separator/>
+            <Label text="%graph.forces" styleClass="graph-settings-header"/>
+            <Label text="%graph.center_force" styleClass="graph-settings-label"/>
+            <Slider fx:id="centerSlider" min="0" max="150"/>
+            <Label text="%graph.repulsion" styleClass="graph-settings-label"/>
+            <Slider fx:id="repulsionSlider" min="40" max="700"/>
+            <Label text="%graph.link_force" styleClass="graph-settings-label"/>
+            <Slider fx:id="linkForceSlider" min="0" max="200"/>
+            <Label text="%graph.link_distance" styleClass="graph-settings-label"/>
+            <Slider fx:id="linkDistanceSlider" min="10" max="140"/>
+        </VBox>
+    </StackPane>
+</VBox>

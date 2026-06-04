@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
+
+<VBox fx:id="sidebarPane" styleClass="sidebar" minWidth="200" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.jylos.ui.controller.SidebarController">
+    <!-- Centered navigation (replaces TabPane header) -->
+    <HBox fx:id="sidebarNavBar" styleClass="sidebar-nav-bar" alignment="CENTER" spacing="8" fillHeight="false">
+        <padding>
+            <Insets top="8" right="12" bottom="8" left="12"/>
+        </padding>
+        <Button fx:id="navFoldersBtn" onAction="#handleNavFolders" styleClass="sidebar-nav-btn, sidebar-nav-btn-selected">
+            <tooltip><Tooltip text="%tab.folders"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-folder" iconSize="16" styleClass="feather-icon"/></graphic>
+        </Button>
+        <Button fx:id="navTagsBtn" onAction="#handleNavTags" styleClass="sidebar-nav-btn">
+            <tooltip><Tooltip text="%tab.tags"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-hash" iconSize="16" styleClass="feather-icon"/></graphic>
+        </Button>
+        <Button fx:id="navRecentBtn" onAction="#handleNavRecent" styleClass="sidebar-nav-btn">
+            <tooltip><Tooltip text="%tab.recent"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-clock" iconSize="16" styleClass="feather-icon"/></graphic>
+        </Button>
+        <Button fx:id="navFavoritesBtn" onAction="#handleNavFavorites" styleClass="sidebar-nav-btn">
+            <tooltip><Tooltip text="%tab.favorites"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-star" iconSize="16" styleClass="feather-icon"/></graphic>
+        </Button>
+        <Button fx:id="navTrashBtn" onAction="#handleNavTrash" styleClass="sidebar-nav-btn">
+            <tooltip><Tooltip text="%tab.trash"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-trash-2" iconSize="16" styleClass="feather-icon"/></graphic>
+        </Button>
+    </HBox>
+
+    <TabPane fx:id="navigationTabPane" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS" styleClass="sidebar-tabs, sidebar-tabs-noheader">
+        <Tab fx:id="foldersTab" text="%tab.folders" closable="false">
+            <VBox spacing="0">
+                <HBox spacing="4" alignment="CENTER_LEFT" styleClass="sidebar-toolbar">
+                    <padding><Insets top="4" right="4" bottom="4" left="4"/></padding>
+                    <TextField fx:id="filterFoldersField" promptText="%app.search.placeholder" styleClass="search-field, small-search" HBox.hgrow="ALWAYS"/>
+                    <Button onAction="#handleSortFolders" styleClass="icon-btn">
+                         <tooltip><Tooltip text="%action.sort_folders"/></tooltip>
+                         <graphic><FontIcon iconLiteral="fth-filter" iconSize="14" styleClass="feather-icon"/></graphic>
+                    </Button>
+                    <Button onAction="#handleExpandAllFolders" styleClass="icon-btn">
+                          <tooltip><Tooltip text="%action.expand_all"/></tooltip>
+                         <graphic><FontIcon iconLiteral="fth-maximize-2" iconSize="14" styleClass="feather-icon"/></graphic>
+                    </Button>
+                    <Button onAction="#handleCollapseAllFolders" styleClass="icon-btn">
+                          <tooltip><Tooltip text="%action.collapse_all"/></tooltip>
+                         <graphic><FontIcon iconLiteral="fth-minimize-2" iconSize="14" styleClass="feather-icon"/></graphic>
+                    </Button>
+                </HBox>
+                <TreeView fx:id="folderTreeView" showRoot="true" styleClass="sidebar-tree" VBox.vgrow="ALWAYS"/>
+            </VBox>
+        </Tab>
+        
+        <Tab fx:id="tagsTab" text="%tab.tags" closable="false">
+            <VBox spacing="0">
+                 <HBox spacing="4" alignment="CENTER_LEFT" styleClass="sidebar-toolbar">
+                    <padding><Insets top="4" right="4" bottom="4" left="4"/></padding>
+                    <TextField fx:id="filterTagsField" promptText="%tab.tags.filter" styleClass="search-field, small-search" HBox.hgrow="ALWAYS"/>
+                    <Button onAction="#handleSortTags" styleClass="icon-btn">
+                         <tooltip><Tooltip text="%action.sort_tags"/></tooltip>
+                         <graphic><FontIcon iconLiteral="fth-filter" iconSize="14" styleClass="feather-icon"/></graphic>
+                    </Button>
+                </HBox>
+                <ListView fx:id="tagListView" styleClass="sidebar-list" VBox.vgrow="ALWAYS"/>
+            </VBox>
+        </Tab>
+        
+        <Tab fx:id="recentTab" text="%tab.recent" closable="false">
+            <VBox spacing="0">
+                 <HBox spacing="4" alignment="CENTER_LEFT" styleClass="sidebar-toolbar">
+                    <padding><Insets top="4" right="4" bottom="4" left="4"/></padding>
+                    <TextField fx:id="filterRecentField" promptText="%tab.recent.filter" styleClass="search-field, small-search" HBox.hgrow="ALWAYS"/>
+                    <Button onAction="#handleSortRecent" styleClass="icon-btn">
+                         <tooltip><Tooltip text="%action.sort_recent"/></tooltip>
+                         <graphic><FontIcon iconLiteral="fth-filter" iconSize="14" styleClass="feather-icon"/></graphic>
+                    </Button>
+                </HBox>
+                <ListView fx:id="recentNotesListView" styleClass="sidebar-list" VBox.vgrow="ALWAYS"/>
+            </VBox>
+        </Tab>
+        
+        <Tab fx:id="favoritesTab" text="%tab.favorites" closable="false">
+            <VBox spacing="0">
+                 <HBox spacing="4" alignment="CENTER_LEFT" styleClass="sidebar-toolbar">
+                    <padding><Insets top="4" right="4" bottom="4" left="4"/></padding>
+                    <TextField fx:id="filterFavoritesField" promptText="%tab.favorites.filter" styleClass="search-field, small-search" HBox.hgrow="ALWAYS"/>
+                    <Button onAction="#handleSortFavorites" styleClass="icon-btn">
+                         <tooltip><Tooltip text="%action.sort_favorites"/></tooltip>
+                         <graphic><FontIcon iconLiteral="fth-filter" iconSize="14" styleClass="feather-icon"/></graphic>
+                    </Button>
+                </HBox>
+                <ListView fx:id="favoritesListView" styleClass="sidebar-list" VBox.vgrow="ALWAYS"/>
+            </VBox>
+        </Tab>
+        
+        <Tab fx:id="trashTab" text="%tab.trash" closable="false">
+            <VBox spacing="0">
+                 <HBox spacing="4" alignment="CENTER_LEFT" styleClass="sidebar-toolbar">
+                    <padding><Insets top="4" right="4" bottom="4" left="4"/></padding>
+                    <TextField fx:id="filterTrashField" promptText="%tab.trash.filter" styleClass="search-field, small-search" HBox.hgrow="ALWAYS"/>
+                    <Button onAction="#handleSortTrash" styleClass="icon-btn">
+                         <tooltip><Tooltip text="%action.sort_trash"/></tooltip>
+                         <graphic><FontIcon iconLiteral="fth-filter" iconSize="14" styleClass="feather-icon"/></graphic>
+                    </Button>
+                    <Button onAction="#handleEmptyTrash" styleClass="icon-btn">
+                         <tooltip><Tooltip text="%action.empty_trash"/></tooltip>
+                         <graphic><FontIcon iconLiteral="fth-trash-2" iconSize="14" styleClass="feather-icon-danger"/></graphic>
+                    </Button>
+                </HBox>
+                <TreeView fx:id="trashTreeView" styleClass="sidebar-list" VBox.vgrow="ALWAYS" showRoot="false"/>
+            </VBox>
+        </Tab>
+    </TabPane>
+    
+    <!-- Use Spacer instead of buttons -->
+    <Region VBox.vgrow="NEVER" minHeight="10"/>
+</VBox>

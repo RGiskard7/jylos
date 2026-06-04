@@ -1,0 +1,80 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Run: Main (recomendado)",
+            "request": "launch",
+            "mainClass": "com.example.jylos.Main",
+            "projectName": "jylos",
+            "cwd": "${workspaceFolder}/jylos",
+            "vmArgs": [
+                "--module-path",
+                "${env:HOME}/.m2/repository/org/openjfx/javafx-base/21/javafx-base-21-mac-aarch64.jar:${env:HOME}/.m2/repository/org/openjfx/javafx-controls/21/javafx-controls-21-mac-aarch64.jar:${env:HOME}/.m2/repository/org/openjfx/javafx-fxml/21/javafx-fxml-21-mac-aarch64.jar:${env:HOME}/.m2/repository/org/openjfx/javafx-graphics/21/javafx-graphics-21-mac-aarch64.jar:${env:HOME}/.m2/repository/org/openjfx/javafx-media/21/javafx-media-21-mac-aarch64.jar:${env:HOME}/.m2/repository/org/openjfx/javafx-web/21/javafx-web-21-mac-aarch64.jar",
+                "--add-modules",
+                "javafx.base,javafx.controls,javafx.fxml,javafx.graphics,javafx.media,javafx.web",
+                "-Dfile.encoding=UTF-8"
+            ]
+        },
+        {
+            "type": "java",
+            "name": "Debug: Main",
+            "request": "launch",
+            "mainClass": "com.example.jylos.Main",
+            "projectName": "jylos",
+            "cwd": "${workspaceFolder}/jylos",
+            "vmArgs": [
+                "--module-path",
+                "${env:HOME}/.m2/repository/org/openjfx/javafx-base/21/javafx-base-21-mac-aarch64.jar:${env:HOME}/.m2/repository/org/openjfx/javafx-controls/21/javafx-controls-21-mac-aarch64.jar:${env:HOME}/.m2/repository/org/openjfx/javafx-fxml/21/javafx-fxml-21-mac-aarch64.jar:${env:HOME}/.m2/repository/org/openjfx/javafx-graphics/21/javafx-graphics-21-mac-aarch64.jar:${env:HOME}/.m2/repository/org/openjfx/javafx-media/21/javafx-media-21-mac-aarch64.jar:${env:HOME}/.m2/repository/org/openjfx/javafx-web/21/javafx-web-21-mac-aarch64.jar",
+                "--add-modules",
+                "javafx.base,javafx.controls,javafx.fxml,javafx.graphics,javafx.media,javafx.web",
+                "-Dfile.encoding=UTF-8"
+            ]
+        },
+        {
+            "type": "java",
+            "name": "Run: Main (Mac Intel)",
+            "request": "launch",
+            "mainClass": "com.example.jylos.Main",
+            "projectName": "jylos",
+            "cwd": "${workspaceFolder}/jylos",
+            "vmArgs": [
+                "--module-path",
+                "${env:HOME}/.m2/repository/org/openjfx/javafx-base/21/javafx-base-21-mac.jar:${env:HOME}/.m2/repository/org/openjfx/javafx-controls/21/javafx-controls-21-mac.jar:${env:HOME}/.m2/repository/org/openjfx/javafx-fxml/21/javafx-fxml-21-mac.jar:${env:HOME}/.m2/repository/org/openjfx/javafx-graphics/21/javafx-graphics-21-mac.jar:${env:HOME}/.m2/repository/org/openjfx/javafx-media/21/javafx-media-21-mac.jar:${env:HOME}/.m2/repository/org/openjfx/javafx-web/21/javafx-web-21-mac.jar",
+                "--add-modules",
+                "javafx.base,javafx.controls,javafx.fxml,javafx.graphics,javafx.media,javafx.web",
+                "-Dfile.encoding=UTF-8"
+            ]
+        },
+        {
+            "type": "java",
+            "name": "Run: Main (Windows)",
+            "request": "launch",
+            "mainClass": "com.example.jylos.Main",
+            "projectName": "jylos",
+            "cwd": "${workspaceFolder}/jylos",
+            "vmArgs": [
+                "--module-path",
+                "${env:USERPROFILE}\\.m2\\repository\\org\\openjfx\\javafx-base\\21\\javafx-base-21-win.jar;${env:USERPROFILE}\\.m2\\repository\\org\\openjfx\\javafx-controls\\21\\javafx-controls-21-win.jar;${env:USERPROFILE}\\.m2\\repository\\org\\openjfx\\javafx-fxml\\21\\javafx-fxml-21-win.jar;${env:USERPROFILE}\\.m2\\repository\\org\\openjfx\\javafx-graphics\\21\\javafx-graphics-21-win.jar;${env:USERPROFILE}\\.m2\\repository\\org\\openjfx\\javafx-media\\21\\javafx-media-21-win.jar;${env:USERPROFILE}\\.m2\\repository\\org\\openjfx\\javafx-web\\21\\javafx-web-21-win.jar",
+                "--add-modules",
+                "javafx.base,javafx.controls,javafx.fxml,javafx.graphics,javafx.media,javafx.web",
+                "-Dfile.encoding=UTF-8"
+            ]
+        },
+        {
+            "type": "java",
+            "name": "Launcher",
+            "request": "launch",
+            "mainClass": "com.example.jylos.Launcher",
+            "projectName": "jylos",
+            "cwd": "${workspaceFolder}/jylos",
+            "vmArgs": [
+                "--module-path",
+                "${env:HOME}/.m2/repository/org/openjfx/javafx-base/21/javafx-base-21-mac-aarch64.jar:${env:HOME}/.m2/repository/org/openjfx/javafx-controls/21/javafx-controls-21-mac-aarch64.jar:${env:HOME}/.m2/repository/org/openjfx/javafx-fxml/21/javafx-fxml-21-mac-aarch64.jar:${env:HOME}/.m2/repository/org/openjfx/javafx-graphics/21/javafx-graphics-21-mac-aarch64.jar:${env:HOME}/.m2/repository/org/openjfx/javafx-media/21/javafx-media-21-mac-aarch64.jar:${env:HOME}/.m2/repository/org/openjfx/javafx-web/21/javafx-web-21-mac-aarch64.jar",
+                "--add-modules",
+                "javafx.base,javafx.controls,javafx.fxml,javafx.graphics,javafx.media,javafx.web",
+                "-Dfile.encoding=UTF-8"
+            ]
+        }
+    ]
+}

@@ -1,0 +1,109 @@
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+.flattened-pom.xml
+.m2/
+*.jar
+*.war
+*.ear
+
+# IDE - IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+*.sublime-project
+*.sublime-workspace
+
+# IDE - Eclipse
+.settings/
+.classpath
+.project
+.factorypath
+.c9/
+
+# Claude
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.~*
+.AppleDouble
+.LSOverride
+._*
+
+# Build
+build/
+dist/
+bin/
+out/
+classes/
+.gradle/
+*.class
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# Database (SQLite)
+*.db
+*.sqlite
+*.sqlite3
+
+# Local properties
+local.properties
+
+# Package files
+*.zip
+*.tar.gz
+*.rar
+
+# Runtime
+*.exe
+*.so
+*.dylib
+
+# Virtual environments
+.venv
+venv/
+env/
+ENV/
+
+# Python files (if any)
+__pycache__/
+*.py[oc]
+*.egg-info
+
+# Environment variables file
+.env
+
+# User-related folders
+db/
+temp/
+tmp/
+
+# Database (runtime data directory, NOT source code)
+jylos/data/
+jylos/data/database.db
+
+# Logs
+logs/
+jylos/logs/
+jylos/logs/app.log
+
+# SQLite auto-backups (runtime; typically jylos/backups/ when cwd is jylos/)
+backups/
+jylos/backups/
+**/*-auto-backup-*.db
+
+.claude/

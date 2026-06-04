@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.web.WebView?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
+
+<VBox fx:id="editorContainer" styleClass="editor-container" HBox.hgrow="ALWAYS"
+      xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.example.jylos.ui.controller.EditorController">
+
+    <!-- ── Breadcrumb path bar (folder/.../note.md) + close ─────────────────── -->
+    <HBox fx:id="editorPathBar" alignment="CENTER_LEFT" spacing="6" styleClass="editor-path-bar">
+        <padding>
+            <Insets top="5" right="12" bottom="5" left="16"/>
+        </padding>
+        <FontIcon iconLiteral="fth-file-text" styleClass="feather-icon-faint"/>
+        <Label fx:id="notePathLabel" text="" styleClass="note-path" HBox.hgrow="ALWAYS"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Button fx:id="closeNoteBtn" onAction="#handleCloseNote" styleClass="path-close-btn">
+            <tooltip><Tooltip text="%tooltip.close_note"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-x" styleClass="feather-icon"/></graphic>
+        </Button>
+    </HBox>
+
+    <!-- ── Editor Header ─────────────────────────────────────────────────── -->
+    <HBox fx:id="editorHeaderBar" alignment="CENTER_LEFT" spacing="8" styleClass="editor-header">
+        <padding>
+            <Insets top="10" right="16" bottom="10" left="16"/>
+        </padding>
+
+        <!-- Navigation arrows (back / forward) — same corner as Obsidian -->
+        <Button fx:id="navBackBtn" onAction="#handleNavigateBack" styleClass="nav-btn" disable="true">
+            <tooltip><Tooltip text="%tooltip.navigate_back"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-chevron-left" styleClass="feather-icon"/></graphic>
+        </Button>
+        <Button fx:id="navForwardBtn" onAction="#handleNavigateForward" styleClass="nav-btn" disable="true">
+            <tooltip><Tooltip text="%tooltip.navigate_forward"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-chevron-right" styleClass="feather-icon"/></graphic>
+        </Button>
+
+        <Separator orientation="VERTICAL" styleClass="header-separator"/>
+
+        <TextField fx:id="noteTitleField" promptText="%panel.editor.title_placeholder"
+                   HBox.hgrow="ALWAYS" styleClass="title-field"/>
+        <!-- Read (preview-only) view: title shown as a plain heading, not an input. -->
+        <Label fx:id="noteTitleLabel" styleClass="title-heading" HBox.hgrow="ALWAYS"
+               maxWidth="Infinity" visible="false" managed="false"/>
+
+        <Separator orientation="VERTICAL" styleClass="header-separator"/>
+
+        <!-- Tags toggle -->
+        <ToggleButton fx:id="toggleTagsBtn" onAction="#handleToggleTags" styleClass="modern-toggle-btn" selected="false">
+            <tooltip><Tooltip text="%tooltip.toggle_tags"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-hash" styleClass="feather-icon"/></graphic>
+        </ToggleButton>
+
+        <Separator orientation="VERTICAL" styleClass="header-separator"/>
+
+        <!-- View mode -->
+        <ToggleButton fx:id="editorOnlyButton" onAction="#handleEditorOnlyMode" styleClass="modern-toggle-btn">
+            <tooltip><Tooltip text="%tooltip.editor_only"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-edit-3" styleClass="feather-icon"/></graphic>
+        </ToggleButton>
+        <ToggleButton fx:id="splitViewButton" onAction="#handleSplitViewMode" styleClass="modern-toggle-btn">
+            <tooltip><Tooltip text="%tooltip.split_view"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-columns" styleClass="feather-icon"/></graphic>
+        </ToggleButton>
+        <ToggleButton fx:id="previewOnlyButton" onAction="#handlePreviewOnlyMode" styleClass="modern-toggle-btn">
+            <tooltip><Tooltip text="%tooltip.preview_only"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-book-open" styleClass="feather-icon"/></graphic>
+        </ToggleButton>
+        <Separator orientation="VERTICAL" styleClass="header-separator"/>
+        <ToggleButton fx:id="pinButton" onAction="#handleTogglePin" styleClass="modern-toggle-btn">
+            <tooltip><Tooltip text="%tooltip.pin_note"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-map-pin" styleClass="feather-icon"/></graphic>
+        </ToggleButton>
+        <ToggleButton fx:id="favoriteButton" onAction="#handleToggleFavorite" styleClass="modern-toggle-btn">
+            <tooltip><Tooltip text="%tooltip.add_favorite"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-star" styleClass="feather-icon"/></graphic>
+        </ToggleButton>
+        <ToggleButton fx:id="infoButton" onAction="#handleToggleRightPanel" styleClass="modern-toggle-btn">
+            <tooltip><Tooltip text="%tooltip.toggle_right_panel"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-menu" styleClass="feather-icon"/></graphic>
+        </ToggleButton>
+    </HBox>
+
+    <!-- ── Tags Bar (collapsible) ─────────────────────────────────────────── -->
+    <VBox fx:id="tagsContainer" visible="false" managed="false">
+        <HBox alignment="CENTER_LEFT" spacing="8" styleClass="tags-bar">
+            <padding>
+                <Insets top="6" right="16" bottom="6" left="16"/>
+            </padding>
+            <FlowPane fx:id="tagsFlowPane" hgap="6" vgap="6" styleClass="tags-flow" HBox.hgrow="ALWAYS"/>
+            <Label fx:id="modifiedDateLabel" text="" styleClass="meta-label"/>
+        </HBox>
+    </VBox>
+
+    <!-- ── YAML Properties Panel ─────────────────────────────────────────── -->
+    <!--  • Shown when the note has custom YAML properties.                  -->
+    <!--  • Clicking the header row collapses/expands the content area.      -->
+    <!--  • No scroll pane — expands to fit all properties.                  -->
+    <VBox fx:id="propertiesSection" visible="false" managed="false" styleClass="properties-panel">
+
+        <!-- Always-visible header: click anywhere to collapse/expand -->
+        <HBox fx:id="propertiesHeader" alignment="CENTER_LEFT" spacing="6"
+              styleClass="properties-header" onMouseClicked="#handlePropertiesHeaderClick">
+            <padding>
+                <Insets top="6" right="12" bottom="6" left="16"/>
+            </padding>
+            <Label fx:id="propertiesCollapseIcon" text="▼" styleClass="properties-collapse-icon"/>
+            <Label text="%panel.properties.title" styleClass="properties-title"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="addPropertyBtn" text="%action.add_property"
+                    onAction="#handleAddProperty" styleClass="add-property-btn">
+                <tooltip><Tooltip text="%tooltip.add_property"/></tooltip>
+            </Button>
+        </HBox>
+
+        <!-- Property rows — populated programmatically. No maxHeight, no scroll. -->
+        <VBox fx:id="propertiesContent" styleClass="properties-content" spacing="1">
+            <padding><Insets top="2" right="12" bottom="8" left="16"/></padding>
+        </VBox>
+    </VBox>
+
+    <!-- ── Content: editor/preview split with an empty-state overlay ───────── -->
+    <StackPane fx:id="editorContentStack" VBox.vgrow="ALWAYS">
+    <SplitPane fx:id="editorPreviewSplitPane" orientation="HORIZONTAL" dividerPositions="0.5"
+               styleClass="editor-split">
+
+        <!-- Editor Pane -->
+        <VBox fx:id="editorPane" styleClass="editor-pane">
+            <TextArea fx:id="noteContentArea" promptText="%panel.editor.content_placeholder"
+                      wrapText="true" VBox.vgrow="ALWAYS" styleClass="editor-area"/>
+
+            <!-- Format Toolbar -->
+            <HBox styleClass="format-toolbar-container">
+                <ScrollPane hbarPolicy="AS_NEEDED" vbarPolicy="NEVER" fitToHeight="true"
+                            styleClass="format-toolbar-scroll" HBox.hgrow="ALWAYS">
+                    <HBox alignment="CENTER_LEFT" spacing="2" styleClass="format-toolbar">
+                        <padding>
+                            <Insets top="6" right="8" bottom="6" left="8"/>
+                        </padding>
+                        <!-- Headings (Feather has no heading glyph → clean typographic labels) -->
+                        <Button fx:id="heading1Btn" text="H1" onAction="#handleHeading1" styleClass="format-btn,format-btn-text">
+                            <tooltip><Tooltip text="%tooltip.format.heading1"/></tooltip>
+                        </Button>
+                        <Button fx:id="heading2Btn" text="H2" onAction="#handleHeading2" styleClass="format-btn,format-btn-text">
+                            <tooltip><Tooltip text="%tooltip.format.heading2"/></tooltip>
+                        </Button>
+                        <Button fx:id="heading3Btn" text="H3" onAction="#handleHeading3" styleClass="format-btn,format-btn-text">
+                            <tooltip><Tooltip text="%tooltip.format.heading3"/></tooltip>
+                        </Button>
+                        <Separator orientation="VERTICAL" styleClass="format-separator"/>
+                        <!-- Inline emphasis -->
+                        <Button fx:id="boldBtn" onAction="#handleBold" styleClass="format-btn">
+                            <graphic><FontIcon iconLiteral="fth-bold" styleClass="feather-icon"/></graphic>
+                            <tooltip><Tooltip text="%tooltip.format.bold"/></tooltip>
+                        </Button>
+                        <Button fx:id="italicBtn" onAction="#handleItalic" styleClass="format-btn">
+                            <graphic><FontIcon iconLiteral="fth-italic" styleClass="feather-icon"/></graphic>
+                            <tooltip><Tooltip text="%tooltip.format.italic"/></tooltip>
+                        </Button>
+                        <Button fx:id="strikeBtn" text="S" onAction="#handleStrike" styleClass="format-btn,format-btn-text,format-strike">
+                            <tooltip><Tooltip text="%tooltip.format.strike"/></tooltip>
+                        </Button>
+                        <Button fx:id="underlineBtn" onAction="#handleUnderline" styleClass="format-btn">
+                            <graphic><FontIcon iconLiteral="fth-underline" styleClass="feather-icon"/></graphic>
+                            <tooltip><Tooltip text="%tooltip.format.underline"/></tooltip>
+                        </Button>
+                        <Button fx:id="highlightBtn" text="H" onAction="#handleHighlight" styleClass="format-btn,format-btn-text,format-highlight">
+                            <tooltip><Tooltip text="%tooltip.format.highlight"/></tooltip>
+                        </Button>
+                        <Separator orientation="VERTICAL" styleClass="format-separator"/>
+                        <!-- Insert -->
+                        <Button fx:id="linkBtn" onAction="#handleLink" styleClass="format-btn">
+                            <graphic><FontIcon iconLiteral="fth-link" styleClass="feather-icon"/></graphic>
+                            <tooltip><Tooltip text="%tooltip.format.link"/></tooltip>
+                        </Button>
+                        <Button fx:id="imageBtn" onAction="#handleImage" styleClass="format-btn">
+                            <graphic><FontIcon iconLiteral="fth-image" styleClass="feather-icon"/></graphic>
+                            <tooltip><Tooltip text="%tooltip.format.image"/></tooltip>
+                        </Button>
+                        <Separator orientation="VERTICAL" styleClass="format-separator"/>
+                        <!-- Lists -->
+                        <Button fx:id="todoBtn" onAction="#handleTodoList" styleClass="format-btn">
+                            <graphic><FontIcon iconLiteral="fth-check-square" styleClass="feather-icon"/></graphic>
+                            <tooltip><Tooltip text="%tooltip.format.checkbox"/></tooltip>
+                        </Button>
+                        <Button fx:id="bulletBtn" onAction="#handleBulletList" styleClass="format-btn">
+                            <graphic><FontIcon iconLiteral="fth-list" styleClass="feather-icon"/></graphic>
+                            <tooltip><Tooltip text="%tooltip.format.bullet"/></tooltip>
+                        </Button>
+                        <Button fx:id="numberBtn" text="1." onAction="#handleNumberedList" styleClass="format-btn,format-btn-text">
+                            <tooltip><Tooltip text="%tooltip.format.numbered"/></tooltip>
+                        </Button>
+                        <Separator orientation="VERTICAL" styleClass="format-separator"/>
+                        <!-- Blocks -->
+                        <Button fx:id="quoteBtn" text="&#10077;" onAction="#handleQuote" styleClass="format-btn,format-btn-text,format-quote">
+                            <tooltip><Tooltip text="%tooltip.format.quote"/></tooltip>
+                        </Button>
+                        <Button fx:id="codeBtn" onAction="#handleCode" styleClass="format-btn">
+                            <graphic><FontIcon iconLiteral="fth-code" styleClass="feather-icon"/></graphic>
+                            <tooltip><Tooltip text="%tooltip.format.code"/></tooltip>
+                        </Button>
+                    </HBox>
+                </ScrollPane>
+                <Label fx:id="wordCountLabel" text="0 words" styleClass="word-count"/>
+            </HBox>
+        </VBox>
+
+        <!-- Preview Pane -->
+        <VBox fx:id="previewPane" styleClass="preview-pane">
+            <HBox styleClass="preview-header">
+                <padding>
+                    <Insets top="8" right="12" bottom="8" left="12"/>
+                </padding>
+                <Label text="%panel.preview.title" styleClass="preview-label"/>
+            </HBox>
+            <WebView fx:id="previewWebView" VBox.vgrow="ALWAYS"/>
+        </VBox>
+    </SplitPane>
+
+        <!-- Empty state (Obsidian-style): shown when no note is open / at startup -->
+        <VBox fx:id="emptyState" alignment="CENTER" spacing="16" styleClass="editor-empty-state"
+              pickOnBounds="true" managed="true" visible="true">
+            <FontIcon iconLiteral="fth-file-text" styleClass="empty-state-icon"/>
+            <Label text="%empty.no_note" styleClass="empty-state-title"/>
+            <Button text="%empty.create_note" onAction="#handleEmptyCreate" styleClass="empty-state-btn">
+                <graphic><FontIcon iconLiteral="fth-file-plus" styleClass="feather-icon"/></graphic>
+            </Button>
+            <Button text="%empty.go_to_file" onAction="#handleEmptyGoToFile" styleClass="empty-state-btn-secondary">
+                <graphic><FontIcon iconLiteral="fth-search" styleClass="feather-icon"/></graphic>
+            </Button>
+        </VBox>
+    </StackPane>
+</VBox>

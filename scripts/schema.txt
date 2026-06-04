@@ -1,0 +1,66 @@
+-- SQLite Database Schema for Jylos
+-- 
+-- This schema reflects the exact database structure used by the application.
+-- The application automatically creates these tables on first run.
+--
+-- To manually create/restore the database:
+--    sqlite3 jylos/data/database.db < scripts/schema.txt
+--
+-- Note: This schema matches exactly the CREATE TABLE statements in SQLiteDB.java
+
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS folders (
+  folder_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  parent_id INTEGER,
+  title TEXT NOT NULL,
+  created_date TEXT NOT NULL,
+  modified_date TEXT DEFAULT NULL,
+  FOREIGN KEY (parent_id) REFERENCES folders(folder_id) 
+    ON UPDATE CASCADE 
+    ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS tags(
+  tag_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL UNIQUE,
+  created_date TEXT NOT NULL,
+  modified_date TEXT DEFAULT NULL
+);
+
+CREATE TABLE IF NOT EXISTS notes (
+  note_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  parent_id INTEGER,
+  title TEXT NOT NULL,
+  content TEXT DEFAULT NULL,
+  created_date TEXT NOT NULL,
+  modified_date TEXT DEFAULT NULL,
+  latitude REAL NOT NULL DEFAULT 0 CHECK (latitude BETWEEN -90 AND 90),
+  longitude REAL NOT NULL DEFAULT 0 CHECK (longitude BETWEEN -180 AND 180),
+  author TEXT DEFAULT NULL,
+  source_url TEXT DEFAULT NULL,
+  is_todo INTEGER NOT NULL DEFAULT 0 CHECK (is_todo IN (0, 1)),
+  todo_due TEXT DEFAULT NULL,
+  todo_completed TEXT DEFAULT NULL,
+  source TEXT DEFAULT NULL,
+  source_application TEXT DEFAULT NULL,
+  is_favorite INTEGER NOT NULL DEFAULT 0 CHECK (is_favorite IN (0, 1)),
+  FOREIGN KEY (parent_id) REFERENCES folders(folder_id) 
+    ON UPDATE CASCADE 
+    ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS tagsNotes(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tag_id INTEGER,
+  note_id INTEGER,
+  added_date TEXT NOT NULL,
+  FOREIGN KEY (tag_id) REFERENCES tags(tag_id) 
+    MATCH SIMPLE 
+    ON UPDATE CASCADE 
+    ON DELETE CASCADE,
+  FOREIGN KEY (note_id) REFERENCES notes(note_id) 
+    MATCH SIMPLE 
+    ON UPDATE CASCADE 
+    ON DELETE CASCADE
+);

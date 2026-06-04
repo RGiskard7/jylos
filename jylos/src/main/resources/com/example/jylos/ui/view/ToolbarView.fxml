@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.example.jylos.ui.controller.ToolbarController"
+      styleClass="top-container">
+    <MenuBar fx:id="menuBar" styleClass="menu-bar">
+        <Menu text="%menu.file">
+            <MenuItem text="%action.new_note" onAction="#handleNewNote" accelerator="Shortcut+N"/>
+            <MenuItem text="%action.new_folder" onAction="#handleNewFolder" accelerator="Shortcut+Shift+N"/>
+            <MenuItem text="%action.daily_note" onAction="#handleDailyNote" accelerator="Shortcut+Shift+D"/>
+            <MenuItem text="%action.new_from_template" onAction="#handleNewFromTemplate"/>
+            <SeparatorMenuItem/>
+            <MenuItem text="%action.save" onAction="#handleSave" accelerator="Shortcut+S"/>
+            <MenuItem text="%action.save_all" onAction="#handleSaveAll" accelerator="Shortcut+Shift+S"/>
+            <SeparatorMenuItem/>
+            <MenuItem text="%action.import" onAction="#handleImport" accelerator="Shortcut+I"/>
+            <MenuItem text="%action.export" onAction="#handleExport" accelerator="Shortcut+E"/>
+            <MenuItem text="%action.export_vault" onAction="#handleExportVault"/>
+            <SeparatorMenuItem/>
+            <MenuItem text="%action.exit" onAction="#handleExit" accelerator="Shortcut+Q"/>
+        </Menu>
+
+        <Menu text="%menu.edit">
+            <MenuItem text="%action.undo" onAction="#handleUndo" accelerator="Shortcut+Z"/>
+            <MenuItem text="%action.redo" onAction="#handleRedo" accelerator="Shortcut+Y"/>
+            <SeparatorMenuItem/>
+            <MenuItem text="%action.cut" onAction="#handleCut" accelerator="Shortcut+X"/>
+            <MenuItem text="%action.copy" onAction="#handleCopy" accelerator="Shortcut+C"/>
+            <MenuItem text="%action.paste" onAction="#handlePaste" accelerator="Shortcut+V"/>
+            <SeparatorMenuItem/>
+            <MenuItem text="%action.find" onAction="#handleFind" accelerator="Shortcut+F"/>
+            <MenuItem text="%action.replace" onAction="#handleReplace" accelerator="Shortcut+H"/>
+        </Menu>
+
+        <Menu text="%menu.view">
+            <MenuItem fx:id="toggleSidebarMenuItem" text="%action.toggle_sidebar" onAction="#handleToggleSidebar" accelerator="F9"/>
+            <MenuItem fx:id="toggleNotesListMenuItem" text="%action.toggle_notes_list" onAction="#handleToggleNotesPanel" accelerator="F8"/>
+            <SeparatorMenuItem/>
+            <MenuItem fx:id="graphViewMenuItem" text="%action.graph_view" onAction="#handleGraphView" accelerator="Shortcut+G"/>
+            <SeparatorMenuItem/>
+            <MenuItem text="%action.zoom_in" onAction="#handleZoomIn" accelerator="Shortcut+Plus"/>
+            <MenuItem text="%action.zoom_out" onAction="#handleZoomOut" accelerator="Shortcut+Minus"/>
+            <MenuItem text="%action.reset_zoom" onAction="#handleResetZoom" accelerator="Shortcut+0"/>
+            <SeparatorMenuItem/>
+            <MenuItem text="%action.zoom_editor_in" onAction="#handleEditorZoomIn" accelerator="Shortcut+Shift+Plus"/>
+            <MenuItem text="%action.zoom_editor_out" onAction="#handleEditorZoomOut" accelerator="Shortcut+Shift+Minus"/>
+            <MenuItem text="%action.reset_editor_zoom" onAction="#handleEditorResetZoom" accelerator="Shortcut+Shift+0"/>
+            <SeparatorMenuItem/>
+            <Menu text="%menu.language">
+                <RadioMenuItem fx:id="englishLangMenuItem" text="%lang.en"/>
+                <RadioMenuItem fx:id="spanishLangMenuItem" text="%lang.es"/>
+            </Menu>
+            <SeparatorMenuItem/>
+            <Menu text="%menu.theme">
+                <RadioMenuItem fx:id="lightThemeMenuItem" text="%theme.light" selected="true" onAction="#handleLightTheme"/>
+                <RadioMenuItem fx:id="darkThemeMenuItem" text="%theme.dark" onAction="#handleDarkTheme"/>
+                <RadioMenuItem fx:id="systemThemeMenuItem" text="%theme.system" onAction="#handleSystemTheme"/>
+            </Menu>
+        </Menu>
+
+        <Menu text="%menu.tools">
+            <MenuItem text="%action.command_palette" onAction="#handleCommandPalette" accelerator="Shortcut+P"/>
+            <MenuItem text="%action.quick_switcher" onAction="#handleQuickSwitcher" accelerator="Shortcut+O"/>
+            <SeparatorMenuItem/>
+            <MenuItem text="%action.global_search" onAction="#handleSearch" accelerator="Shortcut+Shift+F"/>
+            <MenuItem text="%action.tags_manager" onAction="#handleTagsManager"/>
+            <SeparatorMenuItem/>
+            <Menu text="%menu.git">
+                <MenuItem text="%action.git_sync" onAction="#handleGitSync" accelerator="Shortcut+Shift+S"/>
+                <MenuItem text="%action.git_commit_push" onAction="#handleGitCommitPush"/>
+                <MenuItem text="%action.git_pull" onAction="#handleGitPull"/>
+                <SeparatorMenuItem/>
+                <MenuItem text="%action.git_init" onAction="#handleGitInit"/>
+                <MenuItem text="%action.git_add_remote" onAction="#handleGitAddRemote"/>
+            </Menu>
+            <SeparatorMenuItem/>
+            <Menu fx:id="pluginsMenu" text="%menu.plugins">
+                <MenuItem text="%action.manage_plugins" onAction="#handlePluginManager"/>
+                <SeparatorMenuItem/>
+                <!-- Plugin menu items are added dynamically by plugins -->
+            </Menu>
+            <SeparatorMenuItem/>
+            <MenuItem text="%menu.preferences" onAction="#handlePreferences"/>
+            <SeparatorMenuItem/>
+            <MenuItem text="%pref.storage" onAction="#handleSwitchStorage"/>
+        </Menu>
+
+        <Menu text="%menu.help">
+            <MenuItem text="%menu.documentation" onAction="#handleDocumentation"/>
+            <MenuItem text="%menu.shortcuts" onAction="#handleKeyboardShortcuts" accelerator="F1"/>
+            <SeparatorMenuItem/>
+            <MenuItem text="%menu.about" onAction="#handleAbout"/>
+        </Menu>
+    </MenuBar>
+
+    <!-- Toolbar -->
+    <HBox fx:id="toolbarHBox" styleClass="toolbar" spacing="8" alignment="CENTER_LEFT">
+        <padding>
+            <Insets top="8" right="16" bottom="8" left="16"/>
+        </padding>
+
+        <!-- Layout Toggles -->
+        <ToggleButton fx:id="sidebarToggleBtn" onAction="#handleToggleSidebar" styleClass="modern-toggle-btn">
+            <tooltip><Tooltip text="%action.toggle_sidebar"/></tooltip>
+            <graphic>
+                <FontIcon iconLiteral="fth-sidebar" styleClass="feather-icon"/>
+            </graphic>
+        </ToggleButton>
+        <ToggleButton fx:id="notesPanelToggleBtn" onAction="#handleToggleNotesPanel" styleClass="modern-toggle-btn">
+            <tooltip><Tooltip text="%action.toggle_notes_list"/></tooltip>
+            <graphic>
+                <FontIcon iconLiteral="fth-list" styleClass="feather-icon"/>
+            </graphic>
+        </ToggleButton>
+        <Button fx:id="layoutSwitchBtn" onAction="#handleViewLayoutSwitch" styleClass="toolbar-btn">
+            <tooltip><Tooltip text="%action.switch_layout"/></tooltip>
+            <graphic>
+                <FontIcon iconLiteral="fth-layout" styleClass="feather-icon"/>
+            </graphic>
+        </Button>
+        <Button fx:id="graphViewBtn" onAction="#handleGraphView" styleClass="toolbar-btn">
+            <tooltip><Tooltip text="%action.graph_view"/></tooltip>
+            <graphic>
+                <FontIcon iconLiteral="fth-share-2" styleClass="feather-icon"/>
+            </graphic>
+        </Button>
+
+        <Separator fx:id="toolbarSeparator1" orientation="VERTICAL" styleClass="toolbar-separator"/>
+
+        <!-- File Actions -->
+        <Button fx:id="newNoteBtn" onAction="#handleNewNote" styleClass="toolbar-btn toolbar-btn-primary">
+            <tooltip><Tooltip text="%action.new_note"/></tooltip>
+            <graphic>
+                <FontIcon iconLiteral="fth-file-plus" styleClass="feather-icon"/>
+            </graphic>
+        </Button>
+        <Button fx:id="newFolderBtn" onAction="#handleNewFolder" styleClass="toolbar-btn">
+            <tooltip><Tooltip text="%action.new_folder"/></tooltip>
+            <graphic>
+                <FontIcon iconLiteral="fth-folder-plus" styleClass="feather-icon"/>
+            </graphic>
+        </Button>
+        <Button fx:id="newTagBtn" onAction="#handleNewTag" styleClass="toolbar-btn">
+            <tooltip><Tooltip text="%action.new_tag"/></tooltip>
+            <graphic>
+                <FontIcon iconLiteral="fth-hash" styleClass="feather-icon"/>
+            </graphic>
+        </Button>
+
+        <Separator fx:id="toolbarSeparator2" orientation="VERTICAL" styleClass="toolbar-separator"/>
+
+        <Button fx:id="saveBtn" onAction="#handleSave" styleClass="toolbar-btn">
+            <tooltip><Tooltip text="%action.save"/></tooltip>
+            <graphic>
+                <FontIcon iconLiteral="fth-save" styleClass="feather-icon"/>
+            </graphic>
+        </Button>
+        <Button fx:id="deleteBtn" onAction="#handleDelete" styleClass="toolbar-btn toolbar-btn-danger">
+            <tooltip><Tooltip text="%action.delete"/></tooltip>
+            <graphic>
+                <FontIcon iconLiteral="fth-trash-2" styleClass="feather-icon-danger"/>
+            </graphic>
+        </Button>
+        <Separator fx:id="toolbarSeparator3" orientation="VERTICAL" styleClass="toolbar-separator"/>
+
+        <!-- Search Box -->
+        <TextField fx:id="searchField" promptText="%app.search.placeholder" prefWidth="240" styleClass="search-field"/>
+
+        <Region HBox.hgrow="ALWAYS"/>
+
+        <!-- View toggle buttons (List/Grid) -->
+        <ToggleButton fx:id="listViewButton" onAction="#handleListView" styleClass="modern-toggle-btn" selected="true">
+            <tooltip><Tooltip text="%action.list_view"/></tooltip>
+            <graphic>
+                <FontIcon iconLiteral="fth-align-justify" styleClass="feather-icon"/>
+            </graphic>
+        </ToggleButton>
+        <ToggleButton fx:id="gridViewButton" onAction="#handleGridView" styleClass="modern-toggle-btn">
+            <tooltip><Tooltip text="%action.grid_view"/></tooltip>
+            <graphic>
+                <FontIcon iconLiteral="fth-grid" styleClass="feather-icon"/>
+            </graphic>
+        </ToggleButton>
+
+        <!-- Overflow Menu Button -->
+        <MenuButton fx:id="toolbarOverflowBtn" styleClass="modern-toggle-btn" visible="false" managed="false">
+            <tooltip><Tooltip text="%action.more_actions"/></tooltip>
+            <graphic>
+                <FontIcon iconLiteral="fth-more-horizontal" styleClass="feather-icon"/>
+            </graphic>
+        </MenuButton>
+    </HBox>
+</VBox>

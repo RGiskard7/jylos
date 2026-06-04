@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
+
+<VBox fx:id="notesPanel" styleClass="notes-panel" minWidth="180" prefWidth="260" maxWidth="Infinity" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.jylos.ui.controller.NotesListController">
+   <!-- Stacked mode close button (hidden by default) -->
+   <HBox fx:id="stackedModeHeader" managed="false" visible="false" alignment="CENTER_RIGHT" styleClass="stacked-header">
+       <Button onAction="#handleToggleNotesPanel" styleClass="icon-btn-small">
+           <graphic>
+               <FontIcon iconLiteral="fth-x" iconSize="14"/>
+           </graphic>
+       </Button>
+   </HBox>
+
+    <HBox alignment="CENTER_LEFT" spacing="8" styleClass="notes-header">
+        <padding>
+            <Insets top="12" right="12" bottom="12" left="12"/>
+        </padding>
+        <Label fx:id="notesPanelTitleLabel" text="%panel.notes.title" styleClass="panel-title"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <ComboBox fx:id="sortComboBox" prefWidth="120" styleClass="sort-combo"/>
+        <Button fx:id="refreshBtn" onAction="#handleRefresh" styleClass="icon-btn">
+            <tooltip><Tooltip text="%tooltip.refresh_list"/></tooltip>
+            <graphic>
+                <FontIcon iconLiteral="fth-refresh-cw" styleClass="feather-icon"/>
+            </graphic>
+        </Button>
+    </HBox>
+    
+    <ListView fx:id="notesListView" VBox.vgrow="ALWAYS" maxWidth="Infinity" styleClass="notes-list"/>
+</VBox>

@@ -1,0 +1,2931 @@
+/*
+ * Jylos - Light Theme (Modern-inspired)
+ * Professional, clean, and fully responsive
+ * 
+ * Author: Edu Díaz (RGiskard7)
+ * Version: 3.0.0
+ */
+
+/* ========================================
+   BASE STYLES
+   ======================================== */
+
+.root,
+.root-container {
+    -fx-font-family: "Segoe UI", "SF Pro Text", "Helvetica Neue", -apple-system, sans-serif;
+    font-family: "Segoe UI", "SF Pro Text", "Helvetica Neue", -apple-system, sans-serif;
+    -fx-font-size: 13px;
+    font-size: 13px;
+
+    /* Global Variables - Light Theme */
+    -fx-base-bg: #fafafa;
+    -fx-sidebar-bg: #f5f5f5;
+    -fx-header-bg: #f0f0f0;
+    -fx-accent: #7c3aed;
+    -fx-accent-hover: #6d28d9;
+    -fx-accent-contrast: #ffffff;
+
+    -fx-text-main: #222222;
+    -fx-text-muted: #616161;
+    -fx-text-faint: #8a8a8a;
+    -fx-fn-border-color: #d4d4d4;
+
+    -fx-hover-bg: #ebebeb;
+    -fx-hover-text: #111111;
+
+    -fx-selected-bg: #7c3aed;
+    -fx-selected-text: #ffffff;
+
+    /* Semantic Colors */
+    -fx-success: #10b981;
+    -fx-warning: #f59e0b;
+    -fx-danger: #ef4444;
+
+    /* Folder Colors (Restored variety) */
+    -fx-folder-all: #9f7aea;
+    -fx-folder-open: #48bb78;
+    -fx-folder-closed: #ed8936;
+
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+}
+
+.feather-icon {
+    -fx-icon-color: -fx-text-muted;
+    -fx-fill: -fx-text-muted;
+    fill: -fx-text-muted;
+    -fx-icon-size: 16;
+}
+
+.feather-icon-selected {
+    -fx-icon-color: -fx-selected-text;
+    -fx-fill: -fx-selected-text;
+    fill: -fx-selected-text;
+}
+
+.feather-pin-active {
+    -fx-icon-color: -fx-accent;
+    -fx-fill: -fx-accent;
+    fill: -fx-accent;
+}
+
+.tree-cell:selected .feather-pin-active,
+.list-cell:selected .feather-pin-active {
+    -fx-icon-color: -fx-accent-contrast;
+    -fx-fill: -fx-accent-contrast;
+    fill: -fx-accent-contrast;
+}
+
+.note-card:hover .feather-pin-active {
+    -fx-icon-color: -fx-accent;
+    -fx-fill: -fx-accent;
+    fill: -fx-accent;
+}
+
+.feather-icon-danger {
+    -fx-icon-color: -fx-danger;
+    -fx-fill: -fx-danger;
+    fill: -fx-danger;
+}
+
+/* ========================================
+   TOP CONTAINER & MENU BAR
+   ======================================== */
+
+.top-container {
+    -fx-background-color: -fx-header-bg;
+    background-color: -fx-header-bg;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+    border-width: 0 0 1 0;
+}
+
+.menu-bar {
+    -fx-background-color: -fx-header-bg;
+    background-color: -fx-header-bg;
+    -fx-padding: 2 8;
+    padding: 2px 8px;
+}
+
+.menu-bar .menu {
+    -fx-background-color: transparent;
+    background-color: transparent;
+    -fx-padding: 6 10;
+    padding: 6px 10px;
+    -fx-background-radius: 4;
+    border-radius: 4px;
+}
+
+.menu-bar .menu:hover,
+.menu-bar .menu:showing {
+    -fx-background-color: -fx-hover-bg;
+    background-color: -fx-hover-bg;
+}
+
+.menu-bar .menu .label {
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-font-size: 13px;
+    font-size: 13px;
+}
+
+.context-menu {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+    -fx-border-radius: 8;
+    border-radius: 8px;
+    -fx-background-radius: 8;
+    -fx-padding: 6;
+    padding: 6px;
+
+}
+
+.menu-item {
+    -fx-background-color: transparent;
+    background-color: transparent;
+    -fx-padding: 8 16;
+    padding: 8px 16px;
+    -fx-background-radius: 4;
+    border-radius: 4px;
+}
+
+.menu-item:hover,
+.menu-item:focused {
+    -fx-background-color: -fx-hover-bg;
+    background-color: -fx-hover-bg;
+}
+
+.menu-item .label {
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+}
+
+.menu-item:disabled .label {
+    -fx-text-fill: -fx-text-faint;
+    color: -fx-text-faint;
+}
+
+/* ========================================
+   TOOLBAR
+   ======================================== */
+
+.toolbar {
+    -fx-background-color: -fx-header-bg;
+    background-color: -fx-header-bg;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+    border-width: 0 0 1px 0;
+}
+
+.toolbar-btn {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-font-size: 12px;
+    font-size: 12px;
+    -fx-font-weight: 500;
+    font-weight: 500;
+    -fx-padding: 6 12;
+    padding: 6px 12px;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    border-radius: 6px;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+    -fx-border-width: 1;
+    border-width: 1px;
+    -fx-cursor: hand;
+    cursor: pointer;
+    -fx-min-height: 32px;
+    min-height: 32px;
+    -fx-alignment: center;
+}
+
+.toolbar-btn:hover {
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+    -fx-border-color: -fx-accent;
+    border-color: -fx-accent;
+}
+
+.toolbar-btn:pressed {
+    -fx-background-color: -fx-hover-bg;
+    background-color: -fx-hover-bg;
+}
+
+.toolbar-btn:selected {
+    -fx-background-color: -fx-hover-bg;
+    -fx-border-color: -fx-accent;
+    -fx-text-fill: -fx-accent;
+}
+
+.toolbar-btn:selected .feather-icon {
+    -fx-icon-color: -fx-accent;
+}
+
+.toolbar-btn:selected:hover {
+    -fx-background-color: -fx-accent-hover;
+    background-color: -fx-accent-hover;
+    -fx-text-fill: -fx-accent-contrast;
+    color: -fx-accent-contrast;
+}
+
+.toolbar-btn:selected:hover .feather-icon {
+    -fx-icon-color: -fx-accent-contrast;
+}
+
+.toolbar-btn-danger {
+    -fx-text-fill: -fx-danger;
+    color: -fx-danger;
+    -fx-border-color: -fx-danger;
+}
+
+.toolbar-btn-danger:hover {
+    -fx-background-color: -fx-danger;
+    background-color: -fx-danger;
+    -fx-text-fill: white;
+    color: white;
+}
+
+.toolbar-btn-danger .feather-icon-danger {
+    -fx-icon-color: -fx-danger;
+}
+
+.toolbar-btn-danger:hover .feather-icon-danger {
+    -fx-icon-color: white;
+}
+
+.toolbar-btn-primary {
+    -fx-background-color: -fx-accent;
+    background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
+    color: -fx-accent-contrast;
+    -fx-border-color: -fx-accent;
+    border-color: -fx-accent;
+}
+
+.toolbar-btn-primary:hover {
+    -fx-background-color: -fx-accent-hover;
+    background-color: -fx-accent-hover;
+    -fx-border-color: -fx-accent-hover;
+    border-color: -fx-accent-hover;
+}
+
+.toolbar-btn-primary .ikonli-font-icon,
+.toolbar-btn-primary .feather-icon {
+    -fx-icon-color: -fx-accent-contrast;
+    -fx-fill: -fx-accent-contrast;
+    fill: -fx-accent-contrast;
+}
+
+.toolbar-separator {
+    -fx-background-color: #d4d4d4;
+}
+
+/* Modern Toggle Buttons */
+.modern-toggle-btn {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-text-fill: -fx-text-muted;
+    color: -fx-text-muted;
+    -fx-font-size: 14px;
+    font-size: 14px;
+    -fx-padding: 6 10;
+    padding: 6px 10px;
+    -fx-background-radius: 4;
+    -fx-border-radius: 4;
+    border-radius: 4px;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+    -fx-border-width: 1;
+    border-width: 1px;
+    -fx-cursor: hand;
+    cursor: pointer;
+    -fx-min-height: 32px;
+    min-height: 32px;
+    -fx-min-width: 36px;
+    min-width: 36px;
+}
+
+.modern-toggle-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+    background-color: -fx-hover-bg;
+    -fx-border-color: -fx-text-muted;
+    border-color: -fx-text-muted;
+}
+
+.modern-toggle-btn:selected {
+    -fx-background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
+    -fx-border-color: -fx-accent;
+}
+
+.modern-toggle-btn:selected .feather-icon {
+    -fx-icon-color: -fx-accent-contrast;
+    -fx-fill: -fx-accent-contrast;
+}
+
+.modern-toggle-btn:selected:hover {
+    -fx-background-color: -fx-accent-hover;
+    -fx-border-color: -fx-accent-hover;
+}
+
+.search-field {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+    -fx-border-radius: 20;
+    border-radius: 20px;
+    -fx-background-radius: 20;
+    -fx-padding: 8 16;
+    padding: 8px 16px;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-prompt-text-fill: -fx-text-faint;
+}
+
+.search-field:focused {
+    -fx-border-color: -fx-accent;
+    border-color: -fx-accent;
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+}
+
+/* ========================================
+   SIDEBAR
+   ======================================== */
+
+.sidebar {
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+    -fx-border-color: transparent -fx-fn-border-color transparent transparent;
+    border-color: transparent -fx-fn-border-color transparent transparent;
+    -fx-border-width: 0 1 0 0;
+    border-width: 0 1 0 0;
+}
+
+/* Tab Pane Reset and Styling */
+.tab-pane {
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+}
+
+.tab-pane>.tab-header-area {
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+    -fx-padding: 4 4 0 4;
+    padding: 4px 4px 0 4px;
+}
+
+.tab-pane>.tab-content-area {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+}
+
+/* Sidebar: centered icon navigation bar */
+.sidebar-nav-bar {
+    -fx-alignment: center;
+    -fx-spacing: 8;
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+    border-width: 0 0 1px 0;
+}
+
+.sidebar-nav-btn {
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+    -fx-background-radius: 6;
+    border-radius: 6px;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+    -fx-border-radius: 6;
+    -fx-border-width: 1px;
+    border-width: 1px;
+    -fx-padding: 6 10;
+    padding: 6px 10px;
+    -fx-cursor: hand;
+    cursor: pointer;
+    -fx-min-width: 36;
+    -fx-pref-width: 36;
+    -fx-max-width: 36;
+    -fx-min-height: 32;
+    -fx-pref-height: 32;
+    -fx-max-height: 32;
+    -fx-content-display: graphic-only;
+}
+
+.sidebar-nav-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+    background-color: -fx-hover-bg;
+    -fx-border-color: -fx-accent;
+    border-color: -fx-accent;
+}
+
+.sidebar-nav-btn:hover .feather-icon {
+    -fx-icon-color: -fx-text-main;
+    -fx-fill: -fx-text-main;
+}
+
+.sidebar-nav-btn-selected,
+.sidebar-nav-btn:selected {
+    -fx-background-color: -fx-hover-bg;
+    background-color: -fx-hover-bg;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+}
+
+.sidebar-nav-btn-selected .feather-icon,
+.sidebar-nav-btn:selected .feather-icon {
+    -fx-icon-color: -fx-text-muted;
+    -fx-fill: -fx-text-muted;
+    fill: -fx-text-muted;
+}
+
+.sidebar-nav-btn-selected:hover .feather-icon,
+.sidebar-nav-btn:selected:hover .feather-icon {
+    -fx-icon-color: -fx-text-main;
+    -fx-fill: -fx-text-main;
+    fill: -fx-text-main;
+}
+
+.sidebar-tabs {
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+}
+
+.sidebar-tabs-noheader>.tab-header-area {
+    -fx-pref-height: 0;
+    -fx-min-height: 0;
+    -fx-max-height: 0;
+    -fx-padding: 0;
+    padding: 0;
+    visibility: hidden;
+    -fx-opacity: 0;
+    -fx-managed: false;
+}
+
+.sidebar-tabs>.tab-content-area {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+}
+
+.sidebar-tree,
+.sidebar-list {
+    -fx-background-color: transparent;
+    -fx-padding: 4;
+}
+
+.sidebar-actions {
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+    -fx-border-color: -fx-fn-border-color transparent transparent transparent;
+    border-color: -fx-fn-border-color transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+    border-width: 1px 0 0 0;
+}
+
+.sidebar-btn {
+    -fx-background-color: -fx-header-bg;
+    background-color: -fx-header-bg;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-font-size: 14px;
+    font-size: 14px;
+    -fx-font-weight: 500;
+    font-weight: 500;
+    -fx-padding: 6 12;
+    padding: 6px 12px;
+    -fx-background-radius: 6;
+    border-radius: 6px;
+    -fx-border-radius: 6;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+    -fx-border-width: 1;
+    border-width: 1px;
+    -fx-cursor: hand;
+    cursor: pointer;
+    -fx-min-height: 32px;
+    min-height: 32px;
+    -fx-alignment: center;
+}
+
+.sidebar-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+    background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-hover-text;
+    color: -fx-hover-text;
+}
+
+.sidebar-btn .ikonli-font-icon,
+.sidebar-btn .feather-icon {
+    -fx-icon-color: -fx-text-main;
+    -fx-fill: -fx-text-main;
+    fill: -fx-text-main;
+    -fx-icon-size: 14px;
+}
+
+.sidebar-btn:hover .ikonli-font-icon,
+.sidebar-btn:hover .feather-icon {
+    -fx-icon-color: -fx-hover-text;
+    -fx-fill: -fx-hover-text;
+    fill: -fx-hover-text;
+}
+
+/* ========================================
+   TREE VIEW & LIST VIEW
+   ======================================== */
+
+.tree-view,
+.list-view {
+    -fx-background-color: transparent;
+    -fx-padding: 4;
+}
+
+.tree-cell,
+.list-cell {
+    -fx-background-color: transparent;
+    background-color: transparent;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-font-size: 13px;
+    font-size: 13px;
+    -fx-padding: 6 12;
+    padding: 6px 12px;
+    -fx-background-radius: 4;
+    border-radius: 4px;
+}
+
+.tree-cell:selected,
+.list-cell:selected {
+    -fx-background-color: -fx-accent;
+    background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
+    color: -fx-accent-contrast;
+}
+
+.tree-cell:hover,
+.list-cell:hover {
+    -fx-background-color: -fx-hover-bg;
+    background-color: -fx-hover-bg;
+}
+
+.tree-cell:selected:hover,
+.list-cell:selected:hover {
+    -fx-background-color: -fx-accent-hover;
+    background-color: -fx-accent-hover;
+}
+
+.tree-cell>.tree-disclosure-node>.arrow {
+    -fx-background-color: -fx-text-muted;
+    background-color: -fx-text-muted;
+}
+
+.tree-cell:selected>.tree-disclosure-node>.arrow {
+    -fx-background-color: -fx-accent-contrast;
+    background-color: -fx-accent-contrast;
+}
+
+/* Custom Note Cell Styles */
+.note-cell-container {
+    -fx-background-color: transparent;
+}
+
+.note-cell-title {
+    -fx-font-weight: 600;
+    -fx-font-size: 13px;
+    -fx-text-fill: -fx-text-main;
+}
+
+.note-cell-preview {
+    -fx-fill: -fx-text-muted;
+    -fx-text-fill: -fx-text-muted;
+    -fx-font-size: 11px;
+}
+
+.note-cell-preview-flow {
+    -fx-padding: 0;
+}
+
+.note-cell-date {
+    -fx-text-fill: -fx-text-faint;
+    -fx-font-size: 10px;
+}
+
+.note-cell-date-created {
+    -fx-text-fill: -fx-text-faint;
+    -fx-font-size: 10px;
+    -fx-wrap-text: false;
+    -fx-text-overrun: ellipsis;
+}
+
+.note-cell-icon {
+    -fx-icon-color: -fx-text-faint;
+    -fx-fill: -fx-text-faint;
+    -fx-opacity: 0.75;
+}
+
+.list-cell:selected .note-cell-title,
+.list-cell:selected .note-cell-preview,
+.list-cell:selected .note-cell-preview-flow .text,
+.list-cell:selected .note-cell-date,
+.list-cell:selected .note-cell-date-created {
+    -fx-text-fill: -fx-accent-contrast;
+    color: -fx-accent-contrast;
+}
+
+.list-cell:selected .note-cell-icon {
+    -fx-icon-color: -fx-accent-contrast;
+    -fx-fill: -fx-accent-contrast;
+}
+
+/* Folder Tree Styles */
+.folder-cell-icon {
+    -fx-font-weight: 800;
+    /* Extra Bold for more 'pop' */
+    -fx-font-size: 11px;
+    /* Slightly larger */
+}
+
+.folder-cell-name {
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+}
+
+.tree-cell:selected .folder-cell-name,
+.tree-cell:selected .folder-cell-count {
+    -fx-text-fill: -fx-accent-contrast;
+    color: -fx-accent-contrast;
+}
+
+.folder-cell-drag-over .folder-cell-name,
+.folder-cell-drag-over .folder-cell-count,
+.folder-cell-drag-over .folder-cell-icon {
+    -fx-text-fill: -fx-accent-contrast;
+    color: -fx-accent-contrast;
+}
+
+.folder-all-notes {
+    -fx-text-fill: #8b5cf6;
+    /* Vibrant Purple */
+    color: #8b5cf6;
+}
+
+.folder-expanded {
+    -fx-text-fill: #22c55e;
+    /* Vibrant Green */
+    color: #22c55e;
+}
+
+.folder-collapsed {
+    -fx-text-fill: #f59e0b;
+    /* Vibrant Amber */
+    color: #f59e0b;
+}
+
+/* Keep folder colors even when selected, for better recognition */
+/* Removed the reset to accent-contrast */
+
+
+.folder-cell-drag-over {
+    -fx-background-color: -fx-accent;
+    -fx-background-radius: 4;
+}
+
+.webview-theme {
+    -fx-background-color: -fx-base-bg;
+}
+
+/* ========================================
+   GRAPH VIEW
+   ======================================== */
+
+.graph-view {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+}
+
+.graph-toolbar {
+    -fx-background-color: -fx-header-bg;
+    background-color: -fx-header-bg;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+    border-width: 0 0 1px 0;
+}
+
+.graph-title {
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-font-size: 13px;
+    font-size: 13px;
+    -fx-font-weight: bold;
+    font-weight: bold;
+    -fx-padding: 0 0 0 4;
+}
+
+/* ========================================
+   NOTES PANEL
+   ======================================== */
+
+.notes-panel {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-border-color: transparent -fx-fn-border-color transparent transparent;
+    border-color: transparent -fx-fn-border-color transparent transparent;
+    -fx-border-width: 0 1 0 0;
+    border-width: 0 1 0 0;
+}
+
+.notes-header {
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+    border-width: 0 0 1 0;
+}
+
+.panel-title {
+    -fx-font-size: 14px;
+    font-size: 14px;
+    -fx-font-weight: 600;
+    font-weight: 600;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-text-overrun: ellipsis;
+    -fx-wrap-text: false;
+    -fx-min-width: 0;
+}
+
+.sort-combo {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+    -fx-border-radius: 6;
+    border-radius: 6px;
+    -fx-background-radius: 6;
+}
+
+.sort-combo .list-cell {
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-padding: 6 10;
+    padding: 6px 10px;
+}
+
+.sort-combo .list-view {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+}
+
+.sort-combo .list-view .list-cell {
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+}
+
+.sort-combo .list-view .list-cell:hover {
+    -fx-background-color: -fx-hover-bg;
+    background-color: -fx-hover-bg;
+}
+
+.sort-combo .list-view .list-cell:selected {
+    -fx-background-color: -fx-accent;
+    background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
+    color: -fx-accent-contrast;
+}
+
+.combo-box-popup .list-view {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+    -fx-border-radius: 6;
+    border-radius: 6px;
+    -fx-background-radius: 6;
+}
+
+.combo-box-popup .list-view .list-cell {
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-padding: 8 12;
+    padding: 8px 12px;
+}
+
+.combo-box-popup .list-view .list-cell:hover {
+    -fx-background-color: -fx-hover-bg;
+    background-color: -fx-hover-bg;
+}
+
+.combo-box-popup .list-view .list-cell:selected {
+    -fx-background-color: -fx-accent;
+    background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
+    color: -fx-accent-contrast;
+}
+
+.icon-btn {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-text-fill: -fx-text-muted;
+    color: -fx-text-muted;
+    -fx-font-size: 11px;
+    font-size: 11px;
+    -fx-padding: 6 10;
+    padding: 6px 10px;
+    -fx-background-radius: 6;
+    border-radius: 6px;
+    -fx-border-radius: 6;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+    -fx-border-width: 1;
+    border-width: 1px;
+    -fx-cursor: hand;
+    cursor: pointer;
+}
+
+.icon-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+    background-color: -fx-hover-bg;
+}
+
+.notes-list {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.notes-list>.scroll-bar:horizontal {
+    -fx-opacity: 0;
+    -fx-pref-height: 0;
+    -fx-max-height: 0;
+    -fx-min-height: 0;
+    -fx-visible: false;
+    visibility: hidden;
+}
+
+.notes-list>.virtual-flow {
+    -fx-max-width: 100%;
+}
+
+.notes-list .list-cell {
+    -fx-fill-width: true;
+    -fx-padding: 4 4 4 4;
+}
+
+.notes-list .list-cell {
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+    border-width: 0 0 1 0;
+    -fx-background-radius: 0;
+}
+
+/* ========================================
+   GRID VIEW
+   ======================================== */
+
+.notes-grid-scroll {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.notes-grid-scroll>.viewport {
+    -fx-background-color: transparent;
+}
+
+.note-card {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+    -fx-border-radius: 8;
+    border-radius: 8px;
+    -fx-background-radius: 8;
+    -fx-cursor: hand;
+    cursor: pointer;
+
+}
+
+.note-card:hover {
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+    -fx-border-color: -fx-text-muted;
+    border-color: -fx-text-muted;
+
+}
+
+.note-card-title {
+    -fx-font-weight: bold;
+    font-weight: bold;
+    -fx-font-size: 13px;
+    font-size: 13px;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+}
+
+.note-card-preview {
+    -fx-font-size: 11px;
+    font-size: 11px;
+    -fx-text-fill: -fx-text-muted;
+    color: -fx-text-muted;
+}
+
+.note-card-date {
+    -fx-font-size: 10px;
+    font-size: 10px;
+    -fx-text-fill: -fx-text-faint;
+    color: -fx-text-faint;
+}
+
+/* ========================================
+   EDITOR CONTAINER
+   ======================================== */
+
+.editor-container {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+}
+
+.editor-header {
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+    border-width: 0 0 1 0;
+}
+
+.title-field {
+    -fx-background-color: transparent;
+    background-color: transparent;
+    -fx-border-color: transparent;
+    border-color: transparent;
+    -fx-font-size: 18px;
+    font-size: 18px;
+    -fx-font-weight: 600;
+    font-weight: 600;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-prompt-text-fill: -fx-text-faint;
+    -fx-padding: 4 8;
+    padding: 4px 8px;
+}
+
+.title-field:focused {
+    -fx-background-color: -fx-hover-bg;
+    background-color: -fx-hover-bg;
+    -fx-background-radius: 6;
+    border-radius: 6px;
+}
+
+/* Read (preview-only) view: title rendered as a plain heading, not an input. */
+.title-heading {
+    -fx-font-size: 20px;
+    font-size: 20px;
+    -fx-font-weight: 700;
+    font-weight: 700;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-padding: 4 8;
+    padding: 4px 8px;
+    -fx-text-overrun: ellipsis;
+}
+
+.header-separator {
+    -fx-background-color: -fx-fn-border-color;
+    background-color: -fx-fn-border-color;
+}
+
+.view-btn {
+    -fx-background-color: -fx-header-bg;
+    background-color: -fx-header-bg;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-font-size: 11px;
+    font-size: 11px;
+    -fx-font-weight: 500;
+    font-weight: 500;
+    -fx-padding: 6 10;
+    padding: 6px 10px;
+    -fx-background-radius: 4;
+    border-radius: 4px;
+    -fx-border-radius: 4;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+    -fx-border-width: 1;
+    border-width: 1px;
+    -fx-cursor: hand;
+    cursor: pointer;
+    -fx-min-height: 28px;
+    min-height: 28px;
+    -fx-alignment: center;
+}
+
+.view-btn:hover {
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+    -fx-text-fill: -fx-hover-text;
+    color: -fx-hover-text;
+}
+
+.view-btn:selected {
+    -fx-background-color: -fx-accent;
+    background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
+    color: -fx-accent-contrast;
+    -fx-border-color: -fx-accent;
+    border-color: -fx-accent;
+}
+
+.action-btn {
+    -fx-background-color: -fx-header-bg;
+    background-color: -fx-header-bg;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-font-size: 12px;
+    font-size: 12px;
+    -fx-font-weight: 600;
+    font-weight: 600;
+    -fx-padding: 6 10;
+    padding: 6px 10px;
+    -fx-background-radius: 4;
+    border-radius: 4px;
+    -fx-border-radius: 4;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+    -fx-border-width: 1;
+    border-width: 1px;
+    -fx-cursor: hand;
+    cursor: pointer;
+    -fx-min-width: 28px;
+    min-width: 28px;
+    -fx-min-height: 28px;
+    min-height: 28px;
+    -fx-alignment: center;
+}
+
+.action-btn:hover {
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+    -fx-text-fill: -fx-hover-text;
+    color: -fx-hover-text;
+}
+
+.action-btn-danger {
+    -fx-text-fill: -fx-danger;
+    color: -fx-danger;
+}
+
+.action-btn-danger:hover {
+    -fx-background-color: rgba(239, 68, 68, 0.08);
+    /* 8% of -fx-danger */
+    -fx-border-color: -fx-danger;
+    border-color: -fx-danger;
+}
+
+/* ========================================
+   TAGS BAR
+   ======================================== */
+
+.tags-bar {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+    border-width: 0 0 1 0;
+}
+
+.tags-flow {
+    -fx-padding: 0;
+}
+
+.tag-container {
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+    -fx-background-radius: 12;
+    border-radius: 12px;
+    -fx-padding: 4 10;
+    padding: 4px 10px;
+}
+
+.tag-label {
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-font-size: 11px;
+    font-size: 11px;
+}
+
+.tag-remove-btn {
+    -fx-background-color: transparent;
+    background-color: transparent;
+    -fx-text-fill: -fx-text-muted;
+    color: -fx-text-muted;
+    -fx-font-size: 11px;
+    font-size: 11px;
+    -fx-padding: 0 0 0 6;
+    padding: 0 0 0 6px;
+    -fx-cursor: hand;
+    cursor: pointer;
+}
+
+.tag-remove-btn:hover {
+    -fx-text-fill: -fx-danger;
+    color: -fx-danger;
+}
+
+.add-tag-button {
+    -fx-background-color: transparent;
+    background-color: transparent;
+    -fx-text-fill: -fx-accent;
+    color: -fx-accent;
+    -fx-font-size: 11px;
+    font-size: 11px;
+    -fx-padding: 4 10;
+    padding: 4px 10px;
+    -fx-border-color: -fx-accent;
+    border-color: -fx-accent;
+    -fx-border-radius: 12;
+    border-radius: 12px;
+    -fx-background-radius: 12;
+    -fx-border-width: 1;
+    border-width: 1px;
+    -fx-cursor: hand;
+    cursor: pointer;
+}
+
+.add-tag-button:hover {
+    -fx-background-color: -fx-accent;
+    background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
+    color: -fx-accent-contrast;
+}
+
+.meta-label {
+    -fx-text-fill: -fx-text-faint;
+    color: -fx-text-faint;
+    -fx-font-size: 11px;
+    font-size: 11px;
+}
+
+/* ========================================
+   EDITOR PANE
+   ======================================== */
+
+.editor-pane {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+}
+
+.editor-area {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+    font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+    -fx-font-size: 14px;
+    font-size: 14px;
+    -fx-padding: 16;
+    padding: 16px;
+}
+
+.editor-area .content {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+}
+
+.editor-area:focused {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+}
+
+/* Format toolbar container with scroll support */
+.format-toolbar-container {
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+    -fx-border-color: -fx-fn-border-color transparent transparent transparent;
+    border-color: -fx-fn-border-color transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+    border-width: 1px 0 0 0;
+    -fx-padding: 4 12 4 4;
+    padding: 4px 12px 4px 4px;
+    -fx-alignment: center-left;
+}
+
+.format-toolbar-scroll {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 0;
+}
+
+.format-toolbar-scroll>.viewport {
+    -fx-background-color: transparent;
+}
+
+.format-toolbar-scroll .scroll-bar:horizontal {
+    -fx-pref-height: 6px;
+    -fx-background-color: transparent;
+}
+
+.format-toolbar-scroll .scroll-bar:horizontal .thumb {
+    -fx-background-color: -fx-fn-border-color;
+    background-color: -fx-fn-border-color;
+    -fx-background-radius: 3;
+    border-radius: 3px;
+}
+
+.format-toolbar-scroll .scroll-bar:horizontal .thumb:hover {
+    -fx-background-color: -fx-text-faint;
+    background-color: -fx-text-faint;
+}
+
+.format-toolbar-scroll .scroll-bar:horizontal .track {
+    -fx-background-color: transparent;
+}
+
+.format-toolbar-scroll .scroll-bar:horizontal .increment-button,
+.format-toolbar-scroll .scroll-bar:horizontal .decrement-button {
+    -fx-pref-width: 0;
+    -fx-pref-height: 0;
+}
+
+.format-toolbar {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+/* Flat, uniform icon/text buttons — no per-button border, hover background only. */
+.format-toolbar .format-btn {
+    -fx-background-color: transparent;
+    background-color: transparent;
+    -fx-text-fill: -fx-text-muted;
+    color: -fx-text-muted;
+    -fx-font-size: 12px;
+    font-size: 12px;
+    -fx-font-weight: 600;
+    font-weight: 600;
+    -fx-padding: 0;
+    padding: 0;
+    -fx-background-radius: 6;
+    border-radius: 6px;
+    -fx-border-radius: 6;
+    -fx-border-color: transparent;
+    border-color: transparent;
+    -fx-border-width: 1;
+    border-width: 1px;
+    -fx-cursor: hand;
+    cursor: pointer;
+    -fx-min-width: 30px;
+    min-width: 30px;
+    -fx-pref-width: 30px;
+    -fx-max-width: 30px;
+    -fx-min-height: 28px;
+    min-height: 28px;
+    -fx-pref-height: 28px;
+    -fx-max-height: 28px;
+    -fx-graphic-text-gap: 0;
+    -fx-content-display: center;
+    -fx-alignment: center;
+}
+
+.format-toolbar .format-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+    background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+}
+
+.format-toolbar .format-btn:hover .feather-icon {
+    -fx-icon-color: -fx-text-main;
+    -fx-fill: -fx-text-main;
+    fill: -fx-text-main;
+}
+
+.format-toolbar .format-btn:pressed {
+    -fx-background-color: derive(-fx-hover-bg, -8%);
+    background-color: derive(-fx-hover-bg, -8%);
+}
+
+/* Typographic (non-icon) format buttons share the icon buttons' metrics. */
+.format-toolbar .format-btn-text {
+    -fx-font-size: 12.5px;
+    font-size: 12.5px;
+    -fx-font-weight: 700;
+    font-weight: 700;
+}
+
+.format-toolbar .format-bold {
+    -fx-font-weight: 800;
+}
+
+.format-toolbar .format-italic {
+    -fx-font-style: italic;
+}
+
+.format-toolbar .format-strike {
+    -fx-strikethrough: true;
+}
+
+.format-toolbar .format-underline {
+    -fx-underline: true;
+}
+
+/* Highlight: letter sitting on a marker swatch. */
+.format-toolbar .format-highlight {
+    -fx-background-color: #fff3a0;
+    background-color: #fff3a0;
+    -fx-text-fill: #6b5800;
+    color: #6b5800;
+}
+
+.format-toolbar .format-highlight:hover {
+    -fx-background-color: #ffec70;
+    background-color: #ffec70;
+    -fx-text-fill: #6b5800;
+    color: #6b5800;
+}
+
+/* Quote: large curly-quote glyph, nudged to sit centered. */
+.format-toolbar .format-quote {
+    -fx-font-size: 17px;
+    font-size: 17px;
+    -fx-font-weight: 700;
+}
+
+.format-separator {
+    -fx-background-color: -fx-fn-border-color;
+    background-color: -fx-fn-border-color;
+    -fx-pref-width: 1;
+    -fx-max-width: 1;
+    -fx-pref-height: 20;
+}
+
+.word-count {
+    -fx-text-fill: -fx-text-faint;
+    color: -fx-text-faint;
+    -fx-font-size: 11px;
+    font-size: 11px;
+}
+
+/* ========================================
+   PREVIEW PANE
+   ======================================== */
+
+.preview-pane {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-border-color: transparent transparent transparent -fx-fn-border-color;
+    border-color: transparent transparent transparent -fx-fn-border-color;
+    -fx-border-width: 0 0 0 1;
+    border-width: 0 0 0 1px;
+}
+
+.preview-header {
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+    border-width: 0 0 1 0;
+}
+
+.preview-label {
+    -fx-text-fill: -fx-text-faint;
+    color: -fx-text-faint;
+    -fx-font-size: 11px;
+    font-size: 11px;
+    -fx-font-weight: 500;
+    font-weight: 500;
+}
+
+/* ========================================
+   INFO PANEL
+   ======================================== */
+
+.info-panel {
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+    -fx-border-color: transparent transparent transparent -fx-fn-border-color;
+    border-color: transparent transparent transparent -fx-fn-border-color;
+    -fx-border-width: 0 0 0 1;
+    border-width: 0 0 0 1px;
+}
+
+.info-header {
+    -fx-padding: 0 0 12 0;
+}
+
+.info-title {
+    -fx-font-size: 14px;
+    font-size: 14px;
+    -fx-font-weight: 600;
+    font-weight: 600;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+}
+
+.close-btn {
+    -fx-background-color: transparent;
+    background-color: transparent;
+    -fx-text-fill: -fx-text-muted;
+    color: -fx-text-muted;
+    -fx-font-size: 16px;
+    font-size: 16px;
+    -fx-padding: 4 8;
+    padding: 4px 8px;
+    -fx-cursor: hand;
+    cursor: pointer;
+    -fx-min-width: 28px;
+    min-width: 28px;
+    -fx-min-height: 28px;
+    min-height: 28px;
+    -fx-alignment: center;
+}
+
+.close-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+    background-color: -fx-hover-bg;
+    -fx-background-radius: 4;
+    border-radius: 4px;
+    -fx-text-fill: -fx-hover-text;
+    color: -fx-hover-text;
+}
+
+/* Icon button style */
+.icon-btn {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-text-fill: -fx-text-muted;
+    color: -fx-text-muted;
+    -fx-font-size: 11px;
+    font-size: 11px;
+    -fx-padding: 6 10;
+    padding: 6px 10px;
+    -fx-background-radius: 6;
+    border-radius: 6px;
+    -fx-border-radius: 6;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+    -fx-border-width: 1;
+    border-width: 1px;
+    -fx-cursor: hand;
+    cursor: pointer;
+    -fx-min-height: 28px;
+    min-height: 28px;
+    -fx-alignment: center;
+}
+
+.icon-btn:hover {
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+}
+
+.info-separator {
+    -fx-background-color: -fx-fn-border-color;
+    background-color: -fx-fn-border-color;
+}
+
+.info-section {
+    -fx-padding: 0;
+}
+
+.info-label {
+    -fx-text-fill: -fx-text-muted;
+    color: -fx-text-muted;
+    -fx-font-size: 10px;
+    font-size: 10px;
+    -fx-font-weight: 600;
+    font-weight: 600;
+}
+
+.info-sublabel {
+    -fx-text-fill: -fx-text-muted;
+    color: -fx-text-muted;
+    -fx-font-size: 10px;
+    font-size: 10px;
+}
+
+.info-value {
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-font-size: 12px;
+    font-size: 12px;
+}
+
+/* ========================================
+   STATUS BAR
+   ======================================== */
+
+.status-bar {
+    -fx-background-color: -fx-header-bg;
+    background-color: -fx-header-bg;
+    -fx-border-color: -fx-fn-border-color transparent transparent transparent;
+    border-color: -fx-fn-border-color transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+    border-width: 1px 0 0 0;
+}
+
+.status-text {
+    -fx-text-fill: -fx-text-muted;
+    color: -fx-text-muted;
+    -fx-font-size: 11px;
+    font-size: 11px;
+}
+
+.status-separator {
+    -fx-background-color: -fx-fn-border-color;
+    background-color: -fx-fn-border-color;
+}
+
+/* ========================================
+   SPLIT PANES
+   ======================================== */
+
+.main-split,
+.content-split,
+.editor-split {
+    -fx-background-color: transparent;
+}
+
+.split-pane>.split-pane-divider {
+    -fx-background-color: -fx-fn-border-color;
+    background-color: -fx-fn-border-color;
+    -fx-padding: 0 2 0 0;
+}
+
+/* ========================================
+   SCROLL BARS
+   ======================================== */
+
+.scroll-bar {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar .track {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: -fx-fn-border-color;
+    background-color: -fx-fn-border-color;
+    -fx-background-radius: 10;
+    border-radius: 10px;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: -fx-text-muted;
+    background-color: -fx-text-muted;
+}
+
+.scroll-bar:vertical {
+    -fx-pref-width: 10px;
+}
+
+.scroll-bar:horizontal {
+    -fx-pref-height: 10px;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+    -fx-shape: "";
+    -fx-padding: 0;
+}
+
+/* ========================================
+   TOOLTIPS
+   ======================================== */
+
+.tooltip {
+    -fx-background-color: -fx-text-main;
+    background-color: -fx-text-main;
+    -fx-text-fill: -fx-base-bg;
+    color: -fx-base-bg;
+    -fx-font-size: 11px;
+    font-size: 11px;
+    -fx-padding: 8 12;
+    padding: 8px 12px;
+    -fx-background-radius: 6;
+    border-radius: 6px;
+}
+
+/* ========================================
+   LABELS
+   ======================================== */
+
+.label {
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+}
+
+/* ========================================
+   TEXT FIELDS
+   ======================================== */
+
+.text-field {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+    -fx-border-radius: 6;
+    border-radius: 6px;
+    -fx-background-radius: 6;
+    -fx-padding: 8 12;
+    padding: 8px 12px;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-prompt-text-fill: -fx-text-faint;
+}
+
+.text-field:focused {
+    -fx-border-color: -fx-accent;
+    border-color: -fx-accent;
+}
+
+/* ========================================
+   COMBO BOX POPUP
+   ======================================== */
+
+.combo-box-popup .list-view {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+    -fx-border-radius: 6;
+    border-radius: 6px;
+    -fx-background-radius: 6;
+}
+
+/* ========================================
+   BUTTONS
+   ======================================== */
+
+.button {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-font-size: 12px;
+    font-size: 12px;
+    -fx-padding: 8 14;
+    padding: 8px 14px;
+    -fx-background-radius: 6;
+    border-radius: 6px;
+    -fx-border-radius: 6;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+    -fx-border-width: 1;
+    border-width: 1px;
+    -fx-cursor: hand;
+    cursor: pointer;
+}
+
+.button:hover {
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+}
+
+.button:pressed {
+    -fx-background-color: -fx-header-bg;
+    background-color: -fx-header-bg;
+}
+
+/* ========================================
+   TOGGLE BUTTONS
+   ======================================== */
+
+.toggle-button {
+    -fx-background-color: transparent;
+    background-color: transparent;
+    -fx-text-fill: -fx-text-muted;
+    color: -fx-text-muted;
+    -fx-font-size: 12px;
+    font-size: 12px;
+    -fx-padding: 6 12;
+    padding: 6px 12px;
+    -fx-background-radius: 6;
+    border-radius: 6px;
+    -fx-cursor: hand;
+    cursor: pointer;
+}
+
+.toggle-button:hover {
+    -fx-background-color: -fx-header-bg;
+    background-color: -fx-header-bg;
+}
+
+.toggle-button:selected {
+    -fx-background-color: -fx-accent;
+    background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
+    color: -fx-accent-contrast;
+}
+
+/* ========================================
+   SEPARATORS
+   ======================================== */
+
+.separator:horizontal .line {
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+    -fx-border-width: 1 0 0 0;
+    border-width: 1px 0 0 0;
+}
+
+.separator:vertical .line {
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+    -fx-border-width: 0 1 0 0;
+    border-width: 0 1px 0 0;
+}
+
+/* ========================================
+   RIGHT PANEL (Modern-style)
+   ======================================== */
+
+.right-panel {
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+    -fx-border-color: -fx-fn-border-color transparent transparent transparent;
+    border-color: -fx-fn-border-color transparent transparent transparent;
+    -fx-border-width: 0 0 0 1;
+    border-width: 0 0 0 1px;
+}
+
+.panel-header {
+    -fx-background-color: -fx-header-bg;
+    background-color: -fx-header-bg;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+    border-width: 0 0 1px 0;
+}
+
+.panel-title {
+    -fx-text-fill: -fx-text-muted;
+    color: -fx-text-muted;
+    -fx-font-size: 11px;
+    font-size: 11px;
+    -fx-font-weight: bold;
+    font-weight: bold;
+    -fx-text-transform: uppercase;
+}
+
+.panel-close-btn {
+    -fx-background-color: transparent;
+    background-color: transparent;
+    -fx-text-fill: -fx-text-muted;
+    color: -fx-text-muted;
+    -fx-font-size: 16px;
+    font-size: 16px;
+    -fx-padding: 0 4;
+    padding: 0 4px;
+    -fx-cursor: hand;
+    cursor: pointer;
+    -fx-min-width: 24px;
+    min-width: 24px;
+    -fx-min-height: 24px;
+    min-height: 24px;
+}
+
+.panel-close-btn:hover {
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-background-color: -fx-fn-border-color;
+    background-color: -fx-fn-border-color;
+    -fx-background-radius: 4;
+    border-radius: 4px;
+}
+
+.panel-scroll {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.panel-scroll>.viewport {
+    -fx-background-color: transparent;
+}
+
+.panel-content {
+    -fx-background-color: transparent;
+}
+
+/* Panel Sections (Collapsible) */
+.panel-section {
+    -fx-background-color: transparent;
+    background-color: transparent;
+    -fx-padding: 0 0 8 0;
+    padding: 0 0 8px 0;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+    border-width: 0 0 1px 0;
+}
+
+.section-header {
+    -fx-padding: 10 8;
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+}
+
+.section-header:hover {
+    -fx-background-color: -fx-header-bg;
+    background-color: -fx-header-bg;
+    -fx-background-radius: 4;
+    border-radius: 4px;
+}
+
+.collapse-icon {
+    -fx-text-fill: -fx-text-muted;
+    color: -fx-text-muted;
+    -fx-font-size: 10px;
+    font-size: 10px;
+    -fx-padding: 0 6 0 0;
+    padding: 0 6px 0 0;
+}
+
+.section-title {
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-font-size: 12px;
+    font-size: 12px;
+    -fx-font-weight: bold;
+    font-weight: bold;
+}
+
+.section-content {
+    -fx-background-color: transparent;
+    -fx-padding: 8 8 8 16;
+}
+
+/* Info Labels in Panels */
+.info-label {
+    -fx-text-fill: -fx-text-muted;
+    color: -fx-text-muted;
+    -fx-font-size: 9px;
+    font-size: 9px;
+    -fx-font-weight: bold;
+    font-weight: bold;
+    -fx-text-transform: uppercase;
+}
+
+.info-value {
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-font-size: 12px;
+    font-size: 12px;
+}
+
+.info-value-small {
+    -fx-text-fill: -fx-text-muted;
+    color: -fx-text-muted;
+    -fx-font-size: 11px;
+    font-size: 11px;
+}
+
+/* Feather Icon Styling (Ikonli FontIcon) */
+.feather-icon {
+    -fx-icon-color: -fx-text-muted;
+    -fx-fill: -fx-text-muted;
+    fill: -fx-text-muted;
+}
+
+.button:hover .feather-icon {
+    -fx-icon-color: -fx-text-fill;
+    -fx-fill: -fx-text-fill;
+}
+
+/* Specific color overrides for toolbar buttons vs primary */
+.toolbar-btn .feather-icon {
+    -fx-icon-color: -fx-text-muted;
+    -fx-fill: -fx-text-muted;
+    fill: -fx-text-muted;
+}
+
+.toolbar-btn:hover .feather-icon {
+    -fx-icon-color: -fx-text-main;
+    -fx-fill: -fx-text-main;
+    fill: -fx-text-main;
+}
+
+.toolbar-btn-primary .feather-icon {
+    -fx-icon-color: -fx-accent-contrast;
+    -fx-fill: -fx-accent-contrast;
+}
+
+.feather-icon-white {
+    -fx-icon-color: white;
+    -fx-fill: white;
+}
+
+.toolbar-btn-danger .feather-icon {
+    -fx-icon-color: -fx-danger;
+    -fx-fill: -fx-danger;
+}
+
+.feather-icon-danger {
+    -fx-icon-color: -fx-danger;
+    -fx-fill: -fx-danger;
+}
+
+.toolbar-btn-danger:hover .feather-icon {
+    -fx-icon-color: -fx-danger;
+    -fx-fill: -fx-danger;
+}
+
+/* Dark theme overrides should be handled in dark-theme.css or via generic vars */
+
+
+
+/* Fix for Toggle Buttons Contrast - Selected State */
+.toolbar-btn:selected .feather-icon {
+    -fx-icon-color: -fx-accent;
+    -fx-fill: -fx-accent;
+}
+
+.toolbar-btn:selected:hover .feather-icon {
+    -fx-icon-color: -fx-accent-hover;
+    -fx-fill: -fx-accent-hover;
+}
+
+/* Reinforce Primary Button Style (Create Note) */
+.toolbar-btn.toolbar-btn-primary {
+    -fx-background-color: -fx-accent;
+    background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
+    color: -fx-accent-contrast;
+    -fx-border-color: -fx-accent;
+    border-color: -fx-accent;
+}
+
+.webview-theme {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+}
+
+.toolbar-btn.toolbar-btn-primary:hover {
+    -fx-background-color: -fx-accent-hover;
+    background-color: -fx-accent-hover;
+    -fx-border-color: -fx-accent-hover;
+    border-color: -fx-accent-hover;
+}
+
+.toolbar-btn.toolbar-btn-primary .feather-icon {
+    -fx-icon-color: -fx-accent-contrast;
+    -fx-fill: -fx-accent-contrast;
+    fill: -fx-accent-contrast;
+}
+
+/* Sidebar Toolbar Extensions */
+.sidebar-toolbar {
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 4px;
+}
+
+.small-search {
+    -fx-font-size: 12px;
+    -fx-padding: 4px 8px;
+    -fx-min-height: 28px;
+}
+
+/* ========================================
+   UI POLISH OVERRIDES (COHERENCE + A11Y)
+   ======================================== */
+
+.sidebar-toolbar,
+.notes-header,
+.panel-header,
+.status-bar {
+    -fx-padding: 8 10;
+}
+
+.toolbar-btn,
+.modern-toggle-btn {
+    -fx-min-height: 32px;
+    -fx-min-width: 32px;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+}
+
+.icon-btn,
+.icon-btn-small {
+    -fx-min-height: 26px;
+    -fx-min-width: 26px;
+    -fx-padding: 4 6;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.icon-btn:hover,
+.icon-btn-small:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-border-color: -fx-fn-border-color;
+}
+
+.search-field,
+.text-field,
+.combo-box {
+    -fx-background-color: -fx-base-bg;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-border-width: 1px;
+}
+
+.combo-box .arrow-button {
+    -fx-background-color: transparent;
+}
+
+.combo-box .arrow {
+    -fx-background-color: -fx-text-muted;
+}
+
+.combo-box > .list-cell {
+    -fx-text-fill: -fx-text-main;
+    -fx-background-color: transparent;
+}
+
+.search-field:focused,
+.text-field:focused,
+.combo-box:focused {
+    -fx-border-color: -fx-accent;
+    -fx-border-width: 2px;
+}
+
+.button:focused,
+.toggle-button:focused,
+.menu-button:focused,
+.list-view:focused,
+.tree-view:focused,
+.tab-pane:focused {
+    -fx-focus-color: -fx-accent;
+    -fx-faint-focus-color: rgba(124, 58, 237, 0.18);
+}
+
+.notes-list .list-cell {
+    -fx-padding: 6 8 6 6;
+    padding: 6px 8px 6px 6px;
+    -fx-alignment: top-left;
+}
+
+.sidebar-list .list-cell,
+.sidebar-tree .tree-cell {
+    -fx-padding: 7 10;
+}
+
+.notes-list .list-cell:selected,
+.sidebar-list .list-cell:selected,
+.sidebar-tree .tree-cell:selected {
+    -fx-background-color: -fx-selected-bg;
+    -fx-text-fill: -fx-selected-text;
+}
+
+.status-text {
+    -fx-font-size: 12px;
+    -fx-text-fill: -fx-text-muted;
+}
+
+/* ========================================
+   FINAL UI PASS (CONTRAST + CONSISTENCY)
+   ======================================== */
+
+.root,
+.root-container {
+    /* Slightly stronger secondary/faint text for accessibility in light mode */
+    -fx-text-faint: #767676;
+}
+
+.toolbar-btn,
+.modern-toggle-btn,
+.format-btn,
+.view-btn,
+.panel-close-btn {
+    -fx-min-height: 28px;
+    /* Standardize size to be smaller/harmonious */
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-border-width: 1px;
+}
+
+.icon-btn,
+.icon-btn-small {
+    -fx-background-color: white;
+    -fx-border-color: #CBD5E0;
+    /* Clearer border in light mode */
+}
+
+.icon-btn:hover,
+.icon-btn-small:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-border-color: -fx-accent;
+    /* Stronger feedback */
+}
+
+.icon-btn .feather-icon,
+.icon-btn-small .feather-icon {
+    -fx-icon-color: #4A5568;
+    /* Stronger icon contrast */
+    -fx-fill: #4A5568;
+}
+
+.icon-btn:hover .feather-icon,
+.icon-btn-small:hover .feather-icon {
+    -fx-icon-color: -fx-accent;
+    -fx-fill: -fx-accent;
+}
+
+.sidebar-tree .tree-cell,
+.sidebar-list .list-cell,
+.sidebar-list .tree-cell {
+    -fx-padding: 7 10;
+    -fx-background-color: transparent;
+    -fx-text-fill: -fx-text-main;
+}
+
+.sidebar-tree .tree-cell:hover,
+.sidebar-list .list-cell:hover,
+.sidebar-list .tree-cell:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+
+.sidebar-tree .tree-cell:selected,
+.sidebar-list .list-cell:selected,
+.sidebar-list .tree-cell:selected {
+    -fx-background-color: -fx-selected-bg;
+    -fx-text-fill: -fx-selected-text;
+}
+
+.sidebar-tree .tree-cell:selected .feather-icon,
+.sidebar-list .list-cell:selected .feather-icon,
+.sidebar-list .tree-cell:selected .feather-icon {
+    -fx-icon-color: -fx-selected-text;
+    -fx-fill: -fx-selected-text;
+}
+
+/* Responsive editor/view mode buttons */
+.icon-only-btn {
+    -fx-content-display: graphic-only;
+    -fx-padding: 6 8;
+    -fx-min-width: 34px;
+}
+
+.drag-over-target {
+    -fx-background-color: rgba(124, 58, 237, 0.18);
+    -fx-border-color: -fx-accent;
+    -fx-border-width: 1px;
+    -fx-border-radius: 6;
+}
+
+/* ========================================
+   STANDARDIZED PRESSED STATES (Tactile UI)
+   ======================================== */
+.toolbar-btn:pressed,
+.sidebar-btn:pressed,
+.modern-toggle-btn:pressed,
+.icon-btn:pressed,
+.dialog-btn:pressed {
+    -fx-background-color: derive(-fx-hover-bg, -15%);
+    background-color: derive(-fx-hover-bg, -15%);
+}
+
+.toolbar-btn-danger:pressed {
+    -fx-background-color: derive(-fx-danger, -20%);
+    background-color: derive(-fx-danger, -20%);
+}
+
+.toolbar-btn-primary:pressed,
+.sidebar-btn-primary:pressed,
+.dialog-btn-primary:pressed {
+    -fx-background-color: derive(-fx-accent-hover, -20%);
+    background-color: derive(-fx-accent-hover, -20%);
+}
+
+.toolbar-btn:selected:pressed,
+.modern-toggle-btn:selected:pressed {
+    -fx-background-color: derive(-fx-accent-hover, -20%);
+    background-color: derive(-fx-accent-hover, -20%);
+}
+
+.section-header .collapse-icon {
+    -fx-text-fill: -fx-text-muted;
+    -fx-font-size: 9px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   YAML PROPERTIES PANEL  (light theme)
+   ═══════════════════════════════════════════════════════════════ */
+
+.properties-panel {
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-width: 0 0 1 0;
+    -fx-background-color: -fx-header-bg;
+}
+
+.properties-header {
+    -fx-background-color: -fx-header-bg;
+    -fx-cursor: hand;
+}
+
+.properties-header:hover { -fx-background-color: -fx-hover-bg; }
+
+.properties-collapse-icon {
+    -fx-text-fill: -fx-text-muted;
+    -fx-font-size: 9px;
+}
+
+.properties-title {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-muted;
+    -fx-text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.properties-content {
+    -fx-background-color: -fx-header-bg;
+}
+
+.property-row {
+    -fx-background-color: transparent;
+    -fx-padding: 2 0;
+}
+
+.property-row:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-background-radius: 4;
+}
+
+.property-type-icon {
+    -fx-text-fill: -fx-text-faint;
+    -fx-font-size: 11px;
+    -fx-min-width: 18px;
+    -fx-alignment: center;
+}
+
+.property-key {
+    -fx-text-fill: -fx-text-muted;
+    -fx-font-size: 12px;
+    -fx-min-width: 90px;
+    -fx-max-width: 110px;
+}
+
+.property-value {
+    -fx-control-inner-background: -fx-base-bg;
+    -fx-background-color: -fx-base-bg;
+    -fx-background-radius: 4;
+    -fx-border-color: transparent;
+    -fx-border-radius: 4;
+    -fx-font-size: 12px;
+    -fx-text-fill: -fx-text-main;
+    -fx-padding: 2 6;
+}
+
+.property-value:focused {
+    -fx-border-color: -fx-accent;
+}
+
+.property-value-check {
+    -fx-font-size: 12px;
+}
+
+.property-remove-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: -fx-text-faint;
+    -fx-font-size: 14px;
+    -fx-padding: 0 4;
+    -fx-cursor: hand;
+    -fx-opacity: 0;
+}
+
+.property-row:hover .property-remove-btn {
+    -fx-opacity: 1;
+}
+
+.property-remove-btn:hover {
+    -fx-text-fill: -fx-danger;
+}
+
+.property-link-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: -fx-accent;
+    -fx-font-size: 13px;
+    -fx-padding: 0 4;
+    -fx-cursor: hand;
+}
+
+.property-link-btn:hover {
+    -fx-text-fill: -fx-accent-hover;
+}
+
+.add-property-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: -fx-accent;
+    -fx-font-size: 12px;
+    -fx-padding: 2 8;
+    -fx-cursor: hand;
+    -fx-border-color: -fx-accent;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+
+.add-property-btn:hover {
+    -fx-background-color: -fx-accent;
+    -fx-text-fill: white;
+}
+
+/* ── Wiki-link autocomplete ─────────────────────────────────── */
+
+.autocomplete-list {
+    -fx-background-color: -fx-base-bg;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 12, 0, 0, 4);
+    -fx-font-size: 13px;
+}
+
+.autocomplete-list .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: -fx-text-main;
+    -fx-padding: 6 12;
+}
+
+.autocomplete-list .list-cell:selected {
+    -fx-background-color: -fx-accent;
+    -fx-text-fill: white;
+}
+
+.autocomplete-list .list-cell:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+
+/* ── Navigation back/forward buttons ───────────────────────── */
+.nav-btn {
+    -fx-background-color: transparent;
+    -fx-padding: 4 6;
+    -fx-cursor: hand;
+    -fx-background-radius: 4;
+    -fx-border-color: transparent;
+    -fx-min-width: 28px;
+}
+
+.nav-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+
+.nav-btn:disabled {
+    -fx-opacity: 0.3;
+    -fx-cursor: default;
+}
+
+.nav-btn .feather-icon {
+    -fx-icon-color: -fx-text-muted;
+    -fx-fill: -fx-text-muted;
+}
+
+.nav-btn:hover .feather-icon {
+    -fx-icon-color: -fx-text-main;
+    -fx-fill: -fx-text-main;
+}
+
+/* ── Read-only property values (read view) ─────────────────── */
+.property-readonly-value {
+    -fx-font-size: 12px;
+    -fx-text-fill: -fx-text-main;
+    -fx-padding: 2 6;
+}
+
+.property-readonly-value .text {
+    -fx-fill: -fx-text-main;
+    -fx-font-size: 12px;
+}
+
+.property-wikilink {
+    -fx-text-fill: -fx-accent;
+    -fx-border-color: transparent;
+    -fx-padding: 0;
+    -fx-underline: false;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+}
+
+.property-wikilink:hover {
+    -fx-text-fill: -fx-accent-hover;
+    -fx-underline: true;
+}
+
+/* ── Graph settings panel (overlay) ────────────────────────── */
+.graph-settings {
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-background-radius: 10;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-radius: 10;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.35), 18, 0, 0, 6);
+}
+
+.graph-settings-header {
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-muted;
+}
+
+.graph-settings-label {
+    -fx-font-size: 11px;
+    -fx-text-fill: -fx-text-faint;
+}
+
+.graph-settings .check-box {
+    -fx-font-size: 12px;
+    -fx-text-fill: -fx-text-main;
+}
+
+.graph-settings .slider {
+    -fx-pref-width: 210;
+}
+
+/* ── Editor breadcrumb path bar ───────────────────────────── */
+.editor-path-bar {
+    -fx-background-color: -fx-header-bg;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-width: 0 0 1 0;
+}
+.note-path {
+    -fx-font-size: 11px;
+    -fx-text-fill: -fx-text-faint;
+}
+.feather-icon-faint {
+    -fx-icon-color: -fx-text-faint;
+    -fx-fill: -fx-text-faint;
+    -fx-icon-size: 13;
+}
+.path-close-btn {
+    -fx-background-color: transparent;
+    -fx-padding: 2 6;
+    -fx-cursor: hand;
+    -fx-background-radius: 4;
+}
+.path-close-btn:hover { -fx-background-color: -fx-hover-bg; }
+.path-close-btn .feather-icon { -fx-icon-color: -fx-text-muted; -fx-fill: -fx-text-muted; -fx-icon-size: 13; }
+.path-close-btn:hover .feather-icon { -fx-icon-color: -fx-danger; -fx-fill: -fx-danger; }
+
+/* ── Editor empty state (Obsidian-style) ──────────────────── */
+.editor-empty-state {
+    -fx-background-color: -fx-base-bg;
+    -fx-padding: 40;
+}
+.empty-state-icon {
+    -fx-icon-size: 48;
+    -fx-icon-color: -fx-text-faint;
+    -fx-fill: -fx-text-faint;
+    -fx-opacity: 0.5;
+}
+.empty-state-title {
+    -fx-font-size: 16px;
+    -fx-text-fill: -fx-text-muted;
+}
+.empty-state-btn {
+    -fx-background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
+    -fx-font-size: 13px;
+    -fx-padding: 8 18;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+}
+.empty-state-btn:hover { -fx-background-color: -fx-accent-hover; }
+.empty-state-btn .feather-icon { -fx-icon-color: -fx-accent-contrast; -fx-fill: -fx-accent-contrast; }
+.empty-state-btn-secondary {
+    -fx-background-color: transparent;
+    -fx-text-fill: -fx-text-muted;
+    -fx-font-size: 13px;
+    -fx-padding: 8 18;
+    -fx-background-radius: 6;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-radius: 6;
+    -fx-cursor: hand;
+}
+.empty-state-btn-secondary:hover { -fx-background-color: -fx-hover-bg; }
+.empty-state-btn-secondary .feather-icon { -fx-icon-color: -fx-text-muted; -fx-fill: -fx-text-muted; }
+
+/* ── Status bar extras ────────────────────────────────────── */
+.status-text-muted {
+    -fx-font-size: 11px;
+    -fx-text-fill: -fx-text-faint;
+}
+.status-storage {
+    -fx-font-size: 11px;
+    -fx-text-fill: -fx-text-muted;
+    -fx-cursor: hand;
+    -fx-padding: 1 6;
+    -fx-background-radius: 4;
+}
+.status-storage:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-accent;
+}
+
+/* ── ComboBox / dropdown legibility (theme-variable driven) ───────── */
+.combo-box .list-cell {
+    -fx-text-fill: -fx-text-main;
+    -fx-background-color: transparent;
+}
+.combo-box-popup .list-view {
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-border-color: -fx-fn-border-color;
+}
+.combo-box-popup .list-view .list-cell {
+    -fx-text-fill: -fx-text-main;
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-padding: 6 12;
+}
+.combo-box-popup .list-view .list-cell:filled:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-text-main;
+}
+.combo-box-popup .list-view .list-cell:filled:selected {
+    -fx-background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
+}
+
+/* ── Git status indicator (status bar) ────────────────────── */
+.status-git {
+    -fx-font-size: 11px;
+    -fx-text-fill: -fx-text-muted;
+    -fx-cursor: hand;
+    -fx-padding: 1 6;
+    -fx-background-radius: 4;
+}
+.status-git:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-accent;
+}
+.status-git .feather-icon-faint {
+    -fx-icon-color: -fx-text-faint;
+    -fx-fill: -fx-text-faint;
+    -fx-icon-size: 13;
+}
+.status-git:hover .feather-icon-faint {
+    -fx-icon-color: -fx-accent;
+    -fx-fill: -fx-accent;
+}
+
+/* ── Git changes / history dialogs ────────────────────────── */
+.git-change-title  { -fx-font-size: 13px; -fx-font-weight: 600; -fx-text-fill: -fx-text-main; }
+.git-change-path   { -fx-font-size: 11px; -fx-text-fill: -fx-text-faint; }
+.git-change-stats  { -fx-font-size: 11px; -fx-text-fill: -fx-success; }
+.git-stage-btn {
+    -fx-background-color: transparent;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-text-fill: -fx-accent;
+    -fx-font-size: 14px;
+    -fx-min-width: 28px;
+    -fx-cursor: hand;
+}
+.git-stage-btn:hover { -fx-background-color: -fx-hover-bg; }
+.git-commit-subject { -fx-font-size: 13px; -fx-font-weight: 600; -fx-text-fill: -fx-text-main; }
+.git-commit-meta    { -fx-font-size: 11px; -fx-text-fill: -fx-text-faint; }
+
+/* ── Dialogs (modals) — themed so they read correctly in dark & light ── */
+.dialog-pane {
+    -fx-background-color: -fx-base-bg;
+}
+.dialog-pane > .header-panel {
+    -fx-background-color: -fx-header-bg;
+}
+.dialog-pane > .header-panel .label {
+    -fx-text-fill: -fx-text-main;
+    -fx-font-size: 14px;
+}
+.dialog-pane .content,
+.dialog-pane > .content.label,
+.dialog-pane .label {
+    -fx-text-fill: -fx-text-main;
+}
+.dialog-pane .button-bar .button {
+    -fx-background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-text-main;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-cursor: hand;
+    -fx-padding: 7 16;
+}
+.dialog-pane .button-bar .button:hover {
+    -fx-background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
+}
+.dialog-pane .button-bar .button:default {
+    -fx-background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
+}
+
+/* TextArea (used by the commit dialog and elsewhere) */
+.text-area {
+    -fx-background-color: -fx-base-bg;
+    -fx-text-fill: -fx-text-main;
+    -fx-highlight-fill: -fx-accent;
+    -fx-highlight-text-fill: -fx-accent-contrast;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+}
+.text-area .content {
+    -fx-background-color: -fx-base-bg;
+}
+.text-area:focused {
+    -fx-border-color: -fx-accent;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   PLUGIN MANAGER WINDOW
+   Token-based so the same rules work in light and dark themes.
+   ════════════════════════════════════════════════════════════════════════ */
+.plugin-manager {
+    -fx-background-color: -fx-base-bg;
+}
+.plugin-manager-header {
+    -fx-padding: 18 24 14 24;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+}
+.plugin-manager-title {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-main;
+}
+.plugin-manager-count {
+    -fx-font-size: 13px;
+    -fx-text-fill: -fx-text-muted;
+}
+.plugin-manager-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+    -fx-border-color: transparent;
+}
+.plugin-manager-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+.plugin-manager-list {
+    -fx-padding: 12 16 12 16;
+    -fx-spacing: 10;
+}
+.plugin-manager-empty {
+    -fx-font-size: 14px;
+    -fx-text-fill: -fx-text-muted;
+    -fx-padding: 40;
+}
+.plugin-card {
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-width: 1;
+    -fx-padding: 15 18 15 18;
+}
+.plugin-card-title {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-main;
+}
+.plugin-card-version {
+    -fx-font-size: 11px;
+    -fx-text-fill: -fx-text-muted;
+    -fx-background-color: -fx-header-bg;
+    -fx-padding: 2 8 2 8;
+    -fx-background-radius: 10;
+}
+.plugin-card-desc {
+    -fx-font-size: 13px;
+    -fx-text-fill: -fx-text-muted;
+}
+.plugin-card-author {
+    -fx-font-size: 11px;
+    -fx-text-fill: -fx-text-muted;
+}
+.plugin-card-status {
+    -fx-font-size: 11px;
+}
+.plugin-card-status-on {
+    -fx-text-fill: -fx-success;
+}
+.plugin-card-status-off {
+    -fx-text-fill: -fx-text-muted;
+}
+.plugin-manager-footer {
+    -fx-padding: 14 24 16 24;
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-border-color: -fx-fn-border-color transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+.plugin-manager-close-btn {
+    -fx-background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
+    -fx-font-size: 13px;
+    -fx-padding: 8 20 8 20;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-border-width: 0;
+    -fx-cursor: hand;
+}
+.plugin-manager-close-btn:hover {
+    -fx-background-color: derive(-fx-accent, 12%);
+}
+/* iOS-style pill toggle: track colour + knob position driven entirely by state */
+.plugin-switch {
+    -fx-min-width: 44; -fx-pref-width: 44; -fx-max-width: 44;
+    -fx-min-height: 24; -fx-pref-height: 24; -fx-max-height: 24;
+    -fx-background-color: -fx-fn-border-color;
+    -fx-background-radius: 12;
+    -fx-border-radius: 12;
+    -fx-border-width: 0;
+    -fx-padding: 0 3 0 3;
+    -fx-alignment: center-left;
+    -fx-cursor: hand;
+}
+.plugin-switch:selected {
+    -fx-background-color: -fx-success;
+    -fx-alignment: center-right;
+}
+.plugin-switch:focused {
+    -fx-background-color: -fx-fn-border-color;
+}
+.plugin-switch:selected:focused {
+    -fx-background-color: -fx-success;
+}
+.plugin-switch-knob {
+    -fx-min-width: 18; -fx-pref-width: 18; -fx-max-width: 18;
+    -fx-min-height: 18; -fx-pref-height: 18; -fx-max-height: 18;
+    -fx-background-radius: 9;
+    -fx-background-color: white;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   EXTERNAL PLUGIN PANELS (Calendar, Outline, …)
+   Style classes used by bundled/external plugins, themed by the host so they
+   render coherently in light and dark. Cells are sized to fit the right panel.
+   ════════════════════════════════════════════════════════════════════════ */
+.calendar-plugin-panel { -fx-background-color: transparent; -fx-padding: 4; }
+.calendar-grid { -fx-padding: 4; -fx-hgap: 3; -fx-vgap: 3; }
+.calendar-day-name {
+    -fx-text-fill: -fx-text-muted;
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-min-width: 28px; -fx-pref-width: 28px;
+    -fx-alignment: center;
+}
+.calendar-day {
+    -fx-text-fill: -fx-text-main;
+    -fx-font-size: 11px;
+    -fx-min-width: 28px; -fx-pref-width: 28px;
+    -fx-min-height: 28px; -fx-pref-height: 28px;
+    -fx-alignment: center;
+    -fx-cursor: hand;
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+    -fx-background-radius: 6;
+    -fx-border-width: 0;
+}
+.calendar-day:hover { -fx-background-color: -fx-hover-bg; }
+.calendar-weekend { -fx-text-fill: -fx-danger; }
+.calendar-has-note { -fx-background-color: -fx-success; -fx-text-fill: white; }
+.calendar-has-note:hover { -fx-background-color: derive(-fx-success, -8%); }
+.calendar-today {
+    -fx-background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
+    -fx-font-weight: bold;
+}
+.calendar-today:hover { -fx-background-color: -fx-accent-hover; }
+.calendar-month-label {
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+    -fx-text-fill: -fx-text-main;
+}
+
+.outline-header {
+    -fx-text-fill: -fx-text-main;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-padding: 6 8;
+    -fx-cursor: hand;
+    -fx-background-radius: 4;
+}
+.outline-header:hover { -fx-background-color: -fx-hover-bg; }
+.outline-empty-label {
+    -fx-text-fill: -fx-text-faint;
+    -fx-font-size: 11px;
+    -fx-font-style: italic;
+}
+.outline-item {
+    -fx-padding: 4 8;
+    -fx-background-color: transparent;
+    -fx-background-radius: 4;
+    -fx-cursor: hand;
+    -fx-text-fill: -fx-text-muted;
+}
+.outline-item:hover { -fx-background-color: -fx-hover-bg; -fx-text-fill: -fx-text-main; }
+.outline-h1 { -fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: -fx-text-main; }
+.outline-h2 { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -fx-text-main; }
+.outline-h3 { -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -fx-text-muted; }
+.outline-h4, .outline-h5, .outline-h6 { -fx-font-size: 11px; -fx-text-fill: -fx-text-muted; }
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   NATIVE FILE VIEWERS (image / PDF attachments)
+   ════════════════════════════════════════════════════════════════════════ */
+.attachment-viewer-host { -fx-background-color: -fx-base-bg; }
+.file-viewer { -fx-background-color: -fx-base-bg; }
+.viewer-toolbar {
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-padding: 6 12 6 12;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-alignment: center-left;
+}
+.viewer-info {
+    -fx-text-fill: -fx-text-muted;
+    -fx-padding: 0 8 0 2;
+    -fx-font-size: 12px;
+}
+.viewer-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: -fx-text-main;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-width: 1;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-padding: 3 10 3 10;
+    -fx-font-size: 12px;
+    -fx-cursor: hand;
+    -fx-min-width: 30px;
+}
+.viewer-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-text-main;
+}
+.viewer-scroll {
+    -fx-background-color: -fx-base-bg;
+    -fx-background: transparent;
+    -fx-border-color: transparent;
+}
+.viewer-scroll > .viewport { -fx-background-color: -fx-base-bg; }
+.viewer-canvas {
+    -fx-background-color: -fx-base-bg;
+    -fx-padding: 16;
+}
+.viewer-pdf-page {
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 8, 0, 0, 2);
+}
+
+.backlink-item {
+    -fx-text-fill: -fx-accent;
+    -fx-font-size: 12px;
+    -fx-padding: 3 6 3 6;
+    -fx-background-radius: 4;
+    -fx-cursor: hand;
+}
+.backlink-item:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-underline: true;
+}
+
+/* Git changes dialog: staged / not-staged section headers + separator */
+.git-section-header {
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-muted;
+    -fx-padding: 4 2 2 2;
+}
+.git-section-separator { -fx-padding: 2 0 2 0; }
+.git-section-separator .line { -fx-border-color: -fx-fn-border-color; }

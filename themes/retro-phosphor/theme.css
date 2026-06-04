@@ -1,0 +1,570 @@
+/*
+ * Retro Phosphor Green — overlay on built-in dark-theme.css (see theme.properties base=dark).
+ * Remaps Jylos CSS variables to a CRT phosphor palette; adds green-tinted surfaces and glow.
+ */
+
+.root,
+.root-container {
+    -fx-font-family: "JetBrains Mono", "Cascadia Mono", "Consolas", monospace;
+    font-family: "JetBrains Mono", "Cascadia Mono", "Consolas", monospace;
+    -fx-font-size: 13px;
+    font-size: 13px;
+
+    -fx-base-bg: #06120d;
+    -fx-sidebar-bg: #0a1b15;
+    -fx-header-bg: #0d241c;
+
+    -fx-accent: #7dffb3;
+    -fx-accent-hover: #52d08b;
+    -fx-accent-contrast: #06120d;
+
+    -fx-text-main: #d0ffe1;
+    -fx-text-muted: #94ddb5;
+    -fx-text-faint: #5ca27f;
+    -fx-fn-border-color: #2f7f5d;
+
+    -fx-hover-bg: #1a4a37;
+    -fx-hover-text: #e8fff0;
+
+    -fx-selected-bg: #2f7f5d;
+    -fx-selected-text: #f2fff7;
+
+    -fx-success: #52d08b;
+    -fx-warning: #ffcb65;
+    -fx-danger: #ff8fb2;
+
+    -fx-folder-all: #d4ff70;
+    -fx-folder-open: #7dffb3;
+    -fx-folder-closed: #ffcb65;
+
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+}
+
+/* CRT backdrop: subtle scanlines + phosphor glow */
+.root {
+    -fx-background-color:
+        linear-gradient(to bottom, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 1.4%, rgba(0,0,0,0) 1.5%, rgba(0,0,0,0) 3%),
+        linear-gradient(to bottom, rgba(14, 40, 30, 0.96), rgba(7, 18, 14, 0.98)),
+        -fx-base-bg;
+    -fx-effect:
+        innershadow(gaussian, rgba(125,255,179,0.18), 34, 0.35, 0, 0),
+        dropshadow(gaussian, rgba(108,255,170,0.07), 24, 0.22, 0, 0);
+}
+
+/* ── Icons ─────────────────────────────────────────────────────────── */
+
+.feather-icon,
+.ikonli-font-icon {
+    -fx-icon-color: -fx-text-muted;
+    -fx-fill: -fx-text-muted;
+    fill: -fx-text-muted;
+}
+
+.feather-icon-selected,
+.tree-cell:selected .feather-icon,
+.list-cell:selected .feather-icon,
+.sidebar-nav-btn-selected .feather-icon,
+.sidebar-nav-btn:selected .feather-icon {
+    -fx-icon-color: -fx-selected-text;
+    -fx-fill: -fx-selected-text;
+    fill: -fx-selected-text;
+}
+
+.feather-pin-active,
+.modern-toggle-btn:selected .feather-icon {
+    -fx-icon-color: -fx-accent;
+    -fx-fill: -fx-accent;
+    fill: -fx-accent;
+}
+
+.feather-favorite-active {
+    -fx-icon-color: -fx-warning;
+    -fx-fill: -fx-warning;
+    fill: -fx-warning;
+}
+
+.feather-icon-danger {
+    -fx-icon-color: -fx-danger;
+    -fx-fill: -fx-danger;
+    fill: -fx-danger;
+}
+
+.feather-icon-faint {
+    -fx-icon-color: -fx-text-faint;
+    -fx-fill: -fx-text-faint;
+    fill: -fx-text-faint;
+}
+
+/* Folder tree markers ([+], [/]) are Labels, not icon fonts */
+.folder-cell-icon,
+.sidebar-tree .folder-cell-icon,
+.sidebar-list .folder-cell-icon,
+.tree-cell .folder-cell-icon {
+    -fx-text-fill: -fx-accent;
+    -fx-fill: -fx-accent;
+    -fx-opacity: 1;
+}
+
+.folder-all-notes {
+    -fx-text-fill: -fx-folder-all;
+    color: -fx-folder-all;
+}
+
+/* ── Sidebar navigation (centered icon bar) ─────────────────────────── */
+
+.sidebar-nav-btn:hover {
+    -fx-border-color: -fx-accent;
+    border-color: -fx-accent;
+}
+
+.sidebar-nav-btn-selected,
+.sidebar-nav-btn:selected {
+    -fx-background-color: linear-gradient(to bottom, #318761, #256d4f);
+    background-color: linear-gradient(to bottom, #318761, #256d4f);
+    -fx-border-color: #d4ff70;
+    border-color: #d4ff70;
+}
+
+/* ── Primary / danger toolbar actions ─────────────────────────────── */
+
+.toolbar-btn-primary {
+    -fx-background-color: linear-gradient(to bottom, #3b9469, #2a7757);
+    background-color: linear-gradient(to bottom, #3b9469, #2a7757);
+    -fx-border-color: -fx-accent;
+    border-color: -fx-accent;
+    -fx-text-fill: #f4fff8;
+    color: #f4fff8;
+}
+
+.toolbar-btn-danger {
+    -fx-background-color: #4f2633;
+    background-color: #4f2633;
+    -fx-border-color: #b85771;
+    border-color: #b85771;
+    -fx-text-fill: #ffd4df;
+    color: #ffd4df;
+}
+
+/* ── Editor & preview surfaces ─────────────────────────────────────── */
+
+.text-area,
+.text-area .content,
+.editor-pane,
+.editor-area,
+.editor-area .content {
+    -fx-background-color: #0b2018;
+    background-color: #0b2018;
+    -fx-control-inner-background: #0b2018;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-highlight-fill: #2f7f5d;
+    -fx-highlight-text-fill: #f4fff9;
+    -fx-prompt-text-fill: -fx-text-faint;
+}
+
+.preview-pane,
+.preview-pane > .viewport,
+.webview-theme {
+    -fx-background-color: #081a13;
+    background-color: #081a13;
+    -fx-control-inner-background: #081a13;
+}
+
+.preview-label,
+.section-title,
+.panel-title,
+.graph-title {
+    -fx-text-fill: -fx-accent;
+    color: -fx-accent;
+}
+
+/* ── Tags ──────────────────────────────────────────────────────────── */
+
+.tags-bar,
+.tags-flow,
+.tag-container {
+    -fx-background-color: #123026;
+    background-color: #123026;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+}
+
+.tag-label {
+    -fx-text-fill: -fx-accent;
+    color: -fx-accent;
+}
+
+.tag-remove-btn {
+    -fx-background-color: #4a2732;
+    background-color: #4a2732;
+    -fx-text-fill: #ffd3df;
+    color: #ffd3df;
+    -fx-border-color: #9c5a70;
+    border-color: #9c5a70;
+}
+
+.tag-remove-btn:hover {
+    -fx-background-color: #653646;
+    background-color: #653646;
+}
+
+/* ── Notes grid cards ──────────────────────────────────────────────── */
+
+.note-card {
+    -fx-background-color: #143226;
+    background-color: #143226;
+    -fx-border-color: #3a966c;
+    border-color: #3a966c;
+    -fx-effect: dropshadow(gaussian, rgba(72, 190, 128, 0.18), 8, 0.16, 0, 1);
+}
+
+.note-card:hover {
+    -fx-background-color: #1f4a38;
+    background-color: #1f4a38;
+    -fx-border-color: -fx-accent;
+    border-color: -fx-accent;
+    -fx-effect: dropshadow(gaussian, rgba(125, 255, 179, 0.22), 10, 0.2, 0, 1);
+}
+
+.note-card-title {
+    -fx-text-fill: #e2ffef;
+    color: #e2ffef;
+}
+
+.note-card-preview {
+    -fx-text-fill: #a3e3c1;
+    color: #a3e3c1;
+}
+
+.note-card-date {
+    -fx-text-fill: #72bc95;
+    color: #72bc95;
+}
+
+/* ── Note list row separators ──────────────────────────────────────── */
+
+.notes-list .list-cell {
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+    border-width: 0 0 1px 0;
+}
+
+.notes-list .list-cell:empty {
+    -fx-border-width: 0;
+    border-width: 0;
+}
+
+/* ── Split dividers & scrollbars ───────────────────────────────────── */
+
+.split-pane > .split-pane-divider,
+.editor-split > .split-pane-divider {
+    -fx-background-color: #1d533d;
+    background-color: #1d533d;
+}
+
+.scroll-bar,
+.scroll-bar:horizontal,
+.scroll-bar:vertical {
+    -fx-background-color: #0f291f;
+    background-color: #0f291f;
+}
+
+.scroll-bar .track {
+    -fx-background-color: #0f291f;
+    background-color: #0f291f;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: #3a946b;
+    background-color: #3a946b;
+    -fx-background-radius: 6;
+    border-radius: 6px;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: #57bd88;
+    background-color: #57bd88;
+}
+
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+    -fx-background-color: #3a946b;
+    background-color: #3a946b;
+}
+
+/* ── Status bar ────────────────────────────────────────────────────── */
+
+.status-bar {
+    -fx-background-color: linear-gradient(to bottom, #0e281f, #0a1f18);
+    background-color: linear-gradient(to bottom, #0e281f, #0a1f18);
+}
+
+.status-text,
+.status-storage {
+    -fx-text-fill: -fx-accent;
+    color: -fx-accent;
+}
+
+/* ── Graph overlay ─────────────────────────────────────────────────── */
+
+.graph-view {
+    -fx-background-color: #06120d;
+    background-color: #06120d;
+}
+
+.graph-toolbar {
+    -fx-background-color: -fx-header-bg;
+    background-color: -fx-header-bg;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    border-color: transparent transparent -fx-fn-border-color transparent;
+}
+
+.graph-settings {
+    -fx-background-color: #0d241c;
+    background-color: #0d241c;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+}
+
+/* ── Right panel / backlinks / git ─────────────────────────────────── */
+
+.backlink-item:hover {
+    -fx-background-color: -fx-hover-bg;
+    background-color: -fx-hover-bg;
+}
+
+.info-label {
+    -fx-text-fill: -fx-text-faint;
+    color: -fx-text-faint;
+}
+
+.info-value,
+.info-value-small {
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+}
+
+/* ── Plugin manager & attachment viewer ────────────────────────────── */
+
+.plugin-card {
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+}
+
+.plugin-card-status-on {
+    -fx-text-fill: -fx-success;
+    color: -fx-success;
+}
+
+.attachment-viewer-host {
+    -fx-background-color: #081a13;
+    background-color: #081a13;
+}
+
+/* ── Drag & drop ───────────────────────────────────────────────────── */
+
+.drag-over-target,
+.folder-cell-drag-over {
+    -fx-background-color: rgba(212, 255, 112, 0.2);
+    background-color: rgba(212, 255, 112, 0.2);
+    -fx-border-color: -fx-folder-all;
+    border-color: -fx-folder-all;
+}
+
+/* ── Empty editor state ──────────────────────────────────────────────── */
+
+.empty-state-icon {
+    -fx-icon-color: -fx-accent;
+    -fx-fill: -fx-accent;
+    fill: -fx-accent;
+    -fx-opacity: 0.85;
+}
+
+.empty-state-title {
+    -fx-text-fill: -fx-accent;
+    color: -fx-accent;
+}
+
+/* Primary button: dark-theme uses -fx-accent-contrast (here #06120d) → override to phosphor green */
+.empty-state-btn {
+    -fx-background-color: transparent;
+    background-color: transparent;
+    -fx-text-fill: -fx-accent;
+    color: -fx-accent;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+}
+
+.empty-state-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+    background-color: -fx-hover-bg;
+}
+
+.empty-state-btn .feather-icon,
+.empty-state-btn .ikonli-font-icon {
+    -fx-icon-color: -fx-accent;
+    -fx-fill: -fx-accent;
+    fill: -fx-accent;
+}
+
+.empty-state-btn-secondary {
+    -fx-text-fill: -fx-accent;
+    color: -fx-accent;
+}
+
+.empty-state-btn-secondary .feather-icon,
+.empty-state-btn-secondary .ikonli-font-icon {
+    -fx-icon-color: -fx-accent;
+    -fx-fill: -fx-accent;
+    fill: -fx-accent;
+}
+
+/* ── Text fields, combos & generic buttons ─────────────────────────────
+ * dark-theme.css hardcodes grey (#2d2d2d/#333) and a purple focus/selected
+ * accent (#9f7aea) for these; remap to the phosphor palette so search box,
+ * command palette, quick switcher, dialogs and dropdowns match. */
+
+.text-field {
+    -fx-background-color: #0b2018;
+    background-color: #0b2018;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-prompt-text-fill: -fx-text-faint;
+}
+
+.text-field:focused {
+    -fx-border-color: -fx-accent;
+    border-color: -fx-accent;
+}
+
+.combo-box,
+.combo-box-popup .list-view {
+    -fx-background-color: #0b2018;
+    background-color: #0b2018;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+}
+
+.combo-box .list-cell {
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+}
+
+.combo-box-popup .list-view .list-cell:filled:hover {
+    -fx-background-color: -fx-hover-bg;
+    background-color: -fx-hover-bg;
+}
+
+.button {
+    -fx-background-color: #143226;
+    background-color: #143226;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+}
+
+.button:hover {
+    -fx-background-color: #1f4a38;
+    background-color: #1f4a38;
+    -fx-border-color: -fx-accent;
+    border-color: -fx-accent;
+}
+
+.button:pressed {
+    -fx-background-color: #0e2418;
+    background-color: #0e2418;
+}
+
+/* Generic toggle buttons — selected state was purple */
+.toggle-button {
+    -fx-text-fill: -fx-text-muted;
+    color: -fx-text-muted;
+}
+
+.toggle-button:hover {
+    -fx-background-color: -fx-hover-bg;
+    background-color: -fx-hover-bg;
+}
+
+.toggle-button:selected {
+    -fx-background-color: linear-gradient(to bottom, #318761, #256d4f);
+    background-color: linear-gradient(to bottom, #318761, #256d4f);
+    -fx-text-fill: -fx-selected-text;
+    color: -fx-selected-text;
+}
+
+/* ── Tooltips ──────────────────────────────────────────────────────── */
+
+.tooltip {
+    -fx-background-color: #0d241c;
+    background-color: #0d241c;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+}
+
+/* ── Separators (panel sections + git changes modal divider) ───────── */
+
+.separator:horizontal .line,
+.separator:vertical .line {
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
+}
+
+/* ── Right panel chrome (note info / backlinks) ────────────────────── */
+
+.right-panel {
+    -fx-background-color: #0a1b15;
+    background-color: #0a1b15;
+    -fx-border-color: -fx-fn-border-color transparent transparent transparent;
+    border-color: -fx-fn-border-color transparent transparent transparent;
+}
+
+.panel-header,
+.panel-section {
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    border-color: transparent transparent -fx-fn-border-color transparent;
+}
+
+.panel-close-btn {
+    -fx-text-fill: -fx-text-faint;
+    color: -fx-text-faint;
+}
+
+.panel-close-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+    background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-hover-text;
+    color: -fx-hover-text;
+}
+
+/* ── Editor format toolbar ─────────────────────────────────────────── */
+
+.format-toolbar-inner {
+    -fx-background-color: #0d241c;
+    background-color: #0d241c;
+    -fx-border-color: -fx-fn-border-color transparent transparent transparent;
+    border-color: -fx-fn-border-color transparent transparent transparent;
+}
+
+/* Highlight (marker) button — keep an amber accent that fits the CRT look */
+.format-toolbar .format-highlight,
+.format-toolbar .format-highlight:hover {
+    -fx-background-color: #2a2410;
+    background-color: #2a2410;
+    -fx-text-fill: -fx-warning;
+    color: -fx-warning;
+}
+
+.format-toolbar .format-highlight:hover {
+    -fx-background-color: #3a3214;
+    background-color: #3a3214;
+}
