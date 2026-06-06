@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Perf: render de preview, backlinks y grafo sin recomputar todo (2026-06-06)
+
+- **P1 — Preview:** `MarkdownPreview.buildPreviewHtml` ya no llama `getAllNotes()` en cada render (cada tecla al editar). El set de títulos para resolver `[[wiki-links]]` vive ahora en `service/NoteTitleIndex` (caché caliente invalidada por `NoteCreated/Deleted/Saved/Updated/NotesRefresh`). Lectura O(1) en la ruta de render.
+- **P2 — Backlinks:** `BacklinkService` mantiene un índice **bidireccional** (forward `noteId→targets` + inverso `título→ids`), de modo que `backlinksFor` hace lookup O(1) en vez de un `contains()` sobre todas las notas. Invalidación incremental por eventos de nota (solo la nota cambiada se vuelve a leer, y de forma perezosa fuera del hilo de FX).
+- **P3 — Grafo:** `GraphBuilder` expone `invalidateNote(id)`/`invalidateAll()` y su caché de enlaces es concurrente. `GraphController` se suscribe a eventos de nota/carpeta: invalida solo la nota cambiada y **refresca el grafo en vivo si está abierto** (re-lee únicamente esa nota, no toda la bóveda). Nuevos tests `GraphBuilderIncrementalTest`.
+
 ### Fix: icono negro en «Crear nota» con tema Retro (2026-06-04)
 
 - `themes/retro-phosphor/theme.css`: botones del estado vacío (Crear nota / Ir a archivo) con texto e iconos en `-fx-accent` verde fosforo, sin relleno oscuro del tema integrado.

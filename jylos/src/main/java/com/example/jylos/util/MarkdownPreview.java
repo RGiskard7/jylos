@@ -6,13 +6,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Set;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
-import com.example.jylos.config.AppContext;
 import com.example.jylos.config.LoggerConfig;
-import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.PreviewEnhancer;
-import com.example.jylos.service.NoteService;
+import com.example.jylos.service.NoteTitleIndex;
 
 /**
  * Builds preview HTML for notes with safe enhancer handling.
@@ -62,18 +59,11 @@ public class MarkdownPreview {
         // through CommonMark.  Because escapeHtml is enabled in
         // MarkdownProcessor, the injected <a> tags would be escaped.
         // Solution: resolve WikiLinks as Markdown link syntax instead.
-        Set<String> knownTitles = Set.of();
-        try {
-            if (AppContext.isInitialized()) {
-                NoteService ns = AppContext.getNoteService();
-                knownTitles = ns.getAllNotes().stream()
-                        .map(Note::getTitle)
-                        .filter(t -> t != null)
-                        .collect(Collectors.toSet());
-            }
-        } catch (Exception e) {
-            logger.warning("WikiLink title cache failed: " + e.getMessage());
-        }
+        //
+        // The set of known titles comes from NoteTitleIndex, a warm cache invalidated
+        // by note events. This avoids re-scanning the whole note store on every
+        // keystroke-driven render (perf P1).
+        Set<String> knownTitles = NoteTitleIndex.getInstance().titles();
         raw = WikiLinkResolver.resolve(raw, knownTitles);
 
         String html = MarkdownProcessor.markdownToHtml(raw);
