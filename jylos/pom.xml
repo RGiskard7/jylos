@@ -120,6 +120,13 @@
         </dependency>
 
 
+        <!-- Rich text editor with syntax highlighting (CodeArea) -->
+        <dependency>
+            <groupId>org.fxmisc.richtext</groupId>
+            <artifactId>richtextfx</artifactId>
+            <version>0.11.5</version>
+        </dependency>
+
         <!-- Markdown processing -->
         <dependency>
             <groupId>org.commonmark</groupId>

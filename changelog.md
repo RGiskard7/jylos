@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Feat: editor con resaltado de sintaxis Markdown (RichTextFX) (2026-06-06)
+
+- El editor pasa de `TextArea` a **`CodeArea` de RichTextFX** (`org.fxmisc.richtext:richtextfx:0.11.5`, empaquetado en el uber-jar). Resaltado **completo** en el propio editor: encabezados, **negrita**/*cursiva*, `código` inline y en bloque, `[[wiki-links]]`, enlaces `[texto](url)`, listas, citas y tachado. Computado por `util/MarkdownHighlighter` y aplicado con debounce (200 ms) para no recalcular en cada tecla.
+- Migración contenida en `EditorController` (API equivalente: `replaceText`, `moveTo`, `getCaretBounds`); el autocompletado de `[[`, los botones de formato, find/replace y copiar/cortar/pegar/deshacer siguen funcionando. Estilos `.md-*` y de caret/selección en tema claro y oscuro.
+- Nuevos guard tests en `UiPresentationFxmlGuardTest` (CodeArea, tab bar, indicador de guardado presentes en el FXML).
+
 ### Feat: pestañas de notas e indicador de guardado inline (2026-06-06)
 
 - **Pestañas (tabs):** nuevo componente `ui/components/EditorTabs` — una pestaña por nota abierta con título, dot de cambios sin guardar y botón de cerrar. `MainController` es la única fuente de verdad: abre/activa pestañas al cargar una nota, cierra la pestaña activa con `Ctrl+W`/botón (con confirmación de guardado), y al cerrar activa la pestaña vecina o vacía el editor. Un único editor/WebView compartido (se intercambia el contenido al cambiar de pestaña). Las pestañas se ocultan cuando no hay notas abiertas.

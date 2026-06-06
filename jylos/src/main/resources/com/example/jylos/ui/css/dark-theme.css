@@ -1203,6 +1203,29 @@
     background-color: -fx-base-bg;
 }
 
+/* RichTextFX CodeArea: text, caret and selection colours. */
+.editor-area .text {
+    -fx-fill: -fx-text-main;
+}
+.editor-area .caret {
+    -fx-stroke: -fx-text-main;
+}
+.editor-area .selection {
+    -fx-fill: derive(-fx-accent, -30%);
+}
+
+/* Markdown syntax-highlighting spans (applied to .text segments). */
+.editor-area .md-heading   { -fx-fill: -fx-accent; -fx-font-weight: bold; }
+.editor-area .md-bold      { -fx-font-weight: bold; }
+.editor-area .md-italic    { -fx-font-style: italic; }
+.editor-area .md-strike    { -fx-fill: -fx-text-muted; -fx-strikethrough: true; }
+.editor-area .md-code      { -fx-fill: -fx-danger; }
+.editor-area .md-codeblock { -fx-fill: -fx-danger; }
+.editor-area .md-wikilink  { -fx-fill: -fx-accent; -fx-font-weight: bold; }
+.editor-area .md-link      { -fx-fill: -fx-accent; -fx-underline: true; }
+.editor-area .md-quote     { -fx-fill: -fx-text-muted; -fx-font-style: italic; }
+.editor-area .md-list      { -fx-fill: -fx-accent; -fx-font-weight: bold; }
+
 /* Format toolbar container with scroll support */
 .format-toolbar-container {
     -fx-background-color: -fx-sidebar-bg;

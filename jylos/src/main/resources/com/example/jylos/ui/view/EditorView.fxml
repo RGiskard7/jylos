@@ -4,6 +4,7 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.web.WebView?>
+<?import org.fxmisc.richtext.CodeArea?>
 <?import org.kordamp.ikonli.javafx.FontIcon?>
 
 <VBox fx:id="editorContainer" styleClass="editor-container" HBox.hgrow="ALWAYS"
@@ -140,8 +141,7 @@
 
         <!-- Editor Pane -->
         <VBox fx:id="editorPane" styleClass="editor-pane">
-            <TextArea fx:id="noteContentArea" promptText="%panel.editor.content_placeholder"
-                      wrapText="true" VBox.vgrow="ALWAYS" styleClass="editor-area"/>
+            <CodeArea fx:id="noteContentArea" wrapText="true" VBox.vgrow="ALWAYS" styleClass="editor-area"/>
 
             <!-- Format Toolbar -->
             <HBox styleClass="format-toolbar-container">
