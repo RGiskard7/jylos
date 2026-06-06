@@ -129,6 +129,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     @FXML
     private GraphController graphViewController;
 
+    /** Open-note tab strip (one tab per open note). Driven by this controller. */
+    private com.example.jylos.ui.components.EditorTabs editorTabs;
 
     private VBox notesPanel;
     private ComboBox<String> sortComboBox;
@@ -363,6 +365,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                         note -> eventBus.publish(new NoteEvents.NoteOpenRequestEvent(note)),
                         () -> updateStatus("Note not found: " + title)));
                 editorController.initializeTagsBarCollapsed();
+                editorTabs = new com.example.jylos.ui.components.EditorTabs(
+                        editorController.getEditorTabBar(),
+                        new com.example.jylos.ui.components.EditorTabs.Listener() {
+                            @Override public void onSelect(String noteId) { openNoteInTab(noteId); }
+                            @Override public void onClose(String noteId) { closeTab(noteId); }
+                        });
             }
             if (graphViewController != null) {
                 graphViewController.setServices(noteService, tagService);
@@ -619,6 +627,14 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         uiEventSubscriptions.addAll(uiEventSupport.subscribe(eventBus));
         uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteExportRequestEvent.class,
                 e -> Platform.runLater(() -> exportNote(e.getNote()))));
+        // Keep the editor tab in sync when its note is saved (clear dirty dot, refresh title).
+        uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class, e -> {
+            Note saved = e.getNote();
+            if (editorTabs != null && saved != null && saved.getId() != null) {
+                editorTabs.setDirty(saved.getId(), false);
+                editorTabs.setTitle(saved.getId(), saved.getTitle());
+            }
+        }));
     }
 
     /** Applies a theme requested through the event bus and refreshes the theme menu. */
@@ -647,13 +663,24 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     void handleUiNoteDeleted(String noteId) {
         Note current = getCurrentNote();
-        if (current != null && current.getId().equals(noteId)) {
-            if (editorController != null) {
-                editorController.loadNote(null);
+        boolean wasActive = current != null && current.getId().equals(noteId);
+        if (editorTabs != null && editorTabs.isOpen(noteId)) {
+            String neighbor = editorTabs.neighborOf(noteId);
+            if (wasActive && editorController != null) {
+                editorController.markClean(); // the note is gone; discard any edits
             }
-            if (editorController != null) {
-                editorController.clearPreview();
+            editorTabs.removeTab(noteId);
+            if (wasActive) {
+                if (neighbor != null) {
+                    openNoteInTab(neighbor);
+                } else if (editorController != null) {
+                    editorController.loadNote(null);
+                    editorController.clearPreview();
+                }
             }
+        } else if (wasActive && editorController != null) {
+            editorController.loadNote(null);
+            editorController.clearPreview();
         }
         refreshNotesList();
         if (sidebarController != null) {
@@ -755,6 +782,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     void handleUiNoteModified(Note note) {
         if (note == null || getCurrentNote() == null || !Objects.equals(note.getId(), getCurrentNote().getId())) {
             return;
+        }
+        if (editorTabs != null) {
+            editorTabs.setDirty(note.getId(), true);
         }
         pendingModifiedNoteId = note.getId();
         noteModifiedDebounce.playFromStart();
@@ -1493,25 +1523,15 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     /** Closes the current note: clears the editor to the empty state. */
     private void handleCloseNote() {
-        if (isModified() && getCurrentNote() != null) {
-            SaveDialogDecision decision = showSaveDialog();
-            if (decision == SaveDialogDecision.CANCEL) {
-                return;
-            }
-            if (decision == SaveDialogDecision.SAVE) {
-                handleSave(new ActionEvent());
-            }
+        // With tabs, "close note" closes the active tab (and activates a neighbour).
+        if (editorTabs != null && editorTabs.getActiveId() != null) {
+            closeTab(editorTabs.getActiveId());
+            return;
         }
-        if (editorController != null) {
-            editorController.loadNote(null);
-            editorController.clearPreview();
+        if (!confirmLeaveCurrent()) {
+            return;
         }
-        if (notesListController != null && notesListController.getNotesListView() != null) {
-            notesListController.getNotesListView().getSelectionModel().clearSelection();
-        }
-        updateNoteMetadata(null);
-        updateNoteStats(null);
-        updateStatus(getString("status.note_closed"));
+        clearEditorToEmpty();
     }
 
     /** Updates the status-bar word/character counts for the current note (or hides them). */
@@ -2044,6 +2064,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             return;
         }
 
+        if (editorTabs != null) {
+            editorTabs.ensureTab(activeNote.getId(), activeNote.getTitle());
+            editorTabs.setActive(activeNote.getId());
+            editorTabs.setDirty(activeNote.getId(), false);
+        }
+
         updateNoteMetadata(activeNote);
         refreshBacklinks(activeNote);
 
@@ -2061,6 +2087,77 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         editorController.syncFavoritePinButtons(this::getString);
 
         updateStatus(java.text.MessageFormat.format(getString("status.note_loaded"), activeNote.getTitle()));
+    }
+
+    // ============================================================
+    // Editor tabs (multiple open notes)
+    // ============================================================
+
+    /** Loads the note with {@code noteId} into the editor (used by tab selection). */
+    private void openNoteInTab(String noteId) {
+        if (noteService == null || noteId == null) {
+            return;
+        }
+        noteService.getNoteById(noteId).ifPresent(this::loadNoteInEditor);
+    }
+
+    /**
+     * Closes a tab. For the active tab this prompts to save unsaved changes, then
+     * activates a neighbouring tab (or empties the editor when none remain). Non-active
+     * tabs are always clean in the single-editor model, so they close immediately.
+     */
+    private void closeTab(String noteId) {
+        if (editorTabs == null || noteId == null) {
+            return;
+        }
+        if (!noteId.equals(editorTabs.getActiveId())) {
+            editorTabs.removeTab(noteId);
+            return;
+        }
+        if (!confirmLeaveCurrent()) {
+            return; // user cancelled
+        }
+        String neighbor = editorTabs.neighborOf(noteId);
+        editorTabs.removeTab(noteId);
+        if (neighbor != null) {
+            openNoteInTab(neighbor); // editor is clean now → no second save prompt
+        } else {
+            clearEditorToEmpty();
+        }
+    }
+
+    /**
+     * If the current note has unsaved edits, asks the user to save/discard/cancel.
+     * Returns {@code false} only when the user cancels (caller should abort). On
+     * discard the editor's dirty flag is cleared so a following load won't re-prompt.
+     */
+    private boolean confirmLeaveCurrent() {
+        if (isModified() && getCurrentNote() != null) {
+            SaveDialogDecision decision = showSaveDialog();
+            if (decision == SaveDialogDecision.CANCEL) {
+                return false;
+            }
+            if (decision == SaveDialogDecision.SAVE) {
+                handleSave(new ActionEvent());
+            } else if (editorController != null) {
+                editorController.markClean();
+            }
+        }
+        return true;
+    }
+
+    /** Resets the editor to the empty state (no note open). */
+    private void clearEditorToEmpty() {
+        if (editorController != null) {
+            editorController.loadNote(null);
+            editorController.clearPreview();
+        }
+        if (notesListController != null && notesListController.getNotesListView() != null) {
+            notesListController.getNotesListView().getSelectionModel().clearSelection();
+        }
+        updateNoteMetadata(null);
+        updateNoteStats(null);
+        updateStatus(getString("status.note_closed"));
     }
 
     private void updateNoteMetadata(Note note) {

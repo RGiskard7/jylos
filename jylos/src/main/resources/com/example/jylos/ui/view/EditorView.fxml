@@ -10,6 +10,9 @@
       xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.example.jylos.ui.controller.EditorController">
 
+    <!-- ── Open-note tabs (one per open note; hidden when none) ─────────────── -->
+    <HBox fx:id="editorTabBar" styleClass="editor-tab-bar" visible="false" managed="false"/>
+
     <!-- ── Breadcrumb path bar (folder/.../note.md) + close ─────────────────── -->
     <HBox fx:id="editorPathBar" alignment="CENTER_LEFT" spacing="6" styleClass="editor-path-bar">
         <padding>
@@ -41,6 +44,12 @@
         </Button>
 
         <Separator orientation="VERTICAL" styleClass="header-separator"/>
+
+        <!-- Inline save indicator: amber dot = unsaved, green = saved. -->
+        <Label fx:id="dirtySaveIndicator" text="●" styleClass="save-indicator-dot"
+               visible="false" managed="false">
+            <tooltip><Tooltip fx:id="dirtySaveIndicatorTip" text="%tooltip.unsaved_changes"/></tooltip>
+        </Label>
 
         <TextField fx:id="noteTitleField" promptText="%panel.editor.title_placeholder"
                    HBox.hgrow="ALWAYS" styleClass="title-field"/>

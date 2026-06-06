@@ -105,6 +105,7 @@ public class EditorController {
 
     // ── FXML — header ───────────────────────────────────────────────────────
     @FXML private VBox editorContainer;
+    @FXML private HBox editorTabBar;
     @FXML private HBox editorPathBar;
     @FXML private Label notePathLabel;
     @FXML private Button closeNoteBtn;
@@ -115,6 +116,8 @@ public class EditorController {
     @FXML private Button navForwardBtn;
     @FXML private TextField noteTitleField;
     @FXML private Label noteTitleLabel;
+    @FXML private Label dirtySaveIndicator;
+    @FXML private Tooltip dirtySaveIndicatorTip;
     @FXML private ToggleButton toggleTagsBtn;
     @FXML private ToggleButton editorOnlyButton;
     @FXML private ToggleButton splitViewButton;
@@ -229,8 +232,15 @@ public class EditorController {
     }
     public boolean isModified()  { return isModified; }
 
+    /** Drops the unsaved-changes flag without persisting (used when discarding on close). */
+    public void markClean() {
+        isModified = false;
+        updateSaveIndicator(false);
+    }
+
     // FXML node getters (used by MainController for layout delegation)
     public VBox            getEditorContainer()        { return editorContainer; }
+    public HBox            getEditorTabBar()           { return editorTabBar; }
     public TextField       getNoteTitleField()         { return noteTitleField; }
     public ToggleButton    getToggleTagsBtn()           { return toggleTagsBtn; }
     public ToggleButton    getEditorOnlyButton()        { return editorOnlyButton; }
@@ -449,6 +459,7 @@ public class EditorController {
             clearPropertiesPanel();
             setNoteOpen(false);
             isModified = false;
+            updateSaveIndicator(false);
             return;
         }
 
@@ -463,6 +474,7 @@ public class EditorController {
         if (type.isAttachment()) {
             showAttachment(currentNote, type);
             isModified = false;
+            updateSaveIndicator(false);
             return;
         }
         hideAttachmentViewer();
@@ -475,6 +487,7 @@ public class EditorController {
         rebuildPropertiesPanel();
         refreshNoteTitlesCache();
         isModified = false;
+        updateSaveIndicator(false);
     }
 
     /** True while a non-editable attachment (PDF/image) is being shown. */
@@ -544,6 +557,7 @@ public class EditorController {
         }
         noteService.updateNote(currentNote);
         isModified = false;
+        updateSaveIndicator(false);
         if (eventBus != null) eventBus.publish(new NoteEvents.NoteSavedEvent(currentNote));
     }
 
@@ -1379,6 +1393,29 @@ public class EditorController {
     private void publishModified() {
         if (eventBus != null && currentNote != null)
             eventBus.publish(new NoteEvents.NoteModifiedEvent(currentNote));
+        updateSaveIndicator(true);
+    }
+
+    /**
+     * Updates the inline save-indicator dot next to the title: amber while there are
+     * unsaved changes, green once saved, hidden when no editable note is open.
+     */
+    private void updateSaveIndicator(boolean dirty) {
+        if (dirtySaveIndicator == null) {
+            return;
+        }
+        boolean show = currentNote != null && !viewingAttachment;
+        setNodeVisible(dirtySaveIndicator, show);
+        if (!show) {
+            return;
+        }
+        dirtySaveIndicator.getStyleClass().removeAll("dirty", "saved");
+        dirtySaveIndicator.getStyleClass().add(dirty ? "dirty" : "saved");
+        if (dirtySaveIndicatorTip != null) {
+            dirtySaveIndicatorTip.setText(dirty
+                    ? getString("tooltip.unsaved_changes", "Unsaved changes")
+                    : getString("tooltip.saved", "All changes saved"));
+        }
     }
 
     private String getString(String key, String fallback) {

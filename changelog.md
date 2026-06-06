@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Feat: pestañas de notas e indicador de guardado inline (2026-06-06)
+
+- **Pestañas (tabs):** nuevo componente `ui/components/EditorTabs` — una pestaña por nota abierta con título, dot de cambios sin guardar y botón de cerrar. `MainController` es la única fuente de verdad: abre/activa pestañas al cargar una nota, cierra la pestaña activa con `Ctrl+W`/botón (con confirmación de guardado), y al cerrar activa la pestaña vecina o vacía el editor. Un único editor/WebView compartido (se intercambia el contenido al cambiar de pestaña). Las pestañas se ocultan cuando no hay notas abiertas.
+- **Indicador de guardado inline:** dot junto al título — **ámbar** con cambios sin guardar, **verde** cuando está guardado, oculto sin nota. Sincronizado con el estado `isModified` del editor y con cada pestaña. Nuevas claves i18n `tooltip.unsaved_changes` / `tooltip.saved` (EN/ES, con paridad verificada por `I18nBundleFallbackGuardTest`).
+
 ### Perf: render de preview, backlinks y grafo sin recomputar todo (2026-06-06)
 
 - **P1 — Preview:** `MarkdownPreview.buildPreviewHtml` ya no llama `getAllNotes()` en cada render (cada tecla al editar). El set de títulos para resolver `[[wiki-links]]` vive ahora en `service/NoteTitleIndex` (caché caliente invalidada por `NoteCreated/Deleted/Saved/Updated/NotesRefresh`). Lectura O(1) en la ruta de render.

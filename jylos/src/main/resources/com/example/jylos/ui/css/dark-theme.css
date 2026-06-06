@@ -899,6 +899,66 @@
     border-width: 0 0 1px 0;
 }
 
+/* Inline save indicator dot (next to the note title). */
+.save-indicator-dot {
+    -fx-font-size: 14px;
+    -fx-padding: 0 2 0 2;
+    -fx-text-fill: -fx-success;
+}
+.save-indicator-dot.dirty {
+    -fx-text-fill: -fx-warning;
+}
+.save-indicator-dot.saved {
+    -fx-text-fill: -fx-success;
+}
+
+/* Open-note tab strip. */
+.editor-tab-bar {
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 2 4 0 4;
+    -fx-spacing: 2;
+}
+.editor-tab {
+    -fx-background-color: transparent;
+    -fx-background-radius: 6 6 0 0;
+    -fx-padding: 5 8 5 10;
+    -fx-cursor: hand;
+    -fx-alignment: center-left;
+    -fx-max-width: 200;
+}
+.editor-tab:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+.editor-tab.active {
+    -fx-background-color: -fx-base-bg;
+    -fx-border-color: -fx-fn-border-color -fx-fn-border-color transparent -fx-fn-border-color;
+    -fx-border-width: 1 1 0 1;
+    -fx-border-radius: 6 6 0 0;
+}
+.editor-tab-title {
+    -fx-text-fill: -fx-text-muted;
+    -fx-font-size: 12px;
+}
+.editor-tab.active .editor-tab-title {
+    -fx-text-fill: -fx-text-main;
+    -fx-font-weight: 600;
+}
+.editor-tab-dot {
+    -fx-text-fill: -fx-warning;
+    -fx-font-size: 11px;
+}
+.editor-tab-close {
+    -fx-text-fill: -fx-text-faint;
+    -fx-font-size: 14px;
+    -fx-cursor: hand;
+    -fx-padding: 0 2 0 2;
+}
+.editor-tab-close:hover {
+    -fx-text-fill: -fx-danger;
+}
+
 .title-field {
     -fx-background-color: transparent;
     background-color: transparent;
