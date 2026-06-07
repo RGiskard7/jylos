@@ -5,9 +5,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 
 /**
@@ -38,14 +40,20 @@ public final class EditorTabs {
         void onClose(String noteId);
     }
 
+    /** Every tab is rendered at this fixed width so titles never shrink away. */
+    private static final double TAB_WIDTH = 170;
+
     private final HBox container;
+    /** Node toggled for show/hide (typically the wrapping ScrollPane); may equal the container. */
+    private final Region visibilityNode;
     private final Listener listener;
     /** Insertion-ordered so tab order is stable and neighbour lookup is predictable. */
     private final Map<String, TabNode> tabs = new LinkedHashMap<>();
     private String activeId;
 
-    public EditorTabs(HBox container, Listener listener) {
+    public EditorTabs(HBox container, Region visibilityNode, Listener listener) {
         this.container = container;
+        this.visibilityNode = visibilityNode != null ? visibilityNode : container;
         this.listener = listener;
         if (container != null) {
             container.getStyleClass().add("editor-tab-bar");
@@ -53,7 +61,7 @@ public final class EditorTabs {
         updateVisibility();
     }
 
-    /** A single rendered tab. */
+    /** A single rendered tab, always {@link #TAB_WIDTH} wide with an ellipsised title. */
     private final class TabNode {
         final HBox root = new HBox();
         final Label dot = new Label("●");
@@ -64,12 +72,20 @@ public final class EditorTabs {
             this.noteId = noteId;
             root.getStyleClass().add("editor-tab");
             root.setSpacing(6);
+            root.setAlignment(Pos.CENTER_LEFT);
+            // Fixed width: tabs never compress; the strip scrolls horizontally instead.
+            root.setMinWidth(TAB_WIDTH);
+            root.setPrefWidth(TAB_WIDTH);
+            root.setMaxWidth(TAB_WIDTH);
 
             dot.getStyleClass().add("editor-tab-dot");
             setNodeVisible(dot, false); // clean by default
 
             title.getStyleClass().add("editor-tab-title");
             title.setText(displayTitle(titleText));
+            // Title takes the remaining space and ellipsises rather than widening the tab.
+            title.setMaxWidth(Double.MAX_VALUE);
+            HBox.setHgrow(title, Priority.ALWAYS);
 
             Label close = new Label("×");
             close.getStyleClass().add("editor-tab-close");
@@ -81,19 +97,12 @@ public final class EditorTabs {
                 }
             });
 
-            root.getChildren().addAll(dot, title, new Spacer(), close);
+            root.getChildren().addAll(dot, title, close);
             root.setOnMouseClicked(e -> {
                 if (listener != null && !noteId.equals(activeId)) {
                     listener.onSelect(this.noteId);
                 }
             });
-        }
-    }
-
-    /** Tiny flexible gap so the close button sits at the tab's trailing edge. */
-    private static final class Spacer extends Region {
-        Spacer() {
-            setMinWidth(4);
         }
     }
 
@@ -202,10 +211,10 @@ public final class EditorTabs {
     // ------------------------------------------------------------------
 
     private void updateVisibility() {
-        if (container != null) {
+        if (visibilityNode != null) {
             boolean show = !tabs.isEmpty();
-            container.setVisible(show);
-            container.setManaged(show);
+            visibilityNode.setVisible(show);
+            visibilityNode.setManaged(show);
         }
     }
 

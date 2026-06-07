@@ -975,8 +975,8 @@
 
 /* Inline save indicator dot (next to the note title). */
 .save-indicator-dot {
-    -fx-font-size: 14px;
-    -fx-padding: 0 2 0 2;
+    -fx-font-size: 9px;
+    -fx-padding: 0 1 0 1;
     -fx-text-fill: -fx-success;
 }
 .save-indicator-dot.dirty {
@@ -986,11 +986,22 @@
     -fx-text-fill: -fx-success;
 }
 
-/* Open-note tab strip. */
-.editor-tab-bar {
+/* Open-note tab strip (scrolls horizontally; tabs keep a fixed width). */
+.editor-tab-scroll {
     -fx-background-color: -fx-sidebar-bg;
+    -fx-background: -fx-sidebar-bg;
     -fx-border-color: transparent transparent -fx-fn-border-color transparent;
     -fx-border-width: 0 0 1 0;
+    -fx-padding: 0;
+}
+.editor-tab-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+.editor-tab-scroll .scroll-bar:horizontal {
+    -fx-pref-height: 6;
+}
+.editor-tab-bar {
+    -fx-background-color: transparent;
     -fx-padding: 2 4 0 4;
     -fx-spacing: 2;
 }
@@ -999,8 +1010,6 @@
     -fx-background-radius: 6 6 0 0;
     -fx-padding: 5 8 5 10;
     -fx-cursor: hand;
-    -fx-alignment: center-left;
-    -fx-max-width: 200;
 }
 .editor-tab:hover {
     -fx-background-color: -fx-hover-bg;

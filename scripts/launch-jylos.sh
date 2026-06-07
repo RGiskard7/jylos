@@ -109,15 +109,13 @@ if [ ! -d "$JAVAFX_BASE" ]; then
     exit $?
 fi
 
-# Find JavaFX version (21.x.x)
+# Find JavaFX version (21.x.x). Pick the HIGHEST 21.x present so the runtime
+# modules match the version the app was built against (and include CoreText
+# font crash fixes on macOS). A plain glob would stop at "21" (lexically first).
 JAVAFX_VERSION=""
 if [ -d "$JAVAFX_BASE/javafx-controls" ]; then
-    for dir in "$JAVAFX_BASE/javafx-controls"/21*; do
-        if [ -d "$dir" ]; then
-            JAVAFX_VERSION=$(basename "$dir")
-            break
-        fi
-    done
+    JAVAFX_VERSION=$(ls -1 "$JAVAFX_BASE/javafx-controls" 2>/dev/null \
+        | grep -E '^21(\.[0-9]+)*$' | sort -V | tail -1)
 fi
 
 if [ -z "$JAVAFX_VERSION" ]; then

@@ -367,6 +367,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 editorController.initializeTagsBarCollapsed();
                 editorTabs = new com.example.jylos.ui.components.EditorTabs(
                         editorController.getEditorTabBar(),
+                        editorController.getEditorTabScroll(),
                         new com.example.jylos.ui.components.EditorTabs.Listener() {
                             @Override public void onSelect(String noteId) { openNoteInTab(noteId); }
                             @Override public void onClose(String noteId) { closeTab(noteId); }

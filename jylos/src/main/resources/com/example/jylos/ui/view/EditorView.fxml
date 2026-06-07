@@ -11,8 +11,12 @@
       xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.example.jylos.ui.controller.EditorController">
 
-    <!-- ── Open-note tabs (one per open note; hidden when none) ─────────────── -->
-    <HBox fx:id="editorTabBar" styleClass="editor-tab-bar" visible="false" managed="false"/>
+    <!-- ── Open-note tabs (one per open note; hidden when none; scrolls horizontally) ── -->
+    <ScrollPane fx:id="editorTabScroll" styleClass="editor-tab-scroll"
+                hbarPolicy="AS_NEEDED" vbarPolicy="NEVER" fitToHeight="true"
+                visible="false" managed="false">
+        <HBox fx:id="editorTabBar" styleClass="editor-tab-bar"/>
+    </ScrollPane>
 
     <!-- ── Breadcrumb path bar (folder/.../note.md) + close ─────────────────── -->
     <HBox fx:id="editorPathBar" alignment="CENTER_LEFT" spacing="6" styleClass="editor-path-bar">

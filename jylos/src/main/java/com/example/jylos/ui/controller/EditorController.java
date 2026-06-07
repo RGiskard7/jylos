@@ -109,6 +109,7 @@ public class EditorController {
 
     // ── FXML — header ───────────────────────────────────────────────────────
     @FXML private VBox editorContainer;
+    @FXML private javafx.scene.control.ScrollPane editorTabScroll;
     @FXML private HBox editorTabBar;
     @FXML private HBox editorPathBar;
     @FXML private Label notePathLabel;
@@ -245,6 +246,7 @@ public class EditorController {
     // FXML node getters (used by MainController for layout delegation)
     public VBox            getEditorContainer()        { return editorContainer; }
     public HBox            getEditorTabBar()           { return editorTabBar; }
+    public javafx.scene.control.ScrollPane getEditorTabScroll() { return editorTabScroll; }
     public TextField       getNoteTitleField()         { return noteTitleField; }
     public ToggleButton    getToggleTagsBtn()           { return toggleTagsBtn; }
     public ToggleButton    getEditorOnlyButton()        { return editorOnlyButton; }

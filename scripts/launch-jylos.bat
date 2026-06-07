@@ -65,7 +65,8 @@ REM Find JavaFX version (21.x.x) - check javafx-controls as reference
 set "JAVAFX_VERSION="
 set "CONTROLS_DIR=%JAVAFX_BASE%\javafx-controls"
 if exist "%CONTROLS_DIR%" (
-    for /f "delims=" %%d in ('dir /b /ad "%CONTROLS_DIR%\21*" 2^>nul') do (
+    REM /o-n lists newest version first so we pin the highest 21.x (not lexical "21").
+    for /f "delims=" %%d in ('dir /b /ad /o-n "%CONTROLS_DIR%\21*" 2^>nul') do (
         set "JAVAFX_VERSION=%%d"
         goto :found_version
     )

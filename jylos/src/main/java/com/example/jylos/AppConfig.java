@@ -39,7 +39,12 @@ public class AppConfig {
                 return;
             }
             
-            properties.load(input);
+            // app.properties is UTF-8 (it contains © and accented names). Properties.load(InputStream)
+            // would decode it as ISO-8859-1 and mangle those characters, so read via a UTF-8 Reader.
+            try (java.io.Reader reader = new java.io.InputStreamReader(
+                    input, java.nio.charset.StandardCharsets.UTF_8)) {
+                properties.load(reader);
+            }
             logger.info("Application properties loaded successfully");
         } catch (Exception e) {
             logger.warning("Failed to load app.properties: " + e.getMessage() + ", using defaults");
