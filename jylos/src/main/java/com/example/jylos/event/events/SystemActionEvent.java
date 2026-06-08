@@ -83,6 +83,8 @@ public class SystemActionEvent extends AppEvent {
         GRAPH_VIEW,
         FOCUS_MODE,
         KANBAN_VIEW,
+        PRIVATE_TOGGLE,
+        NOTES_LOCK,
         CLOSE_NOTE,
         QUICK_SWITCHER,
         GIT_SYNC,

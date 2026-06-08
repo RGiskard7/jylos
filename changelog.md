@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Feat: Fase 4 — notas privadas cifradas (AES-256 con contraseña maestra) (2026-06-08)
+
+- **Cifrado por nota** (no la bóveda entera, no solo SQLite). Marcas una nota como **privada** (`Tools → Hacer Nota Privada/Pública`, `Cmd/Ctrl+Shift+L`) y **solo su cuerpo** se cifra en reposo; las notas normales quedan en claro.
+- **Contraseña maestra**: nuevo `service/EncryptionService` — clave AES-256 derivada con **PBKDF2-HMAC-SHA256** (210k iteraciones) sobre salt aleatorio; cifrado **AES-GCM** (IV por nota). La contraseña no se guarda: solo salt + un verificador. Estado de sesión **desbloqueado/bloqueado** (`Tools → Bloquear Notas Privadas`); al abrir una nota privada bloqueada se pide desbloquear.
+- **Ambos modos de almacenamiento**: flag `Note.isPrivate` persistido como columna `is_private` en SQLite (migración idempotente) y `private:` en el frontmatter de la bóveda; el cuerpo cifrado se guarda como `JENC1:base64(iv‖ciphertext)`. En la bóveda el frontmatter (título/fechas) queda legible para listar la nota como 🔒 sin la clave.
+- **Seguridad de datos**: `NoteService` cifra al guardar y descifra al leer; con la sesión bloqueada la lista muestra 🔒 (nunca el ciphertext) y **se bloquea el guardado** de una nota privada para no sobrescribir el cifrado con texto plano.
+- Tests `EncryptionServiceTest` (round-trip, contraseña incorrecta, IV distintos, cifrar bloqueado falla). Suite 149/149.
+
 ### Chore: línea base Java 21 + JavaFX 23; Kanban de columnas fijas (2026-06-07)
 
 - **JavaFX 21 → 23.0.2 y Java 17 → 21.** El crash nativo de CoreText en macOS persistía en JavaFX 21; se sube a JavaFX 23 (que trae correcciones del subsistema de fuentes). Como JavaFX 23 es bytecode Java 21, el proyecto pasa a compilar/ejecutar con **JDK 21** (núcleo `pom.xml` source/target 21; plugins `--release 21`; launchers detectan la versión de JavaFX más alta, no solo 21.x). Badges/docs/i18n actualizados a Java 21 / JavaFX 23. **Requiere JDK 21 para compilar y ejecutar.**

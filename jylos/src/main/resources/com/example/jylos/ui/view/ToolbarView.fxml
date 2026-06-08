@@ -71,6 +71,9 @@
             <MenuItem text="%action.global_search" onAction="#handleSearch" accelerator="Shortcut+Shift+F"/>
             <MenuItem text="%action.tags_manager" onAction="#handleTagsManager"/>
             <SeparatorMenuItem/>
+            <MenuItem text="%action.toggle_private" onAction="#handleTogglePrivate" accelerator="Shortcut+Shift+L"/>
+            <MenuItem text="%action.lock_notes" onAction="#handleLockNotes"/>
+            <SeparatorMenuItem/>
             <Menu text="%menu.git">
                 <MenuItem text="%action.git_sync" onAction="#handleGitSync" accelerator="Shortcut+Shift+S"/>
                 <MenuItem text="%action.git_commit_push" onAction="#handleGitCommitPush"/>

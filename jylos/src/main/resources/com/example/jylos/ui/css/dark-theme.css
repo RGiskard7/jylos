@@ -255,6 +255,8 @@
 
 .toolbar-btn-danger:hover .feather-icon-danger {
     -fx-icon-color: white;
+    -fx-fill: white;
+    fill: white;
 }
 
 .toolbar-btn-primary {

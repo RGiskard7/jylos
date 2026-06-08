@@ -115,7 +115,16 @@ public class NoteService {
      * @return The created note with its generated ID
      */
     public Note createNote(Note note) {
-        String noteId = noteDAO.createNote(note);
+        String plain = note.getContent();
+        boolean encrypted = encryptForWrite(note);
+        String noteId;
+        try {
+            noteId = noteDAO.createNote(note);
+        } finally {
+            if (encrypted) {
+                note.setContent(plain); // keep the in-memory note as plaintext
+            }
+        }
         note.setId(noteId);
         logger.info("Created note: " + note.getTitle() + " (ID: " + noteId + ")");
         return note;
@@ -146,6 +155,9 @@ public class NoteService {
      */
     public Optional<Note> getNoteById(String id) {
         Note note = noteDAO.getNoteById(id);
+        if (note != null) {
+            decryptForRead(note);
+        }
         return Optional.ofNullable(note);
     }
 
@@ -168,9 +180,72 @@ public class NoteService {
         if (note == null || note.getId() == null) {
             throw new IllegalArgumentException("Note or note ID cannot be null");
         }
-        noteDAO.updateNote(note);
+        // Never overwrite an encrypted private note with plaintext while locked.
+        if (note.isPrivate() && !EncryptionService.isEncrypted(note.getContent())
+                && !EncryptionService.getInstance().isUnlocked()) {
+            logger.warning("Skipping save of private note while locked: " + note.getTitle());
+            return;
+        }
+        String plain = note.getContent();
+        boolean encrypted = encryptForWrite(note);
+        try {
+            noteDAO.updateNote(note);
+        } finally {
+            if (encrypted) {
+                note.setContent(plain);
+            }
+        }
         logger.info("Updated note: " + note.getTitle());
     }
+
+    // ------------------------------------------------------------------
+    // Encryption hooks (private notes) — see EncryptionService
+    // ------------------------------------------------------------------
+
+    /**
+     * Encrypts the note body in place when it is private, the session is unlocked, and
+     * the body isn't already encrypted. Returns {@code true} if the content was changed
+     * (so the caller can restore the plaintext on the in-memory note afterwards).
+     */
+    private boolean encryptForWrite(Note note) {
+        if (note == null || !note.isPrivate()) {
+            return false;
+        }
+        String content = note.getContent();
+        if (EncryptionService.isEncrypted(content)) {
+            return false; // already ciphertext
+        }
+        EncryptionService enc = EncryptionService.getInstance();
+        if (!enc.isUnlocked()) {
+            return false; // can't encrypt while locked (write blocked upstream)
+        }
+        note.setContent(enc.encrypt(content));
+        return true;
+    }
+
+    /**
+     * Decrypts an encrypted body when unlocked; otherwise replaces it with a locked
+     * placeholder so the UI can show 🔒 without exposing (or losing) the ciphertext.
+     */
+    private void decryptForRead(Note note) {
+        String content = note != null ? note.getContent() : null;
+        if (!EncryptionService.isEncrypted(content)) {
+            return;
+        }
+        EncryptionService enc = EncryptionService.getInstance();
+        if (enc.isUnlocked()) {
+            try {
+                note.setContent(enc.decrypt(content));
+                return;
+            } catch (Exception e) {
+                logger.warning("Could not decrypt note " + note.getId() + ": " + e.getMessage());
+            }
+        }
+        note.setContent(LOCKED_PLACEHOLDER);
+    }
+
+    /** Shown in place of a private note's body while the session is locked. */
+    public static final String LOCKED_PLACEHOLDER = "🔒";
 
     /**
      * Moves a note to the trash (soft delete).
@@ -230,7 +305,15 @@ public class NoteService {
      * @return List of all notes
      */
     public List<Note> getAllNotes() {
-        return noteDAO.fetchAllNotes();
+        List<Note> notes = noteDAO.fetchAllNotes();
+        // List previews must never show ciphertext: replace encrypted bodies with a
+        // lock placeholder (these are fresh list copies, so it's display-only).
+        for (Note n : notes) {
+            if (n != null && EncryptionService.isEncrypted(n.getContent())) {
+                n.setContent(LOCKED_PLACEHOLDER);
+            }
+        }
+        return notes;
     }
 
     /**

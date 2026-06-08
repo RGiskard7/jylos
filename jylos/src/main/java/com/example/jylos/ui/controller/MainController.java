@@ -37,6 +37,7 @@ import com.example.jylos.plugin.PluginMenuRegistry;
 import com.example.jylos.plugin.PreviewEnhancer;
 import com.example.jylos.plugin.PreviewEnhancerRegistry;
 import com.example.jylos.plugin.SidePanelRegistry;
+import com.example.jylos.service.EncryptionService;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
@@ -1287,6 +1288,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         systemActionHandlers.put(SystemActionEvent.ActionType.GRAPH_VIEW, this::handleToggleGraphView);
         systemActionHandlers.put(SystemActionEvent.ActionType.FOCUS_MODE, this::handleFocusMode);
         systemActionHandlers.put(SystemActionEvent.ActionType.KANBAN_VIEW, this::handleToggleKanban);
+        systemActionHandlers.put(SystemActionEvent.ActionType.PRIVATE_TOGGLE, this::handleTogglePrivate);
+        systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_LOCK, this::handleLockNotes);
         systemActionHandlers.put(SystemActionEvent.ActionType.QUICK_SWITCHER, this::showQuickSwitcher);
         systemActionHandlers.put(SystemActionEvent.ActionType.CLOSE_NOTE, this::handleCloseNote);
         systemActionHandlers.put(SystemActionEvent.ActionType.GIT_SYNC, this::handleGitSync);
@@ -2093,6 +2096,13 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     }
 
     void loadNoteInEditor(Note note) {
+        // A locked private note loads as a placeholder; offer to unlock and reload it.
+        if (note != null && note.isPrivate() && noteService != null) {
+            EncryptionService enc = EncryptionService.getInstance();
+            if (enc.isConfigured() && !enc.isUnlocked() && promptUnlock()) {
+                note = noteService.getNoteById(note.getId()).orElse(note);
+            }
+        }
         // Record the note we're leaving in the back-navigation stack.
         Note leaving = getCurrentNote();
         if (leaving != null && note != null && !leaving.getId().equals(note.getId())) {
@@ -3215,6 +3225,112 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 this::getString);
         setNodeShown(kanbanBoard, false);
         centerStack.getChildren().add(kanbanBoard);
+    }
+
+    // ============================================================
+    // Private (encrypted) notes — Fase 4
+    // ============================================================
+
+    /** Toggles the current note between private (encrypted body) and public. */
+    private void handleTogglePrivate() {
+        Note note = getCurrentNote();
+        if (note == null || note.getId() == null || noteService == null) {
+            updateStatus(getString("status.no_note_selected"));
+            return;
+        }
+        EncryptionService enc = EncryptionService.getInstance();
+        boolean makePrivate = !note.isPrivate();
+        if (makePrivate) {
+            if (!enc.isConfigured()) {
+                if (!setupMasterPassword()) {
+                    return;
+                }
+            } else if (!enc.isUnlocked() && !promptUnlock()) {
+                return;
+            }
+        } else if (enc.isConfigured() && !enc.isUnlocked() && !promptUnlock()) {
+            return;
+        }
+        note.setPrivate(makePrivate);
+        // Persist the live editor content under the new privacy flag (NoteService
+        // encrypts/decrypts as needed).
+        note.setContent(editorController.getCurrentContent());
+        noteService.updateNote(note);
+        eventBus.publish(new NoteEvents.NoteSavedEvent(note));
+        refreshNotesList();
+        updateStatus(getString(makePrivate ? "status.note_private_on" : "status.note_private_off"));
+    }
+
+    /** Locks encryption: private notes become unreadable until unlocked again. */
+    private void handleLockNotes() {
+        EncryptionService enc = EncryptionService.getInstance();
+        if (!enc.isConfigured()) {
+            updateStatus(getString("status.no_private_notes"));
+            return;
+        }
+        enc.lock();
+        Note current = getCurrentNote();
+        if (current != null && current.isPrivate() && current.getId() != null) {
+            noteService.getNoteById(current.getId()).ifPresent(this::loadNoteInEditor);
+        }
+        refreshNotesList();
+        updateStatus(getString("status.notes_locked"));
+    }
+
+    /** Prompts for the master password and unlocks the session. */
+    private boolean promptUnlock() {
+        String pw = promptPassword(getString("dialog.unlock.title"), getString("dialog.unlock.header"));
+        if (pw == null) {
+            return false;
+        }
+        if (EncryptionService.getInstance().unlock(pw.toCharArray())) {
+            updateStatus(getString("status.unlocked"));
+            return true;
+        }
+        showSimpleError(getString("dialog.unlock.title"), getString("status.unlock_failed"));
+        return false;
+    }
+
+    /** First-time setup of the master password (entered twice). */
+    private boolean setupMasterPassword() {
+        String pw = promptPassword(getString("dialog.setup_password.title"), getString("dialog.setup_password.header"));
+        if (pw == null || pw.isEmpty()) {
+            return false;
+        }
+        String confirm = promptPassword(getString("dialog.setup_password.title"),
+                getString("dialog.setup_password.confirm"));
+        if (confirm == null) {
+            return false;
+        }
+        if (!pw.equals(confirm)) {
+            showSimpleError(getString("dialog.setup_password.title"), getString("status.password_mismatch"));
+            return false;
+        }
+        EncryptionService.getInstance().configure(pw.toCharArray());
+        updateStatus(getString("status.unlocked"));
+        return true;
+    }
+
+    private String promptPassword(String title, String header) {
+        Dialog<String> dialog = new Dialog<>();
+        dialog.setTitle(title);
+        dialog.setHeaderText(header);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        javafx.scene.control.PasswordField field = new javafx.scene.control.PasswordField();
+        VBox box = new VBox(field);
+        box.setPadding(new javafx.geometry.Insets(16));
+        dialog.getDialogPane().setContent(box);
+        Platform.runLater(field::requestFocus);
+        dialog.setResultConverter(b -> b == ButtonType.OK ? field.getText() : null);
+        return com.example.jylos.ui.UiDialogs.show(dialog).orElse(null);
+    }
+
+    private void showSimpleError(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        com.example.jylos.ui.UiDialogs.show(alert);
     }
 
     /** Opens a note referenced from a Kanban card ({@code [[Title]]}). */

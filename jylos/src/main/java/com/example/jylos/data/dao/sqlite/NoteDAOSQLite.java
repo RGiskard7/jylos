@@ -32,8 +32,8 @@ public class NoteDAOSQLite implements NoteDAO {
 
 	// SQL Queries
 	private static final String INSERT_NOTE_SQL = "INSERT INTO notes (note_id, title, content, created_date, modified_date, "
-			+ "latitude, longitude, author, source_url, source, source_application, is_todo, todo_due, todo_completed, is_favorite, is_pinned, is_deleted, deleted_date, status, parent_id) "
-			+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+			+ "latitude, longitude, author, source_url, source, source_application, is_todo, todo_due, todo_completed, is_favorite, is_pinned, is_deleted, deleted_date, status, is_private, parent_id) "
+			+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
 	private static final String INSERT_TAG_NOTE_SQL = "INSERT INTO tagsNotes (id, tag_id, note_id, added_date) VALUES (?, ?, ?, ?)";
 
@@ -50,7 +50,7 @@ public class NoteDAOSQLite implements NoteDAO {
 	private static final String SELECT_NOTES_BY_TAG_ID_SQL = "SELECT DISTINCT notes.* FROM notes "
 			+ "INNER JOIN tagsNotes ON notes.note_id = tagsNotes.note_id WHERE tagsNotes.tag_id = ? AND notes.is_deleted = 0";
 
-	private static final String UPDATE_NOTE_SQL = "UPDATE notes SET title = ?, content = ?, modified_date = ?, is_favorite = ?, is_pinned = ?, status = ?, parent_id = ? WHERE note_id = ?";
+	private static final String UPDATE_NOTE_SQL = "UPDATE notes SET title = ?, content = ?, modified_date = ?, is_favorite = ?, is_pinned = ?, status = ?, is_private = ?, parent_id = ? WHERE note_id = ?";
 
 	private static final String SOFT_DELETE_NOTE_SQL = "UPDATE notes SET is_deleted = 1, deleted_date = ? WHERE note_id = ?";
 
@@ -117,7 +117,8 @@ public class NoteDAOSQLite implements NoteDAO {
 			pstmt.setInt(17, note.isDeleted() ? 1 : 0); // is_deleted
 			pstmt.setString(18, note.getDeletedDate()); // deleted_date
 			pstmt.setString(19, note.getStatus()); // status
-			pstmt.setString(20,
+			pstmt.setInt(20, note.isPrivate() ? 1 : 0); // is_private
+			pstmt.setString(21,
 					(note.getParent() != null && !"ROOT".equals(note.getParent().getId())) ? note.getParent().getId()
 							: null);
 
@@ -174,10 +175,11 @@ public class NoteDAOSQLite implements NoteDAO {
 			pstmt.setInt(4, note.isFavorite() ? 1 : 0);
 			pstmt.setInt(5, note.isPinned() ? 1 : 0);
 			pstmt.setString(6, note.getStatus());
-			pstmt.setString(7,
+			pstmt.setInt(7, note.isPrivate() ? 1 : 0);
+			pstmt.setString(8,
 					(note.getParent() != null && !"ROOT".equals(note.getParent().getId())) ? note.getParent().getId()
 							: null);
-			pstmt.setString(8, note.getId());
+			pstmt.setString(9, note.getId());
 			pstmt.executeUpdate();
 			connection.commit();
 
@@ -498,12 +500,14 @@ public class NoteDAOSQLite implements NoteDAO {
 			int isDeleted = 0;
 			String deletedDate = null;
 			String status = null;
+			int isPrivate = 0;
 			try {
 				isFavorite = rs.getInt("is_favorite");
 				isPinned = rs.getInt("is_pinned");
 				isDeleted = rs.getInt("is_deleted");
 				deletedDate = rs.getString("deleted_date");
 				status = rs.getString("status");
+				isPrivate = rs.getInt("is_private");
 			} catch (SQLException e) {
 				// Columns might not exist in older databases
 				logger.warning("Optional columns not found, using defaults: " + e.getMessage());
@@ -526,6 +530,7 @@ public class NoteDAOSQLite implements NoteDAO {
 			note.setDeleted(isDeleted == 1);
 			note.setDeletedDate(deletedDate);
 			note.setStatus(status);
+			note.setPrivate(isPrivate == 1);
 
 			// Populate parent placeholder for hierarchy reconstruction
 			String parentId = rs.getString("parent_id");

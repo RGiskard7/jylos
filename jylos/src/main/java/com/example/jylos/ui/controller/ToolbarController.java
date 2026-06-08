@@ -225,6 +225,16 @@ public class ToolbarController {
     }
 
     @FXML
+    private void handleTogglePrivate(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.PRIVATE_TOGGLE);
+    }
+
+    @FXML
+    private void handleLockNotes(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.NOTES_LOCK);
+    }
+
+    @FXML
     private void handleViewLayoutSwitch(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.SWITCH_LAYOUT);
     }

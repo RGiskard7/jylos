@@ -46,6 +46,7 @@ public class SQLiteDB {
             + "is_deleted INTEGER NOT NULL DEFAULT 0, "
             + "deleted_date TEXT DEFAULT NULL, "
             + "status TEXT DEFAULT NULL, "
+            + "is_private INTEGER NOT NULL DEFAULT 0, "
             + "FOREIGN KEY (parent_id) REFERENCES folders(folder_id) "
             + "ON UPDATE CASCADE "
             + "ON DELETE SET NULL"
@@ -200,6 +201,7 @@ public class SQLiteDB {
                 boolean hasIsDeleted = false;
                 boolean hasDeletedDate = false;
                 boolean hasStatus = false;
+                boolean hasPrivate = false;
 
                 while (rs.next()) {
                     String columnName = rs.getString("name");
@@ -213,6 +215,8 @@ public class SQLiteDB {
                         hasDeletedDate = true;
                     if ("status".equals(columnName))
                         hasStatus = true;
+                    if ("is_private".equals(columnName))
+                        hasPrivate = true;
                 }
                 rs.close();
 
@@ -238,6 +242,10 @@ public class SQLiteDB {
                 if (!hasStatus) {
                     logger.info("Adding status column to notes table...");
                     stmt.executeUpdate("ALTER TABLE notes ADD COLUMN status TEXT DEFAULT NULL");
+                }
+                if (!hasPrivate) {
+                    logger.info("Adding is_private column to notes table...");
+                    stmt.executeUpdate("ALTER TABLE notes ADD COLUMN is_private INTEGER NOT NULL DEFAULT 0");
                 }
 
                 // Check 'folders' table

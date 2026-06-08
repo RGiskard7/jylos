@@ -43,6 +43,13 @@ public class Note extends LeafModel implements Serializable {
 	private String status = null;
 
 	/**
+	 * When true, the note body is stored encrypted at rest (AES-256 via
+	 * {@code EncryptionService}). Persisted in both SQLite (column) and the vault
+	 * ({@code private:} frontmatter); only the body is encrypted, not the metadata.
+	 */
+	private boolean isPrivate = false;
+
+	/**
 	 * Arbitrary YAML frontmatter properties not covered by the fixed Note schema.
 	 * Preserved in insertion order (LinkedHashMap) to produce stable YAML output.
 	 * Examples: {@code aliases}, {@code date}, {@code priority}, user-defined fields.
@@ -224,6 +231,15 @@ public class Note extends LeafModel implements Serializable {
 
 	public void setStatus(String status) {
 		this.status = status;
+	}
+
+	/** Whether this note's body is encrypted at rest. */
+	public boolean isPrivate() {
+		return isPrivate;
+	}
+
+	public void setPrivate(boolean isPrivate) {
+		this.isPrivate = isPrivate;
 	}
 
 	/** Returns a live, mutable view of the custom YAML properties. */
