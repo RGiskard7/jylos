@@ -41,11 +41,6 @@ import com.example.jylos.service.EncryptionService;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
-import com.example.jylos.git.GitService;
-import com.example.jylos.git.GitResult;
-import com.example.jylos.git.GitStatus;
-import com.example.jylos.git.GitChange;
-import com.example.jylos.git.GitCommit;
 import com.example.jylos.ui.components.CommandPalette;
 import com.example.jylos.ui.components.PluginManagerDialog;
 import com.example.jylos.ui.components.QuickSwitcher;
@@ -154,13 +149,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     /** Kanban board overlay (lazy-created, added to {@link #centerStack}). */
     private com.example.jylos.ui.components.KanbanBoard kanbanBoard;
 
-    // --- Focus / writing mode state (F3.1) ---
-    private boolean focusMode = false;
-    private boolean focusSavedRightPanelVisible;
-    private boolean focusSavedToolbarVisible;
-    private boolean focusSavedStatusBarVisible;
-    private java.util.List<javafx.scene.Node> focusSavedMainItems;
-    private java.util.List<javafx.scene.Node> focusSavedContentItems;
+    private final FocusModeSupport focusModeSupport = new FocusModeSupport();
     @FXML
     private VBox rightPanelContent;
     @FXML
@@ -231,7 +220,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     @FXML
     private Label gitHistoryLabel;
 
-    private final GitService gitService = new GitService();
+    private final GitController gitController = new GitController();
+    private final PrivacySupport privacySupport = new PrivacySupport();
 
     private final Map<String, Menu> pluginCategoryMenus = new HashMap<>();
     private final Map<String, List<MenuItem>> pluginMenuItems = new HashMap<>();
@@ -422,7 +412,18 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             Platform.runLater(this::initializePluginSystem);
 
             updateStorageLabel();
-            refreshGitStatus();
+            java.util.function.Supplier<javafx.scene.Scene> sceneSupplier =
+                    () -> mainSplitPane != null ? mainSplitPane.getScene() : null;
+            gitController.wire(gitSeparator, gitBar, gitInitLabel, gitRemoteLabel, gitChangesLabel,
+                    gitCommitLabel, gitSyncLabel, gitHistoryLabel, prefs, this::getString, this::updateStatus,
+                    sceneSupplier);
+            privacySupport.wire(this::getString, this::updateStatus, sceneSupplier);
+            focusModeSupport.wire(mainSplitPane, contentSplitPane,
+                    () -> toolbarController != null ? toolbarController.getToolbarHBox() : null,
+                    statusBar, rightPanel,
+                    () -> editorController != null ? editorController.getEditorContainer() : null,
+                    prefs, this::getString, this::updateStatus);
+            gitController.refreshStatus();
             updateStatus(getString("status.ready"));
             logger.info("MainController initialized successfully");
 
@@ -1172,15 +1173,15 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             case "cmd.graph_view":
                 return this::handleToggleGraphView;
             case "cmd.git_sync":
-                return this::handleGitSync;
+                return gitController::sync;
             case "cmd.git_commit_push":
-                return this::handleGitCommitPush;
+                return gitController::commitPush;
             case "cmd.git_pull":
-                return this::handleGitPull;
+                return gitController::pull;
             case "cmd.git_init":
-                return this::handleGitInit;
+                return gitController::init;
             case "cmd.git_add_remote":
-                return this::handleGitAddRemote;
+                return gitController::addRemote;
             case "cmd.quick_switcher":
                 return this::showQuickSwitcher;
             case "cmd.global_search":
@@ -1292,11 +1293,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_LOCK, this::handleLockNotes);
         systemActionHandlers.put(SystemActionEvent.ActionType.QUICK_SWITCHER, this::showQuickSwitcher);
         systemActionHandlers.put(SystemActionEvent.ActionType.CLOSE_NOTE, this::handleCloseNote);
-        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_SYNC, this::handleGitSync);
-        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_COMMIT_PUSH, this::handleGitCommitPush);
-        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_PULL, this::handleGitPull);
-        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_INIT, this::handleGitInit);
-        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_ADD_REMOTE, this::handleGitAddRemote);
+        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_SYNC, gitController::sync);
+        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_COMMIT_PUSH, gitController::commitPush);
+        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_PULL, gitController::pull);
+        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_INIT, gitController::init);
+        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_ADD_REMOTE, gitController::addRemote);
     }
 
     // ------------------------------------------------------------------
@@ -1643,228 +1644,18 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     }
 
     // ------------------------------------------------------------------
-    // Git vault synchronization
+    // Git vault synchronization — logic lives in GitController; these are the
+    // FXML-bound status-bar click handlers, which simply delegate.
     // ------------------------------------------------------------------
 
-    /** Resolves the vault directory eligible for Git, or null (SQLite / no path). */
-    private java.nio.file.Path gitVaultPath() {
-        String type = prefs.get("storage_type", System.getProperty("jylos.storage", "sqlite"));
-        if (!"filesystem".equalsIgnoreCase(type)) {
-            return null;
-        }
-        String path = prefs.get("filesystem_path", "");
-        if (path.isBlank()) {
-            return null;
-        }
-        java.nio.file.Path dir = java.nio.file.Paths.get(path);
-        return java.nio.file.Files.isDirectory(dir) ? dir : null;
-    }
+    @FXML private void handleGitStatusClick(javafx.scene.input.MouseEvent event)  { gitController.sync(); }
+    @FXML private void handleGitInitClick(javafx.scene.input.MouseEvent event)    { gitController.init(); }
+    @FXML private void handleGitRemoteClick(javafx.scene.input.MouseEvent event)  { gitController.addRemote(); }
+    @FXML private void handleGitCommitClick(javafx.scene.input.MouseEvent event)  { gitController.showCommitDialog(); }
+    @FXML private void handleGitChangesClick(javafx.scene.input.MouseEvent event) { gitController.showChangesDialog(); }
+    @FXML private void handleGitHistoryClick(javafx.scene.input.MouseEvent event) { gitController.showHistoryDialog(); }
 
-    private String gitCommitMessage() {
-        return "Jylos sync " + java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-                .format(java.time.LocalDateTime.now());
-    }
-
-    /** Click on the status-bar Git indicator → synchronize. */
-    @FXML
-    private void handleGitStatusClick(javafx.scene.input.MouseEvent event) {
-        handleGitSync();
-    }
-
-    private void handleGitSync() {
-        runGitAsync(vault -> gitService.sync(vault, gitCommitMessage()), getString("status.git_syncing"));
-    }
-
-    private void handleGitCommitPush() {
-        final String message = gitCommitMessage();
-        runGitAsync(vault -> {
-            GitResult commit = gitService.commit(vault, message);
-            if (!commit.ok()) {
-                return commit;
-            }
-            return gitService.push(vault);
-        }, getString("status.git_syncing"));
-    }
-
-    private void handleGitPull() {
-        runGitAsync(gitService::pull, getString("status.git_pulling"));
-    }
-
-    private void handleGitInit() {
-        runGitAsync(gitService::init, getString("status.git_initializing"));
-    }
-
-    private void handleGitAddRemote() {
-        java.nio.file.Path vault = gitVaultPath();
-        if (vault == null) {
-            updateStatus(getString("status.git_no_vault"));
-            return;
-        }
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle(getString("dialog.git_remote.title"));
-        dialog.setHeaderText(getString("dialog.git_remote.header"));
-        dialog.setContentText(getString("dialog.git_remote.content"));
-        styleDialog(dialog);
-        dialog.showAndWait().filter(url -> !url.isBlank()).ifPresent(url ->
-                runGitAsync(v -> gitService.setRemote(v, url.trim()), getString("status.git_syncing")));
-    }
-
-    /** Runs a Git operation off the FX thread, then reports it and refreshes status. */
-    private void runGitAsync(java.util.function.Function<java.nio.file.Path, GitResult> op, String runningMessage) {
-        java.nio.file.Path vault = gitVaultPath();
-        if (vault == null) {
-            updateStatus(getString("status.git_no_vault"));
-            return;
-        }
-        updateStatus(runningMessage);
-        Task<GitResult> task = new Task<>() {
-            @Override
-            protected GitResult call() {
-                return op.apply(vault);
-            }
-        };
-        task.setOnSucceeded(e -> {
-            updateStatus(describeGitResult(task.getValue()));
-            refreshGitStatus();
-        });
-        task.setOnFailed(e -> updateStatus(getString("status.git_error")));
-        Thread thread = new Thread(task, "git-op");
-        thread.setDaemon(true);
-        thread.start();
-    }
-
-    private String describeGitResult(GitResult result) {
-        if (result == null) {
-            return getString("status.git_error");
-        }
-        String key = switch (result.status()) {
-            case OK -> "status.git_ok";
-            case NOTHING_TO_DO -> "status.git_nothing";
-            case NO_REMOTE -> "status.git_no_remote";
-            case REJECTED -> "status.git_rejected";
-            case AUTH_ERROR -> "status.git_auth";
-            case NETWORK_ERROR -> "status.git_network";
-            case CONFLICT -> "status.git_conflict";
-            case GIT_UNAVAILABLE -> "status.git_unavailable";
-            default -> "status.git_error";
-        };
-        String label = getString(key);
-        // Surface the real git detail for failures so problems are never opaque.
-        boolean failure = !result.ok() && result.status() != GitResult.Status.NO_REMOTE;
-        if (failure && result.message() != null && !result.message().isBlank()) {
-            String detail = result.message().replaceAll("\\s+", " ").trim();
-            if (detail.length() > 160) {
-                detail = detail.substring(0, 157) + "…";
-            }
-            return label + ": " + detail;
-        }
-        return label;
-    }
-
-    /** Refreshes the status-bar Git segments from the vault state (off the FX thread). */
-    private void refreshGitStatus() {
-        if (gitBar == null) {
-            return;
-        }
-        java.nio.file.Path vault = gitVaultPath();
-        if (vault == null) {
-            setStatusNodeVisible(gitBar, false);
-            setStatusNodeVisible(gitSeparator, false);
-            return;
-        }
-        Task<GitStatus> task = new Task<>() {
-            @Override
-            protected GitStatus call() {
-                return gitService.status(vault);
-            }
-        };
-        task.setOnSucceeded(e -> applyGitStatus(task.getValue()));
-        task.setOnFailed(e -> {
-            setStatusNodeVisible(gitBar, false);
-            setStatusNodeVisible(gitSeparator, false);
-        });
-        Thread thread = new Thread(task, "git-status");
-        thread.setDaemon(true);
-        thread.start();
-    }
-
-    /** Updates the five Git segments (remote · changes · commit · sync · history). */
-    private void applyGitStatus(GitStatus status) {
-        if (gitBar == null || status == null) {
-            return;
-        }
-        setStatusNodeVisible(gitBar, true);
-        setStatusNodeVisible(gitSeparator, true);
-
-        boolean repo = status.repository();
-        // When the vault is not yet a repo, only the "Initialize Git" segment shows.
-        setStatusNodeVisible(gitInitLabel, !repo);
-        setStatusNodeVisible(gitRemoteLabel, repo);
-        setStatusNodeVisible(gitChangesLabel, repo);
-        setStatusNodeVisible(gitCommitLabel, repo);
-        setStatusNodeVisible(gitSyncLabel, repo);
-        setStatusNodeVisible(gitHistoryLabel, repo);
-
-        if (!repo) {
-            gitInitLabel.setText(getString("git.initialize"));
-            gitInitLabel.setTooltip(new Tooltip(getString("git.tooltip_init")));
-            return;
-        }
-
-        gitRemoteLabel.setText(status.hasRemote() ? getString("git.remote") : getString("git.no_remote"));
-        gitRemoteLabel.setTooltip(new Tooltip(getString("git.tooltip_remote")));
-
-        gitChangesLabel.setText(java.text.MessageFormat.format(getString("git.changes"), status.modified()));
-        gitChangesLabel.setTooltip(new Tooltip(getString("git.tooltip_changes")));
-
-        gitCommitLabel.setText(getString("git.commit"));
-        gitCommitLabel.setTooltip(new Tooltip(getString("git.tooltip_commit")));
-
-        StringBuilder sync = new StringBuilder(status.branch().isBlank() ? "git" : status.branch());
-        if (status.ahead() > 0) {
-            sync.append("  ↑").append(status.ahead());
-        }
-        if (status.behind() > 0) {
-            sync.append("  ↓").append(status.behind());
-        }
-        if (!status.needsSync()) {
-            sync.append("  ✓");
-        }
-        gitSyncLabel.setText(sync.toString());
-        gitSyncLabel.setTooltip(new Tooltip(getString("git.tooltip_sync")));
-
-        gitHistoryLabel.setText(getString("git.history"));
-        gitHistoryLabel.setTooltip(new Tooltip(getString("git.tooltip_history")));
-    }
-
-    // ── Git segment click handlers ───────────────────────────────────────────
-
-    @FXML
-    private void handleGitInitClick(javafx.scene.input.MouseEvent event) {
-        handleGitInit();
-    }
-
-    @FXML
-    private void handleGitRemoteClick(javafx.scene.input.MouseEvent event) {
-        handleGitAddRemote();
-    }
-
-    @FXML
-    private void handleGitCommitClick(javafx.scene.input.MouseEvent event) {
-        showCommitDialog();
-    }
-
-    @FXML
-    private void handleGitChangesClick(javafx.scene.input.MouseEvent event) {
-        showChangesDialog();
-    }
-
-    @FXML
-    private void handleGitHistoryClick(javafx.scene.input.MouseEvent event) {
-        showHistoryDialog();
-    }
-
-    /** Applies the active theme stylesheet to a dialog so it reads correctly in dark mode. */
+    /** Applies the active theme stylesheet to a dialog and sets its owner window. */
     private void styleDialog(Dialog<?> dialog) {
         javafx.scene.Scene scene = mainSplitPane != null ? mainSplitPane.getScene() : null;
         if (scene != null) {
@@ -1873,233 +1664,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         com.example.jylos.ui.UiDialogs.apply(dialog);
     }
 
-    /** Commit dialog: write a message and commit (optionally pushing). */
-    private void showCommitDialog() {
-        if (gitVaultPath() == null) {
-            updateStatus(getString("status.git_no_vault"));
-            return;
-        }
-        Dialog<ButtonType> dialog = new Dialog<>();
-        styleDialog(dialog);
-        dialog.setTitle(getString("dialog.git_commit.title"));
-        dialog.setHeaderText(getString("dialog.git_commit.header"));
-        ButtonType commitType = new ButtonType(getString("git.commit"), ButtonBar.ButtonData.OK_DONE);
-        ButtonType commitPushType = new ButtonType(getString("git.commit_push"), ButtonBar.ButtonData.APPLY);
-        dialog.getDialogPane().getButtonTypes().addAll(commitType, commitPushType, ButtonType.CANCEL);
-
-        TextArea messageArea = new TextArea(gitCommitMessage());
-        messageArea.setPrefRowCount(3);
-        messageArea.setWrapText(true);
-        VBox box = new VBox(8, messageArea);
-        box.setPadding(new javafx.geometry.Insets(12));
-        dialog.getDialogPane().setContent(box);
-
-        dialog.showAndWait().ifPresent(choice -> {
-            String message = messageArea.getText().isBlank() ? gitCommitMessage() : messageArea.getText().trim();
-            if (choice == commitType) {
-                runGitAsync(v -> gitService.commit(v, message), getString("status.git_syncing"));
-            } else if (choice == commitPushType) {
-                runGitAsync(v -> {
-                    GitResult commit = gitService.commit(v, message);
-                    return commit.ok() ? gitService.push(v) : commit;
-                }, getString("status.git_syncing"));
-            }
-        });
-    }
-
-    /**
-     * Changes dialog (IDE-style): a "staged" section (what will be committed) on top,
-     * a separator, and a "not staged" section below with the files that won't be
-     * included. The {@code +}/{@code −} button on each row moves it between sections.
-     */
-    private void showChangesDialog() {
-        java.nio.file.Path vault = gitVaultPath();
-        if (vault == null) {
-            updateStatus(getString("status.git_no_vault"));
-            return;
-        }
-        ListView<GitChange> stagedList = new ListView<>();
-        ListView<GitChange> unstagedList = new ListView<>();
-        Label stagedHeader = new Label();
-        Label unstagedHeader = new Label();
-        stagedHeader.getStyleClass().add("git-section-header");
-        unstagedHeader.getStyleClass().add("git-section-header");
-        stagedList.setPlaceholder(new Label(getString("git.none_staged")));
-        unstagedList.setPlaceholder(new Label(getString("git.no_changes")));
-
-        Runnable reload = () -> reloadChangeSections(vault, stagedList, unstagedList, stagedHeader, unstagedHeader);
-        stagedList.setCellFactory(lv -> new GitChangeCell(vault, reload));
-        unstagedList.setCellFactory(lv -> new GitChangeCell(vault, reload));
-
-        VBox.setVgrow(stagedList, Priority.ALWAYS);
-        VBox.setVgrow(unstagedList, Priority.ALWAYS);
-        Separator separator = new Separator();
-        separator.getStyleClass().add("git-section-separator");
-
-        VBox box = new VBox(6, stagedHeader, stagedList, separator, unstagedHeader, unstagedList);
-        box.setPadding(new javafx.geometry.Insets(8));
-
-        Dialog<ButtonType> dialog = new Dialog<>();
-        styleDialog(dialog);
-        dialog.setTitle(getString("git.changes_title"));
-        ButtonType commitType = new ButtonType(getString("git.commit"), ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(commitType, ButtonType.CLOSE);
-        dialog.getDialogPane().setContent(box);
-        dialog.getDialogPane().setPrefSize(480, 560);
-
-        reload.run();
-        dialog.showAndWait().ifPresent(choice -> {
-            if (choice == commitType) {
-                showCommitDialog();
-            }
-        });
-    }
-
-    private void reloadChangeSections(java.nio.file.Path vault, ListView<GitChange> staged,
-            ListView<GitChange> unstaged, Label stagedHeader, Label unstagedHeader) {
-        Task<List<GitChange>> task = new Task<>() {
-            @Override
-            protected List<GitChange> call() {
-                return gitService.listChanges(vault);
-            }
-        };
-        task.setOnSucceeded(e -> {
-            List<GitChange> all = task.getValue();
-            List<GitChange> stagedItems = all.stream().filter(GitChange::staged).toList();
-            List<GitChange> unstagedItems = all.stream().filter(c -> !c.staged()).toList();
-            staged.getItems().setAll(stagedItems);
-            unstaged.getItems().setAll(unstagedItems);
-            stagedHeader.setText(java.text.MessageFormat.format(
-                    getString("git.section_staged"), stagedItems.size()));
-            unstagedHeader.setText(java.text.MessageFormat.format(
-                    getString("git.section_unstaged"), unstagedItems.size()));
-        });
-        Thread thread = new Thread(task, "git-changes");
-        thread.setDaemon(true);
-        thread.start();
-    }
-
-    /** History dialog: recent commits across all branches. */
-    private void showHistoryDialog() {
-        java.nio.file.Path vault = gitVaultPath();
-        if (vault == null) {
-            updateStatus(getString("status.git_no_vault"));
-            return;
-        }
-        ListView<GitCommit> list = new ListView<>();
-        list.setPrefSize(560, 460);
-        list.setPlaceholder(new Label(getString("git.no_history")));
-        list.setCellFactory(lv -> new GitCommitCell());
-
-        Dialog<Void> dialog = new Dialog<>();
-        styleDialog(dialog);
-        dialog.setTitle(getString("git.history_title"));
-        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
-        VBox box = new VBox(8, list);
-        box.setPadding(new javafx.geometry.Insets(8));
-        dialog.getDialogPane().setContent(box);
-        dialog.getDialogPane().setPrefSize(600, 520);
-
-        Task<List<GitCommit>> task = new Task<>() {
-            @Override
-            protected List<GitCommit> call() {
-                return gitService.history(vault, 200);
-            }
-        };
-        task.setOnSucceeded(e -> list.getItems().setAll(task.getValue()));
-        Thread thread = new Thread(task, "git-history");
-        thread.setDaemon(true);
-        thread.start();
-        dialog.showAndWait();
-    }
-
-    /** List cell for a changed file: title, path, +added/−deleted and a stage toggle. */
-    private final class GitChangeCell extends ListCell<GitChange> {
-        private final java.nio.file.Path vault;
-        private final Runnable onChanged;
-
-        GitChangeCell(java.nio.file.Path vault, Runnable onChanged) {
-            this.vault = vault;
-            this.onChanged = onChanged;
-        }
-
-        @Override
-        protected void updateItem(GitChange change, boolean empty) {
-            super.updateItem(change, empty);
-            if (empty || change == null) {
-                setGraphic(null);
-                return;
-            }
-            Label title = new Label(change.displayTitle());
-            title.getStyleClass().add("git-change-title");
-            Label path = new Label(change.fileName());
-            path.getStyleClass().add("git-change-path");
-            Label stats = new Label(formatChangeStats(change));
-            stats.getStyleClass().add("git-change-stats");
-            VBox texts = new VBox(2, title, path, stats);
-
-            Button stageBtn = new Button(change.staged() ? "−" : "+");
-            stageBtn.getStyleClass().add("git-stage-btn");
-            stageBtn.setTooltip(new Tooltip(getString(change.staged() ? "git.unstage" : "git.stage")));
-            stageBtn.setOnAction(e -> {
-                Task<GitResult> task = new Task<>() {
-                    @Override
-                    protected GitResult call() {
-                        return change.staged()
-                                ? gitService.unstage(vault, change.relativePath())
-                                : gitService.stage(vault, change.relativePath());
-                    }
-                };
-                task.setOnSucceeded(ev -> onChanged.run());
-                Thread t = new Thread(task, "git-stage");
-                t.setDaemon(true);
-                t.start();
-            });
-
-            Region spacer = new Region();
-            HBox.setHgrow(spacer, Priority.ALWAYS);
-            HBox row = new HBox(8, texts, spacer, stageBtn);
-            row.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
-            setGraphic(row);
-        }
-    }
-
-    private String formatChangeStats(GitChange change) {
-        StringBuilder sb = new StringBuilder(change.status());
-        if (change.added() >= 0) {
-            sb.append("   +").append(change.added());
-        }
-        if (change.deleted() > 0) {
-            sb.append(" −").append(change.deleted());
-        }
-        return sb.toString();
-    }
-
-    /** List cell for a commit: subject + hash · author · date · refs. */
-    private static final class GitCommitCell extends ListCell<GitCommit> {
-        @Override
-        protected void updateItem(GitCommit commit, boolean empty) {
-            super.updateItem(commit, empty);
-            if (empty || commit == null) {
-                setGraphic(null);
-                return;
-            }
-            Label subject = new Label(commit.message());
-            subject.getStyleClass().add("git-commit-subject");
-            subject.setWrapText(true);
-            String meta = commit.shortHash() + "  ·  " + commit.author() + "  ·  " + commit.shortDate()
-                    + (commit.refs() != null && !commit.refs().isBlank() ? "  ·  " + commit.refs() : "");
-            Label metaLabel = new Label(meta);
-            metaLabel.getStyleClass().add("git-commit-meta");
-            setGraphic(new VBox(3, subject, metaLabel));
-        }
-    }
-
     void loadNoteInEditor(Note note) {
         // A locked private note loads as a placeholder; offer to unlock and reload it.
         if (note != null && note.isPrivate() && noteService != null) {
             EncryptionService enc = EncryptionService.getInstance();
-            if (enc.isConfigured() && !enc.isUnlocked() && promptUnlock()) {
+            if (enc.isConfigured() && !enc.isUnlocked() && privacySupport.promptUnlock()) {
                 note = noteService.getNoteById(note.getId()).orElse(note);
             }
         }
@@ -2883,72 +2452,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         editorController.performReplace(this::getString, this::updateStatus);
     }
 
-    @FXML
-    /**
-     * Focus / writing mode: hides everything but the editor (sidebar, notes list,
-     * right panel, toolbar and status bar) and restores the previous layout on exit.
-     *
-     * <p>The sidebar and notes-list panes are removed from their SplitPanes (rather
-     * than just hidden) so the editor truly fills the width; the exact item lists are
-     * snapshotted and restored, which also respects panels the user had already
-     * collapsed before entering focus mode.</p>
-     */
+    /** Toggles focus / writing mode (logic + state in {@link FocusModeSupport}). */
     private void handleFocusMode() {
-        if (!focusMode) {
-            enterFocusMode();
-        } else {
-            exitFocusMode();
-        }
-    }
-
-    private void enterFocusMode() {
-        // Snapshot current chrome visibility and split contents.
-        focusSavedRightPanelVisible = rightPanel != null && rightPanel.isVisible();
-        javafx.scene.layout.HBox toolbar = toolbarController != null ? toolbarController.getToolbarHBox() : null;
-        focusSavedToolbarVisible = toolbar != null && toolbar.isVisible();
-        focusSavedStatusBarVisible = statusBar != null && statusBar.isVisible();
-        focusSavedMainItems = mainSplitPane != null ? new ArrayList<>(mainSplitPane.getItems()) : null;
-        focusSavedContentItems = contentSplitPane != null ? new ArrayList<>(contentSplitPane.getItems()) : null;
-
-        setNodeShown(toolbar, false);
-        setNodeShown(statusBar, false);
-        setNodeShown(rightPanel, false);
-        // Keep only the editor visible in the center.
-        if (mainSplitPane != null && contentSplitPane != null) {
-            mainSplitPane.getItems().setAll(contentSplitPane);
-        }
-        if (contentSplitPane != null && editorController != null
-                && editorController.getEditorContainer() != null) {
-            contentSplitPane.getItems().setAll(editorController.getEditorContainer());
-        }
-
-        focusMode = true;
-        updateStatus(getString("status.focus_on"));
-    }
-
-    private void exitFocusMode() {
-        if (mainSplitPane != null && focusSavedMainItems != null) {
-            mainSplitPane.getItems().setAll(focusSavedMainItems);
-        }
-        if (contentSplitPane != null && focusSavedContentItems != null) {
-            contentSplitPane.getItems().setAll(focusSavedContentItems);
-        }
-        // Restore divider proportions (setAll resets them) from the persisted values.
-        if (mainSplitPane != null && !mainSplitPane.getDividers().isEmpty()) {
-            mainSplitPane.setDividerPositions(
-                    prefs.getDouble(UiPreferencesStore.SPLIT_MAIN_KEY, UiPreferencesStore.DEFAULT_SPLIT_MAIN));
-        }
-        if (contentSplitPane != null && !contentSplitPane.getDividers().isEmpty()) {
-            contentSplitPane.setDividerPositions(
-                    prefs.getDouble(UiPreferencesStore.SPLIT_CONTENT_KEY, UiPreferencesStore.DEFAULT_SPLIT_CONTENT));
-        }
-        javafx.scene.layout.HBox toolbar = toolbarController != null ? toolbarController.getToolbarHBox() : null;
-        setNodeShown(toolbar, focusSavedToolbarVisible);
-        setNodeShown(statusBar, focusSavedStatusBarVisible);
-        setNodeShown(rightPanel, focusSavedRightPanelVisible);
-
-        focusMode = false;
-        updateStatus(getString("status.focus_off"));
+        focusModeSupport.toggle();
     }
 
     private static void setNodeShown(javafx.scene.Node node, boolean shown) {
@@ -3238,17 +2744,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             updateStatus(getString("status.no_note_selected"));
             return;
         }
-        EncryptionService enc = EncryptionService.getInstance();
         boolean makePrivate = !note.isPrivate();
-        if (makePrivate) {
-            if (!enc.isConfigured()) {
-                if (!setupMasterPassword()) {
-                    return;
-                }
-            } else if (!enc.isUnlocked() && !promptUnlock()) {
+        if (makePrivate && !EncryptionService.getInstance().isConfigured()) {
+            if (!privacySupport.setupMasterPassword()) {
                 return;
             }
-        } else if (enc.isConfigured() && !enc.isUnlocked() && !promptUnlock()) {
+        } else if (!privacySupport.ensureUnlocked()) {
             return;
         }
         note.setPrivate(makePrivate);
@@ -3275,62 +2776,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
         refreshNotesList();
         updateStatus(getString("status.notes_locked"));
-    }
-
-    /** Prompts for the master password and unlocks the session. */
-    private boolean promptUnlock() {
-        String pw = promptPassword(getString("dialog.unlock.title"), getString("dialog.unlock.header"));
-        if (pw == null) {
-            return false;
-        }
-        if (EncryptionService.getInstance().unlock(pw.toCharArray())) {
-            updateStatus(getString("status.unlocked"));
-            return true;
-        }
-        showSimpleError(getString("dialog.unlock.title"), getString("status.unlock_failed"));
-        return false;
-    }
-
-    /** First-time setup of the master password (entered twice). */
-    private boolean setupMasterPassword() {
-        String pw = promptPassword(getString("dialog.setup_password.title"), getString("dialog.setup_password.header"));
-        if (pw == null || pw.isEmpty()) {
-            return false;
-        }
-        String confirm = promptPassword(getString("dialog.setup_password.title"),
-                getString("dialog.setup_password.confirm"));
-        if (confirm == null) {
-            return false;
-        }
-        if (!pw.equals(confirm)) {
-            showSimpleError(getString("dialog.setup_password.title"), getString("status.password_mismatch"));
-            return false;
-        }
-        EncryptionService.getInstance().configure(pw.toCharArray());
-        updateStatus(getString("status.unlocked"));
-        return true;
-    }
-
-    private String promptPassword(String title, String header) {
-        Dialog<String> dialog = new Dialog<>();
-        dialog.setTitle(title);
-        dialog.setHeaderText(header);
-        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
-        javafx.scene.control.PasswordField field = new javafx.scene.control.PasswordField();
-        VBox box = new VBox(field);
-        box.setPadding(new javafx.geometry.Insets(16));
-        dialog.getDialogPane().setContent(box);
-        Platform.runLater(field::requestFocus);
-        dialog.setResultConverter(b -> b == ButtonType.OK ? field.getText() : null);
-        return com.example.jylos.ui.UiDialogs.show(dialog).orElse(null);
-    }
-
-    private void showSimpleError(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        com.example.jylos.ui.UiDialogs.show(alert);
     }
 
     /** Opens a note referenced from a Kanban card ({@code [[Title]]}). */

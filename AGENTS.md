@@ -47,6 +47,22 @@ Uber-JAR: `jylos/target/jylos-1.0.0-uber.jar`. Use `launch-*` scripts for JavaFX
 - Persistence via services/DAOs only
 - Commits: `feat:`, `fix:`, `chore:`, `refactor:`
 
+## UI feature pattern (keep `MainController` thin)
+
+`MainController` is the FXML shell coordinator — do **not** grow it with feature logic.
+Each self-contained feature lives in its own `ui/controller/*Controller` or `*Support`
+class that:
+
+- exposes a `wire(...)` method taking the FXML nodes it needs plus small callbacks
+  (`Function<String,String> i18n`, `Consumer<String> status`, `Supplier<Scene>`, …);
+- owns that feature's state and logic;
+- is called from thin `MainController` handlers (FXML-bound methods just delegate).
+
+Examples: `GitController` (status-bar Git + dialogs), `PrivacySupport` (master-password
+prompts for encrypted notes), `FocusModeSupport` (writing mode). New features must
+follow this — no new feature bodies inside `MainController`. Remaining extraction
+candidates: the graph/Kanban overlay toggles, editor-tabs wiring, storage switching.
+
 ## Gotchas
 
 - JavaFX preview needs `javafx.web` on module-path when not using uber-JAR launch path.
