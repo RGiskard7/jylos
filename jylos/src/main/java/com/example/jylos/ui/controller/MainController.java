@@ -146,9 +146,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     @FXML
     private javafx.scene.layout.StackPane centerStack;
 
-    /** Kanban board overlay (lazy-created, added to {@link #centerStack}). */
-    private com.example.jylos.ui.components.KanbanBoard kanbanBoard;
-
     private final FocusModeSupport focusModeSupport = new FocusModeSupport();
     @FXML
     private VBox rightPanelContent;
@@ -222,6 +219,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     private final GitController gitController = new GitController();
     private final PrivacySupport privacySupport = new PrivacySupport();
+    private final OverlaySupport overlaySupport = new OverlaySupport();
 
     private final Map<String, Menu> pluginCategoryMenus = new HashMap<>();
     private final Map<String, List<MenuItem>> pluginMenuItems = new HashMap<>();
@@ -379,15 +377,16 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                             @Override public void onClose(String noteId) { closeTab(noteId); }
                         });
             }
+            overlaySupport.wire(centerStack, graphView, graphViewController, noteService,
+                    this::isDarkThemeActive, this::getString, this::updateStatus);
             if (graphViewController != null) {
                 graphViewController.setServices(noteService, tagService);
                 graphViewController.setBundle(resources);
-                graphViewController.setOnClose(this::hideGraphView);
-                graphViewController.setOnOpenNote(this::openNoteFromGraph);
+                graphViewController.setOnClose(overlaySupport::hideGraph);
+                graphViewController.setOnOpenNote(overlaySupport::openNoteFromGraph);
                 graphViewController.setCurrentNoteIdSupplier(
                         () -> getCurrentNote() != null ? getCurrentNote().getId() : null);
             }
-            setGraphViewVisible(false);
 
             bindToolbarSearchFieldDebounced();
 
@@ -1171,7 +1170,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             case "cmd.theme_system":
                 return () -> handleSystemTheme(null);
             case "cmd.graph_view":
-                return this::handleToggleGraphView;
+                return overlaySupport::toggleGraph;
             case "cmd.git_sync":
                 return gitController::sync;
             case "cmd.git_commit_push":
@@ -1286,9 +1285,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL, () -> handleToggleRightPanel(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.NAVIGATE_BACK,    this::navigateBack);
         systemActionHandlers.put(SystemActionEvent.ActionType.NAVIGATE_FORWARD, this::navigateForward);
-        systemActionHandlers.put(SystemActionEvent.ActionType.GRAPH_VIEW, this::handleToggleGraphView);
+        systemActionHandlers.put(SystemActionEvent.ActionType.GRAPH_VIEW, overlaySupport::toggleGraph);
         systemActionHandlers.put(SystemActionEvent.ActionType.FOCUS_MODE, this::handleFocusMode);
-        systemActionHandlers.put(SystemActionEvent.ActionType.KANBAN_VIEW, this::handleToggleKanban);
+        systemActionHandlers.put(SystemActionEvent.ActionType.KANBAN_VIEW, overlaySupport::toggleKanban);
         systemActionHandlers.put(SystemActionEvent.ActionType.PRIVATE_TOGGLE, this::handleTogglePrivate);
         systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_LOCK, this::handleLockNotes);
         systemActionHandlers.put(SystemActionEvent.ActionType.QUICK_SWITCHER, this::showQuickSwitcher);
@@ -2457,13 +2456,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         focusModeSupport.toggle();
     }
 
-    private static void setNodeShown(javafx.scene.Node node, boolean shown) {
-        if (node != null) {
-            node.setVisible(shown);
-            node.setManaged(shown);
-        }
-    }
-
     void handleToggleSidebar(ActionEvent event) {
         navigationCommand.toggleSidebar(
                 isStackedLayout,
@@ -2657,80 +2649,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             editorController.refreshPreview(isDarkThemeActive());
         }
         refreshNotesGridIfActive();
-        if (graphViewController != null && graphView != null && graphView.isVisible()) {
-            graphViewController.applyTheme(isDarkThemeActive());
-        }
-    }
-
-    // ------------------------------------------------------------------
-    // Graph view
-    // ------------------------------------------------------------------
-
-    private void handleToggleGraphView() {
-        if (graphView == null || graphViewController == null) {
-            return;
-        }
-        if (graphView.isVisible()) {
-            hideGraphView();
-        } else {
-            setGraphViewVisible(true);
-            graphViewController.show(isDarkThemeActive());
-            updateStatus(getString("status.graph_opened"));
-        }
-    }
-
-    private void hideGraphView() {
-        setGraphViewVisible(false);
-        if (graphViewController != null) {
-            graphViewController.pause();
-        }
-    }
-
-    // ============================================================
-    // Kanban board overlay (F3.2)
-    // ============================================================
-
-    private void handleToggleKanban() {
-        if (centerStack == null) {
-            return;
-        }
-        ensureKanbanBoard();
-        if (kanbanBoard == null) {
-            return;
-        }
-        if (kanbanBoard.isVisible()) {
-            hideKanban();
-        } else {
-            // Hide the graph overlay if it is open (they share the center stack).
-            if (graphView != null && graphView.isVisible()) {
-                hideGraphView();
-            }
-            kanbanBoard.setDarkTheme(isDarkThemeActive());
-            kanbanBoard.reload();
-            setNodeShown(kanbanBoard, true);
-            kanbanBoard.toFront();
-            kanbanBoard.requestFocus(); // so Escape closes the board
-            updateStatus(getString("status.kanban_opened"));
-        }
-    }
-
-    private void hideKanban() {
-        if (kanbanBoard != null) {
-            setNodeShown(kanbanBoard, false);
-        }
-    }
-
-    private void ensureKanbanBoard() {
-        if (kanbanBoard != null || centerStack == null || noteService == null) {
-            return;
-        }
-        kanbanBoard = new com.example.jylos.ui.components.KanbanBoard(
-                noteService,
-                this::openNoteByTitleFromKanban,
-                this::hideKanban,
-                this::getString);
-        setNodeShown(kanbanBoard, false);
-        centerStack.getChildren().add(kanbanBoard);
+        overlaySupport.applyGraphThemeIfVisible();
     }
 
     // ============================================================
@@ -2778,34 +2697,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         updateStatus(getString("status.notes_locked"));
     }
 
-    /** Opens a note referenced from a Kanban card ({@code [[Title]]}). */
-    private void openNoteByTitleFromKanban(String title) {
-        if (title == null || title.isBlank() || noteService == null) {
-            return;
-        }
-        noteService.findNoteByTitle(title).ifPresent(note -> {
-            hideKanban();
-            eventBus.publish(new NoteEvents.NoteOpenRequestEvent(note));
-        });
-    }
-
-    private void setGraphViewVisible(boolean visible) {
-        if (graphView == null) {
-            return;
-        }
-        graphView.setVisible(visible);
-        graphView.setManaged(visible);
-    }
-
-    private void openNoteFromGraph(String noteId) {
-        if (noteId == null || noteService == null) {
-            return;
-        }
-        noteService.getNoteById(noteId).ifPresent(note -> {
-            hideGraphView();
-            eventBus.publish(new NoteEvents.NoteOpenRequestEvent(note));
-        });
-    }
 
     private String detectSystemTheme() {
         return themeCommand.detectSystemTheme();

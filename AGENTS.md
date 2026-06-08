@@ -59,9 +59,10 @@ class that:
 - is called from thin `MainController` handlers (FXML-bound methods just delegate).
 
 Examples: `GitController` (status-bar Git + dialogs), `PrivacySupport` (master-password
-prompts for encrypted notes), `FocusModeSupport` (writing mode). New features must
-follow this — no new feature bodies inside `MainController`. Remaining extraction
-candidates: the graph/Kanban overlay toggles, editor-tabs wiring, storage switching.
+prompts for encrypted notes), `FocusModeSupport` (writing mode), `OverlaySupport`
+(graph/Kanban center-stack overlays). New features must follow this — no new feature
+bodies inside `MainController`. Remaining extraction candidates: editor-tabs wiring,
+storage switching.
 
 ## Gotchas
 
