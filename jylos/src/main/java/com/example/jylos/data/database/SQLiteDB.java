@@ -45,6 +45,7 @@ public class SQLiteDB {
             + "is_pinned INTEGER NOT NULL DEFAULT 0, "
             + "is_deleted INTEGER NOT NULL DEFAULT 0, "
             + "deleted_date TEXT DEFAULT NULL, "
+            + "status TEXT DEFAULT NULL, "
             + "FOREIGN KEY (parent_id) REFERENCES folders(folder_id) "
             + "ON UPDATE CASCADE "
             + "ON DELETE SET NULL"
@@ -198,6 +199,7 @@ public class SQLiteDB {
                 boolean hasIsPinned = false;
                 boolean hasIsDeleted = false;
                 boolean hasDeletedDate = false;
+                boolean hasStatus = false;
 
                 while (rs.next()) {
                     String columnName = rs.getString("name");
@@ -209,6 +211,8 @@ public class SQLiteDB {
                         hasIsDeleted = true;
                     if ("deleted_date".equals(columnName))
                         hasDeletedDate = true;
+                    if ("status".equals(columnName))
+                        hasStatus = true;
                 }
                 rs.close();
 
@@ -230,6 +234,10 @@ public class SQLiteDB {
                 if (!hasDeletedDate) {
                     logger.info("Adding deleted_date column to notes table...");
                     stmt.executeUpdate("ALTER TABLE notes ADD COLUMN deleted_date TEXT DEFAULT NULL");
+                }
+                if (!hasStatus) {
+                    logger.info("Adding status column to notes table...");
+                    stmt.executeUpdate("ALTER TABLE notes ADD COLUMN status TEXT DEFAULT NULL");
                 }
 
                 // Check 'folders' table

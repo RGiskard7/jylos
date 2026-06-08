@@ -13,8 +13,8 @@
 
 [![Licencia: MIT](https://img.shields.io/badge/Licencia-MIT-yellow.svg)](LICENSE)
 [![Versión](https://img.shields.io/badge/versión-1.0.0-success.svg)](changelog.md)
-[![Java](https://img.shields.io/badge/Java-17+-orange.svg)](https://www.oracle.com/java/)
-[![JavaFX](https://img.shields.io/badge/JavaFX-21-blue.svg)](https://openjfx.io/)
+[![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/)
+[![JavaFX](https://img.shields.io/badge/JavaFX-23-blue.svg)](https://openjfx.io/)
 [![SQLite](https://img.shields.io/badge/SQLite-3-lightgrey.svg)](https://www.sqlite.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-red.svg)](https://maven.apache.org/)
 [![Plataforma](https://img.shields.io/badge/Plataforma-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)]()
@@ -43,7 +43,7 @@
 
 ## Resumen
 
-Jylos es una app Java 17 + JavaFX 21 inspirada en flujos tipo Obsidian:
+Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 - Escritura/edición rápida con preview Markdown en vivo (GFM, matemáticas KaTeX, emoji)
 - Jerarquía de carpetas + etiquetas + favoritos + recientes + papelera
@@ -108,7 +108,7 @@ Jylos es una app Java 17 + JavaFX 21 inspirada en flujos tipo Obsidian:
 
 ### Extensibilidad
 
-- Plugins JAR en `jylos/plugins/` (`scripts/build-plugins.sh`; bytecode **Java 17**)
+- Plugins JAR en `jylos/plugins/` (`scripts/build-plugins.sh`; bytecode **Java 21**)
 - Gestor de plugins con IDs estables y carga/deshabilitado seguro
 - **Mermaid** integrado en preview (fuente en `plugins-source/`)
 - Catálogo de temas externos con fallback seguro
@@ -136,8 +136,8 @@ Jylos es una app Java 17 + JavaFX 21 inspirada en flujos tipo Obsidian:
 
 ## Stack Tecnológico
 
-- Java 17
-- JavaFX 21
+- Java 21
+- JavaFX 23
 - Maven 3.9+
 - SQLite JDBC
 - CommonMark
@@ -146,7 +146,7 @@ Jylos es una app Java 17 + JavaFX 21 inspirada en flujos tipo Obsidian:
 
 ## Requisitos
 
-1. Java JDK 17
+1. Java JDK 21
 2. Maven 3.9+
 
 Comprobación:
@@ -256,7 +256,7 @@ mvn -f jylos/pom.xml clean test
 
 ### Empaquetado (instaladores nativos)
 
-**Requisitos:** **JDK 17+** completo (no JRE) con `jpackage` en `PATH`. Ejecutar desde la **raíz del repositorio**.
+**Requisitos:** **JDK 21+** completo (no JRE) con `jpackage` en `PATH`. Ejecutar desde la **raíz del repositorio**.
 
 Cada script `package-*` compila el uber-JAR, opcionalmente `build-plugins.sh`, y llama a `jpackage`. Clase principal: `com.example.jylos.Launcher`.
 
@@ -365,7 +365,7 @@ Paquetes en `themes/<id>/` (`theme.properties` + `theme.css`). Instalar con `./s
 
 ### Plugins
 
-- Compilar: `./scripts/build-plugins.sh` → `jylos/plugins/*.jar` (objetivo **Java 17**)
+- Compilar: `./scripts/build-plugins.sh` → `jylos/plugins/*.jar` (objetivo **Java 21**)
 - Activar/desactivar en **Herramientas → Gestionar plugins**
 
 ## Documentación

@@ -85,7 +85,7 @@ When the vault directory is inside a Git repository, `GitService` drives the sta
 
 ## Plugins
 
-Core does not reference plugin classes by name. `PluginLoader` scans `plugins/` under the app base directory. Sample plugins compile with **`--release 17`** (`scripts/build-plugins.sh`). Use `AbstractPlugin` + stable ids from `PluginIds` for palette commands.
+Core does not reference plugin classes by name. `PluginLoader` scans `plugins/` under the app base directory. Sample plugins compile with **`--release 21`** (`scripts/build-plugins.sh`). Use `AbstractPlugin` + stable ids from `PluginIds` for palette commands.
 
 ## Events
 
@@ -96,7 +96,7 @@ Keep subscriptions typed; unsubscribe on teardown; no refresh loops.
 
 ## Conventions
 
-- JDK 17, no wildcard imports.
+- JDK 21, no wildcard imports.
 - `LoggerConfig.getLogger(Class)` for logging.
 - Long I/O on background threads / `Task`; UI updates on `Platform.runLater`.
 - i18n: `com/example/jylos/i18n/messages*.properties` (EN + ES).

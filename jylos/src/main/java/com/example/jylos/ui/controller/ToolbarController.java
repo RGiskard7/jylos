@@ -220,6 +220,11 @@ public class ToolbarController {
     }
 
     @FXML
+    private void handleKanbanView(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.KANBAN_VIEW);
+    }
+
+    @FXML
     private void handleViewLayoutSwitch(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.SWITCH_LAYOUT);
     }

@@ -210,7 +210,7 @@ while IFS= read -r plugin_file; do
     
     # Compile plugin
     echo -e "${GRAY}  Compiling...${NC}"
-    "$JAVAC" --release 17 -encoding UTF-8 -cp "$CLASSPATH" -d "$TEMP_DIR" "$PLUGIN_PACKAGE_DIR/$plugin_name.java" 2>&1 | while IFS= read -r line; do
+    "$JAVAC" --release 21 -encoding UTF-8 -cp "$CLASSPATH" -d "$TEMP_DIR" "$PLUGIN_PACKAGE_DIR/$plugin_name.java" 2>&1 | while IFS= read -r line; do
         if echo "$line" | grep -q "error:"; then
             echo -e "${RED}  ERROR: $line${NC}"
         elif echo "$line" | grep -q "warning:"; then

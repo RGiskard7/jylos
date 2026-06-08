@@ -19,6 +19,13 @@ class UiPreferencesStore {
     public static final String NOTES_PREVIEW_LINES_KEY = "ui.notes.preview.lines";
     public static final String UI_FONT_SIZE_KEY = "ui.font.size";
 
+    /** Sidebar | content divider of the main SplitPane. */
+    public static final String SPLIT_MAIN_KEY = "ui.split.main";
+    /** Notes-list | editor divider of the content SplitPane. */
+    public static final String SPLIT_CONTENT_KEY = "ui.split.content";
+    public static final double DEFAULT_SPLIT_MAIN = 0.22;
+    public static final double DEFAULT_SPLIT_CONTENT = 0.25;
+
     public static final String THEME_SOURCE_BUILTIN = "builtin";
     public static final String THEME_SOURCE_EXTERNAL = "external";
 

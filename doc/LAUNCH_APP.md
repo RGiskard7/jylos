@@ -38,4 +38,4 @@ Created on first launch when writable (typically under `jylos/`):
 
 - **JavaFX runtime missing**: use `launch-jylos.*`, not plain `java -jar`.
 - **JAR not found**: run `build_all` first.
-- Confirm `java -version` and `mvn -version` (JDK 17, Maven 3.9+).
+- Confirm `java -version` and `mvn -version` (JDK 21, Maven 3.9+).

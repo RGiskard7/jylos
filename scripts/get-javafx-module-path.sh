@@ -7,8 +7,8 @@ set -e
 M2_REPO="${HOME}/.m2/repository"
 # Pick the highest 21.x present so the IDE runtime matches the built version.
 JAVAFX_VERSION=$(ls -1 "$M2_REPO/org/openjfx/javafx-controls" 2>/dev/null \
-    | grep -E '^21(\.[0-9]+)*$' | sort -V | tail -1)
-[ -z "$JAVAFX_VERSION" ] && JAVAFX_VERSION="21"
+    | grep -E '^[0-9]+(\.[0-9]+)*$' | sort -V | tail -1)
+[ -z "$JAVAFX_VERSION" ] && JAVAFX_VERSION="23"
 OS_NAME=$(uname -s)
 ARCH=$(uname -m)
 

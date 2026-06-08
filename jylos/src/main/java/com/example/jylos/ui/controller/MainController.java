@@ -146,6 +146,21 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     @FXML
     private VBox rightPanel;
     @FXML
+    private javafx.scene.layout.HBox statusBar;
+    @FXML
+    private javafx.scene.layout.StackPane centerStack;
+
+    /** Kanban board overlay (lazy-created, added to {@link #centerStack}). */
+    private com.example.jylos.ui.components.KanbanBoard kanbanBoard;
+
+    // --- Focus / writing mode state (F3.1) ---
+    private boolean focusMode = false;
+    private boolean focusSavedRightPanelVisible;
+    private boolean focusSavedToolbarVisible;
+    private boolean focusSavedStatusBarVisible;
+    private java.util.List<javafx.scene.Node> focusSavedMainItems;
+    private java.util.List<javafx.scene.Node> focusSavedContentItems;
+    @FXML
     private VBox rightPanelContent;
     @FXML
     private VBox noteInfoSection;
@@ -393,6 +408,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             applyUiPreferencesFromStore();
             initializeThemeMenu();
             installSystemThemeFocusRefresh();
+            setupSplitPanePersistence();
 
             sidebarController.loadFolders();
             sidebarController.loadTags();
@@ -521,6 +537,13 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
             ensureCommandUisInitialized(stage);
             commandUI.initializeKeyboardShortcuts(scene, this::showCommandPalette, this::showQuickSwitcher);
+
+            // Focus / writing mode: Cmd/Ctrl + Shift + F.
+            scene.getAccelerators().put(
+                    new javafx.scene.input.KeyCodeCombination(javafx.scene.input.KeyCode.F,
+                            javafx.scene.input.KeyCombination.SHORTCUT_DOWN,
+                            javafx.scene.input.KeyCombination.SHIFT_DOWN),
+                    this::handleFocusMode);
         } catch (Exception e) {
             logger.log(Level.WARNING, "Failed to initialize keyboard shortcuts", e);
         }
@@ -862,6 +885,37 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         applyEditorButtonsPresentation();
         applyUiZoom();
         Platform.runLater(this::applyThemeAndRefreshDependents);
+    }
+
+    /**
+     * Restores the sidebar and notes-list split proportions saved in a previous
+     * session, then keeps them up to date as the user drags the dividers.
+     *
+     * <p>Only the two stable dividers are persisted: {@code mainSplitPane}
+     * (sidebar | content) and {@code contentSplitPane} (notes list | editor). The
+     * editor/preview divider is intentionally left to the view-mode logic, which
+     * resets it to 50/50 when entering split view.</p>
+     *
+     * <p>Restoration runs in {@code Platform.runLater} because a SplitPane only
+     * creates its dividers after its first layout pass.</p>
+     */
+    private void setupSplitPanePersistence() {
+        Platform.runLater(() -> {
+            persistDivider(mainSplitPane, UiPreferencesStore.SPLIT_MAIN_KEY,
+                    UiPreferencesStore.DEFAULT_SPLIT_MAIN);
+            persistDivider(contentSplitPane, UiPreferencesStore.SPLIT_CONTENT_KEY,
+                    UiPreferencesStore.DEFAULT_SPLIT_CONTENT);
+        });
+    }
+
+    private void persistDivider(SplitPane splitPane, String key, double defaultPos) {
+        if (splitPane == null || splitPane.getDividers().isEmpty()) {
+            return;
+        }
+        double saved = prefs.getDouble(key, defaultPos);
+        splitPane.setDividerPositions(saved);
+        splitPane.getDividers().get(0).positionProperty().addListener(
+                (obs, oldV, newV) -> prefs.putDouble(key, newV.doubleValue()));
     }
 
     private void bindToolbarSearchFieldDebounced() {
@@ -1231,6 +1285,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         systemActionHandlers.put(SystemActionEvent.ActionType.NAVIGATE_BACK,    this::navigateBack);
         systemActionHandlers.put(SystemActionEvent.ActionType.NAVIGATE_FORWARD, this::navigateForward);
         systemActionHandlers.put(SystemActionEvent.ActionType.GRAPH_VIEW, this::handleToggleGraphView);
+        systemActionHandlers.put(SystemActionEvent.ActionType.FOCUS_MODE, this::handleFocusMode);
+        systemActionHandlers.put(SystemActionEvent.ActionType.KANBAN_VIEW, this::handleToggleKanban);
         systemActionHandlers.put(SystemActionEvent.ActionType.QUICK_SWITCHER, this::showQuickSwitcher);
         systemActionHandlers.put(SystemActionEvent.ActionType.CLOSE_NOTE, this::handleCloseNote);
         systemActionHandlers.put(SystemActionEvent.ActionType.GIT_SYNC, this::handleGitSync);
@@ -2818,6 +2874,80 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     }
 
     @FXML
+    /**
+     * Focus / writing mode: hides everything but the editor (sidebar, notes list,
+     * right panel, toolbar and status bar) and restores the previous layout on exit.
+     *
+     * <p>The sidebar and notes-list panes are removed from their SplitPanes (rather
+     * than just hidden) so the editor truly fills the width; the exact item lists are
+     * snapshotted and restored, which also respects panels the user had already
+     * collapsed before entering focus mode.</p>
+     */
+    private void handleFocusMode() {
+        if (!focusMode) {
+            enterFocusMode();
+        } else {
+            exitFocusMode();
+        }
+    }
+
+    private void enterFocusMode() {
+        // Snapshot current chrome visibility and split contents.
+        focusSavedRightPanelVisible = rightPanel != null && rightPanel.isVisible();
+        javafx.scene.layout.HBox toolbar = toolbarController != null ? toolbarController.getToolbarHBox() : null;
+        focusSavedToolbarVisible = toolbar != null && toolbar.isVisible();
+        focusSavedStatusBarVisible = statusBar != null && statusBar.isVisible();
+        focusSavedMainItems = mainSplitPane != null ? new ArrayList<>(mainSplitPane.getItems()) : null;
+        focusSavedContentItems = contentSplitPane != null ? new ArrayList<>(contentSplitPane.getItems()) : null;
+
+        setNodeShown(toolbar, false);
+        setNodeShown(statusBar, false);
+        setNodeShown(rightPanel, false);
+        // Keep only the editor visible in the center.
+        if (mainSplitPane != null && contentSplitPane != null) {
+            mainSplitPane.getItems().setAll(contentSplitPane);
+        }
+        if (contentSplitPane != null && editorController != null
+                && editorController.getEditorContainer() != null) {
+            contentSplitPane.getItems().setAll(editorController.getEditorContainer());
+        }
+
+        focusMode = true;
+        updateStatus(getString("status.focus_on"));
+    }
+
+    private void exitFocusMode() {
+        if (mainSplitPane != null && focusSavedMainItems != null) {
+            mainSplitPane.getItems().setAll(focusSavedMainItems);
+        }
+        if (contentSplitPane != null && focusSavedContentItems != null) {
+            contentSplitPane.getItems().setAll(focusSavedContentItems);
+        }
+        // Restore divider proportions (setAll resets them) from the persisted values.
+        if (mainSplitPane != null && !mainSplitPane.getDividers().isEmpty()) {
+            mainSplitPane.setDividerPositions(
+                    prefs.getDouble(UiPreferencesStore.SPLIT_MAIN_KEY, UiPreferencesStore.DEFAULT_SPLIT_MAIN));
+        }
+        if (contentSplitPane != null && !contentSplitPane.getDividers().isEmpty()) {
+            contentSplitPane.setDividerPositions(
+                    prefs.getDouble(UiPreferencesStore.SPLIT_CONTENT_KEY, UiPreferencesStore.DEFAULT_SPLIT_CONTENT));
+        }
+        javafx.scene.layout.HBox toolbar = toolbarController != null ? toolbarController.getToolbarHBox() : null;
+        setNodeShown(toolbar, focusSavedToolbarVisible);
+        setNodeShown(statusBar, focusSavedStatusBarVisible);
+        setNodeShown(rightPanel, focusSavedRightPanelVisible);
+
+        focusMode = false;
+        updateStatus(getString("status.focus_off"));
+    }
+
+    private static void setNodeShown(javafx.scene.Node node, boolean shown) {
+        if (node != null) {
+            node.setVisible(shown);
+            node.setManaged(shown);
+        }
+    }
+
     void handleToggleSidebar(ActionEvent event) {
         navigationCommand.toggleSidebar(
                 isStackedLayout,
@@ -3038,6 +3168,64 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (graphViewController != null) {
             graphViewController.pause();
         }
+    }
+
+    // ============================================================
+    // Kanban board overlay (F3.2)
+    // ============================================================
+
+    private void handleToggleKanban() {
+        if (centerStack == null) {
+            return;
+        }
+        ensureKanbanBoard();
+        if (kanbanBoard == null) {
+            return;
+        }
+        if (kanbanBoard.isVisible()) {
+            hideKanban();
+        } else {
+            // Hide the graph overlay if it is open (they share the center stack).
+            if (graphView != null && graphView.isVisible()) {
+                hideGraphView();
+            }
+            kanbanBoard.setDarkTheme(isDarkThemeActive());
+            kanbanBoard.reload();
+            setNodeShown(kanbanBoard, true);
+            kanbanBoard.toFront();
+            kanbanBoard.requestFocus(); // so Escape closes the board
+            updateStatus(getString("status.kanban_opened"));
+        }
+    }
+
+    private void hideKanban() {
+        if (kanbanBoard != null) {
+            setNodeShown(kanbanBoard, false);
+        }
+    }
+
+    private void ensureKanbanBoard() {
+        if (kanbanBoard != null || centerStack == null || noteService == null) {
+            return;
+        }
+        kanbanBoard = new com.example.jylos.ui.components.KanbanBoard(
+                noteService,
+                this::openNoteByTitleFromKanban,
+                this::hideKanban,
+                this::getString);
+        setNodeShown(kanbanBoard, false);
+        centerStack.getChildren().add(kanbanBoard);
+    }
+
+    /** Opens a note referenced from a Kanban card ({@code [[Title]]}). */
+    private void openNoteByTitleFromKanban(String title) {
+        if (title == null || title.isBlank() || noteService == null) {
+            return;
+        }
+        noteService.findNoteByTitle(title).ifPresent(note -> {
+            hideKanban();
+            eventBus.publish(new NoteEvents.NoteOpenRequestEvent(note));
+        });
     }
 
     private void setGraphViewVisible(boolean visible) {

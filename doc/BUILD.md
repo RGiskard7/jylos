@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- JDK 17
+- JDK 21
 - Maven 3.9+
 
 ## Build
@@ -78,5 +78,5 @@ Optional integration smoke (storage backends):
 |-------|--------|
 | `JAR not found` | Run `build_all` first |
 | JavaFX runtime missing | Use `launch-jylos.*` |
-| `java` / `mvn` not found | Install JDK 17 and Maven 3.9+ |
+| `java` / `mvn` not found | Install JDK 21 and Maven 3.9+ |
 | JavaFX parent POM warnings | Safe to ignore during `mvn package` |

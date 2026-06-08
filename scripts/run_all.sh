@@ -51,7 +51,7 @@ if [ -f "$JAR" ]; then
         # Find JavaFX version — pick the HIGHEST 21.x present (a plain glob stops at
         # "21", which would pin an older runtime than the app was built against).
         JAVAFX_VERSION=$(ls -1 "$M2_REPO/org/openjfx/javafx-controls" 2>/dev/null \
-            | grep -E '^21(\.[0-9]+)*$' | sort -V | tail -1)
+            | grep -E '^[0-9]+(\.[0-9]+)*$' | sort -V | tail -1)
         
         if [ -n "$JAVAFX_VERSION" ]; then
             echo "JavaFX version: $JAVAFX_VERSION"

@@ -233,7 +233,7 @@ foreach ($pluginFile in $PluginFiles) {
     # Temporarily ignore warnings (they're not fatal)
     $oldErrorAction = $ErrorActionPreference
     $ErrorActionPreference = "SilentlyContinue"
-    $compileOutput = & $Javac --release 17 -encoding UTF-8 -cp $ClassPath -d $TempDir $SourcePaths 2>&1
+    $compileOutput = & $Javac --release 21 -encoding UTF-8 -cp $ClassPath -d $TempDir $SourcePaths 2>&1
     $ErrorActionPreference = $oldErrorAction
     
     $hasErrors = $false

@@ -1,6 +1,6 @@
 # Packaging
 
-Native installers use **jpackage** (JDK 17+, full SDK). Run scripts from the **repository root**; they `cd` into `jylos/` for the Maven build.
+Native installers use **jpackage** (JDK 21+, full SDK). Run scripts from the **repository root**; they `cd` into `jylos/` for the Maven build.
 
 ## Uber JAR (required for launchers and jpackage)
 
@@ -45,5 +45,5 @@ Update **`app-icon.png`** before dev runs; update **`icon.*`** before native pac
 2. Create, edit, and delete a note (SQLite mode).
 3. Open **Graph View** (`Ctrl+G`) and click a node to open a note.
 4. Repeat key flows in filesystem vault mode if you ship that configuration (optional Git bar).
-5. Plugin manager lists JARs in `plugins/` when present (plugins must be Java 17 bytecode).
+5. Plugin manager lists JARs in `plugins/` when present (plugins must be Java 21 bytecode).
 6. Built-in and external themes apply without errors.

@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### Chore: línea base Java 21 + JavaFX 23; Kanban de columnas fijas (2026-06-07)
+
+- **JavaFX 21 → 23.0.2 y Java 17 → 21.** El crash nativo de CoreText en macOS persistía en JavaFX 21; se sube a JavaFX 23 (que trae correcciones del subsistema de fuentes). Como JavaFX 23 es bytecode Java 21, el proyecto pasa a compilar/ejecutar con **JDK 21** (núcleo `pom.xml` source/target 21; plugins `--release 21`; launchers detectan la versión de JavaFX más alta, no solo 21.x). Badges/docs/i18n actualizados a Java 21 / JavaFX 23. **Requiere JDK 21 para compilar y ejecutar.**
+- **Kanban — modelo Obsidian/Trello (rediseño):** un **tablero es una nota** cuyo cuerpo es Markdown (`## columna`, `- tarjeta`), identificada por un marcador oculto `%% jylos-kanban %%` (sin cambios de esquema; funciona en SQLite y bóveda). La vista tiene **selector de tableros** + «Nuevo tablero»; permite **añadir/renombrar/borrar columnas**, **crear/editar/borrar tarjetas de texto**, **arrastrarlas entre columnas**, y por tarjeta: abrir nota enlazada (`[[Título]]`) o **convertir en nota**. Parse/serialize en `util/KanbanModel` (tests `KanbanModelTest`). Toolbar idéntica a la del grafo (mismas clases y padding). Fondo oscuro corregido.
+  - El anterior modelo «agrupar todas las notas por `status`» se retira. La columna `status` añadida antes queda **sin uso** (nullable, inofensiva; se puede retirar en una migración futura).
+
+### Feat: Fase 3 UI/UX — focus, Kanban, split persistente, tema claro (2026-06-07)
+
+- **Vista Kanban (F3.2):** nuevo `ui/components/KanbanBoard` como overlay (menú Ver → Tablero Kanban, `Cmd/Ctrl+Shift+K`). Columnas por la propiedad `status` (todo/doing/done + las que existan + «sin estado»); arrastrar una tarjeta entre columnas cambia su `status` y persiste; clic abre la nota. Barra de herramientas tipo grafo con **botón de cierre** (y **Escape**), **scroll horizontal** cuando hay muchas columnas, y **botón «+ Nueva tarjeta»** por columna que crea una nota con ese estado.
+  - **Persistencia de `status` (ambos modos):** nuevo campo `Note.status`, columna `status` en SQLite (migración idempotente `ALTER TABLE` en `SQLiteDB.initDatabase`) y clave `status:` en el frontmatter de la bóveda. Tests `NoteStatusPersistenceTest`.
+- **Modo concentración (F3.1):** `Cmd/Ctrl+Shift+F` oculta sidebar, lista, panel derecho, toolbar y barra de estado dejando solo el editor; restaura el layout previo (respeta paneles ya colapsados). Nueva acción `FOCUS_MODE`.
+- **Split panes persistentes (F3.4):** se recuerdan y restauran las proporciones del divisor sidebar|contenido y lista|editor entre sesiones (`UiPreferencesStore`). El divisor editor/preview lo sigue gobernando el modo de vista (50/50).
+- **Tema claro mejorado (F3.5):** texto atenuado/tenue ahora cumple contraste WCAG AA, y sidebar/cabecera/bordes mejor diferenciados.
+- **Drag & drop notas→carpeta (F3.3):** verificado que ya funcionaba desde lista y cuadrícula hacia el árbol de carpetas; sin cambios.
+
+### Fix: crash de cuadrícula (CoreText) y codificación de «Acerca de» (2026-06-07)
+
+- **Crash de JavaFX en macOS** al renderizar glifos en la cuadrícula (`CTFontCopyTable`, pre-existente): se sube **JavaFX 21 → 21.0.7** y se corrige la detección de versión en los launchers (`launch-jylos.sh`, `run_all.sh`, `get-javafx-module-path.sh`, `launch-jylos.bat`) para usar el módulo más reciente en runtime (antes fijaban 21.0.0).
+- **«Acerca de» con acentos rotos:** `AppConfig` leía `app.properties` (UTF-8) como ISO-8859-1; ahora se lee con `InputStreamReader` UTF-8 → «Copyright © 2026 Eduardo Díaz Sánchez» correcto.
+
 ### Feat: editor con resaltado de sintaxis Markdown (RichTextFX) (2026-06-06)
 
 - El editor pasa de `TextArea` a **`CodeArea` de RichTextFX** (`org.fxmisc.richtext:richtextfx:0.11.5`, empaquetado en el uber-jar). Resaltado **completo** en el propio editor: encabezados, **negrita**/*cursiva*, `código` inline y en bloque, `[[wiki-links]]`, enlaces `[texto](url)`, listas, citas y tachado. Computado por `util/MarkdownHighlighter` y aplicado con debounce (200 ms) para no recalcular en cada tecla.

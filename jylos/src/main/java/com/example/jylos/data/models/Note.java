@@ -35,6 +35,14 @@ public class Note extends LeafModel implements Serializable {
 	private String deletedDate = null;
 
 	/**
+	 * Optional workflow status (e.g. {@code todo}/{@code doing}/{@code done}) used by
+	 * the Kanban board. A first-class field so it persists in both SQLite (dedicated
+	 * column) and the filesystem vault ({@code status:} frontmatter). {@code null} or
+	 * blank means "no status".
+	 */
+	private String status = null;
+
+	/**
 	 * Arbitrary YAML frontmatter properties not covered by the fixed Note schema.
 	 * Preserved in insertion order (LinkedHashMap) to produce stable YAML output.
 	 * Examples: {@code aliases}, {@code date}, {@code priority}, user-defined fields.
@@ -207,6 +215,15 @@ public class Note extends LeafModel implements Serializable {
 
 	public void setDeletedDate(String deletedDate) {
 		this.deletedDate = deletedDate;
+	}
+
+	/** Workflow status for the Kanban board ({@code null}/blank = no status). */
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
 	}
 
 	/** Returns a live, mutable view of the custom YAML properties. */

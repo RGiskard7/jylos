@@ -65,9 +65,9 @@ if (-not (Test-Path $JAVAFX_BASE)) {
 $JAVAFX_VERSION = $null
 $controlsPath = Join-Path $JAVAFX_BASE "javafx-controls"
 if (Test-Path $controlsPath) {
-    $versionDirs = Get-ChildItem -Path $controlsPath -Directory -ErrorAction SilentlyContinue | 
-        Where-Object { $_.Name -match '^21' } | 
-        Sort-Object Name -Descending
+    $versionDirs = Get-ChildItem -Path $controlsPath -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match '^[0-9]' } |
+        Sort-Object { [version]($_.Name) } -Descending
     if ($versionDirs) {
         $JAVAFX_VERSION = $versionDirs[0].Name
     }

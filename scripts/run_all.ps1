@@ -26,9 +26,9 @@ if (Test-Path $jar) {
         
         foreach ($moduleName in $modulesToFind) {
             # Find version directories (e.g., 21, 21.0.0, etc.)
-            $versionDirs = Get-ChildItem -Path "$m2Repo\org\openjfx\$moduleName" -Directory -ErrorAction SilentlyContinue | 
-                Where-Object { $_.Name -match '^21' } | 
-                Sort-Object Name -Descending
+            $versionDirs = Get-ChildItem -Path "$m2Repo\org\openjfx\$moduleName" -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match '^[0-9]' } |
+                Sort-Object { [version]($_.Name) } -Descending
             
             if ($versionDirs) {
                 # Take the first matching version directory

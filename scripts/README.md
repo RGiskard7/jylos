@@ -15,7 +15,7 @@ All paths are relative to the **repository root** unless noted.
 
 | Script | Purpose |
 |--------|---------|
-| `build-plugins.sh` / `.ps1` | Compile `plugins-source/` → `jylos/plugins/*.jar` (Java 17 bytecode) |
+| `build-plugins.sh` / `.ps1` | Compile `plugins-source/` → `jylos/plugins/*.jar` (Java 21 bytecode) |
 | `build-themes.sh` / `.ps1` | Install `themes/*` → `jylos/themes/` (optional `--appdata`) |
 
 ## Quality (optional)

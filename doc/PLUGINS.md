@@ -18,7 +18,7 @@ From repository root:
 .\scripts\build-plugins.ps1
 ```
 
-Compiles sources under `plugins-source/` with **`javac --release 17`** and writes JARs to **`jylos/plugins/`** (created if missing). JARs built for Java 21+ will not load (`UnsupportedClassVersionError`).
+Compiles sources under `plugins-source/` with **`javac --release 21`** and writes JARs to **`jylos/plugins/`** (created if missing). JARs built for Java 21+ will not load (`UnsupportedClassVersionError`).
 
 ## Authoring
 

@@ -17,20 +17,22 @@
     -fx-font-size: 13px;
     font-size: 13px;
 
-    /* Global Variables - Light Theme */
+    /* Global Variables - Light Theme
+       Contrast tuned for WCAG AA: muted/faint text now meet 4.5:1 on the base
+       background, and the sidebar/borders are more clearly differentiated. */
     -fx-base-bg: #fafafa;
-    -fx-sidebar-bg: #f5f5f5;
-    -fx-header-bg: #f0f0f0;
+    -fx-sidebar-bg: #eef0f2;
+    -fx-header-bg: #e8eaed;
     -fx-accent: #7c3aed;
     -fx-accent-hover: #6d28d9;
     -fx-accent-contrast: #ffffff;
 
-    -fx-text-main: #222222;
-    -fx-text-muted: #616161;
-    -fx-text-faint: #8a8a8a;
-    -fx-fn-border-color: #d4d4d4;
+    -fx-text-main: #1f2024;
+    -fx-text-muted: #4a4d52;
+    -fx-text-faint: #6b6e74;
+    -fx-fn-border-color: #c6c9ce;
 
-    -fx-hover-bg: #ebebeb;
+    -fx-hover-bg: #e2e5e9;
     -fx-hover-text: #111111;
 
     -fx-selected-bg: #7c3aed;
@@ -88,6 +90,7 @@
     -fx-icon-color: -fx-danger;
     -fx-fill: -fx-danger;
     fill: -fx-danger;
+    -fx-icon-size: 16;
 }
 
 /* ========================================
@@ -1040,6 +1043,129 @@
 }
 .editor-tab-close:hover {
     -fx-text-fill: -fx-danger;
+}
+
+/* ── Kanban board overlay ─────────────────────────────────────────────── */
+.kanban-board {
+    -fx-background-color: -fx-base-bg;
+    -fx-padding: 0;
+}
+.kanban-header {
+    -fx-background-color: -fx-header-bg;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 10 16 10 16;
+    -fx-spacing: 10;
+}
+.kanban-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: 700;
+    -fx-text-fill: -fx-text-main;
+}
+.kanban-close {
+    -fx-font-size: 15px;
+    -fx-text-fill: -fx-text-muted;
+    -fx-cursor: hand;
+    -fx-padding: 0 6 0 6;
+}
+.kanban-close:hover { -fx-text-fill: -fx-danger; }
+.kanban-scroll {
+    -fx-background-color: -fx-base-bg;
+    -fx-background: -fx-base-bg;
+}
+.kanban-scroll > .viewport { -fx-background-color: -fx-base-bg; }
+.kanban-lanes {
+    -fx-padding: 12;
+    -fx-spacing: 12;
+    -fx-background-color: -fx-base-bg;
+}
+.kanban-lane {
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-background-radius: 8;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-radius: 8;
+    -fx-padding: 8;
+    -fx-spacing: 8;
+    -fx-min-width: 240;
+    -fx-pref-width: 280;
+}
+.kanban-lane-drop {
+    -fx-border-color: -fx-accent;
+    -fx-background-color: derive(-fx-accent, 80%);
+}
+.kanban-lane-header {
+    -fx-font-size: 13px;
+    -fx-font-weight: 700;
+    -fx-text-fill: -fx-text-muted;
+    -fx-padding: 2 4 6 4;
+}
+.kanban-lane-count {
+    -fx-font-size: 12px;
+    -fx-font-weight: 700;
+    -fx-text-fill: -fx-accent-contrast;
+    -fx-background-color: -fx-accent;
+    -fx-background-radius: 10;
+    -fx-padding: 1 8 1 8;
+}
+.kanban-add-card {
+    -fx-background-color: transparent;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-radius: 6;
+    -fx-text-fill: -fx-text-muted;
+    -fx-font-size: 12px;
+    -fx-cursor: hand;
+}
+.kanban-add-card:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-text-main;
+}
+.kanban-board-selector {
+    -fx-background-color: -fx-hover-bg;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-min-width: 160;
+}
+.kanban-icon-btn {
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-padding: 2 4 2 4;
+}
+.kanban-icon-btn:hover { -fx-background-color: -fx-hover-bg; -fx-background-radius: 6; }
+.kanban-card-link .kanban-card-title,
+.kanban-card-link {
+    -fx-text-fill: -fx-accent;
+}
+.kanban-lane-add {
+    -fx-padding: 8;
+    -fx-min-width: 200;
+    -fx-pref-width: 220;
+}
+.kanban-lane-scroll {
+    -fx-background-color: transparent;
+}
+.kanban-lane-scroll > .viewport { -fx-background-color: transparent; }
+.kanban-cards { -fx-spacing: 8; }
+.kanban-card {
+    -fx-background-color: -fx-base-bg;
+    -fx-background-radius: 6;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-radius: 6;
+    -fx-padding: 10;
+    -fx-spacing: 4;
+    -fx-cursor: hand;
+}
+.kanban-card:hover {
+    -fx-border-color: -fx-accent;
+}
+.kanban-card-title {
+    -fx-font-size: 13px;
+    -fx-font-weight: 600;
+    -fx-text-fill: -fx-text-main;
+}
+.kanban-card-preview {
+    -fx-font-size: 11px;
+    -fx-text-fill: -fx-text-faint;
 }
 
 .title-field {

@@ -115,7 +115,7 @@ fi
 JAVAFX_VERSION=""
 if [ -d "$JAVAFX_BASE/javafx-controls" ]; then
     JAVAFX_VERSION=$(ls -1 "$JAVAFX_BASE/javafx-controls" 2>/dev/null \
-        | grep -E '^21(\.[0-9]+)*$' | sort -V | tail -1)
+        | grep -E '^[0-9]+(\.[0-9]+)*$' | sort -V | tail -1)
 fi
 
 if [ -z "$JAVAFX_VERSION" ]; then

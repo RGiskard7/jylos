@@ -5,7 +5,7 @@ Guide for contributors and automated agents. Human overview: [README.md](README.
 ## Project
 
 - Desktop notes app: folders, tags, trash, Markdown preview.
-- Stack: Java 17, JavaFX 21 (including `javafx.web`), Maven, SQLite or filesystem Markdown vault.
+- Stack: Java 21, JavaFX 23 (including `javafx.web`), Maven, SQLite or filesystem Markdown vault.
 - Offline, single-user, no REST backend.
 
 ## Commands
@@ -41,7 +41,7 @@ Uber-JAR: `jylos/target/jylos-1.0.0-uber.jar`. Use `launch-*` scripts for JavaFX
 
 ## Code rules
 
-- JDK 17, package `com.example.jylos.*`
+- JDK 21, package `com.example.jylos.*`
 - No wildcard imports
 - `LoggerConfig.getLogger(Class)` — no `System.out` for app logs
 - Persistence via services/DAOs only

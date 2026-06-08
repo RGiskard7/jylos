@@ -13,8 +13,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-1.0.0-success.svg)](changelog.md)
-[![Java](https://img.shields.io/badge/Java-17+-orange.svg)](https://www.oracle.com/java/)
-[![JavaFX](https://img.shields.io/badge/JavaFX-21-blue.svg)](https://openjfx.io/)
+[![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/)
+[![JavaFX](https://img.shields.io/badge/JavaFX-23-blue.svg)](https://openjfx.io/)
 [![SQLite](https://img.shields.io/badge/SQLite-3-lightgrey.svg)](https://www.sqlite.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-red.svg)](https://maven.apache.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)]()
@@ -43,7 +43,7 @@
 
 ## Overview
 
-Jylos is a Java 17 + JavaFX 21 desktop application inspired by Obsidian-like workflows:
+Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like workflows:
 
 - Fast note writing/editing with live Markdown preview (GFM, KaTeX math, emoji)
 - Folder hierarchy + tags + favorites + recent + trash
@@ -108,7 +108,7 @@ Jylos is a Java 17 + JavaFX 21 desktop application inspired by Obsidian-like wor
 
 ### Extensibility
 
-- External plugin JARs loaded from `jylos/plugins/` (see `scripts/build-plugins.sh`; bytecode **Java 17**)
+- External plugin JARs loaded from `jylos/plugins/` (see `scripts/build-plugins.sh`; bytecode **Java 21**)
 - Plugin manager UI with stable command IDs and safe load/disable lifecycle
 - Built-in **Mermaid** diagram support in preview (plugin source under `plugins-source/`)
 - Theme catalog with external theme discovery and safe fallback
@@ -135,8 +135,8 @@ Jylos is a Java 17 + JavaFX 21 desktop application inspired by Obsidian-like wor
 
 ## Technology Stack
 
-- Java 17
-- JavaFX 21
+- Java 21
+- JavaFX 23
 - Maven 3.9+
 - SQLite JDBC
 - CommonMark
@@ -145,7 +145,7 @@ Jylos is a Java 17 + JavaFX 21 desktop application inspired by Obsidian-like wor
 
 ## Prerequisites
 
-1. Java JDK 17
+1. Java JDK 21
 2. Maven 3.9+
 
 Check installation:
@@ -255,7 +255,7 @@ mvn -f jylos/pom.xml clean test
 
 ### Packaging (native installers)
 
-**Requirements:** full **JDK 17+** (not JRE) with `jpackage` on `PATH`. Run from the **repository root**.
+**Requirements:** full **JDK 21+** (not JRE) with `jpackage` on `PATH`. Run from the **repository root**.
 
 Each `package-*` script builds the uber-JAR, optionally runs `build-plugins.sh`, then invokes `jpackage`. Main class: `com.example.jylos.Launcher`.
 
@@ -364,7 +364,7 @@ Source packs live in `themes/<id>/` (`theme.properties` + `theme.css`). Install 
 
 ### Plugins
 
-- Build: `./scripts/build-plugins.sh` → `jylos/plugins/*.jar` (compile target **Java 17**)
+- Build: `./scripts/build-plugins.sh` → `jylos/plugins/*.jar` (compile target **Java 21**)
 - Enable/disable in **Tools → Manage plugins**
 
 ## Documentation
