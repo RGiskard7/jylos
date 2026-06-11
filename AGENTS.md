@@ -60,9 +60,11 @@ class that:
 
 Examples: `GitController` (status-bar Git + dialogs), `PrivacySupport` (master-password
 prompts for encrypted notes), `FocusModeSupport` (writing mode), `OverlaySupport`
-(graph/Kanban center-stack overlays). New features must follow this — no new feature
-bodies inside `MainController`. Remaining extraction candidates: editor-tabs wiring,
-storage switching.
+(graph/Kanban center-stack overlays), `StatusBarSupport` (word/char counts + storage
+label), `BacklinksSupport` (right-panel backlinks). New features must follow this — no
+new feature bodies inside `MainController`. What remains in `MainController` is its
+legitimate coordinator core (note open/save/close/tabs/navigation flow); do not
+fragment that across helpers just to shrink line count.
 
 ## Gotchas
 

@@ -4,12 +4,14 @@
 
 ### Refactor: adelgazar MainController (patrón "feature support") (2026-06-08)
 
-- **`MainController` 3558 → 2894 líneas (−664)** extrayendo responsabilidades a clases dedicadas con `wire(...)` + callbacks (`i18n`, `status`, `scene`). Patrón documentado en `AGENTS.md`; los handlers FXML quedan como delegadores finos.
+- **`MainController` 3558 → 2822 líneas (−736, −21%)** extrayendo responsabilidades a clases dedicadas con `wire(...)` + callbacks (`i18n`, `status`, `scene`). Patrón documentado en `AGENTS.md`; los handlers FXML quedan como delegadores finos.
   - **`GitController`** — barra de estado Git + operaciones + diálogos (commit/cambios/historial). ~450 líneas fuera de MainController.
   - **`PrivacySupport`** — prompts de contraseña maestra (setup/unlock) y errores de las notas cifradas.
   - **`FocusModeSupport`** — modo concentración (estado + entrar/salir).
   - **`OverlaySupport`** — overlays de `centerStack` (grafo + Kanban): toggle/show/hide mutuamente excluyentes; posee el `KanbanBoard` lazy.
-- Sin cambios funcionales; suite 149/149. Candidatos pendientes: wiring de pestañas, cambio de almacenamiento.
+  - **`StatusBarSupport`** — contadores palabras/caracteres + indicador de almacenamiento.
+  - **`BacklinksSupport`** — sección de backlinks del panel derecho (cálculo off-thread + render).
+- Sin cambios funcionales; suite 149/149. Lo que queda en MainController es su núcleo legítimo de coordinación (flujo de nota: abrir/guardar/cerrar/pestañas/navegación) — extraerlo fragmentaría lógica cohesiva.
 ### Feat: Fase 4 — notas privadas cifradas (AES-256 con contraseña maestra) (2026-06-08)
 
 - **Cifrado por nota** (no la bóveda entera, no solo SQLite). Marcas una nota como **privada** (`Tools → Hacer Nota Privada/Pública`, `Cmd/Ctrl+Shift+L`) y **solo su cuerpo** se cifra en reposo; las notas normales quedan en claro.

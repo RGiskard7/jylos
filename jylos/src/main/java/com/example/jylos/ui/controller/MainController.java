@@ -67,12 +67,8 @@ import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.TreeItem;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.control.Dialog;
-import javafx.scene.control.ListCell;
-import javafx.scene.control.TextArea;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Duration;
@@ -220,6 +216,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private final GitController gitController = new GitController();
     private final PrivacySupport privacySupport = new PrivacySupport();
     private final OverlaySupport overlaySupport = new OverlaySupport();
+    private final StatusBarSupport statusBarSupport = new StatusBarSupport();
+    private final BacklinksSupport backlinksSupport = new BacklinksSupport();
 
     private final Map<String, Menu> pluginCategoryMenus = new HashMap<>();
     private final Map<String, List<MenuItem>> pluginMenuItems = new HashMap<>();
@@ -410,6 +408,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
             Platform.runLater(this::initializePluginSystem);
 
+            statusBarSupport.wire(storageLabel, wordCountLabel, charCountLabel, statsSeparator,
+                    wordCharSeparator, prefs, this::getString);
             updateStorageLabel();
             java.util.function.Supplier<javafx.scene.Scene> sceneSupplier =
                     () -> mainSplitPane != null ? mainSplitPane.getScene() : null;
@@ -417,6 +417,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                     gitCommitLabel, gitSyncLabel, gitHistoryLabel, prefs, this::getString, this::updateStatus,
                     sceneSupplier);
             privacySupport.wire(this::getString, this::updateStatus, sceneSupplier);
+            backlinksSupport.wire(backlinksContent, backlinkService, noteService, this::getString,
+                    this::loadNoteInEditor);
             focusModeSupport.wire(mainSplitPane, contentSplitPane,
                     () -> toolbarController != null ? toolbarController.getToolbarHBox() : null,
                     statusBar, rightPanel,
@@ -1594,46 +1596,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         clearEditorToEmpty();
     }
 
-    /** Updates the status-bar word/character counts for the current note (or hides them). */
     private void updateNoteStats(Note note) {
-        boolean show = note != null;
-        if (show) {
-            String content = note.getContent() != null ? note.getContent() : "";
-            int words = content.isBlank() ? 0 : content.trim().split("\\s+").length;
-            if (wordCountLabel != null) {
-                wordCountLabel.setText(java.text.MessageFormat.format(getString("status.words"), words));
-            }
-            if (charCountLabel != null) {
-                charCountLabel.setText(java.text.MessageFormat.format(getString("status.chars"), content.length()));
-            }
-        }
-        setStatusNodeVisible(statsSeparator, show);
-        setStatusNodeVisible(wordCountLabel, show);
-        setStatusNodeVisible(wordCharSeparator, show);
-        setStatusNodeVisible(charCountLabel, show);
+        statusBarSupport.updateNoteStats(note);
     }
 
-    private static void setStatusNodeVisible(javafx.scene.Node node, boolean visible) {
-        if (node != null) {
-            node.setVisible(visible);
-            node.setManaged(visible);
-        }
-    }
-
-    /** Reflects the active storage backend (vault folder vs. SQLite database). */
     private void updateStorageLabel() {
-        if (storageLabel == null) {
-            return;
-        }
-        String type = prefs.get("storage_type", System.getProperty("jylos.storage", "sqlite"));
-        if ("filesystem".equalsIgnoreCase(type)) {
-            String path = prefs.get("filesystem_path", "");
-            String name = path.isBlank() ? getString("storage.vault")
-                    : new java.io.File(path).getName();
-            storageLabel.setText(java.text.MessageFormat.format(getString("storage.vault_named"), name));
-        } else {
-            storageLabel.setText(getString("storage.database"));
-        }
+        statusBarSupport.updateStorageLabel();
     }
 
     /** Click on the storage indicator → open the storage switcher (Obsidian-style). */
@@ -1815,47 +1783,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     /** Recomputes (off the FX thread) and renders the backlinks for {@code note}. */
     private void refreshBacklinks(Note note) {
-        if (backlinksContent == null) {
-            return;
-        }
-        if (backlinkService == null || note == null || note.getId() == null) {
-            backlinksContent.getChildren().clear();
-            return;
-        }
-        Task<java.util.List<Note>> task = new Task<>() {
-            @Override
-            protected java.util.List<Note> call() {
-                return backlinkService.backlinksFor(note);
-            }
-        };
-        task.setOnSucceeded(e -> renderBacklinks(task.getValue()));
-        task.setOnFailed(e -> backlinksContent.getChildren().clear());
-        Thread thread = new Thread(task, "backlinks");
-        thread.setDaemon(true);
-        thread.start();
-    }
-
-    private void renderBacklinks(java.util.List<Note> links) {
-        backlinksContent.getChildren().clear();
-        if (links == null || links.isEmpty()) {
-            Label none = new Label(getString("info.no_backlinks"));
-            none.getStyleClass().add("info-value-small");
-            backlinksContent.getChildren().add(none);
-            return;
-        }
-        for (Note link : links) {
-            Label item = new Label(link.getTitle() != null && !link.getTitle().isBlank()
-                    ? link.getTitle() : getString("app.untitled"));
-            item.getStyleClass().add("backlink-item");
-            item.setMaxWidth(Double.MAX_VALUE);
-            item.setOnMouseClicked(e -> openBacklink(link));
-            backlinksContent.getChildren().add(item);
-        }
-    }
-
-    private void openBacklink(Note link) {
-        Note full = noteService != null ? noteService.getNoteById(link.getId()).orElse(link) : link;
-        loadNoteInEditor(full);
+        backlinksSupport.refresh(note);
     }
 
     private void loadNotesForTag(String tagName) {
