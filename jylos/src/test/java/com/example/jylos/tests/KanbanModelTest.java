@@ -35,6 +35,30 @@ class KanbanModelTest {
     }
 
     @Test
+    void columnAnnotationsRoundTrip() {
+        String md = KanbanModel.MARKER + "\n\n## Doing [wip=3] [color=#e06c75]\n- task\n";
+        KanbanModel m = KanbanModel.parse(md);
+        KanbanModel.Column doing = m.getColumns().get(0);
+        assertEquals("Doing", doing.getTitle(), "annotations are stripped from the display title");
+        assertEquals(3, doing.getWipLimit());
+        assertEquals("#e06c75", doing.getColor());
+
+        KanbanModel reparsed = KanbanModel.parse(m.toMarkdown());
+        assertEquals(3, reparsed.getColumns().get(0).getWipLimit(), "wip survives serialisation");
+        assertEquals("#e06c75", reparsed.getColumns().get(0).getColor(), "color survives serialisation");
+        assertEquals(List.of("task"), reparsed.getColumns().get(0).getCards());
+    }
+
+    @Test
+    void invalidAnnotationValuesAreIgnored() {
+        KanbanModel.Column col = new KanbanModel.Column("X");
+        col.setColor("red");            // not #rrggbb → rejected
+        col.setWipLimit(-5);            // negative → clamped to none
+        assertEquals(null, col.getColor());
+        assertEquals(0, col.getWipLimit());
+    }
+
+    @Test
     void roundTripsThroughMarkdown() {
         KanbanModel m = KanbanModel.withDefaults("To do", "Doing", "Done");
         m.getColumns().get(0).getCards().add("Task A");

@@ -155,6 +155,17 @@ if [ -d "$SOURCE_PLUGINS_DIR" ]; then
     fi
 fi
 
+# ── Code signing (opt-in) ───────────────────────────────────────────────────
+# Set JYLOS_MAC_SIGN_IDENTITY to a "Developer ID Application: Name (TEAMID)"
+# certificate installed in the keychain and jpackage will sign the app bundle.
+# Without it the DMG is unsigned (Gatekeeper will warn on other Macs).
+if [ -n "${JYLOS_MAC_SIGN_IDENTITY:-}" ]; then
+    echo "Code signing enabled (identity: $JYLOS_MAC_SIGN_IDENTITY)"
+    JPACKAGE_CMD="$JPACKAGE_CMD --mac-sign --mac-signing-key-user-name \"$JYLOS_MAC_SIGN_IDENTITY\""
+else
+    echo "Code signing disabled (set JYLOS_MAC_SIGN_IDENTITY to enable). See doc/PACKAGING.md."
+fi
+
 # Use jpackage to create DMG installer
 # Note: The uber-jar already includes JavaFX classes, so we don't need --module-path
 eval $JPACKAGE_CMD
@@ -174,7 +185,36 @@ if [ $? -eq 0 ]; then
         fi
     fi
     
-    echo "Installer location: $OUTPUT_DIR/$APP_NAME-$APP_VERSION.dmg"
+    DMG_PATH="$OUTPUT_DIR/$APP_NAME-$APP_VERSION.dmg"
+    echo "Installer location: $DMG_PATH"
+    echo ""
+
+    # ── Notarization (opt-in) ───────────────────────────────────────────────
+    # Requires a signed build (JYLOS_MAC_SIGN_IDENTITY) and a notarytool keychain
+    # profile created once with:
+    #   xcrun notarytool store-credentials <profile> --apple-id <id> --team-id <team> --password <app-pwd>
+    # Set JYLOS_NOTARY_PROFILE=<profile> to submit, wait, and staple the ticket.
+    if [ -n "${JYLOS_NOTARY_PROFILE:-}" ]; then
+        if [ -z "${JYLOS_MAC_SIGN_IDENTITY:-}" ]; then
+            echo "Warning: JYLOS_NOTARY_PROFILE is set but the build is unsigned —"
+            echo "         Apple rejects unsigned submissions. Skipping notarization."
+        else
+            echo "Submitting DMG for notarization (profile: $JYLOS_NOTARY_PROFILE)..."
+            if xcrun notarytool submit "$DMG_PATH" \
+                    --keychain-profile "$JYLOS_NOTARY_PROFILE" --wait; then
+                echo "Stapling notarization ticket..."
+                xcrun stapler staple "$DMG_PATH"
+                echo "Notarized and stapled: $DMG_PATH"
+            else
+                echo "Error: notarization failed. Inspect with:"
+                echo "  xcrun notarytool log <submission-id> --keychain-profile $JYLOS_NOTARY_PROFILE"
+                exit 1
+            fi
+        fi
+    else
+        echo "Notarization disabled (set JYLOS_NOTARY_PROFILE to enable). See doc/PACKAGING.md."
+    fi
+
     echo ""
     echo "Data will be stored in: ~/Library/Application Support/$APP_NAME/"
     echo ""

@@ -95,10 +95,14 @@ public class WordCountPlugin implements Plugin {
             this.currentNote = event.getNote();
         });
         subscriptions.add(sub);
-        
+
+        // Toolbar button (ToolbarRegistry API): one-click word count for the open note.
+        context.registerToolbarButton("word-count", "Word count", "fth-bar-chart-2",
+                this::showCurrentNoteStats);
+
         context.log("Word Count Plugin initialized");
     }
-    
+
     @Override
     public void shutdown() {
         // Unsubscribe from all events
@@ -106,11 +110,12 @@ public class WordCountPlugin implements Plugin {
             sub.cancel();
         }
         subscriptions.clear();
-        
+
         // Unregister commands
         context.unregisterCommand("Word Count: Current Note");
         context.unregisterCommand("Word Count: All Notes");
-        
+        context.removeToolbarButtons();
+
         context.log("Word Count Plugin shutdown");
     }
     

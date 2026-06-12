@@ -47,6 +47,29 @@ format (`package-windows-exe.ps1` / `package-windows-msi.ps1` are thin wrappers)
 - The installers are **unsigned**: SmartScreen may warn on first run. For public
   releases, sign with `signtool` and a code-signing certificate.
 
+### macOS signing & notarization (optional)
+
+`package-macos.sh` builds an unsigned DMG by default. For public distribution
+(no Gatekeeper warnings) sign and notarize by exporting two variables before
+running the script — both steps require an Apple Developer account:
+
+```bash
+# 1. One-time: install a "Developer ID Application" certificate in the keychain,
+#    then store notarytool credentials (uses an app-specific password):
+xcrun notarytool store-credentials jylos-notary \
+    --apple-id you@example.com --team-id TEAMID --password <app-specific-password>
+
+# 2. Per release:
+export JYLOS_MAC_SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+export JYLOS_NOTARY_PROFILE="jylos-notary"
+./scripts/package-macos.sh
+```
+
+With `JYLOS_MAC_SIGN_IDENTITY` set, jpackage signs the app bundle (`--mac-sign`).
+With `JYLOS_NOTARY_PROFILE` also set, the script submits the DMG with
+`xcrun notarytool submit --wait` and staples the ticket (`xcrun stapler staple`).
+Unset, the script behaves exactly as before (unsigned local build).
+
 Icons (see `jylos/src/main/resources/app.properties` and [icons README](../jylos/src/main/resources/icons/README.md)):
 
 | Asset | File | Used when |

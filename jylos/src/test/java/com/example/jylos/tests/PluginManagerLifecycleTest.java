@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
+import com.example.jylos.plugin.EditorHook;
+import com.example.jylos.plugin.EditorHookRegistry;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginContext;
 import com.example.jylos.plugin.PluginManager;
@@ -13,6 +15,7 @@ import com.example.jylos.plugin.PluginMenuRegistry;
 import com.example.jylos.plugin.PreviewEnhancer;
 import com.example.jylos.plugin.PreviewEnhancerRegistry;
 import com.example.jylos.plugin.SidePanelRegistry;
+import com.example.jylos.plugin.ToolbarRegistry;
 
 import javafx.scene.Node;
 
@@ -23,7 +26,9 @@ class PluginManagerLifecycleTest {
         RecordingMenuRegistry menu = new RecordingMenuRegistry();
         RecordingSideRegistry side = new RecordingSideRegistry();
         RecordingPreviewRegistry preview = new RecordingPreviewRegistry();
-        PluginManager manager = new PluginManager(null, null, null, null, null, menu, side, preview);
+        RecordingHookRegistry hooks = new RecordingHookRegistry();
+        RecordingToolbarRegistry toolbar = new RecordingToolbarRegistry();
+        PluginManager manager = new PluginManager(null, null, null, null, null, menu, side, preview, hooks, toolbar);
         CountingPlugin plugin = new CountingPlugin("alpha");
 
         assertTrue(manager.registerPlugin(plugin));
@@ -35,6 +40,8 @@ class PluginManagerLifecycleTest {
         assertEquals(1, plugin.shutdownCalls);
         assertEquals(1, menu.removeCalls);
         assertEquals(1, side.removeAllCalls);
+        assertEquals(1, hooks.removeCalls);
+        assertEquals(1, toolbar.removeCalls);
         assertFalse(manager.isPluginEnabled("alpha"));
 
         assertTrue(manager.enablePlugin("alpha"));
@@ -48,7 +55,8 @@ class PluginManagerLifecycleTest {
     @Test
     void shutdownAllCallsShutdownOnRegisteredPlugins() {
         PluginManager manager = new PluginManager(null, null, null, null, null,
-                new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry());
+                new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry(),
+                new RecordingHookRegistry(), new RecordingToolbarRegistry());
         CountingPlugin one = new CountingPlugin("one");
         CountingPlugin two = new CountingPlugin("two");
 
@@ -157,6 +165,33 @@ class PluginManagerLifecycleTest {
 
         @Override
         public void unregisterPreviewEnhancer(String pluginId) {
+        }
+    }
+
+    private static final class RecordingHookRegistry implements EditorHookRegistry {
+        private int removeCalls = 0;
+
+        @Override
+        public void registerEditorHook(String pluginId, EditorHook hook) {
+        }
+
+        @Override
+        public void unregisterEditorHooks(String pluginId) {
+            removeCalls++;
+        }
+    }
+
+    private static final class RecordingToolbarRegistry implements ToolbarRegistry {
+        private int removeCalls = 0;
+
+        @Override
+        public void registerToolbarButton(String pluginId, String buttonId, String tooltip,
+                String iconLiteral, Runnable action) {
+        }
+
+        @Override
+        public void removeToolbarButtons(String pluginId) {
+            removeCalls++;
         }
     }
 }

@@ -101,6 +101,8 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 - Abrir con **Ver → Tablero Kanban** o **`Ctrl/Cmd+Shift+K`**; elige o crea tableros desde la barra
 - Añadir/renombrar/borrar columnas, crear/editar/borrar tarjetas y **arrastrar tarjetas entre columnas**
 - Una tarjeta puede enlazar a una nota (`[[Título]]`) o **convertirse en nota**
+- **Límites WIP** por columna (`[wip=N]`, el contador se pone rojo al superarse) y **colores** (`[color=#rrggbb]`) — ambos guardados en la línea de encabezado, configurables desde el menú de columna
+- Las tarjetas que referencian una imagen o PDF (`![…](foto.png)`, `[[escaneo.pdf]]`) muestran una **miniatura embebida** (primera página del PDF vía PDFBox)
 
 ### Notas privadas (cifrado)
 
@@ -129,6 +131,8 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 - **Nota diaria** y **nueva nota desde plantilla** (`{{title}}`, `{{date}}`, …)
 - Exportación por nota y **exportación masiva** de la bóveda a HTML/PDF
 - Importar/exportar notas individuales
+- **Importar una bóveda de Obsidian** (jerarquía de carpetas, frontmatter y etiquetas preservados; `.obsidian/` se omite) o un export **`.enex` de Evernote** (ENML convertido a Markdown, etiquetas conservadas, adjuntos marcados como placeholder) — menú Archivo
+- **Historial de versiones de nota** (Herramientas → Historial de la Nota, `Ctrl/Cmd+Shift+H`): snapshots locales antes de cada guardado (coalescidos, máximo 50 por nota), con visor de **diff** por líneas y **restauración** en un clic; los snapshots de notas privadas permanecen cifrados
 
 ### UI/UX
 
@@ -143,6 +147,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 - Plugins JAR en `jylos/plugins/` (`scripts/build-plugins.sh`; bytecode **Java 21**)
 - Gestor de plugins con IDs estables y carga/deshabilitado seguro
+- API de plugins: paleta de comandos, menús, paneles laterales, enhancers del preview, **botones de toolbar** y **hooks del editor** (`onBeforeTextInsert` / `onBeforeSave` / `onAfterSave`) — ver [doc/PLUGINS.md](doc/PLUGINS.md)
 - **Mermaid** integrado en preview (fuente en `plugins-source/`)
 - Catálogo de temas externos con fallback seguro
 

@@ -60,6 +60,8 @@ public class PluginManager {
     private final PluginMenuRegistry menuRegistry;
     private final SidePanelRegistry sidePanelRegistry;
     private final PreviewEnhancerRegistry previewEnhancerRegistry;
+    private final EditorHookRegistry editorHookRegistry;
+    private final ToolbarRegistry toolbarRegistry;
 
     // Plugin storage
     private final Map<String, Plugin> plugins = new HashMap<>();
@@ -69,14 +71,17 @@ public class PluginManager {
 
     /**
      * Creates a new PluginManager.
-     * 
-     * @param noteService       The note service
-     * @param folderService     The folder service
-     * @param tagService        The tag service
-     * @param eventBus          The event bus
-     * @param commandPalette    The command palette
-     * @param menuRegistry      The menu registry
-     * @param sidePanelRegistry The side panel registry
+     *
+     * @param noteService        The note service
+     * @param folderService      The folder service
+     * @param tagService         The tag service
+     * @param eventBus           The event bus
+     * @param commandPalette     The command palette
+     * @param menuRegistry       The menu registry
+     * @param sidePanelRegistry  The side panel registry
+     * @param previewEnhancerRegistry The preview enhancer registry
+     * @param editorHookRegistry The editor hook registry (nullable)
+     * @param toolbarRegistry    The toolbar button registry (nullable)
      */
     public PluginManager(
             NoteService noteService,
@@ -86,7 +91,9 @@ public class PluginManager {
             CommandPalette commandPalette,
             PluginMenuRegistry menuRegistry,
             SidePanelRegistry sidePanelRegistry,
-            PreviewEnhancerRegistry previewEnhancerRegistry) {
+            PreviewEnhancerRegistry previewEnhancerRegistry,
+            EditorHookRegistry editorHookRegistry,
+            ToolbarRegistry toolbarRegistry) {
         this.noteService = noteService;
         this.folderService = folderService;
         this.tagService = tagService;
@@ -95,6 +102,8 @@ public class PluginManager {
         this.menuRegistry = menuRegistry;
         this.sidePanelRegistry = sidePanelRegistry;
         this.previewEnhancerRegistry = previewEnhancerRegistry;
+        this.editorHookRegistry = editorHookRegistry;
+        this.toolbarRegistry = toolbarRegistry;
     }
 
     /**
@@ -203,7 +212,9 @@ public class PluginManager {
                     commandPalette,
                     menuRegistry,
                     sidePanelRegistry,
-                    previewEnhancerRegistry);
+                    previewEnhancerRegistry,
+                    editorHookRegistry,
+                    toolbarRegistry);
             pluginContexts.put(pluginId, context);
 
             // Initialize plugin
@@ -367,6 +378,12 @@ public class PluginManager {
         }
         if (previewEnhancerRegistry != null) {
             previewEnhancerRegistry.unregisterPreviewEnhancer(pluginId);
+        }
+        if (editorHookRegistry != null) {
+            editorHookRegistry.unregisterEditorHooks(pluginId);
+        }
+        if (toolbarRegistry != null) {
+            toolbarRegistry.removeToolbarButtons(pluginId);
         }
         PluginContext context = pluginContexts.get(pluginId);
         if (context != null) {

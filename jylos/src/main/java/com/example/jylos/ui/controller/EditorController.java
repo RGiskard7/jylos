@@ -182,6 +182,25 @@ public class EditorController {
         this.bundle = bundle != null ? bundle : AppContext.getBundle();
     }
 
+    /** Plugin editor-hook dispatcher (nullable; wired by MainController). */
+    private com.example.jylos.plugin.EditorHooks editorHooks;
+
+    public void setEditorHooks(com.example.jylos.plugin.EditorHooks editorHooks) {
+        this.editorHooks = editorHooks;
+    }
+
+    /**
+     * Runs plugin {@code onBeforeTextInsert} hooks over a snippet about to be inserted
+     * programmatically (dialogs, autocomplete, templates). Returns the snippet
+     * unchanged when no hooks are registered.
+     */
+    private String applyInsertHooks(String snippet) {
+        if (editorHooks == null || editorHooks.isEmpty() || snippet == null) {
+            return snippet;
+        }
+        return editorHooks.applyBeforeTextInsert(currentNote, snippet);
+    }
+
     // ============================================================
     // View-mode button presentation
     // ============================================================
@@ -583,10 +602,23 @@ public class EditorController {
         if (!readOnlyView) {
             currentNote.setCustomProperties(collectPropertiesFromPanel());
         }
+        // Plugin editor hooks may transform the content before it is persisted.
+        if (editorHooks != null && !editorHooks.isEmpty()) {
+            String transformed = editorHooks.applyBeforeSave(currentNote, currentNote.getContent());
+            if (!transformed.equals(currentNote.getContent())) {
+                currentNote.setContent(transformed);
+                if (noteContentArea != null) {
+                    noteContentArea.replaceText(transformed); // keep the editor in sync
+                }
+            }
+        }
         noteService.updateNote(currentNote);
         isModified = false;
         updateSaveIndicator(false);
         if (eventBus != null) eventBus.publish(new NoteEvents.NoteSavedEvent(currentNote));
+        if (editorHooks != null && !editorHooks.isEmpty()) {
+            editorHooks.fireAfterSave(currentNote, currentNote.getContent());
+        }
     }
 
     // ============================================================
@@ -845,7 +877,7 @@ public class EditorController {
         if (!m.find()) return;
 
         int linkStart = caret - m.group(0).length();
-        String completed = "[[" + title + "]]";
+        String completed = applyInsertHooks("[[" + title + "]]");
         noteContentArea.replaceText(text.substring(0, linkStart) + completed + text.substring(caret));
         noteContentArea.moveTo(linkStart + completed.length());
         noteContentArea.requestFocus();
@@ -985,7 +1017,7 @@ public class EditorController {
         if (noteContentArea == null) return;
         int pos = noteContentArea.getCaretPosition();
         String t = orEmpty(noteContentArea.getText());
-        String item = "- [ ] ";
+        String item = applyInsertHooks("- [ ] ");
         int lineStart = t.lastIndexOf('\n', pos - 1) + 1;
         if (t.substring(lineStart, pos).trim().isEmpty()) {
             noteContentArea.replaceText(t.substring(0, pos) + item + t.substring(pos));
@@ -1015,7 +1047,7 @@ public class EditorController {
             String sel = noteContentArea.getSelectedText();
             String label = (sel != null && !sel.isEmpty()) ? sel
                     : getString("dialog.link.default_text", "link text");
-            String link = "[" + label + "](" + url.trim() + ")";
+            String link = applyInsertHooks("[" + label + "](" + url.trim() + ")");
             if (sel != null && !sel.isEmpty()) noteContentArea.replaceSelection(link);
             else {
                 int pos = noteContentArea.getCaretPosition();
@@ -1038,7 +1070,7 @@ public class EditorController {
             String sel = noteContentArea.getSelectedText();
             String alt = (sel != null && !sel.isEmpty()) ? sel
                     : getString("dialog.image.default_alt", "image");
-            String img = "![" + alt + "](" + path.trim() + ")";
+            String img = applyInsertHooks("![" + alt + "](" + path.trim() + ")");
             if (sel != null && !sel.isEmpty()) noteContentArea.replaceSelection(img);
             else {
                 int pos = noteContentArea.getCaretPosition();

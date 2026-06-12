@@ -36,9 +36,19 @@ public final class KanbanModel {
     private static final Pattern HEADING = Pattern.compile("^#{1,6}\\s+(.*\\S)\\s*$");
     private static final Pattern CARD = Pattern.compile("^\\s*[-*]\\s+(.*\\S)\\s*$");
 
-    /** A single board column with its ordered text cards. */
+    /** Optional column annotations carried in the heading line. */
+    private static final Pattern WIP_ANNOTATION = Pattern.compile("\\s*\\[wip=(\\d+)\\]");
+    private static final Pattern COLOR_ANNOTATION = Pattern.compile("\\s*\\[color=(#[0-9a-fA-F]{6})\\]");
+
+    /**
+     * A single board column with its ordered text cards plus optional metadata:
+     * a WIP limit ({@code [wip=N]}, 0 = none) and a color ({@code [color=#rrggbb]},
+     * null = none). Both round-trip through the heading line.
+     */
     public static final class Column {
         private String title;
+        private int wipLimit;
+        private String color;
         private final List<String> cards = new ArrayList<>();
 
         public Column(String title) {
@@ -51,6 +61,24 @@ public final class KanbanModel {
 
         public void setTitle(String title) {
             this.title = title;
+        }
+
+        /** WIP limit; 0 means "no limit". */
+        public int getWipLimit() {
+            return wipLimit;
+        }
+
+        public void setWipLimit(int wipLimit) {
+            this.wipLimit = Math.max(0, wipLimit);
+        }
+
+        /** Column color as {@code #rrggbb}, or null for the theme default. */
+        public String getColor() {
+            return color;
+        }
+
+        public void setColor(String color) {
+            this.color = (color != null && color.matches("#[0-9a-fA-F]{6}")) ? color : null;
         }
 
         public List<String> getCards() {
@@ -89,7 +117,7 @@ public final class KanbanModel {
             }
             Matcher h = HEADING.matcher(line);
             if (h.matches()) {
-                current = new Column(h.group(1).strip());
+                current = parseColumnHeading(h.group(1).strip());
                 model.columns.add(current);
                 continue;
             }
@@ -101,12 +129,46 @@ public final class KanbanModel {
         return model;
     }
 
+    /** Extracts {@code [wip=N]} / {@code [color=#rrggbb]} annotations from a heading. */
+    private static Column parseColumnHeading(String heading) {
+        String title = heading;
+        int wip = 0;
+        String color = null;
+
+        Matcher w = WIP_ANNOTATION.matcher(title);
+        if (w.find()) {
+            try {
+                wip = Integer.parseInt(w.group(1));
+            } catch (NumberFormatException ignored) {
+                // malformed limit — treat as none
+            }
+            title = w.replaceAll("");
+        }
+        Matcher c = COLOR_ANNOTATION.matcher(title);
+        if (c.find()) {
+            color = c.group(1);
+            title = c.replaceAll("");
+        }
+
+        Column column = new Column(title.strip());
+        column.setWipLimit(wip);
+        column.setColor(color);
+        return column;
+    }
+
     /** Serialises the board back to Markdown, including the hidden marker. */
     public String toMarkdown() {
         StringBuilder sb = new StringBuilder();
         sb.append(MARKER).append("\n\n");
         for (Column col : columns) {
-            sb.append("## ").append(col.title == null ? "" : col.title).append('\n');
+            sb.append("## ").append(col.title == null ? "" : col.title);
+            if (col.wipLimit > 0) {
+                sb.append(" [wip=").append(col.wipLimit).append(']');
+            }
+            if (col.color != null) {
+                sb.append(" [color=").append(col.color).append(']');
+            }
+            sb.append('\n');
             for (String card : col.cards) {
                 sb.append("- ").append(card).append('\n');
             }

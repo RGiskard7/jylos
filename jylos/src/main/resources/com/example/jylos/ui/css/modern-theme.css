@@ -3149,3 +3149,21 @@
 }
 .git-section-separator { -fx-padding: 2 0 2 0; }
 .git-section-separator .line { -fx-border-color: -fx-fn-border-color; }
+
+/* ── Note history diff viewer ─────────────────────────────────────────── */
+.diff-added {
+    -fx-background-color: derive(-fx-success, 80%);
+    -fx-text-fill: -fx-text-main;
+}
+.diff-removed {
+    -fx-background-color: derive(-fx-danger, 80%);
+    -fx-text-fill: -fx-text-main;
+}
+
+/* Kanban: WIP-exceeded badge and card attachment thumbnails. */
+.kanban-lane-count.kanban-wip-exceeded {
+    -fx-background-color: -fx-danger;
+}
+.kanban-card-thumb {
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 4, 0, 0, 1);
+}

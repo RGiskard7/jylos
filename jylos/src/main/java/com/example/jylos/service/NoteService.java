@@ -186,6 +186,18 @@ public class NoteService {
             logger.warning("Skipping save of private note while locked: " + note.getTitle());
             return;
         }
+        // Version history: capture the previously *stored* content (raw from the DAO,
+        // i.e. ciphertext for private notes — history must never leak plaintext).
+        if (historyService != null) {
+            try {
+                Note stored = noteDAO.getNoteById(note.getId());
+                if (stored != null && stored.getContent() != null) {
+                    historyService.snapshot(note.getId(), stored.getContent());
+                }
+            } catch (Exception e) {
+                logger.fine("History snapshot skipped: " + e.getMessage());
+            }
+        }
         String plain = note.getContent();
         boolean encrypted = encryptForWrite(note);
         try {
@@ -196,6 +208,17 @@ public class NoteService {
             }
         }
         logger.info("Updated note: " + note.getTitle());
+    }
+
+    /** Optional local version-history recorder (see {@link NoteHistoryService}). */
+    private NoteHistoryService historyService;
+
+    public void setHistoryService(NoteHistoryService historyService) {
+        this.historyService = historyService;
+    }
+
+    public NoteHistoryService getHistoryService() {
+        return historyService;
     }
 
     // ------------------------------------------------------------------

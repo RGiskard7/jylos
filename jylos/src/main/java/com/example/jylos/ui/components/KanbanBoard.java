@@ -2,6 +2,7 @@ package com.example.jylos.ui.components;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -284,12 +285,31 @@ public final class KanbanBoard extends VBox {
         VBox lane = new VBox();
         lane.getStyleClass().add("kanban-lane");
 
+        // Optional column color: a thin stripe across the top of the lane. The value is
+        // validated to #rrggbb by KanbanModel, so it is safe to inline in a style.
+        if (col.getColor() != null) {
+            Region stripe = new Region();
+            stripe.setMinHeight(3);
+            stripe.setMaxHeight(3);
+            stripe.setStyle("-fx-background-color: " + col.getColor()
+                    + "; -fx-background-radius: 2;");
+            lane.getChildren().add(stripe);
+        }
+
         Label name = new Label(col.getTitle());
         name.getStyleClass().add("kanban-lane-header");
         name.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(name, Priority.ALWAYS);
-        Label count = new Label(String.valueOf(col.getCards().size()));
+        // WIP limit is advisory: the count badge turns red when exceeded.
+        int size = col.getCards().size();
+        Label count = new Label(col.getWipLimit() > 0
+                ? size + "/" + col.getWipLimit()
+                : String.valueOf(size));
         count.getStyleClass().add("kanban-lane-count");
+        if (col.getWipLimit() > 0 && size > col.getWipLimit()) {
+            count.getStyleClass().add("kanban-wip-exceeded");
+            count.setTooltip(new Tooltip(str("kanban.wip_exceeded", "WIP limit exceeded")));
+        }
         Button colMenu = iconButton("fth-more-horizontal", "feather-icon",
                 str("kanban.column_menu", "Column options"), e -> showColumnMenu(col, e));
         colMenu.getStyleClass().clear();
@@ -357,6 +377,12 @@ public final class KanbanBoard extends VBox {
             label.getStyleClass().add("kanban-card-link");
         }
         card.getChildren().add(label);
+
+        // Image/PDF reference in the card text → embedded thumbnail.
+        javafx.scene.Node thumbnail = thumbnailFor(text);
+        if (thumbnail != null) {
+            card.getChildren().add(thumbnail);
+        }
 
         // Drag source: carries column index + card text so the drop target can move it.
         card.setOnDragDetected(e -> {
@@ -468,12 +494,65 @@ public final class KanbanBoard extends VBox {
                     str("kanban.column_name", "Column name:"), col.getTitle());
             if (n != null && !n.isBlank()) { col.setTitle(n.trim()); save(); render(); }
         });
+        MenuItem wip = new MenuItem(str("kanban.wip_limit", "WIP limit…"));
+        wip.setOnAction(ev -> {
+            String n = prompt(str("kanban.wip_limit", "WIP limit…"),
+                    str("kanban.wip_prompt", "Maximum cards (empty = no limit):"),
+                    col.getWipLimit() > 0 ? String.valueOf(col.getWipLimit()) : "");
+            if (n != null) {
+                try {
+                    col.setWipLimit(n.isBlank() ? 0 : Integer.parseInt(n.trim()));
+                    save();
+                    render();
+                } catch (NumberFormatException ignored) {
+                    // non-numeric input — leave the limit unchanged
+                }
+            }
+        });
+        MenuItem colorItem = new MenuItem(str("kanban.column_color", "Column color…"));
+        colorItem.setOnAction(ev -> chooseColumnColor(col));
         MenuItem delete = new MenuItem(str("kanban.delete_column", "Delete column"));
         delete.setOnAction(ev -> { model.getColumns().remove(col); save(); render(); });
-        menu.getItems().addAll(rename, delete);
+        menu.getItems().addAll(rename, wip, colorItem, delete);
         if (e.getSource() instanceof javafx.scene.Node node) {
             menu.show(node, javafx.geometry.Side.BOTTOM, 0, 0);
         }
+    }
+
+    /** Color picker dialog with an explicit "clear" choice for the column color. */
+    private void chooseColumnColor(KanbanModel.Column col) {
+        javafx.scene.control.Dialog<javafx.scene.control.ButtonType> dialog =
+                new javafx.scene.control.Dialog<>();
+        dialog.setTitle(str("kanban.column_color", "Column color…"));
+        com.example.jylos.ui.UiDialogs.apply(dialog);
+        javafx.scene.control.ButtonType clearType = new javafx.scene.control.ButtonType(
+                str("kanban.color_clear", "No color"), javafx.scene.control.ButtonBar.ButtonData.OTHER);
+        dialog.getDialogPane().getButtonTypes().addAll(
+                javafx.scene.control.ButtonType.OK, clearType, javafx.scene.control.ButtonType.CANCEL);
+        javafx.scene.control.ColorPicker picker = new javafx.scene.control.ColorPicker();
+        try {
+            picker.setValue(javafx.scene.paint.Color.web(col.getColor() != null ? col.getColor() : "#7c3aed"));
+        } catch (IllegalArgumentException ignored) {
+            // fall back to the picker default
+        }
+        VBox box = new VBox(picker);
+        box.setPadding(new Insets(12));
+        dialog.getDialogPane().setContent(box);
+        dialog.showAndWait().ifPresent(choice -> {
+            if (choice == clearType) {
+                col.setColor(null);
+            } else if (choice == javafx.scene.control.ButtonType.OK) {
+                javafx.scene.paint.Color c = picker.getValue();
+                col.setColor(String.format("#%02x%02x%02x",
+                        (int) Math.round(c.getRed() * 255),
+                        (int) Math.round(c.getGreen() * 255),
+                        (int) Math.round(c.getBlue() * 255)));
+            } else {
+                return;
+            }
+            save();
+            render();
+        });
     }
 
     // ------------------------------------------------------------------
@@ -493,6 +572,98 @@ public final class KanbanBoard extends VBox {
         }
         Matcher m = WIKILINK.matcher(text);
         return m.find() ? m.group(1).strip() : null;
+    }
+
+    // ------------------------------------------------------------------
+    // Card thumbnails (image / PDF references)
+    // ------------------------------------------------------------------
+
+    /** Matches the first image/PDF reference: {@code ![alt](file.png)} or {@code [[file.pdf]]}. */
+    private static final Pattern ATTACHMENT_REF = Pattern.compile(
+            "!\\[[^\\]]*\\]\\(([^)\\s]+\\.(?:png|jpe?g|gif|pdf))\\)|\\[\\[([^\\]|]+\\.(?:png|jpe?g|gif|pdf))\\]\\]",
+            Pattern.CASE_INSENSITIVE);
+
+    private static final double THUMB_WIDTH = 200;
+    private static final float PDF_THUMB_DPI = 36;
+
+    /**
+     * Builds a thumbnail node when the card references an image or PDF, or null.
+     * Paths resolve absolutely or relative to the board note's directory (walking up
+     * a few levels covers vault-root-relative attachment links). PDF thumbnails render
+     * the first page at low DPI via PDFBox. Any failure simply yields no thumbnail.
+     */
+    private javafx.scene.Node thumbnailFor(String cardText) {
+        if (cardText == null) {
+            return null;
+        }
+        Matcher m = ATTACHMENT_REF.matcher(cardText);
+        if (!m.find()) {
+            return null;
+        }
+        String ref = m.group(1) != null ? m.group(1) : m.group(2);
+        java.nio.file.Path file = resolveAttachment(ref.strip());
+        if (file == null) {
+            return null;
+        }
+        try {
+            javafx.scene.image.Image image = ref.toLowerCase(Locale.ROOT).endsWith(".pdf")
+                    ? pdfThumbnail(file)
+                    : new javafx.scene.image.Image(file.toUri().toString(), THUMB_WIDTH, 0, true, true);
+            if (image == null || image.isError()) {
+                return null;
+            }
+            javafx.scene.image.ImageView view = new javafx.scene.image.ImageView(image);
+            view.setFitWidth(THUMB_WIDTH);
+            view.setPreserveRatio(true);
+            view.getStyleClass().add("kanban-card-thumb");
+            return view;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private java.nio.file.Path resolveAttachment(String ref) {
+        try {
+            java.nio.file.Path p = java.nio.file.Path.of(ref);
+            if (p.isAbsolute()) {
+                return java.nio.file.Files.exists(p) ? p : null;
+            }
+            if (noteService != null && currentBoard != null && currentBoard.getId() != null) {
+                java.util.Optional<java.nio.file.Path> boardFile =
+                        noteService.getNoteFilePath(currentBoard.getId());
+                if (boardFile.isPresent()) {
+                    java.nio.file.Path base = boardFile.get().getParent();
+                    for (int depth = 0; base != null && depth < 4; depth++, base = base.getParent()) {
+                        java.nio.file.Path candidate = base.resolve(ref);
+                        if (java.nio.file.Files.exists(candidate)) {
+                            return candidate;
+                        }
+                    }
+                }
+            }
+        } catch (java.nio.file.InvalidPathException ignored) {
+            // malformed reference — no thumbnail
+        }
+        return null;
+    }
+
+    /** First PDF page as a small image (PDFBox render + PNG round-trip into JavaFX). */
+    private static javafx.scene.image.Image pdfThumbnail(java.nio.file.Path pdf) {
+        try (org.apache.pdfbox.pdmodel.PDDocument doc =
+                org.apache.pdfbox.pdmodel.PDDocument.load(pdf.toFile())) {
+            if (doc.getNumberOfPages() == 0) {
+                return null;
+            }
+            java.awt.image.BufferedImage page = new org.apache.pdfbox.rendering.PDFRenderer(doc)
+                    .renderImageWithDPI(0, PDF_THUMB_DPI, org.apache.pdfbox.rendering.ImageType.RGB);
+            try (java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream()) {
+                javax.imageio.ImageIO.write(page, "png", baos);
+                return new javafx.scene.image.Image(
+                        new java.io.ByteArrayInputStream(baos.toByteArray()), THUMB_WIDTH, 0, true, true);
+            }
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private static int parseInt(String s) {

@@ -79,7 +79,8 @@ import javafx.util.Duration;
  * for persistence is delegated to DAOs and {@link com.example.jylos.service.NoteService}
  * where possible; this class focuses on UI state and command routing.
  */
-public class MainController implements PluginMenuRegistry, SidePanelRegistry, PreviewEnhancerRegistry {
+public class MainController implements PluginMenuRegistry, SidePanelRegistry, PreviewEnhancerRegistry,
+        com.example.jylos.plugin.ToolbarRegistry {
 
     private static final Logger logger = LoggerConfig.getLogger(MainController.class);
 
@@ -218,6 +219,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private final OverlaySupport overlaySupport = new OverlaySupport();
     private final StatusBarSupport statusBarSupport = new StatusBarSupport();
     private final BacklinksSupport backlinksSupport = new BacklinksSupport();
+    /** Editor hook dispatcher shared by the plugin system and the editor. */
+    private final com.example.jylos.plugin.EditorHooks editorHooks = new com.example.jylos.plugin.EditorHooks();
+    private final ImportSupport importSupport = new ImportSupport();
+    private final HistorySupport historySupport = new HistorySupport();
+    /** pluginId → toolbar buttons contributed via {@link com.example.jylos.plugin.ToolbarRegistry}. */
+    private final Map<String, List<javafx.scene.Node>> pluginToolbarButtons = new HashMap<>();
 
     private final Map<String, Menu> pluginCategoryMenus = new HashMap<>();
     private final Map<String, List<MenuItem>> pluginMenuItems = new HashMap<>();
@@ -369,6 +376,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                         note -> eventBus.publish(new NoteEvents.NoteOpenRequestEvent(note)),
                         () -> updateStatus("Note not found: " + title)));
                 editorController.initializeTagsBarCollapsed();
+                editorController.setEditorHooks(editorHooks);
                 editorTabs = new com.example.jylos.ui.components.EditorTabs(
                         editorController.getEditorTabBar(),
                         editorController.getEditorTabScroll(),
@@ -421,6 +429,20 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             privacySupport.wire(this::getString, this::updateStatus, sceneSupplier);
             backlinksSupport.wire(backlinksContent, backlinkService, noteService, this::getString,
                     this::loadNoteInEditor);
+            historySupport.wire(noteService, this::getString, this::updateStatus, sceneSupplier,
+                    this::getCurrentNote, this::loadNoteInEditor);
+            importSupport.wire(new com.example.jylos.service.ImportService(noteService, folderService),
+                    this::getString, this::updateStatus,
+                    () -> mainSplitPane != null && mainSplitPane.getScene() != null
+                            ? mainSplitPane.getScene().getWindow() : null,
+                    () -> {
+                        refreshNotesList();
+                        if (sidebarController != null) {
+                            sidebarController.loadFolders();
+                            sidebarController.loadTags();
+                            sidebarController.loadRecentNotes();
+                        }
+                    });
             focusModeSupport.wire(mainSplitPane, contentSplitPane,
                     () -> toolbarController != null ? toolbarController.getToolbarHBox() : null,
                     statusBar, rightPanel,
@@ -466,6 +488,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             tagDAO = factory.getLabelDAO();
             noteOperations = new NoteOperations();
             noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+            noteService.setHistoryService(new com.example.jylos.service.NoteHistoryService(
+                    java.nio.file.Path.of(com.example.jylos.AppDataDirectory.getBaseDirectory(), "history")));
             backlinkService = new com.example.jylos.service.BacklinkService(noteService);
             folderService = new FolderService(folderDAO, noteDAO);
             tagService = new TagService(tagDAO, noteDAO);
@@ -607,7 +631,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             }
 
             pluginManager = new PluginManager(noteService, folderService, tagService, eventBus, commandPalette, this,
-                    this, this);
+                    this, this, editorHooks, this);
 
             PluginLifecycle.LoadResult pluginLoadResult = pluginLifecycle
                     .registerCoreAndExternalPlugins(pluginManager);
@@ -1033,6 +1057,59 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         return pluginUi.isPluginPanelsVisible(pluginPanelsContainer);
     }
 
+    // ── ToolbarRegistry (plugin toolbar buttons) ─────────────────────────────
+
+    @Override
+    public void registerToolbarButton(String pluginId, String buttonId, String tooltip,
+            String iconLiteral, Runnable action) {
+        if (pluginId == null || buttonId == null || action == null) {
+            return;
+        }
+        HBox container = toolbarController != null ? toolbarController.getPluginToolbarContainer() : null;
+        if (container == null) {
+            return;
+        }
+        Platform.runLater(() -> {
+            Button button = new Button();
+            button.getStyleClass().add("toolbar-btn");
+            // Stable per-plugin id so re-registration replaces instead of duplicating.
+            button.setId("plugin-toolbar-" + pluginId + "-" + buttonId);
+            if (tooltip != null && !tooltip.isBlank()) {
+                button.setTooltip(new Tooltip(tooltip));
+            }
+            if (iconLiteral != null && !iconLiteral.isBlank()) {
+                org.kordamp.ikonli.javafx.FontIcon icon = new org.kordamp.ikonli.javafx.FontIcon(iconLiteral);
+                icon.getStyleClass().add("feather-icon");
+                icon.setIconSize(16);
+                button.setGraphic(icon);
+            } else {
+                button.setText(tooltip != null ? tooltip : buttonId);
+            }
+            button.setOnAction(e -> action.run());
+
+            container.getChildren().removeIf(n -> button.getId().equals(n.getId()));
+            container.getChildren().add(button);
+            pluginToolbarButtons.computeIfAbsent(pluginId, k -> new ArrayList<>()).add(button);
+            container.setVisible(true);
+            container.setManaged(true);
+        });
+    }
+
+    @Override
+    public void removeToolbarButtons(String pluginId) {
+        HBox container = toolbarController != null ? toolbarController.getPluginToolbarContainer() : null;
+        List<javafx.scene.Node> buttons = pluginToolbarButtons.remove(pluginId);
+        if (container == null || buttons == null) {
+            return;
+        }
+        Platform.runLater(() -> {
+            container.getChildren().removeAll(buttons);
+            boolean empty = container.getChildren().isEmpty();
+            container.setVisible(!empty);
+            container.setManaged(!empty);
+        });
+    }
+
 
     public void registerStatusBarItem(String pluginId, String itemId, javafx.scene.Node content) {
         pluginUi.registerStatusBarItem(
@@ -1295,6 +1372,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         systemActionHandlers.put(SystemActionEvent.ActionType.KANBAN_VIEW, overlaySupport::toggleKanban);
         systemActionHandlers.put(SystemActionEvent.ActionType.PRIVATE_TOGGLE, this::handleTogglePrivate);
         systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_LOCK, this::handleLockNotes);
+        systemActionHandlers.put(SystemActionEvent.ActionType.IMPORT_OBSIDIAN, importSupport::importObsidianVault);
+        systemActionHandlers.put(SystemActionEvent.ActionType.IMPORT_ENEX, importSupport::importEnex);
+        systemActionHandlers.put(SystemActionEvent.ActionType.NOTE_HISTORY, historySupport::showHistoryDialog);
         systemActionHandlers.put(SystemActionEvent.ActionType.QUICK_SWITCHER, this::showQuickSwitcher);
         systemActionHandlers.put(SystemActionEvent.ActionType.CLOSE_NOTE, this::handleCloseNote);
         systemActionHandlers.put(SystemActionEvent.ActionType.GIT_SYNC, gitController::sync);

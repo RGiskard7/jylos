@@ -101,6 +101,8 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 - Open with **View → Kanban Board** or **`Ctrl/Cmd+Shift+K`**; pick or create boards from the toolbar
 - Add/rename/delete columns, create/edit/delete cards, and **drag cards between columns**
 - A card can link to a note (`[[Title]]`) or be **converted into a note**
+- Per-column **WIP limits** (`[wip=N]`, count badge turns red when exceeded) and **colors** (`[color=#rrggbb]`) — both stored in the heading line, set from the column menu
+- Cards referencing an image or PDF (`![…](file.png)`, `[[scan.pdf]]`) show an **embedded thumbnail** (first PDF page via PDFBox)
 
 ### Private notes (encryption)
 
@@ -129,6 +131,8 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 - **Daily note** and **new note from template** (`{{title}}`, `{{date}}`, …)
 - Per-note and **bulk vault export** to HTML/PDF
 - Import/export of individual notes
+- **Import an Obsidian vault** (folder hierarchy, frontmatter and tags preserved; `.obsidian/` skipped) or an **Evernote `.enex`** export (ENML converted to Markdown, tags kept, attachments noted as placeholders) — File menu
+- **Note version history** (Tools → Note History, `Ctrl/Cmd+Shift+H`): local snapshots taken before each save (coalesced, capped at 50 per note), with a line **diff** viewer and one-click **restore**; private notes' snapshots stay encrypted
 
 ### UI/UX
 
@@ -143,6 +147,7 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 
 - External plugin JARs loaded from `jylos/plugins/` (see `scripts/build-plugins.sh`; bytecode **Java 21**)
 - Plugin manager UI with stable command IDs and safe load/disable lifecycle
+- Plugin API: command palette, menus, side panels, preview enhancers, **toolbar buttons** and **editor hooks** (`onBeforeTextInsert` / `onBeforeSave` / `onAfterSave`) — see [doc/PLUGINS.md](doc/PLUGINS.md)
 - Built-in **Mermaid** diagram support in preview (plugin source under `plugins-source/`)
 - Theme catalog with external theme discovery and safe fallback
 
