@@ -31,7 +31,9 @@ All paths are relative to the **repository root** unless noted.
 |--------|---------|
 | `package-linux.sh` | Linux package |
 | `package-macos.sh` | macOS package |
-| `package-windows.ps1` | Windows package |
+| `package-windows.ps1` | Windows portable app-image (core; `-Type portable|exe|msi`) |
+| `package-windows-exe.ps1` | Windows .exe installer (WiX required) |
+| `package-windows-msi.ps1` | Windows .msi installer (WiX required) |
 | `cleanup-installers.ps1` | Remove packaging artifacts |
 
 ## Other

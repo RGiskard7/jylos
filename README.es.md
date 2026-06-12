@@ -299,7 +299,9 @@ Cada script `package-*` compila el uber-JAR, opcionalmente `build-plugins.sh`, y
 |---|---|---|
 | macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-1.0.0.dmg` |
 | Linux (deb/rpm) | `./scripts/package-linux.sh` | `jylos/target/installers/` |
-| Windows | `.\scripts\package-windows.ps1` | `Jylos\target\installers\` |
+| Windows portable (app-image) | `.\scripts\package-windows.ps1` | `jylos\target\installers\Jylos\` |
+| Windows instalador .exe (WiX) | `.\scripts\package-windows-exe.ps1` | `jylos\target\installers\Jylos-<versión>.exe` |
+| Windows instalador .msi (WiX) | `.\scripts\package-windows-msi.ps1` | `jylos\target\installers\Jylos-<versión>.msi` |
 
 ```bash
 ./scripts/package-macos.sh
@@ -396,7 +398,7 @@ Los iconos de barra y menús son glifos **Feather** (`fth-*` en FXML), no ficher
 
 ### Temas
 
-Paquetes en `themes/<id>/` (`theme.properties` + `theme.css`). Instalar con `./scripts/build-themes.sh` (copia a `jylos/themes/`).
+Paquetes en `themes/<id>/` (`theme.properties` + `theme.css`). En desarrollo: `./scripts/build-themes.sh` (copia a `jylos/themes/`). **App instalada:** copia la carpeta del tema a `~/Library/Application Support/Jylos/themes/<id>/` (macOS), `%APPDATA%\Jylos\themes\<id>\` (Windows) o `~/.config/Jylos/themes/<id>/` (Linux); detalle en [themes/README.md](themes/README.md).
 
 ### Plugins
 

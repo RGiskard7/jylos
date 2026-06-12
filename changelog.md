@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Docs: instalar temas externos tras el instalador (2026-06-12)
+
+- **`themes/README.md`**: rutas por SO (macOS/Windows/Linux), copiar `themes/<id>/` al AppData, script `--appdata` y activación en Preferencias.
+- **`README.md`**, **`README.es.md`**, **`doc/PACKAGING.md`**: enlace/resumen; los instaladores no incluyen temas.
+
 ### Feat: color de acento personalizable + tamaño de texto persistente (2026-06-08)
 
 - **Color de acento (estilo Obsidian):** en **Preferencias** hay ahora un check «Color de acento personalizado» + selector de color. Se aplica como override `-fx-accent`/`-fx-accent-hover`/`-fx-selected-bg` en línea sobre la raíz de la escena, así que recolorea selección/foco/toggles en los temas integrados **y externos**; desactivado, cada tema usa su acento por defecto (morado en claro/oscuro, verde fósforo en Retro). Valor validado (`#rrggbb` o nada) — `UiPreferencesStoreTest`.

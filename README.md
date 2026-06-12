@@ -298,7 +298,9 @@ Each `package-*` script builds the uber-JAR, optionally runs `build-plugins.sh`,
 |---|---|---|
 | macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-1.0.0.dmg` |
 | Linux (deb/rpm) | `./scripts/package-linux.sh` | `jylos/target/installers/` |
-| Windows | `.\scripts\package-windows.ps1` | `Jylos\target\installers\` |
+| Windows portable (app-image) | `.\scripts\package-windows.ps1` | `jylos\target\installers\Jylos\` |
+| Windows .exe installer (WiX) | `.\scripts\package-windows-exe.ps1` | `jylos\target\installers\Jylos-<version>.exe` |
+| Windows .msi installer (WiX) | `.\scripts\package-windows-msi.ps1` | `jylos\target\installers\Jylos-<version>.msi` |
 
 ```bash
 ./scripts/package-macos.sh
@@ -395,7 +397,7 @@ Toolbar/sidebar icons are **Feather** glyphs (`fth-*` in FXML), not files in `ic
 
 ### Themes
 
-Source packs live in `themes/<id>/` (`theme.properties` + `theme.css`). Install with `./scripts/build-themes.sh` (copies to `jylos/themes/`).
+Source packs live in `themes/<id>/` (`theme.properties` + `theme.css`). Development: `./scripts/build-themes.sh` (copies to `jylos/themes/`). **Packaged app:** copy the theme folder to `~/Library/Application Support/Jylos/themes/<id>/` (macOS), `%APPDATA%\Jylos\themes\<id>\` (Windows), or `~/.config/Jylos/themes/<id>/` (Linux). See [themes/README.md](themes/README.md).
 
 ### Plugins
 
