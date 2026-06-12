@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Fix: scripts de empaquetado Windows en PowerShell 5.1 (2026-06-12)
+
+- **`scripts/package-windows.ps1`**: sustituidos guiones largos Unicode (`—`) y separadores decorativos (`──`) por ASCII. Sin BOM, PowerShell 5.1 leía el UTF-8 como Windows-1252 y el byte `0x94` del em dash se interpretaba como comilla tipográfica, rompiendo el parseo (`MissingEndCurlyBrace` en las líneas 111–115). Los wrappers `package-windows-exe.ps1` y `package-windows-msi.ps1` heredaban el fallo.
+
+### Fix: auto-deteccion JDK 21 y WiX embebido en empaquetado Windows (2026-06-12)
+
+- **`scripts/package-windows.ps1`**: elige JDK 21+ aunque `java` en PATH sea 17; usa `.tools/wix314` si existe.
+- **`scripts/setup-packaging-windows.ps1`**: setup one-shot (winget JDK 21 + descarga WiX 3.14 sin admin).
+- **`doc/PACKAGING.md`**: documentado el flujo de setup.
+
 ### Feat: instaladores Windows, API de plugins, importadores, historial, Kanban+ y firma macOS (2026-06-08)
 
 - **Instaladores Windows (.exe / .msi):** `package-windows.ps1` es ahora el núcleo parametrizado (`-Type portable|exe|msi`; portable por defecto) con dos wrappers `package-windows-exe.ps1` / `package-windows-msi.ps1`. Ambos instaladores requieren **WiX Toolset** (lo usa jpackage), incluyen selector de directorio, grupo de menú Inicio, acceso directo, página de licencia MIT y un **UUID de upgrade estable** (las versiones nuevas actualizan en vez de duplicarse). Documentado en `doc/PACKAGING.md`. *(No ejecutables en macOS — pendientes de prueba en Windows.)*

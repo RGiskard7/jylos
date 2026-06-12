@@ -36,6 +36,74 @@ Set-StrictMode -Version Latest
 $UPGRADE_UUID = '6f1d2f7e-9b3a-4c5d-8e2f-3a7b1c9d4e60'
 
 $root = Split-Path -Parent $PSScriptRoot
+
+function Get-JdkMajorVersion {
+    param([string]$JdkHome)
+    $javaExe = Join-Path $JdkHome 'bin\java.exe'
+    if (-not (Test-Path $javaExe)) { return 0 }
+    $output = & $javaExe -version 2>&1 | Out-String
+    if ($output -match 'version "(\d+)') {
+        return [int]$matches[1]
+    }
+    return 0
+}
+
+function Find-PackagingJdkHome {
+    $homes = [System.Collections.Generic.List[string]]::new()
+    if ($env:JAVA_HOME) { $homes.Add($env:JAVA_HOME) }
+
+    $javaCmd = Get-Command java -ErrorAction SilentlyContinue
+    if ($javaCmd) {
+        $homes.Add((Split-Path (Split-Path $javaCmd.Path -Parent) -Parent))
+    }
+
+    foreach ($pattern in @(
+            'C:\Program Files\Java\jdk-*',
+            'C:\Program Files\Eclipse Adoptium\jdk-*',
+            'C:\Program Files\Microsoft\jdk-*',
+            "$env:LOCALAPPDATA\Programs\Eclipse Adoptium\jdk-*")) {
+        $jdkDirs = Get-ChildItem -Path $pattern -Directory -ErrorAction SilentlyContinue
+        foreach ($jdkDir in $jdkDirs) {
+            $homes.Add($jdkDir.FullName)
+        }
+    }
+
+    $bestHome = $null
+    $bestVersion = 0
+    foreach ($jdkHome in ($homes | Select-Object -Unique)) {
+        $major = Get-JdkMajorVersion $jdkHome
+        if ($major -ge 21 -and $major -gt $bestVersion) {
+            $bestHome = $jdkHome
+            $bestVersion = $major
+        }
+    }
+    return $bestHome
+}
+
+function Ensure-BundledWixOnPath {
+    param([string]$RepoRoot)
+    $wixDir = Join-Path $RepoRoot '.tools\wix314'
+    $candle = Join-Path $wixDir 'candle.exe'
+    $light = Join-Path $wixDir 'light.exe'
+    if ((Test-Path $candle) -and (Test-Path $light)) {
+        $env:Path = "$wixDir;$env:Path"
+        return $wixDir
+    }
+    return $null
+}
+
+$packagingJdk = Find-PackagingJdkHome
+if (-not $packagingJdk) {
+    Write-Host 'Error: JDK 21+ not found (Maven and jpackage require it).' -ForegroundColor Red
+    Write-Host '  Install: winget install EclipseAdoptium.Temurin.21.JDK' -ForegroundColor Yellow
+    Write-Host '  Or download: https://adoptium.net/' -ForegroundColor Yellow
+    exit 1
+}
+$env:JAVA_HOME = $packagingJdk
+$env:Path = "$(Join-Path $packagingJdk 'bin');$env:Path"
+
+$bundledWixDir = Ensure-BundledWixOnPath -RepoRoot $root
+
 Push-Location (Join-Path $root 'jylos')
 
 function Read-AppProperty {
@@ -62,71 +130,41 @@ Write-Host "  $APP_NAME - Windows packager ($Type)" -ForegroundColor Cyan
 Write-Host '========================================' -ForegroundColor Cyan
 Write-Host ''
 
-# ── Locate jpackage (JDK 21+, not JRE) ─────────────────────────────────────────
-$jpackagePath = $null
-try {
-    $null = jpackage --version 2>&1
-    if ($LASTEXITCODE -eq 0) { $jpackagePath = 'jpackage' }
-} catch { }
-
-if (-not $jpackagePath -and $env:JAVA_HOME) {
-    $candidate = Join-Path $env:JAVA_HOME 'bin\jpackage.exe'
-    if (Test-Path $candidate) { $jpackagePath = $candidate }
-}
-
-if (-not $jpackagePath) {
-    $javaCmd = Get-Command java -ErrorAction SilentlyContinue
-    if ($javaCmd) {
-        $possibleJavaHome = Split-Path (Split-Path $javaCmd.Path -Parent) -Parent
-        $candidate = Join-Path $possibleJavaHome 'bin\jpackage.exe'
-        if (Test-Path $candidate) { $jpackagePath = $candidate }
-    }
-}
-
-if (-not $jpackagePath) {
-    foreach ($pattern in @(
-            'C:\Program Files\Java\jdk-*',
-            'C:\Program Files\Eclipse Adoptium\jdk-*',
-            'C:\Program Files\Microsoft\jdk-*',
-            "$env:LOCALAPPDATA\Programs\Eclipse Adoptium\jdk-*")) {
-        $jdkDirs = Get-ChildItem -Path $pattern -Directory -ErrorAction SilentlyContinue |
-            Sort-Object Name -Descending
-        foreach ($jdkDir in $jdkDirs) {
-            $candidate = Join-Path $jdkDir.FullName 'bin\jpackage.exe'
-            if (Test-Path $candidate) { $jpackagePath = $candidate; break }
-        }
-        if ($jpackagePath) { break }
-    }
-}
-
-if (-not $jpackagePath) {
-    Write-Host 'Error: jpackage not found. Install a full JDK 21+ (not a JRE).' -ForegroundColor Red
-    Write-Host '  https://adoptium.net/  — then set JAVA_HOME and add %JAVA_HOME%\bin to PATH.' -ForegroundColor Yellow
+# -- jpackage from the selected JDK 21+ home (not whatever java is first on PATH) -
+$jpackagePath = Join-Path $packagingJdk 'bin\jpackage.exe'
+if (-not (Test-Path $jpackagePath)) {
+    Write-Host 'Error: jpackage not found in the selected JDK (install a full JDK, not a JRE).' -ForegroundColor Red
+    Write-Host "  JAVA_HOME: $packagingJdk" -ForegroundColor Yellow
     Pop-Location
     exit 1
 }
+Write-Host "JDK:      $packagingJdk" -ForegroundColor Green
 Write-Host "jpackage: $jpackagePath" -ForegroundColor Green
 
-# ── WiX is mandatory for exe/msi (jpackage builds both installer types with it) ─
+# -- WiX is mandatory for exe/msi (jpackage builds both installer types with it) -
 if ($Type -ne 'portable') {
     $wix3 = (Get-Command light.exe -ErrorAction SilentlyContinue) -and
             (Get-Command candle.exe -ErrorAction SilentlyContinue)
     $wix4 = Get-Command wix.exe -ErrorAction SilentlyContinue
     if (-not ($wix3 -or $wix4)) {
-        Write-Host "Error: WiX Toolset not found — required to build .$Type installers." -ForegroundColor Red
-        Write-Host '  JDK 17-21: install WiX 3.x and put candle.exe/light.exe on PATH.' -ForegroundColor Yellow
-        Write-Host '  JDK 22+:   install WiX 4+ (wix.exe), e.g. "dotnet tool install --global wix".' -ForegroundColor Yellow
+        Write-Host "Error: WiX Toolset not found - required to build .$Type installers." -ForegroundColor Red
+        Write-Host '  One-time setup (no admin): .\scripts\setup-packaging-windows.ps1' -ForegroundColor Yellow
+        Write-Host '  Or install WiX 3.x (candle/light on PATH) or WiX 4+ (wix.exe).' -ForegroundColor Yellow
         Write-Host '  Download:  https://wixtoolset.org' -ForegroundColor Yellow
         Write-Host ''
         Write-Host 'Alternatively run without -Type for a portable app-image (no WiX needed).' -ForegroundColor Cyan
         Pop-Location
         exit 1
     }
-    Write-Host 'WiX Toolset: found' -ForegroundColor Green
+    if ($bundledWixDir) {
+        Write-Host "WiX Toolset: found (bundled at $bundledWixDir)" -ForegroundColor Green
+    } else {
+        Write-Host 'WiX Toolset: found' -ForegroundColor Green
+    }
 }
 Write-Host ''
 
-# ── Build uber-JAR ──────────────────────────────────────────────────────────────
+# -- Build uber-JAR --------------------------------------------------------------
 Write-Host 'Building JAR...' -ForegroundColor Cyan
 & mvn clean package -DskipTests
 if ($LASTEXITCODE -ne 0) {
@@ -143,7 +181,7 @@ if (-not $jarFile) {
     exit 1
 }
 
-# ── Build plugins (best effort) ─────────────────────────────────────────────────
+# -- Build plugins (best effort) ------------------------------------------------
 $buildPluginsScript = Join-Path $root 'scripts\build-plugins.ps1'
 if (Test-Path $buildPluginsScript) {
     Write-Host ''
@@ -154,7 +192,7 @@ if (Test-Path $buildPluginsScript) {
     }
 }
 
-# ── Output dir (short path to dodge the Windows path-length limit) ──────────────
+# -- Output dir (short path to dodge the Windows path-length limit) --------------
 $currentPath = (Get-Location).Path
 if ($currentPath.Length -gt 100) {
     $outputDir = Join-Path $env:TEMP 'Jylos-installer'
@@ -164,7 +202,7 @@ if ($currentPath.Length -gt 100) {
 }
 New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 
-# ── jpackage arguments ──────────────────────────────────────────────────────────
+# -- jpackage arguments ----------------------------------------------------------
 $jpackageType = if ($Type -eq 'portable') { 'app-image' } else { $Type }
 
 # Isolated input dir with only the JAR (prevents recursive content copying).

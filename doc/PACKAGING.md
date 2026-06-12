@@ -41,6 +41,9 @@ format (`package-windows-exe.ps1` / `package-windows-msi.ps1` are thin wrappers)
   MIT license page). **Both require the WiX Toolset**, which jpackage uses to build
   Windows installers: WiX 3.x (`candle.exe`/`light.exe` on PATH) for JDK 17–21, or
   WiX 4+ (`wix.exe`, e.g. `dotnet tool install --global wix`) for JDK 22+.
+- **Windows one-time setup:** `.\scripts\setup-packaging-windows.ps1` installs JDK 21
+  (winget) and WiX 3.14 binaries under `.tools/wix314/`. `package-windows.ps1` then
+  auto-selects JDK 21+ and bundled WiX — no manual `JAVA_HOME` or PATH edits.
 - Upgrades: installers carry a **stable `--win-upgrade-uuid`**, so a newer MSI/EXE
   upgrades the previous install instead of installing side by side. Never change
   that UUID in `package-windows.ps1`.
