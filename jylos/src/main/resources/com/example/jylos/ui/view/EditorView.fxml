@@ -18,18 +18,14 @@
         <HBox fx:id="editorTabBar" styleClass="editor-tab-bar"/>
     </ScrollPane>
 
-    <!-- ── Breadcrumb path bar (folder/.../note.md) + close ─────────────────── -->
+    <!-- ── Breadcrumb path bar (folder/.../note.md) ───────────────────────── -->
+    <!-- Closing a note is done from its tab (×) or Close Note; no duplicate close here. -->
     <HBox fx:id="editorPathBar" alignment="CENTER_LEFT" spacing="6" styleClass="editor-path-bar">
         <padding>
             <Insets top="5" right="12" bottom="5" left="16"/>
         </padding>
         <FontIcon iconLiteral="fth-file-text" styleClass="feather-icon-faint"/>
         <Label fx:id="notePathLabel" text="" styleClass="note-path" HBox.hgrow="ALWAYS"/>
-        <Region HBox.hgrow="ALWAYS"/>
-        <Button fx:id="closeNoteBtn" onAction="#handleCloseNote" styleClass="path-close-btn">
-            <tooltip><Tooltip text="%tooltip.close_note"/></tooltip>
-            <graphic><FontIcon iconLiteral="fth-x" styleClass="feather-icon"/></graphic>
-        </Button>
     </HBox>
 
     <!-- ── Editor Header ─────────────────────────────────────────────────── -->

@@ -113,7 +113,6 @@ public class EditorController {
     @FXML private HBox editorTabBar;
     @FXML private HBox editorPathBar;
     @FXML private Label notePathLabel;
-    @FXML private Button closeNoteBtn;
     @FXML private HBox editorHeaderBar;
     @FXML private StackPane editorContentStack;
     @FXML private VBox emptyState;
@@ -466,10 +465,6 @@ public class EditorController {
         notePathLabel.setText(path);
     }
 
-    @FXML
-    private void handleCloseNote(ActionEvent e) {
-        publish(SystemActionEvent.ActionType.CLOSE_NOTE);
-    }
 
     @FXML
     private void handleEmptyCreate(ActionEvent e) {

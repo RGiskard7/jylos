@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fix: botón de cerrar nota duplicado (2026-06-08)
+
+- Con las pestañas, había **dos botones de cerrar** la nota: la × de la pestaña y otra × en la barra de ruta de la nota. Se elimina la de la barra de ruta (`closeNoteBtn` + su handler en `EditorController`); cerrar se hace desde la pestaña (×), que es el sitio estándar. Sin pérdida de funcionalidad.
+### Fix: coherencia de temas claro/oscuro (2026-06-08)
+
+- **Tema oscuro:** foco de campos de texto, estado seleccionado de toggles y el icono de toggle seleccionado usaban un morado distinto (`#9f7aea`, el de `-fx-folder-all`) en lugar del acento del tema (`-fx-accent`, `#7c3aed`). Unificado a `-fx-accent`/`-fx-accent-contrast`, igual que el tema claro — fin de los "dos morados".
+- **Auditoría:** verificada la **paridad de variables** de diseño entre ambos temas (sin variables huérfanas) y revisadas las asimetrías de selectores (el resto eran equivalencias `:filled:hover`/`:hover`, `.toolbar-btn-primary`/`.toolbar-btn.toolbar-btn-primary`, etc. — ambos temas cubren los mismos componentes). Los componentes nuevos (pestañas, Kanban, indicador de guardado) usan solo variables de tema. Sin errores de CSS al arrancar.
 ### Docs: documentación al día con las funcionalidades reales (2026-06-08)
 
 - **READMEs (EN/ES):** nueva sección **«Why Jylos / Por qué Jylos»** — honesta, sin marketing: inspirada en Obsidian (el autor es fan), pero **no es un clon, alternativa ni competidor**; app independiente, local-first, offline, MIT, para la comunidad. Reflejadas las funcionalidades nuevas (editor con resaltado RichTextFX, pestañas, indicador de guardado, modo concentración, **Kanban**, **notas privadas/cifrado**, persistencia de splits) y stack (RichTextFX, PDFBox).

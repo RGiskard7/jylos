@@ -1801,7 +1801,7 @@
 }
 
 .text-field:focused {
-    -fx-border-color: #9f7aea;
+    -fx-border-color: -fx-accent;
 }
 
 /* ========================================
@@ -1857,8 +1857,8 @@
 }
 
 .toggle-button:selected {
-    -fx-background-color: #9f7aea;
-    -fx-text-fill: #ffffff;
+    -fx-background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
 }
 
 /* ========================================
@@ -2036,10 +2036,10 @@
 
 
 
-/* Fix for Toggle Buttons Contrast - Selected State */
+/* Selected toolbar toggle icon uses the theme accent (consistent with light theme). */
 .toolbar-btn:selected .feather-icon {
-    -fx-icon-color: #9f7aea;
-    -fx-fill: #9f7aea;
+    -fx-icon-color: -fx-accent;
+    -fx-fill: -fx-accent;
 }
 
 .toolbar-btn:selected:hover .feather-icon {
