@@ -17,28 +17,31 @@ ui/ (FXML, controllers, components, GraphCanvas)
 
 | Package | Role |
 |---------|------|
-| `ui.controller` | `MainController`, `SidebarController`, `NotesListController`, `EditorController`, `ToolbarController`, `GraphController`; shell helpers (`ThemeCommand`, `CommandUI`, `UiDialog`, `UiLayout`, …) |
+| `ui.controller` | `MainController` (shell coordinator), `SidebarController`, `NotesListController`, `EditorController`, `ToolbarController`, `GraphController`; **feature helpers** that `MainController` delegates to (`GitController`, `PrivacySupport`, `FocusModeSupport`, `OverlaySupport`, `StatusBarSupport`, `BacklinksSupport`) and shell helpers (`LayoutSupport`, `CommandSupport`, `DialogSupport`, `ThemeSupport`, `PluginSupport`, `UiEventSupport`, `UiPreferencesStore`, …) |
 | `ui.graph` | `GraphCanvas` — native JavaFX force-directed graph renderer |
-| `ui.components` | Command palette, quick switcher, plugin manager, file viewers |
+| `ui.components` | `CommandPalette`, `QuickSwitcher`, `PluginManagerDialog`, `FileViewer`, `EditorTabs` (open-note tab strip), `KanbanBoard` (Kanban overlay) |
 | `graph` | `GraphBuilder`, `GraphData` — vault graph from notes, wiki-links, tags |
 | `git` | `GitService` — status, stage, commit, sync when vault is a Git repo |
-| `service` | Business rules (`BacklinkService`, `DatabaseBackupService`, …) |
+| `service` | Business rules (`NoteService`, `FolderService`, `TagService`, `BacklinkService`, `NoteTitleIndex`, `EncryptionService`, `DatabaseBackupService`, …) |
 | `data.dao` | SQLite and filesystem implementations |
-| `data.models` | `Note`, `Folder`, `Tag`, `ToDoNote` |
+| `data.models` | `Note` (incl. `status`, `isPrivate`), `Folder`, `Tag`, `ToDoNote` |
 | `event` | `EventBus`, typed events under `event.events` (including `SystemActionEvent`) |
 | `plugin` | `PluginLoader`, `PluginManager`, `AbstractPlugin`, `PluginIds`; built-in Mermaid under `plugin/mermaid/` |
-| `util` | `WikiLinkResolver`, `MarkdownProcessor`, `MarkdownPreview` (CommonMark + KaTeX + emoji), `NoteExporter` |
+| `util` | `WikiLinkResolver`, `MarkdownProcessor`, `MarkdownPreview` (CommonMark + KaTeX + emoji), `MarkdownHighlighter` (editor syntax highlighting), `KanbanModel`, `NoteExporter` |
 | `config` | `AppContext`, `LoggerConfig` |
+
+> **MainController pattern.** `MainController` is the FXML shell coordinator and must stay thin: each self-contained feature lives in its own `ui/controller/*Controller`/`*Support` class with a `wire(...)` method (FXML nodes + small callbacks). New features follow this — no feature bodies inside `MainController`. See `AGENTS.md`.
 
 ## UI composition
 
-- `MainView.fxml` — `BorderPane`: toolbar | center `StackPane` (main `SplitPane` + **graph overlay**) | collapsible right panel | status bar (optional **Git** strip in vault mode).
+- `MainView.fxml` — `BorderPane`: toolbar | center `StackPane` (main `SplitPane` + **graph and Kanban overlays**) | collapsible right panel | status bar (optional **Git** strip in vault mode).
 - Center split — sidebar | (notes list | editor/preview).
-- **Graph** — `GraphView.fxml` + `GraphController`; `GraphCanvas` embedded in overlay; toggled via `SystemActionEvent.GRAPH_VIEW` (`Ctrl+G`, View menu, toolbar).
+- **Overlays** — graph (`GraphView.fxml` + `GraphController` + `GraphCanvas`) and Kanban (`KanbanBoard`) share the center `StackPane` and are mutually exclusive; both managed by `OverlaySupport`. Toggled via `SystemActionEvent.GRAPH_VIEW` (`Ctrl+G`) and `KANBAN_VIEW` (`Ctrl/Cmd+Shift+K`).
 - Sidebar — icon nav bar + `TabPane` (folders, tags, recent, favorites, trash).
 - Notes list — custom `ListCell` (title, preview lines, dates, pin/favorite icons).
-- Editor — `TextArea` + `WebView` preview (`MarkdownPreview`, wiki-link clicks via `jylos://` protocol).
-- Right panel — note metadata, **backlinks** (`BacklinkService`), plugin side panels.
+- Editor — `EditorTabs` strip (one tab per open note) above a **RichTextFX `CodeArea`** (live Markdown highlighting via `MarkdownHighlighter`) + `WebView` preview (`MarkdownPreview`, wiki-link clicks via `jylos://` protocol). Inline save indicator; `[[` autocomplete.
+- Right panel — note metadata, **backlinks** (`BacklinksSupport` + `BacklinkService`), plugin side panels.
+- **Focus / writing mode** (`FocusModeSupport`, `Ctrl/Cmd+Shift+F`) — removes sidebar, notes list, right panel, toolbar and status bar, leaving only the editor; restores the prior layout on exit.
 
 ## Knowledge graph
 
@@ -52,7 +55,11 @@ Local graph: BFS neighbourhood around the open note id (configurable depth in co
 ## Wiki-links and backlinks
 
 - `WikiLinkResolver` — `[[Title]]`, `[[path/Note#heading|alias]]`, `[label](Note.md)`; resolves to HTML anchors for preview.
-- `BacklinkService` — scans note bodies (full content, cached) for incoming links to the current note.
+- `BacklinkService` — bidirectional warm index (forward `noteId → targets`, inverse `title → noteIds`), invalidated by note events; `backlinksFor` is an O(1) lookup.
+
+## Kanban board
+
+A board is a normal **note** whose Markdown body is parsed/serialised by `KanbanModel`: a hidden first-line marker (`%% jylos-kanban %%`) flags it as a board, `## Heading` lines are columns, `- card` lines are text cards. `KanbanBoard` (overlay) renders columns/cards, supports add/rename/delete columns, create/edit/delete cards, drag between columns, and per-card open-linked-note / convert-to-note. Each change is serialised back to the board note via `NoteService` — works in both storage modes with no schema change.
 
 ## Runtime directories
 
@@ -75,9 +82,13 @@ App icons: `src/main/resources/icons/` — see [icons README](../jylos/src/main/
 - **SQLite** (default) — `SQLiteDB.initDatabase()`; DAOs in `data.dao.sqlite`.
 - **Filesystem vault** — Markdown + YAML frontmatter (`FrontmatterHandler`); lightweight list cache (`parseLightweight`); full body on open/export/graph/backlinks.
 
-No automatic schema migration: SQL schema changes need a documented manual step.
+Notes carry a `status` column (Kanban legacy/free use) and an `is_private` column (SQLite) / `private:` frontmatter (vault). `SQLiteDB.initDatabase()` performs **idempotent `ALTER TABLE` migrations** (checks `PRAGMA table_info` before adding a column); other SQL schema changes still need a documented manual step.
 
 Preferences key `storage_type`: `sqlite` vs `filesystem` (restart to switch).
+
+## Private notes (encryption)
+
+`EncryptionService` (singleton) encrypts the **body only** of notes flagged `isPrivate`, behind a single **master password**: an AES-256 key is derived with PBKDF2-HMAC-SHA256 over a random salt; only the salt and a verifier are stored (never the password). Bodies are AES-GCM (random IV per note) and persisted as `JENC1:base64(iv‖ciphertext)`. `NoteService` encrypts on write and decrypts on read when the session is unlocked; while locked, list previews and the editor show a 🔒 placeholder and private-note saves are blocked (so ciphertext is never overwritten with plaintext). Vault frontmatter (title, dates) stays readable so locked notes still list.
 
 ## Git (filesystem vault)
 

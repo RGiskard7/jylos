@@ -22,11 +22,12 @@
 </div>
 
 <div align="center">
-  <strong>Local-first desktop notes with Markdown preview, wiki-links, an interactive knowledge graph, plugins, themes, and SQLite or Markdown vault storage.</strong>
+  <strong>Local-first desktop knowledge management: Markdown notes, wiki-links, backlinks, an interactive knowledge graph, a Kanban board, per-note encryption, plugins, and SQLite or Markdown-vault storage.</strong>
 </div>
 
 ## Table of Contents
 
+- [Why Jylos](#why-jylos)
 - [Overview](#overview)
 - [Features](#features)
 - [Screenshots](#screenshots)
@@ -41,15 +42,30 @@
 - [Contributing](#contributing)
 - [License](#license)
 
+## Why Jylos
+
+Jylos is a local-first knowledge-management application: Markdown notes, wiki-links, backlinks, an interactive knowledge graph, a Kanban board, optional per-note encryption, a plugin system, and your choice of **SQLite** or a plain **Markdown vault** on disk.
+
+It began as a personal project by an Obsidian fan, and Obsidian's note-taking workflow was a clear inspiration — wiki-links, backlinks and the graph view will feel familiar if you come from there. To be clear and honest: **Jylos is not an Obsidian clone, an alternative, or a competitor.** It is an independent, open-source application with its own codebase (Java/JavaFX), its own storage and feature decisions, and no ambition to replace Obsidian. If you love Obsidian, keep using it — Jylos is just another open tool built in the same spirit, for learning and for the community.
+
+In concrete terms:
+
+- **Local-first and offline** — your notes are plain `.md` files (vault mode) or a single SQLite database; you own the data, no cloud backend, no account, no telemetry.
+- **A focused desktop app** — single-user, written in Java/JavaFX, runs on Windows, macOS and Linux.
+- **Free and MIT-licensed** — an open-source project for the community.
+
 ## Overview
 
 Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like workflows:
 
-- Fast note writing/editing with live Markdown preview (GFM, KaTeX math, emoji)
+- Markdown editor with **live syntax highlighting** (RichTextFX) and a side-by-side preview (GFM, KaTeX math, emoji)
+- **Tabs** for multiple open notes, with an inline saved/unsaved indicator
 - Folder hierarchy + tags + favorites + recent + trash
 - **Obsidian-compatible internal links** (`[[wiki-links]]`, `[label](note.md)`) with click-to-open in preview
 - **Knowledge graph** (global vault view or local neighbourhood around the open note)
 - **Backlinks** panel listing notes that link to the current note
+- **Kanban board** stored inside a note, and a distraction-free **focus / writing mode**
+- **Private notes**: optional AES-256 body encryption behind a master password
 - Command palette (`Ctrl+P`) and quick switcher (`Ctrl+O`)
 - External plugins (JARs in `jylos/plugins/`, built from `plugins-source/`) and themes (`themes/` → `jylos/themes/`)
 - Storage: **SQLite** (default) or **filesystem Markdown vault** (`.md` + YAML frontmatter; optional **Git** menu for commit/stage/sync)
@@ -68,12 +84,29 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 
 ### Editor & Preview
 
-- Markdown rendering with GFM tables, autolinks, strikethrough
-- Live preview and split / editor-only / preview-only modes
-- Syntax highlighting for fenced code blocks (highlight.js)
+- Markdown editor with **live syntax highlighting** (RichTextFX `CodeArea`: headings, bold/italic, code, `[[wiki-links]]`, lists, quotes, links)
+- **Tabs** for multiple open notes; **inline save indicator** (amber = unsaved, green = saved)
+- **`[[` autocomplete** for note titles; formatting toolbar (bold, lists, links, …)
+- Side-by-side preview with split / editor-only / preview-only modes
+- Markdown rendering with GFM tables, autolinks, strikethrough; code-block highlighting in preview (highlight.js)
 - **KaTeX** for `$…$`, `$$…$$`, and LaTeX delimiters (offline assets bundled in the JAR)
 - Emoji in preview via rasterized glyphs (reliable in the JavaFX WebView)
 - **Wiki-link resolution** shared with the graph and backlinks (`WikiLinkResolver`)
+- **Focus / writing mode** (`Ctrl/Cmd+Shift+F`): hides everything but the editor
+- Split-pane proportions are remembered between sessions
+
+### Task board (Kanban)
+
+- A board is a normal note whose Markdown body holds columns (`## Heading`) and text cards (`- card`), in the spirit of Obsidian's Kanban plugin
+- Open with **View → Kanban Board** or **`Ctrl/Cmd+Shift+K`**; pick or create boards from the toolbar
+- Add/rename/delete columns, create/edit/delete cards, and **drag cards between columns**
+- A card can link to a note (`[[Title]]`) or be **converted into a note**
+
+### Private notes (encryption)
+
+- Mark a note as private (**Tools → Make Note Private/Public**, `Ctrl/Cmd+Shift+L`) to encrypt **only its body** at rest (AES-256-GCM)
+- A single **master password** unlocks private notes per session (PBKDF2-derived key; the password itself is never stored)
+- Works in **both** storage modes: a dedicated column in SQLite, a `private:` frontmatter flag in the vault; metadata stays readable so a locked note shows as 🔒 without the key
 
 ### Knowledge graph
 
@@ -139,8 +172,10 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 - JavaFX 23
 - Maven 3.9+
 - SQLite JDBC
-- CommonMark
+- CommonMark (Markdown preview)
+- RichTextFX (editor syntax highlighting)
 - Ikonli (Feather icons)
+- PDFBox + OpenHTMLToPDF (PDF export / viewer)
 - JUnit 5 + H2 (tests)
 
 ## Prerequisites
