@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Feat: color de acento personalizable + tamaño de texto persistente (2026-06-08)
+
+- **Color de acento (estilo Obsidian):** en **Preferencias** hay ahora un check «Color de acento personalizado» + selector de color. Se aplica como override `-fx-accent`/`-fx-accent-hover`/`-fx-selected-bg` en línea sobre la raíz de la escena, así que recolorea selección/foco/toggles en los temas integrados **y externos**; desactivado, cada tema usa su acento por defecto (morado en claro/oscuro, verde fósforo en Retro). Valor validado (`#rrggbb` o nada) — `UiPreferencesStoreTest`.
+- **Tamaño de texto:** el zoom de interfaz (`Ctrl/Cmd +/−/0`) ahora **persiste** entre sesiones (antes solo persistía si pasabas por Preferencias); Preferencias y zoom comparten la misma preferencia.
+- **Temas externos verificados:** `jylos/themes/retro-phosphor` instalado y sincronizado con el source; `base=dark` apila la hoja integrada + overlay correctamente (tests `ThemeCatalogTest`/`ThemeCommandTest` verdes).
 ### Fix: botón de cerrar nota duplicado (2026-06-08)
 
 - Con las pestañas, había **dos botones de cerrar** la nota: la × de la pestaña y otra × en la barra de ruta de la nota. Se elimina la de la barra de ruta (`closeNoteBtn` + su handler en `EditorController`); cerrar se hace desde la pestaña (×), que es el sitio estándar. Sin pérdida de funcionalidad.

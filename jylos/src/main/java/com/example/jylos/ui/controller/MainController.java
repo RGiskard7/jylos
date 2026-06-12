@@ -275,6 +275,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private java.util.ResourceBundle resources;
 
     private double uiFontSize = 13.0;
+    /** Custom accent ({@code #rrggbb}) or "" for the theme default. */
+    private String uiAccentColor = "";
     private double editorFontSize = 14.0;
     private final PauseTransition noteModifiedDebounce = new PauseTransition(Duration.millis(120));
     private final PauseTransition toolbarSearchDebounce = new PauseTransition(Duration.millis(180));
@@ -877,6 +879,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         externalThemeId = uiPrefs.externalThemeId();
         notesListPreviewLines = uiPrefs.notesPreviewLines();
         uiFontSize = uiPrefs.uiFontSize();
+        uiAccentColor = uiPrefs.accentColor();
         autosaveDebounce.setDuration(Duration.millis(autosaveIdleMs));
 
         if (sidebarController != null) {
@@ -2421,11 +2424,25 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         applyUiZoom();
     }
 
+    /**
+     * Applies the root inline style: UI font size plus the optional custom accent.
+     * Inline styles on the scene root override the theme stylesheets' looked-up
+     * colors, so a custom {@code -fx-accent} recolors every accent-driven control
+     * (selection, focus, toggles) in built-in and external themes alike.
+     */
     private void applyUiZoom() {
         if (toolbarController != null && toolbarController.getToolbarHBox() != null
                 && toolbarController.getToolbarHBox().getScene() != null) {
-            toolbarController.getToolbarHBox().getScene().getRoot().setStyle("-fx-font-size: " + uiFontSize + "px;");
+            StringBuilder style = new StringBuilder("-fx-font-size: ").append(uiFontSize).append("px;");
+            if (uiAccentColor != null && !uiAccentColor.isBlank()) {
+                style.append(" -fx-accent: ").append(uiAccentColor).append(';')
+                     .append(" -fx-accent-hover: derive(").append(uiAccentColor).append(", -12%);")
+                     .append(" -fx-selected-bg: ").append(uiAccentColor).append(';');
+            }
+            toolbarController.getToolbarHBox().getScene().getRoot().setStyle(style.toString());
         }
+        // Keep the persisted font size in sync so Ctrl+/- zoom survives a restart.
+        prefs.putInt(UiPreferencesStore.UI_FONT_SIZE_KEY, (int) Math.round(uiFontSize));
     }
 
     @FXML
@@ -2668,7 +2685,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 themeSource,
                 externalThemeId,
                 notesListPreviewLines,
-                (int) Math.round(uiFontSize));
+                (int) Math.round(uiFontSize),
+                uiAccentColor);
         List<ThemeCatalog.ThemeDescriptor> themes = themeCatalog.getAvailableThemes();
         Optional<UiDialog.PreferencesDialogResult> result = uiDialog.showPreferences(
                 currentUiPrefs,
@@ -2683,7 +2701,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 values.themeSource(),
                 values.externalThemeId(),
                 values.notesPreviewLines(),
-                values.uiFontSize());
+                values.uiFontSize(),
+                values.accentColor());
         uiPreferences.save(prefs, newPrefs);
         applyUiPreferencesFromStore();
         updateThemeMenuSelection();
