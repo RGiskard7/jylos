@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Fix: pulido exhaustivo de UI — coherencia visual y limpieza (2026-06-13)
+
+- **Favoritos activos visibles:** la clase `.feather-favorite-active` (estrella de favorito activo en la lista de notas) no estaba definida en ningún tema, así que el estado activo era invisible. Definida en ambos temas en ámbar (`-fx-warning`), con variante de contraste cuando la fila está seleccionada (claro → `-fx-accent-contrast`, oscuro → `-fx-selected-text`).
+- **Diálogo de Preferencias recortado:** el contenido creció (fila de acento) pero el tamaño era fijo (480×520) y se recortaba la parte inferior. Ahora el contenido va en un `ScrollPane` transparente (`.preferences-scroll`, solo barra vertical y solo si hace falta) y el diálogo pasa a 500×620.
+- **i18n en tabs del editor:** el tooltip del botón × de cada pestaña era «Close» hardcodeado; ahora usa la clave `tooltip.close_note` (EN/ES) vía el i18n inyectado en `EditorTabs`.
+- **Placeholder en inglés:** `wordCountLabel` arrancaba con `text="0 words"` en el FXML (visible un instante en locale español); ahora arranca vacío y lo rellena el contador i18n en cuanto hay nota.
+- **CSS muerto eliminado:** `.path-close-btn` (el botón de cierre duplicado de la barra de ruta se eliminó hace tiempo) y `.kanban-card-preview` (del Kanban intermedio reemplazado), en ambos temas.
+- **Claves i18n huérfanas eliminadas:** `kanban.more`, `kanban.new_card_title`, `kanban.no_status` (restos del Kanban por-status reemplazado por el modelo de tablero-en-nota), en los 3 bundles — paridad intacta (`I18nBundleFallbackGuardTest`).
+- **Auditoría sin hallazgos pendientes:** cobertura de `:hover` completa en ambos temas para todas las clases interactivas; todos los diálogos pasan por `UiDialogs.show()` (tematizado consistente); las únicas styleClass sin CSS son contenedores de layout intencionadamente transparentes (`graph-canvas-holder`, `stacked-header`). Verificado: 163/163 tests, uber-JAR y arranque sin errores (JDK 21).
+
 ### Fix: scripts de empaquetado Windows en PowerShell 5.1 (2026-06-12)
 
 - **`scripts/package-windows.ps1`**: sustituidos guiones largos Unicode (`—`) y separadores decorativos (`──`) por ASCII. Sin BOM, PowerShell 5.1 leía el UTF-8 como Windows-1252 y el byte `0x94` del em dash se interpretaba como comilla tipográfica, rompiendo el parseo (`MissingEndCurlyBrace` en las líneas 111–115). Los wrappers `package-windows-exe.ps1` y `package-windows-msi.ps1` heredaban el fallo.

@@ -383,7 +383,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                         new com.example.jylos.ui.components.EditorTabs.Listener() {
                             @Override public void onSelect(String noteId) { openNoteInTab(noteId); }
                             @Override public void onClose(String noteId) { closeTab(noteId); }
-                        });
+                        },
+                        this::getString);
             }
             overlaySupport.wire(centerStack, graphView, graphViewController, noteService,
                     this::isDarkThemeActive, this::getString, this::updateStatus);

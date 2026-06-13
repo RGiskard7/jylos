@@ -1089,10 +1089,6 @@
     -fx-font-weight: 600;
     -fx-text-fill: -fx-text-main;
 }
-.kanban-card-preview {
-    -fx-font-size: 11px;
-    -fx-text-fill: -fx-text-faint;
-}
 
 .title-field {
     -fx-background-color: transparent;
@@ -2540,15 +2536,6 @@
     -fx-fill: -fx-text-faint;
     -fx-icon-size: 13;
 }
-.path-close-btn {
-    -fx-background-color: transparent;
-    -fx-padding: 2 6;
-    -fx-cursor: hand;
-    -fx-background-radius: 4;
-}
-.path-close-btn:hover { -fx-background-color: -fx-hover-bg; }
-.path-close-btn .feather-icon { -fx-icon-color: -fx-text-muted; -fx-fill: -fx-text-muted; -fx-icon-size: 13; }
-.path-close-btn:hover .feather-icon { -fx-icon-color: -fx-danger; -fx-fill: -fx-danger; }
 
 /* ── Editor empty state (Obsidian-style) ──────────────────── */
 .editor-empty-state {
@@ -2998,4 +2985,23 @@
 }
 .kanban-card-thumb {
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 4, 0, 0, 1);
+}
+
+/* Active favorite star (grid cards): amber, like a classic favorite marker. */
+.feather-favorite-active {
+    -fx-icon-color: -fx-warning;
+    -fx-fill: -fx-warning;
+    fill: -fx-warning;
+}
+.tree-cell:selected .feather-favorite-active,
+.list-cell:selected .feather-favorite-active {
+    -fx-icon-color: -fx-selected-text;
+    -fx-fill: -fx-selected-text;
+    fill: -fx-selected-text;
+}
+
+/* Preferences dialog scroll container (theme-matched, no white box). */
+.preferences-scroll,
+.preferences-scroll > .viewport {
+    -fx-background-color: transparent;
 }

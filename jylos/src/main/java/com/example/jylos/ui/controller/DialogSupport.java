@@ -180,8 +180,14 @@ class UiDialog {
                 new Separator(),
                 new HBox(8, customAccentCheck, accentPicker));
 
-        dialog.getDialogPane().setContent(content);
-        dialog.getDialogPane().setPrefSize(480, 520);
+        // The settings list has outgrown a fixed pane: scroll vertically when needed
+        // so no row is ever clipped (no horizontal bar — content fits the width).
+        javafx.scene.control.ScrollPane scroll = new javafx.scene.control.ScrollPane(content);
+        scroll.setFitToWidth(true);
+        scroll.setHbarPolicy(javafx.scene.control.ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.getStyleClass().add("preferences-scroll");
+        dialog.getDialogPane().setContent(scroll);
+        dialog.getDialogPane().setPrefSize(500, 620);
 
         dialog.setResultConverter(buttonType -> {
             if (buttonType != saveButton) {

@@ -47,14 +47,18 @@ public final class EditorTabs {
     /** Node toggled for show/hide (typically the wrapping ScrollPane); may equal the container. */
     private final Region visibilityNode;
     private final Listener listener;
+    /** i18n lookup for the close tooltip (nullable; falls back to English). */
+    private final java.util.function.Function<String, String> i18n;
     /** Insertion-ordered so tab order is stable and neighbour lookup is predictable. */
     private final Map<String, TabNode> tabs = new LinkedHashMap<>();
     private String activeId;
 
-    public EditorTabs(HBox container, Region visibilityNode, Listener listener) {
+    public EditorTabs(HBox container, Region visibilityNode, Listener listener,
+            java.util.function.Function<String, String> i18n) {
         this.container = container;
         this.visibilityNode = visibilityNode != null ? visibilityNode : container;
         this.listener = listener;
+        this.i18n = i18n;
         if (container != null) {
             container.getStyleClass().add("editor-tab-bar");
         }
@@ -89,7 +93,8 @@ public final class EditorTabs {
 
             Label close = new Label("×");
             close.getStyleClass().add("editor-tab-close");
-            close.setTooltip(new Tooltip("Close"));
+            String closeText = i18n != null ? i18n.apply("tooltip.close_note") : null;
+            close.setTooltip(new Tooltip(closeText != null ? closeText : "Close note"));
             close.setOnMouseClicked(e -> {
                 e.consume();
                 if (listener != null) {
