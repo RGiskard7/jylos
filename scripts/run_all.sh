@@ -13,7 +13,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR/jylos"
 
-JAR="target/jylos-1.0.0-uber.jar"
+JAR="target/jylos-2.0.0-uber.jar"
 M2_REPO="$HOME/.m2/repository"
 
 # Detect platform for JavaFX platform-specific JARs

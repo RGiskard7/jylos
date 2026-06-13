@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-06-13
+
+Versión **major** por dos rupturas de compatibilidad: el requisito mínimo de Java sube de 17 a **21** (quien ejecute el JAR con Java 17 ya no puede; los instaladores empaquetan su propio runtime y no se ven afectados) y el **formato de datos** incorpora notas cifradas (`JENC1:`, columna `is_private` / frontmatter `private:`) que una v1.0.0 no puede leer. El resto del contenido de esta versión —pestañas, editor RichTextFX, cifrado, Kanban, importadores, historial, API de plugins, instaladores— es aditivo y está detallado en las entradas siguientes.
+
 ### Fix: pulido exhaustivo de UI — coherencia visual y limpieza (2026-06-13)
 
 - **Favoritos activos visibles:** la clase `.feather-favorite-active` (estrella de favorito activo en la lista de notas) no estaba definida en ningún tema, así que el estado activo era invisible. Definida en ambos temas en ámbar (`-fx-warning`), con variante de contraste cuando la fila está seleccionada (claro → `-fx-accent-contrast`, oscuro → `-fx-selected-text`).

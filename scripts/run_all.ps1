@@ -11,7 +11,7 @@ Set-StrictMode -Version Latest
 $root = Split-Path -Parent $PSScriptRoot
 Push-Location (Join-Path $root 'jylos')
 
-$jar = Join-Path (Get-Location) 'target\jylos-1.0.0-uber.jar'
+$jar = Join-Path (Get-Location) 'target\jylos-2.0.0-uber.jar'
 if (Test-Path $jar) {
     Write-Host "Launching Jylos..." -ForegroundColor Green
     Write-Host "JAR: $jar" -ForegroundColor Cyan

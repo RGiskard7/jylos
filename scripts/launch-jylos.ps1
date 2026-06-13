@@ -12,7 +12,7 @@ Write-Host ""
 # Get script directory and navigate to Jylos directory
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 $JYLOS_DIR = Join-Path $SCRIPT_DIR "..\jylos" | Resolve-Path
-$JAR = Join-Path $JYLOS_DIR "target\jylos-1.0.0-uber.jar"
+$JAR = Join-Path $JYLOS_DIR "target\jylos-2.0.0-uber.jar"
 
 # Check if JAR exists
 if (-not (Test-Path $JAR)) {

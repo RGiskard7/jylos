@@ -35,7 +35,7 @@ echo ""
 # Get script directory and navigate to Jylos directory
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 JYLOS_DIR="$(cd "$SCRIPT_DIR/../jylos" && pwd)"
-JAR="$JYLOS_DIR/target/jylos-1.0.0-uber.jar"
+JAR="$JYLOS_DIR/target/jylos-2.0.0-uber.jar"
 
 # Check if JAR exists
 if [ ! -f "$JAR" ]; then

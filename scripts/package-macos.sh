@@ -30,7 +30,7 @@ read_property() {
 
 # Read application metadata from app.properties
 APP_NAME=$(read_property "app.name" "Jylos")
-APP_VERSION=$(read_property "app.version" "1.0.0")
+APP_VERSION=$(read_property "app.version" "2.0.0")
 APP_VENDOR=$(read_property "app.vendor" "Jylos")
 APP_DESCRIPTION=$(read_property "app.description" "A free and open-source note-taking application")
 APP_COPYRIGHT=$(read_property "app.copyright" "Copyright 2025 Jylos")
@@ -99,7 +99,7 @@ mkdir -p "$OUTPUT_DIR"
 
 # Create a temporary input directory with JAR and optionally plugins
 TEMP_INPUT_DIR=$(mktemp -d -t Jylos-jpackage-input-XXXXXX)
-JAR_PATH="target/jylos-1.0.0-uber.jar"
+JAR_PATH="target/jylos-${APP_VERSION}-uber.jar"
 cp "$JAR_PATH" "$TEMP_INPUT_DIR/"
 
 # Include plugins if available (for --app-content)
@@ -119,7 +119,7 @@ echo ""
 JPACKAGE_CMD="jpackage \
     --input \"$TEMP_INPUT_DIR\" \
     --name \"$APP_NAME\" \
-    --main-jar jylos-1.0.0-uber.jar \
+    --main-jar jylos-${APP_VERSION}-uber.jar \
     --main-class com.example.jylos.Launcher \
     --type dmg \
     --dest \"$OUTPUT_DIR\" \

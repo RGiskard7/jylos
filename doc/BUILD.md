@@ -17,7 +17,7 @@ From repository root:
 .\scripts\build_all.ps1
 ```
 
-Produces: `jylos/target/jylos-1.0.0-uber.jar`
+Produces: `jylos/target/jylos-2.0.0-uber.jar`
 
 Equivalent:
 
