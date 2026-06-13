@@ -25,28 +25,67 @@
   <strong>Gestión del conocimiento local-first de escritorio: notas Markdown, wiki-links, backlinks, grafo de conocimiento interactivo, tablero Kanban, cifrado por nota, plugins y almacenamiento SQLite o bóveda Markdown.</strong>
 </div>
 
+## Descarga
+
+Los paquetes precompilados para las principales plataformas están disponibles en la [página de Releases](../../releases/latest):
+
+- **Windows** — instalador `.exe`, instalador `.msi`, ZIP portable
+- **macOS** — DMG
+- **Linux** — DEB/RPM (vía `jpackage`)
+- **Cualquier plataforma** — uber-JAR (requiere Java 21 + JavaFX 23 en `PATH`)
+
 ## Índice
 
-- [Por qué Jylos](#por-qué-jylos)
-- [Resumen](#resumen)
-- [Funcionalidades](#funcionalidades)
-- [Capturas](#capturas)
-- [Stack Tecnológico](#stack-tecnológico)
-- [Requisitos](#requisitos)
-- [Inicio Rápido](#inicio-rápido)
-- [Scripts y Comandos (Todos los SO)](#scripts-y-comandos-todos-los-so)
-- [Estructura del Proyecto](#estructura-del-proyecto)
-- [Configuración](#configuración)
-- [Documentación](#documentación)
-- [Resolución de Problemas](#resolución-de-problemas)
-- [Contribución](#contribución)
-- [Licencia](#licencia)
+- [Jylos](#jylos)
+  - [Descarga](#descarga)
+  - [Índice](#índice)
+  - [Por qué Jylos](#por-qué-jylos)
+  - [Resumen](#resumen)
+  - [Funcionalidades](#funcionalidades)
+    - [Núcleo](#núcleo)
+    - [Editor y vista previa](#editor-y-vista-previa)
+    - [Tablero Kanban](#tablero-kanban)
+    - [Notas privadas (cifrado)](#notas-privadas-cifrado)
+    - [Grafo de conocimiento](#grafo-de-conocimiento)
+    - [Bóveda, Git y adjuntos (modo filesystem)](#bóveda-git-y-adjuntos-modo-filesystem)
+    - [Productividad](#productividad)
+    - [UI/UX](#uiux)
+    - [Extensibilidad](#extensibilidad)
+  - [Capturas](#capturas)
+  - [Stack Tecnológico](#stack-tecnológico)
+  - [Requisitos](#requisitos)
+  - [Inicio Rápido](#inicio-rápido)
+    - [1) Clonar](#1-clonar)
+    - [2) Compilar](#2-compilar)
+    - [3) Ejecutar](#3-ejecutar)
+  - [Scripts y Comandos (Todos los SO)](#scripts-y-comandos-todos-los-so)
+    - [Matriz Build / Run](#matriz-build--run)
+    - [Tests y Gates de Calidad](#tests-y-gates-de-calidad)
+    - [Plugins (JAR externos)](#plugins-jar-externos)
+    - [Temas (externos)](#temas-externos)
+    - [Empaquetado (instaladores nativos)](#empaquetado-instaladores-nativos)
+    - [Ejecución Maven (desarrollo)](#ejecución-maven-desarrollo)
+  - [Estructura del Proyecto](#estructura-del-proyecto)
+  - [Configuración](#configuración)
+    - [Almacenamiento](#almacenamiento)
+    - [Iconos de la aplicación](#iconos-de-la-aplicación)
+    - [Temas](#temas)
+    - [Plugins](#plugins)
+  - [Documentación](#documentación)
+  - [Resolución de Problemas](#resolución-de-problemas)
+    - [Errores JavaFX Runtime](#errores-javafx-runtime)
+    - [JAR no encontrado](#jar-no-encontrado)
+    - [Java o Maven no encontrados](#java-o-maven-no-encontrados)
+    - [Warnings de parent-POM JavaFX](#warnings-de-parent-pom-javafx)
+  - [Hoja de Ruta](#hoja-de-ruta)
+  - [Contribución](#contribución)
+  - [Licencia](#licencia)
 
 ## Por qué Jylos
 
 Jylos es una aplicación de gestión del conocimiento local-first: notas Markdown, wiki-links, backlinks, grafo de conocimiento interactivo, tablero Kanban, cifrado opcional por nota, sistema de plugins y, a tu elección, almacenamiento en **SQLite** o en una **bóveda Markdown** plana en disco.
 
-Empezó como un proyecto personal de un fan de Obsidian, y el flujo de trabajo de Obsidian fue una inspiración clara — los wiki-links, los backlinks y la vista de grafo te resultarán familiares si vienes de ahí. Para ser claro y honesto: **Jylos no es un clon de Obsidian, ni una alternativa, ni un competidor.** Es una aplicación independiente y open-source, con su propio código (Java/JavaFX), sus propias decisiones de almacenamiento y funcionalidades, y sin ninguna pretensión de reemplazar a Obsidian. Si te encanta Obsidian, sigue usándolo — Jylos es solo otra herramienta abierta hecha con el mismo espíritu, para aprender y para la comunidad.
+Los flujos de trabajo que Obsidian popularizó — wiki-links, backlinks, navegación mediante grafo — fueron una inspiración directa para Jylos, y quien ya esté cómodo con ese estilo de toma de notas se encontrará en terreno familiar desde el primer momento. Jylos es, no obstante, una aplicación independiente: su propio código en Java/JavaFX, su propio modelo de almacenamiento (SQLite o bóveda Markdown plana), su propia arquitectura de plugins y sus propias decisiones de diseño. Es open-source y con licencia MIT. Cada persona elige la herramienta que mejor se adapte a su flujo de trabajo.
 
 En concreto:
 
@@ -161,6 +200,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
   <img src="resources/images/interfaz-5.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-6.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-7.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-16.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-8.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-9.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-10.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
@@ -446,6 +486,16 @@ mvn -version
 ### Warnings de parent-POM JavaFX
 
 Warnings del tipo `Failed to build parent project for org.openjfx:javafx-*` son conocidos y no bloqueantes.
+
+## Hoja de Ruta
+
+Las siguientes áreas reflejan intereses reales para el desarrollo futuro del proyecto. No es una lista de compromisos — es una dirección abierta, y las contribuciones son bienvenidas.
+
+- **API HTTP local**: interfaz REST de lectura/escritura enlazada a `localhost` con autenticación Bearer, para integraciones con scripts (Alfred, Raycast, pipelines de shell) respetando las notas privadas
+- **CI/CD automatizado**: workflow de GitHub Actions para ejecutar los tests en cada PR y publicar builds por plataforma automáticamente al etiquetar una versión
+- **Profundidad de la API de plugins**: hooks de ciclo de vida más ricos y mejor documentación para facilitar el desarrollo de plugins de terceros
+- **Integración con el SO**: soporte de bandeja del sistema y empaquetado nativo más pulido por plataforma
+- **Feedback de la comunidad**: funcionalidades y correcciones derivadas del uso real y de pull requests
 
 ## Contribución
 

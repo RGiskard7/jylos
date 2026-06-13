@@ -25,28 +25,67 @@
   <strong>Local-first desktop knowledge management: Markdown notes, wiki-links, backlinks, an interactive knowledge graph, a Kanban board, per-note encryption, plugins, and SQLite or Markdown-vault storage.</strong>
 </div>
 
+## Download
+
+Prebuilt packages for all major platforms are available on the [Releases page](../../releases/latest):
+
+- **Windows** — `.exe` installer, `.msi` installer, portable ZIP
+- **macOS** — DMG
+- **Linux** — DEB/RPM (via `jpackage`)
+- **Any platform** — uber-JAR (requires Java 21 + JavaFX 23 on `PATH`)
+
 ## Table of Contents
 
-- [Why Jylos](#why-jylos)
-- [Overview](#overview)
-- [Features](#features)
-- [Screenshots](#screenshots)
-- [Technology Stack](#technology-stack)
-- [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [Scripts and Commands (All OS)](#scripts-and-commands-all-os)
-- [Project Structure](#project-structure)
-- [Configuration](#configuration)
-- [Documentation](#documentation)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-- [License](#license)
+- [Jylos](#jylos)
+  - [Download](#download)
+  - [Table of Contents](#table-of-contents)
+  - [Why Jylos](#why-jylos)
+  - [Overview](#overview)
+  - [Features](#features)
+    - [Core](#core)
+    - [Editor \& Preview](#editor--preview)
+    - [Task board (Kanban)](#task-board-kanban)
+    - [Private notes (encryption)](#private-notes-encryption)
+    - [Knowledge graph](#knowledge-graph)
+    - [Vault, Git \& attachments (filesystem mode)](#vault-git--attachments-filesystem-mode)
+    - [Productivity](#productivity)
+    - [UI/UX](#uiux)
+    - [Extensibility](#extensibility)
+  - [Screenshots](#screenshots)
+  - [Technology Stack](#technology-stack)
+  - [Prerequisites](#prerequisites)
+  - [Quick Start](#quick-start)
+    - [1) Clone](#1-clone)
+    - [2) Build](#2-build)
+    - [3) Run](#3-run)
+  - [Scripts and Commands (All OS)](#scripts-and-commands-all-os)
+    - [Build / Run Matrix](#build--run-matrix)
+    - [Tests and Quality Gates](#tests-and-quality-gates)
+    - [Plugins (external JARs)](#plugins-external-jars)
+    - [Themes (external)](#themes-external)
+    - [Packaging (native installers)](#packaging-native-installers)
+    - [Maven development run](#maven-development-run)
+  - [Project Structure](#project-structure)
+  - [Configuration](#configuration)
+    - [Storage](#storage)
+    - [App icons](#app-icons)
+    - [Themes](#themes)
+    - [Plugins](#plugins)
+  - [Documentation](#documentation)
+  - [Troubleshooting](#troubleshooting)
+    - [JavaFX runtime errors](#javafx-runtime-errors)
+    - [JAR not found](#jar-not-found)
+    - [Maven/Java Missing](#mavenjava-missing)
+    - [JavaFX Parent-POM Warnings](#javafx-parent-pom-warnings)
+  - [Roadmap](#roadmap)
+  - [Contributing](#contributing)
+  - [License](#license)
 
 ## Why Jylos
 
 Jylos is a local-first knowledge-management application: Markdown notes, wiki-links, backlinks, an interactive knowledge graph, a Kanban board, optional per-note encryption, a plugin system, and your choice of **SQLite** or a plain **Markdown vault** on disk.
 
-It began as a personal project by an Obsidian fan, and Obsidian's note-taking workflow was a clear inspiration — wiki-links, backlinks and the graph view will feel familiar if you come from there. To be clear and honest: **Jylos is not an Obsidian clone, an alternative, or a competitor.** It is an independent, open-source application with its own codebase (Java/JavaFX), its own storage and feature decisions, and no ambition to replace Obsidian. If you love Obsidian, keep using it — Jylos is just another open tool built in the same spirit, for learning and for the community.
+The workflows popularized by Obsidian — wiki-links, backlinks, graph navigation — were a direct inspiration, and users already comfortable with that style of note-taking will feel at home from day one. Jylos is, however, an independent application: its own Java/JavaFX codebase, its own storage model (SQLite or raw Markdown vault), its own plugin architecture, and its own design decisions. It is open-source and MIT-licensed. Use whatever tool fits your workflow best.
 
 In concrete terms:
 
@@ -161,6 +200,7 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
   <img src="resources/images/interfaz-5.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-6.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-7.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-16.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-8.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-9.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-10.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
@@ -445,6 +485,16 @@ mvn -version
 ### JavaFX Parent-POM Warnings
 
 Warnings such as `Failed to build parent project for org.openjfx:javafx-*` are known and non-blocking.
+
+## Roadmap
+
+The items below reflect areas of genuine interest for future development. This is not a delivery commitment — it is an open direction, and contributions are welcome.
+
+- **Local HTTP API**: a read/write REST interface bound to `localhost` with Bearer token auth, enabling scripting integrations (Alfred, Raycast, shell pipelines) while keeping private notes protected
+- **Automated CI/CD**: GitHub Actions workflow to run tests on every PR and publish platform builds automatically on version tags
+- **Plugin API depth**: richer lifecycle hooks and better documentation to make third-party plugin development more ergonomic
+- **Platform integration**: system tray support and more polished OS-level packaging per platform
+- **Community feedback**: features and fixes driven by real usage reports and pull requests
 
 ## Contributing
 
