@@ -320,7 +320,10 @@ public final class GitService {
                 continue;
             }
             boolean untracked = code.equals("??");
-            boolean staged = !untracked && code.charAt(0) != ' ';
+            boolean conflicted = isConflict(code);
+            // Conflicted (unmerged) paths are neither cleanly staged nor unstaged: they
+            // need manual resolution, so never report them as staged.
+            boolean staged = !untracked && !conflicted && code.charAt(0) != ' ';
             int added;
             int deleted;
             if (untracked) {
@@ -332,7 +335,8 @@ public final class GitService {
                 deleted = s != null ? s[1] : -1;
             }
             String fileName = path.contains("/") ? path.substring(path.lastIndexOf('/') + 1) : path;
-            changes.add(new GitChange(path, fileName, statusLabel(code), added, deleted, staged));
+            String label = conflicted ? "conflicted" : statusLabel(code);
+            changes.add(new GitChange(path, fileName, label, added, deleted, staged));
         }
         return changes;
     }
@@ -349,6 +353,26 @@ public final class GitService {
         Proc p = run(dir, "reset", "-q", "HEAD", "--", relativePath);
         return p.success() ? GitResult.ok("Unstaged")
                 : GitResult.of(GitResult.Status.ERROR, "Unstage failed: " + p.detail());
+    }
+
+    /** Stages every change in the working tree ({@code git add -A}). */
+    public GitResult stageAll(Path dir) {
+        if (!isRepository(dir)) {
+            return GitResult.of(GitResult.Status.ERROR, "Not a Git repository");
+        }
+        Proc p = run(dir, "add", "-A");
+        return p.success() ? GitResult.ok("Staged all")
+                : GitResult.of(GitResult.Status.ERROR, "Stage all failed: " + p.detail());
+    }
+
+    /** Unstages everything, leaving working-tree edits untouched ({@code git reset -q}). */
+    public GitResult unstageAll(Path dir) {
+        if (!isRepository(dir)) {
+            return GitResult.of(GitResult.Status.ERROR, "Not a Git repository");
+        }
+        Proc p = run(dir, "reset", "-q");
+        return p.success() ? GitResult.ok("Unstaged all")
+                : GitResult.of(GitResult.Status.ERROR, "Unstage all failed: " + p.detail());
     }
 
     /**
@@ -419,6 +443,18 @@ public final class GitService {
         } catch (Exception e) {
             return -1;
         }
+    }
+
+    /**
+     * True for an unmerged (conflicted) porcelain code. These are the seven states
+     * Git reports during a merge/rebase conflict; they require manual resolution and
+     * must never be auto-staged or auto-resolved.
+     */
+    private static boolean isConflict(String code) {
+        return switch (code) {
+            case "DD", "AU", "UD", "UA", "DU", "AA", "UU" -> true;
+            default -> false;
+        };
     }
 
     private static String statusLabel(String code) {

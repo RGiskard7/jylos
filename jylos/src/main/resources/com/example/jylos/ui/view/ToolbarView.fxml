@@ -79,6 +79,8 @@
             <MenuItem text="%action.note_history" onAction="#handleNoteHistory" accelerator="Shortcut+Shift+H"/>
             <SeparatorMenuItem/>
             <Menu text="%menu.git">
+                <MenuItem text="%action.git_panel" onAction="#handleGitPanel" accelerator="Shortcut+Shift+G"/>
+                <SeparatorMenuItem/>
                 <MenuItem text="%action.git_sync" onAction="#handleGitSync" accelerator="Shortcut+Shift+S"/>
                 <MenuItem text="%action.git_commit_push" onAction="#handleGitCommitPush"/>
                 <MenuItem text="%action.git_pull" onAction="#handleGitPull"/>

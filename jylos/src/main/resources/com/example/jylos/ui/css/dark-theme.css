@@ -2655,6 +2655,48 @@
 .git-commit-subject { -fx-font-size: 13px; -fx-font-weight: 600; -fx-text-fill: -fx-text-main; }
 .git-commit-meta    { -fx-font-size: 11px; -fx-text-fill: -fx-text-faint; }
 
+/* ── Git Sync panel ───────────────────────────────────────── */
+.git-status-branch { -fx-font-size: 13px; -fx-font-weight: 700; -fx-text-fill: -fx-text-main; }
+.git-conflict-banner {
+    -fx-font-size: 12px;
+    -fx-font-weight: 600;
+    -fx-text-fill: -fx-danger;
+    -fx-background-color: derive(-fx-danger, -55%);
+    -fx-background-radius: 4;
+    -fx-padding: 6 10 6 10;
+}
+.git-change-badge {
+    -fx-font-family: "monospace";
+    -fx-font-size: 11px;
+    -fx-font-weight: 700;
+    -fx-text-fill: -fx-text-faint;
+    -fx-min-width: 26px;
+    -fx-alignment: center;
+}
+.git-change-badge-staged   { -fx-text-fill: -fx-success; }
+.git-change-badge-conflict { -fx-text-fill: -fx-danger; }
+.git-change-conflict-tag {
+    -fx-font-size: 10px;
+    -fx-font-weight: 600;
+    -fx-text-fill: -fx-danger;
+    -fx-border-color: -fx-danger;
+    -fx-border-radius: 4;
+    -fx-padding: 1 6 1 6;
+}
+.git-primary-btn {
+    -fx-background-color: -fx-accent;
+    -fx-text-fill: white;
+    -fx-font-weight: 600;
+    -fx-background-radius: 4;
+    -fx-cursor: hand;
+}
+.git-primary-btn:hover { -fx-background-color: derive(-fx-accent, 12%); }
+.git-log-area {
+    -fx-font-family: "monospace";
+    -fx-font-size: 11px;
+    -fx-text-fill: -fx-text-muted;
+}
+
 /* ── Dialogs (modals) — themed so they read correctly in dark & light ── */
 .dialog-pane {
     -fx-background-color: -fx-base-bg;

@@ -90,6 +90,7 @@ public class SystemActionEvent extends AppEvent {
         NOTE_HISTORY,
         CLOSE_NOTE,
         QUICK_SWITCHER,
+        GIT_PANEL,
         GIT_SYNC,
         GIT_COMMIT_PUSH,
         GIT_PULL,

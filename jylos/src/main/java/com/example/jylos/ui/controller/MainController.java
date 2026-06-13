@@ -1254,6 +1254,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 return () -> handleSystemTheme(null);
             case "cmd.graph_view":
                 return overlaySupport::toggleGraph;
+            case "cmd.git_panel":
+                return gitController::showSyncPanel;
             case "cmd.git_sync":
                 return gitController::sync;
             case "cmd.git_commit_push":
@@ -1378,6 +1380,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         systemActionHandlers.put(SystemActionEvent.ActionType.NOTE_HISTORY, historySupport::showHistoryDialog);
         systemActionHandlers.put(SystemActionEvent.ActionType.QUICK_SWITCHER, this::showQuickSwitcher);
         systemActionHandlers.put(SystemActionEvent.ActionType.CLOSE_NOTE, this::handleCloseNote);
+        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_PANEL, gitController::showSyncPanel);
         systemActionHandlers.put(SystemActionEvent.ActionType.GIT_SYNC, gitController::sync);
         systemActionHandlers.put(SystemActionEvent.ActionType.GIT_COMMIT_PUSH, gitController::commitPush);
         systemActionHandlers.put(SystemActionEvent.ActionType.GIT_PULL, gitController::pull);

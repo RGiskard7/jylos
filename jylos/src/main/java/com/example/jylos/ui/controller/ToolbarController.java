@@ -334,6 +334,11 @@ public class ToolbarController {
     }
 
     @FXML
+    private void handleGitPanel(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.GIT_PANEL);
+    }
+
+    @FXML
     private void handleGitSync(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.GIT_SYNC);
     }

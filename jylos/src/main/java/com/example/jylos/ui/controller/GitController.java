@@ -131,6 +131,21 @@ public final class GitController {
                 runGitAsync(v -> gitService.setRemote(v, url.trim()), getString("status.git_syncing")));
     }
 
+    /**
+     * Opens the consolidated Git Sync panel (status, changes, commit, pull/push/sync and
+     * an activity log) for the current vault. No-op outside vault mode.
+     */
+    public void showSyncPanel() {
+        Path vault = gitVaultPath();
+        if (vault == null) {
+            updateStatus(getString("status.git_no_vault"));
+            return;
+        }
+        Scene scene = sceneSupplier != null ? sceneSupplier.get() : null;
+        new com.example.jylos.ui.components.GitSyncPanel(gitService, vault, this::getString, scene).show();
+        refreshStatus();
+    }
+
     /** Refreshes the status-bar Git segments from the vault state (off the FX thread). */
     public void refreshStatus() {
         if (gitBar == null) {

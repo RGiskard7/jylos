@@ -8,11 +8,15 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.example.jylos.git.GitChange;
 import com.example.jylos.git.GitResult;
 import com.example.jylos.git.GitService;
 import com.example.jylos.git.GitStatus;
@@ -114,5 +118,59 @@ class GitServiceTest {
         var staged = git.listChanges(vault);
         assertTrue(staged.stream().anyMatch(c -> c.fileName().equals("note.md") && c.staged()), "note staged");
         assertTrue(staged.stream().anyMatch(c -> c.fileName().equals("image.png") && !c.staged()), "image still unstaged");
+    }
+
+    @Test
+    void stageAllAndUnstageAllToggleTheWholeIndex(@TempDir Path vault) throws Exception {
+        assertTrue(git.init(vault).ok());
+        Files.writeString(vault.resolve("note.md"), "# new\n", StandardCharsets.UTF_8);
+        Files.write(vault.resolve("pic.png"), new byte[] { 1, 2, 3 });
+
+        assertTrue(git.stageAll(vault).ok());
+        List<GitChange> staged = git.listChanges(vault);
+        assertFalse(staged.isEmpty(), "there should be changes to stage");
+        assertTrue(staged.stream().allMatch(GitChange::staged), "stageAll stages every change");
+
+        assertTrue(git.unstageAll(vault).ok());
+        List<GitChange> unstaged = git.listChanges(vault);
+        assertTrue(unstaged.stream().noneMatch(GitChange::staged), "unstageAll clears the index");
+    }
+
+    @Test
+    void listChangesFlagsMergeConflicts(@TempDir Path vault) throws Exception {
+        assertTrue(git.init(vault).ok());
+        Files.writeString(vault.resolve("a.md"), "base\n", StandardCharsets.UTF_8);
+        assertTrue(git.commit(vault, "base").ok());
+
+        // Diverge two branches on the same line, then merge to force a conflict.
+        runGit(vault, "checkout", "-b", "feature");
+        Files.writeString(vault.resolve("a.md"), "feature side\n", StandardCharsets.UTF_8);
+        assertTrue(git.commit(vault, "feature edit").ok());
+
+        runGit(vault, "checkout", "-"); // back to the default branch
+        Files.writeString(vault.resolve("a.md"), "main side\n", StandardCharsets.UTF_8);
+        assertTrue(git.commit(vault, "main edit").ok());
+
+        runGit(vault, "merge", "feature"); // conflicts on a.md (non-zero exit, ignored)
+
+        List<GitChange> changes = git.listChanges(vault);
+        assertTrue(changes.stream()
+                        .anyMatch(c -> c.fileName().equals("a.md") && "conflicted".equals(c.status())),
+                "a.md should be reported as conflicted; got: " + changes);
+        assertTrue(changes.stream().filter(c -> c.fileName().equals("a.md")).noneMatch(GitChange::staged),
+                "a conflicted file must never be reported as staged");
+    }
+
+    /** Runs a raw git command in {@code dir} (test setup only; ignores the exit code). */
+    private static void runGit(Path dir, String... args) throws Exception {
+        List<String> command = new ArrayList<>();
+        command.add("git");
+        command.addAll(Arrays.asList(args));
+        Process process = new ProcessBuilder(command)
+                .directory(dir.toFile())
+                .redirectErrorStream(true)
+                .start();
+        process.getInputStream().readAllBytes();
+        process.waitFor();
     }
 }

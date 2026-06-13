@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Feat: panel «Git Sync» de primera clase para vaults Markdown (2026-06-13)
+
+Filosofía: *tus notas, tu repositorio, tu control*. Sin sincronización en la nube, sin backend, sin cuentas — solo Git, gestionado visualmente. Disponible **solo en modo Markdown vault** (no afecta a SQLite).
+
+- **Nuevo panel consolidado** (`ui/components/GitSyncPanel.java`): una única ventana estilo IDE con estado del repositorio (rama, remoto, ↑adelante/↓atrás), lista unificada de cambios con prefijos `M / A / D / ?? / UU`, campo de mensaje de commit, registro de actividad y todas las operaciones seguras: *Refresh, Stage All, Unstage All, Commit, Pull, Push, Sync*. Toggle de stage/unstage por archivo en cada fila.
+- **Acceso:** menú `Tools → Git → Panel de Git Sync…` (atajo `Ctrl/Cmd+Shift+G`) y command palette (`Git: Sync Panel`). Se abre vía `GIT_PANEL` (`SystemActionEvent`) → `GitController.showSyncPanel()`.
+- **Conflictos:** `GitService.listChanges` ahora detecta rutas sin fusionar (códigos `DD/AU/UD/UA/DU/AA/UU`), las marca como `conflicted`, **nunca** como staged, y el panel muestra un aviso para resolución manual. No se auto-resuelve ningún conflicto y no se hace force push jamás.
+- **`GitService` extendido** (reutilizado, no duplicado): `stageAll` (`git add -A`), `unstageAll` (`git reset -q`) y detección de conflictos. Se conservan `GitStatus`/`GitChange`/`GitResult` existentes.
+- **No bloquea la UI:** toda operación corre en un `Task` daemon fuera del hilo de JavaFX; mientras tanto los botones se deshabilitan y se muestra una barra de progreso indeterminada. Errores claros para Git ausente, sin repo, sin remoto, conflicto en pull, push rechazado y fallo de credenciales.
+- **i18n** EN/ES con paridad de claves (`git.panel.*`, `action.git_panel`) y CSS en ambos temas (`.git-change-badge`, `.git-conflict-banner`, `.git-primary-btn`, `.git-log-area`…).
+- **Tests:** `GitServiceTest` amplía a 8 casos — round-trip de `stageAll`/`unstageAll` y detección de un conflicto de merge real. 165/165 tests verdes.
+- **Doc:** nuevo `doc/GIT.md`.
+
 ## [2.0.0] - 2026-06-13
 
 Versión **major** por dos rupturas de compatibilidad: el requisito mínimo de Java sube de 17 a **21** (quien ejecute el JAR con Java 17 ya no puede; los instaladores empaquetan su propio runtime y no se ven afectados) y el **formato de datos** incorpora notas cifradas (`JENC1:`, columna `is_private` / frontmatter `private:`) que una v1.0.0 no puede leer. El resto del contenido de esta versión —pestañas, editor RichTextFX, cifrado, Kanban, importadores, historial, API de plugins, instaladores— es aditivo y está detallado en las entradas siguientes.

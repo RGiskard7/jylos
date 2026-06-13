@@ -199,6 +199,9 @@ public class CommandPalette {
                 new Command("cmd.toggle_sidebar", "Toggle Sidebar", "Show/hide sidebar", "F9", "|", "View", null));
         commands.add(new Command("cmd.graph_view", "Graph View",
                 "Open the knowledge graph", "Ctrl+G", "\u2b21", "View", null));
+        commands.add(new Command("cmd.git_panel", "Git: Sync Panel",
+                "Open the Git Sync panel (status, changes, commit, pull & push)", "Ctrl+Shift+G",
+                "\u2387", "Git", null));
         commands.add(new Command("cmd.git_sync", "Git: Synchronize",
                 "Commit, pull and push the vault", "Ctrl+Shift+S", "\u21bb", "Git", null));
         commands.add(new Command("cmd.git_commit_push", "Git: Commit & Push",
