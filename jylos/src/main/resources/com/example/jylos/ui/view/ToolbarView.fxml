@@ -45,6 +45,7 @@
             <SeparatorMenuItem/>
             <MenuItem fx:id="graphViewMenuItem" text="%action.graph_view" onAction="#handleGraphView" accelerator="Shortcut+G"/>
             <MenuItem fx:id="kanbanViewMenuItem" text="%action.kanban_view" onAction="#handleKanbanView" accelerator="Shortcut+K"/>
+            <MenuItem text="%action.knowledge_insights" onAction="#handleKnowledgeInsights" accelerator="Shortcut+Shift+K"/>
             <SeparatorMenuItem/>
             <MenuItem text="%action.zoom_in" onAction="#handleZoomIn" accelerator="Shortcut+Plus"/>
             <MenuItem text="%action.zoom_out" onAction="#handleZoomOut" accelerator="Shortcut+Minus"/>

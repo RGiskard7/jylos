@@ -3047,3 +3047,13 @@
 .preferences-scroll > .viewport {
     -fx-background-color: transparent;
 }
+
+/* ── Knowledge Insights panel ─────────────────────────────── */
+.insights-metric-label { -fx-font-size: 11px; -fx-text-fill: -fx-text-faint; }
+.insights-metric-value { -fx-font-size: 20px; -fx-font-weight: 700; -fx-text-fill: -fx-text-main; }
+.insights-score        { -fx-font-size: 34px; -fx-font-weight: 800; }
+.insights-score-good   { -fx-text-fill: -fx-success; }
+.insights-score-warn   { -fx-text-fill: -fx-warning; }
+.insights-score-bad    { -fx-text-fill: -fx-danger; }
+.insights-explanation  { -fx-font-size: 12px; -fx-text-fill: -fx-text-muted; }
+.insights-hint         { -fx-font-size: 11px; -fx-text-fill: -fx-text-faint; -fx-font-style: italic; }

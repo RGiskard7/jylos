@@ -10,8 +10,19 @@ import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.FolderEvents;
 import com.example.jylos.event.events.NoteEvents;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.TreeSet;
+
+import com.example.jylos.data.models.Note;
+import com.example.jylos.data.models.Tag;
 import com.example.jylos.graph.GraphBuilder;
 import com.example.jylos.graph.GraphData;
+import com.example.jylos.graph.GraphEdge;
+import com.example.jylos.graph.GraphNode;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
 import com.example.jylos.ui.graph.GraphCanvas;
@@ -19,8 +30,10 @@ import com.example.jylos.ui.graph.GraphCanvas;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
+import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
@@ -51,6 +64,9 @@ public class GraphController {
 
     // Settings panel
     @FXML private VBox settingsPanel;
+    @FXML private TextField graphFilterField;
+    @FXML private ComboBox<String> tagFilterCombo;
+    @FXML private ComboBox<String> folderFilterCombo;
     @FXML private CheckBox orphansCheck;
     @FXML private CheckBox ghostsCheck;
     @FXML private CheckBox arrowsCheck;
@@ -66,6 +82,13 @@ public class GraphController {
     private final GraphCanvas canvas = new GraphCanvas();
 
     private GraphBuilder graphBuilder;
+    private TagService tagService;
+
+    /** Last model built off the FX thread; view filters re-render from this without rebuilding. */
+    private GraphData lastBuilt = GraphData.empty();
+    /** Sentinel "All" option shared by the tag/folder filter combos. */
+    private String filterAllLabel = "All";
+
     private ResourceBundle bundle;
     private Consumer<String> onOpenNote;
     private Runnable onClose;
@@ -87,6 +110,24 @@ public class GraphController {
             }
         });
         wireForceSliders();
+        wireFilters();
+    }
+
+    /**
+     * Wires the view filters (text / tag / folder). These re-render from the cached
+     * {@link #lastBuilt} model via {@link #applyView()} — no model rebuild, so typing in
+     * the filter box is cheap even on large vaults.
+     */
+    private void wireFilters() {
+        if (graphFilterField != null) {
+            graphFilterField.textProperty().addListener((o, a, b) -> applyView());
+        }
+        if (tagFilterCombo != null) {
+            tagFilterCombo.valueProperty().addListener((o, a, b) -> applyView());
+        }
+        if (folderFilterCombo != null) {
+            folderFilterCombo.valueProperty().addListener((o, a, b) -> applyView());
+        }
     }
 
     /** Initializes the settings sliders from the canvas defaults, binds live updates,
@@ -133,6 +174,7 @@ public class GraphController {
     // ------------------------------------------------------------------
 
     public void setServices(NoteService noteService, TagService tagService) {
+        this.tagService = tagService;
         this.graphBuilder = new GraphBuilder(noteService, tagService);
         wireDataEvents();
     }
@@ -317,10 +359,150 @@ public class GraphController {
                         : graphBuilder.buildGlobalGraph(options);
             }
         };
-        task.setOnSucceeded(e -> canvas.setData(task.getValue()));
+        task.setOnSucceeded(e -> {
+            lastBuilt = task.getValue();
+            refreshFilterChoices(lastBuilt);
+            applyView();
+        });
         task.setOnFailed(e -> logger.log(Level.WARNING, "Graph build failed", task.getException()));
         Thread thread = new Thread(task, "graph-build");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    /**
+     * Renders {@link #lastBuilt} through the active view filters (text / tag / folder).
+     * Cheap: it only re-filters the in-memory model — no rebuild, no file reads.
+     */
+    private void applyView() {
+        canvas.setData(filterView(lastBuilt));
+    }
+
+    /**
+     * Filters a built graph by the current text/tag/folder selections. Keeps matching
+     * nodes plus the edges between two kept nodes. Returns {@code data} unchanged when no
+     * filter is active.
+     */
+    private GraphData filterView(GraphData data) {
+        if (data == null) {
+            return GraphData.empty();
+        }
+        String text = graphFilterField != null && graphFilterField.getText() != null
+                ? graphFilterField.getText().trim().toLowerCase(Locale.ROOT) : "";
+        String tag = selectedFilter(tagFilterCombo);
+        String folder = selectedFilter(folderFilterCombo);
+        boolean noText = text.isEmpty();
+        boolean noTag = tag == null;
+        boolean noFolder = folder == null;
+        if (noText && noTag && noFolder) {
+            return data;
+        }
+
+        Set<String> tagNoteIds = noTag ? null : noteIdsForTag(tag);
+
+        Set<String> keep = new HashSet<>();
+        for (GraphNode n : data.nodes()) {
+            boolean isNote = n.type() == GraphNode.Type.NOTE;
+            if (!noText && (n.label() == null || !n.label().toLowerCase(Locale.ROOT).contains(text))) {
+                continue;
+            }
+            if (!noFolder && !folder.equals(n.group())) {
+                continue;
+            }
+            if (tagNoteIds != null && (!isNote || !tagNoteIds.contains(n.id()))) {
+                // A tag filter restricts the graph to notes carrying that tag.
+                continue;
+            }
+            keep.add(n.id());
+        }
+
+        List<GraphNode> nodes = new ArrayList<>();
+        for (GraphNode n : data.nodes()) {
+            if (keep.contains(n.id())) {
+                nodes.add(n);
+            }
+        }
+        List<GraphEdge> edges = new ArrayList<>();
+        for (GraphEdge edge : data.edges()) {
+            if (keep.contains(edge.source()) && keep.contains(edge.target())) {
+                edges.add(edge);
+            }
+        }
+        return new GraphData(nodes, edges);
+    }
+
+    /** Resolves the note ids carrying {@code tagTitle} (empty set if unknown). */
+    private Set<String> noteIdsForTag(String tagTitle) {
+        Set<String> ids = new HashSet<>();
+        if (tagService == null) {
+            return ids;
+        }
+        try {
+            Tag tag = tagService.getTagByTitle(tagTitle).orElse(null);
+            if (tag != null) {
+                for (Note note : tagService.getNotesWithTag(tag)) {
+                    if (note != null && note.getId() != null) {
+                        ids.add(note.getId());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.fine("Graph tag filter failed for '" + tagTitle + "': " + e.getMessage());
+        }
+        return ids;
+    }
+
+    /** Returns the combo's value, or null when it is empty / the "All" sentinel. */
+    private String selectedFilter(ComboBox<String> combo) {
+        if (combo == null) {
+            return null;
+        }
+        String value = combo.getValue();
+        return (value == null || value.equals(filterAllLabel)) ? null : value;
+    }
+
+    /**
+     * Repopulates the tag and folder filter choices, preserving the current selection.
+     * Tags come from {@link TagService}; folders are the distinct node groups present in
+     * the built graph. The first entry is always the "All" sentinel.
+     */
+    private void refreshFilterChoices(GraphData data) {
+        if (bundle != null) {
+            try {
+                filterAllLabel = bundle.getString("graph.filter_all");
+            } catch (Exception ignored) {
+                // keep default "All"
+            }
+        }
+        if (tagFilterCombo != null && tagFilterCombo.getItems().size() <= 1 && tagService != null) {
+            List<String> tags = new ArrayList<>();
+            tags.add(filterAllLabel);
+            try {
+                for (Tag tag : tagService.getAllTagsSorted()) {
+                    if (tag != null && tag.getTitle() != null) {
+                        tags.add(tag.getTitle());
+                    }
+                }
+            } catch (Exception ignored) {
+                // leave just the "All" entry
+            }
+            String selected = tagFilterCombo.getValue();
+            tagFilterCombo.getItems().setAll(tags);
+            tagFilterCombo.setValue(selected != null && tags.contains(selected) ? selected : filterAllLabel);
+        }
+        if (folderFilterCombo != null) {
+            Set<String> groups = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+            for (GraphNode n : data.nodes()) {
+                if (n.type() == GraphNode.Type.NOTE && n.group() != null && !n.group().isBlank()) {
+                    groups.add(n.group());
+                }
+            }
+            List<String> folders = new ArrayList<>();
+            folders.add(filterAllLabel);
+            folders.addAll(groups);
+            String selected = folderFilterCombo.getValue();
+            folderFilterCombo.getItems().setAll(folders);
+            folderFilterCombo.setValue(selected != null && folders.contains(selected) ? selected : filterAllLabel);
+        }
     }
 }

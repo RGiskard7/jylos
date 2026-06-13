@@ -126,6 +126,7 @@ class CommandRegistry {
             new CommandDef("cmd.insert_list", "Insert List"),
             new CommandDef("cmd.toggle_sidebar", "Toggle Sidebar"),
             new CommandDef("cmd.graph_view", "Graph View"),
+            new CommandDef("cmd.knowledge_insights", "Knowledge Insights"),
             new CommandDef("cmd.git_panel", "Git: Sync Panel"),
             new CommandDef("cmd.git_sync", "Git: Synchronize"),
             new CommandDef("cmd.git_commit_push", "Git: Commit & Push"),

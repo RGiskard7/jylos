@@ -1254,6 +1254,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 return () -> handleSystemTheme(null);
             case "cmd.graph_view":
                 return overlaySupport::toggleGraph;
+            case "cmd.knowledge_insights":
+                return this::showKnowledgeInsights;
             case "cmd.git_panel":
                 return gitController::showSyncPanel;
             case "cmd.git_sync":
@@ -1371,6 +1373,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         systemActionHandlers.put(SystemActionEvent.ActionType.NAVIGATE_BACK,    this::navigateBack);
         systemActionHandlers.put(SystemActionEvent.ActionType.NAVIGATE_FORWARD, this::navigateForward);
         systemActionHandlers.put(SystemActionEvent.ActionType.GRAPH_VIEW, overlaySupport::toggleGraph);
+        systemActionHandlers.put(SystemActionEvent.ActionType.KNOWLEDGE_INSIGHTS, this::showKnowledgeInsights);
         systemActionHandlers.put(SystemActionEvent.ActionType.FOCUS_MODE, this::handleFocusMode);
         systemActionHandlers.put(SystemActionEvent.ActionType.KANBAN_VIEW, overlaySupport::toggleKanban);
         systemActionHandlers.put(SystemActionEvent.ActionType.PRIVATE_TOGGLE, this::handleTogglePrivate);
@@ -2469,6 +2472,22 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     /** Toggles focus / writing mode (logic + state in {@link FocusModeSupport}). */
     private void handleFocusMode() {
         focusModeSupport.toggle();
+    }
+
+    /**
+     * Opens the Knowledge Insights dialog: a read-only analytics view (orphans, broken
+     * links, most-connected notes, tag usage and a health score) over the current
+     * vault/database. Computation runs off the FX thread inside the dialog. Clicking a
+     * row opens that note. Works in both SQLite and Markdown-vault modes.
+     */
+    private void showKnowledgeInsights() {
+        if (noteService == null || tagService == null) {
+            return;
+        }
+        var service = new com.example.jylos.insights.KnowledgeInsightsService(noteService, tagService);
+        javafx.scene.Scene scene = centerStack != null ? centerStack.getScene() : null;
+        new com.example.jylos.ui.components.KnowledgeInsightsPanel(
+                service, this::getString, this::openNoteInTab, scene).show();
     }
 
     void handleToggleSidebar(ActionEvent event) {

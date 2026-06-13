@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Feat: Graph 2.0 + Knowledge Insights (2026-06-13)
+
+Convierte el grafo de conocimiento en una herramienta analítica, sin lógica de enlaces paralela: todo reutiliza `GraphBuilder` + `WikiLinkResolver`. Funciona en SQLite y vault Markdown.
+
+- **Panel «Knowledge Insights»** (`View → Knowledge Insights`, atajo `Ctrl/Cmd+Shift+K`, y command palette): diálogo tabulado de solo lectura con resumen (notas, enlaces, backlinks, tags, media de enlaces/nota), **notas más conectadas** (top 10), **notas huérfanas**, **enlaces rotos**, **notas sin tags** y **uso de tags**. Filas clicables (doble clic abre la nota; en un enlace roto abre la nota origen). El cómputo corre fuera del hilo de JavaFX.
+- **Graph health score** (`KnowledgeInsightsService.healthScore`): puntuación simple y explicable 0–100 — parte de 100, resta hasta 40 por proporción de huérfanas, hasta 20 por sin-tags y 5 por enlace roto (tope 25), con el desglose visible. Orientativo, no absoluto.
+- **Filtros del grafo** en el panel de ajustes: **filtrar por texto**, **por tag** y **por carpeta**, además de los toggles existentes de huérfanas/no resueltas/tags. El filtrado re-renderiza desde el `GraphData` ya construido (cacheado) — **sin reconstrucción pesada del modelo**.
+- **Arquitectura nueva** (paquete `insights`): `GraphAnalysisService` (análisis estructural puro y testeable vía `analyze(GraphData)`), `KnowledgeInsightsService`, y DTOs `KnowledgeHealthReport` / `NoteConnectivityInfo` / `BrokenLinkInfo`. UI en `ui/components/KnowledgeInsightsPanel`; filtros en `GraphController`.
+- **Definiciones** documentadas: *enlace resuelto* (ambos extremos existen), *enlace roto* (a nota inexistente / nodo ghost), *huérfana* (sin enlaces resueltos). 
+- **i18n** EN/ES con paridad (`insights.*`, `graph.filter_*`, `action.knowledge_insights`) y CSS del panel en ambos temas. Acción `KNOWLEDGE_INSIGHTS` + comando `cmd.knowledge_insights`.
+- **Tests:** nuevo `KnowledgeInsightsTest` (6 casos: huérfanas, enlaces rotos, ranking de conectividad, health score con clamp/tope y vault vacío). 171/171 tests verdes.
+- **Doc:** nuevo `doc/GRAPH.md`.
+
 ### Feat: panel «Git Sync» de primera clase para vaults Markdown (2026-06-13)
 
 Filosofía: *tus notas, tu repositorio, tu control*. Sin sincronización en la nube, sin backend, sin cuentas — solo Git, gestionado visualmente. Disponible **solo en modo Markdown vault** (no afecta a SQLite).

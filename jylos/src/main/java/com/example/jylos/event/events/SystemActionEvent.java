@@ -81,6 +81,7 @@ public class SystemActionEvent extends AppEvent {
         NAVIGATE_BACK,
         NAVIGATE_FORWARD,
         GRAPH_VIEW,
+        KNOWLEDGE_INSIGHTS,
         FOCUS_MODE,
         KANBAN_VIEW,
         PRIVATE_TOGGLE,

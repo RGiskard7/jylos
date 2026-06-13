@@ -232,6 +232,11 @@ public class ToolbarController {
     }
 
     @FXML
+    private void handleKnowledgeInsights(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.KNOWLEDGE_INSIGHTS);
+    }
+
+    @FXML
     private void handleImportObsidian(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.IMPORT_OBSIDIAN);
     }
