@@ -5,7 +5,7 @@ Guide for contributors and automated agents. Human overview: [README.md](README.
 ## Project
 
 - Desktop notes app: folders, tags, trash, Markdown preview.
-- Stack: Java 17, JavaFX 21 (including `javafx.web`), Maven, SQLite or filesystem Markdown vault.
+- Stack: Java 21, JavaFX 23 (including `javafx.web`), Maven, SQLite or filesystem Markdown vault.
 - Offline, single-user, no REST backend.
 
 ## Commands
@@ -41,11 +41,30 @@ Uber-JAR: `jylos/target/jylos-1.0.0-uber.jar`. Use `launch-*` scripts for JavaFX
 
 ## Code rules
 
-- JDK 17, package `com.example.jylos.*`
+- JDK 21, package `com.example.jylos.*`
 - No wildcard imports
 - `LoggerConfig.getLogger(Class)` — no `System.out` for app logs
 - Persistence via services/DAOs only
 - Commits: `feat:`, `fix:`, `chore:`, `refactor:`
+
+## UI feature pattern (keep `MainController` thin)
+
+`MainController` is the FXML shell coordinator — do **not** grow it with feature logic.
+Each self-contained feature lives in its own `ui/controller/*Controller` or `*Support`
+class that:
+
+- exposes a `wire(...)` method taking the FXML nodes it needs plus small callbacks
+  (`Function<String,String> i18n`, `Consumer<String> status`, `Supplier<Scene>`, …);
+- owns that feature's state and logic;
+- is called from thin `MainController` handlers (FXML-bound methods just delegate).
+
+Examples: `GitController` (status-bar Git + dialogs), `PrivacySupport` (master-password
+prompts for encrypted notes), `FocusModeSupport` (writing mode), `OverlaySupport`
+(graph/Kanban center-stack overlays), `StatusBarSupport` (word/char counts + storage
+label), `BacklinksSupport` (right-panel backlinks). New features must follow this — no
+new feature bodies inside `MainController`. What remains in `MainController` is its
+legitimate coordinator core (note open/save/close/tabs/navigation flow); do not
+fragment that across helpers just to shrink line count.
 
 ## Gotchas
 

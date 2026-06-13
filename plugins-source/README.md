@@ -15,7 +15,7 @@ Output directory: **`jylos/plugins/`** (JAR files loaded at runtime).
 ## Guidelines
 
 - Implement the plugin API under `com.example.jylos.plugin` (prefer `AbstractPlugin`).
-- Plugins are compiled with **Java 17** (`--release 17`); do not target newer bytecode.
+- Plugins are compiled with **Java 21** (`--release 21`); do not target newer bytecode.
 - Use stable command ids (`PluginIds`) for palette entries.
 - Do not add plugin-specific code to the core module.
 - Test enable/disable and shutdown via the in-app plugin manager.

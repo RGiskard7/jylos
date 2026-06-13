@@ -43,4 +43,24 @@ class UiPresentationFxmlGuardTest {
         assertTrue(source.contains("fx:id=\"previewOnlyButton\"") && source.contains("FontIcon"),
                 "Preview-only button should support icon rendering.");
     }
+
+    @Test
+    void editorUsesCodeAreaForSyntaxHighlighting() throws IOException {
+        String source = Files.readString(EDITOR_FXML, StandardCharsets.UTF_8);
+
+        assertTrue(source.contains("import org.fxmisc.richtext.CodeArea"),
+                "EditorView should import RichTextFX CodeArea.");
+        assertTrue(source.contains("<CodeArea fx:id=\"noteContentArea\""),
+                "Note content editor should be a CodeArea (syntax-highlighting editor).");
+    }
+
+    @Test
+    void editorExposesTabBarAndSaveIndicator() throws IOException {
+        String source = Files.readString(EDITOR_FXML, StandardCharsets.UTF_8);
+
+        assertTrue(source.contains("fx:id=\"editorTabBar\""),
+                "EditorView should host the open-note tab strip.");
+        assertTrue(source.contains("fx:id=\"dirtySaveIndicator\""),
+                "EditorView should host the inline save indicator dot.");
+    }
 }

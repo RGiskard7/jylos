@@ -12,9 +12,9 @@
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-success.svg)](changelog.md)
-[![Java](https://img.shields.io/badge/Java-17+-orange.svg)](https://www.oracle.com/java/)
-[![JavaFX](https://img.shields.io/badge/JavaFX-21-blue.svg)](https://openjfx.io/)
+[![Version](https://img.shields.io/badge/version-2.0.0-success.svg)](changelog.md)
+[![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/)
+[![JavaFX](https://img.shields.io/badge/JavaFX-23-blue.svg)](https://openjfx.io/)
 [![SQLite](https://img.shields.io/badge/SQLite-3-lightgrey.svg)](https://www.sqlite.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-red.svg)](https://maven.apache.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)]()
@@ -22,11 +22,12 @@
 </div>
 
 <div align="center">
-  <strong>Local-first desktop notes with Markdown preview, wiki-links, an interactive knowledge graph, plugins, themes, and SQLite or Markdown vault storage.</strong>
+  <strong>Local-first desktop knowledge management: Markdown notes, wiki-links, backlinks, an interactive knowledge graph, a Kanban board, per-note encryption, plugins, and SQLite or Markdown-vault storage.</strong>
 </div>
 
 ## Table of Contents
 
+- [Why Jylos](#why-jylos)
 - [Overview](#overview)
 - [Features](#features)
 - [Screenshots](#screenshots)
@@ -41,15 +42,30 @@
 - [Contributing](#contributing)
 - [License](#license)
 
+## Why Jylos
+
+Jylos is a local-first knowledge-management application: Markdown notes, wiki-links, backlinks, an interactive knowledge graph, a Kanban board, optional per-note encryption, a plugin system, and your choice of **SQLite** or a plain **Markdown vault** on disk.
+
+It began as a personal project by an Obsidian fan, and Obsidian's note-taking workflow was a clear inspiration — wiki-links, backlinks and the graph view will feel familiar if you come from there. To be clear and honest: **Jylos is not an Obsidian clone, an alternative, or a competitor.** It is an independent, open-source application with its own codebase (Java/JavaFX), its own storage and feature decisions, and no ambition to replace Obsidian. If you love Obsidian, keep using it — Jylos is just another open tool built in the same spirit, for learning and for the community.
+
+In concrete terms:
+
+- **Local-first and offline** — your notes are plain `.md` files (vault mode) or a single SQLite database; you own the data, no cloud backend, no account, no telemetry.
+- **A focused desktop app** — single-user, written in Java/JavaFX, runs on Windows, macOS and Linux.
+- **Free and MIT-licensed** — an open-source project for the community.
+
 ## Overview
 
-Jylos is a Java 17 + JavaFX 21 desktop application inspired by Obsidian-like workflows:
+Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like workflows:
 
-- Fast note writing/editing with live Markdown preview (GFM, KaTeX math, emoji)
+- Markdown editor with **live syntax highlighting** (RichTextFX) and a side-by-side preview (GFM, KaTeX math, emoji)
+- **Tabs** for multiple open notes, with an inline saved/unsaved indicator
 - Folder hierarchy + tags + favorites + recent + trash
 - **Obsidian-compatible internal links** (`[[wiki-links]]`, `[label](note.md)`) with click-to-open in preview
 - **Knowledge graph** (global vault view or local neighbourhood around the open note)
 - **Backlinks** panel listing notes that link to the current note
+- **Kanban board** stored inside a note, and a distraction-free **focus / writing mode**
+- **Private notes**: optional AES-256 body encryption behind a master password
 - Command palette (`Ctrl+P`) and quick switcher (`Ctrl+O`)
 - External plugins (JARs in `jylos/plugins/`, built from `plugins-source/`) and themes (`themes/` → `jylos/themes/`)
 - Storage: **SQLite** (default) or **filesystem Markdown vault** (`.md` + YAML frontmatter; optional **Git** menu for commit/stage/sync)
@@ -68,12 +84,31 @@ Jylos is a Java 17 + JavaFX 21 desktop application inspired by Obsidian-like wor
 
 ### Editor & Preview
 
-- Markdown rendering with GFM tables, autolinks, strikethrough
-- Live preview and split / editor-only / preview-only modes
-- Syntax highlighting for fenced code blocks (highlight.js)
+- Markdown editor with **live syntax highlighting** (RichTextFX `CodeArea`: headings, bold/italic, code, `[[wiki-links]]`, lists, quotes, links)
+- **Tabs** for multiple open notes; **inline save indicator** (amber = unsaved, green = saved)
+- **`[[` autocomplete** for note titles; formatting toolbar (bold, lists, links, …)
+- Side-by-side preview with split / editor-only / preview-only modes
+- Markdown rendering with GFM tables, autolinks, strikethrough; code-block highlighting in preview (highlight.js)
 - **KaTeX** for `$…$`, `$$…$$`, and LaTeX delimiters (offline assets bundled in the JAR)
 - Emoji in preview via rasterized glyphs (reliable in the JavaFX WebView)
 - **Wiki-link resolution** shared with the graph and backlinks (`WikiLinkResolver`)
+- **Focus / writing mode** (`Ctrl/Cmd+Shift+F`): hides everything but the editor
+- Split-pane proportions are remembered between sessions
+
+### Task board (Kanban)
+
+- A board is a normal note whose Markdown body holds columns (`## Heading`) and text cards (`- card`), in the spirit of Obsidian's Kanban plugin
+- Open with **View → Kanban Board** or **`Ctrl/Cmd+Shift+K`**; pick or create boards from the toolbar
+- Add/rename/delete columns, create/edit/delete cards, and **drag cards between columns**
+- A card can link to a note (`[[Title]]`) or be **converted into a note**
+- Per-column **WIP limits** (`[wip=N]`, count badge turns red when exceeded) and **colors** (`[color=#rrggbb]`) — both stored in the heading line, set from the column menu
+- Cards referencing an image or PDF (`![…](file.png)`, `[[scan.pdf]]`) show an **embedded thumbnail** (first PDF page via PDFBox)
+
+### Private notes (encryption)
+
+- Mark a note as private (**Tools → Make Note Private/Public**, `Ctrl/Cmd+Shift+L`) to encrypt **only its body** at rest (AES-256-GCM)
+- A single **master password** unlocks private notes per session (PBKDF2-derived key; the password itself is never stored)
+- Works in **both** storage modes: a dedicated column in SQLite, a `private:` frontmatter flag in the vault; metadata stays readable so a locked note shows as 🔒 without the key
 
 ### Knowledge graph
 
@@ -96,6 +131,8 @@ Jylos is a Java 17 + JavaFX 21 desktop application inspired by Obsidian-like wor
 - **Daily note** and **new note from template** (`{{title}}`, `{{date}}`, …)
 - Per-note and **bulk vault export** to HTML/PDF
 - Import/export of individual notes
+- **Import an Obsidian vault** (folder hierarchy, frontmatter and tags preserved; `.obsidian/` skipped) or an **Evernote `.enex`** export (ENML converted to Markdown, tags kept, attachments noted as placeholders) — File menu
+- **Note version history** (Tools → Note History, `Ctrl/Cmd+Shift+H`): local snapshots taken before each save (coalesced, capped at 50 per note), with a line **diff** viewer and one-click **restore**; private notes' snapshots stay encrypted
 
 ### UI/UX
 
@@ -108,8 +145,9 @@ Jylos is a Java 17 + JavaFX 21 desktop application inspired by Obsidian-like wor
 
 ### Extensibility
 
-- External plugin JARs loaded from `jylos/plugins/` (see `scripts/build-plugins.sh`; bytecode **Java 17**)
+- External plugin JARs loaded from `jylos/plugins/` (see `scripts/build-plugins.sh`; bytecode **Java 21**)
 - Plugin manager UI with stable command IDs and safe load/disable lifecycle
+- Plugin API: command palette, menus, side panels, preview enhancers, **toolbar buttons** and **editor hooks** (`onBeforeTextInsert` / `onBeforeSave` / `onAfterSave`) — see [doc/PLUGINS.md](doc/PLUGINS.md)
 - Built-in **Mermaid** diagram support in preview (plugin source under `plugins-source/`)
 - Theme catalog with external theme discovery and safe fallback
 
@@ -135,17 +173,19 @@ Jylos is a Java 17 + JavaFX 21 desktop application inspired by Obsidian-like wor
 
 ## Technology Stack
 
-- Java 17
-- JavaFX 21
+- Java 21
+- JavaFX 23
 - Maven 3.9+
 - SQLite JDBC
-- CommonMark
+- CommonMark (Markdown preview)
+- RichTextFX (editor syntax highlighting)
 - Ikonli (Feather icons)
+- PDFBox + OpenHTMLToPDF (PDF export / viewer)
 - JUnit 5 + H2 (tests)
 
 ## Prerequisites
 
-1. Java JDK 17
+1. Java JDK 21
 2. Maven 3.9+
 
 Check installation:
@@ -166,7 +206,7 @@ cd jylos
 
 ### 2) Build
 
-From the repository root (produces `jylos/target/jylos-1.0.0-uber.jar`):
+From the repository root (produces `jylos/target/jylos-2.0.0-uber.jar`):
 
 ```bash
 ./scripts/build_all.sh
@@ -255,15 +295,17 @@ mvn -f jylos/pom.xml clean test
 
 ### Packaging (native installers)
 
-**Requirements:** full **JDK 17+** (not JRE) with `jpackage` on `PATH`. Run from the **repository root**.
+**Requirements:** full **JDK 21+** (not JRE) with `jpackage` on `PATH`. Run from the **repository root**.
 
 Each `package-*` script builds the uber-JAR, optionally runs `build-plugins.sh`, then invokes `jpackage`. Main class: `com.example.jylos.Launcher`.
 
 | Platform | Command | Typical output |
 |---|---|---|
-| macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-1.0.0.dmg` |
+| macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-2.0.0.dmg` |
 | Linux (deb/rpm) | `./scripts/package-linux.sh` | `jylos/target/installers/` |
-| Windows | `.\scripts\package-windows.ps1` | `Jylos\target\installers\` |
+| Windows portable (app-image) | `.\scripts\package-windows.ps1` | `jylos\target\installers\Jylos\` |
+| Windows .exe installer (WiX) | `.\scripts\package-windows-exe.ps1` | `jylos\target\installers\Jylos-<version>.exe` |
+| Windows .msi installer (WiX) | `.\scripts\package-windows-msi.ps1` | `jylos\target\installers\Jylos-<version>.msi` |
 
 ```bash
 ./scripts/package-macos.sh
@@ -360,11 +402,11 @@ Toolbar/sidebar icons are **Feather** glyphs (`fth-*` in FXML), not files in `ic
 
 ### Themes
 
-Source packs live in `themes/<id>/` (`theme.properties` + `theme.css`). Install with `./scripts/build-themes.sh` (copies to `jylos/themes/`).
+Source packs live in `themes/<id>/` (`theme.properties` + `theme.css`). Development: `./scripts/build-themes.sh` (copies to `jylos/themes/`). **Packaged app:** copy the theme folder to `~/Library/Application Support/Jylos/themes/<id>/` (macOS), `%APPDATA%\Jylos\themes\<id>\` (Windows), or `~/.config/Jylos/themes/<id>/` (Linux). See [themes/README.md](themes/README.md).
 
 ### Plugins
 
-- Build: `./scripts/build-plugins.sh` → `jylos/plugins/*.jar` (compile target **Java 17**)
+- Build: `./scripts/build-plugins.sh` → `jylos/plugins/*.jar` (compile target **Java 21**)
 - Enable/disable in **Tools → Manage plugins**
 
 ## Documentation

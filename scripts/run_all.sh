@@ -13,7 +13,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR/jylos"
 
-JAR="target/jylos-1.0.0-uber.jar"
+JAR="target/jylos-2.0.0-uber.jar"
 M2_REPO="$HOME/.m2/repository"
 
 # Detect platform for JavaFX platform-specific JARs
@@ -48,14 +48,10 @@ if [ -f "$JAR" ]; then
     # Build JavaFX module path from Maven repository
     JAVAFX_MODULES=""
     if [ -d "$M2_REPO/org/openjfx" ]; then
-        # Find JavaFX version
-        JAVAFX_VERSION=""
-        for dir in "$M2_REPO/org/openjfx/javafx-controls"/21*; do
-            if [ -d "$dir" ]; then
-                JAVAFX_VERSION=$(basename "$dir")
-                break
-            fi
-        done
+        # Find JavaFX version — pick the HIGHEST 21.x present (a plain glob stops at
+        # "21", which would pin an older runtime than the app was built against).
+        JAVAFX_VERSION=$(ls -1 "$M2_REPO/org/openjfx/javafx-controls" 2>/dev/null \
+            | grep -E '^[0-9]+(\.[0-9]+)*$' | sort -V | tail -1)
         
         if [ -n "$JAVAFX_VERSION" ]; then
             echo "JavaFX version: $JAVAFX_VERSION"

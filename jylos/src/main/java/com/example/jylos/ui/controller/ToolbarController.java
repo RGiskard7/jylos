@@ -47,9 +47,16 @@ public class ToolbarController {
     private Separator toolbarSeparator1;
     @FXML
     private HBox toolbarHBox;
+    @FXML
+    private HBox pluginToolbarContainer;
 
     public HBox getToolbarHBox() {
         return toolbarHBox;
+    }
+
+    /** Container that hosts plugin-registered toolbar buttons (hidden while empty). */
+    public HBox getPluginToolbarContainer() {
+        return pluginToolbarContainer;
     }
 
     @FXML
@@ -217,6 +224,36 @@ public class ToolbarController {
     @FXML
     private void handleGraphView(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.GRAPH_VIEW);
+    }
+
+    @FXML
+    private void handleKanbanView(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.KANBAN_VIEW);
+    }
+
+    @FXML
+    private void handleImportObsidian(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.IMPORT_OBSIDIAN);
+    }
+
+    @FXML
+    private void handleImportEnex(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.IMPORT_ENEX);
+    }
+
+    @FXML
+    private void handleTogglePrivate(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.PRIVATE_TOGGLE);
+    }
+
+    @FXML
+    private void handleLockNotes(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.NOTES_LOCK);
+    }
+
+    @FXML
+    private void handleNoteHistory(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.NOTE_HISTORY);
     }
 
     @FXML

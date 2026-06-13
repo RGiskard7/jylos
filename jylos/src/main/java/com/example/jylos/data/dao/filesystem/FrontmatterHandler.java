@@ -50,7 +50,7 @@ public final class FrontmatterHandler {
     private static final List<String> SYSTEM_KEYS = List.of(
             "id", "title", "created", "modified",
             "favorite", "pinned", "deleted", "deleted_date",
-            "author", "source_url", "tags",
+            "author", "source_url", "tags", "status", "private",
             "is_todo", "todo_due", "todo_completed");
 
     private FrontmatterHandler() {
@@ -107,6 +107,8 @@ public final class FrontmatterHandler {
         note.setPinned("true".equalsIgnoreCase(all.get("pinned")));
         note.setDeleted("true".equalsIgnoreCase(all.get("deleted")));
         note.setDeletedDate(all.get("deleted_date"));
+        note.setStatus(all.get("status"));
+        note.setPrivate("true".equalsIgnoreCase(all.get("private")));
         note.setAuthor(all.get("author"));
         note.setSourceUrl(all.get("source_url"));
 
@@ -155,6 +157,10 @@ public final class FrontmatterHandler {
         sb.append("pinned: ").append(note.isPinned()).append('\n');
         sb.append("deleted: ").append(note.isDeleted()).append('\n');
         appendIfNotNull(sb, "deleted_date", note.getDeletedDate());
+        appendIfNotNull(sb, "status", note.getStatus());
+        if (note.isPrivate()) {
+            sb.append("private: true\n");
+        }
         appendIfNotNull(sb, "author", note.getAuthor());
         appendIfNotNull(sb, "source_url", note.getSourceUrl());
 
@@ -240,6 +246,8 @@ public final class FrontmatterHandler {
         note.setPinned("true".equalsIgnoreCase(all.get("pinned")));
         note.setDeleted("true".equalsIgnoreCase(all.get("deleted")));
         note.setDeletedDate(all.get("deleted_date"));
+        note.setStatus(all.get("status"));
+        note.setPrivate("true".equalsIgnoreCase(all.get("private")));
         note.setAuthor(all.get("author"));
         note.setSourceUrl(all.get("source_url"));
 

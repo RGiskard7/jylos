@@ -35,7 +35,7 @@ echo ""
 # Get script directory and navigate to Jylos directory
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 JYLOS_DIR="$(cd "$SCRIPT_DIR/../jylos" && pwd)"
-JAR="$JYLOS_DIR/target/jylos-1.0.0-uber.jar"
+JAR="$JYLOS_DIR/target/jylos-2.0.0-uber.jar"
 
 # Check if JAR exists
 if [ ! -f "$JAR" ]; then
@@ -109,15 +109,13 @@ if [ ! -d "$JAVAFX_BASE" ]; then
     exit $?
 fi
 
-# Find JavaFX version (21.x.x)
+# Find JavaFX version (21.x.x). Pick the HIGHEST 21.x present so the runtime
+# modules match the version the app was built against (and include CoreText
+# font crash fixes on macOS). A plain glob would stop at "21" (lexically first).
 JAVAFX_VERSION=""
 if [ -d "$JAVAFX_BASE/javafx-controls" ]; then
-    for dir in "$JAVAFX_BASE/javafx-controls"/21*; do
-        if [ -d "$dir" ]; then
-            JAVAFX_VERSION=$(basename "$dir")
-            break
-        fi
-    done
+    JAVAFX_VERSION=$(ls -1 "$JAVAFX_BASE/javafx-controls" 2>/dev/null \
+        | grep -E '^[0-9]+(\.[0-9]+)*$' | sort -V | tail -1)
 fi
 
 if [ -z "$JAVAFX_VERSION" ]; then

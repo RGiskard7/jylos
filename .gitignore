@@ -107,3 +107,5 @@ jylos/backups/
 **/*-auto-backup-*.db
 
 .claude/
+
+.tools/

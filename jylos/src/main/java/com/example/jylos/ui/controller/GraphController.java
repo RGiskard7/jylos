@@ -7,6 +7,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.event.EventBus;
+import com.example.jylos.event.events.FolderEvents;
+import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.graph.GraphBuilder;
 import com.example.jylos.graph.GraphData;
 import com.example.jylos.service.NoteService;
@@ -68,6 +71,10 @@ public class GraphController {
     private Runnable onClose;
     private Supplier<String> currentNoteIdSupplier = () -> null;
 
+    /** True while the graph overlay is on screen (drives live refresh on edits). */
+    private boolean graphVisible = false;
+    private boolean dataEventsWired = false;
+
     @FXML
     private void initialize() {
         if (graphCanvasHolder != null) {
@@ -127,6 +134,50 @@ public class GraphController {
 
     public void setServices(NoteService noteService, TagService tagService) {
         this.graphBuilder = new GraphBuilder(noteService, tagService);
+        wireDataEvents();
+    }
+
+    /**
+     * Subscribes to note/folder events so the cached link data stays correct and the
+     * graph refreshes live while it is on screen (perf P3 — only the changed note is
+     * re-read on the next build, not the whole vault).
+     */
+    private void wireDataEvents() {
+        if (dataEventsWired) {
+            return;
+        }
+        dataEventsWired = true;
+        EventBus bus = EventBus.getInstance();
+        bus.subscribe(NoteEvents.NoteSavedEvent.class, e -> onNoteChanged(idOf(e.getNote())));
+        bus.subscribe(NoteEvents.NoteCreatedEvent.class, e -> onNoteChanged(idOf(e.getNote())));
+        bus.subscribe(NoteEvents.NoteUpdatedEvent.class, e -> onNoteChanged(idOf(e.getNote())));
+        bus.subscribe(NoteEvents.NoteDeletedEvent.class, e -> onNoteChanged(e.getNoteId()));
+        bus.subscribe(FolderEvents.FolderDeletedEvent.class, e -> onVaultChanged());
+        bus.subscribe(NoteEvents.NotesRefreshRequestedEvent.class, e -> onVaultChanged());
+    }
+
+    /** A single note changed: invalidate only its cache entry, refresh if visible. */
+    private void onNoteChanged(String noteId) {
+        if (graphBuilder != null) {
+            graphBuilder.invalidateNote(noteId);
+        }
+        if (graphVisible) {
+            rebuild();
+        }
+    }
+
+    /** Wholesale change (folder delete / refresh): clear cache, refresh if visible. */
+    private void onVaultChanged() {
+        if (graphBuilder != null) {
+            graphBuilder.invalidateAll();
+        }
+        if (graphVisible) {
+            rebuild();
+        }
+    }
+
+    private static String idOf(com.example.jylos.data.models.Note note) {
+        return note != null ? note.getId() : null;
     }
 
     public void setBundle(ResourceBundle bundle) {
@@ -157,6 +208,7 @@ public class GraphController {
 
     /** Shows the graph with the current theme and rebuilds the data. */
     public void show(boolean dark) {
+        graphVisible = true;
         canvas.setDarkTheme(dark);
         rebuild();
     }
@@ -168,6 +220,7 @@ public class GraphController {
 
     /** Stops the simulation loop while the graph is hidden (saves CPU). */
     public void pause() {
+        graphVisible = false;
         canvas.pause();
     }
 

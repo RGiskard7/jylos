@@ -41,9 +41,12 @@ public class GraphBuilder {
     /**
      * Per-note cache of extracted link targets, keyed by note id. Avoids re-reading
      * every file on each rebuild (toggle tags/scope); invalidated when the note's
-     * {@code modified} timestamp changes.
+     * {@code modified} timestamp changes, or explicitly via {@link #invalidateNote}.
+     *
+     * <p>Concurrent because builds run off the JavaFX thread while invalidation is
+     * driven from note/folder events on the FX thread (perf P3).</p>
      */
-    private final Map<String, CachedLinks> linkCache = new HashMap<>();
+    private final Map<String, CachedLinks> linkCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     private record CachedLinks(String modified, List<String> targets) {
     }
@@ -51,6 +54,22 @@ public class GraphBuilder {
     public GraphBuilder(NoteService noteService, TagService tagService) {
         this.noteService = noteService;
         this.tagService = tagService;
+    }
+
+    /**
+     * Drops the cached link targets for a single note so the next build re-reads its
+     * full content. Cheap and FX-thread-safe — the actual (file) read is deferred to
+     * the next off-thread build. No-op for a {@code null} id.
+     */
+    public void invalidateNote(String id) {
+        if (id != null) {
+            linkCache.remove(id);
+        }
+    }
+
+    /** Clears the whole link cache (e.g. folder deletion or storage switch). */
+    public void invalidateAll() {
+        linkCache.clear();
     }
 
     /**

@@ -19,6 +19,20 @@ class UiPreferencesStore {
     public static final String NOTES_PREVIEW_LINES_KEY = "ui.notes.preview.lines";
     public static final String UI_FONT_SIZE_KEY = "ui.font.size";
 
+    /**
+     * Custom accent color as {@code #RRGGBB}, or empty for the theme default.
+     * Applied as an inline {@code -fx-accent} override on the scene root, so it works
+     * with built-in and external themes alike.
+     */
+    public static final String UI_ACCENT_KEY = "ui.accent.color";
+
+    /** Sidebar | content divider of the main SplitPane. */
+    public static final String SPLIT_MAIN_KEY = "ui.split.main";
+    /** Notes-list | editor divider of the content SplitPane. */
+    public static final String SPLIT_CONTENT_KEY = "ui.split.content";
+    public static final double DEFAULT_SPLIT_MAIN = 0.22;
+    public static final double DEFAULT_SPLIT_CONTENT = 0.25;
+
     public static final String THEME_SOURCE_BUILTIN = "builtin";
     public static final String THEME_SOURCE_EXTERNAL = "external";
 
@@ -40,7 +54,8 @@ class UiPreferencesStore {
             String themeSource,
             String externalThemeId,
             int notesPreviewLines,
-            int uiFontSize) {
+            int uiFontSize,
+            String accentColor) {
     }
 
     public UiPreferencesData load(Preferences prefs) {
@@ -60,7 +75,9 @@ class UiPreferencesStore {
                         : DEFAULT_NOTES_PREVIEW_LINES);
         int fontSize = clampFontSize(
                 prefs != null ? prefs.getInt(UI_FONT_SIZE_KEY, DEFAULT_UI_FONT_SIZE) : DEFAULT_UI_FONT_SIZE);
-        return new UiPreferencesData(autosaveEnabled, autosaveIdleMs, source, externalId, previewLines, fontSize);
+        String accent = sanitizeAccent(prefs != null ? prefs.get(UI_ACCENT_KEY, "") : "");
+        return new UiPreferencesData(autosaveEnabled, autosaveIdleMs, source, externalId, previewLines, fontSize,
+                accent);
     }
 
     public void save(Preferences prefs, UiPreferencesData value) {
@@ -71,10 +88,20 @@ class UiPreferencesStore {
         prefs.putInt(AUTOSAVE_IDLE_MS_KEY, Math.max(500, Math.min(10000, value.autosaveIdleMs())));
         prefs.putInt(NOTES_PREVIEW_LINES_KEY, clampPreviewLines(value.notesPreviewLines()));
         prefs.putInt(UI_FONT_SIZE_KEY, clampFontSize(value.uiFontSize()));
+        prefs.put(UI_ACCENT_KEY, sanitizeAccent(value.accentColor()));
 
         String source = THEME_SOURCE_EXTERNAL.equals(value.themeSource()) ? THEME_SOURCE_EXTERNAL : THEME_SOURCE_BUILTIN;
         prefs.put(THEME_SOURCE_KEY, source);
         prefs.put(THEME_EXTERNAL_ID_KEY, value.externalThemeId() != null ? value.externalThemeId().trim() : "");
+    }
+
+    /** Returns the value if it is a valid {@code #RRGGBB} color, otherwise "" (theme default). */
+    static String sanitizeAccent(String value) {
+        if (value == null) {
+            return "";
+        }
+        String v = value.trim();
+        return v.matches("#[0-9a-fA-F]{6}") ? v.toLowerCase(java.util.Locale.ROOT) : "";
     }
 
     static int clampPreviewLines(int lines) {

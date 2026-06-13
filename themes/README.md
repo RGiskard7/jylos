@@ -8,8 +8,33 @@ Spanish notes below; see also [README.md](../README.md) (Configuration → Theme
 
 ## Ubicación
 
-- `{AppData}/themes/`
-- `./themes/` (directorio de trabajo)
+Cada tema es una carpeta bajo `themes/<id>/` (p. ej. `themes/retro-phosphor/` con `theme.properties` + `theme.css`). Jylos escanea esas carpetas al arrancar; **basta con copiar la carpeta del tema al directorio de datos**.
+
+### Desarrollo (desde el repo)
+
+- `./jylos/themes/` — tras `./scripts/build-themes.sh`
+- `./themes/` junto al cwd si ejecutas la app desde el proyecto
+
+### App instalada (DMG, deb/rpm, exe/msi)
+
+Los instaladores **no incluyen** temas externos. Copia la carpeta del tema (desde este repo o un zip) dentro de `themes/` bajo los datos de Jylos:
+
+| Sistema | Ruta (crea `themes/` si no existe) |
+|---------|-------------------------------------|
+| **macOS** | `~/Library/Application Support/Jylos/themes/<id>/` |
+| **Windows** | `%APPDATA%\Jylos\themes\<id>\` |
+| **Linux** | `~/.config/Jylos/themes/<id>/` (o `$XDG_CONFIG_HOME/Jylos/themes/<id>/`) |
+
+Ejemplo (Retro Phosphor en macOS):
+
+```bash
+mkdir -p ~/Library/Application\ Support/Jylos/themes
+cp -R themes/retro-phosphor ~/Library/Application\ Support/Jylos/themes/
+```
+
+Desde el repo también: `./scripts/build-themes.sh --appdata` (macOS/Linux) o `.\scripts\build-themes.ps1 -AppData` (Windows).
+
+Actívalo en **Herramientas → Preferencias → Tema externo** y reinicia si no aparece en la lista.
 
 ## `theme.properties`
 

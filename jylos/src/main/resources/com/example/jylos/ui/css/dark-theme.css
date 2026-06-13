@@ -83,6 +83,7 @@
     -fx-icon-color: -fx-danger;
     -fx-fill: -fx-danger;
     fill: -fx-danger;
+    -fx-icon-size: 16;
 }
 
 /* ========================================
@@ -254,6 +255,8 @@
 
 .toolbar-btn-danger:hover .feather-icon-danger {
     -fx-icon-color: white;
+    -fx-fill: white;
+    fill: white;
 }
 
 .toolbar-btn-primary {
@@ -899,6 +902,194 @@
     border-width: 0 0 1px 0;
 }
 
+/* Inline save indicator dot (next to the note title). */
+.save-indicator-dot {
+    -fx-font-size: 9px;
+    -fx-padding: 0 1 0 1;
+    -fx-text-fill: -fx-success;
+}
+.save-indicator-dot.dirty {
+    -fx-text-fill: -fx-warning;
+}
+.save-indicator-dot.saved {
+    -fx-text-fill: -fx-success;
+}
+
+/* Open-note tab strip (scrolls horizontally; tabs keep a fixed width). */
+.editor-tab-scroll {
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-background: -fx-sidebar-bg;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 0;
+}
+.editor-tab-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+.editor-tab-scroll .scroll-bar:horizontal {
+    -fx-pref-height: 6;
+}
+.editor-tab-bar {
+    -fx-background-color: transparent;
+    -fx-padding: 2 4 0 4;
+    -fx-spacing: 2;
+}
+.editor-tab {
+    -fx-background-color: transparent;
+    -fx-background-radius: 6 6 0 0;
+    -fx-padding: 5 8 5 10;
+    -fx-cursor: hand;
+}
+.editor-tab:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+.editor-tab.active {
+    -fx-background-color: -fx-base-bg;
+    -fx-border-color: -fx-fn-border-color -fx-fn-border-color transparent -fx-fn-border-color;
+    -fx-border-width: 1 1 0 1;
+    -fx-border-radius: 6 6 0 0;
+}
+.editor-tab-title {
+    -fx-text-fill: -fx-text-muted;
+    -fx-font-size: 12px;
+}
+.editor-tab.active .editor-tab-title {
+    -fx-text-fill: -fx-text-main;
+    -fx-font-weight: 600;
+}
+.editor-tab-dot {
+    -fx-text-fill: -fx-warning;
+    -fx-font-size: 11px;
+}
+.editor-tab-close {
+    -fx-text-fill: -fx-text-faint;
+    -fx-font-size: 14px;
+    -fx-cursor: hand;
+    -fx-padding: 0 2 0 2;
+}
+.editor-tab-close:hover {
+    -fx-text-fill: -fx-danger;
+}
+
+/* ── Kanban board overlay ─────────────────────────────────────────────── */
+.kanban-board {
+    -fx-background-color: -fx-base-bg;
+    -fx-padding: 0;
+}
+.kanban-header {
+    -fx-background-color: -fx-header-bg;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 10 16 10 16;
+    -fx-spacing: 10;
+}
+.kanban-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: 700;
+    -fx-text-fill: -fx-text-main;
+}
+.kanban-close {
+    -fx-font-size: 15px;
+    -fx-text-fill: -fx-text-muted;
+    -fx-cursor: hand;
+    -fx-padding: 0 6 0 6;
+}
+.kanban-close:hover { -fx-text-fill: -fx-danger; }
+.kanban-scroll {
+    -fx-background-color: -fx-base-bg;
+    -fx-background: -fx-base-bg;
+}
+.kanban-scroll > .viewport { -fx-background-color: -fx-base-bg; }
+.kanban-lanes {
+    -fx-padding: 12;
+    -fx-spacing: 12;
+    -fx-background-color: -fx-base-bg;
+}
+.kanban-lane {
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-background-radius: 8;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-radius: 8;
+    -fx-padding: 8;
+    -fx-spacing: 8;
+    -fx-min-width: 240;
+    -fx-pref-width: 280;
+}
+.kanban-lane-drop {
+    -fx-border-color: -fx-accent;
+    -fx-background-color: derive(-fx-accent, -40%);
+}
+.kanban-lane-header {
+    -fx-font-size: 13px;
+    -fx-font-weight: 700;
+    -fx-text-fill: -fx-text-muted;
+    -fx-padding: 2 4 6 4;
+}
+.kanban-lane-count {
+    -fx-font-size: 12px;
+    -fx-font-weight: 700;
+    -fx-text-fill: -fx-accent-contrast;
+    -fx-background-color: -fx-accent;
+    -fx-background-radius: 10;
+    -fx-padding: 1 8 1 8;
+}
+.kanban-add-card {
+    -fx-background-color: transparent;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-radius: 6;
+    -fx-text-fill: -fx-text-muted;
+    -fx-font-size: 12px;
+    -fx-cursor: hand;
+}
+.kanban-add-card:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-text-main;
+}
+.kanban-board-selector {
+    -fx-background-color: -fx-hover-bg;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-min-width: 160;
+}
+.kanban-icon-btn {
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-padding: 2 4 2 4;
+}
+.kanban-icon-btn:hover { -fx-background-color: -fx-hover-bg; -fx-background-radius: 6; }
+.kanban-card-link .kanban-card-title,
+.kanban-card-link {
+    -fx-text-fill: -fx-accent;
+}
+.kanban-lane-add {
+    -fx-padding: 8;
+    -fx-min-width: 200;
+    -fx-pref-width: 220;
+}
+.kanban-lane-scroll {
+    -fx-background-color: transparent;
+}
+.kanban-lane-scroll > .viewport { -fx-background-color: transparent; }
+.kanban-cards { -fx-spacing: 8; }
+.kanban-card {
+    -fx-background-color: -fx-base-bg;
+    -fx-background-radius: 6;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-radius: 6;
+    -fx-padding: 10;
+    -fx-spacing: 4;
+    -fx-cursor: hand;
+}
+.kanban-card:hover {
+    -fx-border-color: -fx-accent;
+}
+.kanban-card-title {
+    -fx-font-size: 13px;
+    -fx-font-weight: 600;
+    -fx-text-fill: -fx-text-main;
+}
+
 .title-field {
     -fx-background-color: transparent;
     background-color: transparent;
@@ -1142,6 +1333,29 @@
     -fx-background-color: -fx-base-bg;
     background-color: -fx-base-bg;
 }
+
+/* RichTextFX CodeArea: text, caret and selection colours. */
+.editor-area .text {
+    -fx-fill: -fx-text-main;
+}
+.editor-area .caret {
+    -fx-stroke: -fx-text-main;
+}
+.editor-area .selection {
+    -fx-fill: derive(-fx-accent, -30%);
+}
+
+/* Markdown syntax-highlighting spans (applied to .text segments). */
+.editor-area .md-heading   { -fx-fill: -fx-accent; -fx-font-weight: bold; }
+.editor-area .md-bold      { -fx-font-weight: bold; }
+.editor-area .md-italic    { -fx-font-style: italic; }
+.editor-area .md-strike    { -fx-fill: -fx-text-muted; -fx-strikethrough: true; }
+.editor-area .md-code      { -fx-fill: -fx-danger; }
+.editor-area .md-codeblock { -fx-fill: -fx-danger; }
+.editor-area .md-wikilink  { -fx-fill: -fx-accent; -fx-font-weight: bold; }
+.editor-area .md-link      { -fx-fill: -fx-accent; -fx-underline: true; }
+.editor-area .md-quote     { -fx-fill: -fx-text-muted; -fx-font-style: italic; }
+.editor-area .md-list      { -fx-fill: -fx-accent; -fx-font-weight: bold; }
 
 /* Format toolbar container with scroll support */
 .format-toolbar-container {
@@ -1583,7 +1797,7 @@
 }
 
 .text-field:focused {
-    -fx-border-color: #9f7aea;
+    -fx-border-color: -fx-accent;
 }
 
 /* ========================================
@@ -1639,8 +1853,8 @@
 }
 
 .toggle-button:selected {
-    -fx-background-color: #9f7aea;
-    -fx-text-fill: #ffffff;
+    -fx-background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
 }
 
 /* ========================================
@@ -1818,10 +2032,10 @@
 
 
 
-/* Fix for Toggle Buttons Contrast - Selected State */
+/* Selected toolbar toggle icon uses the theme accent (consistent with light theme). */
 .toolbar-btn:selected .feather-icon {
-    -fx-icon-color: #9f7aea;
-    -fx-fill: #9f7aea;
+    -fx-icon-color: -fx-accent;
+    -fx-fill: -fx-accent;
 }
 
 .toolbar-btn:selected:hover .feather-icon {
@@ -2322,15 +2536,6 @@
     -fx-fill: -fx-text-faint;
     -fx-icon-size: 13;
 }
-.path-close-btn {
-    -fx-background-color: transparent;
-    -fx-padding: 2 6;
-    -fx-cursor: hand;
-    -fx-background-radius: 4;
-}
-.path-close-btn:hover { -fx-background-color: -fx-hover-bg; }
-.path-close-btn .feather-icon { -fx-icon-color: -fx-text-muted; -fx-fill: -fx-text-muted; -fx-icon-size: 13; }
-.path-close-btn:hover .feather-icon { -fx-icon-color: -fx-danger; -fx-fill: -fx-danger; }
 
 /* ── Editor empty state (Obsidian-style) ──────────────────── */
 .editor-empty-state {
@@ -2763,3 +2968,40 @@
 }
 .git-section-separator { -fx-padding: 2 0 2 0; }
 .git-section-separator .line { -fx-border-color: -fx-fn-border-color; }
+
+/* ── Note history diff viewer ─────────────────────────────────────────── */
+.diff-added {
+    -fx-background-color: derive(-fx-success, -65%);
+    -fx-text-fill: -fx-text-main;
+}
+.diff-removed {
+    -fx-background-color: derive(-fx-danger, -65%);
+    -fx-text-fill: -fx-text-main;
+}
+
+/* Kanban: WIP-exceeded badge and card attachment thumbnails. */
+.kanban-lane-count.kanban-wip-exceeded {
+    -fx-background-color: -fx-danger;
+}
+.kanban-card-thumb {
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 4, 0, 0, 1);
+}
+
+/* Active favorite star (grid cards): amber, like a classic favorite marker. */
+.feather-favorite-active {
+    -fx-icon-color: -fx-warning;
+    -fx-fill: -fx-warning;
+    fill: -fx-warning;
+}
+.tree-cell:selected .feather-favorite-active,
+.list-cell:selected .feather-favorite-active {
+    -fx-icon-color: -fx-selected-text;
+    -fx-fill: -fx-selected-text;
+    fill: -fx-selected-text;
+}
+
+/* Preferences dialog scroll container (theme-matched, no white box). */
+.preferences-scroll,
+.preferences-scroll > .viewport {
+    -fx-background-color: transparent;
+}

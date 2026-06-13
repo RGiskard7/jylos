@@ -39,19 +39,24 @@ public class PluginContext {
     private final PluginMenuRegistry menuRegistry;
     private final SidePanelRegistry sidePanelRegistry;
     private final PreviewEnhancerRegistry previewEnhancerRegistry;
+    private final EditorHookRegistry editorHookRegistry;
+    private final ToolbarRegistry toolbarRegistry;
     private final List<String> registeredCommandIds = new ArrayList<>();
 
     /**
      * Creates a new PluginContext.
-     * 
-     * @param pluginId          The ID of the plugin using this context
-     * @param noteService       The note service
-     * @param folderService     The folder service
-     * @param tagService        The tag service
-     * @param eventBus          The event bus
-     * @param commandPalette    The command palette
-     * @param menuRegistry      The menu registry for registering menu items
-     * @param sidePanelRegistry The side panel registry for registering UI panels
+     *
+     * @param pluginId           The ID of the plugin using this context
+     * @param noteService        The note service
+     * @param folderService      The folder service
+     * @param tagService         The tag service
+     * @param eventBus           The event bus
+     * @param commandPalette     The command palette
+     * @param menuRegistry       The menu registry for registering menu items
+     * @param sidePanelRegistry  The side panel registry for registering UI panels
+     * @param previewEnhancerRegistry The preview enhancer registry
+     * @param editorHookRegistry The editor hook registry (may be null in tests)
+     * @param toolbarRegistry    The toolbar button registry (may be null in tests)
      */
     public PluginContext(
             String pluginId,
@@ -62,7 +67,9 @@ public class PluginContext {
             CommandPalette commandPalette,
             PluginMenuRegistry menuRegistry,
             SidePanelRegistry sidePanelRegistry,
-            PreviewEnhancerRegistry previewEnhancerRegistry) {
+            PreviewEnhancerRegistry previewEnhancerRegistry,
+            EditorHookRegistry editorHookRegistry,
+            ToolbarRegistry toolbarRegistry) {
         this.pluginId = pluginId;
         this.noteService = noteService;
         this.folderService = folderService;
@@ -72,6 +79,8 @@ public class PluginContext {
         this.menuRegistry = menuRegistry;
         this.sidePanelRegistry = sidePanelRegistry;
         this.previewEnhancerRegistry = previewEnhancerRegistry;
+        this.editorHookRegistry = editorHookRegistry;
+        this.toolbarRegistry = toolbarRegistry;
     }
 
     /**
@@ -415,6 +424,47 @@ public class PluginContext {
     public void unregisterPreviewEnhancer() {
         if (previewEnhancerRegistry != null) {
             previewEnhancerRegistry.unregisterPreviewEnhancer(pluginId);
+        }
+    }
+
+    /**
+     * Registers an {@link EditorHook}: lets the plugin transform snippet insertions
+     * and note content before save, and observe successful saves. Hooks run in
+     * registration order and are removed automatically when the plugin is disabled.
+     *
+     * @param hook the hook implementation
+     */
+    public void registerEditorHook(EditorHook hook) {
+        if (editorHookRegistry != null) {
+            editorHookRegistry.registerEditorHook(pluginId, hook);
+        }
+    }
+
+    /** Removes every editor hook registered by this plugin (safe from {@code shutdown()}). */
+    public void unregisterEditorHooks() {
+        if (editorHookRegistry != null) {
+            editorHookRegistry.unregisterEditorHooks(pluginId);
+        }
+    }
+
+    /**
+     * Adds a button to the main toolbar.
+     *
+     * @param buttonId    stable id, unique within this plugin
+     * @param tooltip     tooltip text (also the button text when no icon is given)
+     * @param iconLiteral Ikonli Feather literal (e.g. {@code "fth-clock"}) or null
+     * @param action      invoked on the JavaFX Application Thread when clicked
+     */
+    public void registerToolbarButton(String buttonId, String tooltip, String iconLiteral, Runnable action) {
+        if (toolbarRegistry != null) {
+            toolbarRegistry.registerToolbarButton(pluginId, buttonId, tooltip, iconLiteral, action);
+        }
+    }
+
+    /** Removes every toolbar button registered by this plugin (safe from {@code shutdown()}). */
+    public void removeToolbarButtons() {
+        if (toolbarRegistry != null) {
+            toolbarRegistry.removeToolbarButtons(pluginId);
         }
     }
 }

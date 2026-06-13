@@ -19,6 +19,8 @@
             <MenuItem text="%action.save_all" onAction="#handleSaveAll" accelerator="Shortcut+Shift+S"/>
             <SeparatorMenuItem/>
             <MenuItem text="%action.import" onAction="#handleImport" accelerator="Shortcut+I"/>
+            <MenuItem text="%action.import_obsidian" onAction="#handleImportObsidian"/>
+            <MenuItem text="%action.import_enex" onAction="#handleImportEnex"/>
             <MenuItem text="%action.export" onAction="#handleExport" accelerator="Shortcut+E"/>
             <MenuItem text="%action.export_vault" onAction="#handleExportVault"/>
             <SeparatorMenuItem/>
@@ -42,6 +44,7 @@
             <MenuItem fx:id="toggleNotesListMenuItem" text="%action.toggle_notes_list" onAction="#handleToggleNotesPanel" accelerator="F8"/>
             <SeparatorMenuItem/>
             <MenuItem fx:id="graphViewMenuItem" text="%action.graph_view" onAction="#handleGraphView" accelerator="Shortcut+G"/>
+            <MenuItem fx:id="kanbanViewMenuItem" text="%action.kanban_view" onAction="#handleKanbanView" accelerator="Shortcut+K"/>
             <SeparatorMenuItem/>
             <MenuItem text="%action.zoom_in" onAction="#handleZoomIn" accelerator="Shortcut+Plus"/>
             <MenuItem text="%action.zoom_out" onAction="#handleZoomOut" accelerator="Shortcut+Minus"/>
@@ -69,6 +72,11 @@
             <SeparatorMenuItem/>
             <MenuItem text="%action.global_search" onAction="#handleSearch" accelerator="Shortcut+Shift+F"/>
             <MenuItem text="%action.tags_manager" onAction="#handleTagsManager"/>
+            <SeparatorMenuItem/>
+            <MenuItem text="%action.toggle_private" onAction="#handleTogglePrivate" accelerator="Shortcut+Shift+L"/>
+            <MenuItem text="%action.lock_notes" onAction="#handleLockNotes"/>
+            <SeparatorMenuItem/>
+            <MenuItem text="%action.note_history" onAction="#handleNoteHistory" accelerator="Shortcut+Shift+H"/>
             <SeparatorMenuItem/>
             <Menu text="%menu.git">
                 <MenuItem text="%action.git_sync" onAction="#handleGitSync" accelerator="Shortcut+Shift+S"/>
@@ -170,6 +178,10 @@
 
         <!-- Search Box -->
         <TextField fx:id="searchField" promptText="%app.search.placeholder" prefWidth="240" styleClass="search-field"/>
+
+        <!-- Plugin toolbar buttons (populated via ToolbarRegistry; hidden when empty) -->
+        <HBox fx:id="pluginToolbarContainer" spacing="4" alignment="CENTER_LEFT"
+              visible="false" managed="false"/>
 
         <Region HBox.hgrow="ALWAYS"/>
 

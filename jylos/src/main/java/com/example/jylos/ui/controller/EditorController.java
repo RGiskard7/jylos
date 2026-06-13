@@ -27,6 +27,7 @@ import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.plugin.PreviewEnhancer;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.util.AttachmentType;
+import com.example.jylos.util.MarkdownHighlighter;
 import com.example.jylos.util.MarkdownPreview;
 import com.example.jylos.util.WikiLinkResolver;
 
@@ -47,6 +48,9 @@ import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 import javafx.stage.Popup;
 
+import org.fxmisc.richtext.CodeArea;
+
+import java.time.Duration;
 import java.util.ResourceBundle;
 
 /**
@@ -105,9 +109,10 @@ public class EditorController {
 
     // ── FXML — header ───────────────────────────────────────────────────────
     @FXML private VBox editorContainer;
+    @FXML private javafx.scene.control.ScrollPane editorTabScroll;
+    @FXML private HBox editorTabBar;
     @FXML private HBox editorPathBar;
     @FXML private Label notePathLabel;
-    @FXML private Button closeNoteBtn;
     @FXML private HBox editorHeaderBar;
     @FXML private StackPane editorContentStack;
     @FXML private VBox emptyState;
@@ -115,6 +120,8 @@ public class EditorController {
     @FXML private Button navForwardBtn;
     @FXML private TextField noteTitleField;
     @FXML private Label noteTitleLabel;
+    @FXML private Label dirtySaveIndicator;
+    @FXML private Tooltip dirtySaveIndicatorTip;
     @FXML private ToggleButton toggleTagsBtn;
     @FXML private ToggleButton editorOnlyButton;
     @FXML private ToggleButton splitViewButton;
@@ -138,7 +145,7 @@ public class EditorController {
     // ── FXML — editor / preview ─────────────────────────────────────────────
     @FXML private SplitPane editorPreviewSplitPane;
     @FXML private VBox      editorPane;
-    @FXML private TextArea  noteContentArea;
+    @FXML private CodeArea  noteContentArea;
     @FXML private Button    heading1Btn, heading2Btn, heading3Btn;
     @FXML private Button    boldBtn, italicBtn, strikeBtn, underlineBtn;
     @FXML private Button    highlightBtn, linkBtn, imageBtn;
@@ -173,6 +180,25 @@ public class EditorController {
 
     public void setBundle(ResourceBundle bundle) {
         this.bundle = bundle != null ? bundle : AppContext.getBundle();
+    }
+
+    /** Plugin editor-hook dispatcher (nullable; wired by MainController). */
+    private com.example.jylos.plugin.EditorHooks editorHooks;
+
+    public void setEditorHooks(com.example.jylos.plugin.EditorHooks editorHooks) {
+        this.editorHooks = editorHooks;
+    }
+
+    /**
+     * Runs plugin {@code onBeforeTextInsert} hooks over a snippet about to be inserted
+     * programmatically (dialogs, autocomplete, templates). Returns the snippet
+     * unchanged when no hooks are registered.
+     */
+    private String applyInsertHooks(String snippet) {
+        if (editorHooks == null || editorHooks.isEmpty() || snippet == null) {
+            return snippet;
+        }
+        return editorHooks.applyBeforeTextInsert(currentNote, snippet);
     }
 
     // ============================================================
@@ -229,8 +255,16 @@ public class EditorController {
     }
     public boolean isModified()  { return isModified; }
 
+    /** Drops the unsaved-changes flag without persisting (used when discarding on close). */
+    public void markClean() {
+        isModified = false;
+        updateSaveIndicator(false);
+    }
+
     // FXML node getters (used by MainController for layout delegation)
     public VBox            getEditorContainer()        { return editorContainer; }
+    public HBox            getEditorTabBar()           { return editorTabBar; }
+    public javafx.scene.control.ScrollPane getEditorTabScroll() { return editorTabScroll; }
     public TextField       getNoteTitleField()         { return noteTitleField; }
     public ToggleButton    getToggleTagsBtn()           { return toggleTagsBtn; }
     public ToggleButton    getEditorOnlyButton()        { return editorOnlyButton; }
@@ -244,7 +278,7 @@ public class EditorController {
     public Label           getModifiedDateLabel()       { return modifiedDateLabel; }
     public SplitPane       getEditorPreviewSplitPane()  { return editorPreviewSplitPane; }
     public VBox            getEditorPane()              { return editorPane; }
-    public TextArea        getNoteContentArea()         { return noteContentArea; }
+    public CodeArea        getNoteContentArea()         { return noteContentArea; }
     public Label           getWordCountLabel()          { return wordCountLabel; }
     public VBox            getPreviewPane()             { return previewPane; }
     public javafx.scene.web.WebView getPreviewWebView() { return previewWebView; }
@@ -388,6 +422,32 @@ public class EditorController {
         if (noteTitleLabel != null && noteTitleField != null) {
             noteTitleLabel.textProperty().bind(noteTitleField.textProperty());
         }
+        setupSyntaxHighlighting();
+    }
+
+    /**
+     * Re-applies Markdown syntax highlighting to the editor, debounced so large notes
+     * don't recompute spans on every keystroke. Setting style spans does not change the
+     * text, so this does not feed back into the change stream.
+     */
+    private void setupSyntaxHighlighting() {
+        if (noteContentArea == null) {
+            return;
+        }
+        noteContentArea.multiPlainChanges()
+                .successionEnds(Duration.ofMillis(200))
+                .subscribe(ignore -> applyHighlighting());
+    }
+
+    private void applyHighlighting() {
+        if (noteContentArea == null) {
+            return;
+        }
+        String text = noteContentArea.getText();
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+        noteContentArea.setStyleSpans(0, MarkdownHighlighter.computeHighlighting(text));
     }
 
     /**
@@ -424,10 +484,6 @@ public class EditorController {
         notePathLabel.setText(path);
     }
 
-    @FXML
-    private void handleCloseNote(ActionEvent e) {
-        publish(SystemActionEvent.ActionType.CLOSE_NOTE);
-    }
 
     @FXML
     private void handleEmptyCreate(ActionEvent e) {
@@ -449,6 +505,7 @@ public class EditorController {
             clearPropertiesPanel();
             setNoteOpen(false);
             isModified = false;
+            updateSaveIndicator(false);
             return;
         }
 
@@ -463,18 +520,21 @@ public class EditorController {
         if (type.isAttachment()) {
             showAttachment(currentNote, type);
             isModified = false;
+            updateSaveIndicator(false);
             return;
         }
         hideAttachmentViewer();
 
         if (noteTitleField  != null) noteTitleField.setText(orEmpty(currentNote.getTitle()));
-        if (noteContentArea != null) noteContentArea.setText(orEmpty(currentNote.getContent()));
+        if (noteContentArea != null) noteContentArea.replaceText(orEmpty(currentNote.getContent()));
 
         setNoteOpen(true);
         updateBreadcrumb(currentNote);
         rebuildPropertiesPanel();
         refreshNoteTitlesCache();
         isModified = false;
+        updateSaveIndicator(false);
+        applyHighlighting();
     }
 
     /** True while a non-editable attachment (PDF/image) is being shown. */
@@ -542,9 +602,23 @@ public class EditorController {
         if (!readOnlyView) {
             currentNote.setCustomProperties(collectPropertiesFromPanel());
         }
+        // Plugin editor hooks may transform the content before it is persisted.
+        if (editorHooks != null && !editorHooks.isEmpty()) {
+            String transformed = editorHooks.applyBeforeSave(currentNote, currentNote.getContent());
+            if (!transformed.equals(currentNote.getContent())) {
+                currentNote.setContent(transformed);
+                if (noteContentArea != null) {
+                    noteContentArea.replaceText(transformed); // keep the editor in sync
+                }
+            }
+        }
         noteService.updateNote(currentNote);
         isModified = false;
+        updateSaveIndicator(false);
         if (eventBus != null) eventBus.publish(new NoteEvents.NoteSavedEvent(currentNote));
+        if (editorHooks != null && !editorHooks.isEmpty()) {
+            editorHooks.fireAfterSave(currentNote, currentNote.getContent());
+        }
     }
 
     // ============================================================
@@ -803,9 +877,9 @@ public class EditorController {
         if (!m.find()) return;
 
         int linkStart = caret - m.group(0).length();
-        String completed = "[[" + title + "]]";
-        noteContentArea.setText(text.substring(0, linkStart) + completed + text.substring(caret));
-        noteContentArea.positionCaret(linkStart + completed.length());
+        String completed = applyInsertHooks("[[" + title + "]]");
+        noteContentArea.replaceText(text.substring(0, linkStart) + completed + text.substring(caret));
+        noteContentArea.moveTo(linkStart + completed.length());
         noteContentArea.requestFocus();
         hideAutocompletePopup();
         isModified = true;
@@ -815,14 +889,13 @@ public class EditorController {
         if (noteContentArea == null || noteContentArea.getScene() == null) return;
         Platform.runLater(() -> {
             if (autocompletePopup == null || noteContentArea.getScene() == null) return;
-            Node caretNode = noteContentArea.lookup(".caret");
-            if (caretNode != null) {
-                javafx.geometry.Bounds b = caretNode.localToScreen(caretNode.getBoundsInLocal());
-                if (b != null && b.getMinX() > 0) {
-                    autocompletePopup.show(noteContentArea.getScene().getWindow(),
-                            b.getMinX(), b.getMaxY() + 4);
-                    return;
-                }
+            // CodeArea exposes the caret bounds directly in screen coordinates.
+            java.util.Optional<javafx.geometry.Bounds> caretBounds = noteContentArea.getCaretBounds();
+            if (caretBounds.isPresent()) {
+                javafx.geometry.Bounds b = caretBounds.get();
+                autocompletePopup.show(noteContentArea.getScene().getWindow(),
+                        b.getMinX(), b.getMaxY() + 4);
+                return;
             }
             javafx.geometry.Bounds ab = noteContentArea.localToScreen(noteContentArea.getBoundsInLocal());
             if (ab != null) autocompletePopup.show(noteContentArea.getScene().getWindow(),
@@ -917,8 +990,8 @@ public class EditorController {
         } else {
             int pos = noteContentArea.getCaretPosition();
             String t = orEmpty(noteContentArea.getText());
-            noteContentArea.setText(t.substring(0, pos) + prefix + suffix + t.substring(pos));
-            noteContentArea.positionCaret(pos + prefix.length());
+            noteContentArea.replaceText(t.substring(0, pos) + prefix + suffix + t.substring(pos));
+            noteContentArea.moveTo(pos + prefix.length());
         }
         noteContentArea.requestFocus();
         isModified = true;
@@ -930,11 +1003,11 @@ public class EditorController {
         String t = orEmpty(noteContentArea.getText());
         int lineStart = t.lastIndexOf('\n', pos - 1) + 1;
         if (t.substring(lineStart, pos).trim().isEmpty() && lineStart == pos) {
-            noteContentArea.setText(t.substring(0, pos) + prefix + t.substring(pos));
-            noteContentArea.positionCaret(pos + prefix.length());
+            noteContentArea.replaceText(t.substring(0, pos) + prefix + t.substring(pos));
+            noteContentArea.moveTo(pos + prefix.length());
         } else {
-            noteContentArea.setText(t.substring(0, pos) + "\n" + prefix + t.substring(pos));
-            noteContentArea.positionCaret(pos + prefix.length() + 1);
+            noteContentArea.replaceText(t.substring(0, pos) + "\n" + prefix + t.substring(pos));
+            noteContentArea.moveTo(pos + prefix.length() + 1);
         }
         noteContentArea.requestFocus();
         isModified = true;
@@ -944,14 +1017,14 @@ public class EditorController {
         if (noteContentArea == null) return;
         int pos = noteContentArea.getCaretPosition();
         String t = orEmpty(noteContentArea.getText());
-        String item = "- [ ] ";
+        String item = applyInsertHooks("- [ ] ");
         int lineStart = t.lastIndexOf('\n', pos - 1) + 1;
         if (t.substring(lineStart, pos).trim().isEmpty()) {
-            noteContentArea.setText(t.substring(0, pos) + item + t.substring(pos));
-            noteContentArea.positionCaret(pos + item.length());
+            noteContentArea.replaceText(t.substring(0, pos) + item + t.substring(pos));
+            noteContentArea.moveTo(pos + item.length());
         } else {
-            noteContentArea.setText(t.substring(0, pos) + "\n" + item + t.substring(pos));
-            noteContentArea.positionCaret(pos + item.length() + 1);
+            noteContentArea.replaceText(t.substring(0, pos) + "\n" + item + t.substring(pos));
+            noteContentArea.moveTo(pos + item.length() + 1);
         }
         noteContentArea.requestFocus();
         isModified = true;
@@ -974,13 +1047,13 @@ public class EditorController {
             String sel = noteContentArea.getSelectedText();
             String label = (sel != null && !sel.isEmpty()) ? sel
                     : getString("dialog.link.default_text", "link text");
-            String link = "[" + label + "](" + url.trim() + ")";
+            String link = applyInsertHooks("[" + label + "](" + url.trim() + ")");
             if (sel != null && !sel.isEmpty()) noteContentArea.replaceSelection(link);
             else {
                 int pos = noteContentArea.getCaretPosition();
                 String t = orEmpty(noteContentArea.getText());
-                noteContentArea.setText(t.substring(0, pos) + link + t.substring(pos));
-                noteContentArea.positionCaret(pos + link.length());
+                noteContentArea.replaceText(t.substring(0, pos) + link + t.substring(pos));
+                noteContentArea.moveTo(pos + link.length());
             }
             noteContentArea.requestFocus();
             isModified = true;
@@ -997,13 +1070,13 @@ public class EditorController {
             String sel = noteContentArea.getSelectedText();
             String alt = (sel != null && !sel.isEmpty()) ? sel
                     : getString("dialog.image.default_alt", "image");
-            String img = "![" + alt + "](" + path.trim() + ")";
+            String img = applyInsertHooks("![" + alt + "](" + path.trim() + ")");
             if (sel != null && !sel.isEmpty()) noteContentArea.replaceSelection(img);
             else {
                 int pos = noteContentArea.getCaretPosition();
                 String t = orEmpty(noteContentArea.getText());
-                noteContentArea.setText(t.substring(0, pos) + img + t.substring(pos));
-                noteContentArea.positionCaret(pos + img.length());
+                noteContentArea.replaceText(t.substring(0, pos) + img + t.substring(pos));
+                noteContentArea.moveTo(pos + img.length());
             }
             noteContentArea.requestFocus();
             isModified = true;
@@ -1014,7 +1087,7 @@ public class EditorController {
     // Editor commands (called from other controllers)
     // ============================================================
 
-    public void handleUndo(TextArea ta) {
+    public void handleUndo(CodeArea ta) {
         if (ta != null) ta.undo();
     }
 
@@ -1022,22 +1095,22 @@ public class EditorController {
         if (i18n != null && status != null) status.accept(i18n.apply("status.redo_not_available"));
     }
 
-    public void handleCut(TextArea ta, TextField title) {
+    public void handleCut(CodeArea ta, TextField title) {
         if (ta    != null && ta.getSelectedText()    != null) ta.cut();
         else if (title != null && title.getSelectedText() != null) title.cut();
     }
 
-    public void handleCopy(TextArea ta, TextField title) {
+    public void handleCopy(CodeArea ta, TextField title) {
         if (ta    != null && ta.getSelectedText()    != null) ta.copy();
         else if (title != null && title.getSelectedText() != null) title.copy();
     }
 
-    public void handlePaste(TextArea ta, TextField title) {
+    public void handlePaste(CodeArea ta, TextField title) {
         if (ta    != null && ta.isFocused())    ta.paste();
         else if (title != null && title.isFocused()) title.paste();
     }
 
-    public void handleFind(TextArea ta, Function<String, String> i18n, Consumer<String> status) {
+    public void handleFind(CodeArea ta, Function<String, String> i18n, Consumer<String> status) {
         if (ta == null) return;
         TextInputDialog d = new TextInputDialog();
         d.setTitle(i18n.apply("dialog.find.title"));
@@ -1055,7 +1128,7 @@ public class EditorController {
         });
     }
 
-    public void handleReplace(TextArea ta, Function<String, String> i18n, Consumer<String> status) {
+    public void handleReplace(CodeArea ta, Function<String, String> i18n, Consumer<String> status) {
         if (ta == null) { if (status != null) status.accept(i18n.apply("status.no_note_open")); return; }
         Dialog<String> dialog = new Dialog<>();
         dialog.setTitle(i18n.apply("dialog.replace.title"));
@@ -1079,10 +1152,10 @@ public class EditorController {
             if (parts.length != 3) return;
             String find = parts[0]; String repl = parts[1]; boolean all = "all".equals(parts[2]);
             String text = ta.getText();
-            if (all) { ta.setText(text.replace(find, repl)); status.accept(i18n.apply("status.replaced_all")); return; }
+            if (all) { ta.replaceText(text.replace(find, repl)); status.accept(i18n.apply("status.replaced_all")); return; }
             int idx = text.indexOf(find);
             if (idx >= 0) {
-                ta.setText(text.substring(0, idx) + repl + text.substring(idx + find.length()));
+                ta.replaceText(text.substring(0, idx) + repl + text.substring(idx + find.length()));
                 ta.selectRange(idx, idx + repl.length());
                 status.accept(i18n.apply("status.replaced_first"));
             } else {
@@ -1379,6 +1452,29 @@ public class EditorController {
     private void publishModified() {
         if (eventBus != null && currentNote != null)
             eventBus.publish(new NoteEvents.NoteModifiedEvent(currentNote));
+        updateSaveIndicator(true);
+    }
+
+    /**
+     * Updates the inline save-indicator dot next to the title: amber while there are
+     * unsaved changes, green once saved, hidden when no editable note is open.
+     */
+    private void updateSaveIndicator(boolean dirty) {
+        if (dirtySaveIndicator == null) {
+            return;
+        }
+        boolean show = currentNote != null && !viewingAttachment;
+        setNodeVisible(dirtySaveIndicator, show);
+        if (!show) {
+            return;
+        }
+        dirtySaveIndicator.getStyleClass().removeAll("dirty", "saved");
+        dirtySaveIndicator.getStyleClass().add(dirty ? "dirty" : "saved");
+        if (dirtySaveIndicatorTip != null) {
+            dirtySaveIndicatorTip.setText(dirty
+                    ? getString("tooltip.unsaved_changes", "Unsaved changes")
+                    : getString("tooltip.saved", "All changes saved"));
+        }
     }
 
     private String getString(String key, String fallback) {

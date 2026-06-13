@@ -37,14 +37,10 @@ import com.example.jylos.plugin.PluginMenuRegistry;
 import com.example.jylos.plugin.PreviewEnhancer;
 import com.example.jylos.plugin.PreviewEnhancerRegistry;
 import com.example.jylos.plugin.SidePanelRegistry;
+import com.example.jylos.service.EncryptionService;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
-import com.example.jylos.git.GitService;
-import com.example.jylos.git.GitResult;
-import com.example.jylos.git.GitStatus;
-import com.example.jylos.git.GitChange;
-import com.example.jylos.git.GitCommit;
 import com.example.jylos.ui.components.CommandPalette;
 import com.example.jylos.ui.components.PluginManagerDialog;
 import com.example.jylos.ui.components.QuickSwitcher;
@@ -71,12 +67,8 @@ import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.TreeItem;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.control.Dialog;
-import javafx.scene.control.ListCell;
-import javafx.scene.control.TextArea;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Duration;
@@ -87,7 +79,8 @@ import javafx.util.Duration;
  * for persistence is delegated to DAOs and {@link com.example.jylos.service.NoteService}
  * where possible; this class focuses on UI state and command routing.
  */
-public class MainController implements PluginMenuRegistry, SidePanelRegistry, PreviewEnhancerRegistry {
+public class MainController implements PluginMenuRegistry, SidePanelRegistry, PreviewEnhancerRegistry,
+        com.example.jylos.plugin.ToolbarRegistry {
 
     private static final Logger logger = LoggerConfig.getLogger(MainController.class);
 
@@ -129,6 +122,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     @FXML
     private GraphController graphViewController;
 
+    /** Open-note tab strip (one tab per open note). Driven by this controller. */
+    private com.example.jylos.ui.components.EditorTabs editorTabs;
 
     private VBox notesPanel;
     private ComboBox<String> sortComboBox;
@@ -143,6 +138,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     @FXML
     private VBox rightPanel;
+    @FXML
+    private javafx.scene.layout.HBox statusBar;
+    @FXML
+    private javafx.scene.layout.StackPane centerStack;
+
+    private final FocusModeSupport focusModeSupport = new FocusModeSupport();
     @FXML
     private VBox rightPanelContent;
     @FXML
@@ -213,7 +214,17 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     @FXML
     private Label gitHistoryLabel;
 
-    private final GitService gitService = new GitService();
+    private final GitController gitController = new GitController();
+    private final PrivacySupport privacySupport = new PrivacySupport();
+    private final OverlaySupport overlaySupport = new OverlaySupport();
+    private final StatusBarSupport statusBarSupport = new StatusBarSupport();
+    private final BacklinksSupport backlinksSupport = new BacklinksSupport();
+    /** Editor hook dispatcher shared by the plugin system and the editor. */
+    private final com.example.jylos.plugin.EditorHooks editorHooks = new com.example.jylos.plugin.EditorHooks();
+    private final ImportSupport importSupport = new ImportSupport();
+    private final HistorySupport historySupport = new HistorySupport();
+    /** pluginId → toolbar buttons contributed via {@link com.example.jylos.plugin.ToolbarRegistry}. */
+    private final Map<String, List<javafx.scene.Node>> pluginToolbarButtons = new HashMap<>();
 
     private final Map<String, Menu> pluginCategoryMenus = new HashMap<>();
     private final Map<String, List<MenuItem>> pluginMenuItems = new HashMap<>();
@@ -271,6 +282,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private java.util.ResourceBundle resources;
 
     private double uiFontSize = 13.0;
+    /** Custom accent ({@code #rrggbb}) or "" for the theme default. */
+    private String uiAccentColor = "";
     private double editorFontSize = 14.0;
     private final PauseTransition noteModifiedDebounce = new PauseTransition(Duration.millis(120));
     private final PauseTransition toolbarSearchDebounce = new PauseTransition(Duration.millis(180));
@@ -363,16 +376,26 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                         note -> eventBus.publish(new NoteEvents.NoteOpenRequestEvent(note)),
                         () -> updateStatus("Note not found: " + title)));
                 editorController.initializeTagsBarCollapsed();
+                editorController.setEditorHooks(editorHooks);
+                editorTabs = new com.example.jylos.ui.components.EditorTabs(
+                        editorController.getEditorTabBar(),
+                        editorController.getEditorTabScroll(),
+                        new com.example.jylos.ui.components.EditorTabs.Listener() {
+                            @Override public void onSelect(String noteId) { openNoteInTab(noteId); }
+                            @Override public void onClose(String noteId) { closeTab(noteId); }
+                        },
+                        this::getString);
             }
+            overlaySupport.wire(centerStack, graphView, graphViewController, noteService,
+                    this::isDarkThemeActive, this::getString, this::updateStatus);
             if (graphViewController != null) {
                 graphViewController.setServices(noteService, tagService);
                 graphViewController.setBundle(resources);
-                graphViewController.setOnClose(this::hideGraphView);
-                graphViewController.setOnOpenNote(this::openNoteFromGraph);
+                graphViewController.setOnClose(overlaySupport::hideGraph);
+                graphViewController.setOnOpenNote(overlaySupport::openNoteFromGraph);
                 graphViewController.setCurrentNoteIdSupplier(
                         () -> getCurrentNote() != null ? getCurrentNote().getId() : null);
             }
-            setGraphViewVisible(false);
 
             bindToolbarSearchFieldDebounced();
 
@@ -384,6 +407,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             applyUiPreferencesFromStore();
             initializeThemeMenu();
             installSystemThemeFocusRefresh();
+            setupSplitPanePersistence();
 
             sidebarController.loadFolders();
             sidebarController.loadTags();
@@ -395,8 +419,37 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
             Platform.runLater(this::initializePluginSystem);
 
+            statusBarSupport.wire(storageLabel, wordCountLabel, charCountLabel, statsSeparator,
+                    wordCharSeparator, prefs, this::getString);
             updateStorageLabel();
-            refreshGitStatus();
+            java.util.function.Supplier<javafx.scene.Scene> sceneSupplier =
+                    () -> mainSplitPane != null ? mainSplitPane.getScene() : null;
+            gitController.wire(gitSeparator, gitBar, gitInitLabel, gitRemoteLabel, gitChangesLabel,
+                    gitCommitLabel, gitSyncLabel, gitHistoryLabel, prefs, this::getString, this::updateStatus,
+                    sceneSupplier);
+            privacySupport.wire(this::getString, this::updateStatus, sceneSupplier);
+            backlinksSupport.wire(backlinksContent, backlinkService, noteService, this::getString,
+                    this::loadNoteInEditor);
+            historySupport.wire(noteService, this::getString, this::updateStatus, sceneSupplier,
+                    this::getCurrentNote, this::loadNoteInEditor);
+            importSupport.wire(new com.example.jylos.service.ImportService(noteService, folderService),
+                    this::getString, this::updateStatus,
+                    () -> mainSplitPane != null && mainSplitPane.getScene() != null
+                            ? mainSplitPane.getScene().getWindow() : null,
+                    () -> {
+                        refreshNotesList();
+                        if (sidebarController != null) {
+                            sidebarController.loadFolders();
+                            sidebarController.loadTags();
+                            sidebarController.loadRecentNotes();
+                        }
+                    });
+            focusModeSupport.wire(mainSplitPane, contentSplitPane,
+                    () -> toolbarController != null ? toolbarController.getToolbarHBox() : null,
+                    statusBar, rightPanel,
+                    () -> editorController != null ? editorController.getEditorContainer() : null,
+                    prefs, this::getString, this::updateStatus);
+            gitController.refreshStatus();
             updateStatus(getString("status.ready"));
             logger.info("MainController initialized successfully");
 
@@ -436,6 +489,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             tagDAO = factory.getLabelDAO();
             noteOperations = new NoteOperations();
             noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+            noteService.setHistoryService(new com.example.jylos.service.NoteHistoryService(
+                    java.nio.file.Path.of(com.example.jylos.AppDataDirectory.getBaseDirectory(), "history")));
             backlinkService = new com.example.jylos.service.BacklinkService(noteService);
             folderService = new FolderService(folderDAO, noteDAO);
             tagService = new TagService(tagDAO, noteDAO);
@@ -512,6 +567,13 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
             ensureCommandUisInitialized(stage);
             commandUI.initializeKeyboardShortcuts(scene, this::showCommandPalette, this::showQuickSwitcher);
+
+            // Focus / writing mode: Cmd/Ctrl + Shift + F.
+            scene.getAccelerators().put(
+                    new javafx.scene.input.KeyCodeCombination(javafx.scene.input.KeyCode.F,
+                            javafx.scene.input.KeyCombination.SHORTCUT_DOWN,
+                            javafx.scene.input.KeyCombination.SHIFT_DOWN),
+                    this::handleFocusMode);
         } catch (Exception e) {
             logger.log(Level.WARNING, "Failed to initialize keyboard shortcuts", e);
         }
@@ -570,7 +632,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             }
 
             pluginManager = new PluginManager(noteService, folderService, tagService, eventBus, commandPalette, this,
-                    this, this);
+                    this, this, editorHooks, this);
 
             PluginLifecycle.LoadResult pluginLoadResult = pluginLifecycle
                     .registerCoreAndExternalPlugins(pluginManager);
@@ -619,6 +681,14 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         uiEventSubscriptions.addAll(uiEventSupport.subscribe(eventBus));
         uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteExportRequestEvent.class,
                 e -> Platform.runLater(() -> exportNote(e.getNote()))));
+        // Keep the editor tab in sync when its note is saved (clear dirty dot, refresh title).
+        uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class, e -> {
+            Note saved = e.getNote();
+            if (editorTabs != null && saved != null && saved.getId() != null) {
+                editorTabs.setDirty(saved.getId(), false);
+                editorTabs.setTitle(saved.getId(), saved.getTitle());
+            }
+        }));
     }
 
     /** Applies a theme requested through the event bus and refreshes the theme menu. */
@@ -647,13 +717,24 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     void handleUiNoteDeleted(String noteId) {
         Note current = getCurrentNote();
-        if (current != null && current.getId().equals(noteId)) {
-            if (editorController != null) {
-                editorController.loadNote(null);
+        boolean wasActive = current != null && current.getId().equals(noteId);
+        if (editorTabs != null && editorTabs.isOpen(noteId)) {
+            String neighbor = editorTabs.neighborOf(noteId);
+            if (wasActive && editorController != null) {
+                editorController.markClean(); // the note is gone; discard any edits
             }
-            if (editorController != null) {
-                editorController.clearPreview();
+            editorTabs.removeTab(noteId);
+            if (wasActive) {
+                if (neighbor != null) {
+                    openNoteInTab(neighbor);
+                } else if (editorController != null) {
+                    editorController.loadNote(null);
+                    editorController.clearPreview();
+                }
             }
+        } else if (wasActive && editorController != null) {
+            editorController.loadNote(null);
+            editorController.clearPreview();
         }
         refreshNotesList();
         if (sidebarController != null) {
@@ -756,6 +837,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (note == null || getCurrentNote() == null || !Objects.equals(note.getId(), getCurrentNote().getId())) {
             return;
         }
+        if (editorTabs != null) {
+            editorTabs.setDirty(note.getId(), true);
+        }
         pendingModifiedNoteId = note.getId();
         noteModifiedDebounce.playFromStart();
         if (autosaveEnabled) {
@@ -820,6 +904,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         externalThemeId = uiPrefs.externalThemeId();
         notesListPreviewLines = uiPrefs.notesPreviewLines();
         uiFontSize = uiPrefs.uiFontSize();
+        uiAccentColor = uiPrefs.accentColor();
         autosaveDebounce.setDuration(Duration.millis(autosaveIdleMs));
 
         if (sidebarController != null) {
@@ -831,6 +916,37 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         applyEditorButtonsPresentation();
         applyUiZoom();
         Platform.runLater(this::applyThemeAndRefreshDependents);
+    }
+
+    /**
+     * Restores the sidebar and notes-list split proportions saved in a previous
+     * session, then keeps them up to date as the user drags the dividers.
+     *
+     * <p>Only the two stable dividers are persisted: {@code mainSplitPane}
+     * (sidebar | content) and {@code contentSplitPane} (notes list | editor). The
+     * editor/preview divider is intentionally left to the view-mode logic, which
+     * resets it to 50/50 when entering split view.</p>
+     *
+     * <p>Restoration runs in {@code Platform.runLater} because a SplitPane only
+     * creates its dividers after its first layout pass.</p>
+     */
+    private void setupSplitPanePersistence() {
+        Platform.runLater(() -> {
+            persistDivider(mainSplitPane, UiPreferencesStore.SPLIT_MAIN_KEY,
+                    UiPreferencesStore.DEFAULT_SPLIT_MAIN);
+            persistDivider(contentSplitPane, UiPreferencesStore.SPLIT_CONTENT_KEY,
+                    UiPreferencesStore.DEFAULT_SPLIT_CONTENT);
+        });
+    }
+
+    private void persistDivider(SplitPane splitPane, String key, double defaultPos) {
+        if (splitPane == null || splitPane.getDividers().isEmpty()) {
+            return;
+        }
+        double saved = prefs.getDouble(key, defaultPos);
+        splitPane.setDividerPositions(saved);
+        splitPane.getDividers().get(0).positionProperty().addListener(
+                (obs, oldV, newV) -> prefs.putDouble(key, newV.doubleValue()));
     }
 
     private void bindToolbarSearchFieldDebounced() {
@@ -940,6 +1056,59 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     @Override
     public boolean isPluginPanelsVisible() {
         return pluginUi.isPluginPanelsVisible(pluginPanelsContainer);
+    }
+
+    // ── ToolbarRegistry (plugin toolbar buttons) ─────────────────────────────
+
+    @Override
+    public void registerToolbarButton(String pluginId, String buttonId, String tooltip,
+            String iconLiteral, Runnable action) {
+        if (pluginId == null || buttonId == null || action == null) {
+            return;
+        }
+        HBox container = toolbarController != null ? toolbarController.getPluginToolbarContainer() : null;
+        if (container == null) {
+            return;
+        }
+        Platform.runLater(() -> {
+            Button button = new Button();
+            button.getStyleClass().add("toolbar-btn");
+            // Stable per-plugin id so re-registration replaces instead of duplicating.
+            button.setId("plugin-toolbar-" + pluginId + "-" + buttonId);
+            if (tooltip != null && !tooltip.isBlank()) {
+                button.setTooltip(new Tooltip(tooltip));
+            }
+            if (iconLiteral != null && !iconLiteral.isBlank()) {
+                org.kordamp.ikonli.javafx.FontIcon icon = new org.kordamp.ikonli.javafx.FontIcon(iconLiteral);
+                icon.getStyleClass().add("feather-icon");
+                icon.setIconSize(16);
+                button.setGraphic(icon);
+            } else {
+                button.setText(tooltip != null ? tooltip : buttonId);
+            }
+            button.setOnAction(e -> action.run());
+
+            container.getChildren().removeIf(n -> button.getId().equals(n.getId()));
+            container.getChildren().add(button);
+            pluginToolbarButtons.computeIfAbsent(pluginId, k -> new ArrayList<>()).add(button);
+            container.setVisible(true);
+            container.setManaged(true);
+        });
+    }
+
+    @Override
+    public void removeToolbarButtons(String pluginId) {
+        HBox container = toolbarController != null ? toolbarController.getPluginToolbarContainer() : null;
+        List<javafx.scene.Node> buttons = pluginToolbarButtons.remove(pluginId);
+        if (container == null || buttons == null) {
+            return;
+        }
+        Platform.runLater(() -> {
+            container.getChildren().removeAll(buttons);
+            boolean empty = container.getChildren().isEmpty();
+            container.setVisible(!empty);
+            container.setManaged(!empty);
+        });
     }
 
 
@@ -1084,17 +1253,17 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             case "cmd.theme_system":
                 return () -> handleSystemTheme(null);
             case "cmd.graph_view":
-                return this::handleToggleGraphView;
+                return overlaySupport::toggleGraph;
             case "cmd.git_sync":
-                return this::handleGitSync;
+                return gitController::sync;
             case "cmd.git_commit_push":
-                return this::handleGitCommitPush;
+                return gitController::commitPush;
             case "cmd.git_pull":
-                return this::handleGitPull;
+                return gitController::pull;
             case "cmd.git_init":
-                return this::handleGitInit;
+                return gitController::init;
             case "cmd.git_add_remote":
-                return this::handleGitAddRemote;
+                return gitController::addRemote;
             case "cmd.quick_switcher":
                 return this::showQuickSwitcher;
             case "cmd.global_search":
@@ -1199,14 +1368,21 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL, () -> handleToggleRightPanel(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.NAVIGATE_BACK,    this::navigateBack);
         systemActionHandlers.put(SystemActionEvent.ActionType.NAVIGATE_FORWARD, this::navigateForward);
-        systemActionHandlers.put(SystemActionEvent.ActionType.GRAPH_VIEW, this::handleToggleGraphView);
+        systemActionHandlers.put(SystemActionEvent.ActionType.GRAPH_VIEW, overlaySupport::toggleGraph);
+        systemActionHandlers.put(SystemActionEvent.ActionType.FOCUS_MODE, this::handleFocusMode);
+        systemActionHandlers.put(SystemActionEvent.ActionType.KANBAN_VIEW, overlaySupport::toggleKanban);
+        systemActionHandlers.put(SystemActionEvent.ActionType.PRIVATE_TOGGLE, this::handleTogglePrivate);
+        systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_LOCK, this::handleLockNotes);
+        systemActionHandlers.put(SystemActionEvent.ActionType.IMPORT_OBSIDIAN, importSupport::importObsidianVault);
+        systemActionHandlers.put(SystemActionEvent.ActionType.IMPORT_ENEX, importSupport::importEnex);
+        systemActionHandlers.put(SystemActionEvent.ActionType.NOTE_HISTORY, historySupport::showHistoryDialog);
         systemActionHandlers.put(SystemActionEvent.ActionType.QUICK_SWITCHER, this::showQuickSwitcher);
         systemActionHandlers.put(SystemActionEvent.ActionType.CLOSE_NOTE, this::handleCloseNote);
-        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_SYNC, this::handleGitSync);
-        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_COMMIT_PUSH, this::handleGitCommitPush);
-        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_PULL, this::handleGitPull);
-        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_INIT, this::handleGitInit);
-        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_ADD_REMOTE, this::handleGitAddRemote);
+        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_SYNC, gitController::sync);
+        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_COMMIT_PUSH, gitController::commitPush);
+        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_PULL, gitController::pull);
+        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_INIT, gitController::init);
+        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_ADD_REMOTE, gitController::addRemote);
     }
 
     // ------------------------------------------------------------------
@@ -1493,67 +1669,23 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     /** Closes the current note: clears the editor to the empty state. */
     private void handleCloseNote() {
-        if (isModified() && getCurrentNote() != null) {
-            SaveDialogDecision decision = showSaveDialog();
-            if (decision == SaveDialogDecision.CANCEL) {
-                return;
-            }
-            if (decision == SaveDialogDecision.SAVE) {
-                handleSave(new ActionEvent());
-            }
-        }
-        if (editorController != null) {
-            editorController.loadNote(null);
-            editorController.clearPreview();
-        }
-        if (notesListController != null && notesListController.getNotesListView() != null) {
-            notesListController.getNotesListView().getSelectionModel().clearSelection();
-        }
-        updateNoteMetadata(null);
-        updateNoteStats(null);
-        updateStatus(getString("status.note_closed"));
-    }
-
-    /** Updates the status-bar word/character counts for the current note (or hides them). */
-    private void updateNoteStats(Note note) {
-        boolean show = note != null;
-        if (show) {
-            String content = note.getContent() != null ? note.getContent() : "";
-            int words = content.isBlank() ? 0 : content.trim().split("\\s+").length;
-            if (wordCountLabel != null) {
-                wordCountLabel.setText(java.text.MessageFormat.format(getString("status.words"), words));
-            }
-            if (charCountLabel != null) {
-                charCountLabel.setText(java.text.MessageFormat.format(getString("status.chars"), content.length()));
-            }
-        }
-        setStatusNodeVisible(statsSeparator, show);
-        setStatusNodeVisible(wordCountLabel, show);
-        setStatusNodeVisible(wordCharSeparator, show);
-        setStatusNodeVisible(charCountLabel, show);
-    }
-
-    private static void setStatusNodeVisible(javafx.scene.Node node, boolean visible) {
-        if (node != null) {
-            node.setVisible(visible);
-            node.setManaged(visible);
-        }
-    }
-
-    /** Reflects the active storage backend (vault folder vs. SQLite database). */
-    private void updateStorageLabel() {
-        if (storageLabel == null) {
+        // With tabs, "close note" closes the active tab (and activates a neighbour).
+        if (editorTabs != null && editorTabs.getActiveId() != null) {
+            closeTab(editorTabs.getActiveId());
             return;
         }
-        String type = prefs.get("storage_type", System.getProperty("jylos.storage", "sqlite"));
-        if ("filesystem".equalsIgnoreCase(type)) {
-            String path = prefs.get("filesystem_path", "");
-            String name = path.isBlank() ? getString("storage.vault")
-                    : new java.io.File(path).getName();
-            storageLabel.setText(java.text.MessageFormat.format(getString("storage.vault_named"), name));
-        } else {
-            storageLabel.setText(getString("storage.database"));
+        if (!confirmLeaveCurrent()) {
+            return;
         }
+        clearEditorToEmpty();
+    }
+
+    private void updateNoteStats(Note note) {
+        statusBarSupport.updateNoteStats(note);
+    }
+
+    private void updateStorageLabel() {
+        statusBarSupport.updateStorageLabel();
     }
 
     /** Click on the storage indicator → open the storage switcher (Obsidian-style). */
@@ -1563,228 +1695,18 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     }
 
     // ------------------------------------------------------------------
-    // Git vault synchronization
+    // Git vault synchronization — logic lives in GitController; these are the
+    // FXML-bound status-bar click handlers, which simply delegate.
     // ------------------------------------------------------------------
 
-    /** Resolves the vault directory eligible for Git, or null (SQLite / no path). */
-    private java.nio.file.Path gitVaultPath() {
-        String type = prefs.get("storage_type", System.getProperty("jylos.storage", "sqlite"));
-        if (!"filesystem".equalsIgnoreCase(type)) {
-            return null;
-        }
-        String path = prefs.get("filesystem_path", "");
-        if (path.isBlank()) {
-            return null;
-        }
-        java.nio.file.Path dir = java.nio.file.Paths.get(path);
-        return java.nio.file.Files.isDirectory(dir) ? dir : null;
-    }
+    @FXML private void handleGitStatusClick(javafx.scene.input.MouseEvent event)  { gitController.sync(); }
+    @FXML private void handleGitInitClick(javafx.scene.input.MouseEvent event)    { gitController.init(); }
+    @FXML private void handleGitRemoteClick(javafx.scene.input.MouseEvent event)  { gitController.addRemote(); }
+    @FXML private void handleGitCommitClick(javafx.scene.input.MouseEvent event)  { gitController.showCommitDialog(); }
+    @FXML private void handleGitChangesClick(javafx.scene.input.MouseEvent event) { gitController.showChangesDialog(); }
+    @FXML private void handleGitHistoryClick(javafx.scene.input.MouseEvent event) { gitController.showHistoryDialog(); }
 
-    private String gitCommitMessage() {
-        return "Jylos sync " + java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-                .format(java.time.LocalDateTime.now());
-    }
-
-    /** Click on the status-bar Git indicator → synchronize. */
-    @FXML
-    private void handleGitStatusClick(javafx.scene.input.MouseEvent event) {
-        handleGitSync();
-    }
-
-    private void handleGitSync() {
-        runGitAsync(vault -> gitService.sync(vault, gitCommitMessage()), getString("status.git_syncing"));
-    }
-
-    private void handleGitCommitPush() {
-        final String message = gitCommitMessage();
-        runGitAsync(vault -> {
-            GitResult commit = gitService.commit(vault, message);
-            if (!commit.ok()) {
-                return commit;
-            }
-            return gitService.push(vault);
-        }, getString("status.git_syncing"));
-    }
-
-    private void handleGitPull() {
-        runGitAsync(gitService::pull, getString("status.git_pulling"));
-    }
-
-    private void handleGitInit() {
-        runGitAsync(gitService::init, getString("status.git_initializing"));
-    }
-
-    private void handleGitAddRemote() {
-        java.nio.file.Path vault = gitVaultPath();
-        if (vault == null) {
-            updateStatus(getString("status.git_no_vault"));
-            return;
-        }
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle(getString("dialog.git_remote.title"));
-        dialog.setHeaderText(getString("dialog.git_remote.header"));
-        dialog.setContentText(getString("dialog.git_remote.content"));
-        styleDialog(dialog);
-        dialog.showAndWait().filter(url -> !url.isBlank()).ifPresent(url ->
-                runGitAsync(v -> gitService.setRemote(v, url.trim()), getString("status.git_syncing")));
-    }
-
-    /** Runs a Git operation off the FX thread, then reports it and refreshes status. */
-    private void runGitAsync(java.util.function.Function<java.nio.file.Path, GitResult> op, String runningMessage) {
-        java.nio.file.Path vault = gitVaultPath();
-        if (vault == null) {
-            updateStatus(getString("status.git_no_vault"));
-            return;
-        }
-        updateStatus(runningMessage);
-        Task<GitResult> task = new Task<>() {
-            @Override
-            protected GitResult call() {
-                return op.apply(vault);
-            }
-        };
-        task.setOnSucceeded(e -> {
-            updateStatus(describeGitResult(task.getValue()));
-            refreshGitStatus();
-        });
-        task.setOnFailed(e -> updateStatus(getString("status.git_error")));
-        Thread thread = new Thread(task, "git-op");
-        thread.setDaemon(true);
-        thread.start();
-    }
-
-    private String describeGitResult(GitResult result) {
-        if (result == null) {
-            return getString("status.git_error");
-        }
-        String key = switch (result.status()) {
-            case OK -> "status.git_ok";
-            case NOTHING_TO_DO -> "status.git_nothing";
-            case NO_REMOTE -> "status.git_no_remote";
-            case REJECTED -> "status.git_rejected";
-            case AUTH_ERROR -> "status.git_auth";
-            case NETWORK_ERROR -> "status.git_network";
-            case CONFLICT -> "status.git_conflict";
-            case GIT_UNAVAILABLE -> "status.git_unavailable";
-            default -> "status.git_error";
-        };
-        String label = getString(key);
-        // Surface the real git detail for failures so problems are never opaque.
-        boolean failure = !result.ok() && result.status() != GitResult.Status.NO_REMOTE;
-        if (failure && result.message() != null && !result.message().isBlank()) {
-            String detail = result.message().replaceAll("\\s+", " ").trim();
-            if (detail.length() > 160) {
-                detail = detail.substring(0, 157) + "…";
-            }
-            return label + ": " + detail;
-        }
-        return label;
-    }
-
-    /** Refreshes the status-bar Git segments from the vault state (off the FX thread). */
-    private void refreshGitStatus() {
-        if (gitBar == null) {
-            return;
-        }
-        java.nio.file.Path vault = gitVaultPath();
-        if (vault == null) {
-            setStatusNodeVisible(gitBar, false);
-            setStatusNodeVisible(gitSeparator, false);
-            return;
-        }
-        Task<GitStatus> task = new Task<>() {
-            @Override
-            protected GitStatus call() {
-                return gitService.status(vault);
-            }
-        };
-        task.setOnSucceeded(e -> applyGitStatus(task.getValue()));
-        task.setOnFailed(e -> {
-            setStatusNodeVisible(gitBar, false);
-            setStatusNodeVisible(gitSeparator, false);
-        });
-        Thread thread = new Thread(task, "git-status");
-        thread.setDaemon(true);
-        thread.start();
-    }
-
-    /** Updates the five Git segments (remote · changes · commit · sync · history). */
-    private void applyGitStatus(GitStatus status) {
-        if (gitBar == null || status == null) {
-            return;
-        }
-        setStatusNodeVisible(gitBar, true);
-        setStatusNodeVisible(gitSeparator, true);
-
-        boolean repo = status.repository();
-        // When the vault is not yet a repo, only the "Initialize Git" segment shows.
-        setStatusNodeVisible(gitInitLabel, !repo);
-        setStatusNodeVisible(gitRemoteLabel, repo);
-        setStatusNodeVisible(gitChangesLabel, repo);
-        setStatusNodeVisible(gitCommitLabel, repo);
-        setStatusNodeVisible(gitSyncLabel, repo);
-        setStatusNodeVisible(gitHistoryLabel, repo);
-
-        if (!repo) {
-            gitInitLabel.setText(getString("git.initialize"));
-            gitInitLabel.setTooltip(new Tooltip(getString("git.tooltip_init")));
-            return;
-        }
-
-        gitRemoteLabel.setText(status.hasRemote() ? getString("git.remote") : getString("git.no_remote"));
-        gitRemoteLabel.setTooltip(new Tooltip(getString("git.tooltip_remote")));
-
-        gitChangesLabel.setText(java.text.MessageFormat.format(getString("git.changes"), status.modified()));
-        gitChangesLabel.setTooltip(new Tooltip(getString("git.tooltip_changes")));
-
-        gitCommitLabel.setText(getString("git.commit"));
-        gitCommitLabel.setTooltip(new Tooltip(getString("git.tooltip_commit")));
-
-        StringBuilder sync = new StringBuilder(status.branch().isBlank() ? "git" : status.branch());
-        if (status.ahead() > 0) {
-            sync.append("  ↑").append(status.ahead());
-        }
-        if (status.behind() > 0) {
-            sync.append("  ↓").append(status.behind());
-        }
-        if (!status.needsSync()) {
-            sync.append("  ✓");
-        }
-        gitSyncLabel.setText(sync.toString());
-        gitSyncLabel.setTooltip(new Tooltip(getString("git.tooltip_sync")));
-
-        gitHistoryLabel.setText(getString("git.history"));
-        gitHistoryLabel.setTooltip(new Tooltip(getString("git.tooltip_history")));
-    }
-
-    // ── Git segment click handlers ───────────────────────────────────────────
-
-    @FXML
-    private void handleGitInitClick(javafx.scene.input.MouseEvent event) {
-        handleGitInit();
-    }
-
-    @FXML
-    private void handleGitRemoteClick(javafx.scene.input.MouseEvent event) {
-        handleGitAddRemote();
-    }
-
-    @FXML
-    private void handleGitCommitClick(javafx.scene.input.MouseEvent event) {
-        showCommitDialog();
-    }
-
-    @FXML
-    private void handleGitChangesClick(javafx.scene.input.MouseEvent event) {
-        showChangesDialog();
-    }
-
-    @FXML
-    private void handleGitHistoryClick(javafx.scene.input.MouseEvent event) {
-        showHistoryDialog();
-    }
-
-    /** Applies the active theme stylesheet to a dialog so it reads correctly in dark mode. */
+    /** Applies the active theme stylesheet to a dialog and sets its owner window. */
     private void styleDialog(Dialog<?> dialog) {
         javafx.scene.Scene scene = mainSplitPane != null ? mainSplitPane.getScene() : null;
         if (scene != null) {
@@ -1793,229 +1715,14 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         com.example.jylos.ui.UiDialogs.apply(dialog);
     }
 
-    /** Commit dialog: write a message and commit (optionally pushing). */
-    private void showCommitDialog() {
-        if (gitVaultPath() == null) {
-            updateStatus(getString("status.git_no_vault"));
-            return;
-        }
-        Dialog<ButtonType> dialog = new Dialog<>();
-        styleDialog(dialog);
-        dialog.setTitle(getString("dialog.git_commit.title"));
-        dialog.setHeaderText(getString("dialog.git_commit.header"));
-        ButtonType commitType = new ButtonType(getString("git.commit"), ButtonBar.ButtonData.OK_DONE);
-        ButtonType commitPushType = new ButtonType(getString("git.commit_push"), ButtonBar.ButtonData.APPLY);
-        dialog.getDialogPane().getButtonTypes().addAll(commitType, commitPushType, ButtonType.CANCEL);
-
-        TextArea messageArea = new TextArea(gitCommitMessage());
-        messageArea.setPrefRowCount(3);
-        messageArea.setWrapText(true);
-        VBox box = new VBox(8, messageArea);
-        box.setPadding(new javafx.geometry.Insets(12));
-        dialog.getDialogPane().setContent(box);
-
-        dialog.showAndWait().ifPresent(choice -> {
-            String message = messageArea.getText().isBlank() ? gitCommitMessage() : messageArea.getText().trim();
-            if (choice == commitType) {
-                runGitAsync(v -> gitService.commit(v, message), getString("status.git_syncing"));
-            } else if (choice == commitPushType) {
-                runGitAsync(v -> {
-                    GitResult commit = gitService.commit(v, message);
-                    return commit.ok() ? gitService.push(v) : commit;
-                }, getString("status.git_syncing"));
-            }
-        });
-    }
-
-    /**
-     * Changes dialog (IDE-style): a "staged" section (what will be committed) on top,
-     * a separator, and a "not staged" section below with the files that won't be
-     * included. The {@code +}/{@code −} button on each row moves it between sections.
-     */
-    private void showChangesDialog() {
-        java.nio.file.Path vault = gitVaultPath();
-        if (vault == null) {
-            updateStatus(getString("status.git_no_vault"));
-            return;
-        }
-        ListView<GitChange> stagedList = new ListView<>();
-        ListView<GitChange> unstagedList = new ListView<>();
-        Label stagedHeader = new Label();
-        Label unstagedHeader = new Label();
-        stagedHeader.getStyleClass().add("git-section-header");
-        unstagedHeader.getStyleClass().add("git-section-header");
-        stagedList.setPlaceholder(new Label(getString("git.none_staged")));
-        unstagedList.setPlaceholder(new Label(getString("git.no_changes")));
-
-        Runnable reload = () -> reloadChangeSections(vault, stagedList, unstagedList, stagedHeader, unstagedHeader);
-        stagedList.setCellFactory(lv -> new GitChangeCell(vault, reload));
-        unstagedList.setCellFactory(lv -> new GitChangeCell(vault, reload));
-
-        VBox.setVgrow(stagedList, Priority.ALWAYS);
-        VBox.setVgrow(unstagedList, Priority.ALWAYS);
-        Separator separator = new Separator();
-        separator.getStyleClass().add("git-section-separator");
-
-        VBox box = new VBox(6, stagedHeader, stagedList, separator, unstagedHeader, unstagedList);
-        box.setPadding(new javafx.geometry.Insets(8));
-
-        Dialog<ButtonType> dialog = new Dialog<>();
-        styleDialog(dialog);
-        dialog.setTitle(getString("git.changes_title"));
-        ButtonType commitType = new ButtonType(getString("git.commit"), ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(commitType, ButtonType.CLOSE);
-        dialog.getDialogPane().setContent(box);
-        dialog.getDialogPane().setPrefSize(480, 560);
-
-        reload.run();
-        dialog.showAndWait().ifPresent(choice -> {
-            if (choice == commitType) {
-                showCommitDialog();
-            }
-        });
-    }
-
-    private void reloadChangeSections(java.nio.file.Path vault, ListView<GitChange> staged,
-            ListView<GitChange> unstaged, Label stagedHeader, Label unstagedHeader) {
-        Task<List<GitChange>> task = new Task<>() {
-            @Override
-            protected List<GitChange> call() {
-                return gitService.listChanges(vault);
-            }
-        };
-        task.setOnSucceeded(e -> {
-            List<GitChange> all = task.getValue();
-            List<GitChange> stagedItems = all.stream().filter(GitChange::staged).toList();
-            List<GitChange> unstagedItems = all.stream().filter(c -> !c.staged()).toList();
-            staged.getItems().setAll(stagedItems);
-            unstaged.getItems().setAll(unstagedItems);
-            stagedHeader.setText(java.text.MessageFormat.format(
-                    getString("git.section_staged"), stagedItems.size()));
-            unstagedHeader.setText(java.text.MessageFormat.format(
-                    getString("git.section_unstaged"), unstagedItems.size()));
-        });
-        Thread thread = new Thread(task, "git-changes");
-        thread.setDaemon(true);
-        thread.start();
-    }
-
-    /** History dialog: recent commits across all branches. */
-    private void showHistoryDialog() {
-        java.nio.file.Path vault = gitVaultPath();
-        if (vault == null) {
-            updateStatus(getString("status.git_no_vault"));
-            return;
-        }
-        ListView<GitCommit> list = new ListView<>();
-        list.setPrefSize(560, 460);
-        list.setPlaceholder(new Label(getString("git.no_history")));
-        list.setCellFactory(lv -> new GitCommitCell());
-
-        Dialog<Void> dialog = new Dialog<>();
-        styleDialog(dialog);
-        dialog.setTitle(getString("git.history_title"));
-        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
-        VBox box = new VBox(8, list);
-        box.setPadding(new javafx.geometry.Insets(8));
-        dialog.getDialogPane().setContent(box);
-        dialog.getDialogPane().setPrefSize(600, 520);
-
-        Task<List<GitCommit>> task = new Task<>() {
-            @Override
-            protected List<GitCommit> call() {
-                return gitService.history(vault, 200);
-            }
-        };
-        task.setOnSucceeded(e -> list.getItems().setAll(task.getValue()));
-        Thread thread = new Thread(task, "git-history");
-        thread.setDaemon(true);
-        thread.start();
-        dialog.showAndWait();
-    }
-
-    /** List cell for a changed file: title, path, +added/−deleted and a stage toggle. */
-    private final class GitChangeCell extends ListCell<GitChange> {
-        private final java.nio.file.Path vault;
-        private final Runnable onChanged;
-
-        GitChangeCell(java.nio.file.Path vault, Runnable onChanged) {
-            this.vault = vault;
-            this.onChanged = onChanged;
-        }
-
-        @Override
-        protected void updateItem(GitChange change, boolean empty) {
-            super.updateItem(change, empty);
-            if (empty || change == null) {
-                setGraphic(null);
-                return;
-            }
-            Label title = new Label(change.displayTitle());
-            title.getStyleClass().add("git-change-title");
-            Label path = new Label(change.fileName());
-            path.getStyleClass().add("git-change-path");
-            Label stats = new Label(formatChangeStats(change));
-            stats.getStyleClass().add("git-change-stats");
-            VBox texts = new VBox(2, title, path, stats);
-
-            Button stageBtn = new Button(change.staged() ? "−" : "+");
-            stageBtn.getStyleClass().add("git-stage-btn");
-            stageBtn.setTooltip(new Tooltip(getString(change.staged() ? "git.unstage" : "git.stage")));
-            stageBtn.setOnAction(e -> {
-                Task<GitResult> task = new Task<>() {
-                    @Override
-                    protected GitResult call() {
-                        return change.staged()
-                                ? gitService.unstage(vault, change.relativePath())
-                                : gitService.stage(vault, change.relativePath());
-                    }
-                };
-                task.setOnSucceeded(ev -> onChanged.run());
-                Thread t = new Thread(task, "git-stage");
-                t.setDaemon(true);
-                t.start();
-            });
-
-            Region spacer = new Region();
-            HBox.setHgrow(spacer, Priority.ALWAYS);
-            HBox row = new HBox(8, texts, spacer, stageBtn);
-            row.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
-            setGraphic(row);
-        }
-    }
-
-    private String formatChangeStats(GitChange change) {
-        StringBuilder sb = new StringBuilder(change.status());
-        if (change.added() >= 0) {
-            sb.append("   +").append(change.added());
-        }
-        if (change.deleted() > 0) {
-            sb.append(" −").append(change.deleted());
-        }
-        return sb.toString();
-    }
-
-    /** List cell for a commit: subject + hash · author · date · refs. */
-    private static final class GitCommitCell extends ListCell<GitCommit> {
-        @Override
-        protected void updateItem(GitCommit commit, boolean empty) {
-            super.updateItem(commit, empty);
-            if (empty || commit == null) {
-                setGraphic(null);
-                return;
-            }
-            Label subject = new Label(commit.message());
-            subject.getStyleClass().add("git-commit-subject");
-            subject.setWrapText(true);
-            String meta = commit.shortHash() + "  ·  " + commit.author() + "  ·  " + commit.shortDate()
-                    + (commit.refs() != null && !commit.refs().isBlank() ? "  ·  " + commit.refs() : "");
-            Label metaLabel = new Label(meta);
-            metaLabel.getStyleClass().add("git-commit-meta");
-            setGraphic(new VBox(3, subject, metaLabel));
-        }
-    }
-
     void loadNoteInEditor(Note note) {
+        // A locked private note loads as a placeholder; offer to unlock and reload it.
+        if (note != null && note.isPrivate() && noteService != null) {
+            EncryptionService enc = EncryptionService.getInstance();
+            if (enc.isConfigured() && !enc.isUnlocked() && privacySupport.promptUnlock()) {
+                note = noteService.getNoteById(note.getId()).orElse(note);
+            }
+        }
         // Record the note we're leaving in the back-navigation stack.
         Note leaving = getCurrentNote();
         if (leaving != null && note != null && !leaving.getId().equals(note.getId())) {
@@ -2044,6 +1751,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             return;
         }
 
+        if (editorTabs != null) {
+            editorTabs.ensureTab(activeNote.getId(), activeNote.getTitle());
+            editorTabs.setActive(activeNote.getId());
+            editorTabs.setDirty(activeNote.getId(), false);
+        }
+
         updateNoteMetadata(activeNote);
         refreshBacklinks(activeNote);
 
@@ -2061,6 +1774,77 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         editorController.syncFavoritePinButtons(this::getString);
 
         updateStatus(java.text.MessageFormat.format(getString("status.note_loaded"), activeNote.getTitle()));
+    }
+
+    // ============================================================
+    // Editor tabs (multiple open notes)
+    // ============================================================
+
+    /** Loads the note with {@code noteId} into the editor (used by tab selection). */
+    private void openNoteInTab(String noteId) {
+        if (noteService == null || noteId == null) {
+            return;
+        }
+        noteService.getNoteById(noteId).ifPresent(this::loadNoteInEditor);
+    }
+
+    /**
+     * Closes a tab. For the active tab this prompts to save unsaved changes, then
+     * activates a neighbouring tab (or empties the editor when none remain). Non-active
+     * tabs are always clean in the single-editor model, so they close immediately.
+     */
+    private void closeTab(String noteId) {
+        if (editorTabs == null || noteId == null) {
+            return;
+        }
+        if (!noteId.equals(editorTabs.getActiveId())) {
+            editorTabs.removeTab(noteId);
+            return;
+        }
+        if (!confirmLeaveCurrent()) {
+            return; // user cancelled
+        }
+        String neighbor = editorTabs.neighborOf(noteId);
+        editorTabs.removeTab(noteId);
+        if (neighbor != null) {
+            openNoteInTab(neighbor); // editor is clean now → no second save prompt
+        } else {
+            clearEditorToEmpty();
+        }
+    }
+
+    /**
+     * If the current note has unsaved edits, asks the user to save/discard/cancel.
+     * Returns {@code false} only when the user cancels (caller should abort). On
+     * discard the editor's dirty flag is cleared so a following load won't re-prompt.
+     */
+    private boolean confirmLeaveCurrent() {
+        if (isModified() && getCurrentNote() != null) {
+            SaveDialogDecision decision = showSaveDialog();
+            if (decision == SaveDialogDecision.CANCEL) {
+                return false;
+            }
+            if (decision == SaveDialogDecision.SAVE) {
+                handleSave(new ActionEvent());
+            } else if (editorController != null) {
+                editorController.markClean();
+            }
+        }
+        return true;
+    }
+
+    /** Resets the editor to the empty state (no note open). */
+    private void clearEditorToEmpty() {
+        if (editorController != null) {
+            editorController.loadNote(null);
+            editorController.clearPreview();
+        }
+        if (notesListController != null && notesListController.getNotesListView() != null) {
+            notesListController.getNotesListView().getSelectionModel().clearSelection();
+        }
+        updateNoteMetadata(null);
+        updateNoteStats(null);
+        updateStatus(getString("status.note_closed"));
     }
 
     private void updateNoteMetadata(Note note) {
@@ -2083,47 +1867,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     /** Recomputes (off the FX thread) and renders the backlinks for {@code note}. */
     private void refreshBacklinks(Note note) {
-        if (backlinksContent == null) {
-            return;
-        }
-        if (backlinkService == null || note == null || note.getId() == null) {
-            backlinksContent.getChildren().clear();
-            return;
-        }
-        Task<java.util.List<Note>> task = new Task<>() {
-            @Override
-            protected java.util.List<Note> call() {
-                return backlinkService.backlinksFor(note);
-            }
-        };
-        task.setOnSucceeded(e -> renderBacklinks(task.getValue()));
-        task.setOnFailed(e -> backlinksContent.getChildren().clear());
-        Thread thread = new Thread(task, "backlinks");
-        thread.setDaemon(true);
-        thread.start();
-    }
-
-    private void renderBacklinks(java.util.List<Note> links) {
-        backlinksContent.getChildren().clear();
-        if (links == null || links.isEmpty()) {
-            Label none = new Label(getString("info.no_backlinks"));
-            none.getStyleClass().add("info-value-small");
-            backlinksContent.getChildren().add(none);
-            return;
-        }
-        for (Note link : links) {
-            Label item = new Label(link.getTitle() != null && !link.getTitle().isBlank()
-                    ? link.getTitle() : getString("app.untitled"));
-            item.getStyleClass().add("backlink-item");
-            item.setMaxWidth(Double.MAX_VALUE);
-            item.setOnMouseClicked(e -> openBacklink(link));
-            backlinksContent.getChildren().add(item);
-        }
-    }
-
-    private void openBacklink(Note link) {
-        Note full = noteService != null ? noteService.getNoteById(link.getId()).orElse(link) : link;
-        loadNoteInEditor(full);
+        backlinksSupport.refresh(note);
     }
 
     private void loadNotesForTag(String tagName) {
@@ -2719,7 +2463,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         editorController.performReplace(this::getString, this::updateStatus);
     }
 
-    @FXML
+    /** Toggles focus / writing mode (logic + state in {@link FocusModeSupport}). */
+    private void handleFocusMode() {
+        focusModeSupport.toggle();
+    }
+
     void handleToggleSidebar(ActionEvent event) {
         navigationCommand.toggleSidebar(
                 isStackedLayout,
@@ -2757,11 +2505,25 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         applyUiZoom();
     }
 
+    /**
+     * Applies the root inline style: UI font size plus the optional custom accent.
+     * Inline styles on the scene root override the theme stylesheets' looked-up
+     * colors, so a custom {@code -fx-accent} recolors every accent-driven control
+     * (selection, focus, toggles) in built-in and external themes alike.
+     */
     private void applyUiZoom() {
         if (toolbarController != null && toolbarController.getToolbarHBox() != null
                 && toolbarController.getToolbarHBox().getScene() != null) {
-            toolbarController.getToolbarHBox().getScene().getRoot().setStyle("-fx-font-size: " + uiFontSize + "px;");
+            StringBuilder style = new StringBuilder("-fx-font-size: ").append(uiFontSize).append("px;");
+            if (uiAccentColor != null && !uiAccentColor.isBlank()) {
+                style.append(" -fx-accent: ").append(uiAccentColor).append(';')
+                     .append(" -fx-accent-hover: derive(").append(uiAccentColor).append(", -12%);")
+                     .append(" -fx-selected-bg: ").append(uiAccentColor).append(';');
+            }
+            toolbarController.getToolbarHBox().getScene().getRoot().setStyle(style.toString());
         }
+        // Keep the persisted font size in sync so Ctrl+/- zoom survives a restart.
+        prefs.putInt(UiPreferencesStore.UI_FONT_SIZE_KEY, (int) Math.round(uiFontSize));
     }
 
     @FXML
@@ -2913,52 +2675,54 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             editorController.refreshPreview(isDarkThemeActive());
         }
         refreshNotesGridIfActive();
-        if (graphViewController != null && graphView != null && graphView.isVisible()) {
-            graphViewController.applyTheme(isDarkThemeActive());
-        }
+        overlaySupport.applyGraphThemeIfVisible();
     }
 
-    // ------------------------------------------------------------------
-    // Graph view
-    // ------------------------------------------------------------------
+    // ============================================================
+    // Private (encrypted) notes — Fase 4
+    // ============================================================
 
-    private void handleToggleGraphView() {
-        if (graphView == null || graphViewController == null) {
+    /** Toggles the current note between private (encrypted body) and public. */
+    private void handleTogglePrivate() {
+        Note note = getCurrentNote();
+        if (note == null || note.getId() == null || noteService == null) {
+            updateStatus(getString("status.no_note_selected"));
             return;
         }
-        if (graphView.isVisible()) {
-            hideGraphView();
-        } else {
-            setGraphViewVisible(true);
-            graphViewController.show(isDarkThemeActive());
-            updateStatus(getString("status.graph_opened"));
-        }
-    }
-
-    private void hideGraphView() {
-        setGraphViewVisible(false);
-        if (graphViewController != null) {
-            graphViewController.pause();
-        }
-    }
-
-    private void setGraphViewVisible(boolean visible) {
-        if (graphView == null) {
+        boolean makePrivate = !note.isPrivate();
+        if (makePrivate && !EncryptionService.getInstance().isConfigured()) {
+            if (!privacySupport.setupMasterPassword()) {
+                return;
+            }
+        } else if (!privacySupport.ensureUnlocked()) {
             return;
         }
-        graphView.setVisible(visible);
-        graphView.setManaged(visible);
+        note.setPrivate(makePrivate);
+        // Persist the live editor content under the new privacy flag (NoteService
+        // encrypts/decrypts as needed).
+        note.setContent(editorController.getCurrentContent());
+        noteService.updateNote(note);
+        eventBus.publish(new NoteEvents.NoteSavedEvent(note));
+        refreshNotesList();
+        updateStatus(getString(makePrivate ? "status.note_private_on" : "status.note_private_off"));
     }
 
-    private void openNoteFromGraph(String noteId) {
-        if (noteId == null || noteService == null) {
+    /** Locks encryption: private notes become unreadable until unlocked again. */
+    private void handleLockNotes() {
+        EncryptionService enc = EncryptionService.getInstance();
+        if (!enc.isConfigured()) {
+            updateStatus(getString("status.no_private_notes"));
             return;
         }
-        noteService.getNoteById(noteId).ifPresent(note -> {
-            hideGraphView();
-            eventBus.publish(new NoteEvents.NoteOpenRequestEvent(note));
-        });
+        enc.lock();
+        Note current = getCurrentNote();
+        if (current != null && current.isPrivate() && current.getId() != null) {
+            noteService.getNoteById(current.getId()).ifPresent(this::loadNoteInEditor);
+        }
+        refreshNotesList();
+        updateStatus(getString("status.notes_locked"));
     }
+
 
     private String detectSystemTheme() {
         return themeCommand.detectSystemTheme();
@@ -3002,7 +2766,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 themeSource,
                 externalThemeId,
                 notesListPreviewLines,
-                (int) Math.round(uiFontSize));
+                (int) Math.round(uiFontSize),
+                uiAccentColor);
         List<ThemeCatalog.ThemeDescriptor> themes = themeCatalog.getAvailableThemes();
         Optional<UiDialog.PreferencesDialogResult> result = uiDialog.showPreferences(
                 currentUiPrefs,
@@ -3017,7 +2782,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 values.themeSource(),
                 values.externalThemeId(),
                 values.notesPreviewLines(),
-                values.uiFontSize());
+                values.uiFontSize(),
+                values.accentColor());
         uiPreferences.save(prefs, newPrefs);
         applyUiPreferencesFromStore();
         updateThemeMenuSelection();

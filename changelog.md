@@ -2,6 +2,115 @@
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-06-13
+
+Versión **major** por dos rupturas de compatibilidad: el requisito mínimo de Java sube de 17 a **21** (quien ejecute el JAR con Java 17 ya no puede; los instaladores empaquetan su propio runtime y no se ven afectados) y el **formato de datos** incorpora notas cifradas (`JENC1:`, columna `is_private` / frontmatter `private:`) que una v1.0.0 no puede leer. El resto del contenido de esta versión —pestañas, editor RichTextFX, cifrado, Kanban, importadores, historial, API de plugins, instaladores— es aditivo y está detallado en las entradas siguientes.
+
+### Fix: pulido exhaustivo de UI — coherencia visual y limpieza (2026-06-13)
+
+- **Favoritos activos visibles:** la clase `.feather-favorite-active` (estrella de favorito activo en la lista de notas) no estaba definida en ningún tema, así que el estado activo era invisible. Definida en ambos temas en ámbar (`-fx-warning`), con variante de contraste cuando la fila está seleccionada (claro → `-fx-accent-contrast`, oscuro → `-fx-selected-text`).
+- **Diálogo de Preferencias recortado:** el contenido creció (fila de acento) pero el tamaño era fijo (480×520) y se recortaba la parte inferior. Ahora el contenido va en un `ScrollPane` transparente (`.preferences-scroll`, solo barra vertical y solo si hace falta) y el diálogo pasa a 500×620.
+- **i18n en tabs del editor:** el tooltip del botón × de cada pestaña era «Close» hardcodeado; ahora usa la clave `tooltip.close_note` (EN/ES) vía el i18n inyectado en `EditorTabs`.
+- **Placeholder en inglés:** `wordCountLabel` arrancaba con `text="0 words"` en el FXML (visible un instante en locale español); ahora arranca vacío y lo rellena el contador i18n en cuanto hay nota.
+- **CSS muerto eliminado:** `.path-close-btn` (el botón de cierre duplicado de la barra de ruta se eliminó hace tiempo) y `.kanban-card-preview` (del Kanban intermedio reemplazado), en ambos temas.
+- **Claves i18n huérfanas eliminadas:** `kanban.more`, `kanban.new_card_title`, `kanban.no_status` (restos del Kanban por-status reemplazado por el modelo de tablero-en-nota), en los 3 bundles — paridad intacta (`I18nBundleFallbackGuardTest`).
+- **Auditoría sin hallazgos pendientes:** cobertura de `:hover` completa en ambos temas para todas las clases interactivas; todos los diálogos pasan por `UiDialogs.show()` (tematizado consistente); las únicas styleClass sin CSS son contenedores de layout intencionadamente transparentes (`graph-canvas-holder`, `stacked-header`). Verificado: 163/163 tests, uber-JAR y arranque sin errores (JDK 21).
+
+### Fix: scripts de empaquetado Windows en PowerShell 5.1 (2026-06-12)
+
+- **`scripts/package-windows.ps1`**: sustituidos guiones largos Unicode (`—`) y separadores decorativos (`──`) por ASCII. Sin BOM, PowerShell 5.1 leía el UTF-8 como Windows-1252 y el byte `0x94` del em dash se interpretaba como comilla tipográfica, rompiendo el parseo (`MissingEndCurlyBrace` en las líneas 111–115). Los wrappers `package-windows-exe.ps1` y `package-windows-msi.ps1` heredaban el fallo.
+
+### Fix: auto-deteccion JDK 21 y WiX embebido en empaquetado Windows (2026-06-12)
+
+- **`scripts/package-windows.ps1`**: elige JDK 21+ aunque `java` en PATH sea 17; usa `.tools/wix314` si existe.
+- **`scripts/setup-packaging-windows.ps1`**: setup one-shot (winget JDK 21 + descarga WiX 3.14 sin admin).
+- **`doc/PACKAGING.md`**: documentado el flujo de setup.
+
+### Feat: instaladores Windows, API de plugins, importadores, historial, Kanban+ y firma macOS (2026-06-08)
+
+- **Instaladores Windows (.exe / .msi):** `package-windows.ps1` es ahora el núcleo parametrizado (`-Type portable|exe|msi`; portable por defecto) con dos wrappers `package-windows-exe.ps1` / `package-windows-msi.ps1`. Ambos instaladores requieren **WiX Toolset** (lo usa jpackage), incluyen selector de directorio, grupo de menú Inicio, acceso directo, página de licencia MIT y un **UUID de upgrade estable** (las versiones nuevas actualizan en vez de duplicarse). Documentado en `doc/PACKAGING.md`. *(No ejecutables en macOS — pendientes de prueba en Windows.)*
+- **Fase 5a — API de plugins ampliada:** nuevos `EditorHook`/`EditorHooks` (dispatcher con cadena en orden de registro, hooks que lanzan se saltan) con `onBeforeTextInsert` (inserciones programáticas: diálogos de enlace/imagen, autocompletado `[[`, plantillas), `onBeforeSave` (transforma el contenido antes de persistir, editor sincronizado) y `onAfterSave`; y `ToolbarRegistry` → `PluginContext.registerToolbarButton(...)` (botones Feather en el toolbar, limpieza automática al deshabilitar). `WordCountPlugin` de ejemplo usa el botón. Tests `EditorHooksTest` + lifecycle ampliado. API documentada en `doc/PLUGINS.md`.
+- **Importadores (menú Archivo):** **bóveda Obsidian** (jerarquía de carpetas recreada, título = nombre de fichero salvo `title:` explícito en frontmatter, cuerpo sin frontmatter intacto, etiquetas preservadas, `.obsidian/.trash` omitidos) y **Evernote `.enex`** (parser XML endurecido sin entidades externas; ENML→Markdown vía `EnexConverter`: negrita/cursiva/código, encabezados, listas, enlaces, checkboxes; etiquetas conservadas; adjuntos como placeholder). Importación aditiva y tolerante a fallos por nota (resumen + diálogo de errores). `ImportService` + `ImportSupport`; tests `ImportServiceTest`.
+- **Historial de versiones de nota:** `NoteHistoryService` guarda un snapshot del contenido **tal como estaba almacenado** antes de cada `updateNote` (las notas privadas se historian **cifradas**), con ventana de coalescencia de 60 s (el autoguardado no genera ruido) y tope de 50 snapshots/nota con poda. Visor (Herramientas → Historial, `Ctrl/Cmd+Shift+H`): lista de versiones + **diff por líneas** (`LineDiff`, LCS con fallback prefijo/sufijo para notas enormes) + **restaurar** (el estado previo a la restauración se snapshotea, así que es reversible). Tests `NoteHistoryServiceTest`.
+- **Kanban:** **límites WIP** y **colores por columna** como anotaciones serializables en el encabezado (`## Doing [wip=3] [color=#e06c75]`), configurables desde el menú ⋯ de columna (badge rojo al superar el límite; franja de color en la columna); **miniaturas** en tarjetas que referencian imágenes o PDFs (primera página vía PDFBox), resueltas en absoluto o relativo al fichero del tablero. Tests de round-trip en `KanbanModelTest`.
+- **macOS firmado/notarizado (opt-in):** `package-macos.sh` firma con jpackage si `JYLOS_MAC_SIGN_IDENTITY` está definida (certificado *Developer ID Application*) y notariza+staplea el DMG si además `JYLOS_NOTARY_PROFILE` apunta a un perfil de `notarytool`; sin variables, build local sin firmar como siempre. Pasos de configuración en `doc/PACKAGING.md`.
+### Docs: instalar temas externos tras el instalador (2026-06-12)
+
+- **`themes/README.md`**: rutas por SO (macOS/Windows/Linux), copiar `themes/<id>/` al AppData, script `--appdata` y activación en Preferencias.
+- **`README.md`**, **`README.es.md`**, **`doc/PACKAGING.md`**: enlace/resumen; los instaladores no incluyen temas.
+
+### Feat: color de acento personalizable + tamaño de texto persistente (2026-06-08)
+
+- **Color de acento (estilo Obsidian):** en **Preferencias** hay ahora un check «Color de acento personalizado» + selector de color. Se aplica como override `-fx-accent`/`-fx-accent-hover`/`-fx-selected-bg` en línea sobre la raíz de la escena, así que recolorea selección/foco/toggles en los temas integrados **y externos**; desactivado, cada tema usa su acento por defecto (morado en claro/oscuro, verde fósforo en Retro). Valor validado (`#rrggbb` o nada) — `UiPreferencesStoreTest`.
+- **Tamaño de texto:** el zoom de interfaz (`Ctrl/Cmd +/−/0`) ahora **persiste** entre sesiones (antes solo persistía si pasabas por Preferencias); Preferencias y zoom comparten la misma preferencia.
+- **Temas externos verificados:** `jylos/themes/retro-phosphor` instalado y sincronizado con el source; `base=dark` apila la hoja integrada + overlay correctamente (tests `ThemeCatalogTest`/`ThemeCommandTest` verdes).
+### Fix: botón de cerrar nota duplicado (2026-06-08)
+
+- Con las pestañas, había **dos botones de cerrar** la nota: la × de la pestaña y otra × en la barra de ruta de la nota. Se elimina la de la barra de ruta (`closeNoteBtn` + su handler en `EditorController`); cerrar se hace desde la pestaña (×), que es el sitio estándar. Sin pérdida de funcionalidad.
+### Fix: coherencia de temas claro/oscuro (2026-06-08)
+
+- **Tema oscuro:** foco de campos de texto, estado seleccionado de toggles y el icono de toggle seleccionado usaban un morado distinto (`#9f7aea`, el de `-fx-folder-all`) en lugar del acento del tema (`-fx-accent`, `#7c3aed`). Unificado a `-fx-accent`/`-fx-accent-contrast`, igual que el tema claro — fin de los "dos morados".
+- **Auditoría:** verificada la **paridad de variables** de diseño entre ambos temas (sin variables huérfanas) y revisadas las asimetrías de selectores (el resto eran equivalencias `:filled:hover`/`:hover`, `.toolbar-btn-primary`/`.toolbar-btn.toolbar-btn-primary`, etc. — ambos temas cubren los mismos componentes). Los componentes nuevos (pestañas, Kanban, indicador de guardado) usan solo variables de tema. Sin errores de CSS al arrancar.
+### Docs: documentación al día con las funcionalidades reales (2026-06-08)
+
+- **READMEs (EN/ES):** nueva sección **«Why Jylos / Por qué Jylos»** — honesta, sin marketing: inspirada en Obsidian (el autor es fan), pero **no es un clon, alternativa ni competidor**; app independiente, local-first, offline, MIT, para la comunidad. Reflejadas las funcionalidades nuevas (editor con resaltado RichTextFX, pestañas, indicador de guardado, modo concentración, **Kanban**, **notas privadas/cifrado**, persistencia de splits) y stack (RichTextFX, PDFBox).
+- **`doc/ARCHITECTURE.md`:** editor `CodeArea` (no `TextArea`), `EditorTabs`, overlays grafo+Kanban (`OverlaySupport`), modo focus, `KanbanModel`, cifrado (`EncryptionService`), columnas `status`/`is_private` + migraciones idempotentes, y el patrón «feature support» de `MainController` con los nuevos controladores.
+- **`doc/EVENT_BUS_CONTRACT.md`:** acciones nuevas (`KANBAN_VIEW`, `FOCUS_MODE`, `PRIVATE_TOGGLE`/`NOTES_LOCK`) y delegación a los support.
+### Refactor: adelgazar MainController (patrón "feature support") (2026-06-08)
+
+- **`MainController` 3558 → 2822 líneas (−736, −21%)** extrayendo responsabilidades a clases dedicadas con `wire(...)` + callbacks (`i18n`, `status`, `scene`). Patrón documentado en `AGENTS.md`; los handlers FXML quedan como delegadores finos.
+  - **`GitController`** — barra de estado Git + operaciones + diálogos (commit/cambios/historial). ~450 líneas fuera de MainController.
+  - **`PrivacySupport`** — prompts de contraseña maestra (setup/unlock) y errores de las notas cifradas.
+  - **`FocusModeSupport`** — modo concentración (estado + entrar/salir).
+  - **`OverlaySupport`** — overlays de `centerStack` (grafo + Kanban): toggle/show/hide mutuamente excluyentes; posee el `KanbanBoard` lazy.
+  - **`StatusBarSupport`** — contadores palabras/caracteres + indicador de almacenamiento.
+  - **`BacklinksSupport`** — sección de backlinks del panel derecho (cálculo off-thread + render).
+- Sin cambios funcionales; suite 149/149. Lo que queda en MainController es su núcleo legítimo de coordinación (flujo de nota: abrir/guardar/cerrar/pestañas/navegación) — extraerlo fragmentaría lógica cohesiva.
+### Feat: Fase 4 — notas privadas cifradas (AES-256 con contraseña maestra) (2026-06-08)
+
+- **Cifrado por nota** (no la bóveda entera, no solo SQLite). Marcas una nota como **privada** (`Tools → Hacer Nota Privada/Pública`, `Cmd/Ctrl+Shift+L`) y **solo su cuerpo** se cifra en reposo; las notas normales quedan en claro.
+- **Contraseña maestra**: nuevo `service/EncryptionService` — clave AES-256 derivada con **PBKDF2-HMAC-SHA256** (210k iteraciones) sobre salt aleatorio; cifrado **AES-GCM** (IV por nota). La contraseña no se guarda: solo salt + un verificador. Estado de sesión **desbloqueado/bloqueado** (`Tools → Bloquear Notas Privadas`); al abrir una nota privada bloqueada se pide desbloquear.
+- **Ambos modos de almacenamiento**: flag `Note.isPrivate` persistido como columna `is_private` en SQLite (migración idempotente) y `private:` en el frontmatter de la bóveda; el cuerpo cifrado se guarda como `JENC1:base64(iv‖ciphertext)`. En la bóveda el frontmatter (título/fechas) queda legible para listar la nota como 🔒 sin la clave.
+- **Seguridad de datos**: `NoteService` cifra al guardar y descifra al leer; con la sesión bloqueada la lista muestra 🔒 (nunca el ciphertext) y **se bloquea el guardado** de una nota privada para no sobrescribir el cifrado con texto plano.
+- Tests `EncryptionServiceTest` (round-trip, contraseña incorrecta, IV distintos, cifrar bloqueado falla). Suite 149/149.
+
+### Chore: línea base Java 21 + JavaFX 23; Kanban de columnas fijas (2026-06-07)
+
+- **JavaFX 21 → 23.0.2 y Java 17 → 21.** El crash nativo de CoreText en macOS persistía en JavaFX 21; se sube a JavaFX 23 (que trae correcciones del subsistema de fuentes). Como JavaFX 23 es bytecode Java 21, el proyecto pasa a compilar/ejecutar con **JDK 21** (núcleo `pom.xml` source/target 21; plugins `--release 21`; launchers detectan la versión de JavaFX más alta, no solo 21.x). Badges/docs/i18n actualizados a Java 21 / JavaFX 23. **Requiere JDK 21 para compilar y ejecutar.**
+- **Kanban — modelo Obsidian/Trello (rediseño):** un **tablero es una nota** cuyo cuerpo es Markdown (`## columna`, `- tarjeta`), identificada por un marcador oculto `%% jylos-kanban %%` (sin cambios de esquema; funciona en SQLite y bóveda). La vista tiene **selector de tableros** + «Nuevo tablero»; permite **añadir/renombrar/borrar columnas**, **crear/editar/borrar tarjetas de texto**, **arrastrarlas entre columnas**, y por tarjeta: abrir nota enlazada (`[[Título]]`) o **convertir en nota**. Parse/serialize en `util/KanbanModel` (tests `KanbanModelTest`). Toolbar idéntica a la del grafo (mismas clases y padding). Fondo oscuro corregido.
+  - El anterior modelo «agrupar todas las notas por `status`» se retira. La columna `status` añadida antes queda **sin uso** (nullable, inofensiva; se puede retirar en una migración futura).
+
+### Feat: Fase 3 UI/UX — focus, Kanban, split persistente, tema claro (2026-06-07)
+
+- **Vista Kanban (F3.2):** nuevo `ui/components/KanbanBoard` como overlay (menú Ver → Tablero Kanban, `Cmd/Ctrl+Shift+K`). Columnas por la propiedad `status` (todo/doing/done + las que existan + «sin estado»); arrastrar una tarjeta entre columnas cambia su `status` y persiste; clic abre la nota. Barra de herramientas tipo grafo con **botón de cierre** (y **Escape**), **scroll horizontal** cuando hay muchas columnas, y **botón «+ Nueva tarjeta»** por columna que crea una nota con ese estado.
+  - **Persistencia de `status` (ambos modos):** nuevo campo `Note.status`, columna `status` en SQLite (migración idempotente `ALTER TABLE` en `SQLiteDB.initDatabase`) y clave `status:` en el frontmatter de la bóveda. Tests `NoteStatusPersistenceTest`.
+- **Modo concentración (F3.1):** `Cmd/Ctrl+Shift+F` oculta sidebar, lista, panel derecho, toolbar y barra de estado dejando solo el editor; restaura el layout previo (respeta paneles ya colapsados). Nueva acción `FOCUS_MODE`.
+- **Split panes persistentes (F3.4):** se recuerdan y restauran las proporciones del divisor sidebar|contenido y lista|editor entre sesiones (`UiPreferencesStore`). El divisor editor/preview lo sigue gobernando el modo de vista (50/50).
+- **Tema claro mejorado (F3.5):** texto atenuado/tenue ahora cumple contraste WCAG AA, y sidebar/cabecera/bordes mejor diferenciados.
+- **Drag & drop notas→carpeta (F3.3):** verificado que ya funcionaba desde lista y cuadrícula hacia el árbol de carpetas; sin cambios.
+
+### Fix: crash de cuadrícula (CoreText) y codificación de «Acerca de» (2026-06-07)
+
+- **Crash de JavaFX en macOS** al renderizar glifos en la cuadrícula (`CTFontCopyTable`, pre-existente): se sube **JavaFX 21 → 21.0.7** y se corrige la detección de versión en los launchers (`launch-jylos.sh`, `run_all.sh`, `get-javafx-module-path.sh`, `launch-jylos.bat`) para usar el módulo más reciente en runtime (antes fijaban 21.0.0).
+- **«Acerca de» con acentos rotos:** `AppConfig` leía `app.properties` (UTF-8) como ISO-8859-1; ahora se lee con `InputStreamReader` UTF-8 → «Copyright © 2026 Eduardo Díaz Sánchez» correcto.
+
+### Feat: editor con resaltado de sintaxis Markdown (RichTextFX) (2026-06-06)
+
+- El editor pasa de `TextArea` a **`CodeArea` de RichTextFX** (`org.fxmisc.richtext:richtextfx:0.11.5`, empaquetado en el uber-jar). Resaltado **completo** en el propio editor: encabezados, **negrita**/*cursiva*, `código` inline y en bloque, `[[wiki-links]]`, enlaces `[texto](url)`, listas, citas y tachado. Computado por `util/MarkdownHighlighter` y aplicado con debounce (200 ms) para no recalcular en cada tecla.
+- Migración contenida en `EditorController` (API equivalente: `replaceText`, `moveTo`, `getCaretBounds`); el autocompletado de `[[`, los botones de formato, find/replace y copiar/cortar/pegar/deshacer siguen funcionando. Estilos `.md-*` y de caret/selección en tema claro y oscuro.
+- Nuevos guard tests en `UiPresentationFxmlGuardTest` (CodeArea, tab bar, indicador de guardado presentes en el FXML).
+
+### Feat: pestañas de notas e indicador de guardado inline (2026-06-06)
+
+- **Pestañas (tabs):** nuevo componente `ui/components/EditorTabs` — una pestaña por nota abierta con título, dot de cambios sin guardar y botón de cerrar. `MainController` es la única fuente de verdad: abre/activa pestañas al cargar una nota, cierra la pestaña activa con `Ctrl+W`/botón (con confirmación de guardado), y al cerrar activa la pestaña vecina o vacía el editor. Un único editor/WebView compartido (se intercambia el contenido al cambiar de pestaña). Las pestañas se ocultan cuando no hay notas abiertas.
+- **Indicador de guardado inline:** dot junto al título — **ámbar** con cambios sin guardar, **verde** cuando está guardado, oculto sin nota. Sincronizado con el estado `isModified` del editor y con cada pestaña. Nuevas claves i18n `tooltip.unsaved_changes` / `tooltip.saved` (EN/ES, con paridad verificada por `I18nBundleFallbackGuardTest`).
+
+### Perf: render de preview, backlinks y grafo sin recomputar todo (2026-06-06)
+
+- **P1 — Preview:** `MarkdownPreview.buildPreviewHtml` ya no llama `getAllNotes()` en cada render (cada tecla al editar). El set de títulos para resolver `[[wiki-links]]` vive ahora en `service/NoteTitleIndex` (caché caliente invalidada por `NoteCreated/Deleted/Saved/Updated/NotesRefresh`). Lectura O(1) en la ruta de render.
+- **P2 — Backlinks:** `BacklinkService` mantiene un índice **bidireccional** (forward `noteId→targets` + inverso `título→ids`), de modo que `backlinksFor` hace lookup O(1) en vez de un `contains()` sobre todas las notas. Invalidación incremental por eventos de nota (solo la nota cambiada se vuelve a leer, y de forma perezosa fuera del hilo de FX).
+- **P3 — Grafo:** `GraphBuilder` expone `invalidateNote(id)`/`invalidateAll()` y su caché de enlaces es concurrente. `GraphController` se suscribe a eventos de nota/carpeta: invalida solo la nota cambiada y **refresca el grafo en vivo si está abierto** (re-lee únicamente esa nota, no toda la bóveda). Nuevos tests `GraphBuilderIncrementalTest`.
+
 ### Fix: icono negro en «Crear nota» con tema Retro (2026-06-04)
 
 - `themes/retro-phosphor/theme.css`: botones del estado vacío (Crear nota / Ir a archivo) con texto e iconos en `-fx-accent` verde fosforo, sin relleno oscuro del tema integrado.

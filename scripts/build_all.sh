@@ -48,7 +48,7 @@ echo "Cleaning and packaging (skip tests)..."
 cd "$ROOT_DIR"
 mvn -f jylos/pom.xml clean package -DskipTests
 
-JAR_PATH="$ROOT_DIR/jylos/target/jylos-1.0.0-uber.jar"
+JAR_PATH="$ROOT_DIR/jylos/target/jylos-2.0.0-uber.jar"
 if [ -f "$JAR_PATH" ]; then
   echo "Built: $JAR_PATH"
 else

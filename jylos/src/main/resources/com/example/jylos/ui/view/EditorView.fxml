@@ -4,24 +4,28 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.web.WebView?>
+<?import org.fxmisc.richtext.CodeArea?>
 <?import org.kordamp.ikonli.javafx.FontIcon?>
 
 <VBox fx:id="editorContainer" styleClass="editor-container" HBox.hgrow="ALWAYS"
       xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.example.jylos.ui.controller.EditorController">
 
-    <!-- ── Breadcrumb path bar (folder/.../note.md) + close ─────────────────── -->
+    <!-- ── Open-note tabs (one per open note; hidden when none; scrolls horizontally) ── -->
+    <ScrollPane fx:id="editorTabScroll" styleClass="editor-tab-scroll"
+                hbarPolicy="AS_NEEDED" vbarPolicy="NEVER" fitToHeight="true"
+                visible="false" managed="false">
+        <HBox fx:id="editorTabBar" styleClass="editor-tab-bar"/>
+    </ScrollPane>
+
+    <!-- ── Breadcrumb path bar (folder/.../note.md) ───────────────────────── -->
+    <!-- Closing a note is done from its tab (×) or Close Note; no duplicate close here. -->
     <HBox fx:id="editorPathBar" alignment="CENTER_LEFT" spacing="6" styleClass="editor-path-bar">
         <padding>
             <Insets top="5" right="12" bottom="5" left="16"/>
         </padding>
         <FontIcon iconLiteral="fth-file-text" styleClass="feather-icon-faint"/>
         <Label fx:id="notePathLabel" text="" styleClass="note-path" HBox.hgrow="ALWAYS"/>
-        <Region HBox.hgrow="ALWAYS"/>
-        <Button fx:id="closeNoteBtn" onAction="#handleCloseNote" styleClass="path-close-btn">
-            <tooltip><Tooltip text="%tooltip.close_note"/></tooltip>
-            <graphic><FontIcon iconLiteral="fth-x" styleClass="feather-icon"/></graphic>
-        </Button>
     </HBox>
 
     <!-- ── Editor Header ─────────────────────────────────────────────────── -->
@@ -41,6 +45,12 @@
         </Button>
 
         <Separator orientation="VERTICAL" styleClass="header-separator"/>
+
+        <!-- Inline save indicator: amber dot = unsaved, green = saved. -->
+        <Label fx:id="dirtySaveIndicator" text="●" styleClass="save-indicator-dot"
+               visible="false" managed="false">
+            <tooltip><Tooltip fx:id="dirtySaveIndicatorTip" text="%tooltip.unsaved_changes"/></tooltip>
+        </Label>
 
         <TextField fx:id="noteTitleField" promptText="%panel.editor.title_placeholder"
                    HBox.hgrow="ALWAYS" styleClass="title-field"/>
@@ -131,8 +141,7 @@
 
         <!-- Editor Pane -->
         <VBox fx:id="editorPane" styleClass="editor-pane">
-            <TextArea fx:id="noteContentArea" promptText="%panel.editor.content_placeholder"
-                      wrapText="true" VBox.vgrow="ALWAYS" styleClass="editor-area"/>
+            <CodeArea fx:id="noteContentArea" wrapText="true" VBox.vgrow="ALWAYS" styleClass="editor-area"/>
 
             <!-- Format Toolbar -->
             <HBox styleClass="format-toolbar-container">
@@ -206,7 +215,7 @@
                         </Button>
                     </HBox>
                 </ScrollPane>
-                <Label fx:id="wordCountLabel" text="0 words" styleClass="word-count"/>
+                <Label fx:id="wordCountLabel" text="" styleClass="word-count"/>
             </HBox>
         </VBox>
 

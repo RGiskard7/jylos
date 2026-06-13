@@ -70,6 +70,8 @@ class NoteDAOSQLiteTest {
                 + "is_pinned INTEGER NOT NULL DEFAULT 0 CHECK (is_pinned IN (0, 1)), "
                 + "is_deleted INTEGER NOT NULL DEFAULT 0 CHECK (is_deleted IN (0, 1)), "
                 + "deleted_date TEXT DEFAULT NULL, "
+                + "status TEXT DEFAULT NULL, "
+                + "is_private INTEGER NOT NULL DEFAULT 0, "
                 + "FOREIGN KEY (parent_id) REFERENCES folders(folder_id) "
                 + "ON UPDATE CASCADE "
                 + "ON DELETE SET NULL"

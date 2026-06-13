@@ -11,7 +11,7 @@ Set-StrictMode -Version Latest
 $root = Split-Path -Parent $PSScriptRoot
 Push-Location (Join-Path $root 'jylos')
 
-$jar = Join-Path (Get-Location) 'target\jylos-1.0.0-uber.jar'
+$jar = Join-Path (Get-Location) 'target\jylos-2.0.0-uber.jar'
 if (Test-Path $jar) {
     Write-Host "Launching Jylos..." -ForegroundColor Green
     Write-Host "JAR: $jar" -ForegroundColor Cyan
@@ -26,9 +26,9 @@ if (Test-Path $jar) {
         
         foreach ($moduleName in $modulesToFind) {
             # Find version directories (e.g., 21, 21.0.0, etc.)
-            $versionDirs = Get-ChildItem -Path "$m2Repo\org\openjfx\$moduleName" -Directory -ErrorAction SilentlyContinue | 
-                Where-Object { $_.Name -match '^21' } | 
-                Sort-Object Name -Descending
+            $versionDirs = Get-ChildItem -Path "$m2Repo\org\openjfx\$moduleName" -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match '^[0-9]' } |
+                Sort-Object { [version]($_.Name) } -Descending
             
             if ($versionDirs) {
                 # Take the first matching version directory

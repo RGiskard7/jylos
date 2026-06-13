@@ -69,7 +69,8 @@ class UiDialog {
             String themeSource,
             String externalThemeId,
             int notesPreviewLines,
-            int uiFontSize) {
+            int uiFontSize,
+            String accentColor) {
     }
 
     Optional<PreferencesDialogResult> showPreferences(
@@ -119,6 +120,21 @@ class UiDialog {
         fontSizeCombo.getSelectionModel()
                 .select(Integer.valueOf(UiPreferencesStore.clampFontSize(current.uiFontSize())));
 
+        // Accent color: opt-in override of the theme's -fx-accent (Obsidian-style).
+        CheckBox customAccentCheck = new CheckBox(i18n("dialog.preferences.accent_custom"));
+        javafx.scene.control.ColorPicker accentPicker = new javafx.scene.control.ColorPicker();
+        boolean hasCustomAccent = current.accentColor() != null && !current.accentColor().isBlank();
+        customAccentCheck.setSelected(hasCustomAccent);
+        accentPicker.setDisable(!hasCustomAccent);
+        try {
+            accentPicker.setValue(javafx.scene.paint.Color.web(
+                    hasCustomAccent ? current.accentColor() : "#7c3aed"));
+        } catch (IllegalArgumentException ignored) {
+            accentPicker.setValue(javafx.scene.paint.Color.web("#7c3aed"));
+        }
+        customAccentCheck.selectedProperty()
+                .addListener((obs, oldVal, newVal) -> accentPicker.setDisable(!newVal));
+
         Label themeModeLabel = new Label(i18n("dialog.preferences.theme_mode"));
         ComboBox<String> themeModeCombo = new ComboBox<>();
         themeModeCombo.getItems().addAll(i18n("pref.theme.builtin"), i18n("pref.theme.external"));
@@ -160,10 +176,18 @@ class UiDialog {
                 fontSizeLabel, fontSizeCombo,
                 new Separator(),
                 themeModeLabel, themeModeCombo,
-                externalThemeLabel, externalThemeCombo);
+                externalThemeLabel, externalThemeCombo,
+                new Separator(),
+                new HBox(8, customAccentCheck, accentPicker));
 
-        dialog.getDialogPane().setContent(content);
-        dialog.getDialogPane().setPrefSize(480, 520);
+        // The settings list has outgrown a fixed pane: scroll vertically when needed
+        // so no row is ever clipped (no horizontal bar — content fits the width).
+        javafx.scene.control.ScrollPane scroll = new javafx.scene.control.ScrollPane(content);
+        scroll.setFitToWidth(true);
+        scroll.setHbarPolicy(javafx.scene.control.ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.getStyleClass().add("preferences-scroll");
+        dialog.getDialogPane().setContent(scroll);
+        dialog.getDialogPane().setPrefSize(500, 620);
 
         dialog.setResultConverter(buttonType -> {
             if (buttonType != saveButton) {
@@ -194,13 +218,22 @@ class UiDialog {
             }
             Integer previewLines = notesPreviewLinesCombo.getSelectionModel().getSelectedItem();
             Integer fontSize = fontSizeCombo.getSelectionModel().getSelectedItem();
+            String accent = "";
+            if (customAccentCheck.isSelected() && accentPicker.getValue() != null) {
+                javafx.scene.paint.Color c = accentPicker.getValue();
+                accent = String.format("#%02x%02x%02x",
+                        (int) Math.round(c.getRed() * 255),
+                        (int) Math.round(c.getGreen() * 255),
+                        (int) Math.round(c.getBlue() * 255));
+            }
             return new PreferencesDialogResult(
                     autosaveEnabledCheck.isSelected(),
                     autosaveMs,
                     themeSource,
                     externalThemeId,
                     previewLines != null ? previewLines : UiPreferencesStore.DEFAULT_NOTES_PREVIEW_LINES,
-                    fontSize != null ? fontSize : UiPreferencesStore.DEFAULT_UI_FONT_SIZE);
+                    fontSize != null ? fontSize : UiPreferencesStore.DEFAULT_UI_FONT_SIZE,
+                    accent);
         });
         return com.example.jylos.ui.UiDialogs.show(dialog);
     }
