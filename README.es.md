@@ -12,7 +12,7 @@
 <div align="center">
 
 [![Licencia: MIT](https://img.shields.io/badge/Licencia-MIT-yellow.svg)](LICENSE)
-[![Versión](https://img.shields.io/badge/versión-2.0.0-success.svg)](changelog.md)
+[![Versión](https://img.shields.io/badge/versión-2.1.0-success.svg)](changelog.md)
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/)
 [![JavaFX](https://img.shields.io/badge/JavaFX-23-blue.svg)](https://openjfx.io/)
 [![SQLite](https://img.shields.io/badge/SQLite-3-lightgrey.svg)](https://www.sqlite.org/)
@@ -161,8 +161,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 ### Bóveda, Git y adjuntos (modo filesystem)
 
 - Bóveda Markdown; PDF e imágenes con visores integrados
-- **Git** si la bóveda es un repositorio: estado, preparar/despreparar, commit, sincronizar (menú **Git**)
-- Diálogo de cambios con secciones preparados / sin preparar (notas y adjuntos)
+- **Git** si la bóveda es un repositorio: estado, preparar/despreparar, commit con mensaje y sincronización push/pull — todo en el **panel Git Sync** unificado (menú **Git**)
 
 ### Productividad
 
@@ -180,7 +179,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 - Preferencias de botones lateral/editor (texto/iconos/auto)
 - Barra lateral centrada (carpetas, etiquetas, recientes, favoritos, papelera)
 - Interfaz en **inglés** y **español** (`i18n/messages*.properties`)
-- Iconos de barra/menús: fuente **Feather** vía Ikonli (`fth-*` en FXML)
+- Iconos de barra/menús: fuente **Feather** y **Bootstrap Icons** vía Ikonli (`fth-*` / `bi-*` en FXML)
 
 ### Extensibilidad
 
@@ -220,7 +219,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 - SQLite JDBC
 - CommonMark (vista previa Markdown)
 - RichTextFX (resaltado de sintaxis del editor)
-- Ikonli (iconos Feather)
+- Ikonli (iconos Feather + Bootstrap Icons)
 - PDFBox + OpenHTMLToPDF (exportar/visor PDF)
 - JUnit 5 + H2 (tests)
 
@@ -247,7 +246,7 @@ cd jylos
 
 ### 2) Compilar
 
-Desde la raíz del repositorio (genera `jylos/target/jylos-2.0.0-uber.jar`):
+Desde la raíz del repositorio (genera `jylos/target/jylos-2.1.0-uber.jar`):
 
 ```bash
 ./scripts/build_all.sh
@@ -342,7 +341,7 @@ Cada script `package-*` compila el uber-JAR, opcionalmente `build-plugins.sh`, y
 
 | Plataforma | Comando | Salida típica |
 |---|---|---|
-| macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-2.0.0.dmg` |
+| macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-2.1.0.dmg` |
 | Linux (deb/rpm) | `./scripts/package-linux.sh` | `jylos/target/installers/` |
 | Windows portable (app-image) | `.\scripts\package-windows.ps1` | `jylos\target\installers\Jylos\` |
 | Windows instalador .exe (WiX) | `.\scripts\package-windows-exe.ps1` | `jylos\target\installers\Jylos-<versión>.exe` |
@@ -439,7 +438,7 @@ No forma parte de la app: `replica-grafo/` (experimento Typst/grafo opcional; ve
 | Instalador macOS | `icons/icon.icns` | `app.icon.macos` |
 | Instalador Linux | `icons/icon.png` | `app.icon.linux` |
 
-Los iconos de barra y menús son glifos **Feather** (`fth-*` en FXML), no ficheros en `icons/`.
+Los iconos de barra y menús son glifos **Feather** y **Bootstrap Icons** vía Ikonli (`fth-*` / `bi-*` en FXML), no ficheros en `icons/`.
 
 ### Temas
 

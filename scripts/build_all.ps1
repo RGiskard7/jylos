@@ -52,4 +52,4 @@ Push-Location $root
 & mvn -f "Jylos\pom.xml" clean package -DskipTests
 Pop-Location
 
-Write-Host "Build complete. Jar in Jylos\target\jylos-2.0.0-uber.jar (if assembly used)."
+Write-Host "Build complete. Jar in Jylos\target\jylos-<version>-uber.jar (if assembly used)."

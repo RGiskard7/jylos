@@ -12,7 +12,7 @@
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.0.0-success.svg)](changelog.md)
+[![Version](https://img.shields.io/badge/version-2.1.0-success.svg)](changelog.md)
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/)
 [![JavaFX](https://img.shields.io/badge/JavaFX-23-blue.svg)](https://openjfx.io/)
 [![SQLite](https://img.shields.io/badge/SQLite-3-lightgrey.svg)](https://www.sqlite.org/)
@@ -161,8 +161,7 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 ### Vault, Git & attachments (filesystem mode)
 
 - Markdown vault with optional folder layout; non-`.md` files (PDF, images) open in built-in viewers
-- **Git** integration when the vault is a repository: status, stage/unstage, commit, sync (see **Git** menu)
-- IDE-style staged/unstaged changes dialog (notes and attachments)
+- **Git** integration when the vault is a repository: status, stage/unstage, commit with message, and push/pull sync — all in the unified **Git Sync panel** (see **Git** menu)
 
 ### Productivity
 
@@ -180,7 +179,7 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 - Configurable sidebar/editor button presentation (text/icons/auto)
 - Centered sidebar navigation (folders, tags, recent, favorites, trash)
 - UI strings in **English** and **Spanish** (`i18n/messages*.properties`)
-- Toolbar uses **Feather** icons via Ikonli (`fth-*` in FXML — not separate image files)
+- Toolbar uses **Feather** and **Bootstrap** icons via Ikonli (`fth-*` / `bi-*` in FXML — not separate image files)
 
 ### Extensibility
 
@@ -219,7 +218,7 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 - SQLite JDBC
 - CommonMark (Markdown preview)
 - RichTextFX (editor syntax highlighting)
-- Ikonli (Feather icons)
+- Ikonli (Feather icons + Bootstrap Icons)
 - PDFBox + OpenHTMLToPDF (PDF export / viewer)
 - JUnit 5 + H2 (tests)
 
@@ -246,7 +245,7 @@ cd jylos
 
 ### 2) Build
 
-From the repository root (produces `jylos/target/jylos-2.0.0-uber.jar`):
+From the repository root (produces `jylos/target/jylos-2.1.0-uber.jar`):
 
 ```bash
 ./scripts/build_all.sh
@@ -341,7 +340,7 @@ Each `package-*` script builds the uber-JAR, optionally runs `build-plugins.sh`,
 
 | Platform | Command | Typical output |
 |---|---|---|
-| macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-2.0.0.dmg` |
+| macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-2.1.0.dmg` |
 | Linux (deb/rpm) | `./scripts/package-linux.sh` | `jylos/target/installers/` |
 | Windows portable (app-image) | `.\scripts\package-windows.ps1` | `jylos\target\installers\Jylos\` |
 | Windows .exe installer (WiX) | `.\scripts\package-windows-exe.ps1` | `jylos\target\installers\Jylos-<version>.exe` |
@@ -438,7 +437,7 @@ Not part of the app: `replica-grafo/` (optional Typst/graph experiment; see [doc
 | macOS installer | `icons/icon.icns` | `app.icon.macos` |
 | Linux installer | `icons/icon.png` | `app.icon.linux` |
 
-Toolbar/sidebar icons are **Feather** glyphs (`fth-*` in FXML), not files in `icons/`.
+Toolbar/sidebar icons are **Feather** and **Bootstrap Icons** glyphs via Ikonli (`fth-*` / `bi-*` in FXML), not files in `icons/`.
 
 ### Themes
 

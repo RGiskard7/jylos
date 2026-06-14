@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -120,6 +122,28 @@ class NoteDAOFileSystemTest {
         assertNotNull(lightweight.getLinkTargets(), "List (lightweight) notes must carry link targets");
         assertTrue(lightweight.getLinkTargets().contains("Target"),
                 "Expected Target in " + lightweight.getLinkTargets());
+    }
+
+    @Test
+    public void testDeferredConstructorLoadsContentInBackground() throws Exception {
+        Files.writeString(tempDir.resolve("Deferred.md"),
+                "---\ntags: [x]\n---\nBody linking to [[Target]].", StandardCharsets.UTF_8);
+
+        // Deferred mode: the cache is built metadata-only first, contents in background.
+        NoteDAOFileSystem deferred = new NoteDAOFileSystem(tempDir.toString(), true);
+
+        // The title is listable immediately from filename metadata.
+        assertTrue(deferred.fetchAllNotes().stream().anyMatch(n -> "Deferred".equals(n.getTitle())),
+                "metadata-only cache must list the note by title at once");
+
+        // Once the background load finishes, content-derived data is populated.
+        assertTrue(deferred.awaitContentLoaded(10_000), "background content load should complete");
+        Note loaded = deferred.fetchAllNotes().stream()
+                .filter(n -> "Deferred".equals(n.getTitle()))
+                .findFirst().orElseThrow();
+        assertNotNull(loaded.getLinkTargets(), "content load must populate link targets");
+        assertTrue(loaded.getLinkTargets().contains("Target"),
+                "Expected Target in " + loaded.getLinkTargets());
     }
 
     @Test

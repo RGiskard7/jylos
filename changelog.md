@@ -1,6 +1,45 @@
 # Changelog
 
-## [Unreleased]
+## [2.1.0] - 2026-06-14
+
+### Versión 2.1.0
+
+Se sube la versión a **2.1.0**, recogiendo las funcionalidades añadidas desde la 2.0.0 (espacios de trabajo, búsqueda avanzada, panel de sincronización Git, Knowledge Insights, Kanban multilínea) que ya estaban marcadas como `@since 2.1.0` en el código pero seguían reportándose como 2.0.0. Actualizado en `app.properties`, `AppConfig`, `pom.xml` y los README.
+
+### Fix: icono de nota fijada — chincheta real (2026-06-14)
+
+El icono de "nota fijada" era `fth-map-pin` (el marcador de ubicación de Google Maps), tanto en la lista de notas como en el botón de la barra del editor. Se reemplaza por `bi-pin-angle` (Bootstrap Icons), que es la chincheta diagonal clásica. Se añade `ikonli-bootstrapicons-pack:12.3.1` como dependencia Maven — mismo lenguaje visual que Feather (trazo outline, 2 px, minimalista), mismo proveedor (Ikonli). La clase CSS `.feather-pin-active` y la lógica de color/estado no cambian.
+
+### Cambio: Git — un único panel consolidado (2026-06-14)
+
+Los segmentos "cambios pendientes" y "commit" de la barra de estado abrían diálogos propios que **duplicaban** lo que ya hacía el panel Git Sync (estado + cambios + commit + pull/push/sync + log). Ahora ambos abren el panel consolidado. Eliminado el código muerto resultante en `GitController` (`showChangesDialog`, `showCommitDialog`, `reloadChangeSections`, `formatChangeStats`, la celda `GitChangeCell` y sus imports) y 8 claves i18n huérfanas. El historial de commits sigue siendo un diálogo aparte.
+
+Pulida también la cabecera del panel: rama (en negrita) y resumen de cambios en la primera línea, y la URL del remote en una línea propia con elipsis (antes mezclaba tres tamaños de fuente en una sola fila y la URL larga desbordaba). El resumen deja de pintarse en verde (color reservado para líneas añadidas) y pasa a un tono neutro — nuevas clases CSS `git-status-remote` / `git-status-summary` en ambos temas.
+
+### Fix: ubicación de almacenamiento real en Preferencias (2026-06-14)
+
+El diálogo de Preferencias mostraba una ruta de BD **hardcodeada** (`jylos/data/database.db`) tanto en la etiqueta como en el valor, ignorando el modo real. Ahora muestra la ubicación real: la carpeta del vault en modo filesystem, o el fichero SQLite con ruta absoluta en modo base de datos. Clave renombrada `dialog.preferences.db_location` → `dialog.preferences.storage_location` (sin ruta horneada).
+
+### Fix: coherencia de interfaz — i18n y placeholders (2026-06-14)
+
+Auditoría de la UI buscando disonancias (strings hardcodeados, placeholders mal asignados, mezcla de idiomas):
+
+- **Filtro de carpetas del sidebar**: usaba por error el placeholder del buscador de notas (`app.search.placeholder`, *"prueba tag:java modified:last-week"*), que anunciaba operadores de búsqueda que no aplican a un filtro de nombres de carpeta. Nueva clave `tab.folders.filter` ("Filtrar carpetas…"), coherente con los otros filtros del sidebar.
+- **Command Palette y Quick Switcher**: textos en inglés hardcodeados (placeholders y pistas de teclado) migrados a i18n (`palette.*`, `switcher.*`) en los tres bundles.
+- **Diálogo "Acerca de"**: la versión estaba horneada en la cadena traducible (`about.app_name=Jylos v2.0.0`) y duplicaba la etiqueta de versión. Ahora `about.app_name=Jylos` y la versión sale de fuente única (`AppConfig`) vía `about.version=Version {0}`.
+- **Verificado (sin cambios necesarios)**: las 674 claves i18n tienen paridad en los 3 bundles, los 118 handlers de FXML existen, todas las `%clave` resuelven, y los operadores de búsqueda anunciados en el tooltip están todos implementados.
+- Eliminado un fichero basura `sh` (0 bytes) de la raíz del repo.
+
+### Fix: arranque instantáneo en vaults grandes / iCloud — carga de contenido en segundo plano (2026-06-14)
+
+El arranque se quedaba colgado varios minutos con un vault Markdown en iCloud. Causa (preexistente, no introducida por los cambios recientes; verificado por `git diff`): el constructor de `NoteDAOFileSystem` hacía `refreshCache()`, que lee una cabecera de 16 KB de **cada** fichero del vault en el hilo de init. En iCloud con "Optimizar almacenamiento", leer cualquier byte de un fichero desalojado fuerza su descarga completa → el barrido entero bloqueaba el arranque.
+
+- **Carga diferida (filesystem)**: el arranque construye una caché **solo de metadatos** (título desde el nombre de fichero + timestamps; sin leer contenido → sin descargas), así que la lista de notas aparece al instante y la app es usable de inmediato. El contenido, tags y enlaces se cargan en un **hilo daemon en segundo plano** con un pool acotado (≤32, I/O-bound), **sin retener el lock global** — una operación de la UI (abrir nota, pulsar carpeta) durante la carga no se bloquea.
+- **Refresco al terminar**: el DAO notifica vía `setOnContentLoaded` (nuevo en la interfaz `NoteDAO`, no-op por defecto); `MainController` repinta lista + tags y emite `NotesRefreshRequestedEvent` (sidebar, grafo, índices) en el hilo FX.
+- **Sin cambio de comportamiento donde importa**: el constructor de un argumento sigue cargando **síncrono y completo** (back-compat para tests y llamadas que necesitan la caché poblada al volver). Solo `FactoryDAOFileSystem` (única construcción en prod) activa el modo diferido. SQLite no se ve afectado (default no-op).
+- **Mejora de concurrencia**: el barrido de contenido usa un pool dedicado y dimensionado para I/O en lugar del `ForkJoinPool` común (que el `.parallel()` saturaba con descargas bloqueantes).
+- **Espacio en disco**: se eliminó un `app.log` obsoleto de 2 GB (resto de la tormenta de `SEVERE` previa) que tenía el disco al 99% y hacía fallar incluso las escrituras.
+- **Tests:** `NoteDAOFileSystemTest` +1 (modo diferido: la nota es listable por título de inmediato y el contenido/enlaces aparecen tras `awaitContentLoaded`). 203/203 tests verdes.
 
 ### Fix: rendimiento de backlinks en vaults grandes / iCloud — sin tormenta de timeouts (2026-06-14)
 

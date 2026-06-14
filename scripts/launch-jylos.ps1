@@ -12,7 +12,10 @@ Write-Host ""
 # Get script directory and navigate to Jylos directory
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 $JYLOS_DIR = Join-Path $SCRIPT_DIR "..\jylos" | Resolve-Path
-$JAR = Join-Path $JYLOS_DIR "target\jylos-2.0.0-uber.jar"
+# Discover the uber jar by glob so the launcher never couples to a hardcoded version.
+$JAR = Get-ChildItem -Path (Join-Path $JYLOS_DIR "target") -Filter 'jylos-*-uber.jar' -ErrorAction SilentlyContinue |
+    Select-Object -First 1 -ExpandProperty FullName
+if (-not $JAR) { $JAR = Join-Path $JYLOS_DIR "target\jylos-uber.jar" }
 
 # Check if JAR exists
 if (-not (Test-Path $JAR)) {

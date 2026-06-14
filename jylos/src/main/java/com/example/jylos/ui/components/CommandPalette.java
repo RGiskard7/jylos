@@ -6,6 +6,9 @@ import java.util.function.Consumer;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
+import java.util.ResourceBundle;
+
+import com.example.jylos.config.AppContext;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.util.FuzzySearchUtils;
 
@@ -59,6 +62,16 @@ public class CommandPalette {
     public CommandPalette(Stage parentStage) {
         this.parentStage = parentStage;
         initializeDefaultCommands();
+    }
+
+    /** Resolves an i18n string, falling back to the key if the bundle is unavailable. */
+    private String i18n(String key) {
+        try {
+            ResourceBundle bundle = AppContext.isInitialized() ? AppContext.getBundle() : null;
+            return bundle != null ? bundle.getString(key) : key;
+        } catch (Exception e) {
+            return key;
+        }
     }
     
     /**
@@ -382,7 +395,7 @@ public class CommandPalette {
         
         // Search field
         searchField = new TextField();
-        searchField.setPromptText("Type a command...");
+        searchField.setPromptText(i18n("palette.search_placeholder"));
         searchField.setStyle(String.format(
             "-fx-background-color: transparent; " +
             "-fx-text-fill: %s; " +
@@ -394,7 +407,7 @@ public class CommandPalette {
         HBox.setHgrow(searchField, Priority.ALWAYS);
         
         // Shortcut hint
-        Label shortcutHint = new Label("ESC to close");
+        Label shortcutHint = new Label(i18n("palette.hint.close"));
         shortcutHint.setStyle(String.format(
             "-fx-font-size: 11px; " +
             "-fx-text-fill: %s;",
@@ -432,9 +445,9 @@ public class CommandPalette {
             searchBg, border
         ));
         
-        Label navHint = new Label("Arrow keys to navigate");
+        Label navHint = new Label(i18n("palette.hint.navigate"));
         navHint.setStyle(String.format("-fx-font-size: 11px; -fx-text-fill: %s;", mutedColor));
-        Label selectHint = new Label("Enter to select");
+        Label selectHint = new Label(i18n("palette.hint.select"));
         selectHint.setStyle(String.format("-fx-font-size: 11px; -fx-text-fill: %s;", mutedColor));
         footer.getChildren().addAll(navHint, selectHint);
         

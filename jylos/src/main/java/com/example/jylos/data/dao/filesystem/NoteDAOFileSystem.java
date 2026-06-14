@@ -15,6 +15,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
@@ -55,7 +59,32 @@ public class NoteDAOFileSystem implements NoteDAO {
     private volatile long lastPruneTimestampMs = 0L;
     private volatile boolean notesByFolderIndexDirty = true;
 
+    // Deferred (background) content-load coordination — see the two-arg constructor.
+    private final CountDownLatch contentLoadedLatch = new CountDownLatch(1);
+    private final Object contentLoadedLock = new Object();
+    private volatile boolean contentLoaded = false;
+    private Runnable onContentLoaded; // guarded by contentLoadedLock
+
+    /**
+     * Builds the DAO and loads note contents <em>synchronously</em> (original
+     * behavior: the cache is fully populated when the constructor returns).
+     */
     public NoteDAOFileSystem(String rootDirectory) {
+        this(rootDirectory, false);
+    }
+
+    /**
+     * @param rootDirectory   vault root
+     * @param deferContentLoad when {@code true}, the constructor builds only a fast
+     *        <em>metadata-only</em> cache (titles from filenames + filesystem
+     *        timestamps, <em>no</em> file contents read) and then loads contents,
+     *        tags and links on a background daemon thread, invoking the
+     *        {@link #setOnContentLoaded(Runnable)} callback when finished. This keeps
+     *        startup instant on large or cloud-backed vaults (e.g. iCloud-offloaded
+     *        files), where reading every file would block on on-demand downloads.
+     *        When {@code false}, contents load synchronously.
+     */
+    public NoteDAOFileSystem(String rootDirectory, boolean deferContentLoad) {
         this.rootPath = Paths.get(rootDirectory);
         if (!Files.exists(rootPath)) {
             try {
@@ -65,39 +94,164 @@ public class NoteDAOFileSystem implements NoteDAO {
                 throw new DataAccessException("Could not initialize file storage", e);
             }
         }
-        refreshCache();
+        if (deferContentLoad) {
+            refreshCacheMetadataOnly();
+            startBackgroundContentLoad();
+        } else {
+            refreshCache();
+            markContentLoaded();
+        }
     }
 
+    /**
+     * Full cache build: each entry is populated with contents/tags/links (reads a
+     * lightweight head of every file). On large or cloud-backed vaults this blocks on
+     * per-file I/O; the deferred constructor uses {@link #refreshCacheMetadataOnly()}
+     * instead.
+     */
     public void refreshCache() {
+        rebuildCache(this::createLightweightNote);
+    }
+
+    /**
+     * Fast cache build that reads only filesystem metadata (filename + timestamps),
+     * never file <em>contents</em>. Used by the deferred constructor so startup does
+     * not block on reading (and, on iCloud, downloading) every file.
+     */
+    private void refreshCacheMetadataOnly() {
+        rebuildCache(this::createMetadataNote);
+    }
+
+    /**
+     * Walks the vault and rebuilds {@code idToPathMap}/{@code cachedNotes}, building
+     * each note with {@code noteFactory}. The factory decides how much I/O happens per
+     * file (full head read vs metadata only) — that is the only difference between the
+     * full and metadata-only refreshes.
+     */
+    private void rebuildCache(java.util.function.BiFunction<String, Path, Note> noteFactory) {
         FileSystemIoLock.LOCK.lock();
         try {
-        idToPathMap.clear();
-        cachedNotes.clear();
-        try (Stream<Path> walk = Files.walk(rootPath)) {
-            // Using parallel stream for faster initial load of thousands of headers
-            walk.filter(Files::isRegularFile)
-                    // Markdown notes plus viewable attachments (PDF, images) so the vault
-                    // lists them alongside notes (Obsidian-style).
-                    .filter(p -> p.toString().endsWith(".md")
-                            || com.example.jylos.util.AttachmentType.isAttachment(p.getFileName().toString()))
-                    .filter(p -> !p.toString().contains(File.separator + ".")) // Exclude hidden files and folders
-                                                                               // (.trash, .git)
-                    .parallel()
-                    .forEach(path -> {
-                        String relativePath = normalizeId(rootPath.relativize(path).toString());
-                        idToPathMap.put(relativePath, path);
-                        // Accessing created note immediately creates race condition if not thread safe
-                        // NoteDAOFileSystem methods are synchronized or use concurrent maps
-                        Note note = createLightweightNote(relativePath, path);
-                        cachedNotes.put(relativePath, note);
-                    });
-        } catch (IOException e) {
-            logger.log(Level.SEVERE, "Failed to walk directory for cache refresh", e);
-        }
-        notesByFolderIndexDirty = true;
+            idToPathMap.clear();
+            cachedNotes.clear();
+            try (Stream<Path> walk = Files.walk(rootPath)) {
+                // Parallel walk for faster initial load of thousands of files.
+                walk.filter(Files::isRegularFile)
+                        // Markdown notes plus viewable attachments (PDF, images) so the vault
+                        // lists them alongside notes (Obsidian-style).
+                        .filter(p -> p.toString().endsWith(".md")
+                                || com.example.jylos.util.AttachmentType.isAttachment(p.getFileName().toString()))
+                        .filter(p -> !p.toString().contains(File.separator + ".")) // Exclude hidden (.trash, .git)
+                        .parallel()
+                        .forEach(path -> {
+                            String relativePath = normalizeId(rootPath.relativize(path).toString());
+                            idToPathMap.put(relativePath, path);
+                            // Maps are concurrent, so parallel population is safe.
+                            cachedNotes.put(relativePath, noteFactory.apply(relativePath, path));
+                        });
+            } catch (IOException e) {
+                logger.log(Level.SEVERE, "Failed to walk directory for cache refresh", e);
+            }
+            notesByFolderIndexDirty = true;
         } finally {
             FileSystemIoLock.LOCK.unlock();
         }
+    }
+
+    /**
+     * Loads note contents/tags/links in the background (deferred mode), upgrading the
+     * metadata-only entries in place, then fires {@link #onContentLoaded}. Reads are
+     * parallelised over a small bounded pool (I/O-bound, dominated by per-file latency)
+     * and do <em>not</em> hold the global IO lock, so the UI stays responsive — a
+     * folder click or note open during loading is not blocked.
+     */
+    private void startBackgroundContentLoad() {
+        Thread loader = new Thread(() -> {
+            try {
+                List<Map.Entry<String, Path>> snapshot = new ArrayList<>(idToPathMap.entrySet());
+                int threads = Math.max(4, Math.min(32, Runtime.getRuntime().availableProcessors() * 4));
+                ExecutorService pool = Executors.newFixedThreadPool(threads, r -> {
+                    Thread t = new Thread(r, "vault-content-loader");
+                    t.setDaemon(true);
+                    return t;
+                });
+                try {
+                    for (Map.Entry<String, Path> entry : snapshot) {
+                        String id = entry.getKey();
+                        Path path = entry.getValue();
+                        pool.execute(() -> {
+                            try {
+                                Note enriched = createLightweightNote(id, path);
+                                // Only upgrade an entry that still exists (never resurrect a
+                                // note deleted while loading).
+                                cachedNotes.computeIfPresent(id, (k, old) -> enriched);
+                            } catch (RuntimeException ex) {
+                                logger.fine("Background content load skipped " + id + ": " + ex.getMessage());
+                            }
+                        });
+                    }
+                } finally {
+                    pool.shutdown();
+                    try {
+                        pool.awaitTermination(10, TimeUnit.MINUTES);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+                notesByFolderIndexDirty = true;
+                logger.info("Vault content load complete (" + snapshot.size() + " notes)");
+            } finally {
+                markContentLoaded();
+            }
+        }, "vault-content-loader-main");
+        loader.setDaemon(true);
+        loader.start();
+    }
+
+    /** Marks the content load finished, releasing waiters and running the callback once. */
+    private void markContentLoaded() {
+        Runnable cb;
+        synchronized (contentLoadedLock) {
+            contentLoaded = true;
+            cb = onContentLoaded;
+        }
+        contentLoadedLatch.countDown();
+        if (cb != null) {
+            runCallbackSafely(cb);
+        }
+    }
+
+    private void runCallbackSafely(Runnable cb) {
+        try {
+            cb.run();
+        } catch (RuntimeException e) {
+            logger.log(Level.WARNING, "onContentLoaded callback failed", e);
+        }
+    }
+
+    @Override
+    public void setOnContentLoaded(Runnable callback) {
+        boolean runNow;
+        synchronized (contentLoadedLock) {
+            this.onContentLoaded = callback;
+            runNow = contentLoaded;
+        }
+        if (runNow && callback != null) {
+            runCallbackSafely(callback);
+        }
+    }
+
+    /** Test/diagnostic hook: blocks until the background content load finishes. */
+    public boolean awaitContentLoaded(long timeoutMs) throws InterruptedException {
+        return contentLoadedLatch.await(timeoutMs, TimeUnit.MILLISECONDS);
+    }
+
+    /** Builds a note from filename + filesystem timestamps only — never reads contents. */
+    private Note createMetadataNote(String id, Path path) {
+        String filename = path.getFileName().toString();
+        String title = filename.endsWith(".md") ? filename.substring(0, filename.length() - 3) : filename;
+        Note note = new Note(id, title, "");
+        applyFileTimestampsIfMissing(note, path);
+        return note;
     }
 
     private Note createLightweightNote(String id, Path path) {

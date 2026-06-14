@@ -6,7 +6,7 @@ All paths are relative to the **repository root** unless noted.
 
 | Script | Purpose |
 |--------|---------|
-| `build_all.sh` / `.ps1` | `mvn package` → `jylos/target/jylos-1.0.0-uber.jar` |
+| `build_all.sh` / `.ps1` | `mvn package` → `jylos/target/jylos-<version>-uber.jar` |
 | `launch-jylos.sh` / `.bat` / `.ps1` | Run uber-JAR with JavaFX module-path; cwd `jylos/` |
 | `run_all.sh` / `.ps1` | Dev run (Maven/JavaFX) |
 | `get-javafx-module-path.sh` | Print module-path for current OS (debugging) |

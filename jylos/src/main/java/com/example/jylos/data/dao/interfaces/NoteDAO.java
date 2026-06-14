@@ -164,6 +164,17 @@ public interface NoteDAO {
     }
 
     /**
+     * Registers a callback invoked once any <em>deferred</em> background content load
+     * finishes (file-based storage that builds its cache lazily). Implementations that
+     * load synchronously have nothing to defer, so the default is a no-op.
+     *
+     * @param callback action to run on completion (may be {@code null} to clear)
+     */
+    default void setOnContentLoaded(Runnable callback) {
+        // No-op: synchronous backends are already fully loaded.
+    }
+
+    /**
      * Resolves the on-disk file backing a note, when the storage is file-based.
      *
      * @param id note id

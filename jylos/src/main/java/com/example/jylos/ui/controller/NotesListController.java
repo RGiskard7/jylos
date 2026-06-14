@@ -192,7 +192,7 @@ public class NotesListController {
 
             private final VBox container = new VBox(3);
             private final HBox titleRow = new HBox(6);
-            private final FontIcon pinIcon = new FontIcon("fth-map-pin");
+            private final FontIcon pinIcon = new FontIcon("bi-pin-angle");
             private final FontIcon favIcon = new FontIcon("fth-star");
             private final Label titleLabel = new Label();
             private final FontIcon noteIcon = new FontIcon("fth-file-text");
@@ -1274,7 +1274,7 @@ public class NotesListController {
         titleRow.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
         if (note.isPinned()) {
-            FontIcon pinIcon = new FontIcon("fth-map-pin");
+            FontIcon pinIcon = new FontIcon("bi-pin-angle");
             pinIcon.getStyleClass().add("feather-pin-active");
             pinIcon.setIconSize(12);
             titleRow.getChildren().add(pinIcon);

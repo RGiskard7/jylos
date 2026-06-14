@@ -453,6 +453,13 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             gitController.refreshStatus();
             workspaceController.wire(this::captureLiveWorkspace, this::applyWorkspace,
                     this::getString, this::updateStatus, sceneSupplier);
+            // In deferred (filesystem) mode the vault contents load in the background;
+            // repaint the list/tags/graph once they are ready. No-op for SQLite. Wired
+            // last so the callback (which may fire immediately for a small vault) finds
+            // every sub-controller already initialized.
+            if (noteDAO != null) {
+                noteDAO.setOnContentLoaded(() -> Platform.runLater(this::onVaultContentLoaded));
+            }
             updateStatus(getString("status.ready"));
             logger.info("MainController initialized successfully");
 
@@ -1723,8 +1730,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     @FXML private void handleGitStatusClick(javafx.scene.input.MouseEvent event)  { gitController.sync(); }
     @FXML private void handleGitInitClick(javafx.scene.input.MouseEvent event)    { gitController.init(); }
     @FXML private void handleGitRemoteClick(javafx.scene.input.MouseEvent event)  { gitController.addRemote(); }
-    @FXML private void handleGitCommitClick(javafx.scene.input.MouseEvent event)  { gitController.showCommitDialog(); }
-    @FXML private void handleGitChangesClick(javafx.scene.input.MouseEvent event) { gitController.showChangesDialog(); }
+    // Changes and commit both open the consolidated Git Sync panel (status + changes +
+    // commit + pull/push/sync + log), which superseded the standalone changes/commit dialogs.
+    @FXML private void handleGitCommitClick(javafx.scene.input.MouseEvent event)  { gitController.showSyncPanel(); }
+    @FXML private void handleGitChangesClick(javafx.scene.input.MouseEvent event) { gitController.showSyncPanel(); }
     @FXML private void handleGitHistoryClick(javafx.scene.input.MouseEvent event) { gitController.showHistoryDialog(); }
 
     /** Applies the active theme stylesheet to a dialog and sets its owner window. */
@@ -2234,6 +2243,26 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (sidebarController != null) {
             sidebarController.loadRecentNotes();
             sidebarController.loadFavorites();
+        }
+    }
+
+    /**
+     * Called (on the FX thread) once the filesystem vault finishes loading note
+     * contents in the background. Repaints the notes list and tags, and signals the
+     * rest of the app (sidebar counts, graph, link/title indexes) to refresh with the
+     * now-complete data. Safe to run more than once.
+     */
+    private void onVaultContentLoaded() {
+        try {
+            refreshNotesList();
+            if (sidebarController != null) {
+                sidebarController.loadTags();
+            }
+            if (eventBus != null) {
+                eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
+            }
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Failed to refresh UI after vault content load", e);
         }
     }
 

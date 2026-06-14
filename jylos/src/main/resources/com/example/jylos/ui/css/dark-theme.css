@@ -2656,7 +2656,9 @@
 .git-commit-meta    { -fx-font-size: 11px; -fx-text-fill: -fx-text-faint; }
 
 /* ── Git Sync panel ───────────────────────────────────────── */
-.git-status-branch { -fx-font-size: 13px; -fx-font-weight: 700; -fx-text-fill: -fx-text-main; }
+.git-status-branch  { -fx-font-size: 13px; -fx-font-weight: 700; -fx-text-fill: -fx-text-main; }
+.git-status-remote  { -fx-font-size: 11px; -fx-text-fill: -fx-text-faint; }
+.git-status-summary { -fx-font-size: 11px; -fx-text-fill: -fx-text-muted; }
 .git-conflict-banner {
     -fx-font-size: 12px;
     -fx-font-weight: 600;

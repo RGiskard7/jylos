@@ -155,15 +155,19 @@ public final class GitSyncPanel {
 
     private void buildRepoView() {
         branchLabel.getStyleClass().add("git-status-branch");
-        remoteLabel.getStyleClass().add("git-change-path");
-        summaryLabel.getStyleClass().add("git-change-stats");
+        remoteLabel.getStyleClass().add("git-status-remote");
+        remoteLabel.setMaxWidth(Double.MAX_VALUE); // ellipsize long remote URLs instead of overflowing
+        summaryLabel.getStyleClass().add("git-status-summary");
         conflictBanner.getStyleClass().add("git-conflict-banner");
         conflictBanner.setWrapText(true);
         conflictBanner.setVisible(false);
         conflictBanner.setManaged(false);
 
-        HBox headerLine = new HBox(16, branchLabel, remoteLabel, summaryLabel);
-        headerLine.setAlignment(Pos.CENTER_LEFT);
+        // Branch (bold) on the left with the change summary aligned right; the remote URL
+        // sits on its own muted line below so mismatched label sizes never share a baseline.
+        HBox topLine = new HBox(8, branchLabel, spacer(), summaryLabel);
+        topLine.setAlignment(Pos.CENTER_LEFT);
+        VBox headerLine = new VBox(4, topLine, remoteLabel);
 
         Label changesHeader = new Label(str("git.panel.changes_section"));
         changesHeader.getStyleClass().add("git-section-header");

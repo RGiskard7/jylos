@@ -38,7 +38,7 @@
             <VBox spacing="0">
                 <HBox spacing="4" alignment="CENTER_LEFT" styleClass="sidebar-toolbar">
                     <padding><Insets top="4" right="4" bottom="4" left="4"/></padding>
-                    <TextField fx:id="filterFoldersField" promptText="%app.search.placeholder" styleClass="search-field, small-search" HBox.hgrow="ALWAYS"/>
+                    <TextField fx:id="filterFoldersField" promptText="%tab.folders.filter" styleClass="search-field, small-search" HBox.hgrow="ALWAYS"/>
                     <Button onAction="#handleSortFolders" styleClass="icon-btn">
                          <tooltip><Tooltip text="%action.sort_folders"/></tooltip>
                          <graphic><FontIcon iconLiteral="fth-filter" iconSize="14" styleClass="feather-icon"/></graphic>

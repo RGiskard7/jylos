@@ -6,6 +6,9 @@ import java.util.function.Consumer;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
+import java.util.ResourceBundle;
+
+import com.example.jylos.config.AppContext;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.util.FuzzySearchUtils;
@@ -55,6 +58,16 @@ public class QuickSwitcher {
     
     public QuickSwitcher(Stage parentStage) {
         this.parentStage = parentStage;
+    }
+
+    /** Resolves an i18n string, falling back to the key if the bundle is unavailable. */
+    private String i18n(String key) {
+        try {
+            ResourceBundle bundle = AppContext.isInitialized() ? AppContext.getBundle() : null;
+            return bundle != null ? bundle.getString(key) : key;
+        } catch (Exception e) {
+            return key;
+        }
     }
     
     public void setNotes(List<Note> notes) {
@@ -148,7 +161,7 @@ public class QuickSwitcher {
         
         // Search field
         searchField = new TextField();
-        searchField.setPromptText("Go to note...");
+        searchField.setPromptText(i18n("switcher.search_placeholder"));
         searchField.setStyle(String.format(
             "-fx-background-color: transparent; " +
             "-fx-text-fill: %s; " +
@@ -194,7 +207,7 @@ public class QuickSwitcher {
         statusLabel.setStyle(String.format("-fx-font-size: 11px; -fx-text-fill: %s;", mutedColor));
         HBox.setHgrow(statusLabel, Priority.ALWAYS);
         
-        Label helpHint = new Label("Enter to open | ESC to close");
+        Label helpHint = new Label(i18n("switcher.hint"));
         helpHint.setStyle(String.format("-fx-font-size: 11px; -fx-text-fill: %s;", mutedColor));
         
         footer.getChildren().addAll(statusLabel, helpHint);

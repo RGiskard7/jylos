@@ -35,7 +35,9 @@ echo ""
 # Get script directory and navigate to Jylos directory
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 JYLOS_DIR="$(cd "$SCRIPT_DIR/../jylos" && pwd)"
-JAR="$JYLOS_DIR/target/jylos-2.0.0-uber.jar"
+# Discover the uber jar by glob so the launcher never couples to a hardcoded version.
+JAR=$(ls "$JYLOS_DIR"/target/jylos-*-uber.jar 2>/dev/null | head -n1)
+[ -z "$JAR" ] && JAR="$JYLOS_DIR/target/jylos-uber.jar"
 
 # Check if JAR exists
 if [ ! -f "$JAR" ]; then

@@ -84,7 +84,7 @@
         <Separator orientation="VERTICAL" styleClass="header-separator"/>
         <ToggleButton fx:id="pinButton" onAction="#handleTogglePin" styleClass="modern-toggle-btn">
             <tooltip><Tooltip text="%tooltip.pin_note"/></tooltip>
-            <graphic><FontIcon iconLiteral="fth-map-pin" styleClass="feather-icon"/></graphic>
+            <graphic><FontIcon iconLiteral="bi-pin-angle" styleClass="feather-icon"/></graphic>
         </ToggleButton>
         <ToggleButton fx:id="favoriteButton" onAction="#handleToggleFavorite" styleClass="modern-toggle-btn">
             <tooltip><Tooltip text="%tooltip.add_favorite"/></tooltip>
