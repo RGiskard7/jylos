@@ -478,6 +478,7 @@ public class CommandPalette {
         setupEventHandlers();
     }
 
+    /** Resizes and repositions the palette stage to overlay the parent stage, enforcing minimum 900×600 dimensions. */
     private void syncWithParentStageBounds() {
         if (parentStage == null) {
             return;
@@ -595,6 +596,7 @@ public class CommandPalette {
         });
     }
     
+    /** Routes ESCAPE, ENTER, UP and DOWN key events to their respective palette actions; all other keys are left unhandled. */
     private void handleKeyPress(KeyEvent event) {
         switch (event.getCode()) {
             case ESCAPE:
@@ -618,6 +620,7 @@ public class CommandPalette {
         }
     }
     
+    /** Filters the command list against {@code query} using fuzzy scoring across name, description and category; resets to full list when blank. */
     private void filterCommands(String query) {
         if (query == null || query.trim().isEmpty()) {
             commandListView.getItems().setAll(commands);
@@ -645,6 +648,7 @@ public class CommandPalette {
         }
     }
     
+    /** Moves the list selection one row up, scrolling the list to keep the selected item visible. */
     private void navigateUp() {
         int idx = commandListView.getSelectionModel().getSelectedIndex();
         if (idx > 0) {
@@ -653,6 +657,7 @@ public class CommandPalette {
         }
     }
     
+    /** Moves the list selection one row down, scrolling the list to keep the selected item visible. */
     private void navigateDown() {
         int idx = commandListView.getSelectionModel().getSelectedIndex();
         if (idx < commandListView.getItems().size() - 1) {
@@ -661,6 +666,7 @@ public class CommandPalette {
         }
     }
     
+    /** Hides the palette, then executes the currently selected command on the next FX pulse via {@link Platform#runLater}. */
     private void executeSelectedCommand() {
         Command selected = commandListView.getSelectionModel().getSelectedItem();
         if (selected != null) {
@@ -676,6 +682,7 @@ public class CommandPalette {
         }
     }
     
+    /** Plays a 150 ms fade-in + scale-up entrance animation on the main container. */
     private void animateEntrance() {
         VBox container = (VBox) ((StackPane) paletteStage.getScene().getRoot()).getChildren().get(0);
         
@@ -693,6 +700,7 @@ public class CommandPalette {
         scale.play();
     }
     
+    /** Plays a 100 ms fade-out animation, then invokes {@code onFinished} to hide or close the stage. */
     private void animateExit(Runnable onFinished) {
         VBox container = (VBox) ((StackPane) paletteStage.getScene().getRoot()).getChildren().get(0);
         

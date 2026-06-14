@@ -70,18 +70,22 @@ public class QuickSwitcher {
         }
     }
     
+    /** Replaces the full note list used for search; a defensive copy is stored to prevent external mutation. */
     public void setNotes(List<Note> notes) {
         this.allNotes = notes != null ? new ArrayList<>(notes) : new ArrayList<>();
     }
     
+    /** Registers the callback invoked (on the FX thread) when the user confirms a note selection. */
     public void setOnNoteSelected(Consumer<Note> callback) {
         this.onNoteSelected = callback;
     }
     
+    /** Switches the inline color palette between dark and light before the next {@link #show()} call. */
     public void setDarkTheme(boolean isDark) {
         this.isDarkTheme = isDark;
     }
     
+    /** Shows the quick-switcher overlay; brings it to front if already showing, otherwise creates and animates the stage. */
     public void show() {
         if (switcherStage != null && switcherStage.isShowing()) {
             switcherStage.toFront();
@@ -104,12 +108,14 @@ public class QuickSwitcher {
         });
     }
     
+    /** Animates the exit, then hides the switcher stage. */
     public void hide() {
         if (switcherStage != null && switcherStage.isShowing()) {
             animateExit(() -> switcherStage.hide());
         }
     }
     
+    /** Builds the transparent overlay stage with the search field, note list, and footer status bar. */
     private void createSwitcherStage() {
         switcherStage = new Stage();
         switcherStage.initOwner(parentStage);
@@ -338,6 +344,7 @@ public class QuickSwitcher {
         };
     }
     
+    /** Wires the search-field text listener, keyboard handlers, and double-click-to-select on the note list. */
     private void setupEventHandlers() {
         searchField.textProperty().addListener((obs, oldVal, newVal) -> {
             filterNotes(newVal);
@@ -353,6 +360,7 @@ public class QuickSwitcher {
         });
     }
     
+    /** Routes ESCAPE, ENTER, UP and DOWN key events to their respective switcher actions. */
     private void handleKeyPress(KeyEvent event) {
         switch (event.getCode()) {
             case ESCAPE:
@@ -376,6 +384,7 @@ public class QuickSwitcher {
         }
     }
     
+    /** Filters {@link #allNotes} by fuzzy-matching {@code query} against title and content, sorted by relevance then alphabetically. */
     private void filterNotes(String query) {
         if (query == null || query.trim().isEmpty()) {
             noteListView.getItems().setAll(allNotes);
@@ -393,6 +402,7 @@ public class QuickSwitcher {
         }
     }
     
+    /** Returns {@code true} if {@code query} produces a positive fuzzy score against the note's title or content. */
     private boolean fuzzyMatch(Note note, String query) {
         String title = note.getTitle() != null ? note.getTitle() : "";
         String content = note.getContent() != null ? note.getContent() : "";
@@ -401,6 +411,7 @@ public class QuickSwitcher {
                 || FuzzySearchUtils.fuzzyScore(query, content) > 0;
     }
 
+    /** Compares two notes by descending fuzzy title score, with alphabetical title as tiebreaker. */
     private int compareRelevance(Note a, Note b, String query) {
         int scoreA = FuzzySearchUtils.fuzzyScore(query, a.getTitle() != null ? a.getTitle() : "");
         int scoreB = FuzzySearchUtils.fuzzyScore(query, b.getTitle() != null ? b.getTitle() : "");
@@ -414,6 +425,7 @@ public class QuickSwitcher {
         return titleA.compareTo(titleB);
     }
     
+    /** Selects the previous note in the list, scrolling to keep it in view. */
     private void navigateUp() {
         int idx = noteListView.getSelectionModel().getSelectedIndex();
         if (idx > 0) {
@@ -422,6 +434,7 @@ public class QuickSwitcher {
         }
     }
     
+    /** Selects the next note in the list, scrolling to keep it in view. */
     private void navigateDown() {
         int idx = noteListView.getSelectionModel().getSelectedIndex();
         if (idx < noteListView.getItems().size() - 1) {
@@ -430,6 +443,7 @@ public class QuickSwitcher {
         }
     }
     
+    /** Hides the switcher and fires {@link #onNoteSelected} on the FX thread with the currently selected note. */
     private void selectNote() {
         Note selected = noteListView.getSelectionModel().getSelectedItem();
         if (selected != null && onNoteSelected != null) {
@@ -445,6 +459,7 @@ public class QuickSwitcher {
         }
     }
     
+    /** Updates the footer status label to show "N notes" or "N of M notes" when a filter is active. */
     private void updateStatusLabel() {
         int showing = noteListView.getItems().size();
         int total = allNotes.size();
@@ -455,6 +470,7 @@ public class QuickSwitcher {
         }
     }
     
+    /** Plays a 150 ms fade-in + scale-up entrance animation on the main switcher container. */
     private void animateEntrance() {
         VBox container = (VBox) ((StackPane) switcherStage.getScene().getRoot()).getChildren().get(0);
         
@@ -472,6 +488,7 @@ public class QuickSwitcher {
         scale.play();
     }
     
+    /** Plays a 100 ms fade-out animation, then invokes {@code onFinished} to hide or close the stage. */
     private void animateExit(Runnable onFinished) {
         VBox container = (VBox) ((StackPane) switcherStage.getScene().getRoot()).getChildren().get(0);
         

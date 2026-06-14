@@ -9,6 +9,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
+
 import javafx.application.Platform;
 
 /**
@@ -73,7 +74,7 @@ public class EventBus {
         @SuppressWarnings("unchecked")
         Consumer<? extends AppEvent> typedHandler = (Consumer<? extends AppEvent>) handler;
         subscribers.computeIfAbsent(eventType, k -> new CopyOnWriteArrayList<>())
-                   .add(typedHandler);
+                    .add(typedHandler);
         logger.fine("Subscribed to event: " + eventType.getSimpleName());
         
         return new Subscription(() -> unsubscribe(eventType, handler));

@@ -125,6 +125,7 @@ public final class GitSyncPanel {
 
     // ── Construction ────────────────────────────────────────────────────────────
 
+    /** Assembles the dialog: title, close button, state stack (repo / setup / unavailable), progress bar, and log area. */
     private void build() {
         dialog.setTitle(str("git.panel.title"));
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
@@ -153,6 +154,7 @@ public final class GitSyncPanel {
         dialog.getDialogPane().setContent(root);
     }
 
+    /** Constructs the repository-state view: header, conflict banner, change list, staging controls, commit field, and action row. */
     private void buildRepoView() {
         branchLabel.getStyleClass().add("git-status-branch");
         remoteLabel.getStyleClass().add("git-status-remote");
@@ -205,6 +207,7 @@ public final class GitSyncPanel {
                 stagingRow, new Separator(), commitHeader, commitMessage, opsRow);
     }
 
+    /** Constructs the "not a Git repository yet" setup view with an init hint and button. */
     private void buildSetupView() {
         Label title = new Label(str("git.panel.not_repo"));
         title.getStyleClass().add("git-section-header");
@@ -218,6 +221,7 @@ public final class GitSyncPanel {
         setupView.getChildren().setAll(title, setupHint, initBtn);
     }
 
+    /** Constructs the view shown when {@code git} is not installed or cannot be located on the system {@code PATH}. */
     private void buildUnavailableView() {
         Label msg = new Label(str("git.panel.git_unavailable"));
         msg.getStyleClass().add("git-conflict-banner");
@@ -225,12 +229,14 @@ public final class GitSyncPanel {
         unavailableView.getChildren().setAll(msg);
     }
 
+    /** Sets the button's i18n label, action handler, and removes focus traversal (toolbar-style appearance). */
     private void configureButton(Button button, String key, Runnable action) {
         button.setText(str(key));
         button.setOnAction(e -> action.run());
         button.setFocusTraversable(false);
     }
 
+    /** Creates a greedy-grow spacer that pushes adjacent controls to opposite ends of an {@link HBox}. */
     private static Region spacer() {
         Region r = new Region();
         HBox.setHgrow(r, Priority.ALWAYS);
@@ -265,6 +271,7 @@ public final class GitSyncPanel {
         runDaemon(task, "git-panel-refresh");
     }
 
+    /** Applies a completed refresh snapshot to the UI: selects the correct state view, fills labels, sorts the change list, and enables/disables remote-dependent buttons. */
     private void applySnapshot(Snapshot snap) {
         showState(snap.available() ? (snap.repo() ? repoView : setupView) : unavailableView);
         if (!snap.available() || !snap.repo()) {
@@ -305,6 +312,7 @@ public final class GitSyncPanel {
         // Sync still works locally (commit only) but is most useful with a remote.
     }
 
+    /** Returns a sort priority for a change: 0 = conflicted (show first), 1 = staged, 2 = unstaged. */
     private static int rank(GitChange c) {
         if (isConflicted(c)) {
             return 0;
@@ -312,6 +320,7 @@ public final class GitSyncPanel {
         return c.staged() ? 1 : 2;
     }
 
+    /** Makes {@code active} visible and managed while hiding the other two state views. */
     private void showState(VBox active) {
         for (VBox view : List.of(repoView, setupView, unavailableView)) {
             boolean on = view == active;
@@ -322,6 +331,7 @@ public final class GitSyncPanel {
 
     // ── Operations ──────────────────────────────────────────────────────────────
 
+    /** Commits all staged changes using the current commit-message field (or a default timestamp message), then refreshes. */
     private void doCommit() {
         String message = commitMessageOrDefault();
         runOp("git.panel.commit", () -> {
@@ -333,6 +343,7 @@ public final class GitSyncPanel {
         });
     }
 
+    /** Runs the full sync cycle (stage all → commit → pull → push) off the FX thread, using the commit-message field. */
     private void doSync() {
         String message = commitMessageOrDefault();
         runOp("git.panel.sync", () -> {
@@ -344,6 +355,7 @@ public final class GitSyncPanel {
         });
     }
 
+    /** Shows a text-input dialog pre-filled with the current remote URL, then calls {@link GitService#setRemote} on confirm. */
     private void promptSetRemote() {
         TextInputDialog input = new TextInputDialog(git.getRemoteUrl(vault));
         input.setTitle(str("dialog.git_remote.title"));
@@ -400,6 +412,7 @@ public final class GitSyncPanel {
 
     // ── UI helpers ──────────────────────────────────────────────────────────────
 
+    /** Shows or hides the indeterminate progress bar and disables/enables all action buttons during an async operation. */
     private void setBusy(boolean busy) {
         progress.setVisible(busy);
         progress.setManaged(busy);
@@ -409,11 +422,13 @@ public final class GitSyncPanel {
         }
     }
 
+    /** Appends a timestamped line to the activity log text area. */
     private void appendLog(String line) {
         String stamp = LocalTime.now().format(LOG_TIME);
         logArea.appendText(stamp + "  " + line + "\n");
     }
 
+    /** Returns the commit-message field text, or a default "Jylos sync yyyy-MM-dd HH:mm" string when it is blank. */
     private String commitMessageOrDefault() {
         String text = commitMessage.getText();
         return (text == null || text.isBlank())
@@ -421,10 +436,12 @@ public final class GitSyncPanel {
                 : text.trim();
     }
 
+    /** Resolves an i18n key via the injected function, returning the key itself if the function is null. */
     private String str(String key) {
         return i18n != null ? i18n.apply(key) : key;
     }
 
+    /** Returns {@code true} when the change has the "conflicted" status (requires manual resolution before staging). */
     private static boolean isConflicted(GitChange c) {
         return "conflicted".equals(c.status());
     }
@@ -443,6 +460,7 @@ public final class GitSyncPanel {
         };
     }
 
+    /** Starts {@code task} on a new daemon thread so it does not block the JVM from exiting. */
     private static void runDaemon(Task<?> task, String name) {
         Thread thread = new Thread(task, name);
         thread.setDaemon(true);
@@ -505,6 +523,7 @@ public final class GitSyncPanel {
             return toggle;
         }
 
+        /** Formats the line-change statistics as "+N −M" (omitting zero values). */
         private String stats(GitChange change) {
             StringBuilder sb = new StringBuilder();
             if (change.added() >= 0) {

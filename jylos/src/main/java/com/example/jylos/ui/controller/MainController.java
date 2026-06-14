@@ -330,6 +330,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     }
 
 
+    /** Initializes the entire UI: wires sub-controllers, loads data, registers keyboard shortcuts, and starts the vault content callback. */
     @FXML
     public void initialize() {
         try {
@@ -468,6 +469,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             updateStatus(java.text.MessageFormat.format(getString("status.error_details"), e.getMessage()));
         }
     }
+    /** Selects and opens the configured storage backend (SQLite or filesystem), then builds all DAOs, services and populates {@link AppContext}. */
     private void initializeDatabase() {
         try {
 
@@ -528,6 +530,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 prefs);
     }
 
+    /** Builds the theme toggle group (light / dark / system) in the menu bar and applies the saved preference. */
     private void initializeThemeMenu() {
         themeToggleGroup = appSettings.initializeThemeMenu(
                 toolbarController,
@@ -538,6 +541,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 this::applyTheme);
     }
 
+    /** Sets up the language toggle group, wiring each item to persist and announce the locale change. */
     private void initializeLanguageMenu() {
         appSettings.initializeLanguageMenu(toolbarController, prefs, this::notifyLanguageChange);
     }
@@ -557,6 +561,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         appSettings.updateThemeMenuSelection(toolbarController, themeToggleGroup, currentTheme);
     }
 
+    /** Registers global keyboard accelerators (command palette, quick-switcher, focus mode) on the primary scene. */
     private void initializeKeyboardShortcuts() {
         try {
             javafx.scene.Scene scene = null;
@@ -589,6 +594,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
     }
 
+    /** Opens the command palette, initializing it lazily against the primary stage if needed. */
     public void showCommandPalette() {
         ensureCommandUisInitialized(getPrimaryStage());
         if (commandPalette != null) {
@@ -601,6 +607,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
     }
 
+    /** Opens the quick-switcher overlay, preloading the current note list asynchronously before showing. */
     public void showQuickSwitcher() {
         ensureCommandUisInitialized(getPrimaryStage());
         if (quickSwitcher != null) {
@@ -682,6 +689,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
     }
 
+    /** Subscribes to all relevant {@link EventBus} events (note open/delete/modify, export, save) and stores the subscriptions for cleanup. */
     private void subscribeToUIEvents() {
         if (eventBus == null) {
             return;
@@ -906,6 +914,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         });
     }
 
+    /** Loads persisted UI preferences (autosave, theme, font size, accent, preview lines) and applies them to the running UI. */
     private void applyUiPreferencesFromStore() {
         UiPreferencesStore.UiPreferencesData uiPrefs = uiPreferences.load(prefs);
         autosaveEnabled = uiPrefs.autosaveEnabled();
@@ -949,6 +958,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         });
     }
 
+    /** Restores a divider position from preferences and registers a listener to persist future drag changes. */
     private void persistDivider(SplitPane splitPane, String key, double defaultPos) {
         if (splitPane == null || splitPane.getDividers().isEmpty()) {
             return;
@@ -1157,6 +1167,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         return pluginManager;
     }
 
+    /** Dispatches a command token through the routing table; logs a warning and updates the status bar if the command is unknown. */
     private void executeCommand(String commandName) {
         CommandRouting.DispatchResult result = commandRouting
                 .dispatch(commandName, this::executePluginCommandToken);
@@ -1183,6 +1194,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         return true;
     }
 
+    /** Populates the command routing table once, mapping every command ID and legacy name to its action {@link Runnable}. */
     private void initializeCommandRouting() {
         if (!commandRouting.isEmpty()) {
             return;
@@ -1193,6 +1205,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 this::resolveCommandAction);
     }
 
+    /** Returns the {@link Runnable} bound to {@code commandId}, or {@code null} for unknown IDs (used by the command registry). */
     private Runnable resolveCommandAction(String commandId) {
         if (commandId == null) {
             return null;
@@ -1331,6 +1344,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
     }
 
+    /** Registers a command route with both its stable ID and a legacy display-name alias in the routing table. */
     private void registerCommandRoute(String id, String legacyName, Runnable action) {
         commandRouting.registerRoute(id, legacyName, action);
     }
@@ -1417,6 +1431,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     // Navigation history
     // ------------------------------------------------------------------
 
+    /** Pops the most recent entry from the back-stack, pushes the current note onto the forward-stack, and loads the target note. */
     private void navigateBack() {
         if (navBackStack.isEmpty()) return;
         String currentId = (getCurrentNote() != null) ? getCurrentNote().getId() : null;
@@ -1428,6 +1443,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         loadNoteById(targetId);
     }
 
+    /** Pops the most recent entry from the forward-stack, pushes the current note onto the back-stack, and loads the target note. */
     private void navigateForward() {
         if (navForwardStack.isEmpty()) return;
         String currentId = (getCurrentNote() != null) ? getCurrentNote().getId() : null;
@@ -1439,6 +1455,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         loadNoteById(targetId);
     }
 
+    /** Loads the note identified by {@code noteId} into the editor without recording a new navigation event. */
     private void loadNoteById(String noteId) {
         if (noteId == null || noteService == null) return;
         navJumping = true;
@@ -1453,6 +1470,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
     }
 
+    /** Pushes {@code previousNoteId} onto the back-stack and clears the forward-stack, unless a programmatic jump is in progress. */
     private void recordNavigation(String previousNoteId) {
         if (navJumping || previousNoteId == null) return;
         if (navBackStack.size() >= NAV_MAX_HISTORY) navBackStack.pollFirst();
@@ -1461,6 +1479,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         updateNavigationButtons();
     }
 
+    /** Syncs the back/forward toolbar-button states to reflect whether the respective navigation stacks are non-empty. */
     private void updateNavigationButtons() {
         if (editorController != null) {
             editorController.updateNavigationState(!navBackStack.isEmpty(), !navForwardStack.isEmpty());
@@ -1627,6 +1646,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         uiInitialization.wireCollapsibleSection(backlinksHeader, backlinksContent, backlinksCollapseIcon);
     }
 
+    /** Resets the filter state and asks {@link NotesListController} to display every note. */
     private void loadAllNotes() {
         if (notesListController != null) {
             currentFolder = null;
@@ -1636,6 +1656,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
     }
 
+    /** Selects the "All Notes" virtual node in the sidebar tree, or falls back to {@link #loadAllNotes()} when the tree is unavailable. */
     private void goToAllNotes() {
         if (sidebarController == null) {
             loadAllNotes();
@@ -1654,6 +1675,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         loadAllNotes();
     }
 
+    /** Updates the active folder filter and ensures the notes panel is visible, expanding collapsed splits as needed. */
     private void handleFolderSelection(Folder folder) {
         try {
             if (folder == null) {
@@ -1708,10 +1730,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         clearEditorToEmpty();
     }
 
+    /** Delegates note word/character count display to {@link StatusBarSupport}. */
     private void updateNoteStats(Note note) {
         statusBarSupport.updateNoteStats(note);
     }
 
+    /** Updates the storage-type indicator label in the status bar. */
     private void updateStorageLabel() {
         statusBarSupport.updateStorageLabel();
     }
@@ -1912,6 +1936,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
     }
 
+    /** Sets the filter type to "search" and delegates full-text search to {@link NotesListController}. */
     private void performSearch(String searchText) {
         if (notesListController != null) {
             currentFilterType = "search";
@@ -1919,12 +1944,14 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
     }
 
+    /** Forwards the selected sort criterion to {@link NotesListController} for immediate resorting. */
     private void sortNotes(String sortOption) {
         if (notesListController != null) {
             notesListController.sortNotes(sortOption);
         }
     }
 
+    /** Re-renders the editor's Markdown preview, applying the correct dark/light theme to the WebView. */
     private void refreshEditorPreview() {
         if (editorController != null) {
             editorController.refreshPreview(isDarkThemeActive());
@@ -2089,6 +2116,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         });
     }
 
+    /** Linear search across all notes for a case-insensitive title match; returns the first match or {@code null}. */
     private Note findNoteByTitle(String title) {
         if (title == null) {
             return null;
@@ -2119,6 +2147,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         return out;
     }
 
+    /** Returns the full content of the template note whose title matches {@code name} (case-insensitive), or {@code null} if none found. */
     private String templateContentByName(String name) {
         for (Note t : listTemplates()) {
             if (name.equalsIgnoreCase(t.getTitle())) {
@@ -2129,6 +2158,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         return null;
     }
 
+    /** Replaces {@code {{title}}}, {@code {{date}}}, {@code {{time}}} and {@code {{datetime}}} placeholders in a template string. */
     private String applyTemplatePlaceholders(String content, String title) {
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
         return content
@@ -2138,6 +2168,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 .replace("{{datetime}}", now.withNano(0).toString());
     }
 
+    /** Creates a note with the given title and content, adds it to the list, loads it in the editor, and publishes a creation event. */
     private void createAndOpenNote(String title, String content) {
         boolean isFileSystem = !"sqlite".equals(prefs.get("storage_type", "sqlite"));
         NoteOperations.NoteCreationResult creation =
@@ -2161,6 +2192,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         updateStatus(getString("status.note_created"));
     }
 
+    /** Returns the note's title, or an empty string if null, to prevent NPE in comparators. */
     private static String safeTitle(Note note) {
         return note.getTitle() != null ? note.getTitle() : "";
     }
@@ -2266,6 +2298,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
     }
 
+    /** Refreshes the notes list according to the active filter (all / folder / tag / search) and view mode. */
     private void refreshNotesList() {
         if (notesListController == null) {
             return;
@@ -2311,6 +2344,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         System.exit(0);
     }
 
+    /** Cancels all event subscriptions, shuts down plugins, closes the executor and the database connection in orderly fashion. */
     public void shutdownApplication() {
         try {
             uiEventSubscriptions.forEach(EventBus.Subscription::cancel);
@@ -2767,6 +2801,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         updateStatus(java.text.MessageFormat.format(getString("status.theme_system"), result.detectedTheme()));
     }
 
+    /** Applies the resolved theme stylesheet to the scene and synchronizes dialog stylesheets via {@link com.example.jylos.ui.UiDialogs}. */
     private void applyTheme() {
         if (mainSplitPane == null || editorController == null) {
             return;
@@ -2791,12 +2826,14 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         com.example.jylos.ui.UiDialogs.setStylesheets(scene.getStylesheets());
     }
 
+    /** Applies the theme, refreshes all theme-dependent UI elements, and updates the system-theme monitor state. */
     private void applyThemeAndRefreshDependents() {
         applyTheme();
         refreshUiThemeDependents();
         syncSystemThemeMonitoring();
     }
 
+    /** Enables or disables the OS system-theme monitor based on whether the "system" built-in mode is currently active. */
     private void syncSystemThemeMonitoring() {
         systemThemeMonitor.setActive(ThemeCommand.isSystemBuiltinMode(currentTheme, themeSource));
     }
@@ -2823,6 +2860,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         });
     }
 
+    /** Refreshes theme-sensitive UI sub-systems: editor preview, notes grid and the graph overlay. */
     private void refreshUiThemeDependents() {
         if (editorController != null) {
             editorController.refreshPreview(isDarkThemeActive());
@@ -2877,10 +2915,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     }
 
 
+    /** Delegates OS dark/light detection to {@link ThemeCommand} and returns "dark" or "light". */
     private String detectSystemTheme() {
         return themeCommand.detectSystemTheme();
     }
 
+    /** Returns "external" when an external theme is selected, otherwise delegates to {@link ThemeCommand#resolveThemeToApply}. */
     private String resolveThemeToApply() {
         if (UiPreferencesStore.THEME_SOURCE_EXTERNAL.equals(themeSource)) {
             return "external";
@@ -2888,6 +2928,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         return themeCommand.resolveThemeToApply(currentTheme);
     }
 
+    /** Returns {@code true} when the currently active theme (built-in or external) renders as a dark UI. */
     private boolean isDarkThemeActive() {
         ThemeCatalog.ThemeDescriptor external = null;
         if (UiPreferencesStore.THEME_SOURCE_EXTERNAL.equals(
@@ -3055,6 +3096,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         updateStatus(getString("status.saved_all"));
     }
 
+    /** Publishes a {@link SystemActionEvent} of the given type to the editor via the event bus. */
     private void publishEditorAction(SystemActionEvent.ActionType actionType) {
         if (editorController != null && eventBus != null && actionType != null) {
             editorController.publishAction(eventBus, actionType);

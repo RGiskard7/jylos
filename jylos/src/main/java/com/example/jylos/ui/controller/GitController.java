@@ -89,10 +89,12 @@ public final class GitController {
     // Public actions (called from MainController's FXML/menu handlers)
     // ------------------------------------------------------------------
 
+    /** Runs a full vault sync (stage all → commit → pull → push) asynchronously and updates the status bar on completion. */
     public void sync() {
         runGitAsync(vault -> gitService.sync(vault, gitCommitMessage()), getString("status.git_syncing"));
     }
 
+    /** Commits all staged changes with a timestamp message and, if successful, immediately pushes to the remote. */
     public void commitPush() {
         final String message = gitCommitMessage();
         runGitAsync(vault -> {
@@ -101,14 +103,17 @@ public final class GitController {
         }, getString("status.git_syncing"));
     }
 
+    /** Pulls changes from the remote into the vault asynchronously. */
     public void pull() {
         runGitAsync(gitService::pull, getString("status.git_pulling"));
     }
 
+    /** Initializes a Git repository in the vault directory ({@code git init}) asynchronously. */
     public void init() {
         runGitAsync(gitService::init, getString("status.git_initializing"));
     }
 
+    /** Prompts the user for a remote URL and sets it on the vault's Git repository asynchronously. */
     public void addRemote() {
         Path vault = gitVaultPath();
         if (vault == null) {
@@ -182,6 +187,7 @@ public final class GitController {
         return Files.isDirectory(dir) ? dir : null;
     }
 
+    /** Generates a default commit message in the form "Jylos sync yyyy-MM-dd HH:mm". */
     private String gitCommitMessage() {
         return "Jylos sync " + DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").format(LocalDateTime.now());
     }
@@ -208,6 +214,7 @@ public final class GitController {
         runDaemon(task, "git-op");
     }
 
+    /** Maps a {@link GitResult} to an i18n status label, appending the raw Git message on failure (truncated at 160 chars). */
     private String describeGitResult(GitResult result) {
         if (result == null) {
             return getString("status.git_error");
@@ -324,16 +331,19 @@ public final class GitController {
         dialog.showAndWait();
     }
 
+    /** Resolves an i18n key via the injected function, returning the key itself as a fallback. */
     private String getString(String key) {
         return i18n != null ? i18n.apply(key) : key;
     }
 
+    /** Forwards a status message to the host's status-bar consumer if one is wired. */
     private void updateStatus(String message) {
         if (status != null) {
             status.accept(message);
         }
     }
 
+    /** Sets both {@code visible} and {@code managed} on {@code node} so the layout does not reserve space when hidden. */
     private static void setNodeVisible(Node node, boolean visible) {
         if (node != null) {
             node.setVisible(visible);
@@ -341,6 +351,7 @@ public final class GitController {
         }
     }
 
+    /** Starts {@code task} on a new daemon thread so Git I/O never blocks the JavaFX Application Thread. */
     private static void runDaemon(Task<?> task, String name) {
         Thread thread = new Thread(task, name);
         thread.setDaemon(true);

@@ -220,6 +220,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Invokes {@code cb} and swallows any {@link RuntimeException} so the caller's state is not corrupted. */
     private void runCallbackSafely(Runnable cb) {
         try {
             cb.run();
@@ -228,6 +229,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Registers (or replaces) the callback; runs it immediately if content is already loaded. */
     @Override
     public void setOnContentLoaded(Runnable callback) {
         boolean runNow;
@@ -254,6 +256,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         return note;
     }
 
+    /** Reads up to {@link #LIGHTWEIGHT_READ_BYTES} of the file to populate title, frontmatter, body preview and link targets. */
     private Note createLightweightNote(String id, Path path) {
         String filename = path.getFileName().toString();
         String title = filename.endsWith(".md") ? filename.substring(0, filename.length() - 3) : filename;
@@ -289,6 +292,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Reads at most {@code maxBytes} from the start of a file, returning the bytes decoded as UTF-8. */
     private static String readFileHead(Path path, int maxBytes) throws IOException {
         long size = Files.size(path);
         int toRead = (int) Math.min(size, Math.max(0, maxBytes));
@@ -305,6 +309,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Fills in missing {@code createdDate} / {@code modifiedDate} on {@code note} from the file's OS attributes. */
     private void applyFileTimestampsIfMissing(Note note, Path path) {
         try {
             BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
@@ -319,6 +324,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Writes a new Markdown file for {@code note}, resolving the parent directory from its ID and handling filename conflicts. */
     @Override
     public String createNote(Note note) {
         FileSystemIoLock.LOCK.lock();
@@ -401,6 +407,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         return java.util.Optional.ofNullable(path).filter(Files::exists);
     }
 
+    /** Reads and fully parses the Markdown file for {@code id}, resolving the path from the cache or disk. */
     @Override
     public Note getNoteById(String id) {
         if (id == null)
@@ -465,6 +472,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Persists changes to an existing note file; renames the file when the title has changed. */
     @Override
     public void updateNote(Note note) {
         FileSystemIoLock.LOCK.lock();
@@ -534,6 +542,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Moves the note file to the {@code .trash} subfolder, removing it from all caches (soft delete). */
     @Override
     public void deleteNote(String id) {
         FileSystemIoLock.LOCK.lock();
@@ -617,6 +626,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Walks the {@code .trash} directory and returns lightweight Note objects for all trashed Markdown files. */
     @Override
     public List<Note> fetchTrashNotes() {
         FileSystemIoLock.LOCK.lock();
@@ -651,6 +661,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Moves a trashed note file back to its original vault location (or root if the parent folder no longer exists). */
     @Override
     public void restoreNote(String id) {
         FileSystemIoLock.LOCK.lock();
@@ -721,6 +732,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Irrecoverably deletes the file (typically under {@code .trash}) and removes it from all caches. */
     @Override
     public void permanentlyDeleteNote(String id) {
         FileSystemIoLock.LOCK.lock();
@@ -756,6 +768,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Returns all non-deleted notes whose immediate parent directory matches {@code folderId} (or root when null/ROOT). */
     @Override
     public List<Note> fetchNotesByFolderId(String folderId) {
         pruneStaleCacheEntriesIfNeeded();
@@ -774,6 +787,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         return notes;
     }
 
+    /** Loads all direct-child notes of {@code folder} into the folder's component list. */
     @Override
     public void fetchNotesByFolderId(Folder folder) {
         List<Note> notes = fetchNotesByFolderId(folder.getId());
@@ -782,6 +796,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         folder.addAll(components);
     }
 
+    /** Returns a snapshot of all cached notes (lightweight), refreshing the cache if it is empty. */
     @Override
     public List<Note> fetchAllNotes() {
         pruneStaleCacheEntriesIfNeeded();
@@ -791,6 +806,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         return new ArrayList<>(cachedNotes.values());
     }
 
+    /** Derives the parent {@link Folder} from the note's relative path; returns a ROOT folder when the note is at vault root. */
     @Override
     public Folder getFolderOfNote(String noteId) {
         if (noteId == null || noteId.isEmpty()) {
@@ -808,6 +824,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         return new Folder(folderId, folderName);
     }
 
+    /** Looks up the note by ID and attaches the tag identified by {@code tagId} to it, persisting via {@link #updateNote}. */
     @Override
     public void addTag(String noteId, String tagId) {
         if (noteId == null || noteId.isEmpty() || tagId == null || tagId.isEmpty()) {
@@ -823,6 +840,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         addTag(note, tag);
     }
 
+    /** Attaches {@code tag} to {@code note} in memory and writes the updated frontmatter to disk. */
     @Override
     public void addTag(Note note, Tag tag) {
         FileSystemIoLock.LOCK.lock();
@@ -834,6 +852,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Looks up the note by ID and removes the tag identified by {@code tagId}, persisting the change. */
     @Override
     public void removeTag(String noteId, String tagId) {
         if (noteId == null || noteId.isEmpty() || tagId == null || tagId.isEmpty()) {
@@ -849,6 +868,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         removeTag(note, tag);
     }
 
+    /** Removes {@code tag} from {@code note} in memory and writes the updated frontmatter to disk. */
     @Override
     public void removeTag(Note note, Tag tag) {
         FileSystemIoLock.LOCK.lock();
@@ -860,6 +880,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Returns the tag list of the note with the given ID, or an empty list if the note is not found. */
     @Override
     public List<Tag> fetchTags(String noteId) {
         Note note = getNoteById(noteId);
@@ -868,6 +889,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         return new ArrayList<>();
     }
 
+    /** Reads the persisted tag list and injects it into {@code note}, overwriting any in-memory state. */
     @Override
     public void loadTags(Note note) {
         if (note == null || note.getId() == null) {
@@ -882,6 +904,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         note.setTags(persisted.getTags());
     }
 
+    /** Scans the cache and returns every note whose tag list contains a tag with title equal to {@code tagId}. */
     @Override
     public List<Note> fetchNotesByTagId(String tagId) {
         if (cachedNotes.isEmpty()) {
@@ -899,10 +922,12 @@ public class NoteDAOFileSystem implements NoteDAO {
         return all;
     }
 
+    /** Replaces characters that are illegal in filenames with underscores while preserving Unicode letters and digits. */
     private String sanitizeFilename(String title) {
         return title.replaceAll("[^\\p{L}\\p{N}\\.\\-_ ]", "_");
     }
 
+    /** Normalizes a note ID to use forward slashes and returns an empty string for null input. */
     private String normalizeId(String id) {
         if (id == null) {
             return "";
@@ -910,6 +935,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         return id.replace("\\", "/");
     }
 
+    /** Removes cache entries whose backing files no longer exist on disk, then re-indexes the surviving entries. */
     private void pruneStaleCacheEntries() {
         FileSystemIoLock.LOCK.lock();
         try {
@@ -945,6 +971,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Calls {@link #pruneStaleCacheEntries()} at most once per {@link #PRUNE_INTERVAL_MS} to cap I/O overhead. */
     private void pruneStaleCacheEntriesIfNeeded() {
         long now = System.currentTimeMillis();
         if (now - lastPruneTimestampMs < PRUNE_INTERVAL_MS) {
@@ -954,6 +981,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         pruneStaleCacheEntries();
     }
 
+    /** Rebuilds the folder-key → notes index when the {@link #notesByFolderIndexDirty} flag is set (double-checked locking). */
     private void ensureFolderIndex() {
         if (!notesByFolderIndexDirty) {
             return;
@@ -978,6 +1006,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Returns the canonical index key for {@code folderId}, mapping null, blank, or "ROOT" to the constant {@link #ROOT_ID}. */
     private String normalizeFolderKey(String folderId) {
         if (folderId == null || folderId.isBlank() || ROOT_ID.equals(folderId)) {
             return ROOT_ID;
@@ -985,6 +1014,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         return normalizeId(folderId);
     }
 
+    /** Extracts the parent directory portion of a note's relative path to use as the folder-index key. */
     private String extractFolderKeyFromNoteId(String noteId) {
         if (noteId == null || noteId.isBlank()) {
             return ROOT_ID;

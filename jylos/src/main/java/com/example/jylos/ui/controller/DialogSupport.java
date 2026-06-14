@@ -59,6 +59,7 @@ class UiDialog {
         this.controller = controller;
     }
 
+    /** Delegates i18n string resolution to the host {@link MainController}. */
     private String i18n(String key) {
         return controller.getString(key);
     }
@@ -380,6 +381,7 @@ class AppSettings {
         this.controller = controller;
     }
 
+    /** Delegates i18n string resolution to the host {@link MainController}. */
     private String i18n(String key) {
         return controller.getString(key);
     }
@@ -557,6 +559,7 @@ class TagManagement {
         this.controller = controller;
     }
 
+    /** Delegates i18n string resolution to the host {@link MainController}. */
     private String i18n(String key) {
         return controller.getString(key);
     }
