@@ -60,14 +60,17 @@ public class LoggerConfig {
             consoleHandler.setFormatter(new SimpleFormatter());
             Logger.getLogger("").addHandler(consoleHandler);
             
-            // File handler with absolute path
-            FileHandler fileHandler = new FileHandler(logFile, true);
-            fileHandler.setLevel(Level.ALL);
+            // Rotating file handler: cap each file at ~5 MB and keep 3 generations.
+            // Previously this used an unbounded, append-only handler at Level.ALL, so
+            // app.log grew without limit and could fill the disk (No space left on device).
+            FileHandler fileHandler = new FileHandler(logFile, 5_000_000, 3, true);
+            fileHandler.setLevel(Level.INFO);
             fileHandler.setFormatter(new SimpleFormatter());
             Logger.getLogger("").addHandler(fileHandler);
-            
-            // Root logger level
-            Logger.getLogger("").setLevel(Level.ALL);
+
+            // INFO root level: avoids persisting third-party FINEST/FINER spam — notably
+            // JavaFX's per-frame render logging — which previously bloated app.log.
+            Logger.getLogger("").setLevel(Level.INFO);
             
         } catch (Exception e) {
             System.err.println("Warning: Could not configure file logging: " + e.getMessage());

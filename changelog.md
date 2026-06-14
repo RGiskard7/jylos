@@ -1,6 +1,109 @@
 # Changelog
 
-## [Unreleased]
+## [2.1.0] - 2026-06-14
+
+### Versión 2.1.0
+
+Se sube la versión a **2.1.0**, recogiendo las funcionalidades añadidas desde la 2.0.0 (espacios de trabajo, búsqueda avanzada, panel de sincronización Git, Knowledge Insights, Kanban multilínea) que ya estaban marcadas como `@since 2.1.0` en el código pero seguían reportándose como 2.0.0. Actualizado en `app.properties`, `AppConfig`, `pom.xml` y los README.
+
+### Fix: icono de nota fijada — chincheta real (2026-06-14)
+
+El icono de "nota fijada" era `fth-map-pin` (el marcador de ubicación de Google Maps), tanto en la lista de notas como en el botón de la barra del editor. Se reemplaza por `bi-pin-angle` (Bootstrap Icons), que es la chincheta diagonal clásica. Se añade `ikonli-bootstrapicons-pack:12.3.1` como dependencia Maven — mismo lenguaje visual que Feather (trazo outline, 2 px, minimalista), mismo proveedor (Ikonli). La clase CSS `.feather-pin-active` y la lógica de color/estado no cambian.
+
+### Cambio: Git — un único panel consolidado (2026-06-14)
+
+Los segmentos "cambios pendientes" y "commit" de la barra de estado abrían diálogos propios que **duplicaban** lo que ya hacía el panel Git Sync (estado + cambios + commit + pull/push/sync + log). Ahora ambos abren el panel consolidado. Eliminado el código muerto resultante en `GitController` (`showChangesDialog`, `showCommitDialog`, `reloadChangeSections`, `formatChangeStats`, la celda `GitChangeCell` y sus imports) y 8 claves i18n huérfanas. El historial de commits sigue siendo un diálogo aparte.
+
+Pulida también la cabecera del panel: rama (en negrita) y resumen de cambios en la primera línea, y la URL del remote en una línea propia con elipsis (antes mezclaba tres tamaños de fuente en una sola fila y la URL larga desbordaba). El resumen deja de pintarse en verde (color reservado para líneas añadidas) y pasa a un tono neutro — nuevas clases CSS `git-status-remote` / `git-status-summary` en ambos temas.
+
+### Fix: ubicación de almacenamiento real en Preferencias (2026-06-14)
+
+El diálogo de Preferencias mostraba una ruta de BD **hardcodeada** (`jylos/data/database.db`) tanto en la etiqueta como en el valor, ignorando el modo real. Ahora muestra la ubicación real: la carpeta del vault en modo filesystem, o el fichero SQLite con ruta absoluta en modo base de datos. Clave renombrada `dialog.preferences.db_location` → `dialog.preferences.storage_location` (sin ruta horneada).
+
+### Fix: coherencia de interfaz — i18n y placeholders (2026-06-14)
+
+Auditoría de la UI buscando disonancias (strings hardcodeados, placeholders mal asignados, mezcla de idiomas):
+
+- **Filtro de carpetas del sidebar**: usaba por error el placeholder del buscador de notas (`app.search.placeholder`, *"prueba tag:java modified:last-week"*), que anunciaba operadores de búsqueda que no aplican a un filtro de nombres de carpeta. Nueva clave `tab.folders.filter` ("Filtrar carpetas…"), coherente con los otros filtros del sidebar.
+- **Command Palette y Quick Switcher**: textos en inglés hardcodeados (placeholders y pistas de teclado) migrados a i18n (`palette.*`, `switcher.*`) en los tres bundles.
+- **Diálogo "Acerca de"**: la versión estaba horneada en la cadena traducible (`about.app_name=Jylos v2.0.0`) y duplicaba la etiqueta de versión. Ahora `about.app_name=Jylos` y la versión sale de fuente única (`AppConfig`) vía `about.version=Version {0}`.
+- **Verificado (sin cambios necesarios)**: las 674 claves i18n tienen paridad en los 3 bundles, los 118 handlers de FXML existen, todas las `%clave` resuelven, y los operadores de búsqueda anunciados en el tooltip están todos implementados.
+- Eliminado un fichero basura `sh` (0 bytes) de la raíz del repo.
+
+### Fix: arranque instantáneo en vaults grandes / iCloud — carga de contenido en segundo plano (2026-06-14)
+
+El arranque se quedaba colgado varios minutos con un vault Markdown en iCloud. Causa (preexistente, no introducida por los cambios recientes; verificado por `git diff`): el constructor de `NoteDAOFileSystem` hacía `refreshCache()`, que lee una cabecera de 16 KB de **cada** fichero del vault en el hilo de init. En iCloud con "Optimizar almacenamiento", leer cualquier byte de un fichero desalojado fuerza su descarga completa → el barrido entero bloqueaba el arranque.
+
+- **Carga diferida (filesystem)**: el arranque construye una caché **solo de metadatos** (título desde el nombre de fichero + timestamps; sin leer contenido → sin descargas), así que la lista de notas aparece al instante y la app es usable de inmediato. El contenido, tags y enlaces se cargan en un **hilo daemon en segundo plano** con un pool acotado (≤32, I/O-bound), **sin retener el lock global** — una operación de la UI (abrir nota, pulsar carpeta) durante la carga no se bloquea.
+- **Refresco al terminar**: el DAO notifica vía `setOnContentLoaded` (nuevo en la interfaz `NoteDAO`, no-op por defecto); `MainController` repinta lista + tags y emite `NotesRefreshRequestedEvent` (sidebar, grafo, índices) en el hilo FX.
+- **Sin cambio de comportamiento donde importa**: el constructor de un argumento sigue cargando **síncrono y completo** (back-compat para tests y llamadas que necesitan la caché poblada al volver). Solo `FactoryDAOFileSystem` (única construcción en prod) activa el modo diferido. SQLite no se ve afectado (default no-op).
+- **Mejora de concurrencia**: el barrido de contenido usa un pool dedicado y dimensionado para I/O en lugar del `ForkJoinPool` común (que el `.parallel()` saturaba con descargas bloqueantes).
+- **Espacio en disco**: se eliminó un `app.log` obsoleto de 2 GB (resto de la tormenta de `SEVERE` previa) que tenía el disco al 99% y hacía fallar incluso las escrituras.
+- **Tests:** `NoteDAOFileSystemTest` +1 (modo diferido: la nota es listable por título de inmediato y el contenido/enlaces aparecen tras `awaitContentLoaded`). 203/203 tests verdes.
+
+### Fix: rendimiento de backlinks en vaults grandes / iCloud — sin tormenta de timeouts (2026-06-14)
+
+En vaults Markdown alojados en iCloud con "Optimizar almacenamiento del Mac", leer **cualquier** byte de un fichero desalojado fuerza su descarga **completa** bajo demanda y bloquea hasta terminar (`java.io.IOException: Operation timed out`). El índice de backlinks releía el **contenido completo de cada nota** (un segundo `getNoteById` por nota, además de la cabecera ya leída al arrancar), provocando lentitud extrema y una avalancha de logs `SEVERE` con stack trace.
+
+- **Sin segunda lectura por nota**: el DAO de filesystem extrae los enlaces salientes (`[[wiki]]` / `[label](note)`, misma semántica que `WikiLinkResolver`) **en el momento de leer** la nota y los cachea en `Note.linkTargets` (campo transitorio). `BacklinkService.ensureIndexed` reutiliza esos targets y **no hace I/O propio**. Se conserva el caché forward/inverse validado por `modified`.
+- **Cobertura documentada**: en notas listadas (lectura *lightweight*) los targets cubren la cabecera indexada (~16 KB); una nota abierta o guardada (lectura completa) cubre todo el cuerpo. Es un trade-off deliberado para no releer cada fichero. `Note.setContent(...)` invalida el caché de targets, de modo que una edición en memoria fuerza re-derivación.
+- **Modo SQLite intacto**: si una nota no trae targets precomputados, `BacklinkService` los deriva **en memoria** desde su contenido (sin lectura de fichero). El DAO SQLite ya carga el cuerpo completo, así que la cobertura es total.
+- **Menos ruido de log (Task 3)**: un fallo de lectura en `NoteDAOFileSystem.getNoteById` pasa de `SEVERE` con stack trace a `WARNING` con mensaje (la nota se omite y el llamante maneja el `null`), evitando que un disco lento/offline o un fichero iCloud desalojado inunde el log.
+- **Tests:** `NoteDAOFileSystemTest` +2 (lectura completa y *lightweight* pre-indexan los enlaces salientes). 202/202 tests verdes.
+
+### Feat: Workspaces — guardar y restaurar contextos de trabajo (2026-06-13)
+
+Permite guardar el estado de trabajo actual con un nombre y restaurarlo después (estilo VS Code/Obsidian, pero simple). Funciona en SQLite y vault Markdown; se persiste en la config local de Jylos, nunca dentro de las notas.
+
+- **Acceso**: `File → Workspaces` (Save Current / Save As… / Open… / Manage…) y command palette (`Workspace:`). Borrado desde *Manage*.
+- **Qué guarda**: nombre + id + timestamps, **tabs abiertas** (ids, en orden) y **nota activa**, **modo de vista** (editor/split/preview), y **layout básico** (focus mode, sidebar visible, posiciones de los dos split panes) + modo de almacenamiento (para avisar de discrepancias).
+- **Robustez**: restaurar es **aditivo** (reabre las notas del workspace y activa la guardada; no cierra tus tabs actuales → sin pérdida de trabajo). Notas inexistentes → se omiten con aviso no bloqueante. Discrepancia de almacenamiento → aviso. Workspace vacío permitido. Líneas corruptas en el fichero → se ignoran sin romper.
+- **Arquitectura nueva** (paquete `workspace`): `Workspace` (record + `serialize()`/`parse()` con separadores de control, sin dependencia JSON), `WorkspaceRepository` (fichero `<appData>/data/workspaces.dat`, una línea por workspace), `WorkspaceService` (list/save/update/delete, upsert por nombre). UI en `ui/controller/WorkspaceController`; captura/restauración del estado vivo en `MainController` (`captureLiveWorkspace`/`applyWorkspace`). `EditorTabs.getOpenIds()` nuevo.
+- **Fuera de v1** (documentado): filtros del grafo y selección/expansión del árbol de carpetas no se persisten todavía.
+- **i18n** EN/ES con paridad (`workspace.*`, `menu.workspaces`, `action.workspace_*`).
+- **Tests**: `WorkspaceServiceTest` (8) — round-trip de serialización, líneas corruptas, save/load, overwrite por nombre conservando id, update por id, delete, y resiliencia ante línea corrupta.
+
+### Fix: GitService ahora fuerza locale C en los subprocesos git (2026-06-13)
+
+`GitService` clasificaba el resultado de git buscando frases en inglés ("nothing to commit", "conflict", "rejected"…), pero en sistemas con locale no inglés git responde traducido (p. ej. "nada para hacer commit"), devolviendo `ERROR` en casos como *nothing to commit*. Ahora cada invocación fija `LC_ALL=C`/`LANG=C`, de modo que los mensajes son estables en inglés y la clasificación funciona en cualquier idioma del sistema.
+
+### Feat: búsqueda avanzada con operadores (2026-06-13)
+
+Mejora incremental sobre la búsqueda full-text existente: si escribes texto normal funciona igual que siempre; si usas operadores, se aplican filtros (AND). Funciona en SQLite y vault Markdown, fuera del hilo de UI.
+
+- **Operadores** (estilo Gmail/Obsidian): texto libre, `"frases exactas"`, `tag:`, `folder:`, `title:`, `body:`, `created:`, `modified:`, `favorite:true|false`, `private:`/`encrypted:`, `has:tag|links|backlinks`, `is:orphan`, y negación con prefijo `-` (`-tag:archive`). Fechas: `today`, `yesterday`, `last-week`, `last-month`, `YYYY`, `YYYY-MM`, `YYYY-MM-DD`.
+- **Parser robusto y predecible** (`SearchQueryParser`): respeta comillas, tolera espacios extra, **nunca lanza excepción**. Operador desconocido → se busca como texto literal con aviso; valor inválido (fecha/booleano/`has`/`is`) → se descarta con aviso y el resto de la consulta sigue.
+- **Arquitectura nueva** (paquete `search`): `SearchQueryParser`, `SearchQuery`, `SearchFilter`, `SearchResult`, `AdvancedSearchService`, `SearchDates`. El servicio reutiliza `TagService` y `GraphAnalysisService` (orphan/links/backlinks) — **sin segunda lógica de resolución de enlaces**. Metadata cara computada perezosamente y solo cuando la consulta la usa; degradación a "no match" si no está disponible, sin romper.
+- **Integración no invasiva**: `NotesListController.performSearch` delega en `AdvancedSearchService` reutilizando el caché de contenido completo; el render de resultados (lista actual) no cambia. Si el servicio no está disponible, cae al filtrado simple anterior.
+- **UI**: placeholder con ejemplo (`Search notes… try tag:java modified:last-week`) y tooltip «Search syntax» en la caja de búsqueda. i18n EN/ES con paridad.
+- **Tests:** `SearchQueryParserTest` (13) y `AdvancedSearchServiceTest` (8) — texto libre, frases, tag/folder/title/body, negación, fechas, combinación AND y consultas inválidas. 192/192 tests verdes.
+- **Doc:** nuevo `doc/SEARCH.md` con la sección "Advanced Search Syntax".
+
+### Feat: Graph 2.0 + Knowledge Insights (2026-06-13)
+
+Convierte el grafo de conocimiento en una herramienta analítica, sin lógica de enlaces paralela: todo reutiliza `GraphBuilder` + `WikiLinkResolver`. Funciona en SQLite y vault Markdown.
+
+- **Panel «Knowledge Insights»** (`View → Knowledge Insights`, atajo `Ctrl/Cmd+Shift+K`, y command palette): diálogo tabulado de solo lectura con resumen (notas, enlaces, backlinks, tags, media de enlaces/nota), **notas más conectadas** (top 10), **notas huérfanas**, **enlaces rotos**, **notas sin tags** y **uso de tags**. Filas clicables (doble clic abre la nota; en un enlace roto abre la nota origen). El cómputo corre fuera del hilo de JavaFX.
+- **Graph health score** (`KnowledgeInsightsService.healthScore`): puntuación simple y explicable 0–100 — parte de 100, resta hasta 40 por proporción de huérfanas, hasta 20 por sin-tags y 5 por enlace roto (tope 25), con el desglose visible. Orientativo, no absoluto.
+- **Filtros del grafo** en el panel de ajustes: **filtrar por texto**, **por tag** y **por carpeta**, además de los toggles existentes de huérfanas/no resueltas/tags. El filtrado re-renderiza desde el `GraphData` ya construido (cacheado) — **sin reconstrucción pesada del modelo**.
+- **Arquitectura nueva** (paquete `insights`): `GraphAnalysisService` (análisis estructural puro y testeable vía `analyze(GraphData)`), `KnowledgeInsightsService`, y DTOs `KnowledgeHealthReport` / `NoteConnectivityInfo` / `BrokenLinkInfo`. UI en `ui/components/KnowledgeInsightsPanel`; filtros en `GraphController`.
+- **Definiciones** documentadas: *enlace resuelto* (ambos extremos existen), *enlace roto* (a nota inexistente / nodo ghost), *huérfana* (sin enlaces resueltos). 
+- **i18n** EN/ES con paridad (`insights.*`, `graph.filter_*`, `action.knowledge_insights`) y CSS del panel en ambos temas. Acción `KNOWLEDGE_INSIGHTS` + comando `cmd.knowledge_insights`.
+- **Tests:** nuevo `KnowledgeInsightsTest` (6 casos: huérfanas, enlaces rotos, ranking de conectividad, health score con clamp/tope y vault vacío). 171/171 tests verdes.
+- **Doc:** nuevo `doc/GRAPH.md`.
+
+### Feat: panel «Git Sync» de primera clase para vaults Markdown (2026-06-13)
+
+Filosofía: *tus notas, tu repositorio, tu control*. Sin sincronización en la nube, sin backend, sin cuentas — solo Git, gestionado visualmente. Disponible **solo en modo Markdown vault** (no afecta a SQLite).
+
+- **Nuevo panel consolidado** (`ui/components/GitSyncPanel.java`): una única ventana estilo IDE con estado del repositorio (rama, remoto, ↑adelante/↓atrás), lista unificada de cambios con prefijos `M / A / D / ?? / UU`, campo de mensaje de commit, registro de actividad y todas las operaciones seguras: *Refresh, Stage All, Unstage All, Commit, Pull, Push, Sync*. Toggle de stage/unstage por archivo en cada fila.
+- **Acceso:** menú `Tools → Git → Panel de Git Sync…` (atajo `Ctrl/Cmd+Shift+G`) y command palette (`Git: Sync Panel`). Se abre vía `GIT_PANEL` (`SystemActionEvent`) → `GitController.showSyncPanel()`.
+- **Conflictos:** `GitService.listChanges` ahora detecta rutas sin fusionar (códigos `DD/AU/UD/UA/DU/AA/UU`), las marca como `conflicted`, **nunca** como staged, y el panel muestra un aviso para resolución manual. No se auto-resuelve ningún conflicto y no se hace force push jamás.
+- **`GitService` extendido** (reutilizado, no duplicado): `stageAll` (`git add -A`), `unstageAll` (`git reset -q`) y detección de conflictos. Se conservan `GitStatus`/`GitChange`/`GitResult` existentes.
+- **No bloquea la UI:** toda operación corre en un `Task` daemon fuera del hilo de JavaFX; mientras tanto los botones se deshabilitan y se muestra una barra de progreso indeterminada. Errores claros para Git ausente, sin repo, sin remoto, conflicto en pull, push rechazado y fallo de credenciales.
+- **i18n** EN/ES con paridad de claves (`git.panel.*`, `action.git_panel`) y CSS en ambos temas (`.git-change-badge`, `.git-conflict-banner`, `.git-primary-btn`, `.git-log-area`…).
+- **Tests:** `GitServiceTest` amplía a 8 casos — round-trip de `stageAll`/`unstageAll` y detección de un conflicto de merge real. 165/165 tests verdes.
+- **Doc:** nuevo `doc/GIT.md`.
 
 ## [2.0.0] - 2026-06-13
 

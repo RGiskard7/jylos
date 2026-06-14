@@ -103,7 +103,8 @@ public final class KanbanModel {
         return content != null && content.stripLeading().startsWith(MARKER);
     }
 
-    /** Parses board Markdown into columns/cards. Lines before the first heading are ignored. */
+    /** Parses board Markdown into columns/cards. Lines before the first heading are ignored.
+     *  Multi-line cards are stored with continuation lines indented by two or more spaces. */
     public static KanbanModel parse(String content) {
         KanbanModel model = new KanbanModel();
         if (content == null) {
@@ -111,17 +112,24 @@ public final class KanbanModel {
         }
         Column current = null;
         for (String raw : content.split("\n", -1)) {
-            String line = raw.strip();
-            if (line.isEmpty() || line.equals(MARKER)) {
+            String line = raw.stripTrailing();
+            if (line.isBlank() || line.strip().equals(MARKER)) {
                 continue;
             }
-            Matcher h = HEADING.matcher(line);
+            Matcher h = HEADING.matcher(line.strip());
             if (h.matches()) {
                 current = parseColumnHeading(h.group(1).strip());
                 model.columns.add(current);
                 continue;
             }
-            Matcher c = CARD.matcher(line);
+            // Continuation line: indented by ≥2 spaces and belongs to the last card
+            if (current != null && !current.cards.isEmpty() && raw.startsWith("  ")) {
+                String continuation = raw.stripLeading();
+                int last = current.cards.size() - 1;
+                current.cards.set(last, current.cards.get(last) + "\n" + continuation);
+                continue;
+            }
+            Matcher c = CARD.matcher(line.strip());
             if (c.matches() && current != null) {
                 current.cards.add(c.group(1).strip());
             }
@@ -156,7 +164,9 @@ public final class KanbanModel {
         return column;
     }
 
-    /** Serialises the board back to Markdown, including the hidden marker. */
+    /** Serialises the board back to Markdown, including the hidden marker.
+     *  Multi-line card text is written as a CommonMark list item with 2-space-indented
+     *  continuation lines so the format round-trips cleanly through {@link #parse}. */
     public String toMarkdown() {
         StringBuilder sb = new StringBuilder();
         sb.append(MARKER).append("\n\n");
@@ -170,7 +180,11 @@ public final class KanbanModel {
             }
             sb.append('\n');
             for (String card : col.cards) {
-                sb.append("- ").append(card).append('\n');
+                String[] lines = card.split("\n", -1);
+                sb.append("- ").append(lines[0]).append('\n');
+                for (int i = 1; i < lines.length; i++) {
+                    sb.append("  ").append(lines[i]).append('\n');
+                }
             }
             sb.append('\n');
         }

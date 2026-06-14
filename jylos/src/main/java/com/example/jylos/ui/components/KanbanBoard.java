@@ -15,13 +15,16 @@ import com.example.jylos.util.KanbanModel;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContextMenu;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
@@ -560,9 +563,44 @@ public final class KanbanBoard extends VBox {
     // ------------------------------------------------------------------
 
     private String prompt(String title, String header, String initial) {
-        TextInputDialog dialog = new TextInputDialog(initial != null ? initial : "");
+        Dialog<String> dialog = new Dialog<>();
         dialog.setTitle(title);
         dialog.setHeaderText(header);
+
+        ButtonType ok = new ButtonType(str("action.save", "Save"), ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancel = new ButtonType(str("action.cancel", "Cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
+        dialog.getDialogPane().getButtonTypes().addAll(ok, cancel);
+
+        TextArea area = new TextArea(initial != null ? initial : "");
+        area.setWrapText(true);
+        area.setPrefRowCount(7);
+        area.setPrefWidth(420);
+        area.setPromptText(str("kanban.card_placeholder",
+                "Card text… supports lists (- item), checkboxes (- [ ] task), wiki-links ([[Note]])"));
+        // Tab inserts 2 spaces instead of moving focus, so indented lists work
+        area.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == javafx.scene.input.KeyCode.TAB) {
+                int pos = area.getCaretPosition();
+                area.insertText(pos, "  ");
+                e.consume();
+            }
+        });
+
+        VBox content = new VBox(6,
+                new Label(str("kanban.card_hint",
+                        "Markdown supported: - list, - [ ] checkbox, **bold**, [[link]]")),
+                area);
+        content.setPadding(new Insets(12, 16, 4, 16));
+        dialog.getDialogPane().setContent(content);
+
+        // focus the textarea when the dialog opens
+        dialog.setOnShown(e -> {
+            area.requestFocus();
+            area.positionCaret(area.getLength());
+        });
+
+        dialog.setResultConverter(bt -> bt == ok ? area.getText() : null);
+
         return com.example.jylos.ui.UiDialogs.show(dialog).orElse(null);
     }
 

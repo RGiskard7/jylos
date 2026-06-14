@@ -11,8 +11,10 @@ Set-StrictMode -Version Latest
 $root = Split-Path -Parent $PSScriptRoot
 Push-Location (Join-Path $root 'jylos')
 
-$jar = Join-Path (Get-Location) 'target\jylos-2.0.0-uber.jar'
-if (Test-Path $jar) {
+# Discover the uber jar by glob so the script never couples to a hardcoded version.
+$jar = Get-ChildItem -Path (Join-Path (Get-Location) 'target') -Filter 'jylos-*-uber.jar' -ErrorAction SilentlyContinue |
+    Select-Object -First 1 -ExpandProperty FullName
+if ($jar -and (Test-Path $jar)) {
     Write-Host "Launching Jylos..." -ForegroundColor Green
     Write-Host "JAR: $jar" -ForegroundColor Cyan
     

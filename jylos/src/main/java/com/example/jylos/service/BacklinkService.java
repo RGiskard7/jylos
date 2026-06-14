@@ -8,10 +8,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
@@ -21,10 +19,10 @@ import com.example.jylos.util.WikiLinkResolver;
  * Computes <em>backlinks</em>: the notes whose content links to a given note
  * (via {@code [[wiki-links]]} or {@code [label](note)} internal links).
  *
- * <p>Uses the same link-extraction semantics as the Markdown preview and the
- * graph ({@link WikiLinkResolver#extractLinkTargets(String)}). Each note's link
- * targets are read from its <em>full</em> content (the list/{@code getAllNotes}
- * body is truncated, so links deep in long notes would otherwise be missed).</p>
+ * <p>Uses the link targets the data layer already extracted when each note was read
+ * ({@link Note#getLinkTargets()}, computed with the same
+ * {@code WikiLinkResolver} semantics as the Markdown preview and the graph). The
+ * index therefore performs <em>no</em> file I/O of its own.</p>
  *
  * <h3>Index (perf P2)</h3>
  * <p>The service keeps two warm maps:</p>
@@ -37,16 +35,20 @@ import com.example.jylos.util.WikiLinkResolver;
  * </ul>
  *
  * <p>Note events invalidate only the affected note's forward entry (a cheap,
- * FX-thread-safe operation); the (potentially expensive) full-content read happens
- * lazily inside {@link #backlinksFor(Note)}, which its callers already run off the
- * JavaFX thread.</p>
+ * FX-thread-safe operation); re-indexing then reuses the targets carried by the
+ * refreshed {@link Note}.</p>
+ *
+ * <h3>Coverage on large vaults</h3>
+ * <p>For notes loaded via the list (lightweight read), targets cover the indexed
+ * content head (~16&nbsp;KB) rather than the entire file; a note opened or saved
+ * (full read) carries whole-body targets. This trades exhaustive link discovery in
+ * very long notes for not re-reading every file — a deliberate choice that avoids
+ * blocking on on-demand downloads of cloud-backed (e.g. iCloud-offloaded) files.</p>
  *
  * @author Edu Díaz (RGiskard7)
  * @since 1.6.0
  */
 public class BacklinkService {
-
-    private static final Logger logger = LoggerConfig.getLogger(BacklinkService.class);
 
     private final NoteService noteService;
 
@@ -111,7 +113,12 @@ public class BacklinkService {
 
     /**
      * Indexes a single note's outgoing targets if missing or stale, updating both the
-     * forward and inverse maps. Reads full content only when needed.
+     * forward and inverse maps.
+     *
+     * <p>Uses the link targets the DAO already extracted when the note was read
+     * ({@link Note#getLinkTargets()}); it performs <em>no</em> file I/O. This keeps the
+     * backlink index cheap even on large or cloud-backed vaults, where reading every
+     * note's full content again would block on per-file on-demand downloads.</p>
      */
     private void ensureIndexed(Note note) {
         String id = note.getId();
@@ -120,16 +127,14 @@ public class BacklinkService {
         if (cached != null && Objects.equals(cached.modified(), modified)) {
             return;
         }
-        String content = note.getContent();
-        try {
-            Note full = noteService.getNoteById(id).orElse(null);
-            if (full != null && full.getContent() != null) {
-                content = full.getContent();
-            }
-        } catch (Exception e) {
-            logger.fine("Backlinks: could not read full content for " + id + ": " + e.getMessage());
+        // Prefer the targets the DAO already extracted at read time (no I/O). If a note
+        // carries none (e.g. the SQLite DAO, which loads full content but does not
+        // pre-index links), derive them in-memory from its content — still no file read.
+        List<String> raw = note.getLinkTargets();
+        if (raw == null) {
+            raw = WikiLinkResolver.extractLinkTargets(note.getContent() == null ? "" : note.getContent());
         }
-        Set<String> targets = WikiLinkResolver.extractLinkTargets(content == null ? "" : content).stream()
+        Set<String> targets = raw.stream()
                 .map(BacklinkService::normalize)
                 .collect(Collectors.toCollection(HashSet::new));
 

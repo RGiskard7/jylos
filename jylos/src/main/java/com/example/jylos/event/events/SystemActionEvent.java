@@ -81,6 +81,7 @@ public class SystemActionEvent extends AppEvent {
         NAVIGATE_BACK,
         NAVIGATE_FORWARD,
         GRAPH_VIEW,
+        KNOWLEDGE_INSIGHTS,
         FOCUS_MODE,
         KANBAN_VIEW,
         PRIVATE_TOGGLE,
@@ -90,6 +91,7 @@ public class SystemActionEvent extends AppEvent {
         NOTE_HISTORY,
         CLOSE_NOTE,
         QUICK_SWITCHER,
+        GIT_PANEL,
         GIT_SYNC,
         GIT_COMMIT_PUSH,
         GIT_PULL,
@@ -97,7 +99,11 @@ public class SystemActionEvent extends AppEvent {
         GIT_ADD_REMOTE,
         DAILY_NOTE,
         NEW_FROM_TEMPLATE,
-        EXPORT_VAULT
+        EXPORT_VAULT,
+        WORKSPACE_SAVE,
+        WORKSPACE_SAVE_AS,
+        WORKSPACE_OPEN,
+        WORKSPACE_MANAGE
     }
 
     private final ActionType actionType;

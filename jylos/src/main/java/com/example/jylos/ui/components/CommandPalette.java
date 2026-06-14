@@ -6,6 +6,9 @@ import java.util.function.Consumer;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
+import java.util.ResourceBundle;
+
+import com.example.jylos.config.AppContext;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.util.FuzzySearchUtils;
 
@@ -59,6 +62,16 @@ public class CommandPalette {
     public CommandPalette(Stage parentStage) {
         this.parentStage = parentStage;
         initializeDefaultCommands();
+    }
+
+    /** Resolves an i18n string, falling back to the key if the bundle is unavailable. */
+    private String i18n(String key) {
+        try {
+            ResourceBundle bundle = AppContext.isInitialized() ? AppContext.getBundle() : null;
+            return bundle != null ? bundle.getString(key) : key;
+        } catch (Exception e) {
+            return key;
+        }
     }
     
     /**
@@ -199,6 +212,20 @@ public class CommandPalette {
                 new Command("cmd.toggle_sidebar", "Toggle Sidebar", "Show/hide sidebar", "F9", "|", "View", null));
         commands.add(new Command("cmd.graph_view", "Graph View",
                 "Open the knowledge graph", "Ctrl+G", "\u2b21", "View", null));
+        commands.add(new Command("cmd.knowledge_insights", "Knowledge Insights",
+                "Analyze orphans, broken links, connections, tags and graph health",
+                "Ctrl+Shift+K", "\u2261", "View", null));
+        commands.add(new Command("cmd.workspace_save", "Workspace: Save Current",
+                "Save the current tabs and layout to the active workspace", null, "\u25a3", "Workspace", null));
+        commands.add(new Command("cmd.workspace_save_as", "Workspace: Save As\u2026",
+                "Save the current tabs and layout under a new name", null, "\u25a3", "Workspace", null));
+        commands.add(new Command("cmd.workspace_open", "Workspace: Open\u2026",
+                "Open a saved workspace", null, "\u25a4", "Workspace", null));
+        commands.add(new Command("cmd.workspace_manage", "Workspace: Manage\u2026",
+                "Open or delete saved workspaces", null, "\u25a4", "Workspace", null));
+        commands.add(new Command("cmd.git_panel", "Git: Sync Panel",
+                "Open the Git Sync panel (status, changes, commit, pull & push)", "Ctrl+Shift+G",
+                "\u2387", "Git", null));
         commands.add(new Command("cmd.git_sync", "Git: Synchronize",
                 "Commit, pull and push the vault", "Ctrl+Shift+S", "\u21bb", "Git", null));
         commands.add(new Command("cmd.git_commit_push", "Git: Commit & Push",
@@ -368,7 +395,7 @@ public class CommandPalette {
         
         // Search field
         searchField = new TextField();
-        searchField.setPromptText("Type a command...");
+        searchField.setPromptText(i18n("palette.search_placeholder"));
         searchField.setStyle(String.format(
             "-fx-background-color: transparent; " +
             "-fx-text-fill: %s; " +
@@ -380,7 +407,7 @@ public class CommandPalette {
         HBox.setHgrow(searchField, Priority.ALWAYS);
         
         // Shortcut hint
-        Label shortcutHint = new Label("ESC to close");
+        Label shortcutHint = new Label(i18n("palette.hint.close"));
         shortcutHint.setStyle(String.format(
             "-fx-font-size: 11px; " +
             "-fx-text-fill: %s;",
@@ -418,9 +445,9 @@ public class CommandPalette {
             searchBg, border
         ));
         
-        Label navHint = new Label("Arrow keys to navigate");
+        Label navHint = new Label(i18n("palette.hint.navigate"));
         navHint.setStyle(String.format("-fx-font-size: 11px; -fx-text-fill: %s;", mutedColor));
-        Label selectHint = new Label("Enter to select");
+        Label selectHint = new Label(i18n("palette.hint.select"));
         selectHint.setStyle(String.format("-fx-font-size: 11px; -fx-text-fill: %s;", mutedColor));
         footer.getChildren().addAll(navHint, selectHint);
         
@@ -451,6 +478,7 @@ public class CommandPalette {
         setupEventHandlers();
     }
 
+    /** Resizes and repositions the palette stage to overlay the parent stage, enforcing minimum 900×600 dimensions. */
     private void syncWithParentStageBounds() {
         if (parentStage == null) {
             return;
@@ -568,6 +596,7 @@ public class CommandPalette {
         });
     }
     
+    /** Routes ESCAPE, ENTER, UP and DOWN key events to their respective palette actions; all other keys are left unhandled. */
     private void handleKeyPress(KeyEvent event) {
         switch (event.getCode()) {
             case ESCAPE:
@@ -591,6 +620,7 @@ public class CommandPalette {
         }
     }
     
+    /** Filters the command list against {@code query} using fuzzy scoring across name, description and category; resets to full list when blank. */
     private void filterCommands(String query) {
         if (query == null || query.trim().isEmpty()) {
             commandListView.getItems().setAll(commands);
@@ -618,6 +648,7 @@ public class CommandPalette {
         }
     }
     
+    /** Moves the list selection one row up, scrolling the list to keep the selected item visible. */
     private void navigateUp() {
         int idx = commandListView.getSelectionModel().getSelectedIndex();
         if (idx > 0) {
@@ -626,6 +657,7 @@ public class CommandPalette {
         }
     }
     
+    /** Moves the list selection one row down, scrolling the list to keep the selected item visible. */
     private void navigateDown() {
         int idx = commandListView.getSelectionModel().getSelectedIndex();
         if (idx < commandListView.getItems().size() - 1) {
@@ -634,6 +666,7 @@ public class CommandPalette {
         }
     }
     
+    /** Hides the palette, then executes the currently selected command on the next FX pulse via {@link Platform#runLater}. */
     private void executeSelectedCommand() {
         Command selected = commandListView.getSelectionModel().getSelectedItem();
         if (selected != null) {
@@ -649,6 +682,7 @@ public class CommandPalette {
         }
     }
     
+    /** Plays a 150 ms fade-in + scale-up entrance animation on the main container. */
     private void animateEntrance() {
         VBox container = (VBox) ((StackPane) paletteStage.getScene().getRoot()).getChildren().get(0);
         
@@ -666,6 +700,7 @@ public class CommandPalette {
         scale.play();
     }
     
+    /** Plays a 100 ms fade-out animation, then invokes {@code onFinished} to hide or close the stage. */
     private void animateExit(Runnable onFinished) {
         VBox container = (VBox) ((StackPane) paletteStage.getScene().getRoot()).getChildren().get(0);
         

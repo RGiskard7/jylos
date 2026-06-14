@@ -59,8 +59,24 @@ class UiDialog {
         this.controller = controller;
     }
 
+    /** Delegates i18n string resolution to the host {@link MainController}. */
     private String i18n(String key) {
         return controller.getString(key);
+    }
+
+    /**
+     * The actual storage location to display in preferences: the vault folder in
+     * filesystem mode, or the SQLite database file otherwise. Replaces a hardcoded path
+     * that did not reflect the real (and configurable) location.
+     */
+    private String currentStorageLocation() {
+        Preferences prefs = Preferences.userNodeForPackage(MainController.class);
+        String type = prefs.get("storage_type", System.getProperty("jylos.storage", "sqlite"));
+        if ("filesystem".equalsIgnoreCase(type)) {
+            String path = prefs.get("filesystem_path", "");
+            return path.isBlank() ? i18n("storage.vault") : path;
+        }
+        return new File(com.example.jylos.AppDataDirectory.getDataDirectory(), "database.db").getAbsolutePath();
     }
 
     record PreferencesDialogResult(
@@ -87,8 +103,8 @@ class UiDialog {
         VBox content = new VBox(15);
         content.setPadding(new Insets(20));
 
-        Label dbLabel = new Label(i18n("dialog.preferences.db_location"));
-        Label dbPathLabel = new Label("jylos/data/database.db");
+        Label dbLabel = new Label(i18n("dialog.preferences.storage_location"));
+        Label dbPathLabel = new Label(currentStorageLocation());
         dbPathLabel.setStyle("-fx-text-fill: gray;");
 
         CheckBox autosaveEnabledCheck = new CheckBox(i18n("dialog.preferences.autosave_enabled"));
@@ -280,7 +296,7 @@ class UiDialog {
         Label titleLabel = new Label(i18n("about.app_name"));
         titleLabel.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
 
-        Label versionLabel = new Label("Version " + AppConfig.getAppVersion());
+        Label versionLabel = new Label(MessageFormat.format(i18n("about.version"), AppConfig.getAppVersion()));
         versionLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: gray;");
 
         Label descLabel = new Label(AppConfig.getAppDescription());
@@ -365,6 +381,7 @@ class AppSettings {
         this.controller = controller;
     }
 
+    /** Delegates i18n string resolution to the host {@link MainController}. */
     private String i18n(String key) {
         return controller.getString(key);
     }
@@ -542,6 +559,7 @@ class TagManagement {
         this.controller = controller;
     }
 
+    /** Delegates i18n string resolution to the host {@link MainController}. */
     private String i18n(String key) {
         return controller.getString(key);
     }

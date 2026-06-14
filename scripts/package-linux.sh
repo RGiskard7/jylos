@@ -27,7 +27,7 @@ read_property() {
 
 # Read application metadata from app.properties
 APP_NAME=$(read_property "app.name" "Jylos")
-APP_VERSION=$(read_property "app.version" "2.0.0")
+APP_VERSION=$(read_property "app.version" "2.1.0")
 APP_VENDOR=$(read_property "app.vendor" "Jylos")
 APP_DESCRIPTION=$(read_property "app.description" "A free and open-source note-taking application")
 APP_COPYRIGHT=$(read_property "app.copyright" "Copyright 2025 Jylos")
@@ -114,8 +114,13 @@ mkdir -p "$OUTPUT_DIR"
 
 # Create a temporary input directory with JAR and optionally plugins
 TEMP_INPUT_DIR=$(mktemp -d -t Jylos-jpackage-input-XXXXXX)
-JAR_PATH="target/jylos-${APP_VERSION}-uber.jar"
-cp "$JAR_PATH" "$TEMP_INPUT_DIR/"
+JAR_FILE=$(ls "target/jylos-"*"-uber.jar" 2>/dev/null | head -n1)
+if [ -z "$JAR_FILE" ]; then
+    echo "Error: uber-JAR not found in target/. Run 'mvn package' first."
+    exit 1
+fi
+JAR_NAME=$(basename "$JAR_FILE")
+cp "$JAR_FILE" "$TEMP_INPUT_DIR/"
 
 # Include plugins if available (for --app-content)
 SOURCE_PLUGINS_DIR="$JYLOS_DIR/plugins"
@@ -134,7 +139,7 @@ echo ""
 JPACKAGE_CMD="jpackage \
     --input \"$TEMP_INPUT_DIR\" \
     --name \"$APP_NAME\" \
-    --main-jar jylos-${APP_VERSION}-uber.jar \
+    --main-jar \"$JAR_NAME\" \
     --main-class com.example.jylos.Launcher \
     --type \"$PACKAGE_TYPE\" \
     --dest \"$OUTPUT_DIR\" \

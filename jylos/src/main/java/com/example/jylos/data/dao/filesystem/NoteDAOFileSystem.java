@@ -15,6 +15,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
@@ -27,6 +31,7 @@ import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.exceptions.DataAccessException;
 import com.example.jylos.exceptions.InvalidParameterException;
+import com.example.jylos.util.WikiLinkResolver;
 
 /**
  * File System implementation of NoteDAO.
@@ -54,7 +59,32 @@ public class NoteDAOFileSystem implements NoteDAO {
     private volatile long lastPruneTimestampMs = 0L;
     private volatile boolean notesByFolderIndexDirty = true;
 
+    // Deferred (background) content-load coordination — see the two-arg constructor.
+    private final CountDownLatch contentLoadedLatch = new CountDownLatch(1);
+    private final Object contentLoadedLock = new Object();
+    private volatile boolean contentLoaded = false;
+    private Runnable onContentLoaded; // guarded by contentLoadedLock
+
+    /**
+     * Builds the DAO and loads note contents <em>synchronously</em> (original
+     * behavior: the cache is fully populated when the constructor returns).
+     */
     public NoteDAOFileSystem(String rootDirectory) {
+        this(rootDirectory, false);
+    }
+
+    /**
+     * @param rootDirectory   vault root
+     * @param deferContentLoad when {@code true}, the constructor builds only a fast
+     *        <em>metadata-only</em> cache (titles from filenames + filesystem
+     *        timestamps, <em>no</em> file contents read) and then loads contents,
+     *        tags and links on a background daemon thread, invoking the
+     *        {@link #setOnContentLoaded(Runnable)} callback when finished. This keeps
+     *        startup instant on large or cloud-backed vaults (e.g. iCloud-offloaded
+     *        files), where reading every file would block on on-demand downloads.
+     *        When {@code false}, contents load synchronously.
+     */
+    public NoteDAOFileSystem(String rootDirectory, boolean deferContentLoad) {
         this.rootPath = Paths.get(rootDirectory);
         if (!Files.exists(rootPath)) {
             try {
@@ -64,41 +94,169 @@ public class NoteDAOFileSystem implements NoteDAO {
                 throw new DataAccessException("Could not initialize file storage", e);
             }
         }
-        refreshCache();
+        if (deferContentLoad) {
+            refreshCacheMetadataOnly();
+            startBackgroundContentLoad();
+        } else {
+            refreshCache();
+            markContentLoaded();
+        }
     }
 
+    /**
+     * Full cache build: each entry is populated with contents/tags/links (reads a
+     * lightweight head of every file). On large or cloud-backed vaults this blocks on
+     * per-file I/O; the deferred constructor uses {@link #refreshCacheMetadataOnly()}
+     * instead.
+     */
     public void refreshCache() {
+        rebuildCache(this::createLightweightNote);
+    }
+
+    /**
+     * Fast cache build that reads only filesystem metadata (filename + timestamps),
+     * never file <em>contents</em>. Used by the deferred constructor so startup does
+     * not block on reading (and, on iCloud, downloading) every file.
+     */
+    private void refreshCacheMetadataOnly() {
+        rebuildCache(this::createMetadataNote);
+    }
+
+    /**
+     * Walks the vault and rebuilds {@code idToPathMap}/{@code cachedNotes}, building
+     * each note with {@code noteFactory}. The factory decides how much I/O happens per
+     * file (full head read vs metadata only) — that is the only difference between the
+     * full and metadata-only refreshes.
+     */
+    private void rebuildCache(java.util.function.BiFunction<String, Path, Note> noteFactory) {
         FileSystemIoLock.LOCK.lock();
         try {
-        idToPathMap.clear();
-        cachedNotes.clear();
-        try (Stream<Path> walk = Files.walk(rootPath)) {
-            // Using parallel stream for faster initial load of thousands of headers
-            walk.filter(Files::isRegularFile)
-                    // Markdown notes plus viewable attachments (PDF, images) so the vault
-                    // lists them alongside notes (Obsidian-style).
-                    .filter(p -> p.toString().endsWith(".md")
-                            || com.example.jylos.util.AttachmentType.isAttachment(p.getFileName().toString()))
-                    .filter(p -> !p.toString().contains(File.separator + ".")) // Exclude hidden files and folders
-                                                                               // (.trash, .git)
-                    .parallel()
-                    .forEach(path -> {
-                        String relativePath = normalizeId(rootPath.relativize(path).toString());
-                        idToPathMap.put(relativePath, path);
-                        // Accessing created note immediately creates race condition if not thread safe
-                        // NoteDAOFileSystem methods are synchronized or use concurrent maps
-                        Note note = createLightweightNote(relativePath, path);
-                        cachedNotes.put(relativePath, note);
-                    });
-        } catch (IOException e) {
-            logger.log(Level.SEVERE, "Failed to walk directory for cache refresh", e);
-        }
-        notesByFolderIndexDirty = true;
+            idToPathMap.clear();
+            cachedNotes.clear();
+            try (Stream<Path> walk = Files.walk(rootPath)) {
+                // Parallel walk for faster initial load of thousands of files.
+                walk.filter(Files::isRegularFile)
+                        // Markdown notes plus viewable attachments (PDF, images) so the vault
+                        // lists them alongside notes (Obsidian-style).
+                        .filter(p -> p.toString().endsWith(".md")
+                                || com.example.jylos.util.AttachmentType.isAttachment(p.getFileName().toString()))
+                        .filter(p -> !p.toString().contains(File.separator + ".")) // Exclude hidden (.trash, .git)
+                        .parallel()
+                        .forEach(path -> {
+                            String relativePath = normalizeId(rootPath.relativize(path).toString());
+                            idToPathMap.put(relativePath, path);
+                            // Maps are concurrent, so parallel population is safe.
+                            cachedNotes.put(relativePath, noteFactory.apply(relativePath, path));
+                        });
+            } catch (IOException e) {
+                logger.log(Level.SEVERE, "Failed to walk directory for cache refresh", e);
+            }
+            notesByFolderIndexDirty = true;
         } finally {
             FileSystemIoLock.LOCK.unlock();
         }
     }
 
+    /**
+     * Loads note contents/tags/links in the background (deferred mode), upgrading the
+     * metadata-only entries in place, then fires {@link #onContentLoaded}. Reads are
+     * parallelised over a small bounded pool (I/O-bound, dominated by per-file latency)
+     * and do <em>not</em> hold the global IO lock, so the UI stays responsive — a
+     * folder click or note open during loading is not blocked.
+     */
+    private void startBackgroundContentLoad() {
+        Thread loader = new Thread(() -> {
+            try {
+                List<Map.Entry<String, Path>> snapshot = new ArrayList<>(idToPathMap.entrySet());
+                int threads = Math.max(4, Math.min(32, Runtime.getRuntime().availableProcessors() * 4));
+                ExecutorService pool = Executors.newFixedThreadPool(threads, r -> {
+                    Thread t = new Thread(r, "vault-content-loader");
+                    t.setDaemon(true);
+                    return t;
+                });
+                try {
+                    for (Map.Entry<String, Path> entry : snapshot) {
+                        String id = entry.getKey();
+                        Path path = entry.getValue();
+                        pool.execute(() -> {
+                            try {
+                                Note enriched = createLightweightNote(id, path);
+                                // Only upgrade an entry that still exists (never resurrect a
+                                // note deleted while loading).
+                                cachedNotes.computeIfPresent(id, (k, old) -> enriched);
+                            } catch (RuntimeException ex) {
+                                logger.fine("Background content load skipped " + id + ": " + ex.getMessage());
+                            }
+                        });
+                    }
+                } finally {
+                    pool.shutdown();
+                    try {
+                        pool.awaitTermination(10, TimeUnit.MINUTES);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+                notesByFolderIndexDirty = true;
+                logger.info("Vault content load complete (" + snapshot.size() + " notes)");
+            } finally {
+                markContentLoaded();
+            }
+        }, "vault-content-loader-main");
+        loader.setDaemon(true);
+        loader.start();
+    }
+
+    /** Marks the content load finished, releasing waiters and running the callback once. */
+    private void markContentLoaded() {
+        Runnable cb;
+        synchronized (contentLoadedLock) {
+            contentLoaded = true;
+            cb = onContentLoaded;
+        }
+        contentLoadedLatch.countDown();
+        if (cb != null) {
+            runCallbackSafely(cb);
+        }
+    }
+
+    /** Invokes {@code cb} and swallows any {@link RuntimeException} so the caller's state is not corrupted. */
+    private void runCallbackSafely(Runnable cb) {
+        try {
+            cb.run();
+        } catch (RuntimeException e) {
+            logger.log(Level.WARNING, "onContentLoaded callback failed", e);
+        }
+    }
+
+    /** Registers (or replaces) the callback; runs it immediately if content is already loaded. */
+    @Override
+    public void setOnContentLoaded(Runnable callback) {
+        boolean runNow;
+        synchronized (contentLoadedLock) {
+            this.onContentLoaded = callback;
+            runNow = contentLoaded;
+        }
+        if (runNow && callback != null) {
+            runCallbackSafely(callback);
+        }
+    }
+
+    /** Test/diagnostic hook: blocks until the background content load finishes. */
+    public boolean awaitContentLoaded(long timeoutMs) throws InterruptedException {
+        return contentLoadedLatch.await(timeoutMs, TimeUnit.MILLISECONDS);
+    }
+
+    /** Builds a note from filename + filesystem timestamps only — never reads contents. */
+    private Note createMetadataNote(String id, Path path) {
+        String filename = path.getFileName().toString();
+        String title = filename.endsWith(".md") ? filename.substring(0, filename.length() - 3) : filename;
+        Note note = new Note(id, title, "");
+        applyFileTimestampsIfMissing(note, path);
+        return note;
+    }
+
+    /** Reads up to {@link #LIGHTWEIGHT_READ_BYTES} of the file to populate title, frontmatter, body preview and link targets. */
     private Note createLightweightNote(String id, Path path) {
         String filename = path.getFileName().toString();
         String title = filename.endsWith(".md") ? filename.substring(0, filename.length() - 3) : filename;
@@ -121,6 +279,10 @@ public class NoteDAOFileSystem implements NoteDAO {
             note.setId(id);
             note.setTitle(title);
             applyFileTimestampsIfMissing(note, path);
+            // Index outgoing links from the (untruncated) content head already read, so the
+            // backlink index needs no second full-file read per note — critical on large or
+            // cloud-backed vaults where each read can block on an on-demand download.
+            note.setLinkTargets(WikiLinkResolver.extractLinkTargets(FrontmatterHandler.stripFrontmatter(head)));
             return note;
         } catch (IOException e) {
             logger.log(Level.FINE, "Failed lightweight read for: " + path, e);
@@ -130,6 +292,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Reads at most {@code maxBytes} from the start of a file, returning the bytes decoded as UTF-8. */
     private static String readFileHead(Path path, int maxBytes) throws IOException {
         long size = Files.size(path);
         int toRead = (int) Math.min(size, Math.max(0, maxBytes));
@@ -146,6 +309,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Fills in missing {@code createdDate} / {@code modifiedDate} on {@code note} from the file's OS attributes. */
     private void applyFileTimestampsIfMissing(Note note, Path path) {
         try {
             BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
@@ -160,6 +324,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Writes a new Markdown file for {@code note}, resolving the parent directory from its ID and handling filename conflicts. */
     @Override
     public String createNote(Note note) {
         FileSystemIoLock.LOCK.lock();
@@ -242,6 +407,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         return java.util.Optional.ofNullable(path).filter(Files::exists);
     }
 
+    /** Reads and fully parses the Markdown file for {@code id}, resolving the path from the cache or disk. */
     @Override
     public Note getNoteById(String id) {
         if (id == null)
@@ -293,13 +459,20 @@ public class NoteDAOFileSystem implements NoteDAO {
                 filename = filename.substring(0, filename.length() - 3);
             note.setTitle(filename);
 
+            // Full read → full-body link coverage for the backlink index.
+            note.setLinkTargets(WikiLinkResolver.extractLinkTargets(FrontmatterHandler.stripFrontmatter(content)));
+
             return note;
         } catch (IOException e) {
-            logger.log(Level.SEVERE, "Failed to read note file: " + path, e);
+            // A single failed read is recoverable: callers handle the null return. Log at
+            // WARNING without a stack trace so a slow/offline drive or an iCloud-offloaded
+            // file ("Operation timed out") cannot flood the log with SEVERE entries.
+            logger.warning("Could not read note file (skipped): " + path + " — " + e.getMessage());
             return null;
         }
     }
 
+    /** Persists changes to an existing note file; renames the file when the title has changed. */
     @Override
     public void updateNote(Note note) {
         FileSystemIoLock.LOCK.lock();
@@ -369,6 +542,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Moves the note file to the {@code .trash} subfolder, removing it from all caches (soft delete). */
     @Override
     public void deleteNote(String id) {
         FileSystemIoLock.LOCK.lock();
@@ -452,6 +626,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Walks the {@code .trash} directory and returns lightweight Note objects for all trashed Markdown files. */
     @Override
     public List<Note> fetchTrashNotes() {
         FileSystemIoLock.LOCK.lock();
@@ -486,6 +661,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Moves a trashed note file back to its original vault location (or root if the parent folder no longer exists). */
     @Override
     public void restoreNote(String id) {
         FileSystemIoLock.LOCK.lock();
@@ -556,6 +732,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Irrecoverably deletes the file (typically under {@code .trash}) and removes it from all caches. */
     @Override
     public void permanentlyDeleteNote(String id) {
         FileSystemIoLock.LOCK.lock();
@@ -591,6 +768,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Returns all non-deleted notes whose immediate parent directory matches {@code folderId} (or root when null/ROOT). */
     @Override
     public List<Note> fetchNotesByFolderId(String folderId) {
         pruneStaleCacheEntriesIfNeeded();
@@ -609,6 +787,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         return notes;
     }
 
+    /** Loads all direct-child notes of {@code folder} into the folder's component list. */
     @Override
     public void fetchNotesByFolderId(Folder folder) {
         List<Note> notes = fetchNotesByFolderId(folder.getId());
@@ -617,6 +796,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         folder.addAll(components);
     }
 
+    /** Returns a snapshot of all cached notes (lightweight), refreshing the cache if it is empty. */
     @Override
     public List<Note> fetchAllNotes() {
         pruneStaleCacheEntriesIfNeeded();
@@ -626,6 +806,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         return new ArrayList<>(cachedNotes.values());
     }
 
+    /** Derives the parent {@link Folder} from the note's relative path; returns a ROOT folder when the note is at vault root. */
     @Override
     public Folder getFolderOfNote(String noteId) {
         if (noteId == null || noteId.isEmpty()) {
@@ -643,6 +824,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         return new Folder(folderId, folderName);
     }
 
+    /** Looks up the note by ID and attaches the tag identified by {@code tagId} to it, persisting via {@link #updateNote}. */
     @Override
     public void addTag(String noteId, String tagId) {
         if (noteId == null || noteId.isEmpty() || tagId == null || tagId.isEmpty()) {
@@ -658,6 +840,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         addTag(note, tag);
     }
 
+    /** Attaches {@code tag} to {@code note} in memory and writes the updated frontmatter to disk. */
     @Override
     public void addTag(Note note, Tag tag) {
         FileSystemIoLock.LOCK.lock();
@@ -669,6 +852,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Looks up the note by ID and removes the tag identified by {@code tagId}, persisting the change. */
     @Override
     public void removeTag(String noteId, String tagId) {
         if (noteId == null || noteId.isEmpty() || tagId == null || tagId.isEmpty()) {
@@ -684,6 +868,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         removeTag(note, tag);
     }
 
+    /** Removes {@code tag} from {@code note} in memory and writes the updated frontmatter to disk. */
     @Override
     public void removeTag(Note note, Tag tag) {
         FileSystemIoLock.LOCK.lock();
@@ -695,6 +880,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Returns the tag list of the note with the given ID, or an empty list if the note is not found. */
     @Override
     public List<Tag> fetchTags(String noteId) {
         Note note = getNoteById(noteId);
@@ -703,6 +889,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         return new ArrayList<>();
     }
 
+    /** Reads the persisted tag list and injects it into {@code note}, overwriting any in-memory state. */
     @Override
     public void loadTags(Note note) {
         if (note == null || note.getId() == null) {
@@ -717,6 +904,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         note.setTags(persisted.getTags());
     }
 
+    /** Scans the cache and returns every note whose tag list contains a tag with title equal to {@code tagId}. */
     @Override
     public List<Note> fetchNotesByTagId(String tagId) {
         if (cachedNotes.isEmpty()) {
@@ -734,10 +922,12 @@ public class NoteDAOFileSystem implements NoteDAO {
         return all;
     }
 
+    /** Replaces characters that are illegal in filenames with underscores while preserving Unicode letters and digits. */
     private String sanitizeFilename(String title) {
         return title.replaceAll("[^\\p{L}\\p{N}\\.\\-_ ]", "_");
     }
 
+    /** Normalizes a note ID to use forward slashes and returns an empty string for null input. */
     private String normalizeId(String id) {
         if (id == null) {
             return "";
@@ -745,6 +935,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         return id.replace("\\", "/");
     }
 
+    /** Removes cache entries whose backing files no longer exist on disk, then re-indexes the surviving entries. */
     private void pruneStaleCacheEntries() {
         FileSystemIoLock.LOCK.lock();
         try {
@@ -780,6 +971,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Calls {@link #pruneStaleCacheEntries()} at most once per {@link #PRUNE_INTERVAL_MS} to cap I/O overhead. */
     private void pruneStaleCacheEntriesIfNeeded() {
         long now = System.currentTimeMillis();
         if (now - lastPruneTimestampMs < PRUNE_INTERVAL_MS) {
@@ -789,6 +981,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         pruneStaleCacheEntries();
     }
 
+    /** Rebuilds the folder-key → notes index when the {@link #notesByFolderIndexDirty} flag is set (double-checked locking). */
     private void ensureFolderIndex() {
         if (!notesByFolderIndexDirty) {
             return;
@@ -813,6 +1006,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Returns the canonical index key for {@code folderId}, mapping null, blank, or "ROOT" to the constant {@link #ROOT_ID}. */
     private String normalizeFolderKey(String folderId) {
         if (folderId == null || folderId.isBlank() || ROOT_ID.equals(folderId)) {
             return ROOT_ID;
@@ -820,6 +1014,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         return normalizeId(folderId);
     }
 
+    /** Extracts the parent directory portion of a note's relative path to use as the folder-index key. */
     private String extractFolderKeyFromNoteId(String noteId) {
         if (noteId == null || noteId.isBlank()) {
             return ROOT_ID;

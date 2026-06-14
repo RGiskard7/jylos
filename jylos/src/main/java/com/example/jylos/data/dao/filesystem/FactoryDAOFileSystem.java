@@ -12,8 +12,10 @@ public class FactoryDAOFileSystem extends FactoryDAO {
     private TagDAOFileSystem tagDAO;
 
     public FactoryDAOFileSystem(String rootDirectory) {
-        // Ideally we should cache instances to share caches
-        this.noteDAO = new NoteDAOFileSystem(rootDirectory);
+        // Ideally we should cache instances to share caches.
+        // deferContentLoad=true: startup builds a fast metadata-only cache and loads
+        // note contents in the background, so opening a large/iCloud vault is instant.
+        this.noteDAO = new NoteDAOFileSystem(rootDirectory, true);
         this.folderDAO = new FolderDAOFileSystem(rootDirectory);
         this.tagDAO = new TagDAOFileSystem(this.noteDAO);
     }

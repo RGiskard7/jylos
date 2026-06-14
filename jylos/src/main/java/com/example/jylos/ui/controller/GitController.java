@@ -12,7 +12,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.prefs.Preferences;
 
-import com.example.jylos.git.GitChange;
 import com.example.jylos.git.GitCommit;
 import com.example.jylos.git.GitResult;
 import com.example.jylos.git.GitService;
@@ -21,23 +20,17 @@ import com.example.jylos.ui.UiDialogs;
 
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Separator;
-import javafx.scene.control.TextArea;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 /**
@@ -96,10 +89,12 @@ public final class GitController {
     // Public actions (called from MainController's FXML/menu handlers)
     // ------------------------------------------------------------------
 
+    /** Runs a full vault sync (stage all → commit → pull → push) asynchronously and updates the status bar on completion. */
     public void sync() {
         runGitAsync(vault -> gitService.sync(vault, gitCommitMessage()), getString("status.git_syncing"));
     }
 
+    /** Commits all staged changes with a timestamp message and, if successful, immediately pushes to the remote. */
     public void commitPush() {
         final String message = gitCommitMessage();
         runGitAsync(vault -> {
@@ -108,14 +103,17 @@ public final class GitController {
         }, getString("status.git_syncing"));
     }
 
+    /** Pulls changes from the remote into the vault asynchronously. */
     public void pull() {
         runGitAsync(gitService::pull, getString("status.git_pulling"));
     }
 
+    /** Initializes a Git repository in the vault directory ({@code git init}) asynchronously. */
     public void init() {
         runGitAsync(gitService::init, getString("status.git_initializing"));
     }
 
+    /** Prompts the user for a remote URL and sets it on the vault's Git repository asynchronously. */
     public void addRemote() {
         Path vault = gitVaultPath();
         if (vault == null) {
@@ -129,6 +127,21 @@ public final class GitController {
         styleDialog(dialog);
         dialog.showAndWait().filter(url -> !url.isBlank()).ifPresent(url ->
                 runGitAsync(v -> gitService.setRemote(v, url.trim()), getString("status.git_syncing")));
+    }
+
+    /**
+     * Opens the consolidated Git Sync panel (status, changes, commit, pull/push/sync and
+     * an activity log) for the current vault. No-op outside vault mode.
+     */
+    public void showSyncPanel() {
+        Path vault = gitVaultPath();
+        if (vault == null) {
+            updateStatus(getString("status.git_no_vault"));
+            return;
+        }
+        Scene scene = sceneSupplier != null ? sceneSupplier.get() : null;
+        new com.example.jylos.ui.components.GitSyncPanel(gitService, vault, this::getString, scene).show();
+        refreshStatus();
     }
 
     /** Refreshes the status-bar Git segments from the vault state (off the FX thread). */
@@ -174,6 +187,7 @@ public final class GitController {
         return Files.isDirectory(dir) ? dir : null;
     }
 
+    /** Generates a default commit message in the form "Jylos sync yyyy-MM-dd HH:mm". */
     private String gitCommitMessage() {
         return "Jylos sync " + DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").format(LocalDateTime.now());
     }
@@ -200,6 +214,7 @@ public final class GitController {
         runDaemon(task, "git-op");
     }
 
+    /** Maps a {@link GitResult} to an i18n status label, appending the raw Git message on failure (truncated at 160 chars). */
     private String describeGitResult(GitResult result) {
         if (result == null) {
             return getString("status.git_error");
@@ -284,108 +299,6 @@ public final class GitController {
         UiDialogs.apply(dialog);
     }
 
-    /** Commit dialog: write a message and commit (optionally pushing). */
-    public void showCommitDialog() {
-        if (gitVaultPath() == null) {
-            updateStatus(getString("status.git_no_vault"));
-            return;
-        }
-        Dialog<ButtonType> dialog = new Dialog<>();
-        styleDialog(dialog);
-        dialog.setTitle(getString("dialog.git_commit.title"));
-        dialog.setHeaderText(getString("dialog.git_commit.header"));
-        ButtonType commitType = new ButtonType(getString("git.commit"), ButtonBar.ButtonData.OK_DONE);
-        ButtonType commitPushType = new ButtonType(getString("git.commit_push"), ButtonBar.ButtonData.APPLY);
-        dialog.getDialogPane().getButtonTypes().addAll(commitType, commitPushType, ButtonType.CANCEL);
-
-        TextArea messageArea = new TextArea(gitCommitMessage());
-        messageArea.setPrefRowCount(3);
-        messageArea.setWrapText(true);
-        VBox box = new VBox(8, messageArea);
-        box.setPadding(new Insets(12));
-        dialog.getDialogPane().setContent(box);
-
-        dialog.showAndWait().ifPresent(choice -> {
-            String message = messageArea.getText().isBlank() ? gitCommitMessage() : messageArea.getText().trim();
-            if (choice == commitType) {
-                runGitAsync(v -> gitService.commit(v, message), getString("status.git_syncing"));
-            } else if (choice == commitPushType) {
-                runGitAsync(v -> {
-                    GitResult commit = gitService.commit(v, message);
-                    return commit.ok() ? gitService.push(v) : commit;
-                }, getString("status.git_syncing"));
-            }
-        });
-    }
-
-    /**
-     * Changes dialog (IDE-style): a "staged" section on top, a separator, and a
-     * "not staged" section below. The {@code +}/{@code −} button on each row moves it
-     * between sections.
-     */
-    public void showChangesDialog() {
-        Path vault = gitVaultPath();
-        if (vault == null) {
-            updateStatus(getString("status.git_no_vault"));
-            return;
-        }
-        ListView<GitChange> stagedList = new ListView<>();
-        ListView<GitChange> unstagedList = new ListView<>();
-        Label stagedHeader = new Label();
-        Label unstagedHeader = new Label();
-        stagedHeader.getStyleClass().add("git-section-header");
-        unstagedHeader.getStyleClass().add("git-section-header");
-        stagedList.setPlaceholder(new Label(getString("git.none_staged")));
-        unstagedList.setPlaceholder(new Label(getString("git.no_changes")));
-
-        Runnable reload = () -> reloadChangeSections(vault, stagedList, unstagedList, stagedHeader, unstagedHeader);
-        stagedList.setCellFactory(lv -> new GitChangeCell(vault, reload));
-        unstagedList.setCellFactory(lv -> new GitChangeCell(vault, reload));
-
-        VBox.setVgrow(stagedList, Priority.ALWAYS);
-        VBox.setVgrow(unstagedList, Priority.ALWAYS);
-        Separator separator = new Separator();
-        separator.getStyleClass().add("git-section-separator");
-
-        VBox box = new VBox(6, stagedHeader, stagedList, separator, unstagedHeader, unstagedList);
-        box.setPadding(new Insets(8));
-
-        Dialog<ButtonType> dialog = new Dialog<>();
-        styleDialog(dialog);
-        dialog.setTitle(getString("git.changes_title"));
-        ButtonType commitType = new ButtonType(getString("git.commit"), ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(commitType, ButtonType.CLOSE);
-        dialog.getDialogPane().setContent(box);
-        dialog.getDialogPane().setPrefSize(480, 560);
-
-        reload.run();
-        dialog.showAndWait().ifPresent(choice -> {
-            if (choice == commitType) {
-                showCommitDialog();
-            }
-        });
-    }
-
-    private void reloadChangeSections(Path vault, ListView<GitChange> staged,
-            ListView<GitChange> unstaged, Label stagedHeader, Label unstagedHeader) {
-        Task<List<GitChange>> task = new Task<>() {
-            @Override
-            protected List<GitChange> call() {
-                return gitService.listChanges(vault);
-            }
-        };
-        task.setOnSucceeded(e -> {
-            List<GitChange> all = task.getValue();
-            List<GitChange> stagedItems = all.stream().filter(GitChange::staged).toList();
-            List<GitChange> unstagedItems = all.stream().filter(c -> !c.staged()).toList();
-            staged.getItems().setAll(stagedItems);
-            unstaged.getItems().setAll(unstagedItems);
-            stagedHeader.setText(MessageFormat.format(getString("git.section_staged"), stagedItems.size()));
-            unstagedHeader.setText(MessageFormat.format(getString("git.section_unstaged"), unstagedItems.size()));
-        });
-        runDaemon(task, "git-changes");
-    }
-
     /** History dialog: recent commits across all branches. */
     public void showHistoryDialog() {
         Path vault = gitVaultPath();
@@ -418,27 +331,19 @@ public final class GitController {
         dialog.showAndWait();
     }
 
-    private String formatChangeStats(GitChange change) {
-        StringBuilder sb = new StringBuilder(change.status());
-        if (change.added() >= 0) {
-            sb.append("   +").append(change.added());
-        }
-        if (change.deleted() > 0) {
-            sb.append(" −").append(change.deleted());
-        }
-        return sb.toString();
-    }
-
+    /** Resolves an i18n key via the injected function, returning the key itself as a fallback. */
     private String getString(String key) {
         return i18n != null ? i18n.apply(key) : key;
     }
 
+    /** Forwards a status message to the host's status-bar consumer if one is wired. */
     private void updateStatus(String message) {
         if (status != null) {
             status.accept(message);
         }
     }
 
+    /** Sets both {@code visible} and {@code managed} on {@code node} so the layout does not reserve space when hidden. */
     private static void setNodeVisible(Node node, boolean visible) {
         if (node != null) {
             node.setVisible(visible);
@@ -446,59 +351,11 @@ public final class GitController {
         }
     }
 
+    /** Starts {@code task} on a new daemon thread so Git I/O never blocks the JavaFX Application Thread. */
     private static void runDaemon(Task<?> task, String name) {
         Thread thread = new Thread(task, name);
         thread.setDaemon(true);
         thread.start();
-    }
-
-    /** List cell for a changed file: title, path, +added/−deleted and a stage toggle. */
-    private final class GitChangeCell extends ListCell<GitChange> {
-        private final Path vault;
-        private final Runnable onChanged;
-
-        GitChangeCell(Path vault, Runnable onChanged) {
-            this.vault = vault;
-            this.onChanged = onChanged;
-        }
-
-        @Override
-        protected void updateItem(GitChange change, boolean empty) {
-            super.updateItem(change, empty);
-            if (empty || change == null) {
-                setGraphic(null);
-                return;
-            }
-            Label title = new Label(change.displayTitle());
-            title.getStyleClass().add("git-change-title");
-            Label path = new Label(change.fileName());
-            path.getStyleClass().add("git-change-path");
-            Label stats = new Label(formatChangeStats(change));
-            stats.getStyleClass().add("git-change-stats");
-            VBox texts = new VBox(2, title, path, stats);
-
-            Button stageBtn = new Button(change.staged() ? "−" : "+");
-            stageBtn.getStyleClass().add("git-stage-btn");
-            stageBtn.setTooltip(new Tooltip(getString(change.staged() ? "git.unstage" : "git.stage")));
-            stageBtn.setOnAction(e -> {
-                Task<GitResult> task = new Task<>() {
-                    @Override
-                    protected GitResult call() {
-                        return change.staged()
-                                ? gitService.unstage(vault, change.relativePath())
-                                : gitService.stage(vault, change.relativePath());
-                    }
-                };
-                task.setOnSucceeded(ev -> onChanged.run());
-                runDaemon(task, "git-stage");
-            });
-
-            Region spacer = new Region();
-            HBox.setHgrow(spacer, Priority.ALWAYS);
-            HBox row = new HBox(8, texts, spacer, stageBtn);
-            row.setAlignment(Pos.CENTER_LEFT);
-            setGraphic(row);
-        }
     }
 
     /** List cell for a commit: subject + hash · author · date · refs. */

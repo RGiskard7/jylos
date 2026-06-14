@@ -63,6 +63,11 @@
             <StackPane.margin><Insets top="14" right="14" bottom="0" left="0"/></StackPane.margin>
 
             <Label text="%graph.filters" styleClass="graph-settings-header"/>
+            <TextField fx:id="graphFilterField" promptText="%graph.filter_text"/>
+            <Label text="%graph.filter_tag" styleClass="graph-settings-label"/>
+            <ComboBox fx:id="tagFilterCombo" maxWidth="Infinity"/>
+            <Label text="%graph.filter_folder" styleClass="graph-settings-label"/>
+            <ComboBox fx:id="folderFilterCombo" maxWidth="Infinity"/>
             <CheckBox fx:id="orphansCheck" text="%graph.show_orphans" selected="true" onAction="#handleFilters"/>
             <CheckBox fx:id="ghostsCheck" text="%graph.show_unresolved" selected="true" onAction="#handleFilters"/>
 

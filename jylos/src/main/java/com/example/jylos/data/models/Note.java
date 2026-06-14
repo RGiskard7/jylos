@@ -56,6 +56,18 @@ public class Note extends LeafModel implements Serializable {
 	 */
 	private Map<String, String> customProperties = new LinkedHashMap<>();
 
+	/**
+	 * Outgoing internal-link targets ({@code [[wiki]]} / {@code [label](note)}),
+	 * extracted once when the note is read and cached here so the backlink index
+	 * never needs a second full-file read per note (a costly operation on large or
+	 * cloud-backed vaults, e.g. iCloud-offloaded files).
+	 *
+	 * <p>Transient: derived from {@link #content}, not part of the persisted model.
+	 * For lightweight (list) reads it reflects the indexed content head; for a full
+	 * read it covers the whole body. {@code null} means "not indexed yet".</p>
+	 */
+	private transient List<String> linkTargets = null;
+
 	public Note(String title, String content) {
 		super(title, null, null);
 		this.content = content;
@@ -104,6 +116,9 @@ public class Note extends LeafModel implements Serializable {
 
 	public void setContent(String content) {
 		this.content = content;
+		// Any cached link index is derived from the content; mutating the content
+		// invalidates it so consumers re-derive (see linkTargets / getLinkTargets()).
+		this.linkTargets = null;
 	}
 
 	/*
@@ -252,6 +267,19 @@ public class Note extends LeafModel implements Serializable {
 		this.customProperties = customProperties != null
 				? new LinkedHashMap<>(customProperties)
 				: new LinkedHashMap<>();
+	}
+
+	/**
+	 * Cached outgoing internal-link targets for this note, or {@code null} if the
+	 * note has not been indexed yet. See {@link #linkTargets}.
+	 */
+	public List<String> getLinkTargets() {
+		return linkTargets;
+	}
+
+	/** Sets the cached outgoing internal-link targets (see {@link #linkTargets}). */
+	public void setLinkTargets(List<String> linkTargets) {
+		this.linkTargets = linkTargets;
 	}
 
 	@Override

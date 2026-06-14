@@ -13,7 +13,9 @@ echo.
 REM Get script directory and navigate to Jylos directory
 set "SCRIPT_DIR=%~dp0"
 set "JYLOS_DIR=%SCRIPT_DIR%..\jylos"
-set "JAR=%JYLOS_DIR%\target\jylos-1.0.0-uber.jar"
+REM Discover the uber jar by glob so the launcher never couples to a hardcoded version.
+set "JAR=%JYLOS_DIR%\target\jylos-uber.jar"
+for %%f in ("%JYLOS_DIR%\target\jylos-*-uber.jar") do set "JAR=%%f"
 
 REM Check if JAR exists
 if not exist "%JAR%" (
