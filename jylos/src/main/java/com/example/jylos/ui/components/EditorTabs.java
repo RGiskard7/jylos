@@ -119,6 +119,11 @@ public final class EditorTabs {
         return id != null && tabs.containsKey(id);
     }
 
+    /** Open tab note ids in display (insertion) order. */
+    public List<String> getOpenIds() {
+        return new ArrayList<>(tabs.keySet());
+    }
+
     public boolean isEmpty() {
         return tabs.isEmpty();
     }

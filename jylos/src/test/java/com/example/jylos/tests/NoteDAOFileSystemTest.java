@@ -95,6 +95,34 @@ class NoteDAOFileSystemTest {
     }
 
     @Test
+    public void testGetNoteByIdIndexesOutgoingLinks() {
+        // Outgoing [[wiki]] / [label](note) links must be pre-extracted on read so the
+        // backlink index needs no second full-file read per note.
+        Note note = new Note("Source", "See [[Alpha]] and [label](Beta).");
+        String id = noteDAO.createNote(note);
+
+        List<String> targets = noteDAO.getNoteById(id).getLinkTargets();
+        assertNotNull(targets, "Full read must populate link targets");
+        assertTrue(targets.contains("Alpha"), "Expected wiki-link target Alpha in " + targets);
+        assertTrue(targets.contains("Beta"), "Expected markdown-link target Beta in " + targets);
+    }
+
+    @Test
+    public void testLightweightNotesCarryLinkTargets() {
+        noteDAO.createNote(new Note("Linker", "Points to [[Target]]."));
+
+        // A fresh DAO over the same vault rebuilds its cache from disk (the lightweight
+        // read path), which is what feeds the backlink index at startup.
+        NoteDAOFileSystem reopened = new NoteDAOFileSystem(tempDir.toString());
+        Note lightweight = reopened.fetchAllNotes().stream()
+                .filter(n -> "Linker".equals(n.getTitle()))
+                .findFirst().orElseThrow();
+        assertNotNull(lightweight.getLinkTargets(), "List (lightweight) notes must carry link targets");
+        assertTrue(lightweight.getLinkTargets().contains("Target"),
+                "Expected Target in " + lightweight.getLinkTargets());
+    }
+
+    @Test
     public void testTags() {
         Note note = new Note("Tagged Note", "Content");
         note.addTag(new Tag("Work"));

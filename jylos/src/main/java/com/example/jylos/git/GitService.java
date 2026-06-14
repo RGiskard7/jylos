@@ -595,6 +595,11 @@ public final class GitService {
             if (dir != null) {
                 pb.directory(dir.toFile());
             }
+            // Force a stable C locale so git's messages are in English: the status
+            // classification below (nothing-to-commit, conflict, rejected, auth, network)
+            // matches English phrases and would otherwise misfire on localized systems.
+            pb.environment().put("LC_ALL", "C");
+            pb.environment().put("LANG", "C");
             Process process = pb.start();
             CompletableFuture<String> out = readAsync(process.getInputStream());
             CompletableFuture<String> err = readAsync(process.getErrorStream());

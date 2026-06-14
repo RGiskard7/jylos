@@ -2,6 +2,44 @@
 
 ## [Unreleased]
 
+### Fix: rendimiento de backlinks en vaults grandes / iCloud — sin tormenta de timeouts (2026-06-14)
+
+En vaults Markdown alojados en iCloud con "Optimizar almacenamiento del Mac", leer **cualquier** byte de un fichero desalojado fuerza su descarga **completa** bajo demanda y bloquea hasta terminar (`java.io.IOException: Operation timed out`). El índice de backlinks releía el **contenido completo de cada nota** (un segundo `getNoteById` por nota, además de la cabecera ya leída al arrancar), provocando lentitud extrema y una avalancha de logs `SEVERE` con stack trace.
+
+- **Sin segunda lectura por nota**: el DAO de filesystem extrae los enlaces salientes (`[[wiki]]` / `[label](note)`, misma semántica que `WikiLinkResolver`) **en el momento de leer** la nota y los cachea en `Note.linkTargets` (campo transitorio). `BacklinkService.ensureIndexed` reutiliza esos targets y **no hace I/O propio**. Se conserva el caché forward/inverse validado por `modified`.
+- **Cobertura documentada**: en notas listadas (lectura *lightweight*) los targets cubren la cabecera indexada (~16 KB); una nota abierta o guardada (lectura completa) cubre todo el cuerpo. Es un trade-off deliberado para no releer cada fichero. `Note.setContent(...)` invalida el caché de targets, de modo que una edición en memoria fuerza re-derivación.
+- **Modo SQLite intacto**: si una nota no trae targets precomputados, `BacklinkService` los deriva **en memoria** desde su contenido (sin lectura de fichero). El DAO SQLite ya carga el cuerpo completo, así que la cobertura es total.
+- **Menos ruido de log (Task 3)**: un fallo de lectura en `NoteDAOFileSystem.getNoteById` pasa de `SEVERE` con stack trace a `WARNING` con mensaje (la nota se omite y el llamante maneja el `null`), evitando que un disco lento/offline o un fichero iCloud desalojado inunde el log.
+- **Tests:** `NoteDAOFileSystemTest` +2 (lectura completa y *lightweight* pre-indexan los enlaces salientes). 202/202 tests verdes.
+
+### Feat: Workspaces — guardar y restaurar contextos de trabajo (2026-06-13)
+
+Permite guardar el estado de trabajo actual con un nombre y restaurarlo después (estilo VS Code/Obsidian, pero simple). Funciona en SQLite y vault Markdown; se persiste en la config local de Jylos, nunca dentro de las notas.
+
+- **Acceso**: `File → Workspaces` (Save Current / Save As… / Open… / Manage…) y command palette (`Workspace:`). Borrado desde *Manage*.
+- **Qué guarda**: nombre + id + timestamps, **tabs abiertas** (ids, en orden) y **nota activa**, **modo de vista** (editor/split/preview), y **layout básico** (focus mode, sidebar visible, posiciones de los dos split panes) + modo de almacenamiento (para avisar de discrepancias).
+- **Robustez**: restaurar es **aditivo** (reabre las notas del workspace y activa la guardada; no cierra tus tabs actuales → sin pérdida de trabajo). Notas inexistentes → se omiten con aviso no bloqueante. Discrepancia de almacenamiento → aviso. Workspace vacío permitido. Líneas corruptas en el fichero → se ignoran sin romper.
+- **Arquitectura nueva** (paquete `workspace`): `Workspace` (record + `serialize()`/`parse()` con separadores de control, sin dependencia JSON), `WorkspaceRepository` (fichero `<appData>/data/workspaces.dat`, una línea por workspace), `WorkspaceService` (list/save/update/delete, upsert por nombre). UI en `ui/controller/WorkspaceController`; captura/restauración del estado vivo en `MainController` (`captureLiveWorkspace`/`applyWorkspace`). `EditorTabs.getOpenIds()` nuevo.
+- **Fuera de v1** (documentado): filtros del grafo y selección/expansión del árbol de carpetas no se persisten todavía.
+- **i18n** EN/ES con paridad (`workspace.*`, `menu.workspaces`, `action.workspace_*`).
+- **Tests**: `WorkspaceServiceTest` (8) — round-trip de serialización, líneas corruptas, save/load, overwrite por nombre conservando id, update por id, delete, y resiliencia ante línea corrupta.
+
+### Fix: GitService ahora fuerza locale C en los subprocesos git (2026-06-13)
+
+`GitService` clasificaba el resultado de git buscando frases en inglés ("nothing to commit", "conflict", "rejected"…), pero en sistemas con locale no inglés git responde traducido (p. ej. "nada para hacer commit"), devolviendo `ERROR` en casos como *nothing to commit*. Ahora cada invocación fija `LC_ALL=C`/`LANG=C`, de modo que los mensajes son estables en inglés y la clasificación funciona en cualquier idioma del sistema.
+
+### Feat: búsqueda avanzada con operadores (2026-06-13)
+
+Mejora incremental sobre la búsqueda full-text existente: si escribes texto normal funciona igual que siempre; si usas operadores, se aplican filtros (AND). Funciona en SQLite y vault Markdown, fuera del hilo de UI.
+
+- **Operadores** (estilo Gmail/Obsidian): texto libre, `"frases exactas"`, `tag:`, `folder:`, `title:`, `body:`, `created:`, `modified:`, `favorite:true|false`, `private:`/`encrypted:`, `has:tag|links|backlinks`, `is:orphan`, y negación con prefijo `-` (`-tag:archive`). Fechas: `today`, `yesterday`, `last-week`, `last-month`, `YYYY`, `YYYY-MM`, `YYYY-MM-DD`.
+- **Parser robusto y predecible** (`SearchQueryParser`): respeta comillas, tolera espacios extra, **nunca lanza excepción**. Operador desconocido → se busca como texto literal con aviso; valor inválido (fecha/booleano/`has`/`is`) → se descarta con aviso y el resto de la consulta sigue.
+- **Arquitectura nueva** (paquete `search`): `SearchQueryParser`, `SearchQuery`, `SearchFilter`, `SearchResult`, `AdvancedSearchService`, `SearchDates`. El servicio reutiliza `TagService` y `GraphAnalysisService` (orphan/links/backlinks) — **sin segunda lógica de resolución de enlaces**. Metadata cara computada perezosamente y solo cuando la consulta la usa; degradación a "no match" si no está disponible, sin romper.
+- **Integración no invasiva**: `NotesListController.performSearch` delega en `AdvancedSearchService` reutilizando el caché de contenido completo; el render de resultados (lista actual) no cambia. Si el servicio no está disponible, cae al filtrado simple anterior.
+- **UI**: placeholder con ejemplo (`Search notes… try tag:java modified:last-week`) y tooltip «Search syntax» en la caja de búsqueda. i18n EN/ES con paridad.
+- **Tests:** `SearchQueryParserTest` (13) y `AdvancedSearchServiceTest` (8) — texto libre, frases, tag/folder/title/body, negación, fechas, combinación AND y consultas inválidas. 192/192 tests verdes.
+- **Doc:** nuevo `doc/SEARCH.md` con la sección "Advanced Search Syntax".
+
 ### Feat: Graph 2.0 + Knowledge Insights (2026-06-13)
 
 Convierte el grafo de conocimiento en una herramienta analítica, sin lógica de enlaces paralela: todo reutiliza `GraphBuilder` + `WikiLinkResolver`. Funciona en SQLite y vault Markdown.

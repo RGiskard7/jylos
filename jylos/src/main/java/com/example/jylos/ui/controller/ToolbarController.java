@@ -237,6 +237,26 @@ public class ToolbarController {
     }
 
     @FXML
+    private void handleWorkspaceSave(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.WORKSPACE_SAVE);
+    }
+
+    @FXML
+    private void handleWorkspaceSaveAs(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.WORKSPACE_SAVE_AS);
+    }
+
+    @FXML
+    private void handleWorkspaceOpen(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.WORKSPACE_OPEN);
+    }
+
+    @FXML
+    private void handleWorkspaceManage(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.WORKSPACE_MANAGE);
+    }
+
+    @FXML
     private void handleImportObsidian(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.IMPORT_OBSIDIAN);
     }

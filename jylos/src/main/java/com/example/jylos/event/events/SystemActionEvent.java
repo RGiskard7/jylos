@@ -99,7 +99,11 @@ public class SystemActionEvent extends AppEvent {
         GIT_ADD_REMOTE,
         DAILY_NOTE,
         NEW_FROM_TEMPLATE,
-        EXPORT_VAULT
+        EXPORT_VAULT,
+        WORKSPACE_SAVE,
+        WORKSPACE_SAVE_AS,
+        WORKSPACE_OPEN,
+        WORKSPACE_MANAGE
     }
 
     private final ActionType actionType;

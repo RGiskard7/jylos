@@ -215,6 +215,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private Label gitHistoryLabel;
 
     private final GitController gitController = new GitController();
+    private final WorkspaceController workspaceController = new WorkspaceController();
     private final PrivacySupport privacySupport = new PrivacySupport();
     private final OverlaySupport overlaySupport = new OverlaySupport();
     private final StatusBarSupport statusBarSupport = new StatusBarSupport();
@@ -450,6 +451,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                     () -> editorController != null ? editorController.getEditorContainer() : null,
                     prefs, this::getString, this::updateStatus);
             gitController.refreshStatus();
+            workspaceController.wire(this::captureLiveWorkspace, this::applyWorkspace,
+                    this::getString, this::updateStatus, sceneSupplier);
             updateStatus(getString("status.ready"));
             logger.info("MainController initialized successfully");
 
@@ -1256,6 +1259,14 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 return overlaySupport::toggleGraph;
             case "cmd.knowledge_insights":
                 return this::showKnowledgeInsights;
+            case "cmd.workspace_save":
+                return workspaceController::saveCurrent;
+            case "cmd.workspace_save_as":
+                return workspaceController::saveCurrentAs;
+            case "cmd.workspace_open":
+                return workspaceController::openWorkspaceDialog;
+            case "cmd.workspace_manage":
+                return workspaceController::manageDialog;
             case "cmd.git_panel":
                 return gitController::showSyncPanel;
             case "cmd.git_sync":
@@ -1374,6 +1385,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         systemActionHandlers.put(SystemActionEvent.ActionType.NAVIGATE_FORWARD, this::navigateForward);
         systemActionHandlers.put(SystemActionEvent.ActionType.GRAPH_VIEW, overlaySupport::toggleGraph);
         systemActionHandlers.put(SystemActionEvent.ActionType.KNOWLEDGE_INSIGHTS, this::showKnowledgeInsights);
+        systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_SAVE, workspaceController::saveCurrent);
+        systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_SAVE_AS, workspaceController::saveCurrentAs);
+        systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_OPEN, workspaceController::openWorkspaceDialog);
+        systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_MANAGE, workspaceController::manageDialog);
         systemActionHandlers.put(SystemActionEvent.ActionType.FOCUS_MODE, this::handleFocusMode);
         systemActionHandlers.put(SystemActionEvent.ActionType.KANBAN_VIEW, overlaySupport::toggleKanban);
         systemActionHandlers.put(SystemActionEvent.ActionType.PRIVATE_TOGGLE, this::handleTogglePrivate);
@@ -2472,6 +2487,93 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     /** Toggles focus / writing mode (logic + state in {@link FocusModeSupport}). */
     private void handleFocusMode() {
         focusModeSupport.toggle();
+    }
+
+    // ------------------------------------------------------------------
+    // Workspaces — capture/restore the working context (logic in WorkspaceController)
+    // ------------------------------------------------------------------
+
+    /** Snapshots the current tabs, active note and basic layout into a live workspace. */
+    private com.example.jylos.workspace.Workspace captureLiveWorkspace() {
+        java.util.List<String> openIds = editorTabs != null ? editorTabs.getOpenIds() : java.util.List.of();
+        String activeId = editorTabs != null ? editorTabs.getActiveId() : null;
+        double splitMain = mainSplitPane != null && mainSplitPane.getDividers().size() > 0
+                ? mainSplitPane.getDividerPositions()[0] : UiPreferencesStore.DEFAULT_SPLIT_MAIN;
+        double splitContent = contentSplitPane != null && contentSplitPane.getDividers().size() > 0
+                ? contentSplitPane.getDividerPositions()[0] : UiPreferencesStore.DEFAULT_SPLIT_CONTENT;
+        boolean sidebarVisible = sidebarController != null && sidebarController.getSidebarPane() != null
+                && sidebarController.getSidebarPane().isVisible();
+        String storageMode = prefs.get("storage_type", System.getProperty("jylos.storage", "sqlite"));
+        return com.example.jylos.workspace.WorkspaceService.liveState(openIds, activeId,
+                currentViewMode.name(), sidebarVisible, focusModeSupport.isActive(),
+                splitMain, splitContent, storageMode);
+    }
+
+    /**
+     * Restores a workspace: reopens its still-existing notes as tabs, activates the saved
+     * active note, and reapplies the basic layout. Missing notes are skipped with a
+     * non-blocking status warning; a storage-mode mismatch is also flagged. Existing tabs
+     * are kept (open is additive — it never closes notes you already had open).
+     */
+    private void applyWorkspace(com.example.jylos.workspace.Workspace ws) {
+        if (ws == null || noteService == null) {
+            return;
+        }
+        String storageMode = prefs.get("storage_type", System.getProperty("jylos.storage", "sqlite"));
+        if (ws.storageMode() != null && !ws.storageMode().isBlank()
+                && !ws.storageMode().equalsIgnoreCase(storageMode)) {
+            updateStatus(getString("workspace.status.storage_mismatch"));
+        }
+
+        int missing = 0;
+        String lastOpened = null;
+        for (String id : ws.openNoteIds()) {
+            java.util.Optional<Note> note = noteService.getNoteById(id);
+            if (note.isPresent()) {
+                loadNoteInEditor(note.get());
+                lastOpened = id;
+            } else {
+                missing++;
+            }
+        }
+        // Activate the saved active note when it still exists, else the last one opened.
+        String target = ws.activeNoteId() != null && noteService.getNoteById(ws.activeNoteId()).isPresent()
+                ? ws.activeNoteId() : lastOpened;
+        if (target != null) {
+            openNoteInTab(target);
+        }
+
+        applyWorkspaceLayout(ws);
+
+        if (missing > 0) {
+            updateStatus(java.text.MessageFormat.format(getString("workspace.status.missing"), missing));
+        } else {
+            updateStatus(java.text.MessageFormat.format(getString("workspace.status.opened"), ws.name()));
+        }
+    }
+
+    /** Reapplies a workspace's basic layout (view mode, focus, splits, sidebar). */
+    private void applyWorkspaceLayout(com.example.jylos.workspace.Workspace ws) {
+        try {
+            currentViewMode = UiLayout.ViewMode.valueOf(ws.viewMode());
+            applyViewMode();
+        } catch (IllegalArgumentException | NullPointerException ignored) {
+            // unknown/blank view mode → leave the current one
+        }
+        if (focusModeSupport.isActive() != ws.focusMode()) {
+            focusModeSupport.toggle();
+        }
+        if (ws.splitMain() > 0 && mainSplitPane != null && mainSplitPane.getDividers().size() > 0) {
+            mainSplitPane.setDividerPositions(ws.splitMain());
+        }
+        if (ws.splitContent() > 0 && contentSplitPane != null && contentSplitPane.getDividers().size() > 0) {
+            contentSplitPane.setDividerPositions(ws.splitContent());
+        }
+        boolean sidebarVisible = sidebarController != null && sidebarController.getSidebarPane() != null
+                && sidebarController.getSidebarPane().isVisible();
+        if (sidebarVisible != ws.sidebarVisible() && !isStackedLayout) {
+            handleToggleSidebar(null);
+        }
     }
 
     /**

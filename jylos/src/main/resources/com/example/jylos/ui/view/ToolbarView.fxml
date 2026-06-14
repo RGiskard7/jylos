@@ -18,6 +18,14 @@
             <MenuItem text="%action.save" onAction="#handleSave" accelerator="Shortcut+S"/>
             <MenuItem text="%action.save_all" onAction="#handleSaveAll" accelerator="Shortcut+Shift+S"/>
             <SeparatorMenuItem/>
+            <Menu text="%menu.workspaces">
+                <MenuItem text="%action.workspace_save" onAction="#handleWorkspaceSave"/>
+                <MenuItem text="%action.workspace_save_as" onAction="#handleWorkspaceSaveAs"/>
+                <SeparatorMenuItem/>
+                <MenuItem text="%action.workspace_open" onAction="#handleWorkspaceOpen"/>
+                <MenuItem text="%action.workspace_manage" onAction="#handleWorkspaceManage"/>
+            </Menu>
+            <SeparatorMenuItem/>
             <MenuItem text="%action.import" onAction="#handleImport" accelerator="Shortcut+I"/>
             <MenuItem text="%action.import_obsidian" onAction="#handleImportObsidian"/>
             <MenuItem text="%action.import_enex" onAction="#handleImportEnex"/>
@@ -180,7 +188,9 @@
         <Separator fx:id="toolbarSeparator3" orientation="VERTICAL" styleClass="toolbar-separator"/>
 
         <!-- Search Box -->
-        <TextField fx:id="searchField" promptText="%app.search.placeholder" prefWidth="240" styleClass="search-field"/>
+        <TextField fx:id="searchField" promptText="%app.search.placeholder" prefWidth="240" styleClass="search-field">
+            <tooltip><Tooltip text="%tooltip.search_syntax" wrapText="true" maxWidth="420"/></tooltip>
+        </TextField>
 
         <!-- Plugin toolbar buttons (populated via ToolbarRegistry; hidden when empty) -->
         <HBox fx:id="pluginToolbarContainer" spacing="4" alignment="CENTER_LEFT"

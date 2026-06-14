@@ -202,6 +202,14 @@ public class CommandPalette {
         commands.add(new Command("cmd.knowledge_insights", "Knowledge Insights",
                 "Analyze orphans, broken links, connections, tags and graph health",
                 "Ctrl+Shift+K", "\u2261", "View", null));
+        commands.add(new Command("cmd.workspace_save", "Workspace: Save Current",
+                "Save the current tabs and layout to the active workspace", null, "\u25a3", "Workspace", null));
+        commands.add(new Command("cmd.workspace_save_as", "Workspace: Save As\u2026",
+                "Save the current tabs and layout under a new name", null, "\u25a3", "Workspace", null));
+        commands.add(new Command("cmd.workspace_open", "Workspace: Open\u2026",
+                "Open a saved workspace", null, "\u25a4", "Workspace", null));
+        commands.add(new Command("cmd.workspace_manage", "Workspace: Manage\u2026",
+                "Open or delete saved workspaces", null, "\u25a4", "Workspace", null));
         commands.add(new Command("cmd.git_panel", "Git: Sync Panel",
                 "Open the Git Sync panel (status, changes, commit, pull & push)", "Ctrl+Shift+G",
                 "\u2387", "Git", null));

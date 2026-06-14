@@ -63,6 +63,7 @@ public class NotesListController {
     private NoteService noteService;
     private TagService tagService;
     private FolderService folderService;
+    private com.example.jylos.search.AdvancedSearchService advancedSearch;
     private ResourceBundle bundle;
 
     private String currentFilterType = "all";
@@ -598,6 +599,9 @@ public class NotesListController {
                 : (AppContext.isInitialized() ? AppContext.getTagService() : null);
         this.folderService = folderService != null ? folderService
                 : (AppContext.isInitialized() ? AppContext.getFolderService() : null);
+        this.advancedSearch = this.noteService != null && this.tagService != null
+                ? new com.example.jylos.search.AdvancedSearchService(this.noteService, this.tagService)
+                : null;
     }
 
     public void setBundle(ResourceBundle bundle) {
@@ -744,15 +748,23 @@ public class NotesListController {
         executeNotesLoad(
                 () -> {
                     List<Note> allNotes = getSearchSourceNotes();
-                    String searchLower = searchText.toLowerCase(Locale.ROOT);
-                    List<Note> filteredNotes = allNotes.stream()
-                            .filter(note -> {
-                                String title = note.getTitle() != null ? note.getTitle().toLowerCase(Locale.ROOT) : "";
-                                // Full-text: match the note's complete content, not the
-                                // truncated lightweight body carried by list notes.
-                                return title.contains(searchLower) || fullContentLower(note).contains(searchLower);
-                            })
-                            .toList();
+                    List<Note> filteredNotes;
+                    if (advancedSearch != null) {
+                        // Advanced search: free text behaves exactly as before; operators
+                        // (tag:, folder:, modified:, is:orphan, …) add AND filters. Full
+                        // content is supplied via the cache so list notes' truncated body
+                        // doesn't drop matches.
+                        filteredNotes = advancedSearch.searchNotes(searchText, allNotes, this::fullContentLower);
+                    } else {
+                        String searchLower = searchText.toLowerCase(Locale.ROOT);
+                        filteredNotes = allNotes.stream()
+                                .filter(note -> {
+                                    String title = note.getTitle() != null
+                                            ? note.getTitle().toLowerCase(Locale.ROOT) : "";
+                                    return title.contains(searchLower) || fullContentLower(note).contains(searchLower);
+                                })
+                                .toList();
+                    }
                     return sortNotesData(filteredNotes, sortOption);
                 },
                 filteredNotes -> {
@@ -823,6 +835,8 @@ public class NotesListController {
         if (notes == null || sortOption == null) {
             return notes != null ? notes : new ArrayList<>();
         }
+        // Sort a mutable copy: callers may pass an immutable list (e.g. Stream.toList()).
+        notes = new ArrayList<>(notes);
         notes.sort((a, b) -> {
             if (a.isPinned() != b.isPinned()) {
                 return a.isPinned() ? -1 : 1;

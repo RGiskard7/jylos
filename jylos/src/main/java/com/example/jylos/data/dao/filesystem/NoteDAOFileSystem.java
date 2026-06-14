@@ -27,6 +27,7 @@ import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.exceptions.DataAccessException;
 import com.example.jylos.exceptions.InvalidParameterException;
+import com.example.jylos.util.WikiLinkResolver;
 
 /**
  * File System implementation of NoteDAO.
@@ -121,6 +122,10 @@ public class NoteDAOFileSystem implements NoteDAO {
             note.setId(id);
             note.setTitle(title);
             applyFileTimestampsIfMissing(note, path);
+            // Index outgoing links from the (untruncated) content head already read, so the
+            // backlink index needs no second full-file read per note — critical on large or
+            // cloud-backed vaults where each read can block on an on-demand download.
+            note.setLinkTargets(WikiLinkResolver.extractLinkTargets(FrontmatterHandler.stripFrontmatter(head)));
             return note;
         } catch (IOException e) {
             logger.log(Level.FINE, "Failed lightweight read for: " + path, e);
@@ -293,9 +298,15 @@ public class NoteDAOFileSystem implements NoteDAO {
                 filename = filename.substring(0, filename.length() - 3);
             note.setTitle(filename);
 
+            // Full read → full-body link coverage for the backlink index.
+            note.setLinkTargets(WikiLinkResolver.extractLinkTargets(FrontmatterHandler.stripFrontmatter(content)));
+
             return note;
         } catch (IOException e) {
-            logger.log(Level.SEVERE, "Failed to read note file: " + path, e);
+            // A single failed read is recoverable: callers handle the null return. Log at
+            // WARNING without a stack trace so a slow/offline drive or an iCloud-offloaded
+            // file ("Operation timed out") cannot flood the log with SEVERE entries.
+            logger.warning("Could not read note file (skipped): " + path + " — " + e.getMessage());
             return null;
         }
     }
