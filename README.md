@@ -33,6 +33,11 @@ Prebuilt packages for all major platforms are available on the [Releases page](.
 - **macOS** — DMG
 - **Linux** — DEB/RPM (via `jpackage`)
 - **Any platform** — uber-JAR (requires Java 21 + JavaFX 23 on `PATH`)
+- **Via [JBang](https://www.jbang.dev/)** — single command, no build needed:
+  ```bash
+  jbang jylos@RGiskard7/jylos
+  ```
+  JBang automatically downloads Java 21 and the JavaFX modules if needed.
 
 ## Table of Contents
 
@@ -263,7 +268,13 @@ mvn -f jylos/pom.xml clean package -DskipTests
 
 ### 3) Run
 
-Use a launcher (sets JavaFX `--module-path`). Requires the uber-JAR from step 2:
+**Option A — JBang (no build required):**
+
+```bash
+jbang jylos@RGiskard7/jylos
+```
+
+**Option B — Launcher script** (sets JavaFX `--module-path`; requires the uber-JAR from step 2):
 
 ```bash
 ./scripts/launch-jylos.sh

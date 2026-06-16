@@ -1,0 +1,19 @@
+{
+  "catalogs": {},
+  "templates": {},
+  "aliases": {
+    "jylos": {
+      "script-ref": "https://github.com/RGiskard7/jylos/releases/download/v2.1.0/jylos-2.1.0-uber.jar",
+      "description": "Jylos - Desktop notes app with folders, tags, and Markdown preview",
+      "java": "21+",
+      "dependencies": [
+        "org.openjfx:javafx-base:23.0.2",
+        "org.openjfx:javafx-controls:23.0.2",
+        "org.openjfx:javafx-fxml:23.0.2",
+        "org.openjfx:javafx-graphics:23.0.2",
+        "org.openjfx:javafx-media:23.0.2",
+        "org.openjfx:javafx-web:23.0.2"
+      ]
+    }
+  }
+}
