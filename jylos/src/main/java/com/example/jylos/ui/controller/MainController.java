@@ -2070,15 +2070,17 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (noteService == null) {
             return;
         }
-        String title = java.time.LocalDate.now().toString();
-        Note existing = findNoteByTitle(title);
+        String title = com.example.jylos.util.NoteTemplates.dailyNoteTitle();
+        Note existing = noteService.findNoteByTitle(title).orElse(null);
         if (existing != null) {
             loadNoteInEditor(noteService.getNoteById(existing.getId()).orElse(existing));
             updateStatus(java.text.MessageFormat.format(getString("status.note_loaded"), title));
             return;
         }
         String template = templateContentByName("daily");
-        String content = template != null ? applyTemplatePlaceholders(template, title) : "# " + title + "\n\n";
+        String content = template != null
+                ? com.example.jylos.util.NoteTemplates.applyPlaceholders(template, title)
+                : "# " + title + "\n\n";
         createAndOpenNote(title, content);
     }
 
@@ -2110,23 +2112,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 return;
             }
             Note full = noteService.getNoteById(tpl.getId()).orElse(tpl);
-            String content = applyTemplatePlaceholders(
+            String content = com.example.jylos.util.NoteTemplates.applyPlaceholders(
                     full.getContent() != null ? full.getContent() : "", choice);
             createAndOpenNote(choice, content);
         });
-    }
-
-    /** Linear search across all notes for a case-insensitive title match; returns the first match or {@code null}. */
-    private Note findNoteByTitle(String title) {
-        if (title == null) {
-            return null;
-        }
-        for (Note note : noteService.getAllNotes()) {
-            if (note != null && title.equalsIgnoreCase(note.getTitle())) {
-                return note;
-            }
-        }
-        return null;
     }
 
     /** Notes located under a folder named "Templates" (path prefix or parent title). */
@@ -2156,16 +2145,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             }
         }
         return null;
-    }
-
-    /** Replaces {@code {{title}}}, {@code {{date}}}, {@code {{time}}} and {@code {{datetime}}} placeholders in a template string. */
-    private String applyTemplatePlaceholders(String content, String title) {
-        java.time.LocalDateTime now = java.time.LocalDateTime.now();
-        return content
-                .replace("{{title}}", title != null ? title : "")
-                .replace("{{date}}", java.time.LocalDate.now().toString())
-                .replace("{{time}}", now.toLocalTime().withNano(0).toString())
-                .replace("{{datetime}}", now.withNano(0).toString());
     }
 
     /** Creates a note with the given title and content, adds it to the list, loads it in the editor, and publishes a creation event. */

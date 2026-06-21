@@ -6,6 +6,15 @@
 
 Se sube la versión a **2.1.0**, recogiendo las funcionalidades añadidas desde la 2.0.0 (espacios de trabajo, búsqueda avanzada, panel de sincronización Git, Knowledge Insights, Kanban multilínea) que ya estaban marcadas como `@since 2.1.0` en el código pero seguían reportándose como 2.0.0. Actualizado en `app.properties`, `AppConfig`, `pom.xml` y los README.
 
+### Refactor: auditoría de mantenimiento de la UI (2026-06-14)
+
+Pasada de mantenimiento y eficiencia centrada en la capa UI/JavaFX, conservadora y sin cambios de comportamiento:
+
+- **Lógica de plantillas fuera del controlador**: la sustitución de placeholders (`{{title}}`, `{{date}}`, `{{time}}`, `{{datetime}}`) vivía en `MainController`. Se extrae a `util/NoteTemplates` (función pura, con una sobrecarga que acepta el reloj para poder testearla) y se añade `NoteTemplatesTest` (7 casos). El controlador queda más pequeño y la lógica es ahora unit-testable.
+- **Duplicado eliminado**: `MainController` reimplementaba un `findNoteByTitle` (búsqueda lineal por título) que ya existía en `NoteService`. Se elimina el privado y se usa el del servicio — una sola fuente de verdad.
+- **Código muerto**: se elimina `MarkdownProcessor.containsMarkdown`, sin llamadas en todo el proyecto.
+- **Verificado en la auditoría (sin cambios necesarios)**: el pipeline del preview (WebView) ya está bien acotado — assets (highlight.js, KaTeX, CSS) cacheados estáticamente una sola vez, KaTeX y emoji inyectados solo cuando la nota los usa, render del editor con debounce (120 ms) e índice de títulos caliente (`NoteTitleIndex`) sin reescaneos por tecla; el visor PDF cierra el `PDDocument` (try-with-resources) y rasteriza fuera del hilo FX; los componentes efímeros (paleta de comandos, quick switcher) se crean una vez y se cachean, y los suscriptores del `EventBus` son controladores de vida-aplicación (sin fugas). 210/210 tests verdes.
+
 ### Fix: icono de nota fijada — chincheta real (2026-06-14)
 
 El icono de "nota fijada" era `fth-map-pin` (el marcador de ubicación de Google Maps), tanto en la lista de notas como en el botón de la barra del editor. Se reemplaza por `bi-pin-angle` (Bootstrap Icons), que es la chincheta diagonal clásica. Se añade `ikonli-bootstrapicons-pack:12.3.1` como dependencia Maven — mismo lenguaje visual que Feather (trazo outline, 2 px, minimalista), mismo proveedor (Ikonli). La clase CSS `.feather-pin-active` y la lógica de color/estado no cambian.
