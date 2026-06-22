@@ -1,0 +1,68 @@
+/*
+ * Solarized — Jylos CSS snippet (adaptive: dark + light)
+ *
+ * Ethan Schoonover's classic Solarized palette, which natively defines a Dark and
+ * a Light mode (https://ethanschoonover.com/solarized). Adapts to the active
+ * theme via the `theme-dark` / `theme-light` class on the scene root.
+ *
+ * To use: copy this file into your snippets folder (Preferences -> CSS snippets
+ * -> Open folder), then enable it and Save.
+ */
+
+/* ── Solarized Dark ───────────────────────────────────────────────────────── */
+.root.theme-dark {
+    -fx-base-bg: #002b36;        /* base03 */
+    -fx-sidebar-bg: #073642;     /* base02 */
+    -fx-header-bg: #073642;
+    -fx-hover-bg: #073642;
+    -fx-hover-text: #fdf6e3;
+
+    -fx-accent: #268bd2;         /* blue   */
+    -fx-accent-hover: #3a9ee0;
+    -fx-accent-contrast: #002b36;
+    -fx-selected-bg: #268bd2;
+    -fx-selected-text: #fdf6e3;
+
+    -fx-text-main: #93a1a1;      /* base1  */
+    -fx-text-muted: #839496;     /* base0  */
+    -fx-text-faint: #586e75;     /* base01 */
+
+    -fx-fn-border-color: #0a3a47;
+
+    -fx-success: #859900;        /* green  */
+    -fx-warning: #b58900;        /* yellow */
+    -fx-danger: #dc322f;         /* red    */
+
+    -fx-folder-all: #6c71c4;     /* violet */
+    -fx-folder-open: #859900;    /* green  */
+    -fx-folder-closed: #cb4b16;  /* orange */
+}
+
+/* ── Solarized Light ──────────────────────────────────────────────────────── */
+.root.theme-light {
+    -fx-base-bg: #fdf6e3;        /* base3  */
+    -fx-sidebar-bg: #eee8d5;     /* base2  */
+    -fx-header-bg: #e7e0cb;
+    -fx-hover-bg: #eee8d5;
+    -fx-hover-text: #073642;
+
+    -fx-accent: #268bd2;
+    -fx-accent-hover: #1e6fa8;
+    -fx-accent-contrast: #fdf6e3;
+    -fx-selected-bg: #268bd2;
+    -fx-selected-text: #fdf6e3;
+
+    -fx-text-main: #586e75;      /* base01 */
+    -fx-text-muted: #657b83;     /* base00 */
+    -fx-text-faint: #93a1a1;     /* base1  */
+
+    -fx-fn-border-color: #ddd6c1;
+
+    -fx-success: #859900;
+    -fx-warning: #b58900;
+    -fx-danger: #dc322f;
+
+    -fx-folder-all: #6c71c4;
+    -fx-folder-open: #859900;
+    -fx-folder-closed: #cb4b16;
+}

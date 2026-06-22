@@ -270,6 +270,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private final UiDialog uiDialog = new UiDialog(this);
     private final ThemeCommand themeCommand = new ThemeCommand();
     private final ThemeCatalog themeCatalog = new ThemeCatalog();
+    private final CssSnippetCatalog cssSnippetCatalog = new CssSnippetCatalog();
     private final SystemThemeMonitor systemThemeMonitor = new SystemThemeMonitor(
             () -> themeCommand.detectSystemTheme(),
             this::applyThemeAndRefreshDependents);
@@ -315,6 +316,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private boolean autosaveRunning = false;
     private String themeSource = UiPreferencesStore.THEME_SOURCE_BUILTIN;
     private String externalThemeId = "";
+    /** Filenames of the CSS snippets the user has enabled; layered over the theme. */
+    private java.util.Set<String> enabledSnippets = java.util.Set.of();
 
     private enum SaveDialogDecision {
         SAVE,
@@ -924,6 +927,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         notesListPreviewLines = uiPrefs.notesPreviewLines();
         uiFontSize = uiPrefs.uiFontSize();
         uiAccentColor = uiPrefs.accentColor();
+        enabledSnippets = uiPreferences.loadEnabledSnippets(prefs);
         autosaveDebounce.setDuration(Duration.millis(autosaveIdleMs));
 
         if (sidebarController != null) {
@@ -2799,7 +2803,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 themeCatalog,
                 getClass(),
                 editorController.getPreviewWebView(),
-                refreshPreview);
+                refreshPreview,
+                cssSnippetCatalog.resolveEnabledUris(enabledSnippets));
         // Make modals/alerts follow the active theme (JavaFX dialogs don't inherit
         // the scene's stylesheets on their own).
         com.example.jylos.ui.UiDialogs.setStylesheets(scene.getStylesheets());
@@ -2944,7 +2949,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         List<ThemeCatalog.ThemeDescriptor> themes = themeCatalog.getAvailableThemes();
         Optional<UiDialog.PreferencesDialogResult> result = uiDialog.showPreferences(
                 currentUiPrefs,
-                themes);
+                themes,
+                cssSnippetCatalog,
+                enabledSnippets);
         if (result.isEmpty()) {
             return;
         }
@@ -2958,6 +2965,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 values.uiFontSize(),
                 values.accentColor());
         uiPreferences.save(prefs, newPrefs);
+        uiPreferences.saveEnabledSnippets(prefs, values.enabledSnippets());
         applyUiPreferencesFromStore();
         updateThemeMenuSelection();
         syncSystemThemeMonitoring();

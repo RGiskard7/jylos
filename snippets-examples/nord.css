@@ -1,0 +1,68 @@
+/*
+ * Nord — Jylos CSS snippet (adaptive: dark + light)
+ *
+ * The popular arctic, blue-tinted Nord palette (https://www.nordtheme.com): a
+ * Polar Night (dark) variant and a Snow Storm (light) variant. Adapts to the
+ * active theme via the `theme-dark` / `theme-light` class on the scene root.
+ *
+ * To use: copy this file into your snippets folder (Preferences -> CSS snippets
+ * -> Open folder), then enable it and Save.
+ */
+
+/* ── Polar Night (dark) ───────────────────────────────────────────────────── */
+.root.theme-dark {
+    -fx-base-bg: #2e3440;
+    -fx-sidebar-bg: #3b4252;
+    -fx-header-bg: #2e3440;
+    -fx-hover-bg: #434c5e;
+    -fx-hover-text: #eceff4;
+
+    -fx-accent: #88c0d0;
+    -fx-accent-hover: #8fbcbb;
+    -fx-accent-contrast: #2e3440;
+    -fx-selected-bg: #434c5e;
+    -fx-selected-text: #eceff4;
+
+    -fx-text-main: #eceff4;
+    -fx-text-muted: #d8dee9;
+    -fx-text-faint: #7b88a1;
+
+    -fx-fn-border-color: #3b4252;
+
+    -fx-success: #a3be8c;
+    -fx-warning: #ebcb8b;
+    -fx-danger: #bf616a;
+
+    -fx-folder-all: #b48ead;
+    -fx-folder-open: #a3be8c;
+    -fx-folder-closed: #d08770;
+}
+
+/* ── Snow Storm (light) ───────────────────────────────────────────────────── */
+.root.theme-light {
+    -fx-base-bg: #eceff4;
+    -fx-sidebar-bg: #e5e9f0;
+    -fx-header-bg: #e5e9f0;
+    -fx-hover-bg: #d8dee9;
+    -fx-hover-text: #2e3440;
+
+    -fx-accent: #5e81ac;
+    -fx-accent-hover: #4c6f9a;
+    -fx-accent-contrast: #eceff4;
+    -fx-selected-bg: #5e81ac;
+    -fx-selected-text: #eceff4;
+
+    -fx-text-main: #2e3440;
+    -fx-text-muted: #434c5e;
+    -fx-text-faint: #60697b;
+
+    -fx-fn-border-color: #d8dee9;
+
+    -fx-success: #5e8052;
+    -fx-warning: #a07e1e;
+    -fx-danger: #a3454d;
+
+    -fx-folder-all: #8a6a86;
+    -fx-folder-open: #5e8052;
+    -fx-folder-closed: #b06a44;
+}

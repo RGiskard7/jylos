@@ -233,7 +233,37 @@ class ThemeCommand {
         return stylesheetUrl.contains("modern-theme.css")
                 || stylesheetUrl.contains("dark-theme.css")
                 || stylesheetUrl.contains("/themes/")
+                || stylesheetUrl.contains("/snippets/")
                 || stylesheetUrl.contains("jylos/ui/css");
+    }
+
+    /**
+     * Tags the scene root with {@code theme-dark} or {@code theme-light} (mutually
+     * exclusive), mirroring Obsidian's body classes. This lets a single CSS snippet
+     * adapt to the active variant via {@code .root.theme-dark} / {@code .root.theme-light}.
+     */
+    private void applyRootThemeClass(Scene scene, String variant) {
+        if (scene == null || scene.getRoot() == null) {
+            return;
+        }
+        var classes = scene.getRoot().getStyleClass();
+        classes.removeAll("theme-dark", "theme-light");
+        classes.add("dark".equalsIgnoreCase(variant) ? "theme-dark" : "theme-light");
+    }
+
+    /**
+     * Appends enabled CSS snippets after the theme so their rules win. Each entry is
+     * an already-resolved {@code file:} URI from {@link CssSnippetCatalog}.
+     */
+    private void appendSnippets(Scene scene, List<String> snippetCssUris) {
+        if (snippetCssUris == null) {
+            return;
+        }
+        for (String uri : snippetCssUris) {
+            if (uri != null && !uri.isBlank() && !scene.getStylesheets().contains(uri)) {
+                scene.getStylesheets().add(uri);
+            }
+        }
     }
 
     ThemeApplicationResult applyTheme(
@@ -244,7 +274,8 @@ class ThemeCommand {
             ThemeCatalog themeCatalog,
             Class<?> resourceAnchor,
             WebView previewWebView,
-            Runnable refreshPreview) {
+            Runnable refreshPreview,
+            List<String> snippetCssUris) {
         if (scene == null || themeCatalog == null || resourceAnchor == null) {
             logger.warning("Cannot apply theme: scene or catalog not available");
             return new ThemeApplicationResult(currentTheme, "light", false);
@@ -264,11 +295,13 @@ class ThemeCommand {
                     scene.getStylesheets().add(baseStylesheet.toExternalForm());
                 }
                 scene.getStylesheets().add(external.cssPath());
+                String variant = external.darkLike() ? "dark" : "light";
+                applyRootThemeClass(scene, variant);
+                appendSnippets(scene, snippetCssUris);
                 ensurePreviewThemeClass(previewWebView);
                 if (refreshPreview != null) {
                     refreshPreview.run();
                 }
-                String variant = external.darkLike() ? "dark" : "light";
                 logger.info("Applied external theme: " + external.id()
                         + " (base=" + baseVariant + ", variant=" + variant + ")");
                 return new ThemeApplicationResult(currentTheme, variant, true);
@@ -284,6 +317,8 @@ class ThemeCommand {
         }
 
         scene.getStylesheets().add(themeResource.toExternalForm());
+        applyRootThemeClass(scene, variant);
+        appendSnippets(scene, snippetCssUris);
         ensurePreviewThemeClass(previewWebView);
         if (refreshPreview != null) {
             refreshPreview.run();

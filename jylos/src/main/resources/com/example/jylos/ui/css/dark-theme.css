@@ -1025,7 +1025,10 @@
     -fx-text-fill: -fx-text-muted;
     -fx-padding: 2 4 6 4;
 }
-.kanban-lane-count {
+/* `.label.kanban-lane-count` (two classes) must out-specify the global `.label`
+   rule, which otherwise wins by source order and paints the count dark on the
+   accent pill. */
+.label.kanban-lane-count {
     -fx-font-size: 12px;
     -fx-font-weight: 700;
     -fx-text-fill: -fx-accent-contrast;
@@ -1780,6 +1783,14 @@
 
 .label {
     -fx-text-fill: #d0d0d0;
+}
+
+/* CheckBox / RadioButton labels are not `.label` nodes, so without an explicit
+   fill their text falls back to the platform default (dark) and becomes invisible
+   on the dark background — e.g. in the Preferences dialog. */
+.check-box,
+.radio-button {
+    -fx-text-fill: -fx-text-main;
 }
 
 /* ========================================

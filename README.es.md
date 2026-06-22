@@ -175,6 +175,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 ### UI/UX
 
 - Temas claro, oscuro y **sistema** (sigue el SO cuando eliges Sistema) + temas CSS externos
+- **Snippets CSS**: coloca ficheros `.css` en `snippets/` y actívalos en Preferencias para retocar la interfaz sobre el tema activo (estilo Obsidian)
 - Tema de ejemplo: Retro Phosphor (`themes/retro-phosphor/`)
 - Preferencias de botones lateral/editor (texto/iconos/auto)
 - Barra lateral centrada (carpetas, etiquetas, recientes, favoritos, papelera)
@@ -443,6 +444,10 @@ Los iconos de barra y menús son glifos **Feather** y **Bootstrap Icons** vía I
 ### Temas
 
 Paquetes en `themes/<id>/` (`theme.properties` + `theme.css`). En desarrollo: `./scripts/build-themes.sh` (copia a `jylos/themes/`). **App instalada:** copia la carpeta del tema a `~/Library/Application Support/Jylos/themes/<id>/` (macOS), `%APPDATA%\Jylos\themes\<id>\` (Windows) o `~/.config/Jylos/themes/<id>/` (Linux); detalle en [themes/README.md](themes/README.md).
+
+### Snippets CSS
+
+Coloca ficheros `.css` en la carpeta `snippets/` para retocar la interfaz sobre el tema activo (estilo Obsidian), sin crear un tema completo. Actívalos en **Preferencias → Snippets CSS**; cada snippet activo se superpone **después** del tema, así que sus reglas tienen prioridad. Usa **Abrir carpeta** en ese diálogo para llegar al directorio (`<appData>/snippets`). El nombre de un snippet debe ser un fichero `.css` simple. Hay ejemplos listos para usar y adaptables al tema (Atom One, Nord, Solarized — cada uno con variante clara y oscura) en [snippets-examples/](snippets-examples/). Los snippets pueden ramificar con la clase `theme-dark` / `theme-light` que Jylos pone en el root de la escena (estilo Obsidian).
 
 ### Plugins
 

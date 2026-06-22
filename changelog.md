@@ -1,5 +1,28 @@
 # Changelog
 
+## [Unreleased]
+
+### Feat: snippets CSS por usuario (estilo Obsidian)
+
+Permite retocar la interfaz con pequeños ficheros `.css` propios que se superponen al tema activo, sin tener que crear un tema completo. Funciona con temas integrados y externos.
+
+- **Cómo funciona**: coloca ficheros `.css` en la carpeta `snippets/` (en `<appData>/snippets`, creada al arrancar) y actívalos desde **Preferencias → Snippets CSS**. Cada snippet activo se añade a la escena **después** del tema, así que sus reglas tienen prioridad. La activación se guarda en preferencias y se reaplica al arrancar.
+- **UI**: la sección en Preferencias lista los snippets disponibles con casillas, más botones **Abrir carpeta** y **Recargar** (re-escanea sin cerrar el diálogo, conservando tu selección).
+- **Seguridad**: el nombre de un snippet debe ser un fichero `.css` simple (sin separadores de ruta ni `..`), de modo que nunca puede apuntar fuera de su carpeta. Un snippet activado que ya no exista se ignora sin romper el arranque.
+- **Arquitectura**: nuevo `CssSnippetCatalog` (descubre/valida/resuelve, espeja `ThemeCatalog`); `ThemeCommand.applyTheme` añade los snippets tras el tema y los limpia al reaplicar (rutas que contienen `/snippets/`); persistencia vía `UiPreferencesStore` (`ui.snippets.enabled`); carpeta `snippets/` creada por `AppDataDirectory`.
+- **Snippets adaptables al tema**: Jylos marca el root de la escena con la clase `theme-dark` / `theme-light` (igual que las clases de `body` de Obsidian), de modo que un único snippet puede servir para claro y oscuro vía `.root.theme-dark { … }` / `.root.theme-light { … }`.
+- **Ejemplos incluidos**: nueva carpeta `snippets-examples/` con tres snippets **adaptables** (cada uno con variante clara y oscura) — **Atom One**, **Nord** y **Solarized** — más un README con la guía de instalación y la lista de variables para crear los propios. (La carpeta runtime `jylos/snippets/` sí está en `.gitignore`, como `data/`/`logs/`: contiene los snippets activos del usuario; los ejemplos versionados viven en `snippets-examples/`.)
+- **i18n** EN/ES con paridad (`dialog.preferences.css_snippets*`).
+- **Tests**: `CssSnippetCatalogTest` (6 casos) — validación de nombres (incluye intentos de traversal), escaneo/orden/deduplicación y resolución de activos saltando los ausentes. 216/216 verdes.
+
+### Fix: texto de checkboxes invisible en modo oscuro
+
+Las etiquetas de los `CheckBox`/`RadioButton` no son nodos `.label`, así que sin un color explícito su texto caía al valor por defecto de la plataforma (oscuro) y resultaba **invisible sobre el fondo oscuro** — visible, p. ej., en el diálogo de Preferencias. Se añade una regla global en el tema oscuro (`.check-box, .radio-button { -fx-text-fill: -fx-text-main }`). El tema claro no se ve afectado (su texto por defecto ya contrasta).
+
+### Fix: contador de columnas Kanban ilegible (negro sobre acento)
+
+El badge con el número de tarjetas (`.kanban-lane-count`) se pintaba con texto oscuro sobre la píldora de color de acento en todos los temas. Causa: `.kanban-lane-count` y la regla global `.label` tienen la **misma especificidad** y, al ir `.label` después en la hoja, ganaba y forzaba su color de texto. Se sube la especificidad del badge a `.label.kanban-lane-count` en ambos temas, de modo que recupera `-fx-accent-contrast` (texto sobre acento).
+
 ## [2.1.0] - 2026-06-14
 
 ### Versión 2.1.0

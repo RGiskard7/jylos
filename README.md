@@ -180,6 +180,7 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 ### UI/UX
 
 - Light, dark, and **system** themes (OS theme polling when “System” is selected) + external CSS themes
+- **CSS snippets**: drop `.css` files into `snippets/` and toggle them in Preferences to tweak the UI over the active theme (Obsidian-style)
 - Sample external theme: Retro Phosphor (`themes/retro-phosphor/`)
 - Configurable sidebar/editor button presentation (text/icons/auto)
 - Centered sidebar navigation (folders, tags, recent, favorites, trash)
@@ -453,6 +454,10 @@ Toolbar/sidebar icons are **Feather** and **Bootstrap Icons** glyphs via Ikonli 
 ### Themes
 
 Source packs live in `themes/<id>/` (`theme.properties` + `theme.css`). Development: `./scripts/build-themes.sh` (copies to `jylos/themes/`). **Packaged app:** copy the theme folder to `~/Library/Application Support/Jylos/themes/<id>/` (macOS), `%APPDATA%\Jylos\themes\<id>\` (Windows), or `~/.config/Jylos/themes/<id>/` (Linux). See [themes/README.md](themes/README.md).
+
+### CSS snippets
+
+Drop plain `.css` files into the `snippets/` folder to tweak the interface on top of the active theme (Obsidian-style), without authoring a full theme. Enable them in **Preferences → CSS snippets**; each enabled snippet is layered **after** the theme, so its rules win. Use **Open folder** in that dialog to reach the directory (`<appData>/snippets`). Snippet names must be simple `.css` filenames. Ready-made, theme-adaptive examples (Atom One, Nord, Solarized — each with a dark and light variant) live in [snippets-examples/](snippets-examples/). Snippets can branch on the `theme-dark` / `theme-light` class Jylos sets on the scene root (Obsidian-style).
 
 ### Plugins
 
