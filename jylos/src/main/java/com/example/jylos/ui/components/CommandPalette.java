@@ -202,6 +202,8 @@ public class CommandPalette {
         commands.add(new Command("cmd.underline", "Underline", "Underline text", "Ctrl+U", "U", "Format", null));
         commands.add(new Command("cmd.insert_link", "Insert Link", "Insert a hyperlink", "Ctrl+K", "@", "Format",
                 null));
+        commands.add(new Command("cmd.insert_rich_link", "Insert Rich Link",
+                "Insert a URL as a visual card", null, "@", "Format", null));
         commands.add(new Command("cmd.insert_image", "Insert Image", "Insert an image", null, "#", "Format", null));
         commands.add(new Command("cmd.insert_todo", "Insert Todo", "Insert a todo item", null, "[]", "Format", null));
         commands.add(
@@ -572,6 +574,10 @@ public class CommandPalette {
                         setStyle(selectedStyle);
                         nameLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: white;");
                         descLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: rgba(255,255,255,0.8);");
+                        // Clear hover handlers: otherwise hovering the (white-text) selected
+                        // row would swap in the light hover background, hiding the text.
+                        setOnMouseEntered(null);
+                        setOnMouseExited(null);
                     } else {
                         setStyle(baseStyle);
                         setOnMouseEntered(e -> setStyle(hoverStyle));

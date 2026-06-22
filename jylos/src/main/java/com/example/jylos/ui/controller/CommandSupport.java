@@ -121,6 +121,7 @@ class CommandRegistry {
             new CommandDef("cmd.italic", "Italic"),
             new CommandDef("cmd.underline", "Underline"),
             new CommandDef("cmd.insert_link", "Insert Link"),
+            new CommandDef("cmd.insert_rich_link", "Insert Rich Link"),
             new CommandDef("cmd.insert_image", "Insert Image"),
             new CommandDef("cmd.insert_todo", "Insert Todo"),
             new CommandDef("cmd.insert_list", "Insert List"),

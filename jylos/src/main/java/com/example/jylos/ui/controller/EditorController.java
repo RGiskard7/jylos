@@ -29,9 +29,12 @@ import com.example.jylos.service.NoteService;
 import com.example.jylos.util.AttachmentType;
 import com.example.jylos.util.MarkdownHighlighter;
 import com.example.jylos.util.MarkdownPreview;
+import com.example.jylos.util.RichLinks;
+import com.example.jylos.util.SystemBrowser;
 import com.example.jylos.util.WikiLinkResolver;
 
 import javafx.application.Platform;
+import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
@@ -100,6 +103,8 @@ public class EditorController {
     private boolean wikiLinkListenerInstalled;
     private WikiLinkHandler wikiLinkHandler;
     private final PreviewJavaBridge previewJavaBridge = new PreviewJavaBridge();
+    private final com.example.jylos.service.RichLinkService richLinkService =
+            new com.example.jylos.service.RichLinkService();
 
     /** Opens a note when the user clicks a wiki-link in the Markdown preview. */
     @FunctionalInterface
@@ -148,7 +153,7 @@ public class EditorController {
     @FXML private CodeArea  noteContentArea;
     @FXML private Button    heading1Btn, heading2Btn, heading3Btn;
     @FXML private Button    boldBtn, italicBtn, strikeBtn, underlineBtn;
-    @FXML private Button    highlightBtn, linkBtn, imageBtn;
+    @FXML private Button    highlightBtn, linkBtn, richLinkBtn, imageBtn;
     @FXML private Button    todoBtn, bulletBtn, numberBtn;
     @FXML private Button    quoteBtn, codeBtn;
     @FXML private Label     wordCountLabel;
@@ -303,6 +308,7 @@ public class EditorController {
     @FXML private void handleUnderline(ActionEvent e)         { publish(SystemActionEvent.ActionType.UNDERLINE); }
     @FXML private void handleHighlight(ActionEvent e)         { publish(SystemActionEvent.ActionType.HIGHLIGHT); }
     @FXML private void handleLink(ActionEvent e)              { publish(SystemActionEvent.ActionType.LINK); }
+    @FXML private void handleRichLink(ActionEvent e)          { publish(SystemActionEvent.ActionType.RICH_LINK); }
     @FXML private void handleImage(ActionEvent e)             { publish(SystemActionEvent.ActionType.IMAGE); }
     @FXML private void handleTodoList(ActionEvent e)          { publish(SystemActionEvent.ActionType.TODO_LIST); }
     @FXML private void handleBulletList(ActionEvent e)        { publish(SystemActionEvent.ActionType.BULLET_LIST); }
@@ -948,6 +954,7 @@ public class EditorController {
                 case QUOTE     -> insertLinePrefix("> ");
                 case CODE      -> insertCodeBlock();
                 case LINK      -> handleLinkDialog();
+                case RICH_LINK -> handleRichLinkDialog();
                 case IMAGE     -> handleImageDialog();
                 case SAVE      -> handleSave();
                 default        -> { /* not handled here */ }
@@ -1058,6 +1065,55 @@ public class EditorController {
             noteContentArea.requestFocus();
             isModified = true;
         });
+    }
+
+    /**
+     * Prompts for a URL, fetches its metadata off the FX thread, and inserts a
+     * {@code ::: rich-link} block at the caret. Fetching never blocks the UI; on any
+     * failure the service returns a minimal card (URL + host) so a block is still
+     * inserted.
+     */
+    private void handleRichLinkDialog() {
+        if (noteContentArea == null) return;
+        TextInputDialog d = new TextInputDialog("https://");
+        d.setTitle(getString("dialog.rich_link.title", "Insert rich link"));
+        d.setHeaderText(getString("dialog.rich_link.header", "Paste a URL:"));
+        d.setContentText(getString("dialog.rich_link.content", "URL:"));
+        com.example.jylos.ui.UiDialogs.show(d)
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .ifPresent(this::fetchAndInsertRichLink);
+    }
+
+    private void fetchAndInsertRichLink(String url) {
+        Task<RichLinks.RichLink> task = new Task<>() {
+            @Override
+            protected RichLinks.RichLink call() {
+                return richLinkService.fetch(url);
+            }
+        };
+        task.setOnSucceeded(e -> insertRichLinkBlock(task.getValue()));
+        task.setOnFailed(e -> insertRichLinkBlock(
+                new RichLinks.RichLink(url, "", "", "", RichLinks.hostOf(url))));
+        Thread thread = new Thread(task, "rich-link-fetch");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    /** Inserts the rich-link block on its own paragraph at the caret. */
+    private void insertRichLinkBlock(RichLinks.RichLink link) {
+        if (noteContentArea == null || link == null) return;
+        String block = RichLinks.toMarkdown(link);
+        int pos = noteContentArea.getCaretPosition();
+        String text = orEmpty(noteContentArea.getText());
+        String before = text.substring(0, pos);
+        // Keep the block as its own paragraph (CommonMark needs a blank line around it).
+        String lead = before.isEmpty() || before.endsWith("\n\n") ? "" : before.endsWith("\n") ? "\n" : "\n\n";
+        String insertion = lead + block + "\n";
+        noteContentArea.replaceText(before + insertion + text.substring(pos));
+        noteContentArea.moveTo(pos + insertion.length());
+        noteContentArea.requestFocus();
+        isModified = true;
     }
 
     private void handleImageDialog() {
@@ -1394,13 +1450,23 @@ public class EditorController {
         });
     }
 
-    private final class PreviewJavaBridge {
+    /**
+     * Bridge exposed to the preview WebView as {@code window.javaApp}. JavaFX can only
+     * call methods of a <b>public</b> class from JavaScript, so this must stay public
+     * (a private/package-private bridge silently fails to dispatch clicks).
+     */
+    public final class PreviewJavaBridge {
         public void openNote(String title) {
             Platform.runLater(() -> {
                 if (wikiLinkHandler != null) {
                     wikiLinkHandler.openNoteByTitle(title);
                 }
             });
+        }
+
+        /** Opens an external {@code http(s)} link (e.g. a rich-link card) in the system browser. */
+        public void openExternal(String url) {
+            Platform.runLater(() -> SystemBrowser.open(url));
         }
     }
 

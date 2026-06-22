@@ -131,6 +131,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 - **KaTeX** para `$…$`, `$$…$$` y delimitadores LaTeX (assets offline en el JAR)
 - Emoji en preview mediante glifos rasterizados (fiables en el WebView de JavaFX)
 - **Resolución de wiki-links** compartida con el grafo y los backlinks (`WikiLinkResolver`)
+- **Rich links**: pega una URL para insertarla como tarjeta visual (título, descripción, miniatura, dominio) — la metadata se descarga en segundo plano; los enlaces externos abren en el navegador del sistema
 - **Modo concentración** (`Ctrl/Cmd+Shift+F`): oculta todo salvo el editor
 - Las proporciones de los paneles divididos se recuerdan entre sesiones
 

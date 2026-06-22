@@ -334,6 +334,10 @@ public class QuickSwitcher {
                         setStyle(selectedStyle);
                         titleLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: white;");
                         previewLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: rgba(255,255,255,0.8);");
+                        // Clear hover handlers so hovering the (white-text) selected row
+                        // does not swap in the light hover background and hide the text.
+                        setOnMouseEntered(null);
+                        setOnMouseExited(null);
                     } else {
                         setStyle(baseStyle);
                         setOnMouseEntered(e -> setStyle(hoverStyle));

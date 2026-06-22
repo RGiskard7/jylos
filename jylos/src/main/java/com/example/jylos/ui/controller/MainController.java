@@ -1251,6 +1251,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 return () -> publishEditorAction(SystemActionEvent.ActionType.UNDERLINE);
             case "cmd.insert_link":
                 return () -> publishEditorAction(SystemActionEvent.ActionType.LINK);
+            case "cmd.insert_rich_link":
+                return () -> publishEditorAction(SystemActionEvent.ActionType.RICH_LINK);
             case "cmd.insert_image":
                 return () -> publishEditorAction(SystemActionEvent.ActionType.IMAGE);
             case "cmd.insert_todo":

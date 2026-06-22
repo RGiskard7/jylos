@@ -136,6 +136,7 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 - **KaTeX** for `$…$`, `$$…$$`, and LaTeX delimiters (offline assets bundled in the JAR)
 - Emoji in preview via rasterized glyphs (reliable in the JavaFX WebView)
 - **Wiki-link resolution** shared with the graph and backlinks (`WikiLinkResolver`)
+- **Rich links**: paste a URL to insert it as a visual card (title, description, thumbnail, site) — metadata fetched in the background; external links open in the system browser
 - **Focus / writing mode** (`Ctrl/Cmd+Shift+F`): hides everything but the editor
 - Split-pane proportions are remembered between sessions
 

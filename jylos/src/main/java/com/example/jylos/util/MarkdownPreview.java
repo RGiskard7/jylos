@@ -66,6 +66,10 @@ public class MarkdownPreview {
         Set<String> knownTitles = NoteTitleIndex.getInstance().titles();
         raw = WikiLinkResolver.resolve(raw, knownTitles);
 
+        // Expand ::: rich-link blocks into HTML cards before CommonMark (the card is
+        // an HTML block, which CommonMark passes through verbatim).
+        raw = RichLinks.render(raw);
+
         String html = MarkdownProcessor.markdownToHtml(raw);
         html = embedLocalImages(html, baseDir);
         html = emojifyToImages(html, isDarkTheme);
@@ -102,15 +106,25 @@ public class MarkdownPreview {
                     
                     document.addEventListener('click', function(e) {
                         let target = e.target.closest('a');
-                        if (target && target.getAttribute('href') && target.getAttribute('href').startsWith('jylos://open-note/')) {
+                        if (!target) { return; }
+                        let href = target.getAttribute('href');
+                        if (!href) { return; }
+                        if (href.startsWith('jylos://open-note/')) {
                             e.preventDefault();
                             let title = target.getAttribute('data-target');
                             if (!title) {
                                 // fallback for pure markdown links [Note](jylos://...)
-                                title = decodeURIComponent(target.getAttribute('href').substring('jylos://open-note/'.length));
+                                title = decodeURIComponent(href.substring('jylos://open-note/'.length));
                             }
                             if (window.javaApp) {
                                 window.javaApp.openNote(title);
+                            }
+                        } else if (href.startsWith('http://') || href.startsWith('https://')) {
+                            // Open external links (incl. rich-link cards) in the system browser
+                            // instead of navigating the preview away from the note.
+                            e.preventDefault();
+                            if (window.javaApp) {
+                                window.javaApp.openExternal(href);
                             }
                         }
                     });
@@ -203,6 +217,14 @@ public class MarkdownPreview {
                 a.wikilink:hover { color: #A5B4FC; border-bottom-style: solid; }
                 a.wikilink-new { color: #ef4444; border-bottom-color: #ef4444; }
                 a.wikilink-new:hover { color: #f87171; border-bottom-color: #f87171; }
+                .rich-link { margin: 1em 0; }
+                a.rich-link-card { display: flex; align-items: stretch; text-decoration: none; border: 1px solid #3a3a3a; border-radius: 8px; overflow: hidden; background-color: #252525; transition: border-color 0.15s, background-color 0.15s; }
+                a.rich-link-card:hover { border-color: #818CF8; background-color: #2a2a2a; text-decoration: none; }
+                .rich-link-thumb { flex: 0 0 120px; background-size: cover; background-position: center; background-repeat: no-repeat; border: none; border-radius: 0; }
+                .rich-link-body { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; min-width: 0; }
+                .rich-link-title { color: #E0E0E0; font-weight: 600; font-size: 0.95em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                .rich-link-desc { color: #B3B3B3; font-size: 0.85em; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+                .rich-link-site { color: #777777; font-size: 0.78em; margin-top: 2px; }
                 """;
     }
 
@@ -236,6 +258,14 @@ public class MarkdownPreview {
                 a.wikilink:hover { color: #4338CA; border-bottom-style: solid; }
                 a.wikilink-new { color: #dc2626; border-bottom-color: #dc2626; }
                 a.wikilink-new:hover { color: #b91c1c; border-bottom-color: #b91c1c; }
+                .rich-link { margin: 1em 0; }
+                a.rich-link-card { display: flex; align-items: stretch; text-decoration: none; border: 1px solid #e1e4e8; border-radius: 8px; overflow: hidden; background-color: #f6f8fa; transition: border-color 0.15s, background-color 0.15s; }
+                a.rich-link-card:hover { border-color: #6366F1; background-color: #f0f1ff; text-decoration: none; }
+                .rich-link-thumb { flex: 0 0 120px; background-size: cover; background-position: center; background-repeat: no-repeat; border: none; border-radius: 0; }
+                .rich-link-body { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; min-width: 0; }
+                .rich-link-title { color: #24292e; font-weight: 600; font-size: 0.95em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                .rich-link-desc { color: #57606a; font-size: 0.85em; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+                .rich-link-site { color: #6b6e74; font-size: 0.78em; margin-top: 2px; }
                 """;
     }
 

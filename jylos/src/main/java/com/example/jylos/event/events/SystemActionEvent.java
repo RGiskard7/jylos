@@ -72,6 +72,7 @@ public class SystemActionEvent extends AppEvent {
         UNDERLINE,
         HIGHLIGHT,
         LINK,
+        RICH_LINK,
         IMAGE,
         TODO_LIST,
         BULLET_LIST,

@@ -187,6 +187,10 @@
                             <graphic><FontIcon iconLiteral="fth-link" styleClass="feather-icon"/></graphic>
                             <tooltip><Tooltip text="%tooltip.format.link"/></tooltip>
                         </Button>
+                        <Button fx:id="richLinkBtn" onAction="#handleRichLink" styleClass="format-btn">
+                            <graphic><FontIcon iconLiteral="fth-bookmark" styleClass="feather-icon"/></graphic>
+                            <tooltip><Tooltip text="%tooltip.format.rich_link"/></tooltip>
+                        </Button>
                         <Button fx:id="imageBtn" onAction="#handleImage" styleClass="format-btn">
                             <graphic><FontIcon iconLiteral="fth-image" styleClass="feather-icon"/></graphic>
                             <tooltip><Tooltip text="%tooltip.format.image"/></tooltip>

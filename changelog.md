@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### Feat: rich links (tarjetas de enlace)
+
+Convierte una URL en una **tarjeta visual** (título, descripción, miniatura y dominio) en lugar de un enlace plano, al estilo de Glyphary/Obsidian.
+
+- **Cómo se usa**: botón en la barra de formato del editor (icono marcador), comando **Insert Rich Link** en la paleta (`Ctrl+P`) o acción de menú. Pega una URL → se descarga su metadata en segundo plano (nunca bloquea la UI) → se inserta un bloque que se renderiza como tarjeta en la vista previa.
+- **Formato en disco**: bloque de texto plano `::: rich-link` con `url/title/description/image/siteName`, legible y portable; solo `url` es obligatorio. Degrada a texto legible en cualquier otro editor.
+- **Metadata**: `RichLinkService` descarga la página (timeout, User-Agent de navegador, tope de 512 KB) y extrae OpenGraph (`og:title/description/image/site_name`) con fallback a `<title>`, meta description y el host. Ante cualquier fallo inserta una tarjeta mínima (URL + dominio), sin lanzar excepción.
+- **Enlaces externos**: al pulsar una tarjeta (o cualquier enlace `http(s)` del preview) se abre en el **navegador del sistema** vía el nuevo `SystemBrowser` (valida el esquema; usa `ProcessBuilder`, sin shell), en lugar de navegar dentro del WebView.
+- **Arquitectura**: `util/RichLinks` (formato + parseo OpenGraph + render a tarjeta, puro y testeable), `service/RichLinkService` (única parte con red), `util/SystemBrowser`; integración en el pipeline de `MarkdownPreview` (antes de CommonMark, como los wiki-links) con CSS de tarjeta en ambos temas; acción `RICH_LINK` en `SystemActionEvent` cableada en editor, paleta y barra de formato.
+- **i18n** EN/ES con paridad (`dialog.rich_link.*`, `tooltip.format.rich_link`).
+- **Tests**: `RichLinksTest` (10) — OpenGraph + fallbacks, generación/round-trip del bloque, render a tarjeta, **escapado de HTML** e imágenes solo `http(s)` (seguridad); `SystemBrowserTest` (2) — rechazo de esquemas no `http(s)`. 228/228 verdes.
+
+### Fix: los enlaces de la vista previa no abrían (bug latente)
+
+Al pulsar un wiki-link o un enlace externo en la vista previa no ocurría nada. Causa (preexistente, no introducida por los rich links): el puente JS→Java `window.javaApp` se exponía desde una clase `private`, y JavaFX WebView **solo puede invocar métodos de una clase `public`** desde JavaScript, así que las llamadas fallaban en silencio. Se hace `public` la clase `PreviewJavaBridge`. Ahora los wiki-links abren la nota y los enlaces `http(s)` (incluidas las tarjetas rich-link) abren en el navegador del sistema.
+
+### Fix: texto ilegible en la fila seleccionada de la paleta de comandos / quick switcher
+
+La fila seleccionada usa texto blanco sobre fondo de acento, pero los manejadores de *hover* instalados cuando la fila no estaba seleccionada **no se limpiaban** al seleccionarse; al pasar el ratón por encima cambiaban el fondo al de hover (gris muy claro en tema claro) dejando el texto blanco → invisible. Se limpian los manejadores de ratón en el estado seleccionado, en `CommandPalette` y `QuickSwitcher`.
+
 ### Feat: snippets CSS por usuario (estilo Obsidian)
 
 Permite retocar la interfaz con pequeños ficheros `.css` propios que se superponen al tema activo, sin tener que crear un tema completo. Funciona con temas integrados y externos.
