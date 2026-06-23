@@ -963,8 +963,21 @@ public class NoteDAOFileSystem implements NoteDAO {
                 reindexed.put(noteId, note);
             }
 
-            cachedNotes.clear();
+            // Safety: never let a transient filesystem hiccup wipe the whole cache. If
+            // pruning would drop *every* note while we still hold some (e.g. iCloud
+            // dataless files or Unicode-normalised names making Files.exists momentarily
+            // false), skip this pass and keep the existing entries; the next interval
+            // re-checks. Without this, the notes panel can flash completely empty.
+            if (reindexed.isEmpty() && !cachedNotes.isEmpty()) {
+                return;
+            }
+            // Update/insert the surviving entries first, then drop only the stale keys.
+            // A plain clear()+putAll() leaves the (concurrent-read) cache momentarily
+            // EMPTY between the two calls — a notes-list background load reading it in
+            // that window would render an empty panel. Doing it this way means a reader
+            // always sees a consistent, non-empty cache.
             cachedNotes.putAll(reindexed);
+            cachedNotes.keySet().retainAll(reindexed.keySet());
             notesByFolderIndexDirty = true;
         } finally {
             FileSystemIoLock.LOCK.unlock();

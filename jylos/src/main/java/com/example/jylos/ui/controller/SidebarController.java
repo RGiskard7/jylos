@@ -79,6 +79,8 @@ public class SidebarController {
     private final Map<String, Integer> folderNoteCountCache = new HashMap<>();
     private int allNotesCountCache = 0;
     private boolean folderNoteCountCacheDirty = true;
+    /** Guards the selection listener while a tree rebuild restores the prior selection. */
+    private boolean restoringFolderSelection = false;
 
     // Tags
     @FXML
@@ -243,6 +245,11 @@ public class SidebarController {
 
         // Selection listeners - Matching MainController patterns
         folderTreeView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            // Suppressed while we re-select the previously-selected folder after a tree
+            // rebuild, so restoring the selection does not re-navigate / reload notes.
+            if (restoringFolderSelection) {
+                return;
+            }
             if (newVal != null && newVal.getValue() != null) {
                 Folder f = newVal.getValue();
                 if ("ALL_NOTES_VIRTUAL".equals(f.getId())) {
@@ -635,8 +642,10 @@ public class SidebarController {
             requestRecentFavoritesReload();
         }));
         eventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class, event -> {
-            invalidateFolderNoteCountCache();
-            requestFoldersReload();
+            // A content save does not change the folder structure or note counts, so the
+            // folder tree is NOT rebuilt here (rebuilding re-selected the folder and fired
+            // a second, racing notes-list load that could blank the panel). Only the
+            // recents/favorites lists, whose ordering may change, are refreshed.
             requestRecentFavoritesReload();
         }));
         eventSubscriptions.add(eventBus.subscribe(FolderEvents.FolderDeletedEvent.class, event -> {
@@ -795,6 +804,12 @@ public class SidebarController {
         if (!folderSortAscending) {
             comp = comp.reversed();
         }
+        // Remember the selected folder so a rebuild (e.g. after a vault refresh) does not
+        // drop the selection and scroll the tree back to the root.
+        TreeItem<Folder> previous = folderTreeView.getSelectionModel().getSelectedItem();
+        String selectedFolderId = previous != null && previous.getValue() != null
+                ? previous.getValue().getId() : null;
+
         vaultRootItem.getChildren().clear();
         for (Folder f : buildResult.roots) {
             TreeItem<Folder> item = new TreeItem<>(f);
@@ -810,6 +825,43 @@ public class SidebarController {
             expandCollapseRecursive(vaultRootItem, true);
         }
         vaultRootItem.setExpanded(true);
+        restoreFolderSelection(selectedFolderId);
+    }
+
+    /** Re-selects the folder with {@code folderId} after a tree rebuild, without re-navigating. */
+    private void restoreFolderSelection(String folderId) {
+        if (folderId == null) {
+            return;
+        }
+        TreeItem<Folder> match = findFolderItem(vaultRootItem, folderId);
+        if (match == null) {
+            return;
+        }
+        restoringFolderSelection = true;
+        try {
+            folderTreeView.getSelectionModel().select(match);
+            folderTreeView.scrollTo(folderTreeView.getRow(match));
+        } finally {
+            restoringFolderSelection = false;
+        }
+    }
+
+    /** Depth-first search for the tree item backing the folder whose id matches {@code folderId}. */
+    private TreeItem<Folder> findFolderItem(TreeItem<Folder> node, String folderId) {
+        if (node == null) {
+            return null;
+        }
+        Folder value = node.getValue();
+        if (value != null && folderId.equals(value.getId())) {
+            return node;
+        }
+        for (TreeItem<Folder> child : node.getChildren()) {
+            TreeItem<Folder> found = findFolderItem(child, folderId);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
     }
 
     private void buildFolderTree(TreeItem<Folder> parentItem, String parentId,
@@ -1078,18 +1130,20 @@ public class SidebarController {
                     : (b.getCreatedDate() != null ? b.getCreatedDate() : "");
             return recentSortAscending ? d2.compareTo(d1) : d1.compareTo(d2);
         });
-        masterRecentList.clear();
+        // Replace atomically (setAll) instead of clear()+add in a loop: the latter makes
+        // the bound ListView flash empty on every reload (e.g. after each autosave).
+        List<String> titles = new ArrayList<>();
         for (int i = 0; i < Math.min(10, cachedRecentNotes.size()); i++) {
-            masterRecentList.add(cachedRecentNotes.get(i).getTitle());
+            titles.add(cachedRecentNotes.get(i).getTitle());
         }
+        masterRecentList.setAll(titles);
     }
 
     private void applyFavoriteNotes(List<Note> allNotes) {
         cachedFavoriteNotes = (allNotes != null ? allNotes : List.<Note>of()).stream().filter(Note::isFavorite).toList();
-        masterFavoritesList.clear();
-        for (Note n : cachedFavoriteNotes) {
-            masterFavoritesList.add(n.getTitle());
-        }
+        // setAll (atomic) instead of clear()+add, so the bound ListView does not flash
+        // empty on every reload (e.g. after each autosave).
+        masterFavoritesList.setAll(cachedFavoriteNotes.stream().map(Note::getTitle).toList());
     }
 
     private void requestFoldersReload() {

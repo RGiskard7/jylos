@@ -7,8 +7,11 @@ import java.util.Collection;
 import java.util.Set;
 import java.util.logging.Logger;
 
+import com.example.jylos.config.AppContext;
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.PreviewEnhancer;
+import com.example.jylos.service.NoteService;
 import com.example.jylos.service.NoteTitleIndex;
 
 /**
@@ -64,6 +67,13 @@ public class MarkdownPreview {
         // by note events. This avoids re-scanning the whole note store on every
         // keystroke-driven render (perf P1).
         Set<String> knownTitles = NoteTitleIndex.getInstance().titles();
+
+        // Expand ![[transclusions]] FIRST: ![[X]] contains a [[X]] that WikiLinkResolver
+        // would otherwise rewrite. Each embed is rendered now and parked behind a token,
+        // re-injected after CommonMark (see Transclusion).
+        Transclusion.Result embeds = Transclusion.protect(raw, MarkdownPreview::embedContentByTitle, knownTitles);
+        raw = embeds.markdown();
+
         raw = WikiLinkResolver.resolve(raw, knownTitles);
 
         // Expand ::: rich-link blocks into HTML cards before CommonMark (the card is
@@ -71,6 +81,7 @@ public class MarkdownPreview {
         raw = RichLinks.render(raw);
 
         String html = MarkdownProcessor.markdownToHtml(raw);
+        html = Transclusion.restore(html, embeds.embeds());
         html = embedLocalImages(html, baseDir);
         html = emojifyToImages(html, isDarkTheme);
         Injections injections = MarkdownPreview.collectInjections(enhancers);
@@ -135,6 +146,22 @@ public class MarkdownPreview {
                 </html>
                 """.formatted(injections.head(), highlightCss, styleBlock, html, HLJS_SCRIPT,
                 highlightScript, mathScript, injections.body());
+    }
+
+    /**
+     * Resolves a note title to its raw Markdown for {@code ![[embeds]]}. Uses the live
+     * {@link NoteService} (via {@link AppContext}) so the embedded content matches what
+     * the target note actually holds; returns {@code null} when the note does not exist.
+     */
+    private static String embedContentByTitle(String title) {
+        if (!AppContext.isInitialized()) {
+            return null;
+        }
+        NoteService ns = AppContext.getNoteService();
+        return ns.findNoteByTitle(title)
+                .flatMap(note -> ns.getNoteById(note.getId()))
+                .map(Note::getContent)
+                .orElse(null);
     }
 
     public static String buildEmptyHtml(boolean isDarkTheme) {
@@ -225,6 +252,13 @@ public class MarkdownPreview {
                 .rich-link-title { color: #E0E0E0; font-weight: 600; font-size: 0.95em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
                 .rich-link-desc { color: #B3B3B3; font-size: 0.85em; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
                 .rich-link-site { color: #777777; font-size: 0.78em; margin-top: 2px; }
+                .embed { border-left: 3px solid #3a3a3a; background-color: #232323; border-radius: 0 6px 6px 0; margin: 1em 0; padding: 4px 16px 8px 16px; }
+                .embed-title { display: block; font-size: 0.8em; font-weight: 600; color: #818CF8; text-decoration: none; margin: 6px 0; text-transform: uppercase; letter-spacing: 0.03em; }
+                .embed-title:hover { text-decoration: underline; }
+                .embed-body > :first-child { margin-top: 0; }
+                .embed-body > :last-child { margin-bottom: 0; }
+                .embed-note { color: #f87171; font-size: 0.8em; font-style: italic; }
+                .embed-missing, .embed-cycle, .embed-too-deep { border-left-color: #ef4444; background-color: #2a1f1f; }
                 """;
     }
 
@@ -266,6 +300,13 @@ public class MarkdownPreview {
                 .rich-link-title { color: #24292e; font-weight: 600; font-size: 0.95em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
                 .rich-link-desc { color: #57606a; font-size: 0.85em; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
                 .rich-link-site { color: #6b6e74; font-size: 0.78em; margin-top: 2px; }
+                .embed { border-left: 3px solid #d0d7de; background-color: #f6f8fa; border-radius: 0 6px 6px 0; margin: 1em 0; padding: 4px 16px 8px 16px; }
+                .embed-title { display: block; font-size: 0.8em; font-weight: 600; color: #6366F1; text-decoration: none; margin: 6px 0; text-transform: uppercase; letter-spacing: 0.03em; }
+                .embed-title:hover { text-decoration: underline; }
+                .embed-body > :first-child { margin-top: 0; }
+                .embed-body > :last-child { margin-bottom: 0; }
+                .embed-note { color: #d1242f; font-size: 0.8em; font-style: italic; }
+                .embed-missing, .embed-cycle, .embed-too-deep { border-left-color: #d1242f; background-color: #fff0f0; }
                 """;
     }
 

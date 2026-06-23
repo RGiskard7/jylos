@@ -2256,7 +2256,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (editorController != null) {
             editorController.handleSave();
         }
-        refreshNotesList();
+        // Saving a note's content does not change which notes live in the current folder,
+        // so the central notes list is NOT reloaded here — doing so (especially on every
+        // autosave) caused a redundant reload that could race a cache prune and blank the
+        // list. The recents/favorites lists (whose order may change) refresh via the
+        // NoteSavedEvent the editor publishes.
         if (sidebarController != null) {
             sidebarController.loadRecentNotes();
             sidebarController.loadFavorites();

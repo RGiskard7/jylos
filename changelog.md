@@ -2,6 +2,37 @@
 
 ## [Unreleased]
 
+### Feat: transclusión de notas (embeds `![[ ]]`)
+
+Permite **incrustar** el contenido de otra nota (o una de sus secciones) dentro de la vista previa, estilo Obsidian. Escribe `![[Nota]]` para embeber la nota entera o `![[Nota#Encabezado]]` para una sección.
+
+- **Render**: el embed se muestra como un bloque con un encabezado clicable (abre la nota origen) y el cuerpo renderizado (Markdown completo: encabezados, listas, código, etc.). Los `[[wiki-links]]` dentro del embed también se resuelven.
+- **Secciones**: `#Encabezado` extrae desde ese encabezado hasta el siguiente del mismo nivel o superior.
+- **Seguridad/robustez**: recursión acotada (profundidad máx. 3) con detección de ciclos por rama, de modo que `A → B → A` o cadenas profundas degradan a un aviso en vez de colgarse. Notas/secciones inexistentes muestran un placeholder discreto. Todo el texto incrustado se escapa.
+- **Arquitectura**: nuevo `util/Transclusion` (puro y testeable: recibe un resolutor `título → contenido`). Se integra en `MarkdownPreview` **antes** de los wiki-links (porque `![[X]]` contiene `[[X]]`) usando tokens-placeholder que se reinyectan tras CommonMark — evita los problemas de meter HTML en bloques Markdown. El contenido se resuelve con el `NoteService` vivo (vía `AppContext`), igual que `NoteTitleIndex`.
+- **Creación**: se teclea `![[` (el autocompletado de `[[` existente la cubre); sin botón nuevo, coherente con cómo se crean los wiki-links.
+- **CSS** del embed en ambos temas. **Tests**: `TransclusionTest` (8) — expansión, secciones, ciclos, profundidad, nota/sección ausente, wiki-links internos, anidamiento. 236/236 verdes.
+
+### Fix: el árbol de carpetas y la lista de notas perdían la selección al refrescarse
+
+Al refrescarse (p. ej. cuando termina la carga en segundo plano del vault, o tras una recarga), tanto el árbol de carpetas como la lista de notas **borraban la selección y el scroll** y volvían al root/arriba — algo más visible al usar transclusión, porque resolver el contenido de los embeds toca la caché de notas en cada render del preview.
+
+- **Árbol de carpetas**: `applyFolderTreeBuildResult` recuerda la carpeta seleccionada y la vuelve a seleccionar (con scroll) tras reconstruir.
+- **Lista de notas**: cada recarga hacía `clearSelection()` + `setAll()` (instancias nuevas), reseteando selección y scroll. Ahora un helper `applyNotesPreservingSelection` mantiene la nota seleccionada y su scroll **cuando sigue presente** (refresco del mismo contexto); al navegar a otra carpeta/etiqueta la nota anterior no está y la selección se limpia sola, como antes.
+- En ambos casos la re-selección está **guardada** para no republicar el evento (no re-navega ni recarga el editor, preservando el cursor/los cambios sin guardar). Beneficia a cualquier refresco, no solo a la transclusión.
+
+### Fix: la lista central de notas se vaciaba al (auto)guardar
+
+Al guardar (sobre todo en cada autoguardado mientras editabas), la lista central de notas se quedaba **vacía** hasta navegar a otra carpeta. Causa (diagnosticada con trazas): guardar disparaba **dos** recargas de la lista — una desde `handleSave` y otra desde la reconstrucción del árbol de carpetas (que `NoteSavedEvent` provocaba → reselección de carpeta → segundo `loadNotesForFolder`). Las dos cargas competían y la segunda, que por una race del prune de la caché durante la reescritura del fichero devolvía 0 notas, llegaba la última y **sobrescribía** el resultado correcto.
+
+- **`handleSave` ya no recarga la lista central**: guardar el contenido no cambia qué notas hay en la carpeta, así que era una recarga redundante.
+- **`NoteSavedEvent` ya no reconstruye el árbol de carpetas** (su estructura/conteos no cambian al guardar contenido), eliminando la segunda carga; solo se refrescan Recientes/Favoritos, cuyo orden sí puede cambiar.
+- Defensa en profundidad en el prune (`pruneStaleCacheEntries`): actualiza primero y borra solo las claves obsoletas (nunca deja la caché vacía en una ventana intermedia) y **se salta la pasada si fuera a vaciar la caché entera** por un fallo transitorio del filesystem.
+
+### Fix: las listas de Recientes/Favoritos del sidebar parpadeaban vacías
+
+`applyRecentNotes`/`applyFavoriteNotes` hacían `clear()` + `add()` en bucle sobre la lista observable enlazada a la `ListView`, así que en **cada recarga** (p. ej. tras cada autosave, que dispara `NoteSavedEvent` → el sidebar recarga recientes/favoritos) la lista se veía **vaciar y rellenar** (parpadeo). Más visible al editar transclusiones, porque uno se detiene en el popup de autocompletado de `![[`/`[[` y, durante esa pausa, salta el autosave. Ahora se usa `setAll(...)` (reemplazo atómico), que no parpadea.
+
 ### Feat: rich links (tarjetas de enlace)
 
 Convierte una URL en una **tarjeta visual** (título, descripción, miniatura y dominio) en lugar de un enlace plano, al estilo de Glyphary/Obsidian.

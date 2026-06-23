@@ -69,6 +69,8 @@ public class NotesListController {
     private String currentFilterType = "all";
     private Folder currentFolder;
     private Tag currentTag;
+    /** Guards the selection listener while a refresh restores the prior note selection. */
+    private boolean restoringNotesSelection = false;
     private final ExecutorService notesLoadExecutor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "jylos-notes-loader");
         t.setDaemon(true);
@@ -100,6 +102,11 @@ public class NotesListController {
     public void initialize() {
         // Publish event when a note is selected
         notesListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            // Suppressed while re-selecting the same note after a list refresh, so the
+            // editor is not reloaded (which would discard the cursor / unsaved edits).
+            if (restoringNotesSelection) {
+                return;
+            }
             if (newVal != null && eventBus != null) {
                 eventBus.publish(new NoteEvents.NoteSelectedEvent(newVal));
             }
@@ -647,8 +654,7 @@ public class NotesListController {
                 this::loadAllNotesFromServiceAndRefreshCache,
                 notes -> {
                     List<Note> sorted = sortNotesData(notes, sortOption);
-                    notesListView.getSelectionModel().clearSelection();
-                    notesListView.getItems().setAll(sorted);
+                    applyNotesPreservingSelection(sorted);
                     String msg = bundle != null
                             ? java.text.MessageFormat.format(bundle.getString("info.notes_count"), sorted.size())
                             : sorted.size() + " notes";
@@ -675,8 +681,7 @@ public class NotesListController {
                 () -> noteService.getNotesByFolder(folder),
                 notes -> {
                     List<Note> sorted = sortNotesData(notes, sortOption);
-                    notesListView.getSelectionModel().clearSelection();
-                    notesListView.getItems().setAll(sorted);
+                    applyNotesPreservingSelection(sorted);
                     if (notesPanelTitleLabel != null) {
                         notesPanelTitleLabel.setText(getString("panel.notes.title") + " - " + folder.getTitle());
                     }
@@ -709,8 +714,7 @@ public class NotesListController {
                         () -> tagService.getNotesWithTag(tag),
                         notesWithTag -> {
                             List<Note> sorted = sortNotesData(notesWithTag, sortOption);
-                            notesListView.getSelectionModel().clearSelection();
-                            notesListView.getItems().setAll(sorted);
+                            applyNotesPreservingSelection(sorted);
                             String msg = java.text.MessageFormat.format(getString("info.notes_count"), sorted.size());
                             if (notesPanelTitleLabel != null) {
                                 notesPanelTitleLabel.setText(msg);
@@ -768,8 +772,7 @@ public class NotesListController {
                     return sortNotesData(filteredNotes, sortOption);
                 },
                 filteredNotes -> {
-                    notesListView.getSelectionModel().clearSelection();
-                    notesListView.getItems().setAll(filteredNotes);
+                    applyNotesPreservingSelection(filteredNotes);
                     String msg = bundle != null
                             ? java.text.MessageFormat.format(bundle.getString("info.notes_found"), filteredNotes.size())
                             : filteredNotes.size() + " notes found";
@@ -827,8 +830,7 @@ public class NotesListController {
         if (sortOption == null || notesListView == null)
             return;
         List<Note> notes = sortNotesData(new ArrayList<>(notesListView.getItems()), sortOption);
-        notesListView.getSelectionModel().clearSelection();
-        notesListView.getItems().setAll(notes);
+        applyNotesPreservingSelection(notes);
     }
 
     private List<Note> sortNotesData(List<Note> notes, String sortOption) {
@@ -875,6 +877,34 @@ public class NotesListController {
             }
         });
         return notes;
+    }
+
+    /**
+     * Replaces the list items, preserving the selected note and scroll position when
+     * that note is still present (a refresh of the same view). On navigation to a
+     * different folder/tag the previous note is absent, so the selection simply clears.
+     * Re-selection is guarded so it does not republish a note-open event.
+     */
+    private void applyNotesPreservingSelection(List<Note> notes) {
+        Note selected = notesListView.getSelectionModel().getSelectedItem();
+        String selectedId = selected != null ? selected.getId() : null;
+        notesListView.getItems().setAll(notes);
+        if (selectedId == null) {
+            return;
+        }
+        for (int i = 0; i < notes.size(); i++) {
+            Note n = notes.get(i);
+            if (n != null && selectedId.equals(n.getId())) {
+                restoringNotesSelection = true;
+                try {
+                    notesListView.getSelectionModel().select(i);
+                    notesListView.scrollTo(i);
+                } finally {
+                    restoringNotesSelection = false;
+                }
+                return;
+            }
+        }
     }
 
     private void executeNotesLoad(Supplier<List<Note>> loader, Consumer<List<Note>> uiConsumer, String errorLog) {
