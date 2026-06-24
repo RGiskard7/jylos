@@ -2,20 +2,21 @@
 
 ## [Unreleased]
 
-### Feat: Canvas — edición Fase 2 (mover/crear/editar/borrar nodos, guardar)
+### Feat: Canvas — edición Fase 2 (mover/crear/editar/borrar nodos, conectar/borrar aristas, guardar)
 
-Edición sobre el visor de canvas:
+Edición completa sobre el visor de canvas:
 
 - **Mover nodos**: arrastra un nodo para reposicionarlo; las aristas conectadas le siguen en tiempo real. Un clic simple no mueve (sigue abriendo nota/enlace con doble clic).
 - **Crear nodo de texto**: botón **+** en la barra; crea un nodo en el centro de la vista y abre directamente su edición.
 - **Editar texto en el nodo**: doble clic en un nodo de texto lo convierte en un editor in situ; se confirma con **⌘+Enter** o al perder el foco, y se cancela con **Esc**. El resto del tiempo el nodo muestra la **previsualización** renderizada.
+- **Conectar nodos (aristas)**: botón **conectar** en la barra activa el modo conexión (cursor en cruz); clic en el nodo origen y luego en el destino dibuja la arista, eligiendo automáticamente los lados que se miran según la posición. Se pueden encadenar varias; **Esc** o clic en el fondo cancela.
+- **Borrar arista**: clic sobre una arista la selecciona (resaltada en color de acento) y **Supr/Backspace** la elimina.
 - **Borrar nodo**: selecciónalo (clic simple, resaltado con halo de acento) y pulsa **Supr/Backspace**; se eliminan también las aristas conectadas a él.
 - **Crear un canvas nuevo**: desde **Archivo → Nuevo Canvas**, el command palette (*New Canvas*) o el menú contextual de la barra; crea un `.canvas` vacío en la carpeta actual y lo abre. Solo en modo vault Markdown (un canvas es un fichero del vault); en modo SQLite avisa. El `NoteDAOFileSystem` ahora reconoce adjuntos al crear: escribe el contenido en crudo conservando la extensión (sin `.md` ni frontmatter).
-- **Barra de herramientas**: añadir nodo, zoom +/−, **ajustar al contenido**, y **Guardar** (se habilita solo cuando hay cambios).
+- **Barra de herramientas**: añadir nodo, conectar, zoom +/−, **ajustar al contenido**, y **Guardar** (se habilita solo cuando hay cambios).
 - **Guardado fiel** (`.canvas`): nuevo `CanvasModel.Document`, un documento mutable respaldado por el JSON original; al guardar se actualizan solo los campos tocados (p. ej. `x`/`y`, redondeados a enteros como Obsidian) y se **preservan los campos desconocidos** → round-trip seguro con Obsidian.
 - **Scroll en nodos**: los nodos de nota/texto largos ahora se pueden **desplazar con la rueda** (sin hacer zoom del lienzo); arrastrar el nodo sigue moviéndolo y la rueda sobre el fondo sigue haciendo zoom.
-- **Tests**: `CanvasModelTest` +5 — `moveNode`/`addTextNode`/`setNodeText`/`removeNode` (borra también sus aristas) y round-trip que preserva campos desconocidos; `FileSystemDAOContractTest` +1 — crear un adjunto `.canvas` escribe JSON en crudo sin frontmatter ni `.md`. 246/246 verdes.
-- **Pendiente (siguiente incremento)**: conectar y borrar aristas entre nodos.
+- **Tests**: `CanvasModelTest` +7 — `moveNode`/`addTextNode`/`setNodeText`/`removeNode` (borra también sus aristas), `addEdge` (lados en blanco omitidos)/`removeEdge`, y round-trip que preserva campos desconocidos; `FileSystemDAOContractTest` +1 — crear un adjunto `.canvas` escribe JSON en crudo sin frontmatter ni `.md`. 248/248 verdes.
 
 ### Feat: visor de Canvas (`.canvas`, compatible Obsidian) — Fase 1
 

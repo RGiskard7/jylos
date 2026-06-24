@@ -48,10 +48,10 @@ import javafx.scene.transform.Translate;
  * draws the edges between them; node content is rendered with native JavaFX controls
  * (lightweight Markdown for text/file nodes, the image for image nodes).
  *
- * <p>Phase 2 (this iteration) adds basic editing: drag a node to <b>move</b> it, and a
+ * <p>Phase 2 adds editing: drag a node to <b>move</b> it; <b>create</b>/<b>edit</b>/<b>delete</b>
+ * text nodes; <b>connect</b> nodes with edges (connect mode) and delete a selected edge; plus a
  * toolbar to zoom/fit and <b>save</b>. Saving round-trips through {@link CanvasModel.Document}
- * so unknown fields are preserved. Creating/connecting/deleting nodes and editing text
- * is the next iteration.</p>
+ * so unknown fields are preserved.</p>
  *
  * @author Edu Díaz (RGiskard7)
  * @since 2.2.0
@@ -86,10 +86,17 @@ public final class CanvasView extends BorderPane {
     private boolean fitted = false;
     private boolean dirty = false;
     private Button saveButton;
+    private Button connectButton;
     /** Currently selected node id (for delete), or null. */
     private String selectedNodeId;
+    /** Currently selected edge id (for delete), or null. */
+    private String selectedEdgeId;
     /** True while a text node is being edited (suspends node dragging). */
     private boolean editing = false;
+    /** True while in "connect" mode: click a source node then a target to draw an edge. */
+    private boolean connecting = false;
+    /** First node picked in connect mode, awaiting a target; null otherwise. */
+    private String connectSourceId;
 
     private record EdgeLine(CanvasEdge edge, Line line) {
     }
@@ -124,8 +131,12 @@ public final class CanvasView extends BorderPane {
         // deselect; the view must be focusable for key events to arrive.
         setFocusTraversable(true);
         addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
-            if ((e.getCode() == javafx.scene.input.KeyCode.DELETE
-                    || e.getCode() == javafx.scene.input.KeyCode.BACK_SPACE) && selectedNodeId != null) {
+            if (e.getCode() == javafx.scene.input.KeyCode.ESCAPE && connecting) {
+                cancelConnect();
+                e.consume();
+            } else if ((e.getCode() == javafx.scene.input.KeyCode.DELETE
+                    || e.getCode() == javafx.scene.input.KeyCode.BACK_SPACE)
+                    && (selectedNodeId != null || selectedEdgeId != null)) {
                 deleteSelected();
                 e.consume();
             }
@@ -149,13 +160,14 @@ public final class CanvasView extends BorderPane {
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
         Button addText = iconButton("fth-plus", tr("canvas.add_text", "Add text node"), e -> addTextNode());
+        connectButton = iconButton("fth-git-commit", tr("canvas.connect", "Connect nodes"), e -> toggleConnect());
         Button zoomOut = iconButton("fth-zoom-out", tr("canvas.zoom_out", "Zoom out"),
                 e -> zoomAt(1 / ZOOM_STEP, viewport.getWidth() / 2, viewport.getHeight() / 2));
         Button zoomIn = iconButton("fth-zoom-in", tr("canvas.zoom_in", "Zoom in"),
                 e -> zoomAt(ZOOM_STEP, viewport.getWidth() / 2, viewport.getHeight() / 2));
         Button fit = iconButton("fth-maximize", tr("canvas.fit", "Fit to content"), e -> { fitted = false; fit(); });
 
-        bar.getChildren().addAll(icon, title, spacer, addText, zoomOut, zoomIn, fit);
+        bar.getChildren().addAll(icon, title, spacer, addText, connectButton, zoomOut, zoomIn, fit);
 
         if (onSave != null) {
             saveButton = iconButton("fth-save", tr("canvas.save", "Save"), e -> save());
@@ -188,6 +200,8 @@ public final class CanvasView extends BorderPane {
     /** Re-renders the whole canvas from the (mutated) document, keeping the current pan/zoom. */
     private void rebuild() {
         selectedNodeId = null;
+        selectedEdgeId = null;
+        connectSourceId = null;
         buildWorld();
     }
 
@@ -210,6 +224,12 @@ public final class CanvasView extends BorderPane {
             if (color != null) {
                 line.setStyle("-fx-stroke: " + color + ";");
             }
+            final String edgeId = e.id();
+            line.setOnMouseClicked(ev -> {
+                requestFocus();
+                selectEdge(edgeId);
+                ev.consume();
+            });
             edgeLines.add(new EdgeLine(e, line));
             world.getChildren().add(line);
             if (!e.label().isEmpty()) {
@@ -374,8 +394,8 @@ public final class CanvasView extends BorderPane {
             moved[0] = false;
         });
         box.addEventFilter(MouseEvent.MOUSE_DRAGGED, e -> {
-            if (editing) {
-                return; // allow text selection while editing instead of moving
+            if (editing || connecting) {
+                return; // editing: allow text selection; connecting: clicks pick endpoints
             }
             double s = scaleTransform.getX();
             double dx = (e.getSceneX() - last[0]) / s;
@@ -396,6 +416,11 @@ public final class CanvasView extends BorderPane {
         });
         box.setOnMouseClicked(e -> {
             requestFocus();
+            if (connecting) {
+                handleConnectClick(id);
+                e.consume();
+                return;
+            }
             if (e.getClickCount() >= 2) {
                 switch (node.type()) {
                     case "file" -> {
@@ -421,6 +446,7 @@ public final class CanvasView extends BorderPane {
 
     /** Selects a node (highlight) or clears the selection when {@code id} is null. */
     private void select(String id) {
+        clearEdgeSelection();
         if (selectedNodeId != null && nodeBoxes.containsKey(selectedNodeId)) {
             nodeBoxes.get(selectedNodeId).getStyleClass().remove("canvas-selected");
         }
@@ -433,13 +459,115 @@ public final class CanvasView extends BorderPane {
         }
     }
 
+    /** Selects an edge (highlight) for deletion, clearing any node selection. */
+    private void selectEdge(String id) {
+        if (selectedNodeId != null) {
+            select(null);
+        }
+        clearEdgeSelection();
+        selectedEdgeId = id;
+        edgeLines.stream().filter(el -> id != null && id.equals(el.edge().id())).findFirst()
+                .ifPresent(el -> el.line().getStyleClass().add("canvas-edge-selected"));
+    }
+
+    private void clearEdgeSelection() {
+        if (selectedEdgeId != null) {
+            edgeLines.stream().filter(el -> selectedEdgeId.equals(el.edge().id())).findFirst()
+                    .ifPresent(el -> el.line().getStyleClass().remove("canvas-edge-selected"));
+        }
+        selectedEdgeId = null;
+    }
+
+    /** Deletes the current selection — an edge if one is selected, otherwise the selected node. */
     private void deleteSelected() {
-        if (selectedNodeId == null) {
+        if (selectedEdgeId != null) {
+            document.removeEdge(selectedEdgeId);
+            markDirty();
+            rebuild();
             return;
         }
-        document.removeNode(selectedNodeId);
-        markDirty();
-        rebuild();
+        if (selectedNodeId != null) {
+            document.removeNode(selectedNodeId);
+            markDirty();
+            rebuild();
+        }
+    }
+
+    // ── Connect mode (draw edges) ──────────────────────────────────────────
+
+    /** Toggles connect mode: click a source node, then a target, to draw an edge. */
+    private void toggleConnect() {
+        connecting = !connecting;
+        connectSourceId = null;
+        select(null);
+        if (connectButton != null) {
+            connectButton.getStyleClass().remove("toolbar-btn-active");
+            if (connecting) {
+                connectButton.getStyleClass().add("toolbar-btn-active");
+            }
+        }
+        viewport.setCursor(connecting ? javafx.scene.Cursor.CROSSHAIR : javafx.scene.Cursor.DEFAULT);
+        rebuildHighlights();
+    }
+
+    private void cancelConnect() {
+        if (!connecting) {
+            return;
+        }
+        connecting = false;
+        connectSourceId = null;
+        if (connectButton != null) {
+            connectButton.getStyleClass().remove("toolbar-btn-active");
+        }
+        viewport.setCursor(javafx.scene.Cursor.DEFAULT);
+        rebuildHighlights();
+    }
+
+    /** In connect mode, the first click picks the source node; the second draws the edge. */
+    private void handleConnectClick(String id) {
+        if (connectSourceId == null) {
+            connectSourceId = id;
+            rebuildHighlights();
+            return;
+        }
+        if (!connectSourceId.equals(id)) {
+            String[] sides = bestSides(connectSourceId, id);
+            document.addEdge(connectSourceId, sides[0], id, sides[1]);
+            markDirty();
+        }
+        connectSourceId = null;
+        rebuild(); // redraw with the new edge (also clears the source highlight)
+    }
+
+    /** Clears node highlights and re-applies the connect-source one (without changing the selection). */
+    private void rebuildHighlights() {
+        for (Region box : nodeBoxes.values()) {
+            box.getStyleClass().remove("canvas-selected");
+        }
+        if (connectSourceId != null && nodeBoxes.containsKey(connectSourceId)) {
+            nodeBoxes.get(connectSourceId).getStyleClass().add("canvas-selected");
+        } else if (selectedNodeId != null && nodeBoxes.containsKey(selectedNodeId)) {
+            nodeBoxes.get(selectedNodeId).getStyleClass().add("canvas-selected");
+        }
+    }
+
+    /** Picks the pair of sides (from, to) facing each other, based on node centres. */
+    private String[] bestSides(String fromId, String toId) {
+        Region from = nodeBoxes.get(fromId);
+        Region to = nodeBoxes.get(toId);
+        if (from == null || to == null) {
+            return new String[] {"right", "left"};
+        }
+        double fcx = from.getLayoutX() + from.getPrefWidth() / 2;
+        double fcy = from.getLayoutY() + from.getPrefHeight() / 2;
+        double tcx = to.getLayoutX() + to.getPrefWidth() / 2;
+        double tcy = to.getLayoutY() + to.getPrefHeight() / 2;
+        double dx = tcx - fcx;
+        double dy = tcy - fcy;
+        if (Math.abs(dx) >= Math.abs(dy)) {
+            return dx >= 0 ? new String[] {"right", "left"} : new String[] {"left", "right"};
+        }
+        return dy >= 0 ? new String[] {"bottom", "top"} : new String[] {"top", "bottom"};
     }
 
     /** Adds a text node at the centre of the current view and opens it for editing. */
@@ -511,6 +639,10 @@ public final class CanvasView extends BorderPane {
             dragAnchorY = e.getY() - panTransform.getY();
             requestFocus();
             select(null); // pressing the background clears the selection
+            if (connecting && connectSourceId != null) {
+                connectSourceId = null; // abandon the in-progress connection
+                rebuildHighlights();
+            }
         });
         viewport.setOnMouseDragged(e -> {
             panTransform.setX(e.getX() - dragAnchorX);

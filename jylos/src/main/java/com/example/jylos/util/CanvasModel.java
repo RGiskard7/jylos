@@ -158,6 +158,34 @@ public final class CanvasModel {
             }
         }
 
+        /**
+         * Adds an edge between two nodes (optionally anchored to a side) and returns its id.
+         * Blank sides are omitted so Obsidian falls back to its automatic anchoring.
+         */
+        public String addEdge(String fromNode, String fromSide, String toNode, String toSide) {
+            JsonObject e = new JsonObject();
+            String id = newId();
+            e.addProperty("id", id);
+            e.addProperty("fromNode", fromNode);
+            if (fromSide != null && !fromSide.isEmpty()) {
+                e.addProperty("fromSide", fromSide);
+            }
+            e.addProperty("toNode", toNode);
+            if (toSide != null && !toSide.isEmpty()) {
+                e.addProperty("toSide", toSide);
+            }
+            root.getAsJsonArray("edges").add(e);
+            return id;
+        }
+
+        /** Removes a single edge by id. */
+        public void removeEdge(String id) {
+            if (id == null) {
+                return;
+            }
+            root.add("edges", filtered(root.getAsJsonArray("edges"), o -> !id.equals(str(o, "id"))));
+        }
+
         /** Removes a node and every edge attached to it. */
         public void removeNode(String id) {
             if (id == null) {

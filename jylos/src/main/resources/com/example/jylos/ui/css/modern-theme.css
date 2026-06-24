@@ -3255,7 +3255,12 @@
     -fx-padding: 6 10;
 }
 .canvas-group-label { -fx-text-fill: -fx-text-muted; -fx-font-weight: bold; -fx-font-size: 12px; }
-.canvas-edge { -fx-stroke: -fx-text-muted; -fx-stroke-width: 2; }
+.canvas-edge { -fx-stroke: -fx-text-muted; -fx-stroke-width: 2; -fx-cursor: hand; }
+.canvas-edge-selected { -fx-stroke: -fx-accent; -fx-stroke-width: 3.5; }
+.toolbar-btn-active {
+    -fx-background-color: -fx-hover-bg; -fx-border-color: -fx-accent; -fx-text-fill: -fx-accent;
+}
+.toolbar-btn-active .feather-icon { -fx-icon-color: -fx-accent; }
 .canvas-edge-label {
     -fx-text-fill: -fx-text-muted; -fx-font-size: 11px;
     -fx-background-color: -fx-base-bg; -fx-padding: 1 4;

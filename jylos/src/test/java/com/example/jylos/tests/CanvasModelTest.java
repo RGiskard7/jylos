@@ -145,6 +145,46 @@ class CanvasModelTest {
     }
 
     @Test
+    void documentAddEdgeConnectsNodesAndOmitsBlankSides() {
+        CanvasModel.Document doc = CanvasModel.Document.parse(null);
+        String a = doc.addTextNode(0, 0, 100, 50, "A");
+        String b = doc.addTextNode(200, 0, 100, 50, "B");
+        String edgeId = doc.addEdge(a, "right", b, "left");
+
+        assertEquals(1, doc.edges().size());
+        CanvasModel.CanvasEdge e = doc.edges().get(0);
+        assertEquals(edgeId, e.id());
+        assertEquals(a, e.fromNode());
+        assertEquals(b, e.toNode());
+        assertEquals("right", e.fromSide());
+        assertEquals("left", e.toSide());
+
+        // A blank side is omitted from the JSON (Obsidian auto-anchors).
+        String noSideId = doc.addEdge(a, "", b, "");
+        String out = doc.toJson();
+        assertTrue(out.contains(noSideId), out);
+        CanvasModel.CanvasEdge e2 = doc.edges().stream()
+                .filter(x -> noSideId.equals(x.id())).findFirst().orElseThrow();
+        assertTrue(e2.fromSide().isEmpty());
+        assertTrue(e2.toSide().isEmpty());
+    }
+
+    @Test
+    void documentRemoveEdgeDropsOnlyThatEdge() {
+        CanvasModel.Document doc = CanvasModel.Document.parse(null);
+        String a = doc.addTextNode(0, 0, 100, 50, "A");
+        String b = doc.addTextNode(200, 0, 100, 50, "B");
+        String e1 = doc.addEdge(a, "right", b, "left");
+        String e2 = doc.addEdge(b, "left", a, "right");
+
+        doc.removeEdge(e1);
+
+        assertEquals(1, doc.edges().size());
+        assertEquals(e2, doc.edges().get(0).id());
+        assertEquals(2, doc.nodes().size(), "removing an edge must not touch the nodes");
+    }
+
+    @Test
     void documentRemoveNodeAlsoRemovesAttachedEdges() {
         String json = """
                 {"nodes":[
