@@ -152,6 +152,11 @@ public class ToolbarController {
     }
 
     @FXML
+    private void handleNewCanvas(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.NEW_CANVAS);
+    }
+
+    @FXML
     private void handleNewFolder(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.NEW_FOLDER);
     }

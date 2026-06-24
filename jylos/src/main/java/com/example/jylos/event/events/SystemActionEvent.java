@@ -15,6 +15,7 @@ import com.example.jylos.event.AppEvent;
 public class SystemActionEvent extends AppEvent {
     public enum ActionType {
         NEW_NOTE,
+        NEW_CANVAS,
         NEW_FOLDER,
         NEW_TAG,
         SAVE,

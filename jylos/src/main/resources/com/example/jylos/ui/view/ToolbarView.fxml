@@ -11,6 +11,7 @@
     <MenuBar fx:id="menuBar" styleClass="menu-bar">
         <Menu text="%menu.file">
             <MenuItem text="%action.new_note" onAction="#handleNewNote" accelerator="Shortcut+N"/>
+            <MenuItem text="%action.new_canvas" onAction="#handleNewCanvas"/>
             <MenuItem text="%action.new_folder" onAction="#handleNewFolder" accelerator="Shortcut+Shift+N"/>
             <MenuItem text="%action.daily_note" onAction="#handleDailyNote" accelerator="Shortcut+Shift+D"/>
             <MenuItem text="%action.new_from_template" onAction="#handleNewFromTemplate"/>

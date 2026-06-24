@@ -366,4 +366,22 @@ class FileSystemDAOContractTest {
         assertEquals(1, noteService.getNotesByFolder(docs).size(),
                 "Folder queries must remain coherent after rename operations.");
     }
+
+    @Test
+    void createNoteWritesAttachmentRawWithoutFrontmatterOrMdSuffix() throws Exception {
+        String json = "{\n\t\"nodes\":[],\n\t\"edges\":[]\n}";
+        Note canvas = new Note("Board.canvas", json);
+        String id = noteDAO.createNote(canvas);
+
+        // The id keeps the .canvas extension (no ".md" appended).
+        assertTrue(id.endsWith(".canvas"), "expected a .canvas id, got: " + id);
+
+        Path file = tempDir.resolve(id.replace("/", java.io.File.separator));
+        assertTrue(java.nio.file.Files.exists(file), "canvas file should exist on disk");
+
+        // Written verbatim: raw JSON, no YAML frontmatter wrapper.
+        String onDisk = java.nio.file.Files.readString(file);
+        assertEquals(json, onDisk);
+        assertFalse(onDisk.startsWith("---"), "attachment must not be wrapped in frontmatter");
+    }
 }

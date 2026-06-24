@@ -66,6 +66,9 @@ public class NotesListController {
     private com.example.jylos.search.AdvancedSearchService advancedSearch;
     private ResourceBundle bundle;
 
+    /** Initial content of a freshly created {@code .canvas} file (empty JSON Canvas). */
+    private static final String EMPTY_CANVAS_JSON = "{\n\t\"nodes\":[],\n\t\"edges\":[]\n}";
+
     private String currentFilterType = "all";
     private Folder currentFolder;
     private Tag currentTag;
@@ -589,6 +592,8 @@ public class NotesListController {
             javafx.application.Platform.runLater(() -> {
                 if (event.getActionType() == SystemActionEvent.ActionType.NEW_NOTE) {
                     handleNewNote(null);
+                } else if (event.getActionType() == SystemActionEvent.ActionType.NEW_CANVAS) {
+                    handleNewCanvas(null);
                 } else if (event.getActionType() == SystemActionEvent.ActionType.DELETE) {
                     handleDelete(null);
                 }
@@ -1006,6 +1011,63 @@ public class NotesListController {
             publishStatusUpdate(getString("status.note_created"));
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Failed to create new note", e);
+            publishStatusUpdate(getString("status.error_creating_note"));
+        }
+    }
+
+    /**
+     * Creates an empty Obsidian-compatible {@code .canvas} file in the current folder and opens it.
+     * A canvas is a vault file, so this is only available in filesystem (vault) storage mode.
+     */
+    private void handleNewCanvas(ActionEvent event) {
+        if (noteService == null) {
+            logger.warning("Cannot create canvas: noteService is null");
+            publishStatusUpdate(getString("status.error_creating_note"));
+            return;
+        }
+
+        Preferences prefs = Preferences.userNodeForPackage(NotesListController.class);
+        boolean isFileSystem = !"sqlite".equals(prefs.get("storage_type", "sqlite"));
+        if (!isFileSystem) {
+            publishStatusUpdate(getString("status.canvas_requires_vault"));
+            return;
+        }
+
+        try {
+            // The title carries the ".canvas" extension; the DAO writes the raw JSON below
+            // as an attachment (no frontmatter, keeps the extension).
+            Note newNote = new Note(getString("canvas.new_filename") + ".canvas", EMPTY_CANVAS_JSON);
+
+            boolean concreteFolder = currentFolder != null && currentFolder.getId() != null &&
+                    !"ROOT".equals(currentFolder.getId()) && !isAllNotesVirtualFolder(currentFolder);
+            if (concreteFolder) {
+                newNote.setParent(currentFolder);
+                String safeTitle = newNote.getTitle().replaceAll("[^a-zA-Z0-9\\.\\-_ ]", "_");
+                newNote.setId(currentFolder.getId() + File.separator + safeTitle);
+            }
+
+            Note createdNote = noteService.createNote(newNote);
+            String noteId = createdNote != null ? createdNote.getId() : null;
+            if (noteId == null) {
+                publishStatusUpdate(getString("status.error_creating_note"));
+                return;
+            }
+            newNote.setId(noteId);
+
+            if (concreteFolder && folderService != null) {
+                folderService.addNoteToFolder(currentFolder, newNote);
+            }
+
+            notesListView.getItems().add(0, newNote);
+            notesListView.getSelectionModel().select(newNote);
+
+            if (eventBus != null) {
+                eventBus.publish(new NoteEvents.NoteCreatedEvent(newNote));
+            }
+
+            publishStatusUpdate(getString("status.canvas_created"));
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Failed to create new canvas", e);
             publishStatusUpdate(getString("status.error_creating_note"));
         }
     }

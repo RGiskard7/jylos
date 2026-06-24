@@ -178,6 +178,7 @@ public class CommandPalette {
     private void initializeDefaultCommands() {
         // File commands - using simple ASCII/text symbols
         commands.add(new Command("cmd.new_note", "New Note", "Create a new note", "Ctrl+N", "+", "File", null));
+        commands.add(new Command("cmd.new_canvas", "New Canvas", "Create a new canvas", "", "#", "File", null));
         commands.add(
                 new Command("cmd.new_folder", "New Folder", "Create a new folder", "Ctrl+Shift+N", "+", "File", null));
         commands.add(new Command("cmd.save", "Save", "Save current note", "Ctrl+S", "*", "File", null));

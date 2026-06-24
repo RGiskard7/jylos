@@ -354,13 +354,27 @@ public class NoteDAOFileSystem implements NoteDAO {
                 }
             }
 
-            String filename = sanitizeFilename(note.getTitle()) + ".md";
+            // Attachments (e.g. .canvas) keep their own extension and are written as raw
+            // bytes — no ".md" suffix and no frontmatter wrapper.
+            boolean attachment = com.example.jylos.util.AttachmentType.isAttachment(note.getTitle());
+            String base;
+            String ext;
+            if (attachment) {
+                String sanitized = sanitizeFilename(note.getTitle());
+                int dot = sanitized.lastIndexOf('.');
+                base = sanitized.substring(0, dot);
+                ext = sanitized.substring(dot); // includes the leading dot
+            } else {
+                base = sanitizeFilename(note.getTitle());
+                ext = ".md";
+            }
 
+            String filename = base + ext;
             Path filePath = parentDir.resolve(filename);
             // Handle duplicate filenames
             int counter = 1;
             while (Files.exists(filePath)) {
-                filename = sanitizeFilename(note.getTitle()) + " (" + counter + ").md";
+                filename = base + " (" + counter + ")" + ext;
                 filePath = parentDir.resolve(filename);
                 counter++;
             }
@@ -374,7 +388,9 @@ public class NoteDAOFileSystem implements NoteDAO {
             note.setId(relativePath);
 
             try {
-                String fileContent = FrontmatterHandler.generate(note);
+                String fileContent = attachment
+                        ? (note.getContent() != null ? note.getContent() : "")
+                        : FrontmatterHandler.generate(note);
                 Files.writeString(filePath, fileContent, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
                 idToPathMap.put(relativePath, filePath);
                 cachedNotes.put(relativePath, note);

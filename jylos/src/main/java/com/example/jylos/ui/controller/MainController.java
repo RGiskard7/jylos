@@ -1217,6 +1217,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         switch (commandId) {
             case "cmd.new_note":
                 return () -> handleNewNote(null);
+            case "cmd.new_canvas":
+                return () -> handleNewCanvas(null);
             case "cmd.new_folder":
                 return () -> handleNewFolder(null);
             case "cmd.save":
@@ -2068,6 +2070,16 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Failed to create new note", e);
             updateStatus(getString("status.error_creating_note"));
+        }
+    }
+
+    /**
+     * Requests creating a new canvas. The actual creation lives in {@code NotesListController}
+     * (it knows the selected folder); this just publishes the system action.
+     */
+    void handleNewCanvas(ActionEvent event) {
+        if (eventBus != null) {
+            eventBus.publish(new SystemActionEvent(SystemActionEvent.ActionType.NEW_CANVAS));
         }
     }
 
