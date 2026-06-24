@@ -164,9 +164,9 @@ final class HistorySupport {
         return noteService.getNoteById(note.getId()).map(Note::getContent).orElse("");
     }
 
-    /** Decrypts {@code JENC1:} content when the session is unlocked; otherwise as-is. */
+    /** Decrypts {@code JENC1:} content when the key is held this session; otherwise as-is. */
     private String readable(String content) {
-        if (EncryptionService.isEncrypted(content) && EncryptionService.getInstance().isUnlocked()) {
+        if (EncryptionService.isEncrypted(content) && EncryptionService.getInstance().hasKey()) {
             try {
                 return EncryptionService.getInstance().decrypt(content);
             } catch (Exception e) {

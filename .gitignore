@@ -106,6 +106,10 @@ backups/
 jylos/backups/
 **/*-auto-backup-*.db
 
-.claude/
+# User CSS snippets (runtime; auto-created, user-provided .css tweaks)
+jylos/snippets/
 
+.claude/
 .tools/
+
+history/

@@ -366,4 +366,45 @@ class FileSystemDAOContractTest {
         assertEquals(1, noteService.getNotesByFolder(docs).size(),
                 "Folder queries must remain coherent after rename operations.");
     }
+
+    @Test
+    void createNoteWritesAttachmentRawWithoutFrontmatterOrMdSuffix() throws Exception {
+        String json = "{\n\t\"nodes\":[],\n\t\"edges\":[]\n}";
+        Note canvas = new Note("Board.canvas", json);
+        String id = noteDAO.createNote(canvas);
+
+        // The id keeps the .canvas extension (no ".md" appended).
+        assertTrue(id.endsWith(".canvas"), "expected a .canvas id, got: " + id);
+
+        Path file = tempDir.resolve(id.replace("/", java.io.File.separator));
+        assertTrue(java.nio.file.Files.exists(file), "canvas file should exist on disk");
+
+        // Written verbatim: raw JSON, no YAML frontmatter wrapper.
+        String onDisk = java.nio.file.Files.readString(file);
+        assertEquals(json, onDisk);
+        assertFalse(onDisk.startsWith("---"), "attachment must not be wrapped in frontmatter");
+    }
+
+    @Test
+    void folderAndTagListingsNeverExposeEncryptedBodies() {
+        NoteService noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+        Folder folder = new Folder("Private");
+        folderDAO.createFolder(folder);
+
+        // A note whose stored body is an encrypted payload (JENC1: prefix). The listing
+        // paths must replace it with the lock placeholder, never surface the ciphertext.
+        Note secret = new Note("Secret", com.example.jylos.service.EncryptionService.PREFIX + "Zm9vYmFy");
+        noteService.createNote(secret);
+        folderDAO.addNote(folder, secret);
+
+        List<Note> inFolder = noteService.getNotesByFolder(folder);
+        assertEquals(1, inFolder.size());
+        assertEquals(NoteService.LOCKED_PLACEHOLDER, inFolder.get(0).getContent(),
+                "folder listing must scrub encrypted bodies to the lock placeholder");
+
+        // getAllNotes must scrub too (regression guard for the shared helper).
+        assertTrue(noteService.getAllNotes().stream()
+                .filter(n -> "Secret".equals(n.getTitle()))
+                .allMatch(n -> NoteService.LOCKED_PLACEHOLDER.equals(n.getContent())));
+    }
 }

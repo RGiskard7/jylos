@@ -74,22 +74,4 @@ public class MarkdownProcessor {
                    .replace("\"", "&quot;")
                    .replace("'", "&#x27;");
     }
-    
-    /**
-     * Checks if text contains Markdown syntax.
-     *
-     * @param text The text to check
-     * @return true if the text contains Markdown syntax
-     */
-    public static boolean containsMarkdown(String text) {
-        if (text == null || text.trim().isEmpty()) {
-            return false;
-        }
-
-        // Check for common Markdown patterns
-        return text.matches(".*[#*`\\[\\]_~].*") || // Headers, bold, italic, code, links
-               text.contains("---") || // Horizontal rule
-               text.contains("```") || // Code blocks
-               text.matches(".*\\|.*\\|.*"); // Tables
-    }
 }

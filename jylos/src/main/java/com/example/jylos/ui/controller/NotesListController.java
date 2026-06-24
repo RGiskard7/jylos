@@ -66,9 +66,14 @@ public class NotesListController {
     private com.example.jylos.search.AdvancedSearchService advancedSearch;
     private ResourceBundle bundle;
 
+    /** Initial content of a freshly created {@code .canvas} file (empty JSON Canvas). */
+    private static final String EMPTY_CANVAS_JSON = "{\n\t\"nodes\":[],\n\t\"edges\":[]\n}";
+
     private String currentFilterType = "all";
     private Folder currentFolder;
     private Tag currentTag;
+    /** Guards the selection listener while a refresh restores the prior note selection. */
+    private boolean restoringNotesSelection = false;
     private final ExecutorService notesLoadExecutor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "jylos-notes-loader");
         t.setDaemon(true);
@@ -100,6 +105,11 @@ public class NotesListController {
     public void initialize() {
         // Publish event when a note is selected
         notesListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            // Suppressed while re-selecting the same note after a list refresh, so the
+            // editor is not reloaded (which would discard the cursor / unsaved edits).
+            if (restoringNotesSelection) {
+                return;
+            }
             if (newVal != null && eventBus != null) {
                 eventBus.publish(new NoteEvents.NoteSelectedEvent(newVal));
             }
@@ -194,6 +204,7 @@ public class NotesListController {
             private final HBox titleRow = new HBox(6);
             private final FontIcon pinIcon = new FontIcon("bi-pin-angle");
             private final FontIcon favIcon = new FontIcon("fth-star");
+            private final FontIcon lockIcon = new FontIcon("fth-lock");
             private final Label titleLabel = new Label();
             private final FontIcon noteIcon = new FontIcon("fth-file-text");
             private final StackPane noteIconHolder = new StackPane();
@@ -205,6 +216,7 @@ public class NotesListController {
             private final ContextMenu contextMenu = new ContextMenu();
             private final MenuItem openItem = new MenuItem(getString("action.open"));
             private final MenuItem favoriteItem = new MenuItem();
+            private final MenuItem privateItem = new MenuItem();
             private final MenuItem revealItem = new MenuItem(getString("action.reveal_in_files"));
             private final MenuItem exportItem = new MenuItem(getString("action.export_note"));
             private final MenuItem deleteItem = new MenuItem(getString("action.move_to_trash"));
@@ -222,6 +234,8 @@ public class NotesListController {
                 pinIcon.setIconSize(12);
                 favIcon.setIconColor(javafx.scene.paint.Color.GOLD);
                 favIcon.setIconSize(12);
+                lockIcon.getStyleClass().add("note-cell-lock");
+                lockIcon.setIconSize(12);
 
                 titleLabel.getStyleClass().add("note-cell-title");
                 titleLabel.setEllipsisString("…");
@@ -286,6 +300,12 @@ public class NotesListController {
                         toggleFavorite(note);
                     }
                 });
+                privateItem.setOnAction(e -> {
+                    Note note = getItem();
+                    if (note != null && eventBus != null) {
+                        eventBus.publish(new NoteEvents.PrivacyToggleRequestEvent(note));
+                    }
+                });
                 revealItem.setOnAction(e -> {
                     Note note = getItem();
                     if (note != null) {
@@ -306,7 +326,7 @@ public class NotesListController {
                         deleteNote(note);
                     }
                 });
-                contextMenu.getItems().addAll(openItem, favoriteItem, revealItem, exportItem,
+                contextMenu.getItems().addAll(openItem, favoriteItem, privateItem, revealItem, exportItem,
                         new SeparatorMenuItem(), deleteItem);
 
                 setOnDragDetected(event -> {
@@ -386,11 +406,15 @@ public class NotesListController {
                     if (note.isFavorite()) {
                         titleRow.getChildren().add(favIcon);
                     }
+                    if (note.isPrivate()) {
+                        titleRow.getChildren().add(lockIcon);
+                    }
                     titleLabel.setText(note.getTitle() != null ? note.getTitle() : "");
                     // Distinguish attachments (PDF/image) from notes with a fitting icon.
                     switch (com.example.jylos.util.AttachmentType.fromName(note.getId())) {
                         case IMAGE -> noteIcon.setIconLiteral("fth-image");
                         case PDF -> noteIcon.setIconLiteral("fth-file");
+                        case CANVAS -> noteIcon.setIconLiteral("fth-grid");
                         default -> noteIcon.setIconLiteral("fth-file-text");
                     }
                     titleRow.getChildren().addAll(titleLabel, noteIconHolder);
@@ -417,6 +441,10 @@ public class NotesListController {
 
                     favoriteItem.setText(note.isFavorite() ? getString("action.remove_favorite")
                             : getString("action.add_favorite"));
+                    privateItem.setText(note.isPrivate() ? getString("action.make_normal")
+                            : getString("action.make_private"));
+                    // Private notes cannot be trashed; they must be turned normal first.
+                    deleteItem.setDisable(note.isPrivate());
 
                     setGraphic(container);
                     setText(null);
@@ -552,7 +580,10 @@ public class NotesListController {
             noteService.updateNote(note);
             notesListView.refresh();
             if (eventBus != null) {
-                eventBus.publish(new NoteEvents.NoteModifiedEvent(note));
+                // NoteSavedEvent (not NoteModifiedEvent): the favorite flag is persisted,
+                // and the sidebar Recent/Favorites panels listen to Saved — so favoriting
+                // from the list refreshes the Favorites panel live, like the editor button.
+                eventBus.publish(new NoteEvents.NoteSavedEvent(note));
             }
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Failed to toggle favorite", e);
@@ -581,6 +612,8 @@ public class NotesListController {
             javafx.application.Platform.runLater(() -> {
                 if (event.getActionType() == SystemActionEvent.ActionType.NEW_NOTE) {
                     handleNewNote(null);
+                } else if (event.getActionType() == SystemActionEvent.ActionType.NEW_CANVAS) {
+                    handleNewCanvas(null);
                 } else if (event.getActionType() == SystemActionEvent.ActionType.DELETE) {
                     handleDelete(null);
                 }
@@ -647,8 +680,7 @@ public class NotesListController {
                 this::loadAllNotesFromServiceAndRefreshCache,
                 notes -> {
                     List<Note> sorted = sortNotesData(notes, sortOption);
-                    notesListView.getSelectionModel().clearSelection();
-                    notesListView.getItems().setAll(sorted);
+                    applyNotesPreservingSelection(sorted);
                     String msg = bundle != null
                             ? java.text.MessageFormat.format(bundle.getString("info.notes_count"), sorted.size())
                             : sorted.size() + " notes";
@@ -675,8 +707,7 @@ public class NotesListController {
                 () -> noteService.getNotesByFolder(folder),
                 notes -> {
                     List<Note> sorted = sortNotesData(notes, sortOption);
-                    notesListView.getSelectionModel().clearSelection();
-                    notesListView.getItems().setAll(sorted);
+                    applyNotesPreservingSelection(sorted);
                     if (notesPanelTitleLabel != null) {
                         notesPanelTitleLabel.setText(getString("panel.notes.title") + " - " + folder.getTitle());
                     }
@@ -709,8 +740,7 @@ public class NotesListController {
                         () -> tagService.getNotesWithTag(tag),
                         notesWithTag -> {
                             List<Note> sorted = sortNotesData(notesWithTag, sortOption);
-                            notesListView.getSelectionModel().clearSelection();
-                            notesListView.getItems().setAll(sorted);
+                            applyNotesPreservingSelection(sorted);
                             String msg = java.text.MessageFormat.format(getString("info.notes_count"), sorted.size());
                             if (notesPanelTitleLabel != null) {
                                 notesPanelTitleLabel.setText(msg);
@@ -768,8 +798,7 @@ public class NotesListController {
                     return sortNotesData(filteredNotes, sortOption);
                 },
                 filteredNotes -> {
-                    notesListView.getSelectionModel().clearSelection();
-                    notesListView.getItems().setAll(filteredNotes);
+                    applyNotesPreservingSelection(filteredNotes);
                     String msg = bundle != null
                             ? java.text.MessageFormat.format(bundle.getString("info.notes_found"), filteredNotes.size())
                             : filteredNotes.size() + " notes found";
@@ -827,8 +856,7 @@ public class NotesListController {
         if (sortOption == null || notesListView == null)
             return;
         List<Note> notes = sortNotesData(new ArrayList<>(notesListView.getItems()), sortOption);
-        notesListView.getSelectionModel().clearSelection();
-        notesListView.getItems().setAll(notes);
+        applyNotesPreservingSelection(notes);
     }
 
     private List<Note> sortNotesData(List<Note> notes, String sortOption) {
@@ -875,6 +903,34 @@ public class NotesListController {
             }
         });
         return notes;
+    }
+
+    /**
+     * Replaces the list items, preserving the selected note and scroll position when
+     * that note is still present (a refresh of the same view). On navigation to a
+     * different folder/tag the previous note is absent, so the selection simply clears.
+     * Re-selection is guarded so it does not republish a note-open event.
+     */
+    private void applyNotesPreservingSelection(List<Note> notes) {
+        Note selected = notesListView.getSelectionModel().getSelectedItem();
+        String selectedId = selected != null ? selected.getId() : null;
+        notesListView.getItems().setAll(notes);
+        if (selectedId == null) {
+            return;
+        }
+        for (int i = 0; i < notes.size(); i++) {
+            Note n = notes.get(i);
+            if (n != null && selectedId.equals(n.getId())) {
+                restoringNotesSelection = true;
+                try {
+                    notesListView.getSelectionModel().select(i);
+                    notesListView.scrollTo(i);
+                } finally {
+                    restoringNotesSelection = false;
+                }
+                return;
+            }
+        }
     }
 
     private void executeNotesLoad(Supplier<List<Note>> loader, Consumer<List<Note>> uiConsumer, String errorLog) {
@@ -979,6 +1035,63 @@ public class NotesListController {
         }
     }
 
+    /**
+     * Creates an empty Obsidian-compatible {@code .canvas} file in the current folder and opens it.
+     * A canvas is a vault file, so this is only available in filesystem (vault) storage mode.
+     */
+    private void handleNewCanvas(ActionEvent event) {
+        if (noteService == null) {
+            logger.warning("Cannot create canvas: noteService is null");
+            publishStatusUpdate(getString("status.error_creating_note"));
+            return;
+        }
+
+        Preferences prefs = Preferences.userNodeForPackage(NotesListController.class);
+        boolean isFileSystem = !"sqlite".equals(prefs.get("storage_type", "sqlite"));
+        if (!isFileSystem) {
+            publishStatusUpdate(getString("status.canvas_requires_vault"));
+            return;
+        }
+
+        try {
+            // The title carries the ".canvas" extension; the DAO writes the raw JSON below
+            // as an attachment (no frontmatter, keeps the extension).
+            Note newNote = new Note(getString("canvas.new_filename") + ".canvas", EMPTY_CANVAS_JSON);
+
+            boolean concreteFolder = currentFolder != null && currentFolder.getId() != null &&
+                    !"ROOT".equals(currentFolder.getId()) && !isAllNotesVirtualFolder(currentFolder);
+            if (concreteFolder) {
+                newNote.setParent(currentFolder);
+                String safeTitle = newNote.getTitle().replaceAll("[^a-zA-Z0-9\\.\\-_ ]", "_");
+                newNote.setId(currentFolder.getId() + File.separator + safeTitle);
+            }
+
+            Note createdNote = noteService.createNote(newNote);
+            String noteId = createdNote != null ? createdNote.getId() : null;
+            if (noteId == null) {
+                publishStatusUpdate(getString("status.error_creating_note"));
+                return;
+            }
+            newNote.setId(noteId);
+
+            if (concreteFolder && folderService != null) {
+                folderService.addNoteToFolder(currentFolder, newNote);
+            }
+
+            notesListView.getItems().add(0, newNote);
+            notesListView.getSelectionModel().select(newNote);
+
+            if (eventBus != null) {
+                eventBus.publish(new NoteEvents.NoteCreatedEvent(newNote));
+            }
+
+            publishStatusUpdate(getString("status.canvas_created"));
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Failed to create new canvas", e);
+            publishStatusUpdate(getString("status.error_creating_note"));
+        }
+    }
+
     private void publishStatusUpdate(String message) {
         if (eventBus != null) {
             eventBus.publish(new UIEvents.StatusUpdateEvent(message));
@@ -1045,6 +1158,12 @@ public class NotesListController {
         if (noteService == null) {
             logger.warning("Cannot delete note: noteService is null");
             publishStatusUpdate(getString("status.note_delete_error"));
+            return;
+        }
+        // Private notes are protected from deletion: the user must turn the note normal
+        // first (so a forgotten/locked note can never be lost by an accidental delete).
+        if (note.isPrivate()) {
+            publishStatusUpdate(getString("status.cannot_delete_private"));
             return;
         }
 

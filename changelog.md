@@ -1,10 +1,180 @@
 # Changelog
 
+## [Unreleased]
+
+### Fix: Canvas — color de marco completo y tirador de redimensión visible
+
+- **Color = marco completo**: colorear un nodo o grupo ahora tiñe **todo el borde** (los cuatro lados), como en Obsidian, en vez de solo una barra a la izquierda.
+- **Redimensión usable**: el tirador de la esquina inferior derecha ahora es **visible** — era un nodo no gestionado en el `Pane`, que se quedaba a 0×0 (invisible aunque agarrable de casualidad); ahora se dibuja como un **punto circular** de 16 px (acento, borde blanco, sombra, realce al pasar el ratón) dentro de la esquina. Disponible en **todos los tipos de nodo** (texto, fichero, enlace y grupo).
+
+### Feat: Canvas — grupos al estilo Obsidian (mover contenido, renombrar, alinear)
+
+- **El grupo arrastra su contenido**: al mover un grupo, los nodos cuyo centro está dentro de él se desplazan con el grupo (la pertenencia es geométrica y se calcula al empezar el arrastre).
+- **Renombrar el grupo**: doble clic sobre un grupo edita su etiqueta in situ (Enter o perder foco confirma, Esc cancela).
+- **Redimensionar**: el grupo se redimensiona con el mismo tirador de esquina que el resto de nodos.
+- **Alinear miembros**: el menú contextual del grupo añade un submenú **Alinear** (izquierda / centrar horizontal / derecha / arriba / centrar vertical / abajo) que coloca sus nodos internos respecto a su caja envolvente común.
+- **Tests**: `CanvasModelTest` +1 — `setNodeLabel` asigna y limpia la etiqueta. 257/257 verdes.
+
+## [2.2.0] - 2026-06-24
+
+Esta versión gira en torno a **Canvas** (visor → editor compatible con Obsidian), **transclusión** y **enlaces enriquecidos**, y un refuerzo importante de las **notas privadas** (modelo de desbloqueo por-nota/global, indicadores visuales y protección frente a borrado/exportación), además de varias correcciones de listas/paneles.
+
+### Feat: Canvas — eliminar desde el menú contextual y grupos usables
+
+- El menú contextual de un **nodo** o una **arista** incluye ahora **Eliminar** (además del selector de color).
+- **Nodos de grupo** rediseñados: fondo translúcido (visibles y arrastrables por toda su área, no solo por el borde) y etiqueta por defecto al crearlos, de modo que "Añadir grupo" produce un grupo claramente visible.
+
+### Feat: Canvas — más paridad con Obsidian (flechas, redimensionar, color, nodos enlace/grupo)
+
+- **Flechas en las aristas**: cada arista dibuja una punta de flecha en el extremo destino, orientada según la dirección (como Obsidian).
+- **Redimensionar nodos**: el nodo seleccionado muestra un tirador en su esquina inferior derecha; arrastrarlo cambia el tamaño (con mínimo y clip redondeado sincronizados) y se persiste como `width`/`height` enteros.
+- **Color de nodo y arista**: clic derecho sobre un nodo o una arista abre un selector con los 6 presets de Obsidian (1–6) y "Sin color"; se guarda en el campo `color` (o se elimina al limpiar).
+- **Crear nodos de enlace y grupo**: nuevos botones en la barra — enlace (pide la URL) y grupo (rectángulo etiquetado) — además del nodo de texto ya existente.
+- **Tests**: `CanvasModelTest` +3 — `addLinkNode`/`addGroupNode`, `resizeNode` (redondeo) y `setNodeColor`/`setEdgeColor` (asignar y limpiar). 256/256 verdes.
+
+### Feat: notas privadas — indicador en el editor y protección en exportación
+
+- **Indicador en el editor**: las notas privadas muestran un candado junto al título — cerrado cuando está bloqueada (🔒) y abierto cuando es legible esta sesión. (En la lista ya aparece el candado.)
+- **Exportación protegida**: el export individual de una nota privada se bloquea con aviso (hazla normal primero), y el "exportar bóveda" **omite** las notas privadas, de modo que su contenido nunca se vuelca en claro a una carpeta sin proteger.
+
+### Feat: notas privadas — desbloqueo por-nota vs global, toggle en el menú contextual, protección de borrado
+
+Mejoras de usabilidad y lógica del cifrado, manteniendo el modelo AES-GCM/PBKDF2 existente:
+
+- **Desbloqueo por-nota vs global**: al abrir una nota privada bloqueada y meter la contraseña, ahora se desbloquea **solo esa nota** (las demás siguen 🔒). El desbloqueo de **todas** las notas es una acción explícita: nuevo **Herramientas → Desbloquear Notas Privadas**. Internamente `EncryptionService` separa "tener la clave" (`hasKey`, necesaria para cifrar/descifrar) de la revelación: `revealNote(id)` (una), `unlock()` (todas) y `canRead(id)` como puerta de lectura.
+- **Convertir privada/normal desde la lista**: el menú contextual de una nota incluye **Hacer Privada** / **Hacer Normal (Descifrar)** según su estado, operando sobre esa nota concreta (pide la contraseña solo si hace falta para cifrar/descifrar).
+- **Las notas privadas no se pueden eliminar**: el borrado se bloquea (esté la nota bloqueada o no) en el punto central `deleteNote`, y la opción "Mover a papelera" aparece deshabilitada en el menú contextual de notas privadas. Para borrarla hay que **hacerla normal** primero, evitando perder una nota cifrada por un descuido.
+- **Indicador visual**: las notas privadas muestran un **icono de candado** en la lista. Al **bloquear** (lock) la nota abierta se recarga directamente a 🔒 (ya no rebota a un prompt de desbloqueo).
+- **Robustez**: cifrar/descifrar y el guard anti-sobrescritura usan `hasKey()` en vez del estado global, de modo que una nota revelada individualmente se guarda re-cifrada correctamente; descifrar el historial también usa `hasKey()`.
+- **Tests**: `EncryptionServiceTest` +4 — reveal por-nota no es desbloqueo global, unlock global, `acquireKey` sin revelar, y `lock` limpia clave y revelaciones. 253/253 verdes.
+
+### Fix: notas cifradas — fuga de ciphertext en listados, pérdida de datos al desmarcar, y favoritos
+
+Tres correcciones de la auditoría de cifrado/favoritos:
+
+- **Confidencialidad**: las vistas por **carpeta** y por **etiqueta** (y la búsqueda dentro de carpeta) mostraban el cuerpo cifrado en crudo (`JENC1:…`) como vista previa de una nota privada. `getAllNotes` ya lo sustituía por el candado 🔒, pero `getNotesByFolder`/`getNotesByTag` no. Ahora todos los listados pasan por un mismo helper `scrubEncryptedForList`, así que **ningún listado expone ciphertext** (en SQLite y en bóveda).
+- **Pérdida de datos**: al **desmarcar como privada** una nota que estaba abierta bloqueada (el editor mostraba 🔒), se guardaba el placeholder `🔒` como contenido en claro, destruyendo el cuerpo. Ahora `handleTogglePrivate` detecta el placeholder y recupera el contenido real (descifrado) del almacén antes de guardar, y **recarga el editor** para reflejar el nuevo estado.
+- **Favoritos**: marcar/desmarcar favorito desde la **lista** de notas no refrescaba el panel de Favoritos del sidebar (publicaba `NoteModifiedEvent`, al que el sidebar no está suscrito). Ahora publica `NoteSavedEvent` —el flag se persiste de verdad—, igual que el botón del editor, y el panel se actualiza en vivo (ambos modos).
+- **Tests**: `FileSystemDAOContractTest` +1 — los listados por carpeta y `getAllNotes` sustituyen el cuerpo cifrado por el placeholder. 249/249 verdes.
+
+### Fix (tests): `EncryptionServiceTest` destruía la configuración real de contraseña maestra
+
+`EncryptionServiceTest` usaba el **mismo nodo de Preferences que la app** (`userNodeForPackage(EncryptionService.class)`) y borraba `enc.salt`/`enc.verifier` en cada `@BeforeEach`/`@AfterEach`. Ejecutar `mvn test` **eliminaba la contraseña maestra del usuario** (salt + verificador), dejando `isConfigured()` en `false`: la app dejaba de pedir desbloqueo al abrir notas privadas y volvía a pedir crear contraseña maestra. Ahora el test **respalda los valores reales en `@BeforeAll` y los restaura en `@AfterAll`**, de modo que la suite ya nunca toca la configuración del usuario.
+
+### Feat: Canvas — edición Fase 2 (mover/crear/editar/borrar nodos, conectar/borrar aristas, guardar)
+
+Edición completa sobre el visor de canvas:
+
+- **Mover nodos**: arrastra un nodo para reposicionarlo; las aristas conectadas le siguen en tiempo real. Un clic simple no mueve (sigue abriendo nota/enlace con doble clic).
+- **Crear nodo de texto**: botón **+** en la barra; crea un nodo en el centro de la vista y abre directamente su edición.
+- **Editar texto en el nodo**: doble clic en un nodo de texto lo convierte en un editor in situ; se confirma con **⌘+Enter** o al perder el foco, y se cancela con **Esc**. El resto del tiempo el nodo muestra la **previsualización** renderizada.
+- **Conectar nodos (aristas)**: botón **conectar** en la barra activa el modo conexión (cursor en cruz); clic en el nodo origen y luego en el destino dibuja la arista, eligiendo automáticamente los lados que se miran según la posición. Se pueden encadenar varias; **Esc** o clic en el fondo cancela.
+- **Borrar arista**: clic sobre una arista la selecciona (resaltada en color de acento) y **Supr/Backspace** la elimina.
+- **Borrar nodo**: selecciónalo (clic simple, resaltado con halo de acento) y pulsa **Supr/Backspace**; se eliminan también las aristas conectadas a él.
+- **Crear un canvas nuevo**: desde **Archivo → Nuevo Canvas**, el command palette (*New Canvas*) o el menú contextual de la barra; crea un `.canvas` vacío en la carpeta actual y lo abre. Solo en modo vault Markdown (un canvas es un fichero del vault); en modo SQLite avisa. El `NoteDAOFileSystem` ahora reconoce adjuntos al crear: escribe el contenido en crudo conservando la extensión (sin `.md` ni frontmatter).
+- **Barra de herramientas**: añadir nodo, conectar, zoom +/−, **ajustar al contenido**, y **Guardar** (se habilita solo cuando hay cambios).
+- **Guardado fiel** (`.canvas`): nuevo `CanvasModel.Document`, un documento mutable respaldado por el JSON original; al guardar se actualizan solo los campos tocados (p. ej. `x`/`y`, redondeados a enteros como Obsidian) y se **preservan los campos desconocidos** → round-trip seguro con Obsidian.
+- **Scroll en nodos**: los nodos de nota/texto largos ahora se pueden **desplazar con la rueda** (sin hacer zoom del lienzo); arrastrar el nodo sigue moviéndolo y la rueda sobre el fondo sigue haciendo zoom.
+- **Tests**: `CanvasModelTest` +7 — `moveNode`/`addTextNode`/`setNodeText`/`removeNode` (borra también sus aristas), `addEdge` (lados en blanco omitidos)/`removeEdge`, y round-trip que preserva campos desconocidos; `FileSystemDAOContractTest` +1 — crear un adjunto `.canvas` escribe JSON en crudo sin frontmatter ni `.md`. 248/248 verdes.
+
+### Feat: visor de Canvas (`.canvas`, compatible Obsidian) — Fase 1
+
+Abre y visualiza ficheros **JSON Canvas** (`.canvas`) del vault, el formato de lienzo de Obsidian. Esta primera fase es **solo lectura** (la edición —crear/mover/conectar/guardar— vendrá en una fase posterior).
+
+- **Apertura**: los `.canvas` del vault ahora aparecen en la lista de notas (como un adjunto más) y se abren en un **visor de lienzo infinito** con **zoom** (rueda, hacia el cursor) y **pan** (arrastrar el fondo); se ajusta al contenido al abrirse.
+- **Render**: nodos de **texto**, **fichero**, **enlace** (clic abre el navegador) y **grupo** (rectángulo etiquetado), más las **aristas** entre nodos con su lado/etiqueta. Respeta los **colores** de Obsidian (presets 1–6 y `#rrggbb`). Los nodos se renderizan con controles JavaFX (texto legible), no sobre un Canvas.
+- **Contenido en los nodos**: los nodos de **imagen** muestran la imagen incrustada; los de **nota** muestran su título + el cuerpo **renderizado como previsualización** (no el Markdown en crudo), y los de **texto** renderizan su Markdown — encabezados, negrita/cursiva, código, listas y citas. Doble clic en un nodo de nota la abre. El contenido se recorta al tamaño del nodo. (Editar el texto del nodo —ver/editar la fuente— llegará con la fase de edición.)
+- **Render Markdown sin WebView**: nuevo `util/MarkdownMini`, que reutiliza el parser CommonMark del proyecto y construye nodos JavaFX (`TextFlow`) con estilo. Se usa en los nodos del canvas porque un `WebView` por nodo no compone bien en una superficie con zoom/pan (y evita su coste de memoria).
+- **Distinción en la lista**: los `.canvas` usan ahora un icono propio (rejilla, `fth-grid`) para diferenciarlos de notas e imágenes/PDF.
+- **Arquitectura**: nuevo `util/CanvasModel` (parseo tolerante del JSON con Gson — nueva dependencia, justificada para un formato JSON externo; entradas malformadas se descartan sin romper el documento) y `ui/components/CanvasView` (visor con pan/zoom). Se integra en el flujo de adjuntos existente: `AttachmentType` reconoce `.canvas` y `EditorController` enruta al visor (igual que PDF/imágenes). Estilado con variables de tema (claro/oscuro). 
+- **Tests**: `CanvasModelTest` (4) — parseo de nodos/aristas, entradas vacías/ inválidas, descarte de entradas malformadas, defaults numéricos. 240/240 verdes.
+
+### Feat: transclusión de notas (embeds `![[ ]]`)
+
+Permite **incrustar** el contenido de otra nota (o una de sus secciones) dentro de la vista previa, estilo Obsidian. Escribe `![[Nota]]` para embeber la nota entera o `![[Nota#Encabezado]]` para una sección.
+
+- **Render**: el embed se muestra como un bloque con un encabezado clicable (abre la nota origen) y el cuerpo renderizado (Markdown completo: encabezados, listas, código, etc.). Los `[[wiki-links]]` dentro del embed también se resuelven.
+- **Secciones**: `#Encabezado` extrae desde ese encabezado hasta el siguiente del mismo nivel o superior.
+- **Seguridad/robustez**: recursión acotada (profundidad máx. 3) con detección de ciclos por rama, de modo que `A → B → A` o cadenas profundas degradan a un aviso en vez de colgarse. Notas/secciones inexistentes muestran un placeholder discreto. Todo el texto incrustado se escapa.
+- **Arquitectura**: nuevo `util/Transclusion` (puro y testeable: recibe un resolutor `título → contenido`). Se integra en `MarkdownPreview` **antes** de los wiki-links (porque `![[X]]` contiene `[[X]]`) usando tokens-placeholder que se reinyectan tras CommonMark — evita los problemas de meter HTML en bloques Markdown. El contenido se resuelve con el `NoteService` vivo (vía `AppContext`), igual que `NoteTitleIndex`.
+- **Creación**: se teclea `![[` (el autocompletado de `[[` existente la cubre); sin botón nuevo, coherente con cómo se crean los wiki-links.
+- **CSS** del embed en ambos temas. **Tests**: `TransclusionTest` (8) — expansión, secciones, ciclos, profundidad, nota/sección ausente, wiki-links internos, anidamiento. 236/236 verdes.
+
+### Fix: el árbol de carpetas y la lista de notas perdían la selección al refrescarse
+
+Al refrescarse (p. ej. cuando termina la carga en segundo plano del vault, o tras una recarga), tanto el árbol de carpetas como la lista de notas **borraban la selección y el scroll** y volvían al root/arriba — algo más visible al usar transclusión, porque resolver el contenido de los embeds toca la caché de notas en cada render del preview.
+
+- **Árbol de carpetas**: `applyFolderTreeBuildResult` recuerda la carpeta seleccionada y la vuelve a seleccionar (con scroll) tras reconstruir.
+- **Lista de notas**: cada recarga hacía `clearSelection()` + `setAll()` (instancias nuevas), reseteando selección y scroll. Ahora un helper `applyNotesPreservingSelection` mantiene la nota seleccionada y su scroll **cuando sigue presente** (refresco del mismo contexto); al navegar a otra carpeta/etiqueta la nota anterior no está y la selección se limpia sola, como antes.
+- En ambos casos la re-selección está **guardada** para no republicar el evento (no re-navega ni recarga el editor, preservando el cursor/los cambios sin guardar). Beneficia a cualquier refresco, no solo a la transclusión.
+
+### Fix: la lista central de notas se vaciaba al (auto)guardar
+
+Al guardar (sobre todo en cada autoguardado mientras editabas), la lista central de notas se quedaba **vacía** hasta navegar a otra carpeta. Causa (diagnosticada con trazas): guardar disparaba **dos** recargas de la lista — una desde `handleSave` y otra desde la reconstrucción del árbol de carpetas (que `NoteSavedEvent` provocaba → reselección de carpeta → segundo `loadNotesForFolder`). Las dos cargas competían y la segunda, que por una race del prune de la caché durante la reescritura del fichero devolvía 0 notas, llegaba la última y **sobrescribía** el resultado correcto.
+
+- **`handleSave` ya no recarga la lista central**: guardar el contenido no cambia qué notas hay en la carpeta, así que era una recarga redundante.
+- **`NoteSavedEvent` ya no reconstruye el árbol de carpetas** (su estructura/conteos no cambian al guardar contenido), eliminando la segunda carga; solo se refrescan Recientes/Favoritos, cuyo orden sí puede cambiar.
+- Defensa en profundidad en el prune (`pruneStaleCacheEntries`): actualiza primero y borra solo las claves obsoletas (nunca deja la caché vacía en una ventana intermedia) y **se salta la pasada si fuera a vaciar la caché entera** por un fallo transitorio del filesystem.
+
+### Fix: las listas de Recientes/Favoritos del sidebar parpadeaban vacías
+
+`applyRecentNotes`/`applyFavoriteNotes` hacían `clear()` + `add()` en bucle sobre la lista observable enlazada a la `ListView`, así que en **cada recarga** (p. ej. tras cada autosave, que dispara `NoteSavedEvent` → el sidebar recarga recientes/favoritos) la lista se veía **vaciar y rellenar** (parpadeo). Más visible al editar transclusiones, porque uno se detiene en el popup de autocompletado de `![[`/`[[` y, durante esa pausa, salta el autosave. Ahora se usa `setAll(...)` (reemplazo atómico), que no parpadea.
+
+### Feat: rich links (tarjetas de enlace)
+
+Convierte una URL en una **tarjeta visual** (título, descripción, miniatura y dominio) en lugar de un enlace plano, al estilo de Glyphary/Obsidian.
+
+- **Cómo se usa**: botón en la barra de formato del editor (icono marcador), comando **Insert Rich Link** en la paleta (`Ctrl+P`) o acción de menú. Pega una URL → se descarga su metadata en segundo plano (nunca bloquea la UI) → se inserta un bloque que se renderiza como tarjeta en la vista previa.
+- **Formato en disco**: bloque de texto plano `::: rich-link` con `url/title/description/image/siteName`, legible y portable; solo `url` es obligatorio. Degrada a texto legible en cualquier otro editor.
+- **Metadata**: `RichLinkService` descarga la página (timeout, User-Agent de navegador, tope de 512 KB) y extrae OpenGraph (`og:title/description/image/site_name`) con fallback a `<title>`, meta description y el host. Ante cualquier fallo inserta una tarjeta mínima (URL + dominio), sin lanzar excepción.
+- **Enlaces externos**: al pulsar una tarjeta (o cualquier enlace `http(s)` del preview) se abre en el **navegador del sistema** vía el nuevo `SystemBrowser` (valida el esquema; usa `ProcessBuilder`, sin shell), en lugar de navegar dentro del WebView.
+- **Arquitectura**: `util/RichLinks` (formato + parseo OpenGraph + render a tarjeta, puro y testeable), `service/RichLinkService` (única parte con red), `util/SystemBrowser`; integración en el pipeline de `MarkdownPreview` (antes de CommonMark, como los wiki-links) con CSS de tarjeta en ambos temas; acción `RICH_LINK` en `SystemActionEvent` cableada en editor, paleta y barra de formato.
+- **i18n** EN/ES con paridad (`dialog.rich_link.*`, `tooltip.format.rich_link`).
+- **Tests**: `RichLinksTest` (10) — OpenGraph + fallbacks, generación/round-trip del bloque, render a tarjeta, **escapado de HTML** e imágenes solo `http(s)` (seguridad); `SystemBrowserTest` (2) — rechazo de esquemas no `http(s)`. 228/228 verdes.
+
+### Fix: los enlaces de la vista previa no abrían (bug latente)
+
+Al pulsar un wiki-link o un enlace externo en la vista previa no ocurría nada. Causa (preexistente, no introducida por los rich links): el puente JS→Java `window.javaApp` se exponía desde una clase `private`, y JavaFX WebView **solo puede invocar métodos de una clase `public`** desde JavaScript, así que las llamadas fallaban en silencio. Se hace `public` la clase `PreviewJavaBridge`. Ahora los wiki-links abren la nota y los enlaces `http(s)` (incluidas las tarjetas rich-link) abren en el navegador del sistema.
+
+### Fix: texto ilegible en la fila seleccionada de la paleta de comandos / quick switcher
+
+La fila seleccionada usa texto blanco sobre fondo de acento, pero los manejadores de *hover* instalados cuando la fila no estaba seleccionada **no se limpiaban** al seleccionarse; al pasar el ratón por encima cambiaban el fondo al de hover (gris muy claro en tema claro) dejando el texto blanco → invisible. Se limpian los manejadores de ratón en el estado seleccionado, en `CommandPalette` y `QuickSwitcher`.
+
+### Feat: snippets CSS por usuario (estilo Obsidian)
+
+Permite retocar la interfaz con pequeños ficheros `.css` propios que se superponen al tema activo, sin tener que crear un tema completo. Funciona con temas integrados y externos.
+
+- **Cómo funciona**: coloca ficheros `.css` en la carpeta `snippets/` (en `<appData>/snippets`, creada al arrancar) y actívalos desde **Preferencias → Snippets CSS**. Cada snippet activo se añade a la escena **después** del tema, así que sus reglas tienen prioridad. La activación se guarda en preferencias y se reaplica al arrancar.
+- **UI**: la sección en Preferencias lista los snippets disponibles con casillas, más botones **Abrir carpeta** y **Recargar** (re-escanea sin cerrar el diálogo, conservando tu selección).
+- **Seguridad**: el nombre de un snippet debe ser un fichero `.css` simple (sin separadores de ruta ni `..`), de modo que nunca puede apuntar fuera de su carpeta. Un snippet activado que ya no exista se ignora sin romper el arranque.
+- **Arquitectura**: nuevo `CssSnippetCatalog` (descubre/valida/resuelve, espeja `ThemeCatalog`); `ThemeCommand.applyTheme` añade los snippets tras el tema y los limpia al reaplicar (rutas que contienen `/snippets/`); persistencia vía `UiPreferencesStore` (`ui.snippets.enabled`); carpeta `snippets/` creada por `AppDataDirectory`.
+- **Snippets adaptables al tema**: Jylos marca el root de la escena con la clase `theme-dark` / `theme-light` (igual que las clases de `body` de Obsidian), de modo que un único snippet puede servir para claro y oscuro vía `.root.theme-dark { … }` / `.root.theme-light { … }`.
+- **Ejemplos incluidos**: nueva carpeta `snippets-examples/` con tres snippets **adaptables** (cada uno con variante clara y oscura) — **Atom One**, **Nord** y **Solarized** — más un README con la guía de instalación y la lista de variables para crear los propios. (La carpeta runtime `jylos/snippets/` sí está en `.gitignore`, como `data/`/`logs/`: contiene los snippets activos del usuario; los ejemplos versionados viven en `snippets-examples/`.)
+- **i18n** EN/ES con paridad (`dialog.preferences.css_snippets*`).
+- **Tests**: `CssSnippetCatalogTest` (6 casos) — validación de nombres (incluye intentos de traversal), escaneo/orden/deduplicación y resolución de activos saltando los ausentes. 216/216 verdes.
+
+### Fix: texto de checkboxes invisible en modo oscuro
+
+Las etiquetas de los `CheckBox`/`RadioButton` no son nodos `.label`, así que sin un color explícito su texto caía al valor por defecto de la plataforma (oscuro) y resultaba **invisible sobre el fondo oscuro** — visible, p. ej., en el diálogo de Preferencias. Se añade una regla global en el tema oscuro (`.check-box, .radio-button { -fx-text-fill: -fx-text-main }`). El tema claro no se ve afectado (su texto por defecto ya contrasta).
+
+### Fix: contador de columnas Kanban ilegible (negro sobre acento)
+
+El badge con el número de tarjetas (`.kanban-lane-count`) se pintaba con texto oscuro sobre la píldora de color de acento en todos los temas. Causa: `.kanban-lane-count` y la regla global `.label` tienen la **misma especificidad** y, al ir `.label` después en la hoja, ganaba y forzaba su color de texto. Se sube la especificidad del badge a `.label.kanban-lane-count` en ambos temas, de modo que recupera `-fx-accent-contrast` (texto sobre acento).
+
 ## [2.1.0] - 2026-06-14
 
 ### Versión 2.1.0
 
 Se sube la versión a **2.1.0**, recogiendo las funcionalidades añadidas desde la 2.0.0 (espacios de trabajo, búsqueda avanzada, panel de sincronización Git, Knowledge Insights, Kanban multilínea) que ya estaban marcadas como `@since 2.1.0` en el código pero seguían reportándose como 2.0.0. Actualizado en `app.properties`, `AppConfig`, `pom.xml` y los README.
+
+### Refactor: auditoría de mantenimiento de la UI (2026-06-14)
+
+Pasada de mantenimiento y eficiencia centrada en la capa UI/JavaFX, conservadora y sin cambios de comportamiento:
+
+- **Lógica de plantillas fuera del controlador**: la sustitución de placeholders (`{{title}}`, `{{date}}`, `{{time}}`, `{{datetime}}`) vivía en `MainController`. Se extrae a `util/NoteTemplates` (función pura, con una sobrecarga que acepta el reloj para poder testearla) y se añade `NoteTemplatesTest` (7 casos). El controlador queda más pequeño y la lógica es ahora unit-testable.
+- **Duplicado eliminado**: `MainController` reimplementaba un `findNoteByTitle` (búsqueda lineal por título) que ya existía en `NoteService`. Se elimina el privado y se usa el del servicio — una sola fuente de verdad.
+- **Código muerto**: se elimina `MarkdownProcessor.containsMarkdown`, sin llamadas en todo el proyecto.
+- **Verificado en la auditoría (sin cambios necesarios)**: el pipeline del preview (WebView) ya está bien acotado — assets (highlight.js, KaTeX, CSS) cacheados estáticamente una sola vez, KaTeX y emoji inyectados solo cuando la nota los usa, render del editor con debounce (120 ms) e índice de títulos caliente (`NoteTitleIndex`) sin reescaneos por tecla; el visor PDF cierra el `PDDocument` (try-with-resources) y rasteriza fuera del hilo FX; los componentes efímeros (paleta de comandos, quick switcher) se crean una vez y se cachean, y los suscriptores del `EventBus` son controladores de vida-aplicación (sin fugas). 210/210 tests verdes.
 
 ### Fix: icono de nota fijada — chincheta real (2026-06-14)
 

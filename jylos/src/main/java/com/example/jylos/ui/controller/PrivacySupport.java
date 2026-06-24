@@ -37,23 +37,48 @@ final class PrivacySupport {
         this.sceneSupplier = sceneSupplier;
     }
 
-    /** Ensures the session is unlocked when notes are encrypted; prompts if needed. */
-    boolean ensureUnlocked() {
-        EncryptionService enc = EncryptionService.getInstance();
-        if (!enc.isConfigured() || enc.isUnlocked()) {
-            return true;
-        }
-        return promptUnlock();
-    }
-
-    /** Prompts for the master password and unlocks the session. */
-    boolean promptUnlock() {
+    /** Prompts for the master password and unlocks <b>all</b> private notes for the session. */
+    boolean promptUnlockAll() {
         String pw = promptPassword(getString("dialog.unlock.title"), getString("dialog.unlock.header"));
         if (pw == null) {
             return false;
         }
         if (EncryptionService.getInstance().unlock(pw.toCharArray())) {
             updateStatus(getString("status.unlocked"));
+            return true;
+        }
+        showError(getString("dialog.unlock.title"), getString("status.unlock_failed"));
+        return false;
+    }
+
+    /** Prompts for the master password and reveals only {@code noteId} (others stay 🔒). */
+    boolean promptRevealNote(String noteId) {
+        String pw = promptPassword(getString("dialog.unlock.title"), getString("dialog.unlock.header"));
+        if (pw == null) {
+            return false;
+        }
+        if (EncryptionService.getInstance().revealNote(noteId, pw.toCharArray())) {
+            updateStatus(getString("status.note_unlocked"));
+            return true;
+        }
+        showError(getString("dialog.unlock.title"), getString("status.unlock_failed"));
+        return false;
+    }
+
+    /**
+     * Ensures the key is held so a note can be turned private (encrypted). Prompts for the
+     * master password if needed; does not reveal any existing note.
+     */
+    boolean ensureKey() {
+        EncryptionService enc = EncryptionService.getInstance();
+        if (enc.hasKey()) {
+            return true;
+        }
+        String pw = promptPassword(getString("dialog.unlock.title"), getString("dialog.unlock.header"));
+        if (pw == null) {
+            return false;
+        }
+        if (enc.acquireKey(pw.toCharArray())) {
             return true;
         }
         showError(getString("dialog.unlock.title"), getString("status.unlock_failed"));

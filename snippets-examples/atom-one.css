@@ -1,0 +1,69 @@
+/*
+ * Atom One — Jylos CSS snippet (adaptive: dark + light)
+ *
+ * Recreates the classic Atom "One Dark" and "One Light" palettes. A snippet is
+ * layered on top of the active theme, so its rules win. This file adapts to the
+ * active variant via the `theme-dark` / `theme-light` class Jylos puts on the
+ * scene root (Obsidian-style), so it works with both the Dark and Light themes.
+ *
+ * To use: copy this file into your snippets folder (Preferences -> CSS snippets
+ * -> Open folder), then enable it and Save.
+ */
+
+/* ── One Dark ─────────────────────────────────────────────────────────────── */
+.root.theme-dark {
+    -fx-base-bg: #282c34;
+    -fx-sidebar-bg: #21252b;
+    -fx-header-bg: #21252b;
+    -fx-hover-bg: #2c313a;
+    -fx-hover-text: #ffffff;
+
+    -fx-accent: #61afef;
+    -fx-accent-hover: #4d9fe0;
+    -fx-accent-contrast: #282c34;
+    -fx-selected-bg: #3e4451;
+    -fx-selected-text: #ffffff;
+
+    -fx-text-main: #abb2bf;
+    -fx-text-muted: #828997;
+    -fx-text-faint: #5c6370;
+
+    -fx-fn-border-color: #181a1f;
+
+    -fx-success: #98c379;
+    -fx-warning: #e5c07b;
+    -fx-danger: #e06c75;
+
+    -fx-folder-all: #c678dd;
+    -fx-folder-open: #98c379;
+    -fx-folder-closed: #d19a66;
+}
+
+/* ── One Light ────────────────────────────────────────────────────────────── */
+.root.theme-light {
+    -fx-base-bg: #fafafa;
+    -fx-sidebar-bg: #eaeaeb;
+    -fx-header-bg: #eaeaeb;
+    -fx-hover-bg: #ececed;
+    -fx-hover-text: #202227;
+
+    -fx-accent: #4078f2;
+    -fx-accent-hover: #2f63d6;
+    -fx-accent-contrast: #ffffff;
+    -fx-selected-bg: #4078f2;
+    -fx-selected-text: #ffffff;
+
+    -fx-text-main: #383a42;
+    -fx-text-muted: #696c77;
+    -fx-text-faint: #9a9ba2;
+
+    -fx-fn-border-color: #d4d4d6;
+
+    -fx-success: #50a14f;
+    -fx-warning: #c18401;
+    -fx-danger: #e45649;
+
+    -fx-folder-all: #a626a4;
+    -fx-folder-open: #50a14f;
+    -fx-folder-closed: #c18401;
+}

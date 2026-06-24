@@ -640,6 +640,11 @@
     -fx-opacity: 0.75;
 }
 
+.note-cell-lock {
+    -fx-icon-color: -fx-accent;
+    -fx-fill: -fx-accent;
+}
+
 .list-cell:selected .note-cell-title,
 .list-cell:selected .note-cell-preview,
 .list-cell:selected .note-cell-preview-flow .text,
@@ -990,6 +995,12 @@
 .save-indicator-dot.saved {
     -fx-text-fill: -fx-success;
 }
+.editor-private-indicator {
+    -fx-padding: 0 2 0 2;
+}
+.editor-private-indicator .feather-icon {
+    -fx-icon-color: -fx-accent;
+}
 
 /* Open-note tab strip (scrolls horizontally; tabs keep a fixed width). */
 .editor-tab-scroll {
@@ -1101,7 +1112,10 @@
     -fx-text-fill: -fx-text-muted;
     -fx-padding: 2 4 6 4;
 }
-.kanban-lane-count {
+/* `.label.kanban-lane-count` (two classes) must out-specify the global `.label`
+   rule, which otherwise wins by source order and paints the count dark on the
+   accent pill. */
+.label.kanban-lane-count {
     -fx-font-size: 12px;
     -fx-font-weight: 700;
     -fx-text-fill: -fx-accent-contrast;
@@ -3227,3 +3241,68 @@
 .insights-score-bad    { -fx-text-fill: -fx-danger; }
 .insights-explanation  { -fx-font-size: 12px; -fx-text-fill: -fx-text-muted; }
 .insights-hint         { -fx-font-size: 11px; -fx-text-fill: -fx-text-faint; -fx-font-style: italic; }
+
+/* ========================================
+   CANVAS VIEWER (.canvas / JSON Canvas)
+   (colours follow the theme lookup variables)
+   ======================================== */
+.canvas-view, .canvas-viewport { -fx-background-color: -fx-base-bg; }
+.canvas-node {
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.12), 6, 0, 0, 1);
+}
+.canvas-node-title { -fx-font-weight: bold; -fx-text-fill: -fx-text-main; }
+.canvas-node-text { -fx-text-fill: -fx-text-main; -fx-font-size: 13px; }
+.canvas-node-link-url { -fx-text-fill: -fx-accent; -fx-font-size: 12px; }
+.canvas-group {
+    -fx-background-color: rgba(125, 125, 125, 0.07);
+    -fx-background-radius: 10;
+    -fx-border-color: -fx-text-faint;
+    -fx-border-width: 2;
+    -fx-border-style: segments(8, 6);
+    -fx-border-radius: 10;
+    -fx-padding: 6 10;
+}
+.canvas-group-label { -fx-text-fill: -fx-text-muted; -fx-font-weight: bold; -fx-font-size: 12px; }
+.canvas-edge { -fx-stroke: -fx-text-muted; -fx-stroke-width: 2; -fx-cursor: hand; }
+.canvas-edge-selected { -fx-stroke: -fx-accent; -fx-stroke-width: 3.5; }
+.canvas-edge-arrow { -fx-fill: -fx-text-muted; -fx-cursor: hand; }
+.canvas-resize-handle {
+    -fx-background-color: -fx-accent;
+    -fx-border-color: white; -fx-border-width: 2;
+    -fx-background-radius: 8; -fx-border-radius: 8;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.45), 4, 0.3, 0, 1);
+}
+.canvas-resize-handle:hover { -fx-cursor: se-resize; -fx-scale-x: 1.15; -fx-scale-y: 1.15; }
+.toolbar-btn-active {
+    -fx-background-color: -fx-hover-bg; -fx-border-color: -fx-accent; -fx-text-fill: -fx-accent;
+}
+.toolbar-btn-active .feather-icon { -fx-icon-color: -fx-accent; }
+.canvas-edge-label {
+    -fx-text-fill: -fx-text-muted; -fx-font-size: 11px;
+    -fx-background-color: -fx-base-bg; -fx-padding: 1 4;
+}
+.canvas-empty { -fx-text-fill: -fx-text-faint; -fx-font-size: 14px; }
+.canvas-selected { -fx-effect: dropshadow(gaussian, -fx-accent, 12, 0.55, 0, 0); }
+.canvas-node-scroll { -fx-background-color: transparent; -fx-background: transparent; -fx-padding: 0; }
+.canvas-node-scroll > .viewport { -fx-background-color: transparent; }
+.canvas-node-editor {
+    -fx-control-inner-background: -fx-base-bg; -fx-text-fill: -fx-text-main;
+    -fx-font-size: 13px; -fx-background-radius: 4; -fx-border-width: 0;
+}
+
+/* Lightweight Markdown rendering (canvas note/text nodes) — Text uses -fx-fill */
+.md-mini-run { -fx-fill: -fx-text-main; }
+.md-mini-heading .md-mini-run { -fx-fill: -fx-text-main; }
+.md-mini-inline-code, .md-mini-code { -fx-fill: #d63384; }
+.md-mini-link { -fx-fill: -fx-accent; }
+.md-mini-codeblock {
+    -fx-background-color: #f0f0f0; -fx-background-radius: 4; -fx-padding: 6 8;
+}
+.md-mini-quote {
+    -fx-border-color: -fx-fn-border-color; -fx-border-width: 0 0 0 3; -fx-padding: 0 0 0 8;
+}
+.md-mini-quote .md-mini-run { -fx-fill: -fx-text-muted; }

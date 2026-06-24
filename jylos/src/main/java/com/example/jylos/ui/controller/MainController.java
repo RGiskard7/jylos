@@ -270,6 +270,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private final UiDialog uiDialog = new UiDialog(this);
     private final ThemeCommand themeCommand = new ThemeCommand();
     private final ThemeCatalog themeCatalog = new ThemeCatalog();
+    private final CssSnippetCatalog cssSnippetCatalog = new CssSnippetCatalog();
     private final SystemThemeMonitor systemThemeMonitor = new SystemThemeMonitor(
             () -> themeCommand.detectSystemTheme(),
             this::applyThemeAndRefreshDependents);
@@ -315,6 +316,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private boolean autosaveRunning = false;
     private String themeSource = UiPreferencesStore.THEME_SOURCE_BUILTIN;
     private String externalThemeId = "";
+    /** Filenames of the CSS snippets the user has enabled; layered over the theme. */
+    private java.util.Set<String> enabledSnippets = java.util.Set.of();
 
     private enum SaveDialogDecision {
         SAVE,
@@ -699,6 +702,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         uiEventSubscriptions.addAll(uiEventSupport.subscribe(eventBus));
         uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteExportRequestEvent.class,
                 e -> Platform.runLater(() -> exportNote(e.getNote()))));
+        uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.PrivacyToggleRequestEvent.class,
+                e -> Platform.runLater(() -> toggleNotePrivacy(e.getNote()))));
         // Keep the editor tab in sync when its note is saved (clear dirty dot, refresh title).
         uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class, e -> {
             Note saved = e.getNote();
@@ -924,6 +929,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         notesListPreviewLines = uiPrefs.notesPreviewLines();
         uiFontSize = uiPrefs.uiFontSize();
         uiAccentColor = uiPrefs.accentColor();
+        enabledSnippets = uiPreferences.loadEnabledSnippets(prefs);
         autosaveDebounce.setDuration(Duration.millis(autosaveIdleMs));
 
         if (sidebarController != null) {
@@ -1213,6 +1219,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         switch (commandId) {
             case "cmd.new_note":
                 return () -> handleNewNote(null);
+            case "cmd.new_canvas":
+                return () -> handleNewCanvas(null);
             case "cmd.new_folder":
                 return () -> handleNewFolder(null);
             case "cmd.save":
@@ -1247,6 +1255,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 return () -> publishEditorAction(SystemActionEvent.ActionType.UNDERLINE);
             case "cmd.insert_link":
                 return () -> publishEditorAction(SystemActionEvent.ActionType.LINK);
+            case "cmd.insert_rich_link":
+                return () -> publishEditorAction(SystemActionEvent.ActionType.RICH_LINK);
             case "cmd.insert_image":
                 return () -> publishEditorAction(SystemActionEvent.ActionType.IMAGE);
             case "cmd.insert_todo":
@@ -1413,6 +1423,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         systemActionHandlers.put(SystemActionEvent.ActionType.FOCUS_MODE, this::handleFocusMode);
         systemActionHandlers.put(SystemActionEvent.ActionType.KANBAN_VIEW, overlaySupport::toggleKanban);
         systemActionHandlers.put(SystemActionEvent.ActionType.PRIVATE_TOGGLE, this::handleTogglePrivate);
+        systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_UNLOCK, this::handleUnlockNotes);
         systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_LOCK, this::handleLockNotes);
         systemActionHandlers.put(SystemActionEvent.ActionType.IMPORT_OBSIDIAN, importSupport::importObsidianVault);
         systemActionHandlers.put(SystemActionEvent.ActionType.IMPORT_ENEX, importSupport::importEnex);
@@ -1770,10 +1781,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     }
 
     void loadNoteInEditor(Note note) {
-        // A locked private note loads as a placeholder; offer to unlock and reload it.
-        if (note != null && note.isPrivate() && noteService != null) {
+        // A locked private note loads as a placeholder; offer to unlock just this note
+        // (the global "unlock private notes" command is what reveals all of them).
+        if (note != null && note.isPrivate() && note.getId() != null && noteService != null) {
             EncryptionService enc = EncryptionService.getInstance();
-            if (enc.isConfigured() && !enc.isUnlocked() && privacySupport.promptUnlock()) {
+            if (enc.isConfigured() && !enc.canRead(note.getId()) && privacySupport.promptRevealNote(note.getId())) {
                 note = noteService.getNoteById(note.getId()).orElse(note);
             }
         }
@@ -2065,20 +2077,32 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
     }
 
+    /**
+     * Requests creating a new canvas. The actual creation lives in {@code NotesListController}
+     * (it knows the selected folder); this just publishes the system action.
+     */
+    void handleNewCanvas(ActionEvent event) {
+        if (eventBus != null) {
+            eventBus.publish(new SystemActionEvent(SystemActionEvent.ActionType.NEW_CANVAS));
+        }
+    }
+
     /** Opens today's daily note ({@code yyyy-MM-dd}), creating it (from a "daily" template if any). */
     private void handleDailyNote() {
         if (noteService == null) {
             return;
         }
-        String title = java.time.LocalDate.now().toString();
-        Note existing = findNoteByTitle(title);
+        String title = com.example.jylos.util.NoteTemplates.dailyNoteTitle();
+        Note existing = noteService.findNoteByTitle(title).orElse(null);
         if (existing != null) {
             loadNoteInEditor(noteService.getNoteById(existing.getId()).orElse(existing));
             updateStatus(java.text.MessageFormat.format(getString("status.note_loaded"), title));
             return;
         }
         String template = templateContentByName("daily");
-        String content = template != null ? applyTemplatePlaceholders(template, title) : "# " + title + "\n\n";
+        String content = template != null
+                ? com.example.jylos.util.NoteTemplates.applyPlaceholders(template, title)
+                : "# " + title + "\n\n";
         createAndOpenNote(title, content);
     }
 
@@ -2110,23 +2134,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 return;
             }
             Note full = noteService.getNoteById(tpl.getId()).orElse(tpl);
-            String content = applyTemplatePlaceholders(
+            String content = com.example.jylos.util.NoteTemplates.applyPlaceholders(
                     full.getContent() != null ? full.getContent() : "", choice);
             createAndOpenNote(choice, content);
         });
-    }
-
-    /** Linear search across all notes for a case-insensitive title match; returns the first match or {@code null}. */
-    private Note findNoteByTitle(String title) {
-        if (title == null) {
-            return null;
-        }
-        for (Note note : noteService.getAllNotes()) {
-            if (note != null && title.equalsIgnoreCase(note.getTitle())) {
-                return note;
-            }
-        }
-        return null;
     }
 
     /** Notes located under a folder named "Templates" (path prefix or parent title). */
@@ -2156,16 +2167,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             }
         }
         return null;
-    }
-
-    /** Replaces {@code {{title}}}, {@code {{date}}}, {@code {{time}}} and {@code {{datetime}}} placeholders in a template string. */
-    private String applyTemplatePlaceholders(String content, String title) {
-        java.time.LocalDateTime now = java.time.LocalDateTime.now();
-        return content
-                .replace("{{title}}", title != null ? title : "")
-                .replace("{{date}}", java.time.LocalDate.now().toString())
-                .replace("{{time}}", now.toLocalTime().withNano(0).toString())
-                .replace("{{datetime}}", now.withNano(0).toString());
     }
 
     /** Creates a note with the given title and content, adds it to the list, loads it in the editor, and publishes a creation event. */
@@ -2271,7 +2272,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (editorController != null) {
             editorController.handleSave();
         }
-        refreshNotesList();
+        // Saving a note's content does not change which notes live in the current folder,
+        // so the central notes list is NOT reloaded here — doing so (especially on every
+        // autosave) caused a redundant reload that could race a cache prune and blank the
+        // list. The recents/favorites lists (whose order may change) refresh via the
+        // NoteSavedEvent the editor publishes.
         if (sidebarController != null) {
             sidebarController.loadRecentNotes();
             sidebarController.loadFavorites();
@@ -2407,6 +2412,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                             || com.example.jylos.util.AttachmentType.isAttachment(listNote.getId())) {
                         continue; // skip PDF/image attachments
                     }
+                    if (listNote.isPrivate()) {
+                        continue; // never write private notes to an unprotected export folder
+                    }
                     Note full = noteService.getNoteById(listNote.getId()).orElse(listNote);
                     String base = documentIO.sanitizeFileName(
                             full.getTitle() != null && !full.getTitle().isBlank() ? full.getTitle() : "untitled");
@@ -2467,6 +2475,13 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (note == null) {
             showAlert(Alert.AlertType.WARNING, getString("dialog.export.title"),
                     getString("dialog.export.no_note_header"), getString("dialog.export.no_note_content"));
+            return;
+        }
+        // Private notes are not exported (it would write their body to an unprotected file).
+        // The user must turn the note normal first — consistent with delete protection.
+        if (note.isPrivate()) {
+            showAlert(Alert.AlertType.WARNING, getString("dialog.export.title"),
+                    getString("dialog.export.private_header"), getString("dialog.export.private_content"));
             return;
         }
         // List notes carry only a truncated (lightweight) preview of their content, so
@@ -2820,7 +2835,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 themeCatalog,
                 getClass(),
                 editorController.getPreviewWebView(),
-                refreshPreview);
+                refreshPreview,
+                cssSnippetCatalog.resolveEnabledUris(enabledSnippets));
         // Make modals/alerts follow the active theme (JavaFX dialogs don't inherit
         // the scene's stylesheets on their own).
         com.example.jylos.ui.UiDialogs.setStylesheets(scene.getStylesheets());
@@ -2876,26 +2892,86 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     /** Toggles the current note between private (encrypted body) and public. */
     private void handleTogglePrivate() {
         Note note = getCurrentNote();
-        if (note == null || note.getId() == null || noteService == null) {
+        if (note == null || note.getId() == null) {
             updateStatus(getString("status.no_note_selected"));
             return;
         }
-        boolean makePrivate = !note.isPrivate();
-        if (makePrivate && !EncryptionService.getInstance().isConfigured()) {
-            if (!privacySupport.setupMasterPassword()) {
-                return;
-            }
-        } else if (!privacySupport.ensureUnlocked()) {
+        toggleNotePrivacy(note);
+    }
+
+    /**
+     * Turns {@code target} private (encrypt its body) or public (decrypt and store as
+     * plaintext). Works for any note — the current editor note or one picked from a list's
+     * context menu — and acquires/reveals the key only as the chosen direction needs:
+     * making private needs the key to encrypt; making public needs to read (reveal) the note.
+     */
+    void toggleNotePrivacy(Note target) {
+        if (target == null || target.getId() == null || noteService == null) {
+            updateStatus(getString("status.no_note_selected"));
             return;
         }
-        note.setPrivate(makePrivate);
-        // Persist the live editor content under the new privacy flag (NoteService
-        // encrypts/decrypts as needed).
-        note.setContent(editorController.getCurrentContent());
-        noteService.updateNote(note);
-        eventBus.publish(new NoteEvents.NoteSavedEvent(note));
+        EncryptionService enc = EncryptionService.getInstance();
+        boolean makePrivate = !target.isPrivate();
+
+        if (makePrivate) {
+            if (!enc.isConfigured()) {
+                if (!privacySupport.setupMasterPassword()) {
+                    return;
+                }
+            } else if (!privacySupport.ensureKey()) {
+                return; // need the key to encrypt
+            }
+        } else if (!enc.canRead(target.getId()) && !privacySupport.promptRevealNote(target.getId())) {
+            return; // need to decrypt the note to turn it public
+        }
+
+        // Resolve the plaintext body. For the open note use the live editor text, but never
+        // persist the 🔒 placeholder — fall back to the (now readable) stored content.
+        Note current = getCurrentNote();
+        boolean isCurrent = current != null && target.getId().equals(current.getId());
+        String content = isCurrent ? editorController.getCurrentContent() : null;
+        if (content == null || NoteService.LOCKED_PLACEHOLDER.equals(content)) {
+            content = noteService.getNoteById(target.getId()).map(Note::getContent).orElse(content);
+        }
+        if (content == null || NoteService.LOCKED_PLACEHOLDER.equals(content)) {
+            updateStatus(getString("status.unlock_failed"));
+            return;
+        }
+
+        target.setPrivate(makePrivate);
+        target.setContent(content);
+        noteService.updateNote(target); // NoteService encrypts when private + key held
+        if (makePrivate) {
+            enc.reveal(target.getId()); // keep it readable this session (just created it)
+        }
+        eventBus.publish(new NoteEvents.NoteSavedEvent(target));
+        // Reflect the new state in the editor when this is the open note.
+        if (isCurrent) {
+            noteService.getNoteById(target.getId()).ifPresent(editorController::loadNote);
+        }
         refreshNotesList();
         updateStatus(getString(makePrivate ? "status.note_private_on" : "status.note_private_off"));
+    }
+
+    /** Global unlock: prompts for the master password and reveals all private notes. */
+    private void handleUnlockNotes() {
+        EncryptionService enc = EncryptionService.getInstance();
+        if (!enc.isConfigured()) {
+            updateStatus(getString("status.no_private_notes"));
+            return;
+        }
+        if (enc.isUnlocked()) {
+            updateStatus(getString("status.unlocked"));
+            return;
+        }
+        if (privacySupport.promptUnlockAll()) {
+            // Reload the open note so a previously-locked body shows decrypted.
+            Note current = getCurrentNote();
+            if (current != null && current.isPrivate() && current.getId() != null) {
+                noteService.getNoteById(current.getId()).ifPresent(editorController::loadNote);
+            }
+            refreshNotesList();
+        }
     }
 
     /** Locks encryption: private notes become unreadable until unlocked again. */
@@ -2906,9 +2982,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             return;
         }
         enc.lock();
+        // Reload the open private note straight to its 🔒 placeholder (no unlock prompt).
         Note current = getCurrentNote();
         if (current != null && current.isPrivate() && current.getId() != null) {
-            noteService.getNoteById(current.getId()).ifPresent(this::loadNoteInEditor);
+            noteService.getNoteById(current.getId()).ifPresent(editorController::loadNote);
         }
         refreshNotesList();
         updateStatus(getString("status.notes_locked"));
@@ -2965,7 +3042,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         List<ThemeCatalog.ThemeDescriptor> themes = themeCatalog.getAvailableThemes();
         Optional<UiDialog.PreferencesDialogResult> result = uiDialog.showPreferences(
                 currentUiPrefs,
-                themes);
+                themes,
+                cssSnippetCatalog,
+                enabledSnippets);
         if (result.isEmpty()) {
             return;
         }
@@ -2979,6 +3058,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 values.uiFontSize(),
                 values.accentColor());
         uiPreferences.save(prefs, newPrefs);
+        uiPreferences.saveEnabledSnippets(prefs, values.enabledSnippets());
         applyUiPreferencesFromStore();
         updateThemeMenuSelection();
         syncSystemThemeMonitoring();

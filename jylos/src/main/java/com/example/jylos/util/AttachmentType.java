@@ -21,7 +21,9 @@ public enum AttachmentType {
     /** A PDF document, shown in the paginated PDF viewer. */
     PDF,
     /** A raster image, shown in the image viewer. */
-    IMAGE;
+    IMAGE,
+    /** An Obsidian-compatible JSON Canvas, shown in the canvas viewer. */
+    CANVAS;
 
     /** Image extensions JavaFX can decode natively. */
     private static final Set<String> IMAGE_EXTENSIONS =
@@ -37,6 +39,7 @@ public enum AttachmentType {
     private static Set<String> buildAttachmentExtensions() {
         var all = new java.util.HashSet<>(IMAGE_EXTENSIONS);
         all.add("pdf");
+        all.add("canvas");
         return Set.copyOf(all);
     }
 
@@ -56,6 +59,9 @@ public enum AttachmentType {
         String ext = extensionOf(name);
         if (ext.equals("pdf")) {
             return PDF;
+        }
+        if (ext.equals("canvas")) {
+            return CANVAS;
         }
         if (IMAGE_EXTENSIONS.contains(ext)) {
             return IMAGE;

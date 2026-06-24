@@ -104,6 +104,7 @@ class CommandRegistry {
 
     private static final List<CommandDef> DEFAULT_COMMANDS = List.of(
             new CommandDef("cmd.new_note", "New Note"),
+            new CommandDef("cmd.new_canvas", "New Canvas"),
             new CommandDef("cmd.new_folder", "New Folder"),
             new CommandDef("cmd.save", "Save"),
             new CommandDef("cmd.save_all", "Save All"),
@@ -121,6 +122,7 @@ class CommandRegistry {
             new CommandDef("cmd.italic", "Italic"),
             new CommandDef("cmd.underline", "Underline"),
             new CommandDef("cmd.insert_link", "Insert Link"),
+            new CommandDef("cmd.insert_rich_link", "Insert Rich Link"),
             new CommandDef("cmd.insert_image", "Insert Image"),
             new CommandDef("cmd.insert_todo", "Insert Todo"),
             new CommandDef("cmd.insert_list", "Insert List"),

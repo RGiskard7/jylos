@@ -2,9 +2,11 @@ package com.example.jylos.ui.controller;
 
 import java.io.File;
 import java.text.MessageFormat;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Level;
@@ -25,6 +27,7 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
@@ -86,12 +89,15 @@ class UiDialog {
             String externalThemeId,
             int notesPreviewLines,
             int uiFontSize,
-            String accentColor) {
+            String accentColor,
+            Set<String> enabledSnippets) {
     }
 
     Optional<PreferencesDialogResult> showPreferences(
             UiPreferencesStore.UiPreferencesData current,
-            List<ThemeCatalog.ThemeDescriptor> themes) {
+            List<ThemeCatalog.ThemeDescriptor> themes,
+            CssSnippetCatalog snippetCatalog,
+            Set<String> enabledSnippets) {
         Dialog<PreferencesDialogResult> dialog = new Dialog<>();
         dialog.setTitle(i18n("dialog.preferences.title"));
         dialog.setHeaderText(i18n("dialog.preferences.header"));
@@ -181,6 +187,49 @@ class UiDialog {
             externalThemeCombo.setDisable(themeModeCombo.getSelectionModel().getSelectedIndex() != 1);
         });
 
+        // CSS snippets: passive .css files layered over the theme (Obsidian-style).
+        // The selection is held in a live set so the "Reload" rescan keeps the user's
+        // current choices even for snippets not yet on disk.
+        Set<String> selectedSnippets = new LinkedHashSet<>(
+                enabledSnippets != null ? enabledSnippets : Set.of());
+        Label snippetsLabel = new Label(i18n("dialog.preferences.css_snippets"));
+        Label snippetsHint = new Label(i18n("dialog.preferences.css_snippets_hint"));
+        snippetsHint.setStyle("-fx-text-fill: gray; -fx-font-size: 11px;");
+        snippetsHint.setWrapText(true);
+        VBox snippetsBox = new VBox(6);
+        Runnable populateSnippets = () -> {
+            snippetsBox.getChildren().clear();
+            List<CssSnippetCatalog.SnippetDescriptor> available =
+                    snippetCatalog != null ? snippetCatalog.getAvailableSnippets() : List.of();
+            if (available.isEmpty()) {
+                Label none = new Label(i18n("dialog.preferences.css_snippets_empty"));
+                none.setStyle("-fx-text-fill: gray;");
+                snippetsBox.getChildren().add(none);
+                return;
+            }
+            for (CssSnippetCatalog.SnippetDescriptor snippet : available) {
+                CheckBox box = new CheckBox(snippet.name());
+                box.setSelected(selectedSnippets.contains(snippet.name()));
+                box.selectedProperty().addListener((obs, oldVal, newVal) -> {
+                    if (Boolean.TRUE.equals(newVal)) {
+                        selectedSnippets.add(snippet.name());
+                    } else {
+                        selectedSnippets.remove(snippet.name());
+                    }
+                });
+                snippetsBox.getChildren().add(box);
+            }
+        };
+        populateSnippets.run();
+        Button openSnippetsFolder = new Button(i18n("dialog.preferences.css_snippets_open"));
+        openSnippetsFolder.setOnAction(e -> {
+            if (snippetCatalog != null) {
+                openFolder(snippetCatalog.primaryDirectory().toString());
+            }
+        });
+        Button reloadSnippets = new Button(i18n("dialog.preferences.css_snippets_reload"));
+        reloadSnippets.setOnAction(e -> populateSnippets.run());
+
         content.getChildren().addAll(
                 new Label(i18n("dialog.preferences.general_settings")),
                 dbLabel, dbPathLabel,
@@ -194,7 +243,10 @@ class UiDialog {
                 themeModeLabel, themeModeCombo,
                 externalThemeLabel, externalThemeCombo,
                 new Separator(),
-                new HBox(8, customAccentCheck, accentPicker));
+                new HBox(8, customAccentCheck, accentPicker),
+                new Separator(),
+                snippetsLabel, snippetsHint, snippetsBox,
+                new HBox(8, openSnippetsFolder, reloadSnippets));
 
         // The settings list has outgrown a fixed pane: scroll vertically when needed
         // so no row is ever clipped (no horizontal bar — content fits the width).
@@ -249,9 +301,29 @@ class UiDialog {
                     externalThemeId,
                     previewLines != null ? previewLines : UiPreferencesStore.DEFAULT_NOTES_PREVIEW_LINES,
                     fontSize != null ? fontSize : UiPreferencesStore.DEFAULT_UI_FONT_SIZE,
-                    accent);
+                    accent,
+                    new LinkedHashSet<>(selectedSnippets));
         });
         return com.example.jylos.ui.UiDialogs.show(dialog);
+    }
+
+    /** Opens a folder in the OS file manager (best-effort, mirrors the notes-list reveal). */
+    private void openFolder(String absolutePath) {
+        if (absolutePath == null || absolutePath.isBlank()) {
+            return;
+        }
+        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+        try {
+            if (os.contains("mac")) {
+                new ProcessBuilder("open", absolutePath).start();
+            } else if (os.contains("win")) {
+                new ProcessBuilder("explorer.exe", absolutePath).start();
+            } else {
+                new ProcessBuilder("xdg-open", absolutePath).start();
+            }
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Could not open snippets folder: " + absolutePath, e);
+        }
     }
 
     void showDocumentation() {

@@ -119,8 +119,13 @@ public class AppDataDirectory {
         return new File(getBaseDirectory(), "backups").getAbsolutePath();
     }
 
+    /** Gets the CSS snippets directory path (baseDir/snippets). */
+    public static String getSnippetsDirectory() {
+        return new File(getBaseDirectory(), "snippets").getAbsolutePath();
+    }
+
     /**
-     * Ensures runtime directories exist: data, logs, backups, plugins, themes.
+     * Ensures runtime directories exist: data, logs, backups, plugins, themes, snippets.
      * Invoked from {@link Main} static initializer and at startup.
      */
     public static boolean ensureDirectoriesExist() {
@@ -130,6 +135,7 @@ public class AppDataDirectory {
             File pluginsDir = new File(getBaseDirectory(), "plugins");
             File backupsDir = new File(getBackupsDirectory());
             File themesDir = new File(getBaseDirectory(), "themes");
+            File snippetsDir = new File(getSnippetsDirectory());
 
             if (!dataDir.exists()) {
                 dataDir.mkdirs();
@@ -145,6 +151,11 @@ public class AppDataDirectory {
             }
             if (!themesDir.exists()) {
                 themesDir.mkdirs();
+            }
+            // Snippets are optional UI tweaks; create the folder best-effort but do not
+            // fail startup if it cannot be made.
+            if (!snippetsDir.exists()) {
+                snippetsDir.mkdirs();
             }
 
             return dataDir.exists() && dataDir.canWrite() &&

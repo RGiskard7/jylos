@@ -29,9 +29,12 @@ import com.example.jylos.service.NoteService;
 import com.example.jylos.util.AttachmentType;
 import com.example.jylos.util.MarkdownHighlighter;
 import com.example.jylos.util.MarkdownPreview;
+import com.example.jylos.util.RichLinks;
+import com.example.jylos.util.SystemBrowser;
 import com.example.jylos.util.WikiLinkResolver;
 
 import javafx.application.Platform;
+import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
@@ -100,6 +103,8 @@ public class EditorController {
     private boolean wikiLinkListenerInstalled;
     private WikiLinkHandler wikiLinkHandler;
     private final PreviewJavaBridge previewJavaBridge = new PreviewJavaBridge();
+    private final com.example.jylos.service.RichLinkService richLinkService =
+            new com.example.jylos.service.RichLinkService();
 
     /** Opens a note when the user clicks a wiki-link in the Markdown preview. */
     @FunctionalInterface
@@ -122,6 +127,9 @@ public class EditorController {
     @FXML private Label noteTitleLabel;
     @FXML private Label dirtySaveIndicator;
     @FXML private Tooltip dirtySaveIndicatorTip;
+    @FXML private Label privateIndicator;
+    @FXML private org.kordamp.ikonli.javafx.FontIcon privateIndicatorIcon;
+    @FXML private Tooltip privateIndicatorTip;
     @FXML private ToggleButton toggleTagsBtn;
     @FXML private ToggleButton editorOnlyButton;
     @FXML private ToggleButton splitViewButton;
@@ -148,7 +156,7 @@ public class EditorController {
     @FXML private CodeArea  noteContentArea;
     @FXML private Button    heading1Btn, heading2Btn, heading3Btn;
     @FXML private Button    boldBtn, italicBtn, strikeBtn, underlineBtn;
-    @FXML private Button    highlightBtn, linkBtn, imageBtn;
+    @FXML private Button    highlightBtn, linkBtn, richLinkBtn, imageBtn;
     @FXML private Button    todoBtn, bulletBtn, numberBtn;
     @FXML private Button    quoteBtn, codeBtn;
     @FXML private Label     wordCountLabel;
@@ -303,6 +311,7 @@ public class EditorController {
     @FXML private void handleUnderline(ActionEvent e)         { publish(SystemActionEvent.ActionType.UNDERLINE); }
     @FXML private void handleHighlight(ActionEvent e)         { publish(SystemActionEvent.ActionType.HIGHLIGHT); }
     @FXML private void handleLink(ActionEvent e)              { publish(SystemActionEvent.ActionType.LINK); }
+    @FXML private void handleRichLink(ActionEvent e)          { publish(SystemActionEvent.ActionType.RICH_LINK); }
     @FXML private void handleImage(ActionEvent e)             { publish(SystemActionEvent.ActionType.IMAGE); }
     @FXML private void handleTodoList(ActionEvent e)          { publish(SystemActionEvent.ActionType.TODO_LIST); }
     @FXML private void handleBulletList(ActionEvent e)        { publish(SystemActionEvent.ActionType.BULLET_LIST); }
@@ -506,6 +515,7 @@ public class EditorController {
             setNoteOpen(false);
             isModified = false;
             updateSaveIndicator(false);
+            updatePrivateIndicator();
             return;
         }
 
@@ -521,6 +531,7 @@ public class EditorController {
             showAttachment(currentNote, type);
             isModified = false;
             updateSaveIndicator(false);
+            updatePrivateIndicator();
             return;
         }
         hideAttachmentViewer();
@@ -534,7 +545,35 @@ public class EditorController {
         refreshNoteTitlesCache();
         isModified = false;
         updateSaveIndicator(false);
+        updatePrivateIndicator();
         applyHighlighting();
+    }
+
+    /**
+     * Shows a lock badge next to the title for private notes: a closed lock when the body
+     * is still locked (🔒 placeholder), an open lock when it is readable this session.
+     * Hidden for normal notes.
+     */
+    private void updatePrivateIndicator() {
+        if (privateIndicator == null) {
+            return;
+        }
+        boolean isPrivate = currentNote != null && currentNote.isPrivate() && !viewingAttachment;
+        privateIndicator.setVisible(isPrivate);
+        privateIndicator.setManaged(isPrivate);
+        if (!isPrivate) {
+            return;
+        }
+        boolean readable = com.example.jylos.service.EncryptionService.getInstance().canRead(currentNote.getId());
+        if (privateIndicatorIcon != null) {
+            privateIndicatorIcon.setIconLiteral(readable ? "fth-unlock" : "fth-lock");
+        }
+        if (privateIndicatorTip != null && bundle != null) {
+            String key = readable ? "tooltip.note_private_unlocked" : "tooltip.note_private_locked";
+            if (bundle.containsKey(key)) {
+                privateIndicatorTip.setText(bundle.getString(key));
+            }
+        }
     }
 
     /** True while a non-editable attachment (PDF/image) is being shown. */
@@ -565,7 +604,9 @@ public class EditorController {
         java.nio.file.Path path = (noteService != null)
                 ? noteService.getNoteFilePath(note.getId()).orElse(null)
                 : null;
-        if (path != null) {
+        if (path != null && type == AttachmentType.CANVAS) {
+            attachmentViewer.getChildren().add(buildCanvasView(path));
+        } else if (path != null) {
             attachmentViewer.getChildren().add(
                     com.example.jylos.ui.components.FileViewer.forAttachment(path, type, bundle));
         } else {
@@ -583,6 +624,89 @@ public class EditorController {
         setNodeVisible(emptyState, false);
         setNodeVisible(attachmentViewer, true);
         updateBreadcrumb(note);
+    }
+
+    /** Reads, parses and renders a {@code .canvas} file; file nodes open the referenced note. */
+    private javafx.scene.Node buildCanvasView(java.nio.file.Path path) {
+        try {
+            String json = java.nio.file.Files.readString(path);
+            com.example.jylos.util.CanvasModel.Document canvasDoc =
+                    com.example.jylos.util.CanvasModel.Document.parse(json);
+            final java.nio.file.Path vaultRoot = vaultRootFor(path, currentNote != null ? currentNote.getId() : "");
+            return new com.example.jylos.ui.components.CanvasView(
+                    canvasDoc,
+                    file -> openNoteByTitle(canvasFileToTitle(file)),
+                    ref -> resolveCanvasFile(vaultRoot, ref),
+                    updatedJson -> writeCanvas(path, updatedJson),
+                    this::safeI18n);
+        } catch (Exception e) {
+            logger.warning("Could not open canvas '" + path + "': " + e.getMessage());
+            Label error = new Label(bundle != null ? bundle.getString("viewer.canvas_error")
+                    : "Could not open canvas");
+            error.getStyleClass().add("viewer-info");
+            return error;
+        }
+    }
+
+    /** Writes the (edited) canvas JSON back to its file. */
+    private void writeCanvas(java.nio.file.Path path, String json) {
+        try {
+            java.nio.file.Files.writeString(path, json);
+            logger.info("Canvas saved: " + path.getFileName());
+        } catch (Exception e) {
+            logger.warning("Could not save canvas '" + path + "': " + e.getMessage());
+        }
+    }
+
+    /** Derives the vault root from a note's absolute path and its vault-relative id. */
+    private static java.nio.file.Path vaultRootFor(java.nio.file.Path notePath, String noteId) {
+        java.nio.file.Path root = notePath.getParent();
+        String id = noteId == null ? "" : noteId.replace('\\', '/');
+        long up = id.chars().filter(c -> c == '/').count();
+        for (long i = 0; i < up && root != null; i++) {
+            root = root.getParent();
+        }
+        return root;
+    }
+
+    /**
+     * Resolves a canvas file-node reference (vault-relative) to an absolute path:
+     * directly against the vault root, falling back to the note store's path lookup.
+     */
+    private java.nio.file.Path resolveCanvasFile(java.nio.file.Path vaultRoot, String ref) {
+        if (ref == null || ref.isBlank()) {
+            return null;
+        }
+        if (vaultRoot != null) {
+            try {
+                java.nio.file.Path p = vaultRoot.resolve(ref).normalize();
+                if (java.nio.file.Files.exists(p)) {
+                    return p;
+                }
+            } catch (Exception ignored) {
+                // fall through to the note-store lookup
+            }
+        }
+        return noteService != null ? noteService.getNoteFilePath(ref).orElse(null) : null;
+    }
+
+    /** Resolves an i18n key, returning the key itself (never throwing) when absent. */
+    private String safeI18n(String key) {
+        if (bundle == null || key == null) {
+            return key;
+        }
+        return bundle.containsKey(key) ? bundle.getString(key) : key;
+    }
+
+    /** Turns a canvas file-node reference ({@code Folder/Note.md}) into a note title. */
+    private static String canvasFileToTitle(String file) {
+        if (file == null) {
+            return "";
+        }
+        String f = file.replace('\\', '/');
+        int slash = f.lastIndexOf('/');
+        String name = slash >= 0 ? f.substring(slash + 1) : f;
+        return name.endsWith(".md") ? name.substring(0, name.length() - 3) : name;
     }
 
     private void hideAttachmentViewer() {
@@ -948,6 +1072,7 @@ public class EditorController {
                 case QUOTE     -> insertLinePrefix("> ");
                 case CODE      -> insertCodeBlock();
                 case LINK      -> handleLinkDialog();
+                case RICH_LINK -> handleRichLinkDialog();
                 case IMAGE     -> handleImageDialog();
                 case SAVE      -> handleSave();
                 default        -> { /* not handled here */ }
@@ -1058,6 +1183,55 @@ public class EditorController {
             noteContentArea.requestFocus();
             isModified = true;
         });
+    }
+
+    /**
+     * Prompts for a URL, fetches its metadata off the FX thread, and inserts a
+     * {@code ::: rich-link} block at the caret. Fetching never blocks the UI; on any
+     * failure the service returns a minimal card (URL + host) so a block is still
+     * inserted.
+     */
+    private void handleRichLinkDialog() {
+        if (noteContentArea == null) return;
+        TextInputDialog d = new TextInputDialog("https://");
+        d.setTitle(getString("dialog.rich_link.title", "Insert rich link"));
+        d.setHeaderText(getString("dialog.rich_link.header", "Paste a URL:"));
+        d.setContentText(getString("dialog.rich_link.content", "URL:"));
+        com.example.jylos.ui.UiDialogs.show(d)
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .ifPresent(this::fetchAndInsertRichLink);
+    }
+
+    private void fetchAndInsertRichLink(String url) {
+        Task<RichLinks.RichLink> task = new Task<>() {
+            @Override
+            protected RichLinks.RichLink call() {
+                return richLinkService.fetch(url);
+            }
+        };
+        task.setOnSucceeded(e -> insertRichLinkBlock(task.getValue()));
+        task.setOnFailed(e -> insertRichLinkBlock(
+                new RichLinks.RichLink(url, "", "", "", RichLinks.hostOf(url))));
+        Thread thread = new Thread(task, "rich-link-fetch");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    /** Inserts the rich-link block on its own paragraph at the caret. */
+    private void insertRichLinkBlock(RichLinks.RichLink link) {
+        if (noteContentArea == null || link == null) return;
+        String block = RichLinks.toMarkdown(link);
+        int pos = noteContentArea.getCaretPosition();
+        String text = orEmpty(noteContentArea.getText());
+        String before = text.substring(0, pos);
+        // Keep the block as its own paragraph (CommonMark needs a blank line around it).
+        String lead = before.isEmpty() || before.endsWith("\n\n") ? "" : before.endsWith("\n") ? "\n" : "\n\n";
+        String insertion = lead + block + "\n";
+        noteContentArea.replaceText(before + insertion + text.substring(pos));
+        noteContentArea.moveTo(pos + insertion.length());
+        noteContentArea.requestFocus();
+        isModified = true;
     }
 
     private void handleImageDialog() {
@@ -1394,13 +1568,23 @@ public class EditorController {
         });
     }
 
-    private final class PreviewJavaBridge {
+    /**
+     * Bridge exposed to the preview WebView as {@code window.javaApp}. JavaFX can only
+     * call methods of a <b>public</b> class from JavaScript, so this must stay public
+     * (a private/package-private bridge silently fails to dispatch clicks).
+     */
+    public final class PreviewJavaBridge {
         public void openNote(String title) {
             Platform.runLater(() -> {
                 if (wikiLinkHandler != null) {
                     wikiLinkHandler.openNoteByTitle(title);
                 }
             });
+        }
+
+        /** Opens an external {@code http(s)} link (e.g. a rich-link card) in the system browser. */
+        public void openExternal(String url) {
+            Platform.runLater(() -> SystemBrowser.open(url));
         }
     }
 

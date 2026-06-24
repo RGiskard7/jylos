@@ -354,13 +354,27 @@ public class NoteDAOFileSystem implements NoteDAO {
                 }
             }
 
-            String filename = sanitizeFilename(note.getTitle()) + ".md";
+            // Attachments (e.g. .canvas) keep their own extension and are written as raw
+            // bytes — no ".md" suffix and no frontmatter wrapper.
+            boolean attachment = com.example.jylos.util.AttachmentType.isAttachment(note.getTitle());
+            String base;
+            String ext;
+            if (attachment) {
+                String sanitized = sanitizeFilename(note.getTitle());
+                int dot = sanitized.lastIndexOf('.');
+                base = sanitized.substring(0, dot);
+                ext = sanitized.substring(dot); // includes the leading dot
+            } else {
+                base = sanitizeFilename(note.getTitle());
+                ext = ".md";
+            }
 
+            String filename = base + ext;
             Path filePath = parentDir.resolve(filename);
             // Handle duplicate filenames
             int counter = 1;
             while (Files.exists(filePath)) {
-                filename = sanitizeFilename(note.getTitle()) + " (" + counter + ").md";
+                filename = base + " (" + counter + ")" + ext;
                 filePath = parentDir.resolve(filename);
                 counter++;
             }
@@ -374,7 +388,9 @@ public class NoteDAOFileSystem implements NoteDAO {
             note.setId(relativePath);
 
             try {
-                String fileContent = FrontmatterHandler.generate(note);
+                String fileContent = attachment
+                        ? (note.getContent() != null ? note.getContent() : "")
+                        : FrontmatterHandler.generate(note);
                 Files.writeString(filePath, fileContent, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
                 idToPathMap.put(relativePath, filePath);
                 cachedNotes.put(relativePath, note);
@@ -963,8 +979,21 @@ public class NoteDAOFileSystem implements NoteDAO {
                 reindexed.put(noteId, note);
             }
 
-            cachedNotes.clear();
+            // Safety: never let a transient filesystem hiccup wipe the whole cache. If
+            // pruning would drop *every* note while we still hold some (e.g. iCloud
+            // dataless files or Unicode-normalised names making Files.exists momentarily
+            // false), skip this pass and keep the existing entries; the next interval
+            // re-checks. Without this, the notes panel can flash completely empty.
+            if (reindexed.isEmpty() && !cachedNotes.isEmpty()) {
+                return;
+            }
+            // Update/insert the surviving entries first, then drop only the stale keys.
+            // A plain clear()+putAll() leaves the (concurrent-read) cache momentarily
+            // EMPTY between the two calls — a notes-list background load reading it in
+            // that window would render an empty panel. Doing it this way means a reader
+            // always sees a consistent, non-empty cache.
             cachedNotes.putAll(reindexed);
+            cachedNotes.keySet().retainAll(reindexed.keySet());
             notesByFolderIndexDirty = true;
         } finally {
             FileSystemIoLock.LOCK.unlock();

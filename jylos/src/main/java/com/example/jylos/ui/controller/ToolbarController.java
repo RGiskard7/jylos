@@ -152,6 +152,11 @@ public class ToolbarController {
     }
 
     @FXML
+    private void handleNewCanvas(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.NEW_CANVAS);
+    }
+
+    @FXML
     private void handleNewFolder(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.NEW_FOLDER);
     }
@@ -269,6 +274,11 @@ public class ToolbarController {
     @FXML
     private void handleTogglePrivate(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.PRIVATE_TOGGLE);
+    }
+
+    @FXML
+    private void handleUnlockNotes(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.NOTES_UNLOCK);
     }
 
     @FXML

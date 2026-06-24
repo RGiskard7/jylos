@@ -12,7 +12,7 @@
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.1.0-success.svg)](changelog.md)
+[![Version](https://img.shields.io/badge/version-2.2.0-success.svg)](changelog.md)
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/)
 [![JavaFX](https://img.shields.io/badge/JavaFX-23-blue.svg)](https://openjfx.io/)
 [![SQLite](https://img.shields.io/badge/SQLite-3-lightgrey.svg)](https://www.sqlite.org/)
@@ -109,7 +109,8 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 - **Knowledge graph** (global vault view or local neighbourhood around the open note)
 - **Backlinks** panel listing notes that link to the current note
 - **Kanban board** stored inside a note, and a distraction-free **focus / writing mode**
-- **Private notes**: optional AES-256 body encryption behind a master password
+- **Canvas editor**: open and edit Obsidian-compatible `.canvas` files on an infinite, pan/zoom surface — create/move/resize/colour text, link and group nodes, connect and delete edges (with arrowheads), and create new canvases; saves round-trip safely (unknown fields preserved)
+- **Private notes**: optional AES-256 body encryption behind a master password, with per-note or global unlock and delete protection
 - Command palette (`Ctrl+P`) and quick switcher (`Ctrl+O`)
 - External plugins (JARs in `jylos/plugins/`, built from `plugins-source/`) and themes (`themes/` → `jylos/themes/`)
 - Storage: **SQLite** (default) or **filesystem Markdown vault** (`.md` + YAML frontmatter; optional **Git** menu for commit/stage/sync)
@@ -136,6 +137,8 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 - **KaTeX** for `$…$`, `$$…$$`, and LaTeX delimiters (offline assets bundled in the JAR)
 - Emoji in preview via rasterized glyphs (reliable in the JavaFX WebView)
 - **Wiki-link resolution** shared with the graph and backlinks (`WikiLinkResolver`)
+- **Transclusion / embeds**: `![[Note]]` (or `![[Note#Heading]]`) embeds another note's rendered content inline in the preview, with a click-to-open header; bounded recursion with cycle detection
+- **Rich links**: paste a URL to insert it as a visual card (title, description, thumbnail, site) — metadata fetched in the background; external links open in the system browser
 - **Focus / writing mode** (`Ctrl/Cmd+Shift+F`): hides everything but the editor
 - Split-pane proportions are remembered between sessions
 
@@ -150,8 +153,10 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 
 ### Private notes (encryption)
 
-- Mark a note as private (**Tools → Make Note Private/Public**, `Ctrl/Cmd+Shift+L`) to encrypt **only its body** at rest (AES-256-GCM)
-- A single **master password** unlocks private notes per session (PBKDF2-derived key; the password itself is never stored)
+- Mark a note as private to encrypt **only its body** at rest (AES-256-GCM) — from **Tools → Make Note Private/Public** (`Ctrl/Cmd+Shift+L`) or the note's right-click menu
+- A single **master password** protects them (PBKDF2-derived key; the password itself is never stored). Opening one locked note prompts to unlock **just that note**; **Tools → Unlock Private Notes** reveals all of them, and **Lock Private Notes** locks again
+- A **lock badge** marks private notes in the list and the editor (closed = locked, open = readable this session)
+- Private notes are **protected from deletion and export** — turn a note normal first
 - Works in **both** storage modes: a dedicated column in SQLite, a `private:` frontmatter flag in the vault; metadata stays readable so a locked note shows as 🔒 without the key
 
 ### Knowledge graph
@@ -180,6 +185,7 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 ### UI/UX
 
 - Light, dark, and **system** themes (OS theme polling when “System” is selected) + external CSS themes
+- **CSS snippets**: drop `.css` files into `snippets/` and toggle them in Preferences to tweak the UI over the active theme (Obsidian-style)
 - Sample external theme: Retro Phosphor (`themes/retro-phosphor/`)
 - Configurable sidebar/editor button presentation (text/icons/auto)
 - Centered sidebar navigation (folders, tags, recent, favorites, trash)
@@ -250,7 +256,7 @@ cd jylos
 
 ### 2) Build
 
-From the repository root (produces `jylos/target/jylos-2.1.0-uber.jar`):
+From the repository root (produces `jylos/target/jylos-2.2.0-uber.jar`):
 
 ```bash
 ./scripts/build_all.sh
@@ -351,7 +357,7 @@ Each `package-*` script builds the uber-JAR, optionally runs `build-plugins.sh`,
 
 | Platform | Command | Typical output |
 |---|---|---|
-| macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-2.1.0.dmg` |
+| macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-2.2.0.dmg` |
 | Linux (deb/rpm) | `./scripts/package-linux.sh` | `jylos/target/installers/` |
 | Windows portable (app-image) | `.\scripts\package-windows.ps1` | `jylos\target\installers\Jylos\` |
 | Windows .exe installer (WiX) | `.\scripts\package-windows-exe.ps1` | `jylos\target\installers\Jylos-<version>.exe` |
@@ -453,6 +459,10 @@ Toolbar/sidebar icons are **Feather** and **Bootstrap Icons** glyphs via Ikonli 
 ### Themes
 
 Source packs live in `themes/<id>/` (`theme.properties` + `theme.css`). Development: `./scripts/build-themes.sh` (copies to `jylos/themes/`). **Packaged app:** copy the theme folder to `~/Library/Application Support/Jylos/themes/<id>/` (macOS), `%APPDATA%\Jylos\themes\<id>\` (Windows), or `~/.config/Jylos/themes/<id>/` (Linux). See [themes/README.md](themes/README.md).
+
+### CSS snippets
+
+Drop plain `.css` files into the `snippets/` folder to tweak the interface on top of the active theme (Obsidian-style), without authoring a full theme. Enable them in **Preferences → CSS snippets**; each enabled snippet is layered **after** the theme, so its rules win. Use **Open folder** in that dialog to reach the directory (`<appData>/snippets`). Snippet names must be simple `.css` filenames. Ready-made, theme-adaptive examples (Atom One, Nord, Solarized — each with a dark and light variant) live in [snippets-examples/](snippets-examples/). Snippets can branch on the `theme-dark` / `theme-light` class Jylos sets on the scene root (Obsidian-style).
 
 ### Plugins
 

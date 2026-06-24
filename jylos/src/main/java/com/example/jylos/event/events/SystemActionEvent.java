@@ -15,6 +15,7 @@ import com.example.jylos.event.AppEvent;
 public class SystemActionEvent extends AppEvent {
     public enum ActionType {
         NEW_NOTE,
+        NEW_CANVAS,
         NEW_FOLDER,
         NEW_TAG,
         SAVE,
@@ -72,6 +73,7 @@ public class SystemActionEvent extends AppEvent {
         UNDERLINE,
         HIGHLIGHT,
         LINK,
+        RICH_LINK,
         IMAGE,
         TODO_LIST,
         BULLET_LIST,
@@ -85,6 +87,7 @@ public class SystemActionEvent extends AppEvent {
         FOCUS_MODE,
         KANBAN_VIEW,
         PRIVATE_TOGGLE,
+        NOTES_UNLOCK,
         NOTES_LOCK,
         IMPORT_OBSIDIAN,
         IMPORT_ENEX,

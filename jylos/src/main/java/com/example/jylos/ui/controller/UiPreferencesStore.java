@@ -1,5 +1,7 @@
 package com.example.jylos.ui.controller;
 
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.prefs.Preferences;
 
 /**
@@ -18,6 +20,13 @@ class UiPreferencesStore {
     public static final String THEME_EXTERNAL_ID_KEY = "ui.theme.external.id";
     public static final String NOTES_PREVIEW_LINES_KEY = "ui.notes.preview.lines";
     public static final String UI_FONT_SIZE_KEY = "ui.font.size";
+
+    /**
+     * Enabled CSS snippet filenames, newline-separated. Kept outside
+     * {@link UiPreferencesData} because snippets have their own list-based UI and
+     * are applied by the theme layer, not carried with the scalar UI settings.
+     */
+    public static final String SNIPPETS_ENABLED_KEY = "ui.snippets.enabled";
 
     /**
      * Custom accent color as {@code #RRGGBB}, or empty for the theme default.
@@ -93,6 +102,46 @@ class UiPreferencesStore {
         String source = THEME_SOURCE_EXTERNAL.equals(value.themeSource()) ? THEME_SOURCE_EXTERNAL : THEME_SOURCE_BUILTIN;
         prefs.put(THEME_SOURCE_KEY, source);
         prefs.put(THEME_EXTERNAL_ID_KEY, value.externalThemeId() != null ? value.externalThemeId().trim() : "");
+    }
+
+    /**
+     * Loads the set of enabled CSS snippet filenames, preserving order and dropping
+     * any malformed entry. Returns an empty set when none are stored.
+     */
+    public Set<String> loadEnabledSnippets(Preferences prefs) {
+        Set<String> enabled = new LinkedHashSet<>();
+        if (prefs == null) {
+            return enabled;
+        }
+        String raw = prefs.get(SNIPPETS_ENABLED_KEY, "");
+        for (String name : raw.split("\n")) {
+            String trimmed = name.trim();
+            if (CssSnippetCatalog.isValidSnippetName(trimmed)) {
+                enabled.add(trimmed);
+            }
+        }
+        return enabled;
+    }
+
+    /** Persists the enabled CSS snippet filenames as a newline-separated list. */
+    public void saveEnabledSnippets(Preferences prefs, Set<String> enabled) {
+        if (prefs == null) {
+            return;
+        }
+        if (enabled == null || enabled.isEmpty()) {
+            prefs.put(SNIPPETS_ENABLED_KEY, "");
+            return;
+        }
+        StringBuilder sb = new StringBuilder();
+        for (String name : enabled) {
+            if (CssSnippetCatalog.isValidSnippetName(name)) {
+                if (sb.length() > 0) {
+                    sb.append('\n');
+                }
+                sb.append(name.trim());
+            }
+        }
+        prefs.put(SNIPPETS_ENABLED_KEY, sb.toString());
     }
 
     /** Returns the value if it is a valid {@code #RRGGBB} color, otherwise "" (theme default). */

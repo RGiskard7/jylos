@@ -30,6 +30,18 @@ import com.example.jylos.config.LoggerConfig;
  * encrypted; in vault mode the YAML frontmatter (title, dates) stays readable so the
  * app can still list a locked note as 🔒 without the key.</p>
  *
+ * <p><b>Two reveal scopes.</b> Possessing the derived key ({@link #hasKey()}) is what
+ * lets the app encrypt/decrypt; <em>which</em> private notes are shown as plaintext is a
+ * separate, intentional gate:</p>
+ * <ul>
+ *   <li>{@link #unlock(char[])} — global: every private note becomes readable for the
+ *       session (used by the "unlock private notes" command).</li>
+ *   <li>{@link #revealNote(String, char[])} — per note: only that note becomes readable
+ *       (used when opening a single locked note, so the rest stay 🔒).</li>
+ * </ul>
+ * <p>{@link #canRead(String)} answers the read gate for a given note id; {@link #lock()}
+ * drops the key and both scopes.</p>
+ *
  * <p>Singleton, mirroring {@link com.example.jylos.event.EventBus}. Storage-agnostic:
  * {@link NoteService} calls it so both SQLite and the filesystem vault get the same
  * behaviour.</p>
@@ -62,8 +74,12 @@ public final class EncryptionService {
     private final Preferences prefs = Preferences.userNodeForPackage(EncryptionService.class);
     private final SecureRandom random = new SecureRandom();
 
-    /** Derived key; non-null only while unlocked. */
+    /** Derived key; non-null once a correct password has been entered this session. */
     private volatile SecretKey sessionKey;
+    /** True when every private note is readable (global unlock), set by {@link #unlock}. */
+    private volatile boolean globallyUnlocked;
+    /** Note ids individually revealed via {@link #revealNote} (when not globally unlocked). */
+    private final java.util.Set<String> revealedNoteIds = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     private EncryptionService() {
     }
@@ -81,14 +97,27 @@ public final class EncryptionService {
         return !prefs.get(SALT_KEY, "").isEmpty() && !prefs.get(VERIFIER_KEY, "").isEmpty();
     }
 
-    /** True while the derived key is held in memory (private notes are readable). */
+    /** True while every private note is readable (global unlock is active). */
     public boolean isUnlocked() {
+        return globallyUnlocked && sessionKey != null;
+    }
+
+    /** True while the derived key is held in memory (encryption/decryption is possible). */
+    public boolean hasKey() {
         return sessionKey != null;
     }
 
     /**
+     * True when the note with {@code noteId} may be shown as plaintext: the key is held
+     * and the note is either globally unlocked or individually revealed.
+     */
+    public boolean canRead(String noteId) {
+        return sessionKey != null && (globallyUnlocked || revealedNoteIds.contains(noteId));
+    }
+
+    /**
      * Creates the master password for the first time: generates a salt, derives the key,
-     * stores the salt and a verifier, and unlocks the session. No-op-safe to call once.
+     * stores the salt and a verifier, and unlocks the session globally. Call once.
      */
     public void configure(char[] password) {
         byte[] salt = new byte[SALT_BYTES];
@@ -103,14 +132,17 @@ public final class EncryptionService {
         prefs.put(SALT_KEY, Base64.getEncoder().encodeToString(salt));
         prefs.put(VERIFIER_KEY, verifier);
         this.sessionKey = key;
+        this.globallyUnlocked = true;
         logger.info("Master password configured; encryption unlocked.");
     }
 
     /**
-     * Unlocks the session with {@code password}. Returns {@code true} if it matches the
-     * stored verifier (key kept in memory), {@code false} otherwise.
+     * Verifies {@code password} against the stored verifier and, on success, holds the
+     * derived key in memory <em>without</em> revealing any note. Shared by {@link #unlock}
+     * and {@link #revealNote}; on its own it only enables encrypting a note being turned
+     * private. Returns whether the password was correct.
      */
-    public boolean unlock(char[] password) {
+    private boolean holdKey(char[] password) {
         if (!isConfigured()) {
             return false;
         }
@@ -120,18 +152,63 @@ public final class EncryptionService {
             byte[] check = decryptWith(key, prefs.get(VERIFIER_KEY, ""));
             if (Arrays.equals(check, VERIFIER_PLAINTEXT)) {
                 this.sessionKey = key;
-                logger.info("Encryption unlocked.");
                 return true;
             }
         } catch (Exception e) {
-            logger.fine("Unlock failed: " + e.getMessage());
+            logger.fine("Password check failed: " + e.getMessage());
         }
         return false;
     }
 
-    /** Drops the in-memory key; private notes become unreadable until unlocked again. */
+    /**
+     * Holds the key for the session so a note can be turned private (encrypted) without
+     * making any existing private note readable. Returns whether the password matched.
+     */
+    public boolean acquireKey(char[] password) {
+        return holdKey(password);
+    }
+
+    /**
+     * Global unlock: on the correct password, every private note becomes readable for the
+     * session. Returns {@code false} on a wrong password.
+     */
+    public boolean unlock(char[] password) {
+        if (holdKey(password)) {
+            this.globallyUnlocked = true;
+            logger.info("Encryption unlocked (global).");
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Per-note reveal: on the correct password, only {@code noteId} becomes readable; the
+     * rest stay locked. Returns {@code false} on a wrong password.
+     */
+    public boolean revealNote(String noteId, char[] password) {
+        if (noteId != null && holdKey(password)) {
+            revealedNoteIds.add(noteId);
+            logger.info("Encryption revealed one note.");
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Marks {@code noteId} readable for the session when the key is already held (e.g. just
+     * after turning a note private). No-op without the key.
+     */
+    public void reveal(String noteId) {
+        if (noteId != null && sessionKey != null) {
+            revealedNoteIds.add(noteId);
+        }
+    }
+
+    /** Drops the in-memory key and both reveal scopes; private notes become 🔒 again. */
     public void lock() {
         sessionKey = null;
+        globallyUnlocked = false;
+        revealedNoteIds.clear();
         logger.info("Encryption locked.");
     }
 
@@ -145,7 +222,7 @@ public final class EncryptionService {
     }
 
     /**
-     * Encrypts {@code plaintext} with the session key. Requires {@link #isUnlocked()}.
+     * Encrypts {@code plaintext} with the session key. Requires {@link #hasKey()}.
      * Returns a {@code JENC1:} token.
      */
     public String encrypt(String plaintext) {
@@ -161,7 +238,7 @@ public final class EncryptionService {
     }
 
     /**
-     * Decrypts a {@code JENC1:} token with the session key. Requires {@link #isUnlocked()}.
+     * Decrypts a {@code JENC1:} token with the session key. Requires {@link #hasKey()}.
      * Non-encrypted input is returned unchanged.
      */
     public String decrypt(String token) {

@@ -195,6 +195,8 @@ class UiInitialization {
             if (!showFileActions) {
                 MenuItem newNoteItem = new MenuItem(i18n("action.new_note"));
                 newNoteItem.setOnAction(e -> controller.handleNewNote(null));
+                MenuItem newCanvasItem = new MenuItem(i18n("action.new_canvas"));
+                newCanvasItem.setOnAction(e -> controller.handleNewCanvas(null));
                 MenuItem newFolderItem = new MenuItem(i18n("action.new_folder"));
                 newFolderItem.setOnAction(e -> controller.handleNewFolder(null));
                 MenuItem newTagItem = new MenuItem(i18n("action.new_tag"));
@@ -204,7 +206,7 @@ class UiInitialization {
                 MenuItem deleteItem = new MenuItem(i18n("action.delete"));
                 deleteItem.setOnAction(e -> controller.handleDelete(null));
                 toolbarController.getToolbarOverflowBtn().getItems().addAll(
-                        newNoteItem, newFolderItem, newTagItem, saveItem, new SeparatorMenuItem(), deleteItem);
+                        newNoteItem, newCanvasItem, newFolderItem, newTagItem, saveItem, new SeparatorMenuItem(), deleteItem);
             }
             if (!showLayoutToggles) {
                 if (!toolbarController.getToolbarOverflowBtn().getItems().isEmpty()) {
