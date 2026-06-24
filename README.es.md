@@ -104,6 +104,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 - **Grafo de conocimiento** (vista global de la bóveda o grafo local alrededor de la nota abierta)
 - Panel de **backlinks** (notas que enlazan a la actual)
 - **Tablero Kanban** guardado dentro de una nota, y **modo concentración** sin distracciones
+- **Visor de Canvas**: abre ficheros `.canvas` compatibles con Obsidian en un lienzo infinito con pan/zoom (de momento solo lectura)
 - **Notas privadas**: cifrado opcional del cuerpo con AES-256 tras una contraseña maestra
 - Paleta de comandos (`Ctrl+P`) y conmutador rápido (`Ctrl+O`)
 - Plugins externos (JAR en `jylos/plugins/`, desde `plugins-source/`) y temas (`themes/` → `jylos/themes/`)

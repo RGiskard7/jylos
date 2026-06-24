@@ -398,6 +398,7 @@ public class NotesListController {
                     switch (com.example.jylos.util.AttachmentType.fromName(note.getId())) {
                         case IMAGE -> noteIcon.setIconLiteral("fth-image");
                         case PDF -> noteIcon.setIconLiteral("fth-file");
+                        case CANVAS -> noteIcon.setIconLiteral("fth-grid");
                         default -> noteIcon.setIconLiteral("fth-file-text");
                     }
                     titleRow.getChildren().addAll(titleLabel, noteIconHolder);

@@ -169,6 +169,13 @@
             <version>12.3.1</version>
         </dependency>
 
+        <!-- JSON Canvas (.canvas) parsing/serialization — external Obsidian-compatible format -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.11.0</version>
+        </dependency>
+
         <!-- PDF rendering (native PDF viewer) -->
         <dependency>
             <groupId>org.apache.pdfbox</groupId>

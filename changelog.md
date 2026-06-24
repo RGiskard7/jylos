@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+### Feat: Canvas — edición Fase 2 (mover/crear/editar/borrar nodos, guardar)
+
+Edición sobre el visor de canvas:
+
+- **Mover nodos**: arrastra un nodo para reposicionarlo; las aristas conectadas le siguen en tiempo real. Un clic simple no mueve (sigue abriendo nota/enlace con doble clic).
+- **Crear nodo de texto**: botón **+** en la barra; crea un nodo en el centro de la vista y abre directamente su edición.
+- **Editar texto en el nodo**: doble clic en un nodo de texto lo convierte en un editor in situ; se confirma con **⌘+Enter** o al perder el foco, y se cancela con **Esc**. El resto del tiempo el nodo muestra la **previsualización** renderizada.
+- **Borrar nodo**: selecciónalo (clic simple, resaltado con halo de acento) y pulsa **Supr/Backspace**; se eliminan también las aristas conectadas a él.
+- **Barra de herramientas**: añadir nodo, zoom +/−, **ajustar al contenido**, y **Guardar** (se habilita solo cuando hay cambios).
+- **Guardado fiel** (`.canvas`): nuevo `CanvasModel.Document`, un documento mutable respaldado por el JSON original; al guardar se actualizan solo los campos tocados (p. ej. `x`/`y`, redondeados a enteros como Obsidian) y se **preservan los campos desconocidos** → round-trip seguro con Obsidian.
+- **Scroll en nodos**: los nodos de nota/texto largos ahora se pueden **desplazar con la rueda** (sin hacer zoom del lienzo); arrastrar el nodo sigue moviéndolo y la rueda sobre el fondo sigue haciendo zoom.
+- **Tests**: `CanvasModelTest` +5 — `moveNode`/`addTextNode`/`setNodeText`/`removeNode` (borra también sus aristas) y round-trip que preserva campos desconocidos. 245/245 verdes.
+- **Pendiente (siguiente incremento)**: conectar y borrar aristas entre nodos.
+
+### Feat: visor de Canvas (`.canvas`, compatible Obsidian) — Fase 1
+
+Abre y visualiza ficheros **JSON Canvas** (`.canvas`) del vault, el formato de lienzo de Obsidian. Esta primera fase es **solo lectura** (la edición —crear/mover/conectar/guardar— vendrá en una fase posterior).
+
+- **Apertura**: los `.canvas` del vault ahora aparecen en la lista de notas (como un adjunto más) y se abren en un **visor de lienzo infinito** con **zoom** (rueda, hacia el cursor) y **pan** (arrastrar el fondo); se ajusta al contenido al abrirse.
+- **Render**: nodos de **texto**, **fichero**, **enlace** (clic abre el navegador) y **grupo** (rectángulo etiquetado), más las **aristas** entre nodos con su lado/etiqueta. Respeta los **colores** de Obsidian (presets 1–6 y `#rrggbb`). Los nodos se renderizan con controles JavaFX (texto legible), no sobre un Canvas.
+- **Contenido en los nodos**: los nodos de **imagen** muestran la imagen incrustada; los de **nota** muestran su título + el cuerpo **renderizado como previsualización** (no el Markdown en crudo), y los de **texto** renderizan su Markdown — encabezados, negrita/cursiva, código, listas y citas. Doble clic en un nodo de nota la abre. El contenido se recorta al tamaño del nodo. (Editar el texto del nodo —ver/editar la fuente— llegará con la fase de edición.)
+- **Render Markdown sin WebView**: nuevo `util/MarkdownMini`, que reutiliza el parser CommonMark del proyecto y construye nodos JavaFX (`TextFlow`) con estilo. Se usa en los nodos del canvas porque un `WebView` por nodo no compone bien en una superficie con zoom/pan (y evita su coste de memoria).
+- **Distinción en la lista**: los `.canvas` usan ahora un icono propio (rejilla, `fth-grid`) para diferenciarlos de notas e imágenes/PDF.
+- **Arquitectura**: nuevo `util/CanvasModel` (parseo tolerante del JSON con Gson — nueva dependencia, justificada para un formato JSON externo; entradas malformadas se descartan sin romper el documento) y `ui/components/CanvasView` (visor con pan/zoom). Se integra en el flujo de adjuntos existente: `AttachmentType` reconoce `.canvas` y `EditorController` enruta al visor (igual que PDF/imágenes). Estilado con variables de tema (claro/oscuro). 
+- **Tests**: `CanvasModelTest` (4) — parseo de nodos/aristas, entradas vacías/ inválidas, descarte de entradas malformadas, defaults numéricos. 240/240 verdes.
+
 ### Feat: transclusión de notas (embeds `![[ ]]`)
 
 Permite **incrustar** el contenido de otra nota (o una de sus secciones) dentro de la vista previa, estilo Obsidian. Escribe `![[Nota]]` para embeber la nota entera o `![[Nota#Encabezado]]` para una sección.

@@ -571,7 +571,9 @@ public class EditorController {
         java.nio.file.Path path = (noteService != null)
                 ? noteService.getNoteFilePath(note.getId()).orElse(null)
                 : null;
-        if (path != null) {
+        if (path != null && type == AttachmentType.CANVAS) {
+            attachmentViewer.getChildren().add(buildCanvasView(path));
+        } else if (path != null) {
             attachmentViewer.getChildren().add(
                     com.example.jylos.ui.components.FileViewer.forAttachment(path, type, bundle));
         } else {
@@ -589,6 +591,89 @@ public class EditorController {
         setNodeVisible(emptyState, false);
         setNodeVisible(attachmentViewer, true);
         updateBreadcrumb(note);
+    }
+
+    /** Reads, parses and renders a {@code .canvas} file; file nodes open the referenced note. */
+    private javafx.scene.Node buildCanvasView(java.nio.file.Path path) {
+        try {
+            String json = java.nio.file.Files.readString(path);
+            com.example.jylos.util.CanvasModel.Document canvasDoc =
+                    com.example.jylos.util.CanvasModel.Document.parse(json);
+            final java.nio.file.Path vaultRoot = vaultRootFor(path, currentNote != null ? currentNote.getId() : "");
+            return new com.example.jylos.ui.components.CanvasView(
+                    canvasDoc,
+                    file -> openNoteByTitle(canvasFileToTitle(file)),
+                    ref -> resolveCanvasFile(vaultRoot, ref),
+                    updatedJson -> writeCanvas(path, updatedJson),
+                    this::safeI18n);
+        } catch (Exception e) {
+            logger.warning("Could not open canvas '" + path + "': " + e.getMessage());
+            Label error = new Label(bundle != null ? bundle.getString("viewer.canvas_error")
+                    : "Could not open canvas");
+            error.getStyleClass().add("viewer-info");
+            return error;
+        }
+    }
+
+    /** Writes the (edited) canvas JSON back to its file. */
+    private void writeCanvas(java.nio.file.Path path, String json) {
+        try {
+            java.nio.file.Files.writeString(path, json);
+            logger.info("Canvas saved: " + path.getFileName());
+        } catch (Exception e) {
+            logger.warning("Could not save canvas '" + path + "': " + e.getMessage());
+        }
+    }
+
+    /** Derives the vault root from a note's absolute path and its vault-relative id. */
+    private static java.nio.file.Path vaultRootFor(java.nio.file.Path notePath, String noteId) {
+        java.nio.file.Path root = notePath.getParent();
+        String id = noteId == null ? "" : noteId.replace('\\', '/');
+        long up = id.chars().filter(c -> c == '/').count();
+        for (long i = 0; i < up && root != null; i++) {
+            root = root.getParent();
+        }
+        return root;
+    }
+
+    /**
+     * Resolves a canvas file-node reference (vault-relative) to an absolute path:
+     * directly against the vault root, falling back to the note store's path lookup.
+     */
+    private java.nio.file.Path resolveCanvasFile(java.nio.file.Path vaultRoot, String ref) {
+        if (ref == null || ref.isBlank()) {
+            return null;
+        }
+        if (vaultRoot != null) {
+            try {
+                java.nio.file.Path p = vaultRoot.resolve(ref).normalize();
+                if (java.nio.file.Files.exists(p)) {
+                    return p;
+                }
+            } catch (Exception ignored) {
+                // fall through to the note-store lookup
+            }
+        }
+        return noteService != null ? noteService.getNoteFilePath(ref).orElse(null) : null;
+    }
+
+    /** Resolves an i18n key, returning the key itself (never throwing) when absent. */
+    private String safeI18n(String key) {
+        if (bundle == null || key == null) {
+            return key;
+        }
+        return bundle.containsKey(key) ? bundle.getString(key) : key;
+    }
+
+    /** Turns a canvas file-node reference ({@code Folder/Note.md}) into a note title. */
+    private static String canvasFileToTitle(String file) {
+        if (file == null) {
+            return "";
+        }
+        String f = file.replace('\\', '/');
+        int slash = f.lastIndexOf('/');
+        String name = slash >= 0 ? f.substring(slash + 1) : f;
+        return name.endsWith(".md") ? name.substring(0, name.length() - 3) : name;
     }
 
     private void hideAttachmentViewer() {

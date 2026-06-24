@@ -3070,3 +3070,54 @@
 .insights-score-bad    { -fx-text-fill: -fx-danger; }
 .insights-explanation  { -fx-font-size: 12px; -fx-text-fill: -fx-text-muted; }
 .insights-hint         { -fx-font-size: 11px; -fx-text-fill: -fx-text-faint; -fx-font-style: italic; }
+
+/* ========================================
+   CANVAS VIEWER (.canvas / JSON Canvas)
+   (colours follow the theme lookup variables)
+   ======================================== */
+.canvas-view, .canvas-viewport { -fx-background-color: -fx-base-bg; }
+.canvas-node {
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.30), 6, 0, 0, 1);
+}
+.canvas-node-title { -fx-font-weight: bold; -fx-text-fill: -fx-text-main; }
+.canvas-node-text { -fx-text-fill: -fx-text-main; -fx-font-size: 13px; }
+.canvas-node-link-url { -fx-text-fill: -fx-accent; -fx-font-size: 12px; }
+.canvas-group {
+    -fx-background-color: transparent;
+    -fx-border-color: -fx-text-faint;
+    -fx-border-width: 2;
+    -fx-border-style: segments(8, 6);
+    -fx-border-radius: 10;
+    -fx-padding: 6 10;
+}
+.canvas-group-label { -fx-text-fill: -fx-text-muted; -fx-font-weight: bold; -fx-font-size: 12px; }
+.canvas-edge { -fx-stroke: -fx-text-muted; -fx-stroke-width: 2; }
+.canvas-edge-label {
+    -fx-text-fill: -fx-text-muted; -fx-font-size: 11px;
+    -fx-background-color: -fx-base-bg; -fx-padding: 1 4;
+}
+.canvas-empty { -fx-text-fill: -fx-text-faint; -fx-font-size: 14px; }
+.canvas-selected { -fx-effect: dropshadow(gaussian, -fx-accent, 12, 0.55, 0, 0); }
+.canvas-node-scroll { -fx-background-color: transparent; -fx-background: transparent; -fx-padding: 0; }
+.canvas-node-scroll > .viewport { -fx-background-color: transparent; }
+.canvas-node-editor {
+    -fx-control-inner-background: -fx-base-bg; -fx-text-fill: -fx-text-main;
+    -fx-font-size: 13px; -fx-background-radius: 4; -fx-border-width: 0;
+}
+
+/* Lightweight Markdown rendering (canvas note/text nodes) — Text uses -fx-fill */
+.md-mini-run { -fx-fill: -fx-text-main; }
+.md-mini-heading .md-mini-run { -fx-fill: -fx-text-main; }
+.md-mini-inline-code, .md-mini-code { -fx-fill: #ce9178; }
+.md-mini-link { -fx-fill: -fx-accent; }
+.md-mini-codeblock {
+    -fx-background-color: #2d2d2d; -fx-background-radius: 4; -fx-padding: 6 8;
+}
+.md-mini-quote {
+    -fx-border-color: -fx-fn-border-color; -fx-border-width: 0 0 0 3; -fx-padding: 0 0 0 8;
+}
+.md-mini-quote .md-mini-run { -fx-fill: -fx-text-muted; }

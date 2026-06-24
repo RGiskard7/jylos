@@ -109,6 +109,7 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 - **Knowledge graph** (global vault view or local neighbourhood around the open note)
 - **Backlinks** panel listing notes that link to the current note
 - **Kanban board** stored inside a note, and a distraction-free **focus / writing mode**
+- **Canvas viewer**: open Obsidian-compatible `.canvas` files on an infinite, pan/zoom surface (read-only for now)
 - **Private notes**: optional AES-256 body encryption behind a master password
 - Command palette (`Ctrl+P`) and quick switcher (`Ctrl+O`)
 - External plugins (JARs in `jylos/plugins/`, built from `plugins-source/`) and themes (`themes/` → `jylos/themes/`)
