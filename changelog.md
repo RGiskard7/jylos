@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Feat: Canvas — más paridad con Obsidian (flechas, redimensionar, color, nodos enlace/grupo)
+
+- **Flechas en las aristas**: cada arista dibuja una punta de flecha en el extremo destino, orientada según la dirección (como Obsidian).
+- **Redimensionar nodos**: el nodo seleccionado muestra un tirador en su esquina inferior derecha; arrastrarlo cambia el tamaño (con mínimo y clip redondeado sincronizados) y se persiste como `width`/`height` enteros.
+- **Color de nodo y arista**: clic derecho sobre un nodo o una arista abre un selector con los 6 presets de Obsidian (1–6) y "Sin color"; se guarda en el campo `color` (o se elimina al limpiar).
+- **Crear nodos de enlace y grupo**: nuevos botones en la barra — enlace (pide la URL) y grupo (rectángulo etiquetado) — además del nodo de texto ya existente.
+- **Tests**: `CanvasModelTest` +3 — `addLinkNode`/`addGroupNode`, `resizeNode` (redondeo) y `setNodeColor`/`setEdgeColor` (asignar y limpiar). 256/256 verdes.
+
+### Feat: notas privadas — indicador en el editor y protección en exportación
+
+- **Indicador en el editor**: las notas privadas muestran un candado junto al título — cerrado cuando está bloqueada (🔒) y abierto cuando es legible esta sesión. (En la lista ya aparece el candado.)
+- **Exportación protegida**: el export individual de una nota privada se bloquea con aviso (hazla normal primero), y el "exportar bóveda" **omite** las notas privadas, de modo que su contenido nunca se vuelca en claro a una carpeta sin proteger.
+
 ### Feat: notas privadas — desbloqueo por-nota vs global, toggle en el menú contextual, protección de borrado
 
 Mejoras de usabilidad y lógica del cifrado, manteniendo el modelo AES-GCM/PBKDF2 existente:

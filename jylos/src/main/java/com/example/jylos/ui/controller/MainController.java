@@ -2412,6 +2412,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                             || com.example.jylos.util.AttachmentType.isAttachment(listNote.getId())) {
                         continue; // skip PDF/image attachments
                     }
+                    if (listNote.isPrivate()) {
+                        continue; // never write private notes to an unprotected export folder
+                    }
                     Note full = noteService.getNoteById(listNote.getId()).orElse(listNote);
                     String base = documentIO.sanitizeFileName(
                             full.getTitle() != null && !full.getTitle().isBlank() ? full.getTitle() : "untitled");
@@ -2472,6 +2475,13 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (note == null) {
             showAlert(Alert.AlertType.WARNING, getString("dialog.export.title"),
                     getString("dialog.export.no_note_header"), getString("dialog.export.no_note_content"));
+            return;
+        }
+        // Private notes are not exported (it would write their body to an unprotected file).
+        // The user must turn the note normal first — consistent with delete protection.
+        if (note.isPrivate()) {
+            showAlert(Alert.AlertType.WARNING, getString("dialog.export.title"),
+                    getString("dialog.export.private_header"), getString("dialog.export.private_content"));
             return;
         }
         // List notes carry only a truncated (lightweight) preview of their content, so

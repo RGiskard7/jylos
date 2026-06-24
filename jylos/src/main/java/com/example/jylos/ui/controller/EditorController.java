@@ -127,6 +127,9 @@ public class EditorController {
     @FXML private Label noteTitleLabel;
     @FXML private Label dirtySaveIndicator;
     @FXML private Tooltip dirtySaveIndicatorTip;
+    @FXML private Label privateIndicator;
+    @FXML private org.kordamp.ikonli.javafx.FontIcon privateIndicatorIcon;
+    @FXML private Tooltip privateIndicatorTip;
     @FXML private ToggleButton toggleTagsBtn;
     @FXML private ToggleButton editorOnlyButton;
     @FXML private ToggleButton splitViewButton;
@@ -512,6 +515,7 @@ public class EditorController {
             setNoteOpen(false);
             isModified = false;
             updateSaveIndicator(false);
+            updatePrivateIndicator();
             return;
         }
 
@@ -527,6 +531,7 @@ public class EditorController {
             showAttachment(currentNote, type);
             isModified = false;
             updateSaveIndicator(false);
+            updatePrivateIndicator();
             return;
         }
         hideAttachmentViewer();
@@ -540,7 +545,35 @@ public class EditorController {
         refreshNoteTitlesCache();
         isModified = false;
         updateSaveIndicator(false);
+        updatePrivateIndicator();
         applyHighlighting();
+    }
+
+    /**
+     * Shows a lock badge next to the title for private notes: a closed lock when the body
+     * is still locked (🔒 placeholder), an open lock when it is readable this session.
+     * Hidden for normal notes.
+     */
+    private void updatePrivateIndicator() {
+        if (privateIndicator == null) {
+            return;
+        }
+        boolean isPrivate = currentNote != null && currentNote.isPrivate() && !viewingAttachment;
+        privateIndicator.setVisible(isPrivate);
+        privateIndicator.setManaged(isPrivate);
+        if (!isPrivate) {
+            return;
+        }
+        boolean readable = com.example.jylos.service.EncryptionService.getInstance().canRead(currentNote.getId());
+        if (privateIndicatorIcon != null) {
+            privateIndicatorIcon.setIconLiteral(readable ? "fth-unlock" : "fth-lock");
+        }
+        if (privateIndicatorTip != null && bundle != null) {
+            String key = readable ? "tooltip.note_private_unlocked" : "tooltip.note_private_locked";
+            if (bundle.containsKey(key)) {
+                privateIndicatorTip.setText(bundle.getString(key));
+            }
+        }
     }
 
     /** True while a non-editable attachment (PDF/image) is being shown. */

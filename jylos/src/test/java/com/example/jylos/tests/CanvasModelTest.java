@@ -170,6 +170,51 @@ class CanvasModelTest {
     }
 
     @Test
+    void documentAddLinkAndGroupNodes() {
+        CanvasModel.Document doc = CanvasModel.Document.parse(null);
+        String link = doc.addLinkNode(0, 0, 250, 80, "https://example.com");
+        String group = doc.addGroupNode(10, 10, 400, 300, "Area");
+
+        assertEquals(2, doc.nodes().size());
+        CanvasNode l = doc.nodes().stream().filter(n -> link.equals(n.id())).findFirst().orElseThrow();
+        assertEquals("link", l.type());
+        assertEquals("https://example.com", l.url());
+        CanvasNode g = doc.nodes().stream().filter(n -> group.equals(n.id())).findFirst().orElseThrow();
+        assertEquals("group", g.type());
+        assertEquals("Area", g.label());
+    }
+
+    @Test
+    void documentResizeNodeUpdatesSizeRounded() {
+        CanvasModel.Document doc = CanvasModel.Document.parse(null);
+        String id = doc.addTextNode(0, 0, 200, 100, "x");
+        doc.resizeNode(id, 333.6, 90.2);
+        CanvasNode n = doc.nodes().get(0);
+        assertEquals(334, n.width());
+        assertEquals(90, n.height());
+    }
+
+    @Test
+    void documentSetAndClearColors() {
+        CanvasModel.Document doc = CanvasModel.Document.parse(null);
+        String a = doc.addTextNode(0, 0, 100, 50, "A");
+        String b = doc.addTextNode(120, 0, 100, 50, "B");
+        String e = doc.addEdge(a, "right", b, "left");
+
+        doc.setNodeColor(a, "4");
+        doc.setEdgeColor(e, "#ff0000");
+        assertEquals("4", doc.nodes().get(0).color());
+        assertEquals("#ff0000", doc.edges().get(0).color());
+
+        // Clearing removes the color field entirely.
+        doc.setNodeColor(a, null);
+        doc.setEdgeColor(e, "");
+        assertTrue(doc.nodes().get(0).color().isEmpty());
+        assertTrue(doc.edges().get(0).color().isEmpty());
+        assertTrue(!doc.toJson().contains("#ff0000"), "cleared edge color must not remain in JSON");
+    }
+
+    @Test
     void documentRemoveEdgeDropsOnlyThatEdge() {
         CanvasModel.Document doc = CanvasModel.Document.parse(null);
         String a = doc.addTextNode(0, 0, 100, 50, "A");

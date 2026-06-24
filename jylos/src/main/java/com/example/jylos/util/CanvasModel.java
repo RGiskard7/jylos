@@ -132,17 +132,87 @@ public final class CanvasModel {
 
         /** Adds a new text node and returns its generated id. */
         public String addTextNode(double x, double y, double width, double height, String text) {
+            JsonObject n = newNode("text", x, y, width, height);
+            n.addProperty("text", text == null ? "" : text);
+            root.getAsJsonArray("nodes").add(n);
+            return n.get("id").getAsString();
+        }
+
+        /** Adds a new link (URL) node and returns its generated id. */
+        public String addLinkNode(double x, double y, double width, double height, String url) {
+            JsonObject n = newNode("link", x, y, width, height);
+            n.addProperty("url", url == null ? "" : url);
+            root.getAsJsonArray("nodes").add(n);
+            return n.get("id").getAsString();
+        }
+
+        /** Adds a new group node (labelled rectangle) and returns its generated id. */
+        public String addGroupNode(double x, double y, double width, double height, String label) {
+            JsonObject n = newNode("group", x, y, width, height);
+            if (label != null && !label.isEmpty()) {
+                n.addProperty("label", label);
+            }
+            root.getAsJsonArray("nodes").add(n);
+            return n.get("id").getAsString();
+        }
+
+        /** Builds a node object with a fresh id and the common geometry fields. */
+        private JsonObject newNode(String type, double x, double y, double width, double height) {
             JsonObject n = new JsonObject();
-            String id = newId();
-            n.addProperty("id", id);
-            n.addProperty("type", "text");
+            n.addProperty("id", newId());
+            n.addProperty("type", type);
             n.addProperty("x", Math.round(x));
             n.addProperty("y", Math.round(y));
             n.addProperty("width", Math.round(width));
             n.addProperty("height", Math.round(height));
-            n.addProperty("text", text == null ? "" : text);
-            root.getAsJsonArray("nodes").add(n);
-            return id;
+            return n;
+        }
+
+        /** Updates a node's size (rounded to integers, as Obsidian stores them). */
+        public void resizeNode(String id, double width, double height) {
+            forNode(id, n -> {
+                n.addProperty("width", Math.round(width));
+                n.addProperty("height", Math.round(height));
+            });
+        }
+
+        /** Sets (or clears, when {@code color} is null/blank) a node's color. */
+        public void setNodeColor(String id, String color) {
+            forNode(id, n -> applyColorProperty(n, color));
+        }
+
+        /** Sets (or clears, when {@code color} is null/blank) an edge's color. */
+        public void setEdgeColor(String id, String color) {
+            if (id == null || !root.get("edges").isJsonArray()) {
+                return;
+            }
+            for (JsonElement el : root.getAsJsonArray("edges")) {
+                if (el.isJsonObject() && id.equals(str(el.getAsJsonObject(), "id"))) {
+                    applyColorProperty(el.getAsJsonObject(), color);
+                    return;
+                }
+            }
+        }
+
+        private static void applyColorProperty(JsonObject o, String color) {
+            if (color == null || color.isBlank()) {
+                o.remove("color");
+            } else {
+                o.addProperty("color", color);
+            }
+        }
+
+        /** Applies {@code action} to the node object with the given id, if present. */
+        private void forNode(String id, java.util.function.Consumer<JsonObject> action) {
+            if (id == null || !root.get("nodes").isJsonArray()) {
+                return;
+            }
+            for (JsonElement el : root.getAsJsonArray("nodes")) {
+                if (el.isJsonObject() && id.equals(str(el.getAsJsonObject(), "id"))) {
+                    action.accept(el.getAsJsonObject());
+                    return;
+                }
+            }
         }
 
         /** Updates the {@code text} of a text node. */

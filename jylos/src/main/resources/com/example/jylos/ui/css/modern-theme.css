@@ -995,6 +995,12 @@
 .save-indicator-dot.saved {
     -fx-text-fill: -fx-success;
 }
+.editor-private-indicator {
+    -fx-padding: 0 2 0 2;
+}
+.editor-private-indicator .feather-icon {
+    -fx-icon-color: -fx-accent;
+}
 
 /* Open-note tab strip (scrolls horizontally; tabs keep a fixed width). */
 .editor-tab-scroll {
@@ -3262,6 +3268,12 @@
 .canvas-group-label { -fx-text-fill: -fx-text-muted; -fx-font-weight: bold; -fx-font-size: 12px; }
 .canvas-edge { -fx-stroke: -fx-text-muted; -fx-stroke-width: 2; -fx-cursor: hand; }
 .canvas-edge-selected { -fx-stroke: -fx-accent; -fx-stroke-width: 3.5; }
+.canvas-edge-arrow { -fx-fill: -fx-text-muted; -fx-cursor: hand; }
+.canvas-resize-handle {
+    -fx-background-color: -fx-accent;
+    -fx-border-color: -fx-base-bg; -fx-border-width: 1.5;
+    -fx-background-radius: 2; -fx-border-radius: 2;
+}
 .toolbar-btn-active {
     -fx-background-color: -fx-hover-bg; -fx-border-color: -fx-accent; -fx-text-fill: -fx-accent;
 }
