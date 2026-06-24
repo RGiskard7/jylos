@@ -183,6 +183,23 @@ public final class NoteEvents {
     }
 
     /**
+     * Event fired when the user requests to toggle a specific note's privacy (turn it into
+     * a private/encrypted note, or back to a normal one) — e.g. from a list context menu.
+     */
+    public static class PrivacyToggleRequestEvent extends AppEvent {
+        private final Note note;
+
+        public PrivacyToggleRequestEvent(Note note) {
+            super("NotesList");
+            this.note = note;
+        }
+
+        public Note getNote() {
+            return note;
+        }
+    }
+
+    /**
      * Event fired when an item in the trash is selected.
      */
     public static class TrashItemSelectedEvent extends AppEvent {

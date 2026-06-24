@@ -180,9 +180,10 @@ public class NoteService {
         if (note == null || note.getId() == null) {
             throw new IllegalArgumentException("Note or note ID cannot be null");
         }
-        // Never overwrite an encrypted private note with plaintext while locked.
+        // Never overwrite an encrypted private note with plaintext when we hold no key
+        // (it could not be re-encrypted, so saving would expose/lose the content).
         if (note.isPrivate() && !EncryptionService.isEncrypted(note.getContent())
-                && !EncryptionService.getInstance().isUnlocked()) {
+                && !EncryptionService.getInstance().hasKey()) {
             logger.warning("Skipping save of private note while locked: " + note.getTitle());
             return;
         }
@@ -239,8 +240,8 @@ public class NoteService {
             return false; // already ciphertext
         }
         EncryptionService enc = EncryptionService.getInstance();
-        if (!enc.isUnlocked()) {
-            return false; // can't encrypt while locked (write blocked upstream)
+        if (!enc.hasKey()) {
+            return false; // can't encrypt without the key (write blocked upstream)
         }
         note.setContent(enc.encrypt(content));
         return true;
@@ -256,7 +257,7 @@ public class NoteService {
             return;
         }
         EncryptionService enc = EncryptionService.getInstance();
-        if (enc.isUnlocked()) {
+        if (enc.canRead(note.getId())) {
             try {
                 note.setContent(enc.decrypt(content));
                 return;
@@ -328,9 +329,18 @@ public class NoteService {
      * @return List of all notes
      */
     public List<Note> getAllNotes() {
-        List<Note> notes = noteDAO.fetchAllNotes();
-        // List previews must never show ciphertext: replace encrypted bodies with a
-        // lock placeholder (these are fresh list copies, so it's display-only).
+        return scrubEncryptedForList(noteDAO.fetchAllNotes());
+    }
+
+    /**
+     * Replaces encrypted bodies with the lock placeholder for any list of notes, so list
+     * previews (all-notes, folder, tag, search) never expose ciphertext. These are fresh
+     * list copies from the DAO, so the change is display-only and never persisted.
+     */
+    private List<Note> scrubEncryptedForList(List<Note> notes) {
+        if (notes == null) {
+            return new ArrayList<>();
+        }
         for (Note n : notes) {
             if (n != null && EncryptionService.isEncrypted(n.getContent())) {
                 n.setContent(LOCKED_PLACEHOLDER);
@@ -349,7 +359,7 @@ public class NoteService {
         if (folder == null || folder.getId() == null) {
             return getAllNotes();
         }
-        return noteDAO.fetchNotesByFolderId(folder.getId());
+        return scrubEncryptedForList(noteDAO.fetchNotesByFolderId(folder.getId()));
     }
 
     /**
@@ -362,7 +372,7 @@ public class NoteService {
         if (tag == null || tag.getId() == null) {
             return new ArrayList<>();
         }
-        return noteDAO.fetchNotesByTagId(tag.getId());
+        return scrubEncryptedForList(noteDAO.fetchNotesByTagId(tag.getId()));
     }
 
     /**

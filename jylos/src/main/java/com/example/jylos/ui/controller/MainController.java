@@ -702,6 +702,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         uiEventSubscriptions.addAll(uiEventSupport.subscribe(eventBus));
         uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteExportRequestEvent.class,
                 e -> Platform.runLater(() -> exportNote(e.getNote()))));
+        uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.PrivacyToggleRequestEvent.class,
+                e -> Platform.runLater(() -> toggleNotePrivacy(e.getNote()))));
         // Keep the editor tab in sync when its note is saved (clear dirty dot, refresh title).
         uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class, e -> {
             Note saved = e.getNote();
@@ -1421,6 +1423,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         systemActionHandlers.put(SystemActionEvent.ActionType.FOCUS_MODE, this::handleFocusMode);
         systemActionHandlers.put(SystemActionEvent.ActionType.KANBAN_VIEW, overlaySupport::toggleKanban);
         systemActionHandlers.put(SystemActionEvent.ActionType.PRIVATE_TOGGLE, this::handleTogglePrivate);
+        systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_UNLOCK, this::handleUnlockNotes);
         systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_LOCK, this::handleLockNotes);
         systemActionHandlers.put(SystemActionEvent.ActionType.IMPORT_OBSIDIAN, importSupport::importObsidianVault);
         systemActionHandlers.put(SystemActionEvent.ActionType.IMPORT_ENEX, importSupport::importEnex);
@@ -1778,10 +1781,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     }
 
     void loadNoteInEditor(Note note) {
-        // A locked private note loads as a placeholder; offer to unlock and reload it.
-        if (note != null && note.isPrivate() && noteService != null) {
+        // A locked private note loads as a placeholder; offer to unlock just this note
+        // (the global "unlock private notes" command is what reveals all of them).
+        if (note != null && note.isPrivate() && note.getId() != null && noteService != null) {
             EncryptionService enc = EncryptionService.getInstance();
-            if (enc.isConfigured() && !enc.isUnlocked() && privacySupport.promptUnlock()) {
+            if (enc.isConfigured() && !enc.canRead(note.getId()) && privacySupport.promptRevealNote(note.getId())) {
                 note = noteService.getNoteById(note.getId()).orElse(note);
             }
         }
@@ -2878,26 +2882,86 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     /** Toggles the current note between private (encrypted body) and public. */
     private void handleTogglePrivate() {
         Note note = getCurrentNote();
-        if (note == null || note.getId() == null || noteService == null) {
+        if (note == null || note.getId() == null) {
             updateStatus(getString("status.no_note_selected"));
             return;
         }
-        boolean makePrivate = !note.isPrivate();
-        if (makePrivate && !EncryptionService.getInstance().isConfigured()) {
-            if (!privacySupport.setupMasterPassword()) {
-                return;
-            }
-        } else if (!privacySupport.ensureUnlocked()) {
+        toggleNotePrivacy(note);
+    }
+
+    /**
+     * Turns {@code target} private (encrypt its body) or public (decrypt and store as
+     * plaintext). Works for any note — the current editor note or one picked from a list's
+     * context menu — and acquires/reveals the key only as the chosen direction needs:
+     * making private needs the key to encrypt; making public needs to read (reveal) the note.
+     */
+    void toggleNotePrivacy(Note target) {
+        if (target == null || target.getId() == null || noteService == null) {
+            updateStatus(getString("status.no_note_selected"));
             return;
         }
-        note.setPrivate(makePrivate);
-        // Persist the live editor content under the new privacy flag (NoteService
-        // encrypts/decrypts as needed).
-        note.setContent(editorController.getCurrentContent());
-        noteService.updateNote(note);
-        eventBus.publish(new NoteEvents.NoteSavedEvent(note));
+        EncryptionService enc = EncryptionService.getInstance();
+        boolean makePrivate = !target.isPrivate();
+
+        if (makePrivate) {
+            if (!enc.isConfigured()) {
+                if (!privacySupport.setupMasterPassword()) {
+                    return;
+                }
+            } else if (!privacySupport.ensureKey()) {
+                return; // need the key to encrypt
+            }
+        } else if (!enc.canRead(target.getId()) && !privacySupport.promptRevealNote(target.getId())) {
+            return; // need to decrypt the note to turn it public
+        }
+
+        // Resolve the plaintext body. For the open note use the live editor text, but never
+        // persist the 🔒 placeholder — fall back to the (now readable) stored content.
+        Note current = getCurrentNote();
+        boolean isCurrent = current != null && target.getId().equals(current.getId());
+        String content = isCurrent ? editorController.getCurrentContent() : null;
+        if (content == null || NoteService.LOCKED_PLACEHOLDER.equals(content)) {
+            content = noteService.getNoteById(target.getId()).map(Note::getContent).orElse(content);
+        }
+        if (content == null || NoteService.LOCKED_PLACEHOLDER.equals(content)) {
+            updateStatus(getString("status.unlock_failed"));
+            return;
+        }
+
+        target.setPrivate(makePrivate);
+        target.setContent(content);
+        noteService.updateNote(target); // NoteService encrypts when private + key held
+        if (makePrivate) {
+            enc.reveal(target.getId()); // keep it readable this session (just created it)
+        }
+        eventBus.publish(new NoteEvents.NoteSavedEvent(target));
+        // Reflect the new state in the editor when this is the open note.
+        if (isCurrent) {
+            noteService.getNoteById(target.getId()).ifPresent(editorController::loadNote);
+        }
         refreshNotesList();
         updateStatus(getString(makePrivate ? "status.note_private_on" : "status.note_private_off"));
+    }
+
+    /** Global unlock: prompts for the master password and reveals all private notes. */
+    private void handleUnlockNotes() {
+        EncryptionService enc = EncryptionService.getInstance();
+        if (!enc.isConfigured()) {
+            updateStatus(getString("status.no_private_notes"));
+            return;
+        }
+        if (enc.isUnlocked()) {
+            updateStatus(getString("status.unlocked"));
+            return;
+        }
+        if (privacySupport.promptUnlockAll()) {
+            // Reload the open note so a previously-locked body shows decrypted.
+            Note current = getCurrentNote();
+            if (current != null && current.isPrivate() && current.getId() != null) {
+                noteService.getNoteById(current.getId()).ifPresent(editorController::loadNote);
+            }
+            refreshNotesList();
+        }
     }
 
     /** Locks encryption: private notes become unreadable until unlocked again. */
@@ -2908,9 +2972,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             return;
         }
         enc.lock();
+        // Reload the open private note straight to its 🔒 placeholder (no unlock prompt).
         Note current = getCurrentNote();
         if (current != null && current.isPrivate() && current.getId() != null) {
-            noteService.getNoteById(current.getId()).ifPresent(this::loadNoteInEditor);
+            noteService.getNoteById(current.getId()).ifPresent(editorController::loadNote);
         }
         refreshNotesList();
         updateStatus(getString("status.notes_locked"));

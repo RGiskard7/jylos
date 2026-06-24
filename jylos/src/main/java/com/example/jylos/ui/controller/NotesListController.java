@@ -204,6 +204,7 @@ public class NotesListController {
             private final HBox titleRow = new HBox(6);
             private final FontIcon pinIcon = new FontIcon("bi-pin-angle");
             private final FontIcon favIcon = new FontIcon("fth-star");
+            private final FontIcon lockIcon = new FontIcon("fth-lock");
             private final Label titleLabel = new Label();
             private final FontIcon noteIcon = new FontIcon("fth-file-text");
             private final StackPane noteIconHolder = new StackPane();
@@ -215,6 +216,7 @@ public class NotesListController {
             private final ContextMenu contextMenu = new ContextMenu();
             private final MenuItem openItem = new MenuItem(getString("action.open"));
             private final MenuItem favoriteItem = new MenuItem();
+            private final MenuItem privateItem = new MenuItem();
             private final MenuItem revealItem = new MenuItem(getString("action.reveal_in_files"));
             private final MenuItem exportItem = new MenuItem(getString("action.export_note"));
             private final MenuItem deleteItem = new MenuItem(getString("action.move_to_trash"));
@@ -232,6 +234,8 @@ public class NotesListController {
                 pinIcon.setIconSize(12);
                 favIcon.setIconColor(javafx.scene.paint.Color.GOLD);
                 favIcon.setIconSize(12);
+                lockIcon.getStyleClass().add("note-cell-lock");
+                lockIcon.setIconSize(12);
 
                 titleLabel.getStyleClass().add("note-cell-title");
                 titleLabel.setEllipsisString("…");
@@ -296,6 +300,12 @@ public class NotesListController {
                         toggleFavorite(note);
                     }
                 });
+                privateItem.setOnAction(e -> {
+                    Note note = getItem();
+                    if (note != null && eventBus != null) {
+                        eventBus.publish(new NoteEvents.PrivacyToggleRequestEvent(note));
+                    }
+                });
                 revealItem.setOnAction(e -> {
                     Note note = getItem();
                     if (note != null) {
@@ -316,7 +326,7 @@ public class NotesListController {
                         deleteNote(note);
                     }
                 });
-                contextMenu.getItems().addAll(openItem, favoriteItem, revealItem, exportItem,
+                contextMenu.getItems().addAll(openItem, favoriteItem, privateItem, revealItem, exportItem,
                         new SeparatorMenuItem(), deleteItem);
 
                 setOnDragDetected(event -> {
@@ -396,6 +406,9 @@ public class NotesListController {
                     if (note.isFavorite()) {
                         titleRow.getChildren().add(favIcon);
                     }
+                    if (note.isPrivate()) {
+                        titleRow.getChildren().add(lockIcon);
+                    }
                     titleLabel.setText(note.getTitle() != null ? note.getTitle() : "");
                     // Distinguish attachments (PDF/image) from notes with a fitting icon.
                     switch (com.example.jylos.util.AttachmentType.fromName(note.getId())) {
@@ -428,6 +441,10 @@ public class NotesListController {
 
                     favoriteItem.setText(note.isFavorite() ? getString("action.remove_favorite")
                             : getString("action.add_favorite"));
+                    privateItem.setText(note.isPrivate() ? getString("action.make_normal")
+                            : getString("action.make_private"));
+                    // Private notes cannot be trashed; they must be turned normal first.
+                    deleteItem.setDisable(note.isPrivate());
 
                     setGraphic(container);
                     setText(null);
@@ -563,7 +580,10 @@ public class NotesListController {
             noteService.updateNote(note);
             notesListView.refresh();
             if (eventBus != null) {
-                eventBus.publish(new NoteEvents.NoteModifiedEvent(note));
+                // NoteSavedEvent (not NoteModifiedEvent): the favorite flag is persisted,
+                // and the sidebar Recent/Favorites panels listen to Saved — so favoriting
+                // from the list refreshes the Favorites panel live, like the editor button.
+                eventBus.publish(new NoteEvents.NoteSavedEvent(note));
             }
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Failed to toggle favorite", e);
@@ -1138,6 +1158,12 @@ public class NotesListController {
         if (noteService == null) {
             logger.warning("Cannot delete note: noteService is null");
             publishStatusUpdate(getString("status.note_delete_error"));
+            return;
+        }
+        // Private notes are protected from deletion: the user must turn the note normal
+        // first (so a forgotten/locked note can never be lost by an accidental delete).
+        if (note.isPrivate()) {
+            publishStatusUpdate(getString("status.cannot_delete_private"));
             return;
         }
 

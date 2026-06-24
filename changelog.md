@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### Feat: notas privadas — desbloqueo por-nota vs global, toggle en el menú contextual, protección de borrado
+
+Mejoras de usabilidad y lógica del cifrado, manteniendo el modelo AES-GCM/PBKDF2 existente:
+
+- **Desbloqueo por-nota vs global**: al abrir una nota privada bloqueada y meter la contraseña, ahora se desbloquea **solo esa nota** (las demás siguen 🔒). El desbloqueo de **todas** las notas es una acción explícita: nuevo **Herramientas → Desbloquear Notas Privadas**. Internamente `EncryptionService` separa "tener la clave" (`hasKey`, necesaria para cifrar/descifrar) de la revelación: `revealNote(id)` (una), `unlock()` (todas) y `canRead(id)` como puerta de lectura.
+- **Convertir privada/normal desde la lista**: el menú contextual de una nota incluye **Hacer Privada** / **Hacer Normal (Descifrar)** según su estado, operando sobre esa nota concreta (pide la contraseña solo si hace falta para cifrar/descifrar).
+- **Las notas privadas no se pueden eliminar**: el borrado se bloquea (esté la nota bloqueada o no) en el punto central `deleteNote`, y la opción "Mover a papelera" aparece deshabilitada en el menú contextual de notas privadas. Para borrarla hay que **hacerla normal** primero, evitando perder una nota cifrada por un descuido.
+- **Indicador visual**: las notas privadas muestran un **icono de candado** en la lista. Al **bloquear** (lock) la nota abierta se recarga directamente a 🔒 (ya no rebota a un prompt de desbloqueo).
+- **Robustez**: cifrar/descifrar y el guard anti-sobrescritura usan `hasKey()` en vez del estado global, de modo que una nota revelada individualmente se guarda re-cifrada correctamente; descifrar el historial también usa `hasKey()`.
+- **Tests**: `EncryptionServiceTest` +4 — reveal por-nota no es desbloqueo global, unlock global, `acquireKey` sin revelar, y `lock` limpia clave y revelaciones. 253/253 verdes.
+
+### Fix: notas cifradas — fuga de ciphertext en listados, pérdida de datos al desmarcar, y favoritos
+
+Tres correcciones de la auditoría de cifrado/favoritos:
+
+- **Confidencialidad**: las vistas por **carpeta** y por **etiqueta** (y la búsqueda dentro de carpeta) mostraban el cuerpo cifrado en crudo (`JENC1:…`) como vista previa de una nota privada. `getAllNotes` ya lo sustituía por el candado 🔒, pero `getNotesByFolder`/`getNotesByTag` no. Ahora todos los listados pasan por un mismo helper `scrubEncryptedForList`, así que **ningún listado expone ciphertext** (en SQLite y en bóveda).
+- **Pérdida de datos**: al **desmarcar como privada** una nota que estaba abierta bloqueada (el editor mostraba 🔒), se guardaba el placeholder `🔒` como contenido en claro, destruyendo el cuerpo. Ahora `handleTogglePrivate` detecta el placeholder y recupera el contenido real (descifrado) del almacén antes de guardar, y **recarga el editor** para reflejar el nuevo estado.
+- **Favoritos**: marcar/desmarcar favorito desde la **lista** de notas no refrescaba el panel de Favoritos del sidebar (publicaba `NoteModifiedEvent`, al que el sidebar no está suscrito). Ahora publica `NoteSavedEvent` —el flag se persiste de verdad—, igual que el botón del editor, y el panel se actualiza en vivo (ambos modos).
+- **Tests**: `FileSystemDAOContractTest` +1 — los listados por carpeta y `getAllNotes` sustituyen el cuerpo cifrado por el placeholder. 249/249 verdes.
+
+### Fix (tests): `EncryptionServiceTest` destruía la configuración real de contraseña maestra
+
+`EncryptionServiceTest` usaba el **mismo nodo de Preferences que la app** (`userNodeForPackage(EncryptionService.class)`) y borraba `enc.salt`/`enc.verifier` en cada `@BeforeEach`/`@AfterEach`. Ejecutar `mvn test` **eliminaba la contraseña maestra del usuario** (salt + verificador), dejando `isConfigured()` en `false`: la app dejaba de pedir desbloqueo al abrir notas privadas y volvía a pedir crear contraseña maestra. Ahora el test **respalda los valores reales en `@BeforeAll` y los restaura en `@AfterAll`**, de modo que la suite ya nunca toca la configuración del usuario.
+
 ### Feat: Canvas — edición Fase 2 (mover/crear/editar/borrar nodos, conectar/borrar aristas, guardar)
 
 Edición completa sobre el visor de canvas:

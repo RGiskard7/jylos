@@ -384,4 +384,27 @@ class FileSystemDAOContractTest {
         assertEquals(json, onDisk);
         assertFalse(onDisk.startsWith("---"), "attachment must not be wrapped in frontmatter");
     }
+
+    @Test
+    void folderAndTagListingsNeverExposeEncryptedBodies() {
+        NoteService noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+        Folder folder = new Folder("Private");
+        folderDAO.createFolder(folder);
+
+        // A note whose stored body is an encrypted payload (JENC1: prefix). The listing
+        // paths must replace it with the lock placeholder, never surface the ciphertext.
+        Note secret = new Note("Secret", com.example.jylos.service.EncryptionService.PREFIX + "Zm9vYmFy");
+        noteService.createNote(secret);
+        folderDAO.addNote(folder, secret);
+
+        List<Note> inFolder = noteService.getNotesByFolder(folder);
+        assertEquals(1, inFolder.size());
+        assertEquals(NoteService.LOCKED_PLACEHOLDER, inFolder.get(0).getContent(),
+                "folder listing must scrub encrypted bodies to the lock placeholder");
+
+        // getAllNotes must scrub too (regression guard for the shared helper).
+        assertTrue(noteService.getAllNotes().stream()
+                .filter(n -> "Secret".equals(n.getTitle()))
+                .allMatch(n -> NoteService.LOCKED_PLACEHOLDER.equals(n.getContent())));
+    }
 }

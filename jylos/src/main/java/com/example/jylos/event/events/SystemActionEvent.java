@@ -87,6 +87,7 @@ public class SystemActionEvent extends AppEvent {
         FOCUS_MODE,
         KANBAN_VIEW,
         PRIVATE_TOGGLE,
+        NOTES_UNLOCK,
         NOTES_LOCK,
         IMPORT_OBSIDIAN,
         IMPORT_ENEX,

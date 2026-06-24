@@ -277,6 +277,11 @@ public class ToolbarController {
     }
 
     @FXML
+    private void handleUnlockNotes(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.NOTES_UNLOCK);
+    }
+
+    @FXML
     private void handleLockNotes(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.NOTES_LOCK);
     }

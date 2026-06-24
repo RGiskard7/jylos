@@ -616,6 +616,11 @@
     -fx-opacity: 0.75;
 }
 
+.note-cell-lock {
+    -fx-icon-color: -fx-accent;
+    -fx-fill: -fx-accent;
+}
+
 .list-cell:selected .note-cell-title,
 .list-cell:selected .note-cell-preview,
 .list-cell:selected .note-cell-preview-flow .text,

@@ -84,6 +84,7 @@
             <MenuItem text="%action.tags_manager" onAction="#handleTagsManager"/>
             <SeparatorMenuItem/>
             <MenuItem text="%action.toggle_private" onAction="#handleTogglePrivate" accelerator="Shortcut+Shift+L"/>
+            <MenuItem text="%action.unlock_notes" onAction="#handleUnlockNotes"/>
             <MenuItem text="%action.lock_notes" onAction="#handleLockNotes"/>
             <SeparatorMenuItem/>
             <MenuItem text="%action.note_history" onAction="#handleNoteHistory" accelerator="Shortcut+Shift+H"/>
