@@ -185,6 +185,18 @@ class CanvasModelTest {
     }
 
     @Test
+    void documentSetNodeLabelSetsAndClears() {
+        CanvasModel.Document doc = CanvasModel.Document.parse(null);
+        String g = doc.addGroupNode(0, 0, 400, 300, "");
+        doc.setNodeLabel(g, "Sprint 1");
+        assertEquals("Sprint 1", doc.nodes().get(0).label());
+
+        doc.setNodeLabel(g, "  ");
+        assertTrue(doc.nodes().get(0).label().isEmpty(), "blank label is cleared");
+        assertTrue(!doc.toJson().contains("Sprint 1"));
+    }
+
+    @Test
     void documentResizeNodeUpdatesSizeRounded() {
         CanvasModel.Document doc = CanvasModel.Document.parse(null);
         String id = doc.addTextNode(0, 0, 200, 100, "x");

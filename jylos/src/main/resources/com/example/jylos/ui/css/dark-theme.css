@@ -3098,7 +3098,8 @@
 .canvas-node-text { -fx-text-fill: -fx-text-main; -fx-font-size: 13px; }
 .canvas-node-link-url { -fx-text-fill: -fx-accent; -fx-font-size: 12px; }
 .canvas-group {
-    -fx-background-color: transparent;
+    -fx-background-color: rgba(160, 160, 160, 0.08);
+    -fx-background-radius: 10;
     -fx-border-color: -fx-text-faint;
     -fx-border-width: 2;
     -fx-border-style: segments(8, 6);
@@ -3111,9 +3112,11 @@
 .canvas-edge-arrow { -fx-fill: -fx-text-muted; -fx-cursor: hand; }
 .canvas-resize-handle {
     -fx-background-color: -fx-accent;
-    -fx-border-color: -fx-base-bg; -fx-border-width: 1.5;
-    -fx-background-radius: 2; -fx-border-radius: 2;
+    -fx-border-color: white; -fx-border-width: 2;
+    -fx-background-radius: 8; -fx-border-radius: 8;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.55), 4, 0.3, 0, 1);
 }
+.canvas-resize-handle:hover { -fx-cursor: se-resize; -fx-scale-x: 1.15; -fx-scale-y: 1.15; }
 .toolbar-btn-active {
     -fx-background-color: -fx-hover-bg; -fx-border-color: -fx-accent; -fx-text-fill: -fx-accent;
 }

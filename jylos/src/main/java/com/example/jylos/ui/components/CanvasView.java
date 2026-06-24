@@ -244,7 +244,9 @@ public final class CanvasView extends BorderPane {
             arrow.setOnMouseClicked(pick);
             line.setOnContextMenuRequested(ev -> {
                 selectEdge(edgeId);
-                colorMenu(c -> { document.setEdgeColor(edgeId, c); markDirty(); rebuild(); })
+                elementMenu(
+                        c -> { document.setEdgeColor(edgeId, c); markDirty(); rebuild(); },
+                        () -> { document.removeEdge(edgeId); markDirty(); rebuild(); })
                         .show(line, ev.getScreenX(), ev.getScreenY());
                 ev.consume();
             });
@@ -274,6 +276,9 @@ public final class CanvasView extends BorderPane {
     private Region groupNode(CanvasNode n) {
         VBox box = new VBox();
         box.getStyleClass().add("canvas-group");
+        // The translucent fill makes the whole area visible and grabbable (a transparent
+        // region only picks on its painted border), so a group can be dragged/selected.
+        box.setPickOnBounds(true);
         applyColor(box, n.color());
         place(box, n);
         if (!n.label().isEmpty()) {
@@ -398,8 +403,13 @@ public final class CanvasView extends BorderPane {
                 baseX - px * half, baseY - py * half);
     }
 
-    /** Builds a colour-picker context menu (Obsidian presets 1–6 plus "no colour"). */
-    private javafx.scene.control.ContextMenu colorMenu(Consumer<String> apply) {
+    /**
+     * Context menu for a node or edge: the Obsidian colour presets (1–6) plus "no colour",
+     * and a <b>Delete</b> action. {@code setColor} applies/clears the colour; {@code delete}
+     * removes the element.
+     */
+    private javafx.scene.control.ContextMenu elementMenu(Consumer<String> setColor, Runnable delete,
+            javafx.scene.control.MenuItem... extra) {
         javafx.scene.control.ContextMenu menu = new javafx.scene.control.ContextMenu();
         String[][] colors = {
             {"1", tr("canvas.color.red", "Red")},
@@ -415,13 +425,158 @@ public final class CanvasView extends BorderPane {
             swatch.setArcHeight(3);
             swatch.setStyle("-fx-fill: " + hexColor(c[0]) + ";");
             javafx.scene.control.MenuItem item = new javafx.scene.control.MenuItem(c[1], swatch);
-            item.setOnAction(e -> apply.accept(c[0]));
+            item.setOnAction(e -> setColor.accept(c[0]));
             menu.getItems().add(item);
         }
         javafx.scene.control.MenuItem none = new javafx.scene.control.MenuItem(tr("canvas.color.none", "No colour"));
-        none.setOnAction(e -> apply.accept(null));
+        none.setOnAction(e -> setColor.accept(null));
+
+        FontIcon trashIcon = new FontIcon("fth-trash-2");
+        trashIcon.getStyleClass().add("feather-icon");
+        javafx.scene.control.MenuItem deleteItem =
+                new javafx.scene.control.MenuItem(tr("canvas.delete", "Delete"), trashIcon);
+        deleteItem.setOnAction(e -> delete.run());
+
         menu.getItems().addAll(new javafx.scene.control.SeparatorMenuItem(), none);
+        if (extra != null && extra.length > 0) {
+            menu.getItems().add(new javafx.scene.control.SeparatorMenuItem());
+            menu.getItems().addAll(extra);
+        }
+        menu.getItems().addAll(new javafx.scene.control.SeparatorMenuItem(), deleteItem);
         return menu;
+    }
+
+    // ── Groups: membership, label editing, member alignment (Obsidian-style) ──
+
+    /** Content nodes whose centre lies inside the group's rectangle (groups don't nest here). */
+    private List<String> groupMemberIds(String groupId) {
+        List<String> out = new ArrayList<>();
+        Region g = nodeBoxes.get(groupId);
+        if (g == null) {
+            return out;
+        }
+        double gx = g.getLayoutX();
+        double gy = g.getLayoutY();
+        double gw = g.getPrefWidth();
+        double gh = g.getPrefHeight();
+        for (CanvasNode n : document.nodes()) {
+            if (n.id().equals(groupId) || "group".equals(n.type())) {
+                continue;
+            }
+            Region b = nodeBoxes.get(n.id());
+            if (b == null) {
+                continue;
+            }
+            double cx = b.getLayoutX() + b.getPrefWidth() / 2;
+            double cy = b.getLayoutY() + b.getPrefHeight() / 2;
+            if (cx >= gx && cx <= gx + gw && cy >= gy && cy <= gy + gh) {
+                out.add(n.id());
+            }
+        }
+        return out;
+    }
+
+    /** Inline-edits a group's label; commits on Enter / focus loss, cancels on Esc. */
+    private void editGroupLabel(String id) {
+        Region box = nodeBoxes.get(id);
+        CanvasNode node = document.nodes().stream().filter(n -> id.equals(n.id())).findFirst().orElse(null);
+        if (!(box instanceof VBox vbox) || node == null) {
+            return;
+        }
+        editing = true;
+        select(id);
+        javafx.scene.control.TextField field = new javafx.scene.control.TextField(node.label());
+        field.getStyleClass().add("canvas-node-editor");
+        field.setPromptText(tr("canvas.group_default", "Group"));
+        vbox.getChildren().setAll(field);
+        field.requestFocus();
+        field.selectAll();
+
+        final boolean[] committed = {false};
+        Runnable commit = () -> {
+            if (committed[0]) {
+                return;
+            }
+            committed[0] = true;
+            editing = false;
+            document.setNodeLabel(id, field.getText().trim());
+            markDirty();
+            rebuild();
+        };
+        field.focusedProperty().addListener((o, was, is) -> {
+            if (Boolean.FALSE.equals(is)) {
+                commit.run();
+            }
+        });
+        field.setOnAction(ev -> commit.run());
+        field.setOnKeyPressed(ev -> {
+            if (ev.getCode() == javafx.scene.input.KeyCode.ESCAPE) {
+                committed[0] = true;
+                editing = false;
+                rebuild();
+                ev.consume();
+            }
+        });
+    }
+
+    private enum AlignMode { LEFT, CENTER_H, RIGHT, TOP, CENTER_V, BOTTOM }
+
+    /** Builds the "Align" submenu that lines up a group's member nodes. */
+    private javafx.scene.control.Menu alignSubmenu(String groupId) {
+        javafx.scene.control.Menu menu = new javafx.scene.control.Menu(tr("canvas.align", "Align"));
+        addAlignItem(menu, groupId, AlignMode.LEFT, tr("canvas.align.left", "Left"));
+        addAlignItem(menu, groupId, AlignMode.CENTER_H, tr("canvas.align.center_h", "Center horizontally"));
+        addAlignItem(menu, groupId, AlignMode.RIGHT, tr("canvas.align.right", "Right"));
+        menu.getItems().add(new javafx.scene.control.SeparatorMenuItem());
+        addAlignItem(menu, groupId, AlignMode.TOP, tr("canvas.align.top", "Top"));
+        addAlignItem(menu, groupId, AlignMode.CENTER_V, tr("canvas.align.center_v", "Center vertically"));
+        addAlignItem(menu, groupId, AlignMode.BOTTOM, tr("canvas.align.bottom", "Bottom"));
+        return menu;
+    }
+
+    private void addAlignItem(javafx.scene.control.Menu menu, String groupId, AlignMode mode, String label) {
+        javafx.scene.control.MenuItem item = new javafx.scene.control.MenuItem(label);
+        item.setOnAction(e -> alignMembers(groupId, mode));
+        menu.getItems().add(item);
+    }
+
+    /** Aligns a group's member nodes to their shared bounding box along {@code mode}. */
+    private void alignMembers(String groupId, AlignMode mode) {
+        List<String> members = groupMemberIds(groupId);
+        if (members.size() < 2) {
+            return;
+        }
+        double minX = Double.MAX_VALUE;
+        double minY = Double.MAX_VALUE;
+        double maxX = -Double.MAX_VALUE;
+        double maxY = -Double.MAX_VALUE;
+        for (String m : members) {
+            Region b = nodeBoxes.get(m);
+            minX = Math.min(minX, b.getLayoutX());
+            minY = Math.min(minY, b.getLayoutY());
+            maxX = Math.max(maxX, b.getLayoutX() + b.getPrefWidth());
+            maxY = Math.max(maxY, b.getLayoutY() + b.getPrefHeight());
+        }
+        double cx = (minX + maxX) / 2;
+        double cy = (minY + maxY) / 2;
+        for (String m : members) {
+            Region b = nodeBoxes.get(m);
+            double x = b.getLayoutX();
+            double y = b.getLayoutY();
+            double w = b.getPrefWidth();
+            double h = b.getPrefHeight();
+            switch (mode) {
+                case LEFT -> x = minX;
+                case RIGHT -> x = maxX - w;
+                case CENTER_H -> x = cx - w / 2;
+                case TOP -> y = minY;
+                case BOTTOM -> y = maxY - h;
+                case CENTER_V -> y = cy - h / 2;
+            }
+            document.moveNode(m, x, y);
+        }
+        markDirty();
+        rebuild();
     }
 
     /** Anchor point on a node box's border for the given side (centre when unknown). */
@@ -456,12 +611,19 @@ public final class CanvasView extends BorderPane {
 
     private void installNodeInteraction(Region box, CanvasNode node) {
         final String id = node.id();
+        final boolean isGroup = "group".equals(node.type());
         final double[] last = new double[2];
         final boolean[] moved = {false};
+        // Nodes whose centre lies inside this group when the drag starts: they travel with it.
+        final List<String> dragMembers = new ArrayList<>();
         box.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
             last[0] = e.getSceneX();
             last[1] = e.getSceneY();
             moved[0] = false;
+            dragMembers.clear();
+            if (isGroup) {
+                dragMembers.addAll(groupMemberIds(id));
+            }
         });
         box.addEventFilter(MouseEvent.MOUSE_DRAGGED, e -> {
             if (editing || connecting) {
@@ -471,6 +633,12 @@ public final class CanvasView extends BorderPane {
             double dx = (e.getSceneX() - last[0]) / s;
             double dy = (e.getSceneY() - last[1]) / s;
             box.relocate(box.getLayoutX() + dx, box.getLayoutY() + dy);
+            for (String m : dragMembers) {
+                Region mb = nodeBoxes.get(m);
+                if (mb != null) {
+                    mb.relocate(mb.getLayoutX() + dx, mb.getLayoutY() + dy);
+                }
+            }
             last[0] = e.getSceneX();
             last[1] = e.getSceneY();
             moved[0] = true;
@@ -483,6 +651,12 @@ public final class CanvasView extends BorderPane {
         box.addEventFilter(MouseEvent.MOUSE_RELEASED, e -> {
             if (moved[0]) {
                 document.moveNode(id, box.getLayoutX(), box.getLayoutY());
+                for (String m : dragMembers) {
+                    Region mb = nodeBoxes.get(m);
+                    if (mb != null) {
+                        document.moveNode(m, mb.getLayoutX(), mb.getLayoutY());
+                    }
+                }
                 markDirty();
                 e.consume();
             }
@@ -506,7 +680,7 @@ public final class CanvasView extends BorderPane {
                             SystemBrowser.open(node.url());
                         }
                     }
-                    case "group" -> { /* nothing to open */ }
+                    case "group" -> editGroupLabel(id);
                     default -> editTextNode(id);
                 }
             } else {
@@ -515,8 +689,12 @@ public final class CanvasView extends BorderPane {
         });
         box.setOnContextMenuRequested(e -> {
             select(id);
-            colorMenu(c -> { document.setNodeColor(id, c); markDirty(); rebuild(); })
-                    .show(box, e.getScreenX(), e.getScreenY());
+            javafx.scene.control.ContextMenu menu = elementMenu(
+                    c -> { document.setNodeColor(id, c); markDirty(); rebuild(); },
+                    () -> { document.removeNode(id); markDirty(); rebuild(); },
+                    isGroup ? new javafx.scene.control.MenuItem[] {alignSubmenu(id)}
+                            : new javafx.scene.control.MenuItem[0]);
+            menu.show(box, e.getScreenX(), e.getScreenY());
             e.consume();
         });
     }
@@ -578,13 +756,17 @@ public final class CanvasView extends BorderPane {
 
     // ── Resize (bottom-right grip on the selected node) ────────────────────
 
+    private static final double HANDLE_SIZE = 16;
+
     private void initResizeHandle() {
         resizeHandle.getStyleClass().add("canvas-resize-handle");
-        resizeHandle.setPrefSize(12, 12);
-        resizeHandle.setMinSize(12, 12);
-        resizeHandle.setMaxSize(12, 12);
+        resizeHandle.setPrefSize(HANDLE_SIZE, HANDLE_SIZE);
+        resizeHandle.setMinSize(HANDLE_SIZE, HANDLE_SIZE);
+        resizeHandle.setMaxSize(HANDLE_SIZE, HANDLE_SIZE);
         resizeHandle.setVisible(false);
-        resizeHandle.setManaged(false);
+        // Managed so the Pane gives it its preferred size (an unmanaged child stays 0×0 and
+        // never shows); it is still positioned by relocate() in positionResizeHandle().
+        resizeHandle.resize(HANDLE_SIZE, HANDLE_SIZE);
         resizeHandle.setCursor(javafx.scene.Cursor.SE_RESIZE);
 
         final double[] start = new double[4]; // sceneX, sceneY, startW, startH
@@ -648,9 +830,10 @@ public final class CanvasView extends BorderPane {
     }
 
     private void positionResizeHandle(Region box) {
+        // Sit fully inside the bottom-right corner so the grip is clearly visible and grabbable.
         resizeHandle.relocate(
-                box.getLayoutX() + box.getPrefWidth() - resizeHandle.getPrefWidth() / 2,
-                box.getLayoutY() + box.getPrefHeight() - resizeHandle.getPrefHeight() / 2);
+                box.getLayoutX() + box.getPrefWidth() - HANDLE_SIZE - 1,
+                box.getLayoutY() + box.getPrefHeight() - HANDLE_SIZE - 1);
     }
 
     private void hideResizeHandle() {
@@ -774,7 +957,8 @@ public final class CanvasView extends BorderPane {
     /** Adds a group (labelled rectangle) at the centre of the current view. */
     private void addGroupNode() {
         double[] c = viewCenterWorld();
-        String id = document.addGroupNode(c[0] - 200, c[1] - 150, 400, 300, "");
+        String id = document.addGroupNode(c[0] - 200, c[1] - 150, 400, 300,
+                tr("canvas.group_default", "Group"));
         markDirty();
         rebuild();
         select(id);
@@ -941,7 +1125,8 @@ public final class CanvasView extends BorderPane {
     private void applyColor(Region box, String color) {
         String hex = hexColor(color);
         if (hex != null) {
-            box.setStyle("-fx-border-color: " + hex + "; -fx-border-width: 0 0 0 4;");
+            // Colour the whole frame (all four sides), like Obsidian — not just a left bar.
+            box.setStyle("-fx-border-color: " + hex + "; -fx-border-width: 2;");
         }
     }
 

@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+### Fix: Canvas — color de marco completo y tirador de redimensión visible
+
+- **Color = marco completo**: colorear un nodo o grupo ahora tiñe **todo el borde** (los cuatro lados), como en Obsidian, en vez de solo una barra a la izquierda.
+- **Redimensión usable**: el tirador de la esquina inferior derecha ahora es **visible** — era un nodo no gestionado en el `Pane`, que se quedaba a 0×0 (invisible aunque agarrable de casualidad); ahora se dibuja como un **punto circular** de 16 px (acento, borde blanco, sombra, realce al pasar el ratón) dentro de la esquina. Disponible en **todos los tipos de nodo** (texto, fichero, enlace y grupo).
+
+### Feat: Canvas — grupos al estilo Obsidian (mover contenido, renombrar, alinear)
+
+- **El grupo arrastra su contenido**: al mover un grupo, los nodos cuyo centro está dentro de él se desplazan con el grupo (la pertenencia es geométrica y se calcula al empezar el arrastre).
+- **Renombrar el grupo**: doble clic sobre un grupo edita su etiqueta in situ (Enter o perder foco confirma, Esc cancela).
+- **Redimensionar**: el grupo se redimensiona con el mismo tirador de esquina que el resto de nodos.
+- **Alinear miembros**: el menú contextual del grupo añade un submenú **Alinear** (izquierda / centrar horizontal / derecha / arriba / centrar vertical / abajo) que coloca sus nodos internos respecto a su caja envolvente común.
+- **Tests**: `CanvasModelTest` +1 — `setNodeLabel` asigna y limpia la etiqueta. 257/257 verdes.
+
+## [2.2.0] - 2026-06-24
+
+Esta versión gira en torno a **Canvas** (visor → editor compatible con Obsidian), **transclusión** y **enlaces enriquecidos**, y un refuerzo importante de las **notas privadas** (modelo de desbloqueo por-nota/global, indicadores visuales y protección frente a borrado/exportación), además de varias correcciones de listas/paneles.
+
+### Feat: Canvas — eliminar desde el menú contextual y grupos usables
+
+- El menú contextual de un **nodo** o una **arista** incluye ahora **Eliminar** (además del selector de color).
+- **Nodos de grupo** rediseñados: fondo translúcido (visibles y arrastrables por toda su área, no solo por el borde) y etiqueta por defecto al crearlos, de modo que "Añadir grupo" produce un grupo claramente visible.
+
 ### Feat: Canvas — más paridad con Obsidian (flechas, redimensionar, color, nodos enlace/grupo)
 
 - **Flechas en las aristas**: cada arista dibuja una punta de flecha en el extremo destino, orientada según la dirección (como Obsidian).

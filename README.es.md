@@ -12,7 +12,7 @@
 <div align="center">
 
 [![Licencia: MIT](https://img.shields.io/badge/Licencia-MIT-yellow.svg)](LICENSE)
-[![Versión](https://img.shields.io/badge/versión-2.1.0-success.svg)](changelog.md)
+[![Versión](https://img.shields.io/badge/versión-2.2.0-success.svg)](changelog.md)
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/)
 [![JavaFX](https://img.shields.io/badge/JavaFX-23-blue.svg)](https://openjfx.io/)
 [![SQLite](https://img.shields.io/badge/SQLite-3-lightgrey.svg)](https://www.sqlite.org/)
@@ -104,8 +104,8 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 - **Grafo de conocimiento** (vista global de la bóveda o grafo local alrededor de la nota abierta)
 - Panel de **backlinks** (notas que enlazan a la actual)
 - **Tablero Kanban** guardado dentro de una nota, y **modo concentración** sin distracciones
-- **Visor de Canvas**: abre ficheros `.canvas` compatibles con Obsidian en un lienzo infinito con pan/zoom (de momento solo lectura)
-- **Notas privadas**: cifrado opcional del cuerpo con AES-256 tras una contraseña maestra
+- **Editor de Canvas**: abre y edita ficheros `.canvas` compatibles con Obsidian en un lienzo infinito con pan/zoom — crea/mueve/redimensiona/colorea nodos de texto, enlace y grupo, conecta y borra aristas (con flechas) y crea nuevos canvas; el guardado hace round-trip seguro (preserva campos desconocidos)
+- **Notas privadas**: cifrado opcional del cuerpo con AES-256 tras una contraseña maestra, con desbloqueo por-nota o global y protección frente a borrado
 - Paleta de comandos (`Ctrl+P`) y conmutador rápido (`Ctrl+O`)
 - Plugins externos (JAR en `jylos/plugins/`, desde `plugins-source/`) y temas (`themes/` → `jylos/themes/`)
 - Almacenamiento: **SQLite** (por defecto) o **bóveda Markdown** en disco (`.md` + frontmatter YAML; menú **Git** opcional)
@@ -148,8 +148,10 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 ### Notas privadas (cifrado)
 
-- Marca una nota como privada (**Herramientas → Hacer Nota Privada/Pública**, `Ctrl/Cmd+Shift+L`) para cifrar **solo su cuerpo** en reposo (AES-256-GCM)
-- Una única **contraseña maestra** desbloquea las notas privadas por sesión (clave derivada con PBKDF2; la contraseña nunca se guarda)
+- Marca una nota como privada para cifrar **solo su cuerpo** en reposo (AES-256-GCM) — desde **Herramientas → Hacer Nota Privada/Pública** (`Ctrl/Cmd+Shift+L`) o el menú contextual de la nota
+- Una única **contraseña maestra** las protege (clave derivada con PBKDF2; la contraseña nunca se guarda). Abrir una nota bloqueada pide desbloquear **solo esa nota**; **Herramientas → Desbloquear Notas Privadas** las revela todas, y **Bloquear Notas Privadas** vuelve a bloquear
+- Un **candado** marca las notas privadas en la lista y en el editor (cerrado = bloqueada, abierto = legible esta sesión)
+- Las notas privadas están **protegidas frente a borrado y exportación** — hazla normal primero
 - Funciona en **ambos** modos: columna dedicada en SQLite, flag `private:` en el frontmatter de la bóveda; los metadatos quedan legibles, así que una nota bloqueada se muestra como 🔒 sin la clave
 
 ### Grafo de conocimiento
@@ -250,7 +252,7 @@ cd jylos
 
 ### 2) Compilar
 
-Desde la raíz del repositorio (genera `jylos/target/jylos-2.1.0-uber.jar`):
+Desde la raíz del repositorio (genera `jylos/target/jylos-2.2.0-uber.jar`):
 
 ```bash
 ./scripts/build_all.sh
@@ -345,7 +347,7 @@ Cada script `package-*` compila el uber-JAR, opcionalmente `build-plugins.sh`, y
 
 | Plataforma | Comando | Salida típica |
 |---|---|---|
-| macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-2.1.0.dmg` |
+| macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-2.2.0.dmg` |
 | Linux (deb/rpm) | `./scripts/package-linux.sh` | `jylos/target/installers/` |
 | Windows portable (app-image) | `.\scripts\package-windows.ps1` | `jylos\target\installers\Jylos\` |
 | Windows instalador .exe (WiX) | `.\scripts\package-windows-exe.ps1` | `jylos\target\installers\Jylos-<versión>.exe` |

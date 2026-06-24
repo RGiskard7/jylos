@@ -215,6 +215,17 @@ public final class CanvasModel {
             }
         }
 
+        /** Sets (or clears, when {@code label} is null/blank) a node's label (e.g. a group). */
+        public void setNodeLabel(String id, String label) {
+            forNode(id, n -> {
+                if (label == null || label.isBlank()) {
+                    n.remove("label");
+                } else {
+                    n.addProperty("label", label);
+                }
+            });
+        }
+
         /** Updates the {@code text} of a text node. */
         public void setNodeText(String id, String text) {
             if (id == null) {
