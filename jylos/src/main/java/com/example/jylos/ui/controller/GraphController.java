@@ -97,6 +97,7 @@ public class GraphController {
     /** True while the graph overlay is on screen (drives live refresh on edits). */
     private boolean graphVisible = false;
     private boolean dataEventsWired = false;
+    private final List<EventBus.Subscription> subscriptions = new ArrayList<>();
 
     @FXML
     private void initialize() {
@@ -190,12 +191,17 @@ public class GraphController {
         }
         dataEventsWired = true;
         EventBus bus = EventBus.getInstance();
-        bus.subscribe(NoteEvents.NoteSavedEvent.class, e -> onNoteChanged(idOf(e.getNote())));
-        bus.subscribe(NoteEvents.NoteCreatedEvent.class, e -> onNoteChanged(idOf(e.getNote())));
-        bus.subscribe(NoteEvents.NoteUpdatedEvent.class, e -> onNoteChanged(idOf(e.getNote())));
-        bus.subscribe(NoteEvents.NoteDeletedEvent.class, e -> onNoteChanged(e.getNoteId()));
-        bus.subscribe(FolderEvents.FolderDeletedEvent.class, e -> onVaultChanged());
-        bus.subscribe(NoteEvents.NotesRefreshRequestedEvent.class, e -> onVaultChanged());
+        subscriptions.add(bus.subscribe(NoteEvents.NoteSavedEvent.class, e -> onNoteChanged(idOf(e.getNote()))));
+        subscriptions.add(bus.subscribe(NoteEvents.NoteCreatedEvent.class, e -> onNoteChanged(idOf(e.getNote()))));
+        subscriptions.add(bus.subscribe(NoteEvents.NoteUpdatedEvent.class, e -> onNoteChanged(idOf(e.getNote()))));
+        subscriptions.add(bus.subscribe(NoteEvents.NoteDeletedEvent.class, e -> onNoteChanged(e.getNoteId())));
+        subscriptions.add(bus.subscribe(FolderEvents.FolderDeletedEvent.class, e -> onVaultChanged()));
+        subscriptions.add(bus.subscribe(NoteEvents.NotesRefreshRequestedEvent.class, e -> onVaultChanged()));
+    }
+
+    public void teardown() {
+        subscriptions.forEach(EventBus.Subscription::cancel);
+        subscriptions.clear();
     }
 
     /** A single note changed: invalidate only its cache entry, refresh if visible. */

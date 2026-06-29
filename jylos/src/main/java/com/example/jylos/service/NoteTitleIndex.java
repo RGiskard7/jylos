@@ -1,5 +1,7 @@
 package com.example.jylos.service;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -40,6 +42,7 @@ public final class NoteTitleIndex {
 
     /** {@code null} means the cache is stale and must be rebuilt on next read. */
     private volatile Set<String> cachedTitles;
+    private final List<EventBus.Subscription> subscriptions = new ArrayList<>();
 
     private NoteTitleIndex() {
         subscribeToInvalidationEvents();
@@ -86,10 +89,15 @@ public final class NoteTitleIndex {
 
     private void subscribeToInvalidationEvents() {
         EventBus bus = EventBus.getInstance();
-        bus.subscribe(NoteEvents.NoteCreatedEvent.class, e -> invalidate());
-        bus.subscribe(NoteEvents.NoteDeletedEvent.class, e -> invalidate());
-        bus.subscribe(NoteEvents.NoteSavedEvent.class, e -> invalidate());
-        bus.subscribe(NoteEvents.NoteUpdatedEvent.class, e -> invalidate());
-        bus.subscribe(NoteEvents.NotesRefreshRequestedEvent.class, e -> invalidate());
+        subscriptions.add(bus.subscribe(NoteEvents.NoteCreatedEvent.class, e -> invalidate()));
+        subscriptions.add(bus.subscribe(NoteEvents.NoteDeletedEvent.class, e -> invalidate()));
+        subscriptions.add(bus.subscribe(NoteEvents.NoteSavedEvent.class, e -> invalidate()));
+        subscriptions.add(bus.subscribe(NoteEvents.NoteUpdatedEvent.class, e -> invalidate()));
+        subscriptions.add(bus.subscribe(NoteEvents.NotesRefreshRequestedEvent.class, e -> invalidate()));
+    }
+
+    public void shutdown() {
+        subscriptions.forEach(EventBus.Subscription::cancel);
+        subscriptions.clear();
     }
 }

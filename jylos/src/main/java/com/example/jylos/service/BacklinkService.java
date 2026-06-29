@@ -51,6 +51,7 @@ import com.example.jylos.util.WikiLinkResolver;
 public class BacklinkService {
 
     private final NoteService noteService;
+    private final List<EventBus.Subscription> subscriptions = new ArrayList<>();
 
     /** noteId → cached outgoing targets, validated by {@code modified} timestamp. */
     private final Map<String, CachedLinks> forward = new ConcurrentHashMap<>();
@@ -175,11 +176,16 @@ public class BacklinkService {
         EventBus bus = EventBus.getInstance();
         // Cheap, FX-thread-safe: just drop the note's forward entry so the next
         // backlinksFor() re-reads its content lazily (off the FX thread).
-        bus.subscribe(NoteEvents.NoteSavedEvent.class, e -> dropForward(idOf(e.getNote())));
-        bus.subscribe(NoteEvents.NoteCreatedEvent.class, e -> dropForward(idOf(e.getNote())));
-        bus.subscribe(NoteEvents.NoteUpdatedEvent.class, e -> dropForward(idOf(e.getNote())));
-        bus.subscribe(NoteEvents.NoteDeletedEvent.class, e -> removeFromIndex(e.getNoteId()));
-        bus.subscribe(NoteEvents.NotesRefreshRequestedEvent.class, e -> invalidate());
+        subscriptions.add(bus.subscribe(NoteEvents.NoteSavedEvent.class, e -> dropForward(idOf(e.getNote()))));
+        subscriptions.add(bus.subscribe(NoteEvents.NoteCreatedEvent.class, e -> dropForward(idOf(e.getNote()))));
+        subscriptions.add(bus.subscribe(NoteEvents.NoteUpdatedEvent.class, e -> dropForward(idOf(e.getNote()))));
+        subscriptions.add(bus.subscribe(NoteEvents.NoteDeletedEvent.class, e -> removeFromIndex(e.getNoteId())));
+        subscriptions.add(bus.subscribe(NoteEvents.NotesRefreshRequestedEvent.class, e -> invalidate()));
+    }
+
+    public void shutdown() {
+        subscriptions.forEach(EventBus.Subscription::cancel);
+        subscriptions.clear();
     }
 
     private void dropForward(String id) {

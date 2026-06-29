@@ -60,6 +60,7 @@ public class NotesListController {
     private static final Logger logger = LoggerConfig.getLogger(NotesListController.class);
 
     private EventBus eventBus;
+    private final List<EventBus.Subscription> subscriptions = new ArrayList<>();
     private NoteService noteService;
     private TagService tagService;
     private FolderService folderService;
@@ -608,7 +609,7 @@ public class NotesListController {
         if (eventBus == null)
             return;
 
-        eventBus.subscribe(SystemActionEvent.class, event -> {
+        subscriptions.add(eventBus.subscribe(SystemActionEvent.class, event -> {
             javafx.application.Platform.runLater(() -> {
                 if (event.getActionType() == SystemActionEvent.ActionType.NEW_NOTE) {
                     handleNewNote(null);
@@ -618,11 +619,16 @@ public class NotesListController {
                     handleDelete(null);
                 }
             });
-        });
-        eventBus.subscribe(NoteEvents.NoteCreatedEvent.class, event -> markAllNotesSearchCacheDirty());
-        eventBus.subscribe(NoteEvents.NoteSavedEvent.class, event -> markAllNotesSearchCacheDirty());
-        eventBus.subscribe(NoteEvents.NoteDeletedEvent.class, event -> markAllNotesSearchCacheDirty());
-        eventBus.subscribe(NoteEvents.TrashItemDeletedEvent.class, event -> markAllNotesSearchCacheDirty());
+        }));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteCreatedEvent.class, event -> markAllNotesSearchCacheDirty()));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class, event -> markAllNotesSearchCacheDirty()));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteDeletedEvent.class, event -> markAllNotesSearchCacheDirty()));
+        subscriptions.add(eventBus.subscribe(NoteEvents.TrashItemDeletedEvent.class, event -> markAllNotesSearchCacheDirty()));
+    }
+
+    public void teardown() {
+        subscriptions.forEach(EventBus.Subscription::cancel);
+        subscriptions.clear();
     }
 
     public void setServices(NoteService noteService, TagService tagService, FolderService folderService) {

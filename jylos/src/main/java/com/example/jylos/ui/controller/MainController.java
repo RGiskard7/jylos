@@ -2357,6 +2357,19 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             if (systemActionSubscription != null) {
                 systemActionSubscription.cancel();
             }
+            if (editorController != null) {
+                editorController.teardown();
+            }
+            if (graphViewController != null) {
+                graphViewController.teardown();
+            }
+            if (notesListController != null) {
+                notesListController.teardown();
+            }
+            if (backlinkService != null) {
+                backlinkService.shutdown();
+            }
+            com.example.jylos.service.NoteTitleIndex.getInstance().shutdown();
             if (pluginManager != null) {
                 pluginManager.shutdownAll();
             }

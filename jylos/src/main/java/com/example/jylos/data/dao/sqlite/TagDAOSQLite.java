@@ -24,6 +24,9 @@ import com.example.jylos.exceptions.InvalidParameterException;
  * This class provides methods for interacting with tags in the SQLite database,
  * including creation, retrieval, updating, deletion, and managing notes
  * associated with tags.
+ *
+ * <p>All methods that access the shared {@link Connection} are synchronized on the
+ * connection object. See {@link NoteDAOSQLite} for the rationale.</p>
  */
 public class TagDAOSQLite implements TagDAO {
 
@@ -43,7 +46,10 @@ public class TagDAOSQLite implements TagDAO {
 	private static final String DELETE_TAG_SQL = "DELETE FROM tags WHERE tag_id = ?";
 
 	private static final Logger logger = LoggerConfig.getLogger(TagDAOSQLite.class);
-	private Connection connection;
+
+	/** Shared connection; all public methods synchronize on this object. */
+	final Connection connection;
+
 
 	/**
 	 * Constructs a TagDAOSQLite with the given database connection.
@@ -68,23 +74,25 @@ public class TagDAOSQLite implements TagDAO {
 		}
 		newId = tag.getId();
 
-		try (PreparedStatement pstmt = connection.prepareStatement(INSERT_TAG_SQL)) {
+		synchronized (connection) {
+			try (PreparedStatement pstmt = connection.prepareStatement(INSERT_TAG_SQL)) {
 
-			pstmt.setString(1, newId);
-			pstmt.setString(2, tag.getTitle());
-			pstmt.setString(3, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
-			pstmt.executeUpdate();
+				pstmt.setString(1, newId);
+				pstmt.setString(2, tag.getTitle());
+				pstmt.setString(3, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
+				pstmt.executeUpdate();
 
-			connection.commit();
+				connection.commit();
 
-		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "Error createTag(): " + e.getMessage(), e);
-			try {
-				connection.rollback();
-			} catch (SQLException rollbackEx) {
-				logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error createTag(): " + e.getMessage(), e);
+				try {
+					connection.rollback();
+				} catch (SQLException rollbackEx) {
+					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
+				}
+				return null;
 			}
-			return null;
 		}
 
 		return newId;
@@ -96,19 +104,21 @@ public class TagDAOSQLite implements TagDAO {
 			throw new InvalidParameterException("Tag object cannot be null");
 		}
 
-		try (PreparedStatement pstmt = connection.prepareStatement(UPDATE_TAG_SQL)) {
-			pstmt.setString(1, tag.getTitle());
-			pstmt.setString(2, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
-			pstmt.setString(3, tag.getId());
-			pstmt.executeUpdate();
-			connection.commit();
+		synchronized (connection) {
+			try (PreparedStatement pstmt = connection.prepareStatement(UPDATE_TAG_SQL)) {
+				pstmt.setString(1, tag.getTitle());
+				pstmt.setString(2, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
+				pstmt.setString(3, tag.getId());
+				pstmt.executeUpdate();
+				connection.commit();
 
-		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "Error updateTag(): " + e.getMessage(), e);
-			try {
-				connection.rollback();
-			} catch (SQLException rollbackEx) {
-				logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error updateTag(): " + e.getMessage(), e);
+				try {
+					connection.rollback();
+				} catch (SQLException rollbackEx) {
+					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
+				}
 			}
 		}
 	}
@@ -119,17 +129,19 @@ public class TagDAOSQLite implements TagDAO {
 			throw new IllegalArgumentException("Tag ID cannot be null or empty");
 		}
 
-		try (PreparedStatement pstmt = connection.prepareStatement(DELETE_TAG_SQL)) {
-			pstmt.setString(1, id);
-			pstmt.executeUpdate();
-			connection.commit();
+		synchronized (connection) {
+			try (PreparedStatement pstmt = connection.prepareStatement(DELETE_TAG_SQL)) {
+				pstmt.setString(1, id);
+				pstmt.executeUpdate();
+				connection.commit();
 
-		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "Error deleteTag(): " + e.getMessage(), e);
-			try {
-				connection.rollback();
-			} catch (SQLException rollbackEx) {
-				logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error deleteTag(): " + e.getMessage(), e);
+				try {
+					connection.rollback();
+				} catch (SQLException rollbackEx) {
+					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
+				}
 			}
 		}
 	}
@@ -142,16 +154,18 @@ public class TagDAOSQLite implements TagDAO {
 			throw new IllegalArgumentException("Tag ID cannot be null or empty");
 		}
 
-		try (PreparedStatement pstmt = connection.prepareStatement(SELECT_TAG_BY_ID_SQL)) {
-			pstmt.setString(1, id);
+		synchronized (connection) {
+			try (PreparedStatement pstmt = connection.prepareStatement(SELECT_TAG_BY_ID_SQL)) {
+				pstmt.setString(1, id);
 
-			try (ResultSet rs = pstmt.executeQuery()) {
-				if (rs.next()) {
-					tag = mapResultSetToTag(rs);
+				try (ResultSet rs = pstmt.executeQuery()) {
+					if (rs.next()) {
+						tag = mapResultSetToTag(rs);
+					}
 				}
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error getTagById: " + e.getMessage(), e);
 			}
-		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "Error getTagById: " + e.getMessage(), e);
 		}
 
 		return tag;
@@ -162,14 +176,15 @@ public class TagDAOSQLite implements TagDAO {
 	public List<Tag> fetchAllTags() {
 		List<Tag> list = new ArrayList<>();
 
-		try (Statement stmt = connection.createStatement()) {
-			try (ResultSet rs = stmt.executeQuery(SELECT_ALL_TAGS_SQL)) {
+		synchronized (connection) {
+			try (Statement stmt = connection.createStatement();
+					ResultSet rs = stmt.executeQuery(SELECT_ALL_TAGS_SQL)) {
 				while (rs.next()) {
 					list.add(mapResultSetToTag(rs));
 				}
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error fetchAllTags(): " + e.getMessage(), e);
 			}
-		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "Error fetchAllTags(): " + e.getMessage(), e);
 		}
 
 		return list;
@@ -183,18 +198,19 @@ public class TagDAOSQLite implements TagDAO {
 
 		List<Note> list = new ArrayList<>();
 
-		try (PreparedStatement pstmt = connection.prepareStatement(SELECT_ALL_NOTES_TAG_SQL)) {
-			pstmt.setString(1, tagId);
+		NoteDAOSQLite noteDAO = new NoteDAOSQLite(connection);
+		synchronized (connection) {
+			try (PreparedStatement pstmt = connection.prepareStatement(SELECT_ALL_NOTES_TAG_SQL)) {
+				pstmt.setString(1, tagId);
 
-			try (ResultSet rs = pstmt.executeQuery()) {
-				NoteDAOSQLite noteDAO = new NoteDAOSQLite(connection);
-
-				while (rs.next()) {
-					list.add(noteDAO.mapResultSetToNote(rs));
+				try (ResultSet rs = pstmt.executeQuery()) {
+					while (rs.next()) {
+						list.add(noteDAO.mapResultSetToNote(rs));
+					}
 				}
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error fetchAllNotesWithTag(): " + e.getMessage(), e);
 			}
-		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "Error fetchAllNotesWithTag(): " + e.getMessage(), e);
 		}
 
 		return list;
@@ -206,18 +222,18 @@ public class TagDAOSQLite implements TagDAO {
 			throw new IllegalArgumentException("Title can't be null");
 		}
 
-		try (PreparedStatement pstmt = connection.prepareStatement(SELECT_EXIST_TITLE)) {
-			pstmt.setString(1, title);
+		synchronized (connection) {
+			try (PreparedStatement pstmt = connection.prepareStatement(SELECT_EXIST_TITLE)) {
+				pstmt.setString(1, title);
 
-			try (ResultSet rs = pstmt.executeQuery()) {
-				if (rs.next()) {
-					int countTitle = rs.getInt(1);
-					if (countTitle > 0)
-						return true;
+				try (ResultSet rs = pstmt.executeQuery()) {
+					if (rs.next()) {
+						return rs.getInt(1) > 0;
+					}
 				}
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error existsByTitle: " + e.getMessage(), e);
 			}
-		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "Error existsByTitle: " + e.getMessage(), e);
 		}
 
 		return false;

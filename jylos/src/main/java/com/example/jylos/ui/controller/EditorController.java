@@ -91,6 +91,11 @@ public class EditorController {
     private Note currentNote;
     private boolean isModified = false;
 
+    /** Cancels any in-flight preview render so FX thread is never blocked by markdown parsing. */
+    private volatile Task<String> currentPreviewTask;
+
+    private final List<EventBus.Subscription> subscriptions = new ArrayList<>();
+
     /** True when the editor is in "read" (preview-only) view: properties become read-only. */
     private boolean readOnlyView = false;
     /** Whether the properties panel body is expanded. Collapsed by default. */
@@ -1056,7 +1061,7 @@ public class EditorController {
     private void subscribeToEvents() {
         if (eventBus == null) return;
 
-        eventBus.subscribe(SystemActionEvent.class, event -> Platform.runLater(() -> {
+        subscriptions.add(eventBus.subscribe(SystemActionEvent.class, event -> Platform.runLater(() -> {
             switch (event.getActionType()) {
                 case BOLD      -> insertMarkdownFormat("**", "**");
                 case ITALIC    -> insertMarkdownFormat("*", "*");
@@ -1077,7 +1082,7 @@ public class EditorController {
                 case SAVE      -> handleSave();
                 default        -> { /* not handled here */ }
             }
-        }));
+        })));
 
         if (noteContentArea != null) {
             noteContentArea.textProperty().addListener((obs, oldVal, newVal) -> {
@@ -1098,9 +1103,14 @@ public class EditorController {
             });
         }
 
-        eventBus.subscribe(NoteEvents.NoteSavedEvent.class,   e -> refreshNoteTitlesCache());
-        eventBus.subscribe(NoteEvents.NoteDeletedEvent.class, e -> refreshNoteTitlesCache());
-        eventBus.subscribe(NoteEvents.NoteCreatedEvent.class, e -> refreshNoteTitlesCache());
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class,   e -> refreshNoteTitlesCache()));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteDeletedEvent.class, e -> refreshNoteTitlesCache()));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteCreatedEvent.class, e -> refreshNoteTitlesCache()));
+    }
+
+    public void teardown() {
+        subscriptions.forEach(EventBus.Subscription::cancel);
+        subscriptions.clear();
     }
 
     // ============================================================
@@ -1422,12 +1432,35 @@ public class EditorController {
         if (previewWebView == null || currentNote == null) {
             return;
         }
+
+        Task<String> prev = currentPreviewTask;
+        if (prev != null) {
+            prev.cancel();
+        }
+
         String content = liveEditorContent(currentNote);
-        String html = (content != null && !content.trim().isEmpty())
-                ? MarkdownPreview.buildPreviewHtml(content, darkTheme, previewEnhancers.values(), previewBaseDir())
-                : MarkdownPreview.buildEmptyHtml(darkTheme);
-        previewWebView.getEngine().loadContent(html, "text/html");
-        installWikiLinkListener();
+        // Capture stable references for the background thread
+        java.util.Collection<PreviewEnhancer> enhancers =
+                new java.util.ArrayList<>(previewEnhancers.values());
+        java.nio.file.Path baseDir = previewBaseDir();
+
+        Task<String> task = new Task<>() {
+            @Override
+            protected String call() {
+                if (content != null && !content.trim().isEmpty()) {
+                    return MarkdownPreview.buildPreviewHtml(content, darkTheme, enhancers, baseDir);
+                }
+                return MarkdownPreview.buildEmptyHtml(darkTheme);
+            }
+        };
+        task.setOnSucceeded(e -> {
+            previewWebView.getEngine().loadContent(task.getValue(), "text/html");
+            installWikiLinkListener();
+        });
+        currentPreviewTask = task;
+        Thread thread = new Thread(task, "preview-render");
+        thread.setDaemon(true);
+        thread.start();
     }
 
     /** Folder of the current note, used to resolve relative image paths in the preview. */
