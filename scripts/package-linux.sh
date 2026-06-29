@@ -27,7 +27,7 @@ read_property() {
 
 # Read application metadata from app.properties
 APP_NAME=$(read_property "app.name" "Jylos")
-APP_VERSION=$(read_property "app.version" "2.1.0")
+APP_VERSION=$(read_property "app.version" "2.2.0")
 APP_VENDOR=$(read_property "app.vendor" "Jylos")
 APP_DESCRIPTION=$(read_property "app.description" "A free and open-source note-taking application")
 APP_COPYRIGHT=$(read_property "app.copyright" "Copyright 2025 Jylos")
