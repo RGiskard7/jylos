@@ -17,7 +17,7 @@ From repository root:
 .\scripts\build_all.ps1
 ```
 
-Produces: `jylos/target/jylos-2.0.0-uber.jar`
+Produces: `jylos/target/jylos-2.2.0-uber.jar`
 
 Equivalent:
 
@@ -35,6 +35,12 @@ Launch scripts set JavaFX `--module-path` and run from `jylos/` so `data/`, `log
 
 ```powershell
 .\scripts\launch-jylos.bat
+```
+
+JBang alternative (no local build required):
+
+```bash
+jbang jylos@RGiskard7/jylos
 ```
 
 Alternatives:

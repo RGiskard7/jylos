@@ -1,10 +1,14 @@
 package com.example.jylos.service;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 import com.example.jylos.config.AppContext;
 import com.example.jylos.config.LoggerConfig;
@@ -36,12 +40,15 @@ import com.example.jylos.event.events.NoteEvents;
  */
 public final class NoteTitleIndex {
 
+    private record Snapshot(Set<String> titles, Map<String, String> noteIdsByNormalizedTitle) {
+    }
+
     private static final Logger logger = LoggerConfig.getLogger(NoteTitleIndex.class);
 
     private static final NoteTitleIndex INSTANCE = new NoteTitleIndex();
 
     /** {@code null} means the cache is stale and must be rebuilt on next read. */
-    private volatile Set<String> cachedTitles;
+    private volatile Snapshot snapshot;
     private final List<EventBus.Subscription> subscriptions = new ArrayList<>();
 
     private NoteTitleIndex() {
@@ -58,33 +65,56 @@ public final class NoteTitleIndex {
      * application context is not yet initialized.
      */
     public Set<String> titles() {
-        Set<String> snapshot = cachedTitles;
-        if (snapshot != null) {
-            return snapshot;
+        return snapshot().titles();
+    }
+
+    /**
+     * Resolves {@code title} to the first note id seen with that title (case-insensitive).
+     * Returns empty when the title is unknown.
+     */
+    public Optional<String> findNoteIdByTitle(String title) {
+        if (title == null || title.isBlank()) {
+            return Optional.empty();
         }
-        snapshot = rebuild();
-        cachedTitles = snapshot;
-        return snapshot;
+        return Optional.ofNullable(snapshot().noteIdsByNormalizedTitle().get(normalize(title)));
     }
 
     /** Marks the cache stale; the next {@link #titles()} call rebuilds it. */
     public void invalidate() {
-        cachedTitles = null;
+        snapshot = null;
     }
 
-    private Set<String> rebuild() {
+    private Snapshot snapshot() {
+        Snapshot cached = snapshot;
+        if (cached != null) {
+            return cached;
+        }
+        cached = rebuild();
+        snapshot = cached;
+        return cached;
+    }
+
+    private Snapshot rebuild() {
         try {
             if (AppContext.isInitialized()) {
                 NoteService ns = AppContext.getNoteService();
-                return ns.getAllNotes().stream()
-                        .map(Note::getTitle)
-                        .filter(t -> t != null)
-                        .collect(Collectors.toUnmodifiableSet());
+                Set<String> titles = new LinkedHashSet<>();
+                Map<String, String> noteIdsByNormalizedTitle = new LinkedHashMap<>();
+                for (Note note : ns.getAllNotes()) {
+                    if (note == null || note.getTitle() == null || note.getTitle().isBlank()) {
+                        continue;
+                    }
+                    titles.add(note.getTitle());
+                    if (note.getId() != null && !note.getId().isBlank()) {
+                        noteIdsByNormalizedTitle.putIfAbsent(normalize(note.getTitle()), note.getId());
+                    }
+                }
+                return new Snapshot(Set.copyOf(titles), Map.copyOf(noteIdsByNormalizedTitle));
             }
         } catch (Exception e) {
             logger.warning("NoteTitleIndex rebuild failed: " + e.getMessage());
         }
-        return Set.of();
+        return new Snapshot(Set.of(), Map.of());
     }
 
     private void subscribeToInvalidationEvents() {
@@ -99,5 +129,9 @@ public final class NoteTitleIndex {
     public void shutdown() {
         subscriptions.forEach(EventBus.Subscription::cancel);
         subscriptions.clear();
+    }
+
+    private static String normalize(String title) {
+        return title.trim().toLowerCase(Locale.ROOT);
     }
 }

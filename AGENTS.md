@@ -19,13 +19,14 @@ mvn -f jylos/pom.xml test
 ```powershell
 .\scripts\build_all.ps1
 .\scripts\launch-jylos.bat
+.\scripts\launch-jylos.ps1
 ```
 
 ```bash
 mvn -f jylos/pom.xml clean compile exec:java -Dexec.mainClass="com.example.jylos.Launcher"
 ```
 
-Uber-JAR: `jylos/target/jylos-1.0.0-uber.jar`. Use `launch-*` scripts for JavaFX modules.
+Uber-JAR: `jylos/target/jylos-2.2.0-uber.jar`. Use `launch-*` scripts for JavaFX modules.
 
 ## Layout
 
@@ -69,7 +70,7 @@ fragment that across helpers just to shrink line count.
 ## Gotchas
 
 - JavaFX preview needs `javafx.web` on module-path when not using uber-JAR launch path.
-- `SQLiteDB.initDatabase()`: no automatic migrations.
+- `SQLiteDB.initDatabase()` performs only limited/idempotent schema adjustments (e.g. guarded `ALTER TABLE` additions); non-trivial SQL changes still need an explicit migration plan.
 - Plugins: no hardcoded plugin classes in core; JARs in `plugins/` under app base dir.
 - Warnings on `org.openjfx:javafx-*` parent POM during Maven build are harmless.
 

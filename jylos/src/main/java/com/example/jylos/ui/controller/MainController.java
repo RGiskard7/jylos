@@ -831,11 +831,20 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     }
 
     private Note resolveNoteToOpen(Note requestedNote) {
-        if (requestedNote == null || requestedNote.getId() != null || requestedNote.getTitle() == null) {
+        if (requestedNote == null) {
+            return null;
+        }
+        if (requestedNote.getId() != null || requestedNote.getTitle() == null) {
             return requestedNote;
         }
+        if (noteService != null) {
+            Optional<Note> resolved = noteService.findNoteByTitle(requestedNote.getTitle());
+            if (resolved.isPresent()) {
+                return resolved.get();
+            }
+        }
         return getNoteResolutionSource().stream()
-                .filter(n -> requestedNote.getTitle().equals(n.getTitle()))
+                .filter(n -> requestedNote.getTitle().equalsIgnoreCase(n.getTitle()))
                 .findFirst()
                 .orElse(requestedNote);
     }

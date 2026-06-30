@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -199,7 +200,7 @@ public class EventBus {
         };
 
         private final Runnable unsubscribe;
-        private volatile boolean cancelled = false;
+        private final AtomicBoolean cancelled = new AtomicBoolean(false);
         
         Subscription(Runnable unsubscribe) {
             this.unsubscribe = unsubscribe;
@@ -209,9 +210,8 @@ public class EventBus {
          * Cancels this subscription.
          */
         public void cancel() {
-            if (!cancelled) {
+            if (cancelled.compareAndSet(false, true)) {
                 unsubscribe.run();
-                cancelled = true;
             }
         }
         
@@ -221,7 +221,7 @@ public class EventBus {
          * @return true if cancelled
          */
         public boolean isCancelled() {
-            return cancelled;
+            return cancelled.get();
         }
     }
 }

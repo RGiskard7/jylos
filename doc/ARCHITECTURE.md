@@ -55,7 +55,7 @@ Local graph: BFS neighbourhood around the open note id (configurable depth in co
 ## Wiki-links and backlinks
 
 - `WikiLinkResolver` — `[[Title]]`, `[[path/Note#heading|alias]]`, `[label](Note.md)`; resolves to HTML anchors for preview.
-- `BacklinkService` — bidirectional warm index (forward `noteId → targets`, inverse `title → noteIds`), invalidated by note events; `backlinksFor` is an O(1) lookup.
+- `BacklinkService` — bidirectional warm index (forward `noteId → targets`, inverse `title → noteIds`) kept current by note events; after the initial warm-up, `backlinksFor` resolves from the inverse index instead of re-scanning the whole vault on each call.
 
 ## Kanban board
 

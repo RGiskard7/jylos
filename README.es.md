@@ -33,6 +33,11 @@ Los paquetes precompilados para las principales plataformas están disponibles e
 - **macOS** — DMG
 - **Linux** — DEB/RPM (vía `jpackage`)
 - **Cualquier plataforma** — uber-JAR (requiere Java 21 + JavaFX 23 en `PATH`)
+- **Vía [JBang](https://www.jbang.dev/)** — un solo comando, sin compilar:
+  ```bash
+  jbang jylos@RGiskard7/jylos
+  ```
+  JBang descarga automáticamente Java 21 y los módulos JavaFX si hacen falta.
 
 ## Índice
 
@@ -157,7 +162,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 ### Grafo de conocimiento
 
 - Overlay a pantalla completa: **Ver → Vista de Grafo**, botón en barra o **`Ctrl+G`** / paleta de comandos
-- **Grafo global**: todas las notas y aristas por wiki-links; nodos de **etiquetas** opcionales
+- **Grafo global**: todas las notas y aristas resueltas por wiki-links; nodos de **etiquetas** opcionales y aristas nota→etiqueta
 - **Grafo local**: nota actual y vecinos a N saltos
 - Simulación de fuerzas en **Canvas JavaFX** (repulsión Barnes–Hut, muelles, enfriamiento de alpha — en reposo no consume CPU)
 - Zoom/pan, arrastrar nodos, hover resalta vecinos, **clic en nota para abrirla**
@@ -165,12 +170,12 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 ### Bóveda, Git y adjuntos (modo filesystem)
 
-- Bóveda Markdown; PDF e imágenes con visores integrados
+- Bóveda Markdown con layout opcional por carpetas; los archivos no-`.md` (PDF, imágenes) se abren con visores integrados
 - **Git** si la bóveda es un repositorio: estado, preparar/despreparar, commit con mensaje y sincronización push/pull — todo en el **panel Git Sync** unificado (menú **Git**)
 
 ### Productividad
 
-- **Backlinks** en el panel derecho (enlaces entrantes)
+- **Backlinks** en el panel derecho (wiki-links entrantes y enlaces Markdown internos)
 - **Nota diaria** y **nueva nota desde plantilla** (`{{title}}`, `{{date}}`, …)
 - Exportación por nota y **exportación masiva** de la bóveda a HTML/PDF
 - Importar/exportar notas individuales
@@ -270,7 +275,13 @@ mvn -f jylos/pom.xml clean package -DskipTests
 
 ### 3) Ejecutar
 
-Usa un launcher (configura `--module-path` de JavaFX). Requiere el uber-JAR del paso 2:
+**Opción A — JBang (sin compilar):**
+
+```bash
+jbang jylos@RGiskard7/jylos
+```
+
+**Opción B — Launcher** (configura el `--module-path` de JavaFX; requiere el uber-JAR del paso 2):
 
 ```bash
 ./scripts/launch-jylos.sh

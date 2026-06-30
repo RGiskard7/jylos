@@ -524,8 +524,6 @@ public class EditorController {
             return;
         }
 
-        if (isModified && currentNote != null) handleSave();
-
         currentNote = (noteService != null)
                 ? noteService.getNoteById(note.getId()).orElse(note)
                 : note;

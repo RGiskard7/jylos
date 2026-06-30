@@ -19,6 +19,7 @@ Set JavaFX module-path and run from `jylos/` (so `data/`, `logs/`, `plugins/` re
 ## Alternatives
 
 ```bash
+jbang jylos@RGiskard7/jylos
 ./scripts/run_all.sh
 mvn -f jylos/pom.xml javafx:run
 mvn -f jylos/pom.xml exec:java -Dexec.mainClass="com.example.jylos.Launcher"
