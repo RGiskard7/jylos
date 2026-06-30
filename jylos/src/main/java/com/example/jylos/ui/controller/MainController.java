@@ -476,7 +476,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private void initializeDatabase() {
         try {
 
-            Preferences prefs = Preferences.userNodeForPackage(MainController.class);
             String storageType = prefs.get("storage_type", System.getProperty("jylos.storage", "sqlite"));
 
             FactoryDAO factory;
@@ -2058,13 +2057,13 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             }
 
             Note note = creation.note();
-            notesListView.getItems().add(0, note);
-            notesListView.getSelectionModel().select(note);
             loadNoteInEditor(note);
             if (eventBus != null) {
                 eventBus.publish(new NoteEvents.NoteCreatedEvent(note));
             }
-
+            if (notesListController != null) {
+                notesListController.requestSelectAfterRefresh(note.getId());
+            }
             refreshNotesList();
             if (sidebarController != null) {
                 sidebarController.loadRecentNotes();
@@ -2179,11 +2178,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             return;
         }
         Note note = creation.note();
-        notesListView.getItems().add(0, note);
-        notesListView.getSelectionModel().select(note);
         loadNoteInEditor(note);
         if (eventBus != null) {
             eventBus.publish(new NoteEvents.NoteCreatedEvent(note));
+        }
+        if (notesListController != null) {
+            notesListController.requestSelectAfterRefresh(note.getId());
         }
         refreshNotesList();
         if (sidebarController != null) {

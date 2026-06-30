@@ -75,6 +75,8 @@ public class NotesListController {
     private Tag currentTag;
     /** Guards the selection listener while a refresh restores the prior note selection. */
     private boolean restoringNotesSelection = false;
+    /** Note ID to select after the next async list refresh; consumed once. */
+    private volatile String pendingSelectNoteId = null;
     private final ExecutorService notesLoadExecutor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "jylos-notes-loader");
         t.setDaemon(true);
@@ -913,21 +915,34 @@ public class NotesListController {
     }
 
     /**
+     * Requests that the note with the given ID be selected after the next async refresh.
+     * Consumed once by {@link #applyNotesPreservingSelection}.
+     */
+    void requestSelectAfterRefresh(String noteId) {
+        this.pendingSelectNoteId = noteId;
+    }
+
+    /**
      * Replaces the list items, preserving the selected note and scroll position when
      * that note is still present (a refresh of the same view). On navigation to a
      * different folder/tag the previous note is absent, so the selection simply clears.
      * Re-selection is guarded so it does not republish a note-open event.
      */
     private void applyNotesPreservingSelection(List<Note> notes) {
+        String pending = pendingSelectNoteId;
+        pendingSelectNoteId = null;
+
         Note selected = notesListView.getSelectionModel().getSelectedItem();
-        String selectedId = selected != null ? selected.getId() : null;
+        String targetId = pending != null ? pending
+                : (selected != null ? selected.getId() : null);
+
         notesListView.getItems().setAll(notes);
-        if (selectedId == null) {
+        if (targetId == null) {
             return;
         }
         for (int i = 0; i < notes.size(); i++) {
             Note n = notes.get(i);
-            if (n != null && selectedId.equals(n.getId())) {
+            if (n != null && targetId.equals(n.getId())) {
                 restoringNotesSelection = true;
                 try {
                     notesListView.getSelectionModel().select(i);

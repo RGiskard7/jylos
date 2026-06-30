@@ -193,9 +193,7 @@ public class SQLiteDB {
             checkAndInitTable(connection, "tagsNotes", "id", createTableTagsNotes);
 
             // Migrate existing databases: add necessary columns if they don't exist
-            Statement stmt = connection.createStatement();
-            try {
-                ResultSet rs = stmt.executeQuery("PRAGMA table_info(notes)");
+            try (Statement stmt = connection.createStatement()) {
                 boolean hasIsFavorite = false;
                 boolean hasIsPinned = false;
                 boolean hasIsDeleted = false;
@@ -203,22 +201,23 @@ public class SQLiteDB {
                 boolean hasStatus = false;
                 boolean hasPrivate = false;
 
-                while (rs.next()) {
-                    String columnName = rs.getString("name");
-                    if ("is_favorite".equals(columnName))
-                        hasIsFavorite = true;
-                    if ("is_pinned".equals(columnName))
-                        hasIsPinned = true;
-                    if ("is_deleted".equals(columnName))
-                        hasIsDeleted = true;
-                    if ("deleted_date".equals(columnName))
-                        hasDeletedDate = true;
-                    if ("status".equals(columnName))
-                        hasStatus = true;
-                    if ("is_private".equals(columnName))
-                        hasPrivate = true;
+                try (ResultSet rs = stmt.executeQuery("PRAGMA table_info(notes)")) {
+                    while (rs.next()) {
+                        String columnName = rs.getString("name");
+                        if ("is_favorite".equals(columnName))
+                            hasIsFavorite = true;
+                        if ("is_pinned".equals(columnName))
+                            hasIsPinned = true;
+                        if ("is_deleted".equals(columnName))
+                            hasIsDeleted = true;
+                        if ("deleted_date".equals(columnName))
+                            hasDeletedDate = true;
+                        if ("status".equals(columnName))
+                            hasStatus = true;
+                        if ("is_private".equals(columnName))
+                            hasPrivate = true;
+                    }
                 }
-                rs.close();
 
                 if (!hasIsFavorite) {
                     logger.info("Adding is_favorite column to notes table...");
@@ -249,17 +248,17 @@ public class SQLiteDB {
                 }
 
                 // Check 'folders' table
-                rs = stmt.executeQuery("PRAGMA table_info(folders)");
                 boolean hasFolderIsDeleted = false;
                 boolean hasFolderDeletedDate = false;
-                while (rs.next()) {
-                    String columnName = rs.getString("name");
-                    if ("is_deleted".equals(columnName))
-                        hasFolderIsDeleted = true;
-                    if ("deleted_date".equals(columnName))
-                        hasFolderDeletedDate = true;
+                try (ResultSet rs = stmt.executeQuery("PRAGMA table_info(folders)")) {
+                    while (rs.next()) {
+                        String columnName = rs.getString("name");
+                        if ("is_deleted".equals(columnName))
+                            hasFolderIsDeleted = true;
+                        if ("deleted_date".equals(columnName))
+                            hasFolderDeletedDate = true;
+                    }
                 }
-                rs.close();
 
                 if (!hasFolderIsDeleted) {
                     logger.info("Adding is_deleted column to folders table...");
@@ -271,8 +270,6 @@ public class SQLiteDB {
                 }
             } catch (SQLException e) {
                 logger.warning("Could not check/add columns to tables: " + e.getMessage());
-            } finally {
-                stmt.close();
             }
 
             createPerformanceIndexes(connection);
@@ -302,51 +299,51 @@ public class SQLiteDB {
      */
     private void checkAndInitTable(Connection connection, String tableName, String pkColumn, String createSql)
             throws SQLException {
-        Statement stmt = connection.createStatement();
-        ResultSet rs = stmt.executeQuery("PRAGMA table_info(" + tableName + ")");
-        boolean tableExists = false;
-        boolean needsMigration = false;
+        try (Statement stmt = connection.createStatement()) {
+            boolean tableExists = false;
+            boolean needsMigration = false;
 
-        while (rs.next()) {
-            tableExists = true;
-            if (pkColumn.equals(rs.getString("name"))) {
-                String type = rs.getString("type");
-                if ("INTEGER".equalsIgnoreCase(type)) {
-                    needsMigration = true;
-                }
-                break;
-            }
-        }
-        rs.close();
-
-        if (!tableExists) {
-            stmt.executeUpdate(createSql);
-            logger.info("Created table: " + tableName);
-        } else if (needsMigration) {
-            logger.info("Migrating table " + tableName + " to use TEXT IDs...");
-            stmt.executeUpdate("ALTER TABLE " + tableName + " RENAME TO " + tableName + "_old");
-            stmt.executeUpdate(createSql);
-
-            // Dynamically build INSERT to match columns (Fix for column mismatch during
-            // migration)
-            java.util.List<String> columns = new java.util.ArrayList<>();
-            try (ResultSet rsOld = stmt.executeQuery("PRAGMA table_info(" + tableName + "_old)")) {
-                while (rsOld.next()) {
-                    columns.add(rsOld.getString("name"));
+            try (ResultSet rs = stmt.executeQuery("PRAGMA table_info(" + tableName + ")")) {
+                while (rs.next()) {
+                    tableExists = true;
+                    if (pkColumn.equals(rs.getString("name"))) {
+                        String type = rs.getString("type");
+                        if ("INTEGER".equalsIgnoreCase(type)) {
+                            needsMigration = true;
+                        }
+                        break;
+                    }
                 }
             }
 
-            if (!columns.isEmpty()) {
-                String cols = String.join(", ", columns);
-                String insertSql = "INSERT INTO " + tableName + " (" + cols + ") SELECT " + cols + " FROM " + tableName
-                        + "_old";
-                stmt.executeUpdate(insertSql);
-            }
+            if (!tableExists) {
+                stmt.executeUpdate(createSql);
+                logger.info("Created table: " + tableName);
+            } else if (needsMigration) {
+                logger.info("Migrating table " + tableName + " to use TEXT IDs...");
+                stmt.executeUpdate("ALTER TABLE " + tableName + " RENAME TO " + tableName + "_old");
+                stmt.executeUpdate(createSql);
 
-            stmt.executeUpdate("DROP TABLE " + tableName + "_old");
-            logger.info("Migration complete for table: " + tableName);
+                // Dynamically build INSERT to match columns (Fix for column mismatch during
+                // migration)
+                java.util.List<String> columns = new java.util.ArrayList<>();
+                try (ResultSet rsOld = stmt.executeQuery("PRAGMA table_info(" + tableName + "_old)")) {
+                    while (rsOld.next()) {
+                        columns.add(rsOld.getString("name"));
+                    }
+                }
+
+                if (!columns.isEmpty()) {
+                    String cols = String.join(", ", columns);
+                    String insertSql = "INSERT INTO " + tableName + " (" + cols + ") SELECT " + cols + " FROM "
+                            + tableName + "_old";
+                    stmt.executeUpdate(insertSql);
+                }
+
+                stmt.executeUpdate("DROP TABLE " + tableName + "_old");
+                logger.info("Migration complete for table: " + tableName);
+            }
         }
-        stmt.close();
     }
 
     private void createPerformanceIndexes(Connection connection) throws SQLException {

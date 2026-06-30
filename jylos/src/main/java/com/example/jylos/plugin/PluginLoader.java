@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.example.jylos.AppDataDirectory;
@@ -125,16 +126,15 @@ public class PluginLoader {
                                     failures.add("Could not load plugin from " + jarPath.getFileName());
                                 }
                             } catch (Exception e) {
-                                String message = "Failed to load plugin from " + jarPath.getFileName() + ": "
-                                        + e.getMessage();
-                                logger.warning(message);
-                                failures.add(message);
+                                String message = "Failed to load plugin from " + jarPath.getFileName();
+                                logger.log(Level.WARNING, message, e);
+                                failures.add(message + ": " + e.getMessage());
                             }
                         });
             } catch (IOException e) {
-                String message = "Failed to scan plugins directory " + pluginsPath + ": " + e.getMessage();
-                logger.warning(message);
-                failures.add(message);
+                String message = "Failed to scan plugins directory " + pluginsPath;
+                logger.log(Level.WARNING, message, e);
+                failures.add(message + ": " + e.getMessage());
             }
         }
 
@@ -342,7 +342,7 @@ public class PluginLoader {
             // JVM throws UnsupportedClassVersionError, and missing transitive classes
             // throw NoClassDefFoundError — both are Errors. One bad jar must never
             // abort plugin loading or crash startup.
-            logger.warning("Error loading plugin from " + jarPath.getFileName() + ": " + t);
+            logger.log(Level.WARNING, "Error loading plugin from " + jarPath.getFileName(), t);
             return null;
         }
     }

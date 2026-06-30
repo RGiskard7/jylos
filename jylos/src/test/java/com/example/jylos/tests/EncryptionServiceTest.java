@@ -8,9 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.prefs.Preferences;
 
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -20,64 +18,26 @@ import com.example.jylos.service.EncryptionService;
  * Private notes are encrypted with a master-password-derived AES key. These tests
  * cover the configure/unlock/lock lifecycle and the encrypt/decrypt round-trip.
  *
- * <p><b>Important:</b> {@link EncryptionService} is a singleton that persists its salt
- * and verifier in {@code Preferences.userNodeForPackage(EncryptionService.class)} — the
- * <em>same</em> node the running app uses. These tests therefore back up the real values
- * once before the class and restore them after, so running the suite never destroys a
- * user's actual master-password configuration.</p>
+ * <p>Each test runs against a fresh {@link EncryptionService} instance backed by a
+ * temporary {@link Preferences} node that is removed after the test. The real
+ * application preferences are never touched.</p>
  */
 class EncryptionServiceTest {
 
-    private static final String SALT = "enc.salt";
-    private static final String VERIFIER = "enc.verifier";
-
-    private static String savedSalt;
-    private static String savedVerifier;
-
+    private Preferences testPrefs;
     private EncryptionService enc;
-
-    @BeforeAll
-    static void backupRealConfig() {
-        Preferences p = Preferences.userNodeForPackage(EncryptionService.class);
-        savedSalt = p.get(SALT, null);
-        savedVerifier = p.get(VERIFIER, null);
-    }
-
-    @AfterAll
-    static void restoreRealConfig() throws Exception {
-        EncryptionService.getInstance().lock();
-        Preferences p = Preferences.userNodeForPackage(EncryptionService.class);
-        putOrRemove(p, SALT, savedSalt);
-        putOrRemove(p, VERIFIER, savedVerifier);
-        p.flush();
-    }
-
-    private static void putOrRemove(Preferences p, String key, String value) {
-        if (value != null) {
-            p.put(key, value);
-        } else {
-            p.remove(key);
-        }
-    }
 
     @BeforeEach
     void setUp() throws Exception {
-        clearPrefs();
-        enc = EncryptionService.getInstance();
-        enc.lock();
+        testPrefs = Preferences.userRoot().node("com/example/jylos/enc-test/" + System.nanoTime());
+        enc = EncryptionService.createForTesting(testPrefs);
     }
 
     @AfterEach
     void tearDown() throws Exception {
         enc.lock();
-        clearPrefs();
-    }
-
-    private void clearPrefs() throws Exception {
-        Preferences p = Preferences.userNodeForPackage(EncryptionService.class);
-        p.remove(SALT);
-        p.remove(VERIFIER);
-        p.flush();
+        testPrefs.removeNode();
+        testPrefs.flush();
     }
 
     @Test

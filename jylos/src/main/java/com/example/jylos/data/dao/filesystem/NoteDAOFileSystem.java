@@ -940,7 +940,8 @@ public class NoteDAOFileSystem implements NoteDAO {
 
     /** Replaces characters that are illegal in filenames with underscores while preserving Unicode letters and digits. */
     private String sanitizeFilename(String title) {
-        return title.replaceAll("[^\\p{L}\\p{N}\\.\\-_ ]", "_");
+        String sanitized = title.replaceAll("[^\\p{L}\\p{N}\\.\\-_ ]", "_").trim();
+        return sanitized.isBlank() ? "note" : sanitized;
     }
 
     /** Normalizes a note ID to use forward slashes and returns an empty string for null input. */
