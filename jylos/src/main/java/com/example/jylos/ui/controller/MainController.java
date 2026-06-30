@@ -673,13 +673,13 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                     "Tools",
                     this::showPluginManager));
 
-            pluginLifecycle.subscribePluginUiEvents(
+            uiEventSubscriptions.add(pluginLifecycle.subscribePluginUiEvents(
                     eventBus,
                     () -> Platform.runLater(() -> {
                         sidebarController.loadRecentNotes();
                         sidebarController.loadTags();
                         sidebarController.loadFavorites();
-                    }));
+                    })));
 
             if (!pluginLoadResult.loadFailures().isEmpty()) {
                 for (String failure : pluginLoadResult.loadFailures()) {

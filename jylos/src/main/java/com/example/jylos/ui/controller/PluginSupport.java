@@ -58,12 +58,12 @@ class PluginLifecycle {
         return new LoadResult(registeredCount, pluginLoadReport.getFailures());
     }
 
-    void subscribePluginUiEvents(EventBus eventBus, Runnable refreshListsAction) {
+    EventBus.Subscription subscribePluginUiEvents(EventBus eventBus, Runnable refreshListsAction) {
         if (eventBus == null) {
-            return;
+            return EventBus.Subscription.NO_OP;
         }
 
-        eventBus.subscribe(NoteEvents.NotesRefreshRequestedEvent.class, event -> {
+        return eventBus.subscribe(NoteEvents.NotesRefreshRequestedEvent.class, event -> {
             if (refreshListsAction != null) {
                 refreshListsAction.run();
             }

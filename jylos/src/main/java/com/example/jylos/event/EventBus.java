@@ -193,12 +193,13 @@ public class EventBus {
 
             @Override
             public boolean isCancelled() {
+                // NO_OP is a null-object: its cancel/isCancelled state is permanently inert.
                 return false;
             }
         };
 
         private final Runnable unsubscribe;
-        private boolean cancelled = false;
+        private volatile boolean cancelled = false;
         
         Subscription(Runnable unsubscribe) {
             this.unsubscribe = unsubscribe;

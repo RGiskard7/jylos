@@ -28,6 +28,9 @@ final class BacklinksSupport {
     private Function<String, String> i18n;
     private Consumer<Note> openNote;
 
+    /** Guards against stale results: a task completing after a newer one replaces it. */
+    private volatile Task<List<Note>> currentTask;
+
     void wire(VBox backlinksContent, BacklinkService backlinkService, NoteService noteService,
             Function<String, String> i18n, Consumer<Note> openNote) {
         this.backlinksContent = backlinksContent;
@@ -46,14 +49,29 @@ final class BacklinksSupport {
             backlinksContent.getChildren().clear();
             return;
         }
+        Task<List<Note>> prev = currentTask;
+        if (prev != null) {
+            prev.cancel();
+        }
+
         Task<List<Note>> task = new Task<>() {
             @Override
             protected List<Note> call() {
                 return backlinkService.backlinksFor(note);
             }
         };
-        task.setOnSucceeded(e -> render(task.getValue()));
-        task.setOnFailed(e -> backlinksContent.getChildren().clear());
+        task.setOnSucceeded(e -> {
+            // Discard result if a newer task already started (guard against TOCTOU).
+            if (currentTask == task) {
+                render(task.getValue());
+            }
+        });
+        task.setOnFailed(e -> {
+            if (currentTask == task) {
+                backlinksContent.getChildren().clear();
+            }
+        });
+        currentTask = task;
         Thread thread = new Thread(task, "backlinks");
         thread.setDaemon(true);
         thread.start();
