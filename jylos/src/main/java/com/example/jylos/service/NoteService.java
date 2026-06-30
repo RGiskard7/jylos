@@ -10,7 +10,6 @@ import java.util.stream.Collectors;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
-import com.example.jylos.data.dao.interfaces.TagDAO;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
@@ -74,12 +73,11 @@ public class NoteService {
 
     /**
      * Creates a new NoteService with the required DAOs.
-     * 
+     *
      * @param noteDAO   Data access object for notes
      * @param folderDAO Data access object for folders
-     * @param tagDAO    Data access object for tags
      */
-    public NoteService(NoteDAO noteDAO, FolderDAO folderDAO, TagDAO tagDAO) {
+    public NoteService(NoteDAO noteDAO, FolderDAO folderDAO) {
         this.noteDAO = noteDAO;
         this.folderDAO = folderDAO;
 
@@ -90,14 +88,7 @@ public class NoteService {
 
     /**
      * Creates a new note with the given title and content.
-     * 
-     * @param title   The note title
-     * @param content The note content (Markdown)
-     * @return The created note with its generated ID
-     */
-    /**
-     * Creates a new note with the given title and content.
-     * 
+     *
      * @param title   The note title
      * @param content The note content (Markdown)
      * @return The created note with its generated ID

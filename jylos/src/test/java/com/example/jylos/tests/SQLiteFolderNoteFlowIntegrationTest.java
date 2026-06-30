@@ -32,7 +32,7 @@ class SQLiteFolderNoteFlowIntegrationTest {
             NoteDAOSQLite noteDAO = new NoteDAOSQLite(connection);
             TagDAOSQLite tagDAO = new TagDAOSQLite(connection);
             FolderService folderService = new FolderService(folderDAO, noteDAO);
-            NoteService noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+            NoteService noteService = new NoteService(noteDAO, folderDAO);
 
             Folder folder = folderService.createFolder("Inbox");
             assertEquals(0, noteService.getNotesByFolder(folder).size(),

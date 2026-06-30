@@ -16,7 +16,7 @@ public class FactoryDAOSQLite extends FactoryDAO {
     /**
      * Database connection to SQLite.
      */
-	private Connection connection;
+	private final Connection connection;
 	
     /**
      * Constructor for FactoryDAOSQLite.

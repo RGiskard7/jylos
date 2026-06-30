@@ -670,6 +670,12 @@ public class SidebarController {
         }));
     }
 
+    public void teardown() {
+        eventSubscriptions.forEach(EventBus.Subscription::cancel);
+        eventSubscriptions.clear();
+        sidebarLoadExecutor.shutdownNow();
+    }
+
     private void setupFilteredList(ListView<String> listView, javafx.collections.ObservableList<String> masterList,
             TextField filterField) {
         javafx.collections.transformation.FilteredList<String> filteredList = new javafx.collections.transformation.FilteredList<>(

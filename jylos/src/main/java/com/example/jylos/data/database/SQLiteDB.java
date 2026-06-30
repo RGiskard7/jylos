@@ -21,7 +21,7 @@ public class SQLiteDB {
 
     private static final Logger logger = LoggerConfig.getLogger(SQLiteDB.class);
     private String databaseUrl;
-    private static SQLiteDB instance = null;
+    private static volatile SQLiteDB instance = null;
 
     // SQL statements for creating tables
     // Updated to use TEXT PRIMARY KEY for UUID support
@@ -128,7 +128,7 @@ public class SQLiteDB {
      * @return The singleton instance.
      * @throws IllegalStateException if the instance has not been configured.
      */
-    public static SQLiteDB getInstance() {
+    public static synchronized SQLiteDB getInstance() {
         if (instance == null) {
             throw new IllegalStateException("Instance not yet configured. Call configure() first.");
         }

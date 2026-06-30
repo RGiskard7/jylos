@@ -629,6 +629,7 @@ public class NotesListController {
     public void teardown() {
         subscriptions.forEach(EventBus.Subscription::cancel);
         subscriptions.clear();
+        notesLoadExecutor.shutdownNow();
     }
 
     public void setServices(NoteService noteService, TagService tagService, FolderService folderService) {

@@ -503,7 +503,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             noteDAO = factory.getNoteDAO();
             tagDAO = factory.getLabelDAO();
             noteOperations = new NoteOperations();
-            noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+            noteService = new NoteService(noteDAO, folderDAO);
             noteService.setHistoryService(new com.example.jylos.service.NoteHistoryService(
                     java.nio.file.Path.of(com.example.jylos.AppDataDirectory.getBaseDirectory(), "history")));
             backlinkService = new com.example.jylos.service.BacklinkService(noteService);
@@ -2365,6 +2365,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             }
             if (notesListController != null) {
                 notesListController.teardown();
+            }
+            if (sidebarController != null) {
+                sidebarController.teardown();
             }
             if (backlinkService != null) {
                 backlinkService.shutdown();

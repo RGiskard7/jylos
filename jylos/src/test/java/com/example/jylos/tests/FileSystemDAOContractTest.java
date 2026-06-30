@@ -100,7 +100,7 @@ class FileSystemDAOContractTest {
     @Test
     void restoreFolderWithNestedNotesShouldRecoverNotesInSubfolders() {
         FolderService folderService = new FolderService(folderDAO, noteDAO);
-        NoteService noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+        NoteService noteService = new NoteService(noteDAO, folderDAO);
 
         Folder parent = folderService.createFolder("Project");
         Folder child = folderService.createSubfolder("Docs", parent);
@@ -123,7 +123,7 @@ class FileSystemDAOContractTest {
     @Test
     void createNoteInEmptyFolderShouldBeVisibleImmediatelyForCountQueries() {
         FolderService folderService = new FolderService(folderDAO, noteDAO);
-        NoteService noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+        NoteService noteService = new NoteService(noteDAO, folderDAO);
 
         Folder folder = folderService.createFolder("Inbox");
         assertEquals(0, noteService.getNotesByFolder(folder).size(),
@@ -180,7 +180,7 @@ class FileSystemDAOContractTest {
     @Test
     void restoreNoteShouldSupportMixedPathSeparatorsInTrashId() {
         FolderService folderService = new FolderService(folderDAO, noteDAO);
-        NoteService noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+        NoteService noteService = new NoteService(noteDAO, folderDAO);
 
         Folder project = folderService.createFolder("Project");
         Folder docs = folderService.createSubfolder("Docs", project);
@@ -202,7 +202,7 @@ class FileSystemDAOContractTest {
     @Test
     void deleteNoteShouldSupportMixedPathSeparatorsInId() {
         FolderService folderService = new FolderService(folderDAO, noteDAO);
-        NoteService noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+        NoteService noteService = new NoteService(noteDAO, folderDAO);
 
         Folder project = folderService.createFolder("Project");
         Folder docs = folderService.createSubfolder("Docs", project);
@@ -223,7 +223,7 @@ class FileSystemDAOContractTest {
     @Test
     void permanentlyDeleteNoteShouldSupportMixedPathSeparatorsInTrashId() {
         FolderService folderService = new FolderService(folderDAO, noteDAO);
-        NoteService noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+        NoteService noteService = new NoteService(noteDAO, folderDAO);
 
         Folder project = folderService.createFolder("Project");
         Folder docs = folderService.createSubfolder("Docs", project);
@@ -243,7 +243,7 @@ class FileSystemDAOContractTest {
     @Test
     void restoreNoteWithNameConflictShouldKeepBothNotes() {
         FolderService folderService = new FolderService(folderDAO, noteDAO);
-        NoteService noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+        NoteService noteService = new NoteService(noteDAO, folderDAO);
 
         Folder project = folderService.createFolder("Project");
         Folder docs = folderService.createSubfolder("Docs", project);
@@ -269,7 +269,7 @@ class FileSystemDAOContractTest {
     @Test
     void createNoteShouldResolveSuggestedFolderIdWithBackslashes() {
         FolderService folderService = new FolderService(folderDAO, noteDAO);
-        NoteService noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+        NoteService noteService = new NoteService(noteDAO, folderDAO);
 
         Folder project = folderService.createFolder("Project");
         Folder docs = folderService.createSubfolder("Docs", project);
@@ -287,7 +287,7 @@ class FileSystemDAOContractTest {
     @Test
     void updateAndGetNoteByIdShouldSupportMixedSeparators() {
         FolderService folderService = new FolderService(folderDAO, noteDAO);
-        NoteService noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+        NoteService noteService = new NoteService(noteDAO, folderDAO);
 
         Folder project = folderService.createFolder("Project");
         Folder docs = folderService.createSubfolder("Docs", project);
@@ -328,7 +328,7 @@ class FileSystemDAOContractTest {
     @Test
     void getFolderByNoteIdShouldSupportMixedSeparators() {
         FolderService folderService = new FolderService(folderDAO, noteDAO);
-        NoteService noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+        NoteService noteService = new NoteService(noteDAO, folderDAO);
 
         Folder project = folderService.createFolder("Project");
         Folder docs = folderService.createSubfolder("Docs", project);
@@ -345,7 +345,7 @@ class FileSystemDAOContractTest {
     @Test
     void renameNoteShouldNotLeaveStaleCacheEntries() {
         FolderService folderService = new FolderService(folderDAO, noteDAO);
-        NoteService noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+        NoteService noteService = new NoteService(noteDAO, folderDAO);
 
         Folder project = folderService.createFolder("Project");
         Folder docs = folderService.createSubfolder("Docs", project);
@@ -387,7 +387,7 @@ class FileSystemDAOContractTest {
 
     @Test
     void folderAndTagListingsNeverExposeEncryptedBodies() {
-        NoteService noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+        NoteService noteService = new NoteService(noteDAO, folderDAO);
         Folder folder = new Folder("Private");
         folderDAO.createFolder(folder);
 
