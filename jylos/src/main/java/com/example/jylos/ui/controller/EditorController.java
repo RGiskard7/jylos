@@ -175,22 +175,22 @@ public class EditorController {
     // Setters
     // ============================================================
 
-    public void setEventBus(EventBus eventBus) {
+    private void setEventBus(EventBus eventBus) {
         subscriptions.forEach(EventBus.Subscription::cancel);
         subscriptions.clear();
         this.eventBus = eventBus;
         subscribeToEvents();
     }
 
-    public void setNoteDAO(NoteDAO noteDAO) {
+    private void setNoteDAO(NoteDAO noteDAO) {
         this.noteDAO = noteDAO;
     }
 
-    public void setServices(NoteService noteService) {
+    private void setServices(NoteService noteService) {
         this.noteService = noteService;
     }
 
-    public void setBundle(ResourceBundle bundle) {
+    private void setBundle(ResourceBundle bundle) {
         this.bundle = bundle;
     }
 

@@ -80,7 +80,7 @@ public class ToolbarController {
     @FXML
     private MenuItem toggleNotesListMenuItem;
 
-    public void setEventBus(EventBus eventBus) {
+    private void setEventBus(EventBus eventBus) {
         this.eventBus = eventBus;
     }
 

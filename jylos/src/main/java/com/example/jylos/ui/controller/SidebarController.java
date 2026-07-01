@@ -185,7 +185,7 @@ public class SidebarController {
         setEventBus(eventBus);
     }
 
-    public void setEventBus(EventBus eb) {
+    private void setEventBus(EventBus eb) {
         eventSubscriptions.forEach(EventBus.Subscription::cancel);
         eventSubscriptions.clear();
         this.eventBus = eb;
@@ -194,30 +194,30 @@ public class SidebarController {
         }
     }
 
-    public void setNoteService(NoteService ns) {
+    private void setNoteService(NoteService ns) {
         this.noteService = ns;
     }
 
-    public void setTagService(TagService ts) {
+    private void setTagService(TagService ts) {
         this.tagService = ts;
     }
 
-    public void setFolderService(FolderService fs) {
+    private void setFolderService(FolderService fs) {
         this.folderService = fs;
     }
 
-    public void setBundle(ResourceBundle b) {
+    private void setBundle(ResourceBundle b) {
         this.bundle = b;
         refreshLocalizedRootLabels();
         refreshLocalizedMenus();
         applySidebarTabPresentation();
     }
 
-    public void setFolderDAO(FolderDAO fd) {
+    private void setFolderDAO(FolderDAO fd) {
         this.folderDAO = fd;
     }
 
-    public void setNoteDAO(NoteDAO nd) {
+    private void setNoteDAO(NoteDAO nd) {
         this.noteDAO = nd;
     }
 

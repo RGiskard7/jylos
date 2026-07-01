@@ -81,6 +81,7 @@ public class GraphController {
 
     private final GraphCanvas canvas = new GraphCanvas();
 
+    private EventBus eventBus;
     private GraphBuilder graphBuilder;
     private TagService tagService;
 
@@ -96,7 +97,6 @@ public class GraphController {
 
     /** True while the graph overlay is on screen (drives live refresh on edits). */
     private boolean graphVisible = false;
-    private boolean dataEventsWired = false;
     private final List<EventBus.Subscription> subscriptions = new ArrayList<>();
 
     @FXML
@@ -174,19 +174,25 @@ public class GraphController {
     // Wiring from MainController
     // ------------------------------------------------------------------
 
-    public void wire(NoteService noteService, TagService tagService, ResourceBundle bundle,
+    public void wire(EventBus eventBus, NoteService noteService, TagService tagService, ResourceBundle bundle,
             Consumer<String> onOpenNote, Runnable onClose, Supplier<String> currentNoteIdSupplier) {
         setServices(noteService, tagService);
         setBundle(bundle);
         setOnOpenNote(onOpenNote);
         setOnClose(onClose);
         setCurrentNoteIdSupplier(currentNoteIdSupplier);
+        setEventBus(eventBus);
     }
 
-    public void setServices(NoteService noteService, TagService tagService) {
+    private void setEventBus(EventBus eventBus) {
+        this.eventBus = eventBus;
+        rewireDataEvents();
+    }
+
+    private void setServices(NoteService noteService, TagService tagService) {
         this.tagService = tagService;
         this.graphBuilder = new GraphBuilder(noteService, tagService);
-        wireDataEvents();
+        rewireDataEvents();
     }
 
     /**
@@ -194,18 +200,18 @@ public class GraphController {
      * graph refreshes live while it is on screen (perf P3 — only the changed note is
      * re-read on the next build, not the whole vault).
      */
-    private void wireDataEvents() {
-        if (dataEventsWired) {
+    private void rewireDataEvents() {
+        subscriptions.forEach(EventBus.Subscription::cancel);
+        subscriptions.clear();
+        if (eventBus == null || graphBuilder == null) {
             return;
         }
-        dataEventsWired = true;
-        EventBus bus = EventBus.getInstance();
-        subscriptions.add(bus.subscribe(NoteEvents.NoteSavedEvent.class, e -> onNoteChanged(idOf(e.getNote()))));
-        subscriptions.add(bus.subscribe(NoteEvents.NoteCreatedEvent.class, e -> onNoteChanged(idOf(e.getNote()))));
-        subscriptions.add(bus.subscribe(NoteEvents.NoteUpdatedEvent.class, e -> onNoteChanged(idOf(e.getNote()))));
-        subscriptions.add(bus.subscribe(NoteEvents.NoteDeletedEvent.class, e -> onNoteChanged(e.getNoteId())));
-        subscriptions.add(bus.subscribe(FolderEvents.FolderDeletedEvent.class, e -> onVaultChanged()));
-        subscriptions.add(bus.subscribe(NoteEvents.NotesRefreshRequestedEvent.class, e -> onVaultChanged()));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class, e -> onNoteChanged(idOf(e.getNote()))));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteCreatedEvent.class, e -> onNoteChanged(idOf(e.getNote()))));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteUpdatedEvent.class, e -> onNoteChanged(idOf(e.getNote()))));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteDeletedEvent.class, e -> onNoteChanged(e.getNoteId())));
+        subscriptions.add(eventBus.subscribe(FolderEvents.FolderDeletedEvent.class, e -> onVaultChanged()));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NotesRefreshRequestedEvent.class, e -> onVaultChanged()));
     }
 
     public void teardown() {
@@ -237,19 +243,19 @@ public class GraphController {
         return note != null ? note.getId() : null;
     }
 
-    public void setBundle(ResourceBundle bundle) {
+    private void setBundle(ResourceBundle bundle) {
         this.bundle = bundle;
     }
 
-    public void setOnOpenNote(Consumer<String> onOpenNote) {
+    private void setOnOpenNote(Consumer<String> onOpenNote) {
         this.onOpenNote = onOpenNote;
     }
 
-    public void setOnClose(Runnable onClose) {
+    private void setOnClose(Runnable onClose) {
         this.onClose = onClose;
     }
 
-    public void setCurrentNoteIdSupplier(Supplier<String> supplier) {
+    private void setCurrentNoteIdSupplier(Supplier<String> supplier) {
         if (supplier != null) {
             this.currentNoteIdSupplier = supplier;
         }

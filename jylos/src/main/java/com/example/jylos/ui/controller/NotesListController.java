@@ -600,7 +600,7 @@ public class NotesListController {
         return folder != null && "ALL_NOTES_VIRTUAL".equals(folder.getId());
     }
 
-    public void setEventBus(EventBus eventBus) {
+    private void setEventBus(EventBus eventBus) {
         subscriptions.forEach(EventBus.Subscription::cancel);
         subscriptions.clear();
         this.eventBus = eventBus;
@@ -641,7 +641,7 @@ public class NotesListController {
         notesLoadExecutor.shutdownNow();
     }
 
-    public void setServices(NoteService noteService, TagService tagService, FolderService folderService) {
+    private void setServices(NoteService noteService, TagService tagService, FolderService folderService) {
         this.noteService = noteService;
         this.tagService = tagService;
         this.folderService = folderService;
@@ -650,7 +650,7 @@ public class NotesListController {
                 : null;
     }
 
-    public void setBundle(ResourceBundle bundle) {
+    private void setBundle(ResourceBundle bundle) {
         this.bundle = bundle;
     }
 

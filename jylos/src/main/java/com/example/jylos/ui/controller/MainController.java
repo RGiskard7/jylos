@@ -387,7 +387,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             overlaySupport.wire(centerStack, graphView, graphViewController, noteService,
                     this::isDarkThemeActive, this::getString, this::updateStatus, this::handleUiNoteOpenRequest);
             if (graphViewController != null) {
-                graphViewController.wire(noteService, tagService, resources,
+                graphViewController.wire(eventBus, noteService, tagService, resources,
                         overlaySupport::openNoteFromGraph, overlaySupport::hideGraph,
                         () -> getCurrentNote() != null ? getCurrentNote().getId() : null);
             }

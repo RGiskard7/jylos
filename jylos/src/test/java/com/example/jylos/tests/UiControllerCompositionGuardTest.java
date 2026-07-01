@@ -17,6 +17,11 @@ class UiControllerCompositionGuardTest {
 
     private static final Path UI_CONTROLLER_DIR = Path.of("src/main/java/com/example/jylos/ui/controller");
     private static final Path MAIN_CONTROLLER = UI_CONTROLLER_DIR.resolve("MainController.java");
+    private static final Path GRAPH_CONTROLLER = UI_CONTROLLER_DIR.resolve("GraphController.java");
+    private static final Path SIDEBAR_CONTROLLER = UI_CONTROLLER_DIR.resolve("SidebarController.java");
+    private static final Path NOTES_LIST_CONTROLLER = UI_CONTROLLER_DIR.resolve("NotesListController.java");
+    private static final Path EDITOR_CONTROLLER = UI_CONTROLLER_DIR.resolve("EditorController.java");
+    private static final Path TOOLBAR_CONTROLLER = UI_CONTROLLER_DIR.resolve("ToolbarController.java");
     private static final Set<String> ALLOWED_SUFFIXES = Set.of(
             "Controller.java", "Support.java", "Store.java", "Catalog.java", "Operations.java", "package-info.java");
 
@@ -40,11 +45,59 @@ class UiControllerCompositionGuardTest {
         assertTrue(source.contains("sidebarController.wire("));
         assertTrue(source.contains("notesListController.wire("));
         assertTrue(source.contains("editorController.wire("));
-        assertTrue(source.contains("graphViewController.wire("));
+        assertTrue(source.contains("graphViewController.wire(eventBus,"));
 
         assertFalse(source.contains("sidebarController.setEventBus("));
         assertFalse(source.contains("notesListController.setEventBus("));
         assertFalse(source.contains("editorController.setEventBus("));
         assertFalse(source.contains("graphViewController.setServices("));
+    }
+
+    @Test
+    void primaryUiControllersShouldExposeWireAsTheirCompositionEntryPoint() throws IOException {
+        assertControllerAvoidsPublicCompositionSetters(SIDEBAR_CONTROLLER,
+                "public void setEventBus(",
+                "public void setNoteService(",
+                "public void setTagService(",
+                "public void setFolderService(",
+                "public void setFolderDAO(",
+                "public void setNoteDAO(",
+                "public void setBundle(");
+        assertControllerAvoidsPublicCompositionSetters(NOTES_LIST_CONTROLLER,
+                "public void setEventBus(",
+                "public void setServices(",
+                "public void setBundle(");
+        assertControllerAvoidsPublicCompositionSetters(EDITOR_CONTROLLER,
+                "public void setEventBus(",
+                "public void setNoteDAO(",
+                "public void setServices(",
+                "public void setBundle(");
+        assertControllerAvoidsPublicCompositionSetters(GRAPH_CONTROLLER,
+                "public void setServices(",
+                "public void setBundle(",
+                "public void setOnOpenNote(",
+                "public void setOnClose(",
+                "public void setCurrentNoteIdSupplier(");
+        assertControllerAvoidsPublicCompositionSetters(TOOLBAR_CONTROLLER,
+                "public void setEventBus(");
+    }
+
+    @Test
+    void graphControllerShouldNotReachForGlobalEventBus() throws IOException {
+        String source = Files.readString(GRAPH_CONTROLLER, StandardCharsets.UTF_8);
+        assertFalse(source.contains("EventBus.getInstance()"),
+                "GraphController should receive EventBus via composition, not global lookup.");
+    }
+
+    private static void assertControllerAvoidsPublicCompositionSetters(Path file, String... forbiddenSetters)
+            throws IOException {
+        String source = Files.readString(file, StandardCharsets.UTF_8);
+        assertTrue(source.contains("public void wire("),
+                "Primary UI controller should expose wire(...) for composition: " + file.getFileName());
+        for (String setter : forbiddenSetters) {
+            assertFalse(source.contains(setter),
+                    "Primary UI controller should not expose public composition setter " + setter + " in "
+                            + file.getFileName());
+        }
     }
 }
