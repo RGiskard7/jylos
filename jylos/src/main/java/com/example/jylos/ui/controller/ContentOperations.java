@@ -3,11 +3,12 @@ package com.example.jylos.ui.controller;
 import java.io.File;
 import java.util.logging.Logger;
 
-import com.example.jylos.config.AppContext;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
+import com.example.jylos.service.FolderService;
+import com.example.jylos.service.NoteService;
 
 /**
  * Folder creation logic, free of controller/UI state.
@@ -60,14 +61,21 @@ class FolderOperations {
 /**
  * Note creation logic, free of controller/UI state.
  *
- * <p>Pulls the note/folder services from {@link AppContext}; the controller only
- * supplies the desired title and target folder and reacts to the returned result.</p>
+ * <p>Uses explicit note/folder services supplied at composition time; the controller
+ * only supplies the desired title and target folder and reacts to the returned result.</p>
  */
 class NoteOperations {
 
     private static final Logger logger = LoggerConfig.getLogger(NoteOperations.class);
     private static final String ROOT_ID = "ROOT";
     private static final String ALL_NOTES_VIRTUAL_ID = "ALL_NOTES_VIRTUAL";
+    private final NoteService noteService;
+    private final FolderService folderService;
+
+    NoteOperations(NoteService noteService, FolderService folderService) {
+        this.noteService = noteService;
+        this.folderService = folderService;
+    }
 
     record NoteCreationResult(boolean success, Note note, String errorMessage) {
     }
@@ -78,6 +86,9 @@ class NoteOperations {
 
     /** Creates a note with initial {@code content} (used by daily notes and templates). */
     NoteCreationResult createNewNote(String title, String content, Folder currentFolder, boolean isFileSystem) {
+        if (noteService == null) {
+            return new NoteCreationResult(false, null, "NoteService is null");
+        }
         try {
             String safeTitle = (title == null || title.isBlank()) ? "New Note" : title.trim();
             Note newNote = new Note(safeTitle, content != null ? content : "");
@@ -93,14 +104,17 @@ class NoteOperations {
                 newNote.setId(folderPath + File.separator + sanitizedTitle);
             }
 
-            Note createdNote = AppContext.getNoteService().createNote(newNote);
+            Note createdNote = noteService.createNote(newNote);
             if (createdNote == null || createdNote.getId() == null || createdNote.getId().isBlank()) {
                 return new NoteCreationResult(false, null, "Created note has null/blank ID");
             }
 
             newNote.setId(createdNote.getId());
             if (isConcreteFolder(currentFolder)) {
-                AppContext.getFolderService().addNoteToFolder(currentFolder, newNote);
+                if (folderService == null) {
+                    return new NoteCreationResult(false, null, "FolderService is null");
+                }
+                folderService.addNoteToFolder(currentFolder, newNote);
             }
 
             return new NoteCreationResult(true, newNote, null);

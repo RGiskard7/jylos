@@ -5,8 +5,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import com.example.jylos.data.models.Note;
-import com.example.jylos.event.EventBus;
-import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.ui.components.KanbanBoard;
 
@@ -21,8 +19,8 @@ import javafx.scene.layout.VBox;
  * {@code MainController}.
  *
  * <p>The graph FXML controller's {@code onClose}/{@code onOpenNote} callbacks are
- * pointed here, and node-open requests are published on the {@link EventBus} (the app
- * resolves and loads them), keeping {@code MainController} the single source of truth
+ * pointed here, and note-open requests are delegated back to the owning shell
+ * controller via a callback, keeping {@code MainController} the single source of truth
  * for what's loaded in the editor.</p>
  *
  * @author Edu Díaz (RGiskard7)
@@ -37,13 +35,14 @@ final class OverlaySupport {
     private Supplier<Boolean> darkTheme;
     private Function<String, String> i18n;
     private Consumer<String> status;
+    private Consumer<Note> openNote;
 
     /** Lazy-created Kanban board overlay, added to {@link #centerStack} on first use. */
     private KanbanBoard kanbanBoard;
 
     void wire(StackPane centerStack, VBox graphView, GraphController graphViewController,
             NoteService noteService, Supplier<Boolean> darkTheme, Function<String, String> i18n,
-            Consumer<String> status) {
+            Consumer<String> status, Consumer<Note> openNote) {
         this.centerStack = centerStack;
         this.graphView = graphView;
         this.graphViewController = graphViewController;
@@ -51,6 +50,7 @@ final class OverlaySupport {
         this.darkTheme = darkTheme;
         this.i18n = i18n;
         this.status = status;
+        this.openNote = openNote;
         setGraphVisible(false);
     }
 
@@ -157,7 +157,9 @@ final class OverlaySupport {
     // ------------------------------------------------------------------
 
     private void publishOpen(Note note) {
-        EventBus.getInstance().publish(new NoteEvents.NoteOpenRequestEvent(note));
+        if (openNote != null && note != null) {
+            openNote.accept(note);
+        }
     }
 
     private boolean isDark() {

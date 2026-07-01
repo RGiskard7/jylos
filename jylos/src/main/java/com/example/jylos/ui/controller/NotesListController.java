@@ -3,7 +3,6 @@ package com.example.jylos.ui.controller;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
-import com.example.jylos.config.AppContext;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
@@ -602,9 +601,17 @@ public class NotesListController {
     }
 
     public void setEventBus(EventBus eventBus) {
-        this.eventBus = eventBus != null ? eventBus
-                : (AppContext.isInitialized() ? AppContext.getEventBus() : null);
+        subscriptions.forEach(EventBus.Subscription::cancel);
+        subscriptions.clear();
+        this.eventBus = eventBus;
         subscribeToEvents();
+    }
+
+    public void wire(EventBus eventBus, NoteService noteService, TagService tagService,
+            FolderService folderService, ResourceBundle bundle) {
+        setServices(noteService, tagService, folderService);
+        setBundle(bundle);
+        setEventBus(eventBus);
     }
 
     private void subscribeToEvents() {
@@ -635,19 +642,16 @@ public class NotesListController {
     }
 
     public void setServices(NoteService noteService, TagService tagService, FolderService folderService) {
-        this.noteService = noteService != null ? noteService
-                : (AppContext.isInitialized() ? AppContext.getNoteService() : null);
-        this.tagService = tagService != null ? tagService
-                : (AppContext.isInitialized() ? AppContext.getTagService() : null);
-        this.folderService = folderService != null ? folderService
-                : (AppContext.isInitialized() ? AppContext.getFolderService() : null);
+        this.noteService = noteService;
+        this.tagService = tagService;
+        this.folderService = folderService;
         this.advancedSearch = this.noteService != null && this.tagService != null
                 ? new com.example.jylos.search.AdvancedSearchService(this.noteService, this.tagService)
                 : null;
     }
 
     public void setBundle(ResourceBundle bundle) {
-        this.bundle = bundle != null ? bundle : AppContext.getBundle();
+        this.bundle = bundle;
     }
 
     public VBox getNotesPanel() {

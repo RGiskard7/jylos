@@ -1,6 +1,5 @@
 package com.example.jylos.ui.controller;
 
-import com.example.jylos.config.AppContext;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.event.events.UIEvents;
@@ -15,6 +14,10 @@ import javafx.scene.layout.HBox;
 public class ToolbarController {
 
     private EventBus eventBus;
+
+    public void wire(EventBus eventBus) {
+        setEventBus(eventBus);
+    }
 
     // FXML injected fields
     @FXML
@@ -78,8 +81,7 @@ public class ToolbarController {
     private MenuItem toggleNotesListMenuItem;
 
     public void setEventBus(EventBus eventBus) {
-        this.eventBus = eventBus != null ? eventBus
-                : (AppContext.isInitialized() ? AppContext.getEventBus() : null);
+        this.eventBus = eventBus;
     }
 
     public Menu getPluginsMenu() {

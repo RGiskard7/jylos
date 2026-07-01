@@ -259,7 +259,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     
     private final PluginLifecycle pluginLifecycle = new PluginLifecycle();
     private final CommandUI commandUI = new CommandUI();
-    private final DocumentIO documentIO = new DocumentIO();
+    private final DocumentSupport documentSupport = new DocumentSupport();
     private final UiEventSupport uiEventSupport = new UiEventSupport(this);
     private final UiInitialization uiInitialization = new UiInitialization(this);
     private final UiLayout uiLayout = new UiLayout();
@@ -267,7 +267,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private final FolderOperations folderOperations = new FolderOperations();
 
     private final NavigationCommand navigationCommand = new NavigationCommand(this);
-    private final UiDialog uiDialog = new UiDialog(this);
+    private final DialogSupport dialogSupport = new DialogSupport(this);
     private final ThemeCommand themeCommand = new ThemeCommand();
     private final ThemeCatalog themeCatalog = new ThemeCatalog();
     private final CssSnippetCatalog cssSnippetCatalog = new CssSnippetCatalog();
@@ -344,9 +344,13 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             navSplitPane.setOrientation(javafx.geometry.Orientation.VERTICAL);
 
             initializeDatabase();
+            navigationCommand.wire(noteService);
+            documentSupport.wire(noteService, folderService);
+            dialogSupport.wire(tagService);
+            tagManagement.wire(tagService, noteDAO);
 
             if (toolbarController != null) {
-                toolbarController.setEventBus(eventBus);
+                toolbarController.wire(eventBus);
             }
             initializeCommandRouting();
             initializeSystemActionHandlers();
@@ -356,29 +360,18 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 subscribeToUIEvents();
             }
             if (sidebarController != null) {
-                sidebarController.setEventBus(eventBus);
-                sidebarController.setNoteService(noteService);
-                sidebarController.setTagService(tagService);
-                sidebarController.setFolderService(folderService);
-                sidebarController.setFolderDAO(folderDAO);
-                sidebarController.setNoteDAO(noteDAO);
-                sidebarController.setBundle(resources);
+                sidebarController.wire(eventBus, noteService, tagService, folderService, folderDAO, noteDAO, resources);
             }
             if (notesListController != null) {
-                notesListController.setEventBus(eventBus);
-                notesListController.setServices(noteService, tagService, folderService);
-                notesListController.setBundle(resources);
+                notesListController.wire(eventBus, noteService, tagService, folderService, resources);
                 notesPanel = notesListController.getNotesPanel();
                 sortComboBox = notesListController.getSortComboBox();
                 notesListView = notesListController.getNotesListView();
             }
             if (editorController != null) {
-                editorController.setEventBus(eventBus);
-                editorController.setServices(noteService);
-                editorController.setNoteDAO(noteDAO);
-                editorController.setBundle(resources);
+                editorController.wire(eventBus, noteDAO, noteService, resources);
                 editorController.setWikiLinkHandler(title -> noteService.findNoteByTitle(title).ifPresentOrElse(
-                        note -> eventBus.publish(new NoteEvents.NoteOpenRequestEvent(note)),
+                        this::handleUiNoteOpenRequest,
                         () -> updateStatus("Note not found: " + title)));
                 editorController.initializeTagsBarCollapsed();
                 editorController.setEditorHooks(editorHooks);
@@ -392,13 +385,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                         this::getString);
             }
             overlaySupport.wire(centerStack, graphView, graphViewController, noteService,
-                    this::isDarkThemeActive, this::getString, this::updateStatus);
+                    this::isDarkThemeActive, this::getString, this::updateStatus, this::handleUiNoteOpenRequest);
             if (graphViewController != null) {
-                graphViewController.setServices(noteService, tagService);
-                graphViewController.setBundle(resources);
-                graphViewController.setOnClose(overlaySupport::hideGraph);
-                graphViewController.setOnOpenNote(overlaySupport::openNoteFromGraph);
-                graphViewController.setCurrentNoteIdSupplier(
+                graphViewController.wire(noteService, tagService, resources,
+                        overlaySupport::openNoteFromGraph, overlaySupport::hideGraph,
                         () -> getCurrentNote() != null ? getCurrentNote().getId() : null);
             }
 
@@ -501,13 +491,13 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             folderDAO = factory.getFolderDAO();
             noteDAO = factory.getNoteDAO();
             tagDAO = factory.getLabelDAO();
-            noteOperations = new NoteOperations();
             noteService = new NoteService(noteDAO, folderDAO);
             noteService.setHistoryService(new com.example.jylos.service.NoteHistoryService(
                     java.nio.file.Path.of(com.example.jylos.AppDataDirectory.getBaseDirectory(), "history")));
-            backlinkService = new com.example.jylos.service.BacklinkService(noteService);
             folderService = new FolderService(folderDAO, noteDAO);
             tagService = new TagService(tagDAO, noteDAO);
+            noteOperations = new NoteOperations(noteService, folderService);
+            backlinkService = new com.example.jylos.service.BacklinkService(noteService);
             eventBus = EventBus.getInstance();
 
             // Populate the application-wide service locator so that
@@ -2258,7 +2248,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
 
         boolean isFileSystem = !"sqlite".equals(prefs.get("storage_type", "sqlite"));
-        DocumentIO.ImportResult importResult = documentIO.importFiles(files, currentFolder, isFileSystem);
+        DocumentSupport.ImportResult importResult = documentSupport.importFiles(files, currentFolder, isFileSystem);
 
         refreshNotesList();
         if (sidebarController != null) {
@@ -2441,14 +2431,14 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                         continue; // never write private notes to an unprotected export folder
                     }
                     Note full = noteService.getNoteById(listNote.getId()).orElse(listNote);
-                    String base = documentIO.sanitizeFileName(
+                    String base = documentSupport.sanitizeFileName(
                             full.getTitle() != null && !full.getTitle().isBlank() ? full.getTitle() : "untitled");
                     String name = base;
                     int n = 1;
                     while (!used.add(name.toLowerCase(java.util.Locale.ROOT))) {
                         name = base + " (" + (++n) + ")";
                     }
-                    DocumentIO.ExportResult result = documentIO.exportNote(full, new File(dir, name + ext));
+                    DocumentSupport.ExportResult result = documentSupport.exportNote(full, new File(dir, name + ext));
                     if (result.success()) {
                         ok++;
                     } else {
@@ -2515,7 +2505,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle(getString("dialog.export.save_title"));
-        fileChooser.setInitialFileName(documentIO.sanitizeFileName(currentNote.getTitle()));
+        fileChooser.setInitialFileName(documentSupport.sanitizeFileName(currentNote.getTitle()));
         fileChooser.getExtensionFilters().addAll(
                 new FileChooser.ExtensionFilter(getString("file_filter.markdown"), "*.md"),
                 new FileChooser.ExtensionFilter(getString("file_filter.pdf"), "*.pdf"),
@@ -2528,7 +2518,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             return;
         }
 
-        DocumentIO.ExportResult exportResult = documentIO.exportNote(currentNote, file);
+        DocumentSupport.ExportResult exportResult = documentSupport.exportNote(currentNote, file);
         if (exportResult.success()) {
             updateStatus(java.text.MessageFormat.format(getString("status.exported"), file.getName()));
             showAlert(Alert.AlertType.INFORMATION, getString("status.export_success"),
@@ -3065,7 +3055,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 (int) Math.round(uiFontSize),
                 uiAccentColor);
         List<ThemeCatalog.ThemeDescriptor> themes = themeCatalog.getAvailableThemes();
-        Optional<UiDialog.PreferencesDialogResult> result = uiDialog.showPreferences(
+        Optional<DialogSupport.PreferencesDialogResult> result = dialogSupport.showPreferences(
                 currentUiPrefs,
                 themes,
                 cssSnippetCatalog,
@@ -3073,7 +3063,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (result.isEmpty()) {
             return;
         }
-        UiDialog.PreferencesDialogResult values = result.get();
+        DialogSupport.PreferencesDialogResult values = result.get();
         UiPreferencesStore.UiPreferencesData newPrefs = new UiPreferencesStore.UiPreferencesData(
                 values.autosaveEnabled(),
                 values.autosaveIdleMs(),
@@ -3092,12 +3082,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     @FXML
     private void handleDocumentation(ActionEvent event) {
-        uiDialog.showDocumentation();
+        dialogSupport.showDocumentation();
     }
 
     @FXML
     void showKeyboardShortcutsHelp() {
-        uiDialog.showKeyboardShortcuts();
+        dialogSupport.showKeyboardShortcuts();
     }
 
     @FXML
@@ -3107,7 +3097,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     @FXML
     private void handleAbout(ActionEvent event) {
-        uiDialog.showAbout();
+        dialogSupport.showAbout();
     }
 
     @FXML
@@ -3187,7 +3177,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     @FXML
     void handleNewTag(ActionEvent event) {
-        uiDialog.handleNewTag(() -> {
+        dialogSupport.handleNewTag(() -> {
             if (sidebarController != null) {
                 sidebarController.loadTags();
             }

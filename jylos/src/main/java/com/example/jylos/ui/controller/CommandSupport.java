@@ -10,11 +10,11 @@ import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import com.example.jylos.config.AppContext;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
+import com.example.jylos.service.NoteService;
 import com.example.jylos.ui.components.CommandPalette;
 import com.example.jylos.ui.components.QuickSwitcher;
 
@@ -266,9 +266,14 @@ class NavigationCommand {
     private static final Logger logger = LoggerConfig.getLogger(NavigationCommand.class);
 
     private final MainController controller;
+    private NoteService noteService;
 
     NavigationCommand(MainController controller) {
         this.controller = controller;
+    }
+
+    void wire(NoteService noteService) {
+        this.noteService = noteService;
     }
 
     private String i18n(String key) {
@@ -406,7 +411,13 @@ class NavigationCommand {
                     }
                     break;
                 case "favorites":
-                    List<Note> favoriteNotes = AppContext.getNoteService().getAllNotes().stream()
+                    if (noteService == null) {
+                        if (refreshNotesListAction != null) {
+                            refreshNotesListAction.run();
+                        }
+                        break;
+                    }
+                    List<Note> favoriteNotes = noteService.getAllNotes().stream()
                             .filter(Note::isFavorite).toList();
                     notesListView.getSelectionModel().clearSelection();
                     notesListView.getItems().setAll(favoriteNotes);

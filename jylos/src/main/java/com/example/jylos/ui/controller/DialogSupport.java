@@ -14,7 +14,6 @@ import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 
 import com.example.jylos.AppConfig;
-import com.example.jylos.config.AppContext;
 import com.example.jylos.ui.AppIconLoader;
 import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.config.LoggerConfig;
@@ -52,14 +51,19 @@ import javafx.stage.Window;
  * <p>Holds its {@link MainController} for i18n strings and status updates, so the
  * caller only passes data and post-action callbacks.</p>
  */
-class UiDialog {
+class DialogSupport {
 
-    private static final Logger logger = LoggerConfig.getLogger(UiDialog.class);
+    private static final Logger logger = LoggerConfig.getLogger(DialogSupport.class);
 
     private final MainController controller;
+    private TagService tagService;
 
-    UiDialog(MainController controller) {
+    DialogSupport(MainController controller) {
         this.controller = controller;
+    }
+
+    void wire(TagService tagService) {
+        this.tagService = tagService;
     }
 
     /** Delegates i18n string resolution to the host {@link MainController}. */
@@ -416,7 +420,10 @@ class UiDialog {
             return;
         }
 
-        TagService tagService = AppContext.getTagService();
+        if (tagService == null) {
+            controller.updateStatus(i18n("status.error"));
+            return;
+        }
         try {
             String tagName = result.get().trim();
             if (tagService.tagExists(tagName)) {
@@ -619,16 +626,23 @@ class AppSettings {
  * Tag dialogs (manager, add/remove tag on the current note).
  *
  * <p>Holds its {@link MainController} for i18n/status; tag and note persistence
- * come from {@link AppContext}.</p>
+ * are wired explicitly by the shell controller.</p>
  */
 class TagManagement {
 
     private static final Logger logger = LoggerConfig.getLogger(TagManagement.class);
 
     private final MainController controller;
+    private TagService tagService;
+    private NoteDAO noteDAO;
 
     TagManagement(MainController controller) {
         this.controller = controller;
+    }
+
+    void wire(TagService tagService, NoteDAO noteDAO) {
+        this.tagService = tagService;
+        this.noteDAO = noteDAO;
     }
 
     /** Delegates i18n string resolution to the host {@link MainController}. */
@@ -642,8 +656,10 @@ class TagManagement {
             return;
         }
 
-        TagService tagService = AppContext.getTagService();
-        NoteDAO noteDAO = AppContext.getNoteDAO();
+        if (tagService == null || noteDAO == null) {
+            controller.updateStatus(i18n("status.error"));
+            return;
+        }
         try {
             List<Tag> existingTags = tagService.getAllTags();
             List<Tag> noteTags = noteDAO.fetchTags(currentNote.getId());
@@ -735,7 +751,11 @@ class TagManagement {
         Optional<ButtonType> result = com.example.jylos.ui.UiDialogs.show(confirm);
         if (result.isPresent() && result.get() == ButtonType.OK) {
             try {
-                AppContext.getNoteDAO().removeTag(currentNote, tag);
+                if (noteDAO == null) {
+                    controller.updateStatus(i18n("status.tag_remove_error"));
+                    return;
+                }
+                noteDAO.removeTag(currentNote, tag);
                 reloadCurrentNoteTags.accept(currentNote);
                 controller.updateStatus(MessageFormat.format(i18n("status.tag_removed"), tag.getTitle()));
             } catch (Exception e) {
@@ -746,7 +766,10 @@ class TagManagement {
     }
 
     void showTagsManager(Runnable refreshSidebarTags) {
-        TagService tagService = AppContext.getTagService();
+        if (tagService == null) {
+            controller.updateStatus(i18n("status.error"));
+            return;
+        }
         try {
             List<Tag> allTags = tagService.getAllTags();
 

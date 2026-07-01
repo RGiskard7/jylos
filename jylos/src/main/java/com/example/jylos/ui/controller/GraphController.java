@@ -174,6 +174,15 @@ public class GraphController {
     // Wiring from MainController
     // ------------------------------------------------------------------
 
+    public void wire(NoteService noteService, TagService tagService, ResourceBundle bundle,
+            Consumer<String> onOpenNote, Runnable onClose, Supplier<String> currentNoteIdSupplier) {
+        setServices(noteService, tagService);
+        setBundle(bundle);
+        setOnOpenNote(onOpenNote);
+        setOnClose(onClose);
+        setCurrentNoteIdSupplier(currentNoteIdSupplier);
+    }
+
     public void setServices(NoteService noteService, TagService tagService) {
         this.tagService = tagService;
         this.graphBuilder = new GraphBuilder(noteService, tagService);

@@ -18,7 +18,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.kordamp.ikonli.javafx.FontIcon;
 
-import com.example.jylos.config.AppContext;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
@@ -175,9 +174,24 @@ public class SidebarController {
     }
 
     // Setters for MainController
+    public void wire(EventBus eventBus, NoteService noteService, TagService tagService,
+            FolderService folderService, FolderDAO folderDAO, NoteDAO noteDAO, ResourceBundle bundle) {
+        setNoteService(noteService);
+        setTagService(tagService);
+        setFolderService(folderService);
+        setFolderDAO(folderDAO);
+        setNoteDAO(noteDAO);
+        setBundle(bundle);
+        setEventBus(eventBus);
+    }
+
     public void setEventBus(EventBus eb) {
+        eventSubscriptions.forEach(EventBus.Subscription::cancel);
+        eventSubscriptions.clear();
         this.eventBus = eb;
-        registerEventSubscriptions();
+        if (this.eventBus != null) {
+            registerEventSubscriptions();
+        }
     }
 
     public void setNoteService(NoteService ns) {
@@ -209,31 +223,6 @@ public class SidebarController {
 
     @FXML
     public void initialize() {
-        // Auto-populate from AppContext if setters were not called yet.
-        if (AppContext.isInitialized()) {
-            if (eventBus == null) {
-                eventBus = AppContext.getEventBus();
-            }
-            if (noteService == null) {
-                noteService = AppContext.getNoteService();
-            }
-            if (tagService == null) {
-                tagService = AppContext.getTagService();
-            }
-            if (folderService == null) {
-                folderService = AppContext.getFolderService();
-            }
-            if (folderDAO == null) {
-                folderDAO = AppContext.getFolderDAO();
-            }
-            if (noteDAO == null) {
-                noteDAO = AppContext.getNoteDAO();
-            }
-            if (bundle == null) {
-                bundle = AppContext.getBundle();
-            }
-        }
-
         // Core initialization of tree structures (invisible roots)
         initializeFolderTree();
         initializeTrashTree();

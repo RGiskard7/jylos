@@ -14,7 +14,6 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import com.example.jylos.config.AppContext;
 import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
@@ -177,8 +176,9 @@ public class EditorController {
     // ============================================================
 
     public void setEventBus(EventBus eventBus) {
-        this.eventBus = eventBus != null ? eventBus
-                : (AppContext.isInitialized() ? AppContext.getEventBus() : null);
+        subscriptions.forEach(EventBus.Subscription::cancel);
+        subscriptions.clear();
+        this.eventBus = eventBus;
         subscribeToEvents();
     }
 
@@ -187,12 +187,18 @@ public class EditorController {
     }
 
     public void setServices(NoteService noteService) {
-        this.noteService = noteService != null ? noteService
-                : (AppContext.isInitialized() ? AppContext.getNoteService() : null);
+        this.noteService = noteService;
     }
 
     public void setBundle(ResourceBundle bundle) {
-        this.bundle = bundle != null ? bundle : AppContext.getBundle();
+        this.bundle = bundle;
+    }
+
+    public void wire(EventBus eventBus, NoteDAO noteDAO, NoteService noteService, ResourceBundle bundle) {
+        setNoteDAO(noteDAO);
+        setServices(noteService);
+        setBundle(bundle);
+        setEventBus(eventBus);
     }
 
     /** Plugin editor-hook dispatcher (nullable; wired by MainController). */

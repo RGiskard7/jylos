@@ -7,22 +7,30 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
-import com.example.jylos.config.AppContext;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
+import com.example.jylos.service.FolderService;
+import com.example.jylos.service.NoteService;
 
 /**
  * Import/export of notes as Markdown/text files.
  *
- * <p>Stateless utility: pulls the note/folder services it needs from
- * {@link AppContext}; the controller only supplies the files and target folder.</p>
+ * <p>UI-owned helper that imports/exports notes using explicit note/folder services
+ * wired by the shell controller.</p>
  */
-class DocumentIO {
+class DocumentSupport {
 
-    private static final Logger logger = LoggerConfig.getLogger(DocumentIO.class);
+    private static final Logger logger = LoggerConfig.getLogger(DocumentSupport.class);
     private static final String ROOT_ID = "ROOT";
     private static final String ALL_NOTES_VIRTUAL_ID = "ALL_NOTES_VIRTUAL";
+    private NoteService noteService;
+    private FolderService folderService;
+
+    void wire(NoteService noteService, FolderService folderService) {
+        this.noteService = noteService;
+        this.folderService = folderService;
+    }
 
     record ImportResult(int importedCount, int failedCount, List<String> failures) {
     }
@@ -33,6 +41,9 @@ class DocumentIO {
     ImportResult importFiles(List<File> files, Folder currentFolder, boolean isFileSystem) {
         if (files == null || files.isEmpty()) {
             return new ImportResult(0, 0, List.of());
+        }
+        if (noteService == null) {
+            return new ImportResult(0, files.size(), List.of("NoteService is null"));
         }
 
         int imported = 0;
@@ -50,14 +61,17 @@ class DocumentIO {
                     newNote.setId(currentFolder.getId() + File.separator + safeTitle);
                 }
 
-                Note createdNote = AppContext.getNoteService().createNote(newNote);
+                Note createdNote = noteService.createNote(newNote);
                 if (createdNote == null || createdNote.getId() == null || createdNote.getId().isBlank()) {
                     throw new IllegalStateException("Created note has null/blank ID");
                 }
                 newNote.setId(createdNote.getId());
 
                 if (!isFileSystem && isConcreteFolder(currentFolder)) {
-                    AppContext.getFolderService().addNoteToFolder(currentFolder, createdNote);
+                    if (folderService == null) {
+                        throw new IllegalStateException("FolderService is null");
+                    }
+                    folderService.addNoteToFolder(currentFolder, createdNote);
                 }
                 imported++;
             } catch (Exception e) {
@@ -111,7 +125,10 @@ class DocumentIO {
      */
     private java.nio.file.Path resolveBaseDir(Note note) {
         try {
-            var path = AppContext.getNoteService().getNoteFilePath(note.getId());
+            if (noteService == null) {
+                return null;
+            }
+            var path = noteService.getNoteFilePath(note.getId());
             if (path.isPresent() && path.get().getParent() != null) {
                 return path.get().getParent();
             }
