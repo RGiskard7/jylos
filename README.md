@@ -475,6 +475,7 @@ Drop plain `.css` files into the `snippets/` folder to tweak the interface on to
 - [doc/BUILD.md](doc/BUILD.md)
 - [doc/LAUNCH_APP.md](doc/LAUNCH_APP.md)
 - [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md)
+- [doc/ARCHITECTURE_GUIDELINES.md](doc/ARCHITECTURE_GUIDELINES.md)
 - [doc/PLUGINS.md](doc/PLUGINS.md)
 - [doc/PACKAGING.md](doc/PACKAGING.md)
 - [doc/EVENT_BUS_CONTRACT.md](doc/EVENT_BUS_CONTRACT.md)

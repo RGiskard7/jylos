@@ -7,6 +7,7 @@ Technical docs for Jylos. User-facing overview: [README.md](../README.md).
 | [BUILD.md](BUILD.md) | Compile, run, test, smoke scripts |
 | [LAUNCH_APP.md](LAUNCH_APP.md) | Launchers and JavaFX notes |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Packages, UI layout, storage, events |
+| [ARCHITECTURE_GUIDELINES.md](ARCHITECTURE_GUIDELINES.md) | Normative architecture and growth rules |
 | [PLUGINS.md](PLUGINS.md) | External plugin JAR workflow |
 | [PACKAGING.md](PACKAGING.md) | Platform packaging scripts |
 | [EVENT_BUS_CONTRACT.md](EVENT_BUS_CONTRACT.md) | Event bus usage rules |

@@ -2,6 +2,8 @@
 
 Desktop monolith: JavaFX UI, domain services, pluggable storage, in-process `EventBus`. Offline, single-user.
 
+For normative growth rules and cleanup boundaries, see [ARCHITECTURE_GUIDELINES.md](ARCHITECTURE_GUIDELINES.md).
+
 ## Entry points
 
 - `com.example.jylos.Launcher` — delegates to `Main` (used by `exec:java` and packaging).

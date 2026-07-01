@@ -476,6 +476,7 @@ Coloca ficheros `.css` en la carpeta `snippets/` para retocar la interfaz sobre 
 - [doc/BUILD.md](doc/BUILD.md)
 - [doc/LAUNCH_APP.md](doc/LAUNCH_APP.md)
 - [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md)
+- [doc/ARCHITECTURE_GUIDELINES.md](doc/ARCHITECTURE_GUIDELINES.md)
 - [doc/PLUGINS.md](doc/PLUGINS.md)
 - [doc/PACKAGING.md](doc/PACKAGING.md)
 - [doc/EVENT_BUS_CONTRACT.md](doc/EVENT_BUS_CONTRACT.md)
