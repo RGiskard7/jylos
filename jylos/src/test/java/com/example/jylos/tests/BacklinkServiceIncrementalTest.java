@@ -2,6 +2,7 @@ package com.example.jylos.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -32,6 +33,13 @@ class BacklinkServiceIncrementalTest {
     }
 
     @Test
+    void backlinkServiceRequiresExplicitEventBus() {
+        assertThrows(NullPointerException.class, () -> new BacklinkService(null, EventBus.getInstance()));
+        assertThrows(NullPointerException.class, () -> new BacklinkService(
+                new NoteService(new NoteDAOFileSystem("."), new FolderDAOFileSystem(".")), null));
+    }
+
+    @Test
     void savedNoteReindexesBacklinksIncrementally(@TempDir Path vault) throws Exception {
         Files.writeString(vault.resolve("A.md"), "# A\n[[B]]\n", StandardCharsets.UTF_8);
         Files.writeString(vault.resolve("B.md"), "# B\n", StandardCharsets.UTF_8);
@@ -39,7 +47,7 @@ class BacklinkServiceIncrementalTest {
 
         NoteDAOFileSystem noteDao = new NoteDAOFileSystem(vault.toString());
         NoteService noteService = new NoteService(noteDao, new FolderDAOFileSystem(vault.toString()));
-        BacklinkService backlinks = new BacklinkService(noteService);
+        BacklinkService backlinks = new BacklinkService(noteService, EventBus.getInstance());
 
         try {
             Note noteA = noteService.findNoteByTitle("A").orElseThrow();

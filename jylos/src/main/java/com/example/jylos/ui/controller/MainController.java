@@ -506,8 +506,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             folderService = new FolderService(folderDAO, noteDAO);
             tagService = new TagService(tagDAO, noteDAO);
             noteOperations = new NoteOperations(noteService, folderService);
-            backlinkService = new com.example.jylos.service.BacklinkService(noteService);
             eventBus = EventBus.getInstance();
+            backlinkService = new com.example.jylos.service.BacklinkService(noteService, eventBus);
             com.example.jylos.service.NoteTitleIndex titleIndex =
                     com.example.jylos.service.NoteTitleIndex.getInstance();
             titleIndex.wire(noteService, eventBus);

@@ -1,4 +1,16 @@
 /**
- * Application services: note/folder/tag orchestration and startup maintenance (e.g. DB backups).
+ * Application/business services.
+ *
+ * <p>This package intentionally mixes a few service sub-roles under one layer:</p>
+ * <ul>
+ *   <li>entity/application services such as note, folder and tag workflows</li>
+ *   <li>feature services such as backlinks, import and rich-link fetching</li>
+ *   <li>technical services such as encryption, backups and note history</li>
+ *   <li>warm indexes/caches such as {@code NoteTitleIndex}</li>
+ * </ul>
+ *
+ * <p>Classes here must stay independent from JavaFX presentation types and must not
+ * reach into {@code ui/*}. Prefer explicit dependencies over global lookups such as
+ * {@code AppContext} or {@code EventBus.getInstance()}.</p>
  */
 package com.example.jylos.service;

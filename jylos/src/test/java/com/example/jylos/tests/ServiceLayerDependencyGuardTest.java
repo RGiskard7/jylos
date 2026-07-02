@@ -16,13 +16,23 @@ class ServiceLayerDependencyGuardTest {
     private static final Path SERVICE_DIR = Path.of("src/main/java/com/example/jylos/service");
 
     @Test
-    void servicesShouldNotImportJavaFxTypes() throws IOException {
+    void servicesShouldStayIndependentFromPresentationAndGlobalServiceLookups() throws IOException {
         try (Stream<Path> files = Files.list(SERVICE_DIR)) {
             List<Path> javaFiles = files.filter(path -> path.toString().endsWith(".java")).toList();
             for (Path file : javaFiles) {
                 String source = Files.readString(file, StandardCharsets.UTF_8);
                 assertFalse(source.contains("import javafx."),
                         "Service layer must not depend on JavaFX UI types: " + file);
+                assertFalse(source.contains("import com.example.jylos.ui."),
+                        "Service layer must not depend on UI packages: " + file);
+                if ("package-info.java".equals(file.getFileName().toString())) {
+                    continue;
+                }
+                assertFalse(source.contains("import com.example.jylos.config.AppContext")
+                                || source.contains("AppContext."),
+                        "Service layer should not use AppContext as a hidden dependency: " + file);
+                assertFalse(source.contains("EventBus.getInstance("),
+                        "Service layer should receive EventBus explicitly instead of global lookup: " + file);
             }
         }
     }

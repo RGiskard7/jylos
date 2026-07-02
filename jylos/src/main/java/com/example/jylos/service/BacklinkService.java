@@ -35,7 +35,7 @@ import com.example.jylos.util.WikiLinkResolver;
  * </ul>
  *
  * <p>Note events invalidate only the affected note's forward entry (a cheap,
- * FX-thread-safe operation); re-indexing then reuses the targets carried by the
+ * thread-safe operation); re-indexing then reuses the targets carried by the
  * refreshed {@link Note}.</p>
  *
  * <h3>Coverage on large vaults</h3>
@@ -63,9 +63,9 @@ public class BacklinkService {
     private record CachedLinks(String modified, Set<String> targets) {
     }
 
-    public BacklinkService(NoteService noteService) {
-        this.noteService = noteService;
-        subscribeToInvalidationEvents();
+    public BacklinkService(NoteService noteService, EventBus eventBus) {
+        this.noteService = Objects.requireNonNull(noteService, "noteService");
+        subscribeToInvalidationEvents(eventBus);
     }
 
     /**
@@ -181,8 +181,8 @@ public class BacklinkService {
         }
     }
 
-    private void subscribeToInvalidationEvents() {
-        EventBus bus = EventBus.getInstance();
+    private void subscribeToInvalidationEvents(EventBus bus) {
+        Objects.requireNonNull(bus, "eventBus");
         subscriptions.add(bus.subscribe(NoteEvents.NoteSavedEvent.class, e -> reindex(e.getNote())));
         subscriptions.add(bus.subscribe(NoteEvents.NoteCreatedEvent.class, e -> reindex(e.getNote())));
         subscriptions.add(bus.subscribe(NoteEvents.NoteUpdatedEvent.class, e -> reindex(e.getNote())));
