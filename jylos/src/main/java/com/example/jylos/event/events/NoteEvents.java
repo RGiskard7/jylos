@@ -17,22 +17,6 @@ public final class NoteEvents {
     }
 
     /**
-     * Event fired when a note is selected.
-     */
-    public static class NoteSelectedEvent extends AppEvent {
-        private final Note note;
-
-        public NoteSelectedEvent(Note note) {
-            super("NoteList");
-            this.note = note;
-        }
-
-        public Note getNote() {
-            return note;
-        }
-    }
-
-    /**
      * Event fired when a note is created.
      */
     public static class NoteCreatedEvent extends AppEvent {
@@ -163,77 +147,6 @@ public final class NoteEvents {
 
         public Note getNote() {
             return note;
-        }
-    }
-
-    /**
-     * Event fired when the user requests to export a specific note to a file.
-     */
-    public static class NoteExportRequestEvent extends AppEvent {
-        private final Note note;
-
-        public NoteExportRequestEvent(Note note) {
-            super("NotesList");
-            this.note = note;
-        }
-
-        public Note getNote() {
-            return note;
-        }
-    }
-
-    /**
-     * Event fired when the user requests to toggle a specific note's privacy (turn it into
-     * a private/encrypted note, or back to a normal one) — e.g. from a list context menu.
-     */
-    public static class PrivacyToggleRequestEvent extends AppEvent {
-        private final Note note;
-
-        public PrivacyToggleRequestEvent(Note note) {
-            super("NotesList");
-            this.note = note;
-        }
-
-        public Note getNote() {
-            return note;
-        }
-    }
-
-    /**
-     * Event fired when an item in the trash is selected.
-     */
-    public static class TrashItemSelectedEvent extends AppEvent {
-        private final com.example.jylos.data.models.interfaces.Component component;
-
-        public TrashItemSelectedEvent(com.example.jylos.data.models.interfaces.Component component) {
-            super("TrashList");
-            this.component = component;
-        }
-
-        public com.example.jylos.data.models.interfaces.Component getComponent() {
-            return component;
-        }
-    }
-
-    /**
-     * Event fired when the notes list has finished loading or sorting.
-     */
-    public static class NotesLoadedEvent extends AppEvent {
-        private final List<Note> notes;
-        private final String statusMessage;
-
-        public NotesLoadedEvent(List<Note> notes, String statusMessage) {
-            super("NotesList");
-            this.notes = notes;
-            this.statusMessage = statusMessage;
-        }
-
-        public List<Note> getNotes() {
-            return notes;
-        }
-
-        public String getStatusMessage() {
-            return statusMessage;
         }
     }
 

@@ -4,9 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.example.jylos.event.EventBus;
-import com.example.jylos.event.events.FolderEvents;
 import com.example.jylos.event.events.NoteEvents;
-import com.example.jylos.event.events.TagEvents;
 import com.example.jylos.event.events.UIEvents;
 
 /**
@@ -37,49 +35,20 @@ class UiEventSupport {
         subscriptions.add(eventBus.subscribe(UIEvents.ThemeChangedEvent.class,
                 event -> controller.applyThemeFromEvent(event.getTheme())));
 
-        subscriptions.add(eventBus.subscribe(NoteEvents.NoteSelectedEvent.class, event -> {
-            if (event.getNote() != null) {
-                controller.loadNoteInEditor(event.getNote());
-            }
-        }));
-
-        subscriptions.add(eventBus.subscribe(NoteEvents.NotesLoadedEvent.class, event -> {
-            controller.handleUiNotesLoaded(event);
-            controller.updateStatus(event.getStatusMessage());
-        }));
-
         subscriptions.add(eventBus.subscribe(UIEvents.StatusUpdateEvent.class,
                 event -> controller.updateStatus(event.getMessage())));
-
-        subscriptions.add(eventBus.subscribe(UIEvents.ShowCommandPaletteEvent.class,
-                event -> controller.showCommandPalette()));
-
-        subscriptions.add(eventBus.subscribe(UIEvents.ShowQuickSwitcherEvent.class,
-                event -> controller.showQuickSwitcher()));
-
-        subscriptions.add(eventBus.subscribe(UIEvents.ShowKeyboardShortcutsEvent.class,
-                event -> controller.showKeyboardShortcutsHelp()));
 
         subscriptions.add(eventBus.subscribe(NoteEvents.NoteDeletedEvent.class,
                 event -> controller.handleUiNoteDeleted(event.getNoteId())));
 
-        subscriptions.add(eventBus.subscribe(FolderEvents.FolderDeletedEvent.class,
+        subscriptions.add(eventBus.subscribe(com.example.jylos.event.events.FolderEvents.FolderDeletedEvent.class,
                 event -> controller.handleUiFolderDeleted(event.getFolderId())));
 
         subscriptions.add(eventBus.subscribe(NoteEvents.TrashItemDeletedEvent.class,
                 event -> controller.handleUiTrashItemDeleted()));
 
-        subscriptions.add(eventBus.subscribe(FolderEvents.FolderSelectedEvent.class,
-                event -> controller.handleUiFolderSelected(event.getFolder())));
-
-        subscriptions.add(eventBus.subscribe(TagEvents.TagSelectedEvent.class,
-                event -> controller.handleUiTagSelected(event.getTag())));
-
         subscriptions.add(eventBus.subscribe(NoteEvents.NoteOpenRequestEvent.class,
                 event -> controller.handleUiNoteOpenRequest(event.getNote())));
-
-        subscriptions.add(eventBus.subscribe(NoteEvents.TrashItemSelectedEvent.class,
-                event -> controller.handleUiTrashItemSelected(event.getComponent())));
 
         subscriptions.add(eventBus.subscribe(NoteEvents.NoteModifiedEvent.class,
                 event -> controller.handleUiNoteModified(event.getNote())));

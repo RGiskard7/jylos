@@ -22,5 +22,7 @@ Handlers must not re-publish the same `SystemActionEvent` they were invoked for.
 ## Discouraged patterns
 
 - Recursive publication of save/delete command events from within their own handlers.
+- Publishing one-to-one UI requests over the bus when a wired callback would be clearer.
+- Using events for toolbar/dialog/list interactions that have a single owner in `MainController`.
 - Returning null subscriptions.
 - Swallowing handler exceptions without logging.

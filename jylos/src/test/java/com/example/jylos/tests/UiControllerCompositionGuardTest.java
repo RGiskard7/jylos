@@ -41,7 +41,7 @@ class UiControllerCompositionGuardTest {
     void mainControllerShouldUseControllerWireEntryPointsForPrimaryComposition() throws IOException {
         String source = Files.readString(MAIN_CONTROLLER, StandardCharsets.UTF_8);
 
-        assertTrue(source.contains("toolbarController.wire(eventBus);"));
+        assertTrue(source.contains("toolbarController.wire(eventBus,"));
         assertTrue(source.contains("sidebarController.wire("));
         assertTrue(source.contains("notesListController.wire("));
         assertTrue(source.contains("editorController.wire("));

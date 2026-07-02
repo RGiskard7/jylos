@@ -14,9 +14,22 @@ import javafx.scene.layout.HBox;
 public class ToolbarController {
 
     private EventBus eventBus;
+    private Runnable showCommandPaletteAction = () -> {
+    };
+    private Runnable showQuickSwitcherAction = () -> {
+    };
+    private Runnable showKeyboardShortcutsAction = () -> {
+    };
 
-    public void wire(EventBus eventBus) {
+    public void wire(EventBus eventBus, Runnable showCommandPaletteAction,
+            Runnable showQuickSwitcherAction, Runnable showKeyboardShortcutsAction) {
         setEventBus(eventBus);
+        this.showCommandPaletteAction = showCommandPaletteAction != null ? showCommandPaletteAction : () -> {
+        };
+        this.showQuickSwitcherAction = showQuickSwitcherAction != null ? showQuickSwitcherAction : () -> {
+        };
+        this.showKeyboardShortcutsAction = showKeyboardShortcutsAction != null ? showKeyboardShortcutsAction : () -> {
+        };
     }
 
     // FXML injected fields
@@ -330,14 +343,12 @@ public class ToolbarController {
 
     @FXML
     private void handleCommandPalette(ActionEvent event) {
-        if (eventBus != null)
-            eventBus.publish(new UIEvents.ShowCommandPaletteEvent());
+        showCommandPaletteAction.run();
     }
 
     @FXML
     private void handleQuickSwitcher(ActionEvent event) {
-        if (eventBus != null)
-            eventBus.publish(new UIEvents.ShowQuickSwitcherEvent());
+        showQuickSwitcherAction.run();
     }
 
     @FXML
@@ -407,9 +418,7 @@ public class ToolbarController {
 
     @FXML
     private void handleKeyboardShortcuts(ActionEvent event) {
-        if (eventBus != null) {
-            eventBus.publish(new com.example.jylos.event.events.UIEvents.ShowKeyboardShortcutsEvent());
-        }
+        showKeyboardShortcutsAction.run();
     }
 
     @FXML

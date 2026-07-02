@@ -355,7 +355,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             tagManagement.wire(tagService, noteDAO);
 
             if (toolbarController != null) {
-                toolbarController.wire(eventBus);
+                toolbarController.wire(eventBus, this::showCommandPalette, this::showQuickSwitcher,
+                        this::showKeyboardShortcutsHelp);
             }
             initializeCommandRouting();
             initializeSystemActionHandlers();
@@ -365,10 +366,13 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 subscribeToUIEvents();
             }
             if (sidebarController != null) {
-                sidebarController.wire(eventBus, noteService, tagService, folderService, folderDAO, noteDAO, resources);
+                sidebarController.wire(eventBus, noteService, tagService, folderService, folderDAO, noteDAO, resources,
+                        this::handleUiFolderSelected, this::handleUiTagSelected, this::handleUiTrashItemSelected);
             }
             if (notesListController != null) {
-                notesListController.wire(eventBus, noteService, tagService, folderService, resources);
+                notesListController.wire(eventBus, noteService, tagService, folderService, resources,
+                        this::loadNoteInEditor, this::exportNote, this::toggleNotePrivacy,
+                        this::handleUiNotesLoaded);
                 notesPanel = notesListController.getNotesPanel();
                 sortComboBox = notesListController.getSortComboBox();
                 notesListView = notesListController.getNotesListView();
@@ -691,7 +695,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
     }
 
-    /** Subscribes to all relevant {@link EventBus} events (note open/delete/modify, export, save) and stores the subscriptions for cleanup. */
+    /** Subscribes to the remaining fan-out UI/domain events that still belong on the {@link EventBus}. */
     private void subscribeToUIEvents() {
         if (eventBus == null) {
             return;
@@ -699,10 +703,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         uiEventSubscriptions.forEach(EventBus.Subscription::cancel);
         uiEventSubscriptions.clear();
         uiEventSubscriptions.addAll(uiEventSupport.subscribe(eventBus));
-        uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteExportRequestEvent.class,
-                e -> Platform.runLater(() -> exportNote(e.getNote()))));
-        uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.PrivacyToggleRequestEvent.class,
-                e -> Platform.runLater(() -> toggleNotePrivacy(e.getNote()))));
         // Keep the editor tab in sync when its note is saved (clear dirty dot, refresh title).
         uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class, e -> {
             Note saved = e.getNote();
@@ -724,15 +724,15 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         applyThemeAndRefreshDependents();
     }
 
-    void handleUiNotesLoaded(NoteEvents.NotesLoadedEvent event) {
+    void handleUiNotesLoaded(List<Note> notes, String statusMessage) {
         // noteCountLabel shows the count; the transient "loaded …" message goes to
         // the left status label (avoids the message being duplicated in both spots).
         if (noteCountLabel != null) {
-            int count = event.getNotes() != null ? event.getNotes().size() : 0;
+            int count = notes != null ? notes.size() : 0;
             noteCountLabel.setText(java.text.MessageFormat.format(getString("info.notes_count"), count));
         }
-        if (event.getStatusMessage() != null && !event.getStatusMessage().isBlank()) {
-            updateStatus(event.getStatusMessage());
+        if (statusMessage != null && !statusMessage.isBlank()) {
+            updateStatus(statusMessage);
         }
         refreshNotesGridIfActive();
     }

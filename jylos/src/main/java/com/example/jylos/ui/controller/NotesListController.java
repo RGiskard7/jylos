@@ -35,6 +35,7 @@ import java.util.ResourceBundle;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -65,6 +66,14 @@ public class NotesListController {
     private FolderService folderService;
     private com.example.jylos.search.AdvancedSearchService advancedSearch;
     private ResourceBundle bundle;
+    private Consumer<Note> noteSelectionAction = note -> {
+    };
+    private Consumer<Note> noteExportAction = note -> {
+    };
+    private Consumer<Note> notePrivacyToggleAction = note -> {
+    };
+    private BiConsumer<List<Note>, String> notesLoadedAction = (notes, message) -> {
+    };
 
     /** Initial content of a freshly created {@code .canvas} file (empty JSON Canvas). */
     private static final String EMPTY_CANVAS_JSON = "{\n\t\"nodes\":[],\n\t\"edges\":[]\n}";
@@ -105,15 +114,15 @@ public class NotesListController {
 
     @FXML
     public void initialize() {
-        // Publish event when a note is selected
+        // Forward note selection to the owner explicitly; this no longer uses EventBus.
         notesListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             // Suppressed while re-selecting the same note after a list refresh, so the
             // editor is not reloaded (which would discard the cursor / unsaved edits).
             if (restoringNotesSelection) {
                 return;
             }
-            if (newVal != null && eventBus != null) {
-                eventBus.publish(new NoteEvents.NoteSelectedEvent(newVal));
+            if (newVal != null) {
+                noteSelectionAction.accept(newVal);
             }
         });
 
@@ -292,8 +301,8 @@ public class NotesListController {
 
                 openItem.setOnAction(e -> {
                     Note note = getItem();
-                    if (note != null && eventBus != null) {
-                        eventBus.publish(new NoteEvents.NoteSelectedEvent(note));
+                    if (note != null) {
+                        noteSelectionAction.accept(note);
                     }
                 });
                 favoriteItem.setOnAction(e -> {
@@ -304,8 +313,8 @@ public class NotesListController {
                 });
                 privateItem.setOnAction(e -> {
                     Note note = getItem();
-                    if (note != null && eventBus != null) {
-                        eventBus.publish(new NoteEvents.PrivacyToggleRequestEvent(note));
+                    if (note != null) {
+                        notePrivacyToggleAction.accept(note);
                     }
                 });
                 revealItem.setOnAction(e -> {
@@ -318,8 +327,8 @@ public class NotesListController {
                 revealItem.setVisible(isFileSystemStorage());
                 exportItem.setOnAction(e -> {
                     Note note = getItem();
-                    if (note != null && eventBus != null) {
-                        eventBus.publish(new NoteEvents.NoteExportRequestEvent(note));
+                    if (note != null) {
+                        noteExportAction.accept(note);
                     }
                 });
                 deleteItem.setOnAction(e -> {
@@ -608,9 +617,21 @@ public class NotesListController {
     }
 
     public void wire(EventBus eventBus, NoteService noteService, TagService tagService,
-            FolderService folderService, ResourceBundle bundle) {
+            FolderService folderService, ResourceBundle bundle,
+            Consumer<Note> noteSelectionAction,
+            Consumer<Note> noteExportAction,
+            Consumer<Note> notePrivacyToggleAction,
+            BiConsumer<List<Note>, String> notesLoadedAction) {
         setServices(noteService, tagService, folderService);
         setBundle(bundle);
+        this.noteSelectionAction = noteSelectionAction != null ? noteSelectionAction : note -> {
+        };
+        this.noteExportAction = noteExportAction != null ? noteExportAction : note -> {
+        };
+        this.notePrivacyToggleAction = notePrivacyToggleAction != null ? notePrivacyToggleAction : note -> {
+        };
+        this.notesLoadedAction = notesLoadedAction != null ? notesLoadedAction : (notes, message) -> {
+        };
         setEventBus(eventBus);
     }
 
@@ -980,9 +1001,7 @@ public class NotesListController {
     }
 
     private void publishNotesLoadedEvent(List<Note> notes, String message) {
-        if (eventBus != null) {
-            eventBus.publish(new NoteEvents.NotesLoadedEvent(notes, message));
-        }
+        notesLoadedAction.accept(notes != null ? List.copyOf(notes) : List.of(), message);
     }
 
     @FXML

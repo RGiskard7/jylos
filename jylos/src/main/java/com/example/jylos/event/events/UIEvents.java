@@ -75,33 +75,6 @@ public final class UIEvents {
     }
 
     /**
-     * Event fired when Command Palette should be shown.
-     */
-    public static class ShowCommandPaletteEvent extends AppEvent {
-        public ShowCommandPaletteEvent() {
-            super();
-        }
-    }
-
-    /**
-     * Event fired when Quick Switcher should be shown.
-     */
-    public static class ShowQuickSwitcherEvent extends AppEvent {
-        public ShowQuickSwitcherEvent() {
-            super();
-        }
-    }
-
-    /**
-     * Event fired when the keyboard shortcuts help dialog should be shown.
-     */
-    public static class ShowKeyboardShortcutsEvent extends AppEvent {
-        public ShowKeyboardShortcutsEvent() {
-            super();
-        }
-    }
-
-    /**
      * Event fired when zoom level changes.
      */
     public static class ZoomChangedEvent extends AppEvent {

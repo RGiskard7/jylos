@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.prefs.Preferences;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.function.Consumer;
 import org.kordamp.ikonli.javafx.FontIcon;
 
 import com.example.jylos.config.LoggerConfig;
@@ -27,14 +28,18 @@ import com.example.jylos.data.models.Tag;
 import com.example.jylos.data.models.interfaces.Component;
 import com.example.jylos.event.AppEvent;
 import com.example.jylos.event.EventBus;
-import com.example.jylos.event.events.*;
+import com.example.jylos.event.events.FolderEvents;
+import com.example.jylos.event.events.NoteEvents;
+import com.example.jylos.event.events.SystemActionEvent;
+import com.example.jylos.event.events.UIEvents;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
 
 /**
  * Sidebar: folders, tags, recent, favorites, and trash.
- * Publishes selection events consumed by {@link MainController}.
+ * Uses explicit callbacks for single-owner selections and typed events where fan-out
+ * or cross-feature coordination is useful.
  */
 public class SidebarController {
 
@@ -126,6 +131,12 @@ public class SidebarController {
     private NoteDAO noteDAO;
     private EventBus eventBus;
     private ResourceBundle bundle;
+    private Consumer<Folder> folderSelectionAction = folder -> {
+    };
+    private Consumer<Tag> tagSelectionAction = tag -> {
+    };
+    private Consumer<Component> trashSelectionAction = component -> {
+    };
     private final List<EventBus.Subscription> eventSubscriptions = new ArrayList<>();
     private final PauseTransition foldersFilterDebounce = new PauseTransition(Duration.millis(180));
     private final PauseTransition trashFilterDebounce = new PauseTransition(Duration.millis(180));
@@ -175,13 +186,21 @@ public class SidebarController {
 
     // Setters for MainController
     public void wire(EventBus eventBus, NoteService noteService, TagService tagService,
-            FolderService folderService, FolderDAO folderDAO, NoteDAO noteDAO, ResourceBundle bundle) {
+            FolderService folderService, FolderDAO folderDAO, NoteDAO noteDAO, ResourceBundle bundle,
+            Consumer<Folder> folderSelectionAction, Consumer<Tag> tagSelectionAction,
+            Consumer<Component> trashSelectionAction) {
         setNoteService(noteService);
         setTagService(tagService);
         setFolderService(folderService);
         setFolderDAO(folderDAO);
         setNoteDAO(noteDAO);
         setBundle(bundle);
+        this.folderSelectionAction = folderSelectionAction != null ? folderSelectionAction : folder -> {
+        };
+        this.tagSelectionAction = tagSelectionAction != null ? tagSelectionAction : tag -> {
+        };
+        this.trashSelectionAction = trashSelectionAction != null ? trashSelectionAction : component -> {
+        };
         setEventBus(eventBus);
     }
 
@@ -242,9 +261,9 @@ public class SidebarController {
             if (newVal != null && newVal.getValue() != null) {
                 Folder f = newVal.getValue();
                 if ("ALL_NOTES_VIRTUAL".equals(f.getId())) {
-                    publishEvent(new FolderEvents.FolderSelectedEvent(f));
+                    folderSelectionAction.accept(f);
                 } else if (!"INVISIBLE_ROOT".equals(f.getTitle())) {
-                    publishEvent(new FolderEvents.FolderSelectedEvent(f));
+                    folderSelectionAction.accept(f);
                 }
             }
         });
@@ -253,7 +272,7 @@ public class SidebarController {
             if (newVal != null) {
                 Tag selected = tagsByTitleCache.get(newVal);
                 if (selected != null) {
-                    publishEvent(new TagEvents.TagSelectedEvent(selected));
+                    tagSelectionAction.accept(selected);
                 }
             }
         });
@@ -276,7 +295,7 @@ public class SidebarController {
 
         trashTreeView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null && newVal.getValue() != null) {
-                publishEvent(new NoteEvents.TrashItemSelectedEvent(newVal.getValue()));
+                trashSelectionAction.accept(newVal.getValue());
             }
         });
 
@@ -1322,7 +1341,7 @@ public class SidebarController {
         if (eventBus == null || folder == null) {
             return;
         }
-        eventBus.publish(new FolderEvents.FolderSelectedEvent(folder));
+        folderSelectionAction.accept(folder);
         eventBus.publish(new SystemActionEvent(SystemActionEvent.ActionType.NEW_NOTE));
     }
 
@@ -1330,7 +1349,7 @@ public class SidebarController {
         if (eventBus == null || folder == null) {
             return;
         }
-        eventBus.publish(new FolderEvents.FolderSelectedEvent(folder));
+        folderSelectionAction.accept(folder);
         eventBus.publish(new SystemActionEvent(SystemActionEvent.ActionType.NEW_FOLDER));
     }
 
