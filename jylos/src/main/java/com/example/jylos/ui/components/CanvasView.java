@@ -74,6 +74,7 @@ public final class CanvasView extends BorderPane {
     private final Consumer<String> onOpenFile;
     private final Function<String, Path> resolveFile;
     private final Consumer<String> onSave;
+    private final Runnable onDirty;
     private final Function<String, String> i18n;
 
     /** Node id → its on-canvas box, used to drag nodes and re-anchor edges. */
@@ -112,11 +113,13 @@ public final class CanvasView extends BorderPane {
      *                    disables saving (pure viewer).
      */
     public CanvasView(CanvasModel.Document document, Consumer<String> onOpenFile,
-            Function<String, Path> resolveFile, Consumer<String> onSave, Function<String, String> i18n) {
+            Function<String, Path> resolveFile, Consumer<String> onSave, Runnable onDirty,
+            Function<String, String> i18n) {
         this.document = document != null ? document : CanvasModel.Document.parse(null);
         this.onOpenFile = onOpenFile;
         this.resolveFile = resolveFile;
         this.onSave = onSave;
+        this.onDirty = onDirty;
         this.i18n = i18n;
 
         getStyleClass().add("canvas-view");
@@ -184,21 +187,37 @@ public final class CanvasView extends BorderPane {
         return bar;
     }
 
-    private void save() {
-        if (onSave == null || !dirty) {
+    public void save() {
+        if (onSave == null) {
             return;
         }
         onSave.accept(document.toJson());
-        dirty = false;
-        if (saveButton != null) {
-            saveButton.setDisable(true);
-        }
+        markSaved();
     }
 
     private void markDirty() {
+        boolean wasDirty = dirty;
         dirty = true;
         if (saveButton != null) {
             saveButton.setDisable(false);
+        }
+        if (!wasDirty && onDirty != null) {
+            onDirty.run();
+        }
+    }
+
+    public boolean hasUnsavedChanges() {
+        return dirty;
+    }
+
+    public String serialize() {
+        return document.toJson();
+    }
+
+    public void markSaved() {
+        dirty = false;
+        if (saveButton != null) {
+            saveButton.setDisable(true);
         }
     }
 

@@ -2,7 +2,6 @@ package com.example.jylos.ui.controller;
 
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.SystemActionEvent;
-import com.example.jylos.event.events.UIEvents;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -20,15 +19,28 @@ public class ToolbarController {
     };
     private Runnable showKeyboardShortcutsAction = () -> {
     };
+    private Runnable applyLightThemeAction = () -> {
+    };
+    private Runnable applyDarkThemeAction = () -> {
+    };
+    private Runnable applySystemThemeAction = () -> {
+    };
 
     public void wire(EventBus eventBus, Runnable showCommandPaletteAction,
-            Runnable showQuickSwitcherAction, Runnable showKeyboardShortcutsAction) {
+            Runnable showQuickSwitcherAction, Runnable showKeyboardShortcutsAction,
+            Runnable applyLightThemeAction, Runnable applyDarkThemeAction, Runnable applySystemThemeAction) {
         setEventBus(eventBus);
         this.showCommandPaletteAction = showCommandPaletteAction != null ? showCommandPaletteAction : () -> {
         };
         this.showQuickSwitcherAction = showQuickSwitcherAction != null ? showQuickSwitcherAction : () -> {
         };
         this.showKeyboardShortcutsAction = showKeyboardShortcutsAction != null ? showKeyboardShortcutsAction : () -> {
+        };
+        this.applyLightThemeAction = applyLightThemeAction != null ? applyLightThemeAction : () -> {
+        };
+        this.applyDarkThemeAction = applyDarkThemeAction != null ? applyDarkThemeAction : () -> {
+        };
+        this.applySystemThemeAction = applySystemThemeAction != null ? applySystemThemeAction : () -> {
         };
     }
 
@@ -468,22 +480,22 @@ public class ToolbarController {
 
     @FXML
     private void handleLightTheme(ActionEvent event) {
-        if (eventBus != null && lightThemeMenuItem.isSelected()) {
-            eventBus.publish(new UIEvents.ThemeChangedEvent("light"));
+        if (lightThemeMenuItem.isSelected()) {
+            applyLightThemeAction.run();
         }
     }
 
     @FXML
     private void handleDarkTheme(ActionEvent event) {
-        if (eventBus != null && darkThemeMenuItem.isSelected()) {
-            eventBus.publish(new UIEvents.ThemeChangedEvent("dark"));
+        if (darkThemeMenuItem.isSelected()) {
+            applyDarkThemeAction.run();
         }
     }
 
     @FXML
     private void handleSystemTheme(ActionEvent event) {
-        if (eventBus != null && systemThemeMenuItem.isSelected()) {
-            eventBus.publish(new UIEvents.ThemeChangedEvent("system"));
+        if (systemThemeMenuItem.isSelected()) {
+            applySystemThemeAction.run();
         }
     }
 

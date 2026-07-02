@@ -8,11 +8,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 import java.util.stream.Collectors;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.data.models.Note;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
@@ -62,6 +65,7 @@ public class PluginManager {
     private final PreviewEnhancerRegistry previewEnhancerRegistry;
     private final EditorHookRegistry editorHookRegistry;
     private final ToolbarRegistry toolbarRegistry;
+    private final Consumer<Note> noteOpenAction;
 
     // Plugin storage
     private final Map<String, Plugin> plugins = new HashMap<>();
@@ -82,6 +86,7 @@ public class PluginManager {
      * @param previewEnhancerRegistry The preview enhancer registry
      * @param editorHookRegistry The editor hook registry (nullable)
      * @param toolbarRegistry    The toolbar button registry (nullable)
+     * @param noteOpenAction     Owner callback for plugin note-open requests
      */
     public PluginManager(
             NoteService noteService,
@@ -93,7 +98,8 @@ public class PluginManager {
             SidePanelRegistry sidePanelRegistry,
             PreviewEnhancerRegistry previewEnhancerRegistry,
             EditorHookRegistry editorHookRegistry,
-            ToolbarRegistry toolbarRegistry) {
+            ToolbarRegistry toolbarRegistry,
+            Consumer<Note> noteOpenAction) {
         this.noteService = noteService;
         this.folderService = folderService;
         this.tagService = tagService;
@@ -104,6 +110,7 @@ public class PluginManager {
         this.previewEnhancerRegistry = previewEnhancerRegistry;
         this.editorHookRegistry = editorHookRegistry;
         this.toolbarRegistry = toolbarRegistry;
+        this.noteOpenAction = noteOpenAction;
     }
 
     /**
@@ -214,7 +221,8 @@ public class PluginManager {
                     sidePanelRegistry,
                     previewEnhancerRegistry,
                     editorHookRegistry,
-                    toolbarRegistry);
+                    toolbarRegistry,
+                    noteOpenAction);
             pluginContexts.put(pluginId, context);
 
             // Initialize plugin
@@ -230,8 +238,10 @@ public class PluginManager {
             }
 
             return true;
-        } catch (Exception e) {
-            logger.severe("Failed to initialize plugin " + pluginId + ": " + e.getMessage());
+        } catch (Throwable t) {
+            cleanupPluginRuntime(pluginId);
+            pluginContexts.remove(pluginId);
+            logger.log(Level.SEVERE, "Failed to initialize plugin " + pluginId, t);
             pluginStates.put(pluginId, PluginState.ERROR);
             return false;
         }
@@ -301,12 +311,23 @@ public class PluginManager {
             return;
         }
 
+        PluginState state = pluginStates.get(pluginId);
+        PluginContext context = pluginContexts.get(pluginId);
+        if (context == null
+                && state != PluginState.INITIALIZED
+                && state != PluginState.ENABLED
+                && state != PluginState.DISABLED) {
+            return;
+        }
+
         try {
             plugin.shutdown();
             pluginStates.put(pluginId, PluginState.DISABLED);
             logger.info("Shut down plugin: " + pluginId);
-        } catch (Exception e) {
-            logger.warning("Error shutting down plugin " + pluginId + ": " + e.getMessage());
+        } catch (Throwable t) {
+            logger.log(Level.WARNING, "Error shutting down plugin " + pluginId, t);
+        } finally {
+            cleanupPluginRuntime(pluginId);
         }
     }
 
@@ -363,13 +384,19 @@ public class PluginManager {
 
         try {
             plugin.shutdown();
-        } catch (Exception e) {
-            logger.warning("Error while disabling plugin " + pluginId + ": " + e.getMessage());
+        } catch (Throwable t) {
+            logger.log(Level.WARNING, "Error while disabling plugin " + pluginId, t);
         }
 
         pluginStates.put(pluginId, PluginState.DISABLED);
+        cleanupPluginRuntime(pluginId);
+        setDisabledInPreferences(pluginId, true);
 
-        // Remove UI components
+        logger.info("Disabled plugin: " + pluginId);
+        return true;
+    }
+
+    private void cleanupPluginRuntime(String pluginId) {
         if (menuRegistry != null) {
             menuRegistry.removePluginMenuItems(pluginId);
         }
@@ -389,10 +416,6 @@ public class PluginManager {
         if (context != null) {
             context.unregisterAllCommands();
         }
-        setDisabledInPreferences(pluginId, true);
-
-        logger.info("Disabled plugin: " + pluginId);
-        return true;
     }
 
     private boolean isDisabledInPreferences(String pluginId) {

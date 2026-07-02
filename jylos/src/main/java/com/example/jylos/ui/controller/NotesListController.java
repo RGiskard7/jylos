@@ -7,7 +7,6 @@ import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
-import com.example.jylos.event.events.UIEvents;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
@@ -30,6 +29,7 @@ import javafx.scene.input.TransferMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.concurrent.ExecutorService;
@@ -73,6 +73,8 @@ public class NotesListController {
     private Consumer<Note> notePrivacyToggleAction = note -> {
     };
     private BiConsumer<List<Note>, String> notesLoadedAction = (notes, message) -> {
+    };
+    private Consumer<String> statusUpdateAction = message -> {
     };
 
     /** Initial content of a freshly created {@code .canvas} file (empty JSON Canvas). */
@@ -591,7 +593,7 @@ public class NotesListController {
             noteService.updateNote(note);
             notesListView.refresh();
             if (eventBus != null) {
-                // NoteSavedEvent (not NoteModifiedEvent): the favorite flag is persisted,
+                // NoteSavedEvent: the favorite flag is persisted,
                 // and the sidebar Recent/Favorites panels listen to Saved — so favoriting
                 // from the list refreshes the Favorites panel live, like the editor button.
                 eventBus.publish(new NoteEvents.NoteSavedEvent(note));
@@ -621,7 +623,8 @@ public class NotesListController {
             Consumer<Note> noteSelectionAction,
             Consumer<Note> noteExportAction,
             Consumer<Note> notePrivacyToggleAction,
-            BiConsumer<List<Note>, String> notesLoadedAction) {
+            BiConsumer<List<Note>, String> notesLoadedAction,
+            Consumer<String> statusUpdateAction) {
         setServices(noteService, tagService, folderService);
         setBundle(bundle);
         this.noteSelectionAction = noteSelectionAction != null ? noteSelectionAction : note -> {
@@ -631,6 +634,8 @@ public class NotesListController {
         this.notePrivacyToggleAction = notePrivacyToggleAction != null ? notePrivacyToggleAction : note -> {
         };
         this.notesLoadedAction = notesLoadedAction != null ? notesLoadedAction : (notes, message) -> {
+        };
+        this.statusUpdateAction = statusUpdateAction != null ? statusUpdateAction : message -> {
         };
         setEventBus(eventBus);
     }
@@ -948,6 +953,37 @@ public class NotesListController {
     }
 
     /**
+     * Applies a saved note to the currently rendered list without forcing a full reload.
+     * This keeps the selected row coherent when a filesystem rename changes the note id.
+     */
+    void handleSavedNote(Note saved, String previousNoteId) {
+        if (saved == null || notesListView == null) {
+            return;
+        }
+        List<Note> items = notesListView.getItems();
+        for (int i = 0; i < items.size(); i++) {
+            Note item = items.get(i);
+            if (item == null) {
+                continue;
+            }
+            if (Objects.equals(item.getId(), saved.getId()) || Objects.equals(item.getId(), previousNoteId)) {
+                boolean selected = notesListView.getSelectionModel().getSelectedIndex() == i;
+                notesListView.getItems().set(i, saved);
+                if (selected) {
+                    restoringNotesSelection = true;
+                    try {
+                        notesListView.getSelectionModel().select(i);
+                    } finally {
+                        restoringNotesSelection = false;
+                    }
+                }
+                notesListView.refresh();
+                return;
+            }
+        }
+    }
+
+    /**
      * Replaces the list items, preserving the selected note and scroll position when
      * that note is still present (a refresh of the same view). On navigation to a
      * different folder/tag the previous note is absent, so the selection simply clears.
@@ -1138,8 +1174,8 @@ public class NotesListController {
     }
 
     private void publishStatusUpdate(String message) {
-        if (eventBus != null) {
-            eventBus.publish(new UIEvents.StatusUpdateEvent(message));
+        if (message != null && !message.isBlank()) {
+            statusUpdateAction.accept(message);
         }
     }
 

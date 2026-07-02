@@ -398,7 +398,7 @@ Raíz del repositorio (contiene el módulo Maven `jylos/` y `scripts/`):
 ├── jylos/                              # módulo Maven (aplicación)
 │   ├── pom.xml
 │   ├── src/main/java/com/example/jylos/
-│   │   ├── config/                     # AppContext, LoggerConfig
+│   │   ├── config/                     # LoggerConfig
 │   │   ├── data/                       # modelos; DAOs (sqlite/, filesystem/)
 │   │   ├── event/                      # EventBus + eventos de dominio
 │   │   ├── exceptions/

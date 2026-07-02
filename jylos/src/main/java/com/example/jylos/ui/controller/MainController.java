@@ -18,7 +18,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 
-import com.example.jylos.config.AppContext;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.dao.interfaces.FactoryDAO;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
@@ -30,6 +29,7 @@ import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.data.models.interfaces.Component;
 import com.example.jylos.event.EventBus;
+import com.example.jylos.event.events.FolderEvents;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.plugin.PluginManager;
@@ -59,22 +59,20 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.Separator;
 import javafx.scene.control.SplitPane;
-import javafx.scene.control.Tooltip;
-import javafx.concurrent.Task;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.control.Tooltip;
 import javafx.scene.control.TreeItem;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import javafx.scene.control.Dialog;
-import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
@@ -267,7 +265,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private final DocumentSupport documentSupport = new DocumentSupport();
     private final DocumentWorkflowSupport documentWorkflowSupport = new DocumentWorkflowSupport();
     private final NoteCreationSupport noteCreationSupport = new NoteCreationSupport();
-    private final UiEventSupport uiEventSupport = new UiEventSupport(this);
     private final UiInitialization uiInitialization = new UiInitialization(this);
     private final UiLayout uiLayout = new UiLayout();
     private final CommandRegistry commandRegistry = new CommandRegistry();
@@ -358,29 +355,33 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
             if (toolbarController != null) {
                 toolbarController.wire(eventBus, this::showCommandPalette, this::showQuickSwitcher,
-                        this::showKeyboardShortcutsHelp);
+                        this::showKeyboardShortcutsHelp,
+                        () -> handleLightTheme(null),
+                        () -> handleDarkTheme(null),
+                        () -> handleSystemTheme(null));
             }
             initializeCommandRouting();
             initializeSystemActionHandlers();
             if (eventBus != null) {
                 systemActionSubscription.cancel();
                 systemActionSubscription = eventBus.subscribe(SystemActionEvent.class, this::handleSystemAction);
-                subscribeToUIEvents();
+                subscribeToShellAndDomainEvents();
             }
             if (sidebarController != null) {
                 sidebarController.wire(eventBus, noteService, tagService, folderService, folderDAO, noteDAO, resources,
-                        this::handleUiFolderSelected, this::handleUiTagSelected, this::handleUiTrashItemSelected);
+                        this::handleUiFolderSelected, this::handleUiTagSelected, this::handleUiTrashItemSelected,
+                        this::handleUiNoteOpenRequest, this::updateStatus);
             }
             if (notesListController != null) {
                 notesListController.wire(eventBus, noteService, tagService, folderService, resources,
                         this::loadNoteInEditor, this::exportNote, this::toggleNotePrivacy,
-                        this::handleUiNotesLoaded);
+                        this::handleUiNotesLoaded, this::updateStatus);
                 notesPanel = notesListController.getNotesPanel();
                 sortComboBox = notesListController.getSortComboBox();
                 notesListView = notesListController.getNotesListView();
             }
             if (editorController != null) {
-                editorController.wire(eventBus, noteDAO, noteService, resources);
+                editorController.wire(eventBus, noteDAO, noteService, resources, this::handleUiNoteModified);
                 editorController.setWikiLinkHandler(title -> noteService.findNoteByTitle(title).ifPresentOrElse(
                         this::handleUiNoteOpenRequest,
                         () -> updateStatus("Note not found: " + title)));
@@ -396,7 +397,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                         this::getString);
             }
             overlaySupport.wire(centerStack, graphView, graphViewController, noteService,
-                    this::isDarkThemeActive, this::getString, this::updateStatus, this::handleUiNoteOpenRequest);
+                    this::isDarkThemeActive, this::getString, this::updateStatus, this::handleUiNoteOpenRequest,
+                    this::publishNoteCreated, this::publishNoteUpdated);
             if (graphViewController != null) {
                 graphViewController.wire(eventBus, noteService, tagService, resources,
                         overlaySupport::openNoteFromGraph, overlaySupport::hideGraph,
@@ -507,7 +509,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             updateStatus(java.text.MessageFormat.format(getString("status.error_details"), e.getMessage()));
         }
     }
-    /** Selects and opens the configured storage backend (SQLite or filesystem), then builds all DAOs, services and populates {@link AppContext}. */
+    /** Selects and opens the configured storage backend (SQLite or filesystem), then builds all DAOs and services. */
     private void initializeDatabase() {
         try {
 
@@ -548,14 +550,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                     com.example.jylos.service.NoteTitleIndex.getInstance();
             titleIndex.wire(noteService, eventBus);
             noteService.setNoteTitleIndex(titleIndex);
-
-            // Populate the application-wide service locator so that
-            // sub-controllers can access services without
-            // manual setter injection from MainController.
-            AppContext.initialize(noteDAO, folderDAO, tagDAO, noteService, folderService, tagService);
-            if (resources != null) {
-                AppContext.setBundle(resources);
-            }
 
             logger.info("Database connections and services initialized");
         } catch (Exception e) {
@@ -690,7 +684,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             }
 
             pluginManager = new PluginManager(noteService, folderService, tagService, eventBus, commandPalette, this,
-                    this, this, editorHooks, this);
+                    this, this, editorHooks, this, this::handleUiNoteOpenRequest);
 
             PluginLifecycle.LoadResult pluginLoadResult = pluginLifecycle
                     .registerCoreAndExternalPlugins(pluginManager);
@@ -731,33 +725,43 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
     }
 
-    /** Subscribes to the remaining fan-out UI/domain events that still belong on the {@link EventBus}. */
-    private void subscribeToUIEvents() {
+    /** Subscribes to the remaining shell/domain fan-out events that still belong on the {@link EventBus}. */
+    private void subscribeToShellAndDomainEvents() {
         if (eventBus == null) {
             return;
         }
         uiEventSubscriptions.forEach(EventBus.Subscription::cancel);
         uiEventSubscriptions.clear();
-        uiEventSubscriptions.addAll(uiEventSupport.subscribe(eventBus));
+        uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteDeletedEvent.class,
+                event -> handleUiNoteDeleted(event.getNoteId())));
+        uiEventSubscriptions.add(eventBus.subscribe(FolderEvents.FolderDeletedEvent.class,
+                event -> handleUiFolderDeleted(event.getFolderId())));
+        uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.TrashItemDeletedEvent.class,
+                event -> handleUiTrashItemDeleted()));
         // Keep the editor tab in sync when its note is saved (clear dirty dot, refresh title).
         uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class, e -> {
             Note saved = e.getNote();
-            if (editorTabs != null && saved != null && saved.getId() != null) {
+            String previousNoteId = e.getPreviousNoteId();
+            if (saved == null || saved.getId() == null) {
+                return;
+            }
+            if (editorTabs != null) {
+                if (previousNoteId != null && !previousNoteId.equals(saved.getId())) {
+                    editorTabs.rebindId(previousNoteId, saved.getId(), saved.getTitle());
+                }
                 editorTabs.setDirty(saved.getId(), false);
                 editorTabs.setTitle(saved.getId(), saved.getTitle());
             }
+            if (notesListController != null) {
+                notesListController.handleSavedNote(saved, previousNoteId);
+            }
+            Note active = getCurrentNote();
+            if (active != null && (Objects.equals(active.getId(), saved.getId())
+                    || Objects.equals(previousNoteId, active.getId()))) {
+                pendingModifiedNoteId = saved.getId();
+            }
+            refreshNotesGridIfActive();
         }));
-    }
-
-    /** Applies a theme requested through the event bus and refreshes the theme menu. */
-    void applyThemeFromEvent(String theme) {
-        if (theme == null || theme.isBlank()) {
-            return;
-        }
-        currentTheme = theme;
-        prefs.put("theme", currentTheme);
-        updateThemeMenuSelection();
-        applyThemeAndRefreshDependents();
     }
 
     void handleUiNotesLoaded(List<Note> notes, String statusMessage) {
@@ -911,6 +915,24 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         noteModifiedDebounce.playFromStart();
         if (autosaveEnabled) {
             autosaveDebounce.playFromStart();
+        }
+    }
+
+    private void publishNoteCreated(Note note) {
+        if (eventBus != null && note != null) {
+            eventBus.publish(new NoteEvents.NoteCreatedEvent(note));
+        }
+    }
+
+    private void publishNoteSelected(Note note) {
+        if (eventBus != null && note != null) {
+            eventBus.publish(new NoteEvents.NoteSelectedEvent(note));
+        }
+    }
+
+    private void publishNoteUpdated(Note note) {
+        if (eventBus != null && note != null) {
+            eventBus.publish(new NoteEvents.NoteUpdatedEvent(note));
         }
     }
 
@@ -1869,6 +1891,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             editorTabs.setDirty(activeNote.getId(), false);
         }
 
+        publishNoteSelected(activeNote);
         updateNoteMetadata(activeNote);
         refreshBacklinks(activeNote);
 

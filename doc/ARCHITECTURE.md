@@ -19,7 +19,7 @@ ui/ (FXML, controllers, components, GraphCanvas)
 
 | Package | Role |
 |---------|------|
-| `ui.controller` | `MainController` (shell coordinator), `SidebarController`, `NotesListController`, `EditorController`, `ToolbarController`, `GraphController`; **feature helpers** that `MainController` delegates to (`GitController`, `PrivacySupport`, `FocusModeSupport`, `OverlaySupport`, `StatusBarSupport`, `BacklinksSupport`) and shell helpers (`LayoutSupport`, `CommandSupport`, `DialogSupport`, `PluginSupport`, `UiEventSupport`, …) |
+| `ui.controller` | `MainController` (shell coordinator), `SidebarController`, `NotesListController`, `EditorController`, `ToolbarController`, `GraphController`; **feature helpers** that `MainController` delegates to (`GitController`, `PrivacySupport`, `FocusModeSupport`, `OverlaySupport`, `StatusBarSupport`, `BacklinksSupport`) and shell helpers (`LayoutSupport`, `CommandSupport`, `DialogSupport`, `PluginSupport`, …) |
 | `ui.theme` | Theme application/detection plus read-only theme and CSS snippet catalogs (`ThemeCommand`, `ThemeCatalog`, `CssSnippetCatalog`, `SystemThemeMonitor`) |
 | `ui.preferences` | Persistence of serialized UI preference state (`UiPreferencesStore`) |
 | `ui.graph` | `GraphCanvas` — native JavaFX force-directed graph renderer |
@@ -32,9 +32,9 @@ ui/ (FXML, controllers, components, GraphCanvas)
 | `event` | `EventBus`, typed events under `event.events` (including `SystemActionEvent`) |
 | `plugin` | `PluginLoader`, `PluginManager`, `AbstractPlugin`, `PluginIds`; built-in Mermaid under `plugin/mermaid/` |
 | `util` | `WikiLinkResolver`, `MarkdownProcessor`, `MarkdownPreview` (CommonMark + KaTeX + emoji), `MarkdownHighlighter` (editor syntax highlighting), `KanbanModel`, `NoteExporter` |
-| `config` | `AppContext`, `LoggerConfig` |
+| `config` | `LoggerConfig` |
 
-> **MainController pattern.** `MainController` is the FXML shell coordinator and must stay thin: each self-contained feature lives in its own `ui/controller/*Controller`/`*Support` class with a `wire(...)` method (FXML nodes + small callbacks). New features follow this — no feature bodies inside `MainController`. See `AGENTS.md`.
+> **MainController pattern.** `MainController` is the FXML shell coordinator and must stay thin: each self-contained feature lives in its own `ui/controller/*Controller`/`*Support` class with a `wire(...)` method (FXML nodes + small callbacks). `MainController` remains the owner of shell wiring, note-open flows, and cross-feature callbacks. New features follow this — no feature bodies inside `MainController`. See `AGENTS.md`.
 
 ## UI composition
 
@@ -63,7 +63,7 @@ Local graph: BFS neighbourhood around the open note id (configurable depth in co
 
 ## Kanban board
 
-A board is a normal **note** whose Markdown body is parsed/serialised by `KanbanModel`: a hidden first-line marker (`%% jylos-kanban %%`) flags it as a board, `## Heading` lines are columns, `- card` lines are text cards. `KanbanBoard` (overlay) renders columns/cards, supports add/rename/delete columns, create/edit/delete cards, drag between columns, and per-card open-linked-note / convert-to-note. Each change is serialised back to the board note via `NoteService` — works in both storage modes with no schema change.
+A board is a normal **note** whose Markdown body is parsed/serialised by `KanbanModel`: a hidden first-line marker (`%% jylos-kanban %%`) flags it as a board, `## Heading` lines are columns, `- card` lines are text cards. `KanbanBoard` (overlay) renders columns/cards, supports add/rename/delete columns, create/edit/delete cards, drag between columns, and per-card open-linked-note / convert-to-note. Each change is serialised back to the board note via `NoteService`; shell-level note-created / note-updated events are published by the overlay owner (`MainController` through `OverlaySupport`), not by the widget itself — works in both storage modes with no schema change.
 
 ## Runtime directories
 
@@ -100,12 +100,14 @@ When the vault directory is inside a Git repository, `GitService` drives the sta
 
 ## Plugins
 
-Core does not reference plugin classes by name. `PluginLoader` scans `plugins/` under the app base directory. Sample plugins compile with **`--release 21`** (`scripts/build-plugins.sh`). Use `AbstractPlugin` + stable ids from `PluginIds` for palette commands.
+Core does not reference plugin classes by name. `PluginLoader` scans `plugins/` under the app base directory. Sample plugins compile with **`--release 21`** (`scripts/build-plugins.sh`). Use `AbstractPlugin` + stable ids from `PluginIds` for palette commands. `PluginContext.requestOpenNote(...)` delegates to a direct callback owned by `MainController`; plugin note-open requests do not travel through ad-hoc UI events.
 
 ## Events
 
 - Domain events (`NoteEvents`, `FolderEvents`, …) for refresh coordination.
 - `SystemActionEvent` — toolbar/menu/command palette actions; `MainController` dispatches via `EnumMap` (avoid republishing mutating actions from handlers).
+- One-to-one UI flows such as theme changes, internal note opening, editor modified notifications, and status messages use explicit wiring/callbacks instead of the bus.
+- Plugin/extensibility fan-out remains event-based where appropriate; for example the shell publishes note-selection updates for plugins that track the active note.
 
 Keep subscriptions typed; unsubscribe on teardown; no refresh loops.
 

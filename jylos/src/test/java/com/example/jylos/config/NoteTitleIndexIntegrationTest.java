@@ -1,21 +1,20 @@
 package com.example.jylos.config;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 import org.junit.jupiter.api.AfterEach;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.example.jylos.data.dao.filesystem.FolderDAOFileSystem;
 import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
 import com.example.jylos.data.dao.filesystem.TagDAOFileSystem;
-import com.example.jylos.data.models.Note;
 import com.example.jylos.data.dao.interfaces.TagDAO;
+import com.example.jylos.data.models.Note;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.service.FolderService;
@@ -30,7 +29,6 @@ class NoteTitleIndexIntegrationTest {
         NoteTitleIndex.getInstance().invalidate();
         NoteTitleIndex.getInstance().shutdown();
         EventBus.getInstance().clear();
-        AppContext.resetForTesting();
     }
 
     @Test

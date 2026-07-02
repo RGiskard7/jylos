@@ -81,7 +81,7 @@ Jylos currently has mixed injection styles. Going forward, use these rules:
 - Within a single class, do not freely mix:
   - `wire(...)`
   - unrelated ad-hoc setters
-  - direct `AppContext` lookups
+  - opportunistic global lookups
 
 Pick one primary composition style per class and keep dependencies visible.
 
@@ -92,7 +92,7 @@ Controllers and supports may:
 - translate UI events into service calls
 - validate view-local input
 - coordinate dialogs, background tasks, and callbacks
-- publish typed UI or shell events
+- publish typed shell or domain fan-out events when several collaborators truly need them
 
 Controllers and supports should not:
 
@@ -188,10 +188,11 @@ Keep event intent clear:
 
 - domain facts
   - "a note was saved", "a folder was deleted"
-- UI requests
-  - "open this note", "show this dialog"
 - shell actions
   - `SystemActionEvent`
+
+One-to-one UI requests such as "open this note", "mark this note modified", "apply dark theme",
+or "show this status message" should use explicit callbacks from the owner instead of the bus.
 
 Do not casually blur those categories. A shell action is not the same thing as a persisted domain fact.
 
@@ -208,40 +209,12 @@ Indirect coupling is acceptable only when it stays legible. To keep it under con
 
 If following an event flow requires reading half the codebase, the event boundary is too broad.
 
-## `AppContext`
-
-`AppContext` is a lightweight global service locator, not an application state store.
-
-It currently exposes bootstrapped references such as DAOs, core services, and the active `ResourceBundle`. That is acceptable for a plain JavaFX desktop app, but it must stay constrained.
-
-### What `AppContext` is for
-
-- bootstrapped application-wide references
-- leaf UI helpers where passing the dependency explicitly would add disproportionate wiring noise
-- rare singleton-like adapters that are tied to application lifecycle
-
-### What `AppContext` is not for
-
-- storing live UI/session state
-- bypassing proper composition by default
-- making domain dependencies invisible just because wiring is inconvenient
-
-### Rules
-
-- New domain logic should not default to `AppContext`.
-- New services should receive dependencies explicitly unless there is a narrow, documented exception.
-- UI code may read from `AppContext` sparingly, but new feature code should prefer explicit wiring first.
-- Keep `AppContext` small; do not keep expanding it into a miscellaneous registry.
-
-If a class can reasonably receive a dependency through `wire(...)`, a setter, or a constructor, prefer that over a new `AppContext.getX()` call.
-
 ## Current inconsistencies we should reduce
 
 These are known cleanup targets, not reasons to rewrite the project:
 
 - mixed injection patterns across UI classes
 - too many presentation-oriented helpers living under `ui/controller` without a tighter taxonomy
-- growing reliance on `AppContext` in some helpers instead of explicit composition
 - event categories sharing one bus without always making intent obvious
 - `MainController` remaining the largest maintenance hotspot
 
@@ -254,10 +227,9 @@ Before merging a feature, ask:
 1. Does the class clearly belong to `ui`, `service`, `data`, `util`, or a feature package?
 2. Is the class name aligned with its role (`Controller`, `Support`, `Store`, `Catalog`, `Service`, etc.)?
 3. Are dependencies explicit where they reasonably can be?
-4. Is `AppContext` being used as a narrow convenience, not as a lazy default?
-5. Would a direct call be clearer than an event?
-6. If an event is used, who owns publishing and who unsubscribes?
-7. Did we keep `MainController` as coordinator instead of growing feature logic inside it?
+4. Would a direct call be clearer than an event?
+5. If an event is used, who owns publishing and who unsubscribes?
+6. Did we keep `MainController` as coordinator instead of growing feature logic inside it?
 
 ## Migration posture
 

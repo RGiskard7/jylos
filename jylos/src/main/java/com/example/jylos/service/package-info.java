@@ -10,7 +10,7 @@
  * </ul>
  *
  * <p>Classes here must stay independent from JavaFX presentation types and must not
- * reach into {@code ui/*}. Prefer explicit dependencies over global lookups such as
- * {@code AppContext} or {@code EventBus.getInstance()}.</p>
+ * reach into {@code ui/*}. Prefer explicit dependencies over opportunistic global
+ * lookups or singleton event-bus access.</p>
  */
 package com.example.jylos.service;

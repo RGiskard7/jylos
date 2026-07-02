@@ -3,8 +3,9 @@
  *
  * <h2>Architecture</h2>
  * <ul>
- *   <li><strong>5 FXML controllers</strong> — one per view: {@link MainController}, {@link ToolbarController},
- *       {@link SidebarController}, {@link NotesListController}, {@link EditorController}</li>
+ *   <li><strong>6 FXML controllers</strong> — one per view: {@link MainController}, {@link ToolbarController},
+ *       {@link SidebarController}, {@link NotesListController}, {@link EditorController},
+ *       {@link GraphController}</li>
  *   <li><strong>Shell-support units</strong> — feature helpers grouped by responsibility and named by role:
  *       {@code *Support} and {@code *Operations}. They collaborate with {@link MainController};
  *       not a plugin framework</li>
@@ -15,6 +16,6 @@
  *
  * <p>Business logic lives in {@code service.*} and {@code data.dao.*}. Controllers bind FXML, publish/consume
  * {@link com.example.jylos.event.EventBus} events where fan-out is useful, and delegate persistence to services.
- * New code should prefer explicit wiring over opportunistic global lookups.</p>
+ * One-to-one UI flows should prefer explicit wiring and callbacks.</p>
  */
 package com.example.jylos.ui.controller;

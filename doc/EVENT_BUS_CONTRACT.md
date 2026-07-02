@@ -24,5 +24,18 @@ Handlers must not re-publish the same `SystemActionEvent` they were invoked for.
 - Recursive publication of save/delete command events from within their own handlers.
 - Publishing one-to-one UI requests over the bus when a wired callback would be clearer.
 - Using events for toolbar/dialog/list interactions that have a single owner in `MainController`.
+- Routing theme changes, internal note opening, editor modified notifications, or shell status
+  messages through the bus when the owner can wire a direct callback.
+- Letting UI components or overlays reach for `EventBus.getInstance()` directly when
+  their owner can pass typed callbacks or publish on their behalf.
+- Treating feature widgets such as the Kanban overlay as independent event publishers
+  instead of routing publication through their owning controller/support.
 - Returning null subscriptions.
 - Swallowing handler exceptions without logging.
+
+## Approved extensibility fan-out
+
+- `MainController` may publish note-selection fan-out events for plugins and other
+  extensibility points that need to react to the active note.
+- This does not reintroduce one-to-one note-open requests over the bus: the owner
+  still opens the note directly and only then publishes the resulting active-note update.

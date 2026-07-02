@@ -36,13 +36,16 @@ final class OverlaySupport {
     private Function<String, String> i18n;
     private Consumer<String> status;
     private Consumer<Note> openNote;
+    private Consumer<Note> noteCreated;
+    private Consumer<Note> noteUpdated;
 
     /** Lazy-created Kanban board overlay, added to {@link #centerStack} on first use. */
     private KanbanBoard kanbanBoard;
 
     void wire(StackPane centerStack, VBox graphView, GraphController graphViewController,
             NoteService noteService, Supplier<Boolean> darkTheme, Function<String, String> i18n,
-            Consumer<String> status, Consumer<Note> openNote) {
+            Consumer<String> status, Consumer<Note> openNote,
+            Consumer<Note> noteCreated, Consumer<Note> noteUpdated) {
         this.centerStack = centerStack;
         this.graphView = graphView;
         this.graphViewController = graphViewController;
@@ -51,6 +54,8 @@ final class OverlaySupport {
         this.i18n = i18n;
         this.status = status;
         this.openNote = openNote;
+        this.noteCreated = noteCreated;
+        this.noteUpdated = noteUpdated;
         setGraphVisible(false);
     }
 
@@ -136,7 +141,8 @@ final class OverlaySupport {
         if (kanbanBoard != null || centerStack == null || noteService == null) {
             return;
         }
-        kanbanBoard = new KanbanBoard(noteService, this::openNoteByTitle, this::hideKanban, i18n);
+        kanbanBoard = new KanbanBoard(noteService, this::openNoteByTitle, this::hideKanban,
+                this::publishCreated, this::publishUpdated, i18n);
         setShown(kanbanBoard, false);
         centerStack.getChildren().add(kanbanBoard);
     }
@@ -159,6 +165,18 @@ final class OverlaySupport {
     private void publishOpen(Note note) {
         if (openNote != null && note != null) {
             openNote.accept(note);
+        }
+    }
+
+    private void publishCreated(Note note) {
+        if (noteCreated != null && note != null) {
+            noteCreated.accept(note);
+        }
+    }
+
+    private void publishUpdated(Note note) {
+        if (noteUpdated != null && note != null) {
+            noteUpdated.accept(note);
         }
     }
 

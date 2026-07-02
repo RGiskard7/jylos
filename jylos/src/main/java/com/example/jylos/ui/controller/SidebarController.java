@@ -31,7 +31,6 @@ import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.FolderEvents;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
-import com.example.jylos.event.events.UIEvents;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
@@ -137,6 +136,10 @@ public class SidebarController {
     };
     private Consumer<Component> trashSelectionAction = component -> {
     };
+    private Consumer<Note> openNoteAction = note -> {
+    };
+    private Consumer<String> statusUpdateAction = message -> {
+    };
     private final List<EventBus.Subscription> eventSubscriptions = new ArrayList<>();
     private final PauseTransition foldersFilterDebounce = new PauseTransition(Duration.millis(180));
     private final PauseTransition trashFilterDebounce = new PauseTransition(Duration.millis(180));
@@ -188,7 +191,8 @@ public class SidebarController {
     public void wire(EventBus eventBus, NoteService noteService, TagService tagService,
             FolderService folderService, FolderDAO folderDAO, NoteDAO noteDAO, ResourceBundle bundle,
             Consumer<Folder> folderSelectionAction, Consumer<Tag> tagSelectionAction,
-            Consumer<Component> trashSelectionAction) {
+            Consumer<Component> trashSelectionAction, Consumer<Note> openNoteAction,
+            Consumer<String> statusUpdateAction) {
         setNoteService(noteService);
         setTagService(tagService);
         setFolderService(folderService);
@@ -200,6 +204,10 @@ public class SidebarController {
         this.tagSelectionAction = tagSelectionAction != null ? tagSelectionAction : tag -> {
         };
         this.trashSelectionAction = trashSelectionAction != null ? trashSelectionAction : component -> {
+        };
+        this.openNoteAction = openNoteAction != null ? openNoteAction : note -> {
+        };
+        this.statusUpdateAction = statusUpdateAction != null ? statusUpdateAction : message -> {
         };
         setEventBus(eventBus);
     }
@@ -280,7 +288,7 @@ public class SidebarController {
         recentNotesListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
                 cachedRecentNotes.stream().filter(n -> n.getTitle().equals(newVal)).findFirst().ifPresent(n -> {
-                    publishEvent(new NoteEvents.NoteOpenRequestEvent(n));
+                    openNoteAction.accept(n);
                 });
             }
         });
@@ -288,7 +296,7 @@ public class SidebarController {
         favoritesListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
                 cachedFavoriteNotes.stream().filter(n -> n.getTitle().equals(newVal)).findFirst().ifPresent(n -> {
-                    publishEvent(new NoteEvents.NoteOpenRequestEvent(n));
+                    openNoteAction.accept(n);
                 });
             }
         });
@@ -1518,8 +1526,9 @@ public class SidebarController {
     }
 
     private void publishStatusUpdate(String m) {
-        if (eventBus != null)
-            eventBus.publish(new UIEvents.StatusUpdateEvent(m));
+        if (m != null && !m.isBlank()) {
+            statusUpdateAction.accept(m);
+        }
     }
 
     private void publishEvent(AppEvent event) {

@@ -27,7 +27,7 @@ class UiControllerCompositionGuardTest {
 
     @Test
     void controllerFilesShouldFollowTheDeclaredRoleSuffixes() throws IOException {
-        try (Stream<Path> files = Files.list(UI_CONTROLLER_DIR)) {
+        try (Stream<Path> files = Files.walk(UI_CONTROLLER_DIR)) {
             List<Path> javaFiles = files.filter(path -> path.toString().endsWith(".java")).toList();
             for (Path file : javaFiles) {
                 String name = file.getFileName().toString();

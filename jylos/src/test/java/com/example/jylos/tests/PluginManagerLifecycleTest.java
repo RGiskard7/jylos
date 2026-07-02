@@ -28,7 +28,9 @@ class PluginManagerLifecycleTest {
         RecordingPreviewRegistry preview = new RecordingPreviewRegistry();
         RecordingHookRegistry hooks = new RecordingHookRegistry();
         RecordingToolbarRegistry toolbar = new RecordingToolbarRegistry();
-        PluginManager manager = new PluginManager(null, null, null, null, null, menu, side, preview, hooks, toolbar);
+        PluginManager manager = new PluginManager(null, null, null, null, null, menu, side, preview, hooks, toolbar,
+                note -> {
+                });
         CountingPlugin plugin = new CountingPlugin("alpha");
 
         assertTrue(manager.registerPlugin(plugin));
@@ -56,7 +58,8 @@ class PluginManagerLifecycleTest {
     void shutdownAllCallsShutdownOnRegisteredPlugins() {
         PluginManager manager = new PluginManager(null, null, null, null, null,
                 new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry(),
-                new RecordingHookRegistry(), new RecordingToolbarRegistry());
+                new RecordingHookRegistry(), new RecordingToolbarRegistry(), note -> {
+                });
         CountingPlugin one = new CountingPlugin("one");
         CountingPlugin two = new CountingPlugin("two");
 
@@ -68,6 +71,24 @@ class PluginManagerLifecycleTest {
 
         assertTrue(one.shutdownCalls >= 1);
         assertTrue(two.shutdownCalls >= 1);
+    }
+
+    @Test
+    void initializePluginShouldContainThrowableFailuresAndShutdownAllShouldNotCallBrokenPlugins() {
+        PluginManager manager = new PluginManager(null, null, null, null, null,
+                new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry(),
+                new RecordingHookRegistry(), new RecordingToolbarRegistry(), note -> {
+                });
+        FailingPlugin plugin = new FailingPlugin("broken");
+
+        assertFalse(manager.initializePlugin("broken"));
+        manager.registerPlugin(plugin);
+        assertFalse(manager.initializePlugin("broken"));
+        assertEquals(PluginManager.PluginState.ERROR, manager.getPluginState("broken"));
+
+        manager.shutdownAll();
+
+        assertEquals(0, plugin.shutdownCalls);
     }
 
     private static final class CountingPlugin implements Plugin {
@@ -97,6 +118,40 @@ class PluginManagerLifecycleTest {
         @Override
         public void initialize(PluginContext context) {
             initializeCalls++;
+        }
+
+        @Override
+        public void shutdown() {
+            shutdownCalls++;
+        }
+    }
+
+    private static final class FailingPlugin implements Plugin {
+        private final String id;
+        private int shutdownCalls = 0;
+
+        private FailingPlugin(String id) {
+            this.id = id;
+        }
+
+        @Override
+        public String getId() {
+            return id;
+        }
+
+        @Override
+        public String getName() {
+            return id;
+        }
+
+        @Override
+        public String getVersion() {
+            return "1.0.0";
+        }
+
+        @Override
+        public void initialize(PluginContext context) {
+            throw new NoClassDefFoundError("missing plugin dependency");
         }
 
         @Override

@@ -17,7 +17,7 @@ class ServiceLayerDependencyGuardTest {
 
     @Test
     void servicesShouldStayIndependentFromPresentationAndGlobalServiceLookups() throws IOException {
-        try (Stream<Path> files = Files.list(SERVICE_DIR)) {
+        try (Stream<Path> files = Files.walk(SERVICE_DIR)) {
             List<Path> javaFiles = files.filter(path -> path.toString().endsWith(".java")).toList();
             for (Path file : javaFiles) {
                 String source = Files.readString(file, StandardCharsets.UTF_8);
@@ -28,9 +28,6 @@ class ServiceLayerDependencyGuardTest {
                 if ("package-info.java".equals(file.getFileName().toString())) {
                     continue;
                 }
-                assertFalse(source.contains("import com.example.jylos.config.AppContext")
-                                || source.contains("AppContext."),
-                        "Service layer should not use AppContext as a hidden dependency: " + file);
                 assertFalse(source.contains("EventBus.getInstance("),
                         "Service layer should receive EventBus explicitly instead of global lookup: " + file);
             }

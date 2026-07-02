@@ -2,7 +2,6 @@ package com.example.jylos.event.events;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.event.AppEvent;
-import java.util.List;
 
 /**
  * Note-related events for the application.
@@ -36,8 +35,34 @@ public final class NoteEvents {
      */
     public static class NoteSavedEvent extends AppEvent {
         private final Note note;
+        private final String previousNoteId;
 
         public NoteSavedEvent(Note note) {
+            this(note, note != null ? note.getId() : null);
+        }
+
+        public NoteSavedEvent(Note note, String previousNoteId) {
+            this.note = note;
+            this.previousNoteId = previousNoteId;
+        }
+
+        public Note getNote() {
+            return note;
+        }
+
+        public String getPreviousNoteId() {
+            return previousNoteId;
+        }
+    }
+
+    /**
+     * Event fired when the shell selects/opens a note and fan-out observers such as
+     * plugins need to react to the active note change.
+     */
+    public static class NoteSelectedEvent extends AppEvent {
+        private final Note note;
+
+        public NoteSelectedEvent(Note note) {
             this.note = note;
         }
 
@@ -131,39 +156,6 @@ public final class NoteEvents {
 
         public String getContent() {
             return content;
-        }
-    }
-
-    /**
-     * Event fired when a plugin requests to open a note in the editor.
-     */
-    public static class NoteOpenRequestEvent extends AppEvent {
-        private final Note note;
-
-        public NoteOpenRequestEvent(Note note) {
-            super("Plugin");
-            this.note = note;
-        }
-
-        public Note getNote() {
-            return note;
-        }
-    }
-
-    /**
-     * Event fired when the current note is modified in the editor but not yet
-     * saved.
-     */
-    public static class NoteModifiedEvent extends AppEvent {
-        private final Note note;
-
-        public NoteModifiedEvent(Note note) {
-            super("Editor");
-            this.note = note;
-        }
-
-        public Note getNote() {
-            return note;
         }
     }
 

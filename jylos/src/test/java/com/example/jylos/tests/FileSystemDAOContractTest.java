@@ -386,6 +386,44 @@ class FileSystemDAOContractTest {
     }
 
     @Test
+    void updateAttachmentKeepsCanvasExtensionAndWritesRawJson() throws Exception {
+        String initialJson = "{\"nodes\":[],\"edges\":[]}";
+        Note canvas = new Note("Board.canvas", initialJson);
+        String id = noteDAO.createNote(canvas);
+
+        Note loaded = noteDAO.getNoteById(id);
+        assertNotNull(loaded);
+
+        String updatedJson = "{\"nodes\":[{\"id\":\"1\"}],\"edges\":[]}";
+        loaded.setTitle("Roadmap");
+        loaded.setContent(updatedJson);
+        noteDAO.updateNote(loaded);
+
+        assertTrue(loaded.getId().endsWith("Roadmap.canvas"),
+                "Canvas rename must preserve the .canvas extension.");
+
+        Path file = tempDir.resolve(loaded.getId().replace("/", java.io.File.separator));
+        assertTrue(java.nio.file.Files.exists(file), "renamed canvas file should exist on disk");
+        assertEquals(updatedJson, java.nio.file.Files.readString(file),
+                "Canvas updates must be written verbatim, without Markdown frontmatter.");
+    }
+
+    @Test
+    void updateAttachmentMustNotAllowChangingCanvasExtension() throws Exception {
+        Note canvas = new Note("Board.canvas", "{\"nodes\":[],\"edges\":[]}");
+        String id = noteDAO.createNote(canvas);
+
+        Note loaded = noteDAO.getNoteById(id);
+        assertNotNull(loaded);
+
+        loaded.setTitle("Roadmap.md");
+        noteDAO.updateNote(loaded);
+
+        assertTrue(loaded.getId().endsWith("Roadmap.canvas"),
+                "Renaming a canvas must preserve the .canvas file type even if the typed title includes another extension.");
+    }
+
+    @Test
     void folderAndTagListingsNeverExposeEncryptedBodies() {
         NoteService noteService = new NoteService(noteDAO, folderDAO);
         Folder folder = new Folder("Private");
