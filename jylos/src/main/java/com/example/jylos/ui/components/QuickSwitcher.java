@@ -8,7 +8,6 @@ import java.util.stream.Collectors;
 
 import java.util.ResourceBundle;
 
-import com.example.jylos.config.AppContext;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.util.FuzzySearchUtils;
@@ -55,15 +54,19 @@ public class QuickSwitcher {
     private List<Note> allNotes = new ArrayList<>();
     private Consumer<Note> onNoteSelected;
     private boolean isDarkTheme = false;
+    private ResourceBundle bundle;
     
     public QuickSwitcher(Stage parentStage) {
         this.parentStage = parentStage;
     }
 
+    public void setBundle(ResourceBundle bundle) {
+        this.bundle = bundle;
+    }
+
     /** Resolves an i18n string, falling back to the key if the bundle is unavailable. */
     private String i18n(String key) {
         try {
-            ResourceBundle bundle = AppContext.isInitialized() ? AppContext.getBundle() : null;
             return bundle != null ? bundle.getString(key) : key;
         } catch (Exception e) {
             return key;

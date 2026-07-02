@@ -7,7 +7,6 @@ import java.util.Optional;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import com.example.jylos.config.AppContext;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
@@ -40,6 +39,7 @@ public class NoteService {
 
     private final NoteDAO noteDAO;
     private final FolderDAO folderDAO;
+    private NoteTitleIndex noteTitleIndex;
 
     /**
      * Sorting options for notes list.
@@ -83,6 +83,10 @@ public class NoteService {
         this.folderDAO = folderDAO;
 
         logger.info("NoteService initialized");
+    }
+
+    public void setNoteTitleIndex(NoteTitleIndex noteTitleIndex) {
+        this.noteTitleIndex = noteTitleIndex;
     }
 
     // ==================== CRUD Operations ====================
@@ -405,14 +409,14 @@ public class NoteService {
             return Optional.empty();
         }
         String target = title.trim();
-        if (AppContext.isInitialized() && AppContext.getNoteService() == this) {
-            Optional<String> indexedId = NoteTitleIndex.getInstance().findNoteIdByTitle(target);
+        if (noteTitleIndex != null) {
+            Optional<String> indexedId = noteTitleIndex.findNoteIdByTitle(target);
             if (indexedId.isPresent()) {
                 Optional<Note> indexed = getNoteById(indexedId.get());
                 if (indexed.isPresent()) {
                     return indexed;
                 }
-                NoteTitleIndex.getInstance().invalidate();
+                noteTitleIndex.invalidate();
             }
         }
         return getAllNotes().stream()

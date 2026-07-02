@@ -16,13 +16,7 @@ class AppContextUsageGuardTest {
 
     private static final Path MAIN_JAVA = Path.of("src/main/java/com/example/jylos");
     private static final Pattern APP_CONTEXT_ACCESS = Pattern.compile("AppContext\\.(get|isInitialized)\\(");
-    private static final Set<Path> ALLOWED = Set.of(
-            Path.of("src/main/java/com/example/jylos/service/NoteService.java"),
-            Path.of("src/main/java/com/example/jylos/service/NoteTitleIndex.java"),
-            Path.of("src/main/java/com/example/jylos/util/MarkdownPreview.java"),
-            Path.of("src/main/java/com/example/jylos/ui/components/CommandPalette.java"),
-            Path.of("src/main/java/com/example/jylos/ui/components/QuickSwitcher.java"),
-            Path.of("src/main/java/com/example/jylos/ui/components/PluginManagerDialog.java"));
+    private static final Set<Path> ALLOWED = Set.of();
 
     @Test
     void appContextGetsShouldStayLimitedToExplicitExceptions() throws IOException {

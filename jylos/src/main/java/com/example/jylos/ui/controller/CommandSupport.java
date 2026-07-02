@@ -9,6 +9,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.ResourceBundle;
 
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.models.Folder;
@@ -200,7 +201,8 @@ class CommandUI {
             CommandPalette existingPalette,
             QuickSwitcher existingSwitcher,
             Consumer<String> commandHandler,
-            Consumer<Note> noteSelectionHandler) {
+            Consumer<Note> noteSelectionHandler,
+            ResourceBundle bundle) {
         if (stage == null) {
             return new CommandUiComponents(existingPalette, existingSwitcher);
         }
@@ -212,6 +214,7 @@ class CommandUI {
                 palette.setCommandHandler(commandHandler);
             }
         }
+        palette.setBundle(bundle);
 
         QuickSwitcher switcher = existingSwitcher;
         if (switcher == null) {
@@ -220,6 +223,7 @@ class CommandUI {
                 switcher.setOnNoteSelected(noteSelectionHandler);
             }
         }
+        switcher.setBundle(bundle);
 
         return new CommandUiComponents(palette, switcher);
     }

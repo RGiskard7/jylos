@@ -5,6 +5,7 @@ import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.function.Function;
 
 import org.jsoup.Jsoup;
 import org.jsoup.helper.W3CDom;
@@ -37,7 +38,16 @@ public final class NoteExporter {
      * @param baseDir folder to resolve relative image paths against, or {@code null}
      */
     public static void exportHtml(Note note, File target, java.nio.file.Path baseDir) throws Exception {
-        String html = MarkdownPreview.buildPreviewHtml(content(note), false, null, baseDir);
+        exportHtml(note, target, baseDir, null);
+    }
+
+    /**
+     * Writes the note as a self-contained, styled HTML document using the provided
+     * embed resolver for {@code ![[transclusions]]}.
+     */
+    public static void exportHtml(Note note, File target, java.nio.file.Path baseDir,
+            Function<String, String> embeddedContentResolver) throws Exception {
+        String html = MarkdownPreview.buildPreviewHtml(content(note), false, null, baseDir, embeddedContentResolver);
         Files.writeString(target.toPath(), html, StandardCharsets.UTF_8);
     }
 

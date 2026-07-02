@@ -504,6 +504,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             noteOperations = new NoteOperations(noteService, folderService);
             backlinkService = new com.example.jylos.service.BacklinkService(noteService);
             eventBus = EventBus.getInstance();
+            com.example.jylos.service.NoteTitleIndex titleIndex =
+                    com.example.jylos.service.NoteTitleIndex.getInstance();
+            titleIndex.wire(noteService, eventBus);
+            noteService.setNoteTitleIndex(titleIndex);
 
             // Populate the application-wide service locator so that
             // sub-controllers can access services without
@@ -657,6 +661,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                     ? (Stage) mainSplitPane.getScene().getWindow()
                     : null;
             pluginManagerDialog = new PluginManagerDialog(stage, pluginManager);
+            pluginManagerDialog.setBundle(resources);
 
             commandPalette.addCommand(new CommandPalette.Command(
                     "cmd.plugins.manage",
@@ -991,6 +996,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     public void showPluginManager() {
         if (pluginManagerDialog != null) {
+            pluginManagerDialog.setBundle(resources);
             pluginManagerDialog.show();
         } else {
             Alert alert = new Alert(Alert.AlertType.WARNING);
@@ -1518,7 +1524,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 commandPalette,
                 quickSwitcher,
                 this::executeCommand,
-                this::loadNoteInEditor);
+                this::loadNoteInEditor,
+                resources);
         commandPalette = components.commandPalette();
         quickSwitcher = components.quickSwitcher();
     }

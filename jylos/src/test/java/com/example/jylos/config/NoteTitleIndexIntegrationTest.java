@@ -28,6 +28,7 @@ class NoteTitleIndexIntegrationTest {
     @AfterEach
     void resetAppState() {
         NoteTitleIndex.getInstance().invalidate();
+        NoteTitleIndex.getInstance().shutdown();
         EventBus.getInstance().clear();
         AppContext.resetForTesting();
     }
@@ -43,18 +44,20 @@ class NoteTitleIndexIntegrationTest {
         FolderService folderService = new FolderService(folderDao, noteDao);
         TagService tagService = new TagService(tagDao, noteDao);
 
-        AppContext.initialize(noteDao, folderDao, tagDao, noteService, folderService, tagService);
-        NoteTitleIndex.getInstance().invalidate();
+        NoteTitleIndex titleIndex = NoteTitleIndex.getInstance();
+        titleIndex.wire(noteService, EventBus.getInstance());
+        noteService.setNoteTitleIndex(titleIndex);
+        titleIndex.invalidate();
 
         Note alpha = noteService.findNoteByTitle("alpha").orElseThrow();
-        assertEquals(alpha.getId(), NoteTitleIndex.getInstance().findNoteIdByTitle("ALPHA").orElseThrow());
+        assertEquals(alpha.getId(), titleIndex.findNoteIdByTitle("ALPHA").orElseThrow());
 
         alpha.setTitle("Renamed");
         noteService.updateNote(alpha);
         EventBus.getInstance().publishSync(new NoteEvents.NoteSavedEvent(alpha));
 
-        assertTrue(NoteTitleIndex.getInstance().findNoteIdByTitle("Alpha").isEmpty());
-        assertEquals(alpha.getId(), NoteTitleIndex.getInstance().findNoteIdByTitle("renamed").orElseThrow());
+        assertTrue(titleIndex.findNoteIdByTitle("Alpha").isEmpty());
+        assertEquals(alpha.getId(), titleIndex.findNoteIdByTitle("renamed").orElseThrow());
         assertEquals(alpha.getId(), noteService.findNoteByTitle("Renamed").orElseThrow().getId());
     }
 }

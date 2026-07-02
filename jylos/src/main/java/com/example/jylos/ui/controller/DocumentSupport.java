@@ -97,7 +97,8 @@ class DocumentSupport {
         try {
             java.nio.file.Path baseDir = resolveBaseDir(note);
             if (name.endsWith(".html") || name.endsWith(".htm")) {
-                com.example.jylos.util.NoteExporter.exportHtml(note, targetFile, baseDir);
+                com.example.jylos.util.NoteExporter.exportHtml(note, targetFile, baseDir,
+                        this::resolveEmbedContentByTitle);
                 return new ExportResult(true, null);
             }
             if (name.endsWith(".pdf")) {
@@ -136,6 +137,16 @@ class DocumentSupport {
             logger.fine("Could not resolve base dir for export: " + e.getMessage());
         }
         return null;
+    }
+
+    private String resolveEmbedContentByTitle(String title) {
+        if (noteService == null || title == null || title.isBlank()) {
+            return null;
+        }
+        return noteService.findNoteByTitle(title)
+                .flatMap(note -> noteService.getNoteById(note.getId()))
+                .map(Note::getContent)
+                .orElse(null);
     }
 
     String sanitizeFileName(String name) {

@@ -1452,7 +1452,8 @@ public class EditorController {
             @Override
             protected String call() {
                 if (content != null && !content.trim().isEmpty()) {
-                    return MarkdownPreview.buildPreviewHtml(content, darkTheme, enhancers, baseDir);
+                    return MarkdownPreview.buildPreviewHtml(content, darkTheme, enhancers, baseDir,
+                            EditorController.this::resolveEmbedContentByTitle);
                 }
                 return MarkdownPreview.buildEmptyHtml(darkTheme);
             }
@@ -1465,6 +1466,16 @@ public class EditorController {
         Thread thread = new Thread(task, "preview-render");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private String resolveEmbedContentByTitle(String title) {
+        if (noteService == null || title == null || title.isBlank()) {
+            return null;
+        }
+        return noteService.findNoteByTitle(title)
+                .flatMap(note -> noteService.getNoteById(note.getId()))
+                .map(Note::getContent)
+                .orElse(null);
     }
 
     /** Folder of the current note, used to resolve relative image paths in the preview. */

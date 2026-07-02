@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
 
-import com.example.jylos.config.AppContext;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginManager;
 import com.example.jylos.plugin.PluginManager.PluginState;
@@ -45,6 +44,7 @@ public class PluginManagerDialog {
     private Stage dialogStage;
     private VBox pluginListContainer;
     private Label countLabel;
+    private ResourceBundle bundle;
 
     /** Toggle switches per plugin id, so the list can refresh their state. */
     private final Map<String, ToggleButton> toggleButtons = new HashMap<>();
@@ -54,6 +54,10 @@ public class PluginManagerDialog {
         this.pluginManager = pluginManager;
     }
 
+    public void setBundle(ResourceBundle bundle) {
+        this.bundle = bundle;
+    }
+
     /** Shows the Plugin Manager window. */
     public void show() {
         createDialog();
@@ -61,14 +65,9 @@ public class PluginManagerDialog {
         dialogStage.showAndWait();
     }
 
-    private ResourceBundle bundle() {
-        return AppContext.isInitialized() ? AppContext.getBundle() : null;
-    }
-
     private String i18n(String key) {
-        ResourceBundle b = bundle();
         try {
-            return b != null ? b.getString(key) : key;
+            return bundle != null ? bundle.getString(key) : key;
         } catch (Exception e) {
             return key;
         }
