@@ -44,6 +44,11 @@ import com.example.jylos.service.TagService;
 import com.example.jylos.ui.components.CommandPalette;
 import com.example.jylos.ui.components.PluginManagerDialog;
 import com.example.jylos.ui.components.QuickSwitcher;
+import com.example.jylos.ui.preferences.UiPreferencesStore;
+import com.example.jylos.ui.theme.CssSnippetCatalog;
+import com.example.jylos.ui.theme.SystemThemeMonitor;
+import com.example.jylos.ui.theme.ThemeCatalog;
+import com.example.jylos.ui.theme.ThemeCommand;
 
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;

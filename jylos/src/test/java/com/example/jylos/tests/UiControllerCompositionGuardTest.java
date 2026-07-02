@@ -23,7 +23,7 @@ class UiControllerCompositionGuardTest {
     private static final Path EDITOR_CONTROLLER = UI_CONTROLLER_DIR.resolve("EditorController.java");
     private static final Path TOOLBAR_CONTROLLER = UI_CONTROLLER_DIR.resolve("ToolbarController.java");
     private static final Set<String> ALLOWED_SUFFIXES = Set.of(
-            "Controller.java", "Support.java", "Store.java", "Catalog.java", "Operations.java", "package-info.java");
+            "Controller.java", "Support.java", "Operations.java", "package-info.java");
 
     @Test
     void controllerFilesShouldFollowTheDeclaredRoleSuffixes() throws IOException {

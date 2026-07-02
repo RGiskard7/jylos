@@ -1,4 +1,4 @@
-package com.example.jylos.ui.controller;
+package com.example.jylos.ui.theme;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

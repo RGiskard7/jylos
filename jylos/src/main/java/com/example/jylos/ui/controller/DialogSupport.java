@@ -21,6 +21,9 @@ import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.service.TagService;
+import com.example.jylos.ui.preferences.UiPreferencesStore;
+import com.example.jylos.ui.theme.CssSnippetCatalog;
+import com.example.jylos.ui.theme.ThemeCatalog;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;

@@ -1,18 +1,15 @@
-package com.example.jylos.ui.controller;
+package com.example.jylos.ui.preferences;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.prefs.Preferences;
 
+import com.example.jylos.ui.theme.CssSnippetCatalog;
+
 /**
  * Centralizes UI preference keys, defaults and persistence.
- *
- * <p>Package-private shell-support type collaborating with {@link MainController}.</p>
- *
- * <p>Note: the sidebar tabs and editor view-mode buttons are always rendered
- * icon-only (with tooltips), so they are not configurable here.</p>
  */
-class UiPreferencesStore {
+public final class UiPreferencesStore {
 
     public static final String AUTOSAVE_ENABLED_KEY = "ui.autosave.enabled";
     public static final String AUTOSAVE_IDLE_MS_KEY = "ui.autosave.idle_ms";
@@ -20,39 +17,18 @@ class UiPreferencesStore {
     public static final String THEME_EXTERNAL_ID_KEY = "ui.theme.external.id";
     public static final String NOTES_PREVIEW_LINES_KEY = "ui.notes.preview.lines";
     public static final String UI_FONT_SIZE_KEY = "ui.font.size";
-
-    /**
-     * Enabled CSS snippet filenames, newline-separated. Kept outside
-     * {@link UiPreferencesData} because snippets have their own list-based UI and
-     * are applied by the theme layer, not carried with the scalar UI settings.
-     */
     public static final String SNIPPETS_ENABLED_KEY = "ui.snippets.enabled";
-
-    /**
-     * Custom accent color as {@code #RRGGBB}, or empty for the theme default.
-     * Applied as an inline {@code -fx-accent} override on the scene root, so it works
-     * with built-in and external themes alike.
-     */
     public static final String UI_ACCENT_KEY = "ui.accent.color";
-
-    /** Sidebar | content divider of the main SplitPane. */
     public static final String SPLIT_MAIN_KEY = "ui.split.main";
-    /** Notes-list | editor divider of the content SplitPane. */
     public static final String SPLIT_CONTENT_KEY = "ui.split.content";
     public static final double DEFAULT_SPLIT_MAIN = 0.22;
     public static final double DEFAULT_SPLIT_CONTENT = 0.25;
-
     public static final String THEME_SOURCE_BUILTIN = "builtin";
     public static final String THEME_SOURCE_EXTERNAL = "external";
-
     public static final int DEFAULT_AUTOSAVE_IDLE_MS = 2000;
-
-    /** Number of body-preview lines shown in the notes list (clamped to [0, 5]). */
     public static final int DEFAULT_NOTES_PREVIEW_LINES = 2;
     public static final int MIN_NOTES_PREVIEW_LINES = 0;
     public static final int MAX_NOTES_PREVIEW_LINES = 5;
-
-    /** Base interface font size in points (clamped to [10, 22]). */
     public static final int DEFAULT_UI_FONT_SIZE = 13;
     public static final int MIN_UI_FONT_SIZE = 10;
     public static final int MAX_UI_FONT_SIZE = 22;
@@ -104,10 +80,6 @@ class UiPreferencesStore {
         prefs.put(THEME_EXTERNAL_ID_KEY, value.externalThemeId() != null ? value.externalThemeId().trim() : "");
     }
 
-    /**
-     * Loads the set of enabled CSS snippet filenames, preserving order and dropping
-     * any malformed entry. Returns an empty set when none are stored.
-     */
     public Set<String> loadEnabledSnippets(Preferences prefs) {
         Set<String> enabled = new LinkedHashSet<>();
         if (prefs == null) {
@@ -123,7 +95,6 @@ class UiPreferencesStore {
         return enabled;
     }
 
-    /** Persists the enabled CSS snippet filenames as a newline-separated list. */
     public void saveEnabledSnippets(Preferences prefs, Set<String> enabled) {
         if (prefs == null) {
             return;
@@ -144,8 +115,7 @@ class UiPreferencesStore {
         prefs.put(SNIPPETS_ENABLED_KEY, sb.toString());
     }
 
-    /** Returns the value if it is a valid {@code #RRGGBB} color, otherwise "" (theme default). */
-    static String sanitizeAccent(String value) {
+    public static String sanitizeAccent(String value) {
         if (value == null) {
             return "";
         }
@@ -153,11 +123,11 @@ class UiPreferencesStore {
         return v.matches("#[0-9a-fA-F]{6}") ? v.toLowerCase(java.util.Locale.ROOT) : "";
     }
 
-    static int clampPreviewLines(int lines) {
+    public static int clampPreviewLines(int lines) {
         return Math.max(MIN_NOTES_PREVIEW_LINES, Math.min(MAX_NOTES_PREVIEW_LINES, lines));
     }
 
-    static int clampFontSize(int size) {
+    public static int clampFontSize(int size) {
         return Math.max(MIN_UI_FONT_SIZE, Math.min(MAX_UI_FONT_SIZE, size));
     }
 }

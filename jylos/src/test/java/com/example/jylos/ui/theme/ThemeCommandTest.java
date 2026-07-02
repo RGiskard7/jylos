@@ -1,10 +1,12 @@
-package com.example.jylos.ui.controller;
+package com.example.jylos.ui.theme;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
+
+import com.example.jylos.ui.preferences.UiPreferencesStore;
 
 class ThemeCommandTest {
 

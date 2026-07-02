@@ -7,6 +7,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.prefs.Preferences;
 
+import com.example.jylos.ui.preferences.UiPreferencesStore;
+
 import javafx.scene.Node;
 import javafx.scene.control.SplitPane;
 

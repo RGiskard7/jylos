@@ -19,7 +19,9 @@ ui/ (FXML, controllers, components, GraphCanvas)
 
 | Package | Role |
 |---------|------|
-| `ui.controller` | `MainController` (shell coordinator), `SidebarController`, `NotesListController`, `EditorController`, `ToolbarController`, `GraphController`; **feature helpers** that `MainController` delegates to (`GitController`, `PrivacySupport`, `FocusModeSupport`, `OverlaySupport`, `StatusBarSupport`, `BacklinksSupport`) and shell helpers (`LayoutSupport`, `CommandSupport`, `DialogSupport`, `ThemeSupport`, `PluginSupport`, `UiEventSupport`, `UiPreferencesStore`, …) |
+| `ui.controller` | `MainController` (shell coordinator), `SidebarController`, `NotesListController`, `EditorController`, `ToolbarController`, `GraphController`; **feature helpers** that `MainController` delegates to (`GitController`, `PrivacySupport`, `FocusModeSupport`, `OverlaySupport`, `StatusBarSupport`, `BacklinksSupport`) and shell helpers (`LayoutSupport`, `CommandSupport`, `DialogSupport`, `PluginSupport`, `UiEventSupport`, …) |
+| `ui.theme` | Theme application/detection plus read-only theme and CSS snippet catalogs (`ThemeCommand`, `ThemeCatalog`, `CssSnippetCatalog`, `SystemThemeMonitor`) |
+| `ui.preferences` | Persistence of serialized UI preference state (`UiPreferencesStore`) |
 | `ui.graph` | `GraphCanvas` — native JavaFX force-directed graph renderer |
 | `ui.components` | `CommandPalette`, `QuickSwitcher`, `PluginManagerDialog`, `FileViewer`, `EditorTabs` (open-note tab strip), `KanbanBoard` (Kanban overlay) |
 | `graph` | `GraphBuilder`, `GraphData` — vault graph from notes, wiki-links, tags |
