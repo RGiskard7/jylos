@@ -265,6 +265,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private final PluginLifecycle pluginLifecycle = new PluginLifecycle();
     private final CommandUI commandUI = new CommandUI();
     private final DocumentSupport documentSupport = new DocumentSupport();
+    private final DocumentWorkflowSupport documentWorkflowSupport = new DocumentWorkflowSupport();
+    private final NoteCreationSupport noteCreationSupport = new NoteCreationSupport();
     private final UiEventSupport uiEventSupport = new UiEventSupport(this);
     private final UiInitialization uiInitialization = new UiInitialization(this);
     private final UiLayout uiLayout = new UiLayout();
@@ -436,6 +438,40 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                     this::loadNoteInEditor);
             historySupport.wire(noteService, this::getString, this::updateStatus, sceneSupplier,
                     this::getCurrentNote, this::loadNoteInEditor);
+            noteCreationSupport.wire(noteService, noteOperations,
+                    () -> !"sqlite".equals(prefs.get("storage_type", "sqlite")),
+                    this::getString, this::updateStatus,
+                    () -> mainSplitPane != null && mainSplitPane.getScene() != null
+                            ? mainSplitPane.getScene().getWindow() : null,
+                    () -> currentFolder, this::loadNoteInEditor,
+                    note -> {
+                        if (eventBus != null) {
+                            eventBus.publish(new NoteEvents.NoteCreatedEvent(note));
+                        }
+                    },
+                    noteId -> {
+                        if (notesListController != null) {
+                            notesListController.requestSelectAfterRefresh(noteId);
+                        }
+                    },
+                    this::refreshNotesList,
+                    () -> {
+                        if (sidebarController != null) {
+                            sidebarController.loadRecentNotes();
+                            sidebarController.loadFolders();
+                        }
+                    });
+            documentWorkflowSupport.wire(documentSupport, noteService, this::getString, this::updateStatus,
+                    () -> mainSplitPane != null && mainSplitPane.getScene() != null
+                            ? mainSplitPane.getScene().getWindow() : null,
+                    () -> currentFolder, this::getCurrentNote,
+                    () -> editorController != null ? editorController.getCurrentContent() : null,
+                    () -> {
+                        refreshNotesList();
+                        if (sidebarController != null) {
+                            sidebarController.loadRecentNotes();
+                        }
+                    });
             importSupport.wire(new com.example.jylos.service.ImportService(noteService, folderService),
                     this::getString, this::updateStatus,
                     () -> mainSplitPane != null && mainSplitPane.getScene() != null
@@ -2059,28 +2095,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     @FXML
     void handleNewNote(ActionEvent event) {
         try {
-            boolean isFileSystem = !"sqlite".equals(prefs.get("storage_type", "sqlite"));
-            NoteOperations.NoteCreationResult creation = noteOperations.createNewNote(
-                    getString("action.new_note"), currentFolder, isFileSystem);
-            if (!creation.success() || creation.note() == null) {
-                updateStatus(getString("status.error_creating_note"));
-                return;
-            }
-
-            Note note = creation.note();
-            loadNoteInEditor(note);
-            if (eventBus != null) {
-                eventBus.publish(new NoteEvents.NoteCreatedEvent(note));
-            }
-            if (notesListController != null) {
-                notesListController.requestSelectAfterRefresh(note.getId());
-            }
-            refreshNotesList();
-            if (sidebarController != null) {
-                sidebarController.loadRecentNotes();
-                sidebarController.loadFolders();
-            }
-            updateStatus(getString("status.note_created"));
+            noteCreationSupport.createNewNote();
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Failed to create new note", e);
             updateStatus(getString("status.error_creating_note"));
@@ -2099,114 +2114,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     /** Opens today's daily note ({@code yyyy-MM-dd}), creating it (from a "daily" template if any). */
     private void handleDailyNote() {
-        if (noteService == null) {
-            return;
-        }
-        String title = com.example.jylos.util.NoteTemplates.dailyNoteTitle();
-        Note existing = noteService.findNoteByTitle(title).orElse(null);
-        if (existing != null) {
-            loadNoteInEditor(noteService.getNoteById(existing.getId()).orElse(existing));
-            updateStatus(java.text.MessageFormat.format(getString("status.note_loaded"), title));
-            return;
-        }
-        String template = templateContentByName("daily");
-        String content = template != null
-                ? com.example.jylos.util.NoteTemplates.applyPlaceholders(template, title)
-                : "# " + title + "\n\n";
-        createAndOpenNote(title, content);
+        noteCreationSupport.openDailyNote();
     }
 
     /** Lets the user pick a template (notes under a "Templates" folder) and create a note from it. */
     private void handleNewFromTemplate() {
-        if (noteService == null) {
-            return;
-        }
-        java.util.List<Note> templates = listTemplates();
-        if (templates.isEmpty()) {
-            showAlert(Alert.AlertType.INFORMATION, getString("dialog.templates.title"),
-                    getString("dialog.templates.none_header"), getString("dialog.templates.none_content"));
-            return;
-        }
-        java.util.Map<String, Note> byTitle = new java.util.LinkedHashMap<>();
-        for (Note t : templates) {
-            byTitle.put(t.getTitle() != null ? t.getTitle() : getString("app.untitled"), t);
-        }
-        String first = byTitle.keySet().iterator().next();
-        javafx.scene.control.ChoiceDialog<String> dialog =
-                new javafx.scene.control.ChoiceDialog<>(first, byTitle.keySet());
-        dialog.setTitle(getString("dialog.templates.title"));
-        dialog.setHeaderText(getString("dialog.templates.pick_header"));
-        dialog.setContentText(getString("dialog.templates.pick_content"));
-        styleDialog(dialog);
-        dialog.showAndWait().ifPresent(choice -> {
-            Note tpl = byTitle.get(choice);
-            if (tpl == null) {
-                return;
-            }
-            Note full = noteService.getNoteById(tpl.getId()).orElse(tpl);
-            String content = com.example.jylos.util.NoteTemplates.applyPlaceholders(
-                    full.getContent() != null ? full.getContent() : "", choice);
-            createAndOpenNote(choice, content);
-        });
-    }
-
-    /** Notes located under a folder named "Templates" (path prefix or parent title). */
-    private java.util.List<Note> listTemplates() {
-        java.util.List<Note> out = new java.util.ArrayList<>();
-        for (Note note : noteService.getAllNotes()) {
-            if (note == null) {
-                continue;
-            }
-            String id = note.getId() != null ? note.getId().replace('\\', '/').toLowerCase(java.util.Locale.ROOT) : "";
-            boolean inTemplates = id.startsWith("templates/")
-                    || (note.getParent() != null && "templates".equalsIgnoreCase(note.getParent().getTitle()));
-            if (inTemplates) {
-                out.add(note);
-            }
-        }
-        out.sort((a, b) -> safeTitle(a).compareToIgnoreCase(safeTitle(b)));
-        return out;
-    }
-
-    /** Returns the full content of the template note whose title matches {@code name} (case-insensitive), or {@code null} if none found. */
-    private String templateContentByName(String name) {
-        for (Note t : listTemplates()) {
-            if (name.equalsIgnoreCase(t.getTitle())) {
-                Note full = noteService.getNoteById(t.getId()).orElse(t);
-                return full.getContent();
-            }
-        }
-        return null;
-    }
-
-    /** Creates a note with the given title and content, adds it to the list, loads it in the editor, and publishes a creation event. */
-    private void createAndOpenNote(String title, String content) {
-        boolean isFileSystem = !"sqlite".equals(prefs.get("storage_type", "sqlite"));
-        NoteOperations.NoteCreationResult creation =
-                noteOperations.createNewNote(title, content, currentFolder, isFileSystem);
-        if (!creation.success() || creation.note() == null) {
-            updateStatus(getString("status.error_creating_note"));
-            return;
-        }
-        Note note = creation.note();
-        loadNoteInEditor(note);
-        if (eventBus != null) {
-            eventBus.publish(new NoteEvents.NoteCreatedEvent(note));
-        }
-        if (notesListController != null) {
-            notesListController.requestSelectAfterRefresh(note.getId());
-        }
-        refreshNotesList();
-        if (sidebarController != null) {
-            sidebarController.loadRecentNotes();
-            sidebarController.loadFolders();
-        }
-        updateStatus(getString("status.note_created"));
-    }
-
-    /** Returns the note's title, or an empty string if null, to prevent NPE in comparators. */
-    private static String safeTitle(Note note) {
-        return note.getTitle() != null ? note.getTitle() : "";
+        noteCreationSupport.createFromTemplate();
     }
 
     @FXML
@@ -2246,36 +2159,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     @FXML
     private void handleImport(ActionEvent event) {
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle(getString("dialog.import.title"));
-        fileChooser.getExtensionFilters().addAll(
-                new FileChooser.ExtensionFilter(getString("file_filter.supported"), "*.md", "*.txt", "*.markdown"),
-                new FileChooser.ExtensionFilter(getString("file_filter.markdown"), "*.md", "*.markdown"),
-                new FileChooser.ExtensionFilter(getString("file_filter.text"), "*.txt"),
-                new FileChooser.ExtensionFilter(getString("file_filter.all"), "*.*"));
-
-        List<File> files = fileChooser.showOpenMultipleDialog(mainSplitPane.getScene().getWindow());
-        if (files == null || files.isEmpty()) {
-            return;
-        }
-
-        boolean isFileSystem = !"sqlite".equals(prefs.get("storage_type", "sqlite"));
-        DocumentSupport.ImportResult importResult = documentSupport.importFiles(files, currentFolder, isFileSystem);
-
-        refreshNotesList();
-        if (sidebarController != null) {
-            sidebarController.loadRecentNotes();
-        }
-
-        String message = java.text.MessageFormat.format(getString("status.imported_notes"),
-                importResult.importedCount());
-        if (importResult.failedCount() > 0) {
-            message += "\n" + java.text.MessageFormat.format(getString("status.import_failed_count"),
-                    importResult.failedCount());
-        }
-        updateStatus(message);
-        showAlert(Alert.AlertType.INFORMATION, getString("status.import_complete"),
-                getString("dialog.import_finished"), message);
+        documentWorkflowSupport.importFiles(!"sqlite".equals(prefs.get("storage_type", "sqlite")));
     }
 
     @FXML
@@ -2401,148 +2285,17 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     @FXML
     private void handleExport(ActionEvent event) {
-        exportNote(getCurrentNote());
+        documentWorkflowSupport.exportCurrentNote();
     }
 
     /** Exports every note to a chosen folder, one file each, in PDF or HTML. */
     private void handleExportVault() {
-        if (noteService == null) {
-            return;
-        }
-        javafx.scene.control.ChoiceDialog<String> formatDialog =
-                new javafx.scene.control.ChoiceDialog<>("PDF", java.util.List.of("PDF", "HTML"));
-        formatDialog.setTitle(getString("dialog.export_vault.title"));
-        formatDialog.setHeaderText(getString("dialog.export_vault.header"));
-        formatDialog.setContentText(getString("dialog.export_vault.format"));
-        styleDialog(formatDialog);
-        java.util.Optional<String> chosen = formatDialog.showAndWait();
-        if (chosen.isEmpty()) {
-            return;
-        }
-        String ext = chosen.get().equalsIgnoreCase("PDF") ? ".pdf" : ".html";
-
-        javafx.stage.DirectoryChooser chooser = new javafx.stage.DirectoryChooser();
-        chooser.setTitle(getString("dialog.export_vault.choose_dir"));
-        File dir = chooser.showDialog(mainSplitPane.getScene().getWindow());
-        if (dir == null) {
-            return;
-        }
-
-        Task<int[]> task = new Task<>() {
-            @Override
-            protected int[] call() {
-                java.util.Set<String> used = new java.util.HashSet<>();
-                int ok = 0;
-                int fail = 0;
-                for (Note listNote : noteService.getAllNotes()) {
-                    if (listNote == null || listNote.getId() == null
-                            || com.example.jylos.util.AttachmentType.isAttachment(listNote.getId())) {
-                        continue; // skip PDF/image attachments
-                    }
-                    if (listNote.isPrivate()) {
-                        continue; // never write private notes to an unprotected export folder
-                    }
-                    Note full = noteService.getNoteById(listNote.getId()).orElse(listNote);
-                    String base = documentSupport.sanitizeFileName(
-                            full.getTitle() != null && !full.getTitle().isBlank() ? full.getTitle() : "untitled");
-                    String name = base;
-                    int n = 1;
-                    while (!used.add(name.toLowerCase(java.util.Locale.ROOT))) {
-                        name = base + " (" + (++n) + ")";
-                    }
-                    DocumentSupport.ExportResult result = documentSupport.exportNote(full, new File(dir, name + ext));
-                    if (result.success()) {
-                        ok++;
-                    } else {
-                        fail++;
-                    }
-                }
-                return new int[] { ok, fail };
-            }
-        };
-        updateStatus(getString("dialog.export_vault.title"));
-        task.setOnSucceeded(e -> {
-            int[] r = task.getValue();
-            updateStatus(java.text.MessageFormat.format(getString("status.export_vault_done"), r[0], r[1]));
-            showAlert(Alert.AlertType.INFORMATION, getString("dialog.export_vault.title"),
-                    getString("dialog.export.success_header"),
-                    java.text.MessageFormat.format(getString("status.export_vault_done"), r[0], r[1])
-                            + "\n" + dir.getAbsolutePath());
-        });
-        task.setOnFailed(e -> showAlert(Alert.AlertType.ERROR, getString("dialog.export_vault.title"),
-                getString("dialog.export.failed_header"),
-                task.getException() != null ? task.getException().getMessage() : ""));
-        Thread thread = new Thread(task, "export-vault");
-        thread.setDaemon(true);
-        thread.start();
-    }
-
-    /**
-     * Returns the note with its FULL content for export. List notes are lightweight
-     * (content truncated for the preview); the open note's live editor text is used
-     * when applicable, otherwise the complete file is read from the service.
-     */
-    private Note resolveFullNoteForExport(Note note) {
-        Note open = getCurrentNote();
-        if (open != null && editorController != null
-                && Objects.equals(open.getId(), note.getId())) {
-            String live = editorController.getCurrentContent();
-            if (live != null) {
-                return new Note(open.getId(), open.getTitle(), live);
-            }
-        }
-        if (noteService != null) {
-            return noteService.getNoteById(note.getId()).orElse(note);
-        }
-        return note;
+        documentWorkflowSupport.exportVault();
     }
 
     /** Exports a specific note to a user-chosen Markdown/text/HTML/PDF file. */
     private void exportNote(Note note) {
-        if (note == null) {
-            showAlert(Alert.AlertType.WARNING, getString("dialog.export.title"),
-                    getString("dialog.export.no_note_header"), getString("dialog.export.no_note_content"));
-            return;
-        }
-        // Private notes are not exported (it would write their body to an unprotected file).
-        // The user must turn the note normal first — consistent with delete protection.
-        if (note.isPrivate()) {
-            showAlert(Alert.AlertType.WARNING, getString("dialog.export.title"),
-                    getString("dialog.export.private_header"), getString("dialog.export.private_content"));
-            return;
-        }
-        // List notes carry only a truncated (lightweight) preview of their content, so
-        // resolve the FULL content before exporting (live editor text, or the file).
-        Note currentNote = resolveFullNoteForExport(note);
-
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle(getString("dialog.export.save_title"));
-        fileChooser.setInitialFileName(documentSupport.sanitizeFileName(currentNote.getTitle()));
-        fileChooser.getExtensionFilters().addAll(
-                new FileChooser.ExtensionFilter(getString("file_filter.markdown"), "*.md"),
-                new FileChooser.ExtensionFilter(getString("file_filter.pdf"), "*.pdf"),
-                new FileChooser.ExtensionFilter(getString("file_filter.html"), "*.html"),
-                new FileChooser.ExtensionFilter(getString("file_filter.text"), "*.txt"),
-                new FileChooser.ExtensionFilter(getString("file_filter.all"), "*.*"));
-
-        File file = fileChooser.showSaveDialog(mainSplitPane.getScene().getWindow());
-        if (file == null) {
-            return;
-        }
-
-        DocumentSupport.ExportResult exportResult = documentSupport.exportNote(currentNote, file);
-        if (exportResult.success()) {
-            updateStatus(java.text.MessageFormat.format(getString("status.exported"), file.getName()));
-            showAlert(Alert.AlertType.INFORMATION, getString("status.export_success"),
-                    getString("dialog.export.success_header"),
-                    java.text.MessageFormat.format(getString("dialog.export.saved_to"), file.getAbsolutePath()));
-            return;
-        }
-
-        String errorMessage = exportResult.errorMessage() == null ? "" : exportResult.errorMessage();
-        logger.severe("Failed to export note: " + errorMessage);
-        showAlert(Alert.AlertType.ERROR, getString("status.export_failed"),
-                getString("dialog.export.failed_header"), errorMessage);
+        documentWorkflowSupport.exportNote(note);
     }
 
     private void showAlert(Alert.AlertType type, String title, String header, String content) {

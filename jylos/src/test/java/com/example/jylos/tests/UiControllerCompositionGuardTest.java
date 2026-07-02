@@ -54,6 +54,23 @@ class UiControllerCompositionGuardTest {
     }
 
     @Test
+    void mainControllerShouldDelegateSecondaryShellWorkflowsToSupports() throws IOException {
+        String source = Files.readString(MAIN_CONTROLLER, StandardCharsets.UTF_8);
+
+        assertTrue(source.contains("noteCreationSupport.wire("),
+                "MainController should compose note creation workflows through NoteCreationSupport.");
+        assertTrue(source.contains("documentWorkflowSupport.wire("),
+                "MainController should compose local import/export workflows through DocumentWorkflowSupport.");
+
+        assertFalse(source.contains("private java.util.List<Note> listTemplates("),
+                "Template listing should stay out of MainController once extracted.");
+        assertFalse(source.contains("private String templateContentByName("),
+                "Template content resolution should stay out of MainController once extracted.");
+        assertFalse(source.contains("private Note resolveFullNoteForExport("),
+                "Export content resolution should stay out of MainController once extracted.");
+    }
+
+    @Test
     void primaryUiControllersShouldExposeWireAsTheirCompositionEntryPoint() throws IOException {
         assertControllerAvoidsPublicCompositionSetters(SIDEBAR_CONTROLLER,
                 "public void setEventBus(",
