@@ -23,7 +23,20 @@ class UiControllerCompositionGuardTest {
     private static final Path EDITOR_CONTROLLER = UI_CONTROLLER_DIR.resolve("EditorController.java");
     private static final Path TOOLBAR_CONTROLLER = UI_CONTROLLER_DIR.resolve("ToolbarController.java");
     private static final Set<String> ALLOWED_SUFFIXES = Set.of(
-            "Controller.java", "Support.java", "Operations.java", "package-info.java");
+            "Controller.java",
+            "Support.java",
+            "Operations.java",
+            "Command.java",
+            "Routing.java",
+            "Registry.java",
+            "Layout.java",
+            "Initialization.java",
+            "Lifecycle.java",
+            "Settings.java",
+            "Management.java",
+            "Ui.java",
+            "UI.java",
+            "package-info.java");
 
     @Test
     void controllerFilesShouldFollowTheDeclaredRoleSuffixes() throws IOException {
@@ -31,8 +44,8 @@ class UiControllerCompositionGuardTest {
             List<Path> javaFiles = files.filter(path -> path.toString().endsWith(".java")).toList();
             for (Path file : javaFiles) {
                 String name = file.getFileName().toString();
-                assertTrue(ALLOWED_SUFFIXES.stream().anyMatch(name::endsWith),
-                        "Unexpected ui/controller file role naming: " + name);
+                boolean allowed = ALLOWED_SUFFIXES.stream().anyMatch(name::endsWith);
+                assertTrue(allowed, "Unexpected ui/controller file role naming: " + name);
             }
         }
     }

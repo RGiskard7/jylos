@@ -341,7 +341,7 @@ public class SidebarController {
         // Vault Root Folder logic literal
         String vaultName = "My Vault";
         try {
-            Preferences prefs = Preferences.userNodeForPackage(MainController.class);
+            Preferences prefs = Preferences.userNodeForPackage(SidebarController.class);
             String path = prefs.get("filesystem_path", "");
             if (!path.isEmpty()) {
                 File f = new File(path);
@@ -368,7 +368,7 @@ public class SidebarController {
         }
         if (vaultRootItem != null && vaultRootItem.getValue() != null) {
             try {
-                Preferences prefs = Preferences.userNodeForPackage(MainController.class);
+                Preferences prefs = Preferences.userNodeForPackage(SidebarController.class);
                 if ("sqlite".equals(prefs.get("storage_type", "sqlite"))) {
                     vaultRootItem.getValue().setTitle(getString("app.my_notes"));
                 }

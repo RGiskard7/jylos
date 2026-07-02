@@ -6,9 +6,11 @@
  *   <li><strong>6 FXML controllers</strong> — one per view: {@link MainController}, {@link ToolbarController},
  *       {@link SidebarController}, {@link NotesListController}, {@link EditorController},
  *       {@link GraphController}</li>
- *   <li><strong>Shell-support units</strong> — feature helpers grouped by responsibility and named by role:
- *       {@code *Support} and {@code *Operations}. They collaborate with {@link MainController};
- *       not a plugin framework</li>
+ *   <li><strong>Shell helper units</strong> — feature helpers grouped by responsibility and named by role:
+ *       {@code *Support}, {@code *Operations}, and a few narrow shell-specific helper nouns
+ *       such as {@code *Command}, {@code *Routing}, {@code *Registry}, {@code *Layout},
+ *       {@code *Initialization}, {@code *Lifecycle}, {@code *Settings}, {@code *Management},
+ *       and {@code *Ui}. They collaborate with {@link MainController}; not a plugin framework</li>
  *   <li><strong>{@code ui.components}</strong> — reusable widgets (command palette, quick switcher, plugin manager)</li>
  *   <li><strong>{@code ui.theme}</strong> — theme application, catalogs and snippet discovery</li>
  *   <li><strong>{@code ui.preferences}</strong> — persistence of UI preference state</li>

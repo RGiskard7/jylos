@@ -4,14 +4,13 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
-import com.example.jylos.event.EventBus;
-import com.example.jylos.event.events.NoteEvents;
-import com.example.jylos.plugin.Plugin;
-import com.example.jylos.plugin.PluginLoader;
 import com.example.jylos.plugin.PluginManager;
 
 import javafx.application.Platform;
@@ -28,65 +27,26 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
 /**
- * Loads the core and external plugins and registers them with the {@link PluginManager}.
- */
-class PluginLifecycle {
-
-    private static final Logger logger = LoggerConfig.getLogger(PluginLifecycle.class);
-
-    record LoadResult(int registeredCount, List<String> loadFailures) {
-    }
-
-    LoadResult registerCoreAndExternalPlugins(PluginManager pluginManager) {
-        if (pluginManager == null) {
-            return new LoadResult(0, List.of("PluginManager is null"));
-        }
-
-        pluginManager.registerPlugin(new com.example.jylos.plugin.mermaid.MermaidPlugin());
-
-        PluginLoader.PluginLoadReport pluginLoadReport = PluginLoader.loadExternalPluginsWithReport();
-        int registeredCount = 0;
-
-        for (Plugin plugin : pluginLoadReport.getPlugins()) {
-            if (pluginManager.registerPlugin(plugin)) {
-                registeredCount++;
-            } else {
-                logger.warning("Failed to register external plugin: " + plugin.getName());
-            }
-        }
-
-        return new LoadResult(registeredCount, pluginLoadReport.getFailures());
-    }
-
-    EventBus.Subscription subscribePluginUiEvents(EventBus eventBus, Runnable refreshListsAction) {
-        if (eventBus == null) {
-            return EventBus.Subscription.NO_OP;
-        }
-
-        return eventBus.subscribe(NoteEvents.NotesRefreshRequestedEvent.class, event -> {
-            if (refreshListsAction != null) {
-                refreshListsAction.run();
-            }
-            logger.info("Refreshed notes from plugin request");
-        });
-    }
-}
-
-/**
  * Dynamic plugin UI registration/removal for menus, side panels and status bar.
  *
- * <p>Holds its {@link MainController} for i18n/status and the active plugin manager;
- * the menu/panel/status-bar registries it maintains are passed in by the controller
- * that owns the corresponding FXML containers.</p>
+ * <p>Receives i18n/status callbacks plus the active plugin manager supplier via
+ * {@link #wire(Function, Consumer, Supplier)}; the menu/panel/status-bar registries
+ * it maintains are passed in by the controller that owns the corresponding FXML
+ * containers.</p>
  */
 class PluginUi {
 
     private static final Logger logger = LoggerConfig.getLogger(PluginUi.class);
 
-    private final MainController controller;
+    private Function<String, String> i18nFn;
+    private Consumer<String> updateStatus;
+    private Supplier<PluginManager> pluginManagerSupplier;
 
-    PluginUi(MainController controller) {
-        this.controller = controller;
+    void wire(Function<String, String> i18n, Consumer<String> updateStatus,
+            Supplier<PluginManager> pluginManagerSupplier) {
+        this.i18nFn = i18n;
+        this.updateStatus = updateStatus;
+        this.pluginManagerSupplier = pluginManagerSupplier;
     }
 
     void registerMenuItem(String pluginId, String category, String itemName, String shortcut, Runnable action,
@@ -109,12 +69,12 @@ class PluginUi {
 
             MenuItem menuItem = new MenuItem(itemName);
             menuItem.setOnAction(e -> {
-                PluginManager pluginManager = controller.getPluginManager();
+                PluginManager pluginManager = pluginManagerSupplier.get();
                 if (pluginManager != null && pluginManager.isPluginEnabled(pluginId)) {
                     action.run();
                 } else {
-                    controller.updateStatus(
-                            MessageFormat.format(controller.getString("status.plugin_not_enabled"), pluginId));
+                    updateStatus.accept(
+                            MessageFormat.format(i18nFn.apply("status.plugin_not_enabled"), pluginId));
                 }
             });
 

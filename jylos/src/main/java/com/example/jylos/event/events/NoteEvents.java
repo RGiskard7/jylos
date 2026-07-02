@@ -139,27 +139,6 @@ public final class NoteEvents {
     }
 
     /**
-     * Event fired when note content changes.
-     */
-    public static class NoteContentChangedEvent extends AppEvent {
-        private final Note note;
-        private final String content;
-
-        public NoteContentChangedEvent(Note note, String content) {
-            this.note = note;
-            this.content = content;
-        }
-
-        public Note getNote() {
-            return note;
-        }
-
-        public String getContent() {
-            return content;
-        }
-    }
-
-    /**
      * Event fired when a note is updated (e.g., moved to a folder).
      */
     public static class NoteUpdatedEvent extends AppEvent {

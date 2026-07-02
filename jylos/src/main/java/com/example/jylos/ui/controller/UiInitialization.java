@@ -1,40 +1,48 @@
 package com.example.jylos.ui.controller;
 
-/**
- * UI initialization blocks and editor/preview/right-panel layout logic.
- *
- * <p>Package-private shell-support types collaborating with {@link MainController}.
- * Extracted from the former single-file shell-services unit into cohesive files.</p>
- */
-import com.example.jylos.data.models.Note;
 import java.util.function.Consumer;
+import java.util.function.Function;
+
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
-import javafx.scene.control.SplitPane;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 
-// ===== UiInitialization =====
 /**
  * Encapsulates lightweight UI initialization blocks for MainController.
  */
 class UiInitialization {
 
-    private final MainController controller;
+    /** Runnables for the toolbar overflow menu entries. */
+    record OverflowActions(
+            Runnable newNote,
+            Runnable newCanvas,
+            Runnable newFolder,
+            Runnable newTag,
+            Runnable save,
+            Runnable delete,
+            Runnable toggleSidebar,
+            Runnable toggleNotesPanel,
+            Runnable viewLayoutSwitch) {
+    }
 
-    UiInitialization(MainController controller) {
-        this.controller = controller;
+    private Function<String, String> i18nFn;
+    private OverflowActions overflowActions;
+
+    void wire(Function<String, String> i18n, OverflowActions overflowActions) {
+        this.i18nFn = i18n;
+        this.overflowActions = overflowActions;
     }
 
     private String i18n(String key) {
-        return controller.getString(key);
+        return i18nFn.apply(key);
     }
 
     public void initializeSortOptions(ComboBox<String> sortComboBox, Consumer<String> sorter) {
@@ -194,17 +202,17 @@ class UiInitialization {
             }
             if (!showFileActions) {
                 MenuItem newNoteItem = new MenuItem(i18n("action.new_note"));
-                newNoteItem.setOnAction(e -> controller.handleNewNote(null));
+                newNoteItem.setOnAction(e -> overflowActions.newNote().run());
                 MenuItem newCanvasItem = new MenuItem(i18n("action.new_canvas"));
-                newCanvasItem.setOnAction(e -> controller.handleNewCanvas(null));
+                newCanvasItem.setOnAction(e -> overflowActions.newCanvas().run());
                 MenuItem newFolderItem = new MenuItem(i18n("action.new_folder"));
-                newFolderItem.setOnAction(e -> controller.handleNewFolder(null));
+                newFolderItem.setOnAction(e -> overflowActions.newFolder().run());
                 MenuItem newTagItem = new MenuItem(i18n("action.new_tag"));
-                newTagItem.setOnAction(e -> controller.handleNewTag(null));
+                newTagItem.setOnAction(e -> overflowActions.newTag().run());
                 MenuItem saveItem = new MenuItem(i18n("action.save"));
-                saveItem.setOnAction(e -> controller.handleSave(null));
+                saveItem.setOnAction(e -> overflowActions.save().run());
                 MenuItem deleteItem = new MenuItem(i18n("action.delete"));
-                deleteItem.setOnAction(e -> controller.handleDelete(null));
+                deleteItem.setOnAction(e -> overflowActions.delete().run());
                 toolbarController.getToolbarOverflowBtn().getItems().addAll(
                         newNoteItem, newCanvasItem, newFolderItem, newTagItem, saveItem, new SeparatorMenuItem(), deleteItem);
             }
@@ -213,11 +221,11 @@ class UiInitialization {
                     toolbarController.getToolbarOverflowBtn().getItems().add(new SeparatorMenuItem());
                 }
                 MenuItem toggleSidebar = new MenuItem(i18n("action.toggle_sidebar"));
-                toggleSidebar.setOnAction(e -> controller.handleToggleSidebar(null));
+                toggleSidebar.setOnAction(e -> overflowActions.toggleSidebar().run());
                 MenuItem toggleNotes = new MenuItem(i18n("action.toggle_notes_list"));
-                toggleNotes.setOnAction(e -> controller.handleToggleNotesPanel(null));
+                toggleNotes.setOnAction(e -> overflowActions.toggleNotesPanel().run());
                 MenuItem switchLayout = new MenuItem(i18n("action.switch_layout"));
-                switchLayout.setOnAction(e -> controller.handleViewLayoutSwitch(null));
+                switchLayout.setOnAction(e -> overflowActions.viewLayoutSwitch().run());
                 toolbarController.getToolbarOverflowBtn().getItems().addAll(toggleSidebar, toggleNotes, switchLayout);
             }
 
@@ -230,126 +238,3 @@ class UiInitialization {
         }
     }
 }
-
-
-// ===== UiLayout =====
-/**
- * Encapsulates editor/preview layout modes and right-panel visibility logic.
- */
-class UiLayout {
-
-    public enum ViewMode {
-        EDITOR_ONLY,
-        SPLIT,
-        PREVIEW_ONLY
-    }
-
-    public void applyViewMode(
-            ViewMode mode,
-            SplitPane editorPreviewSplitPane,
-            VBox editorPane,
-            VBox previewPane,
-            ToggleButton editorOnlyButton,
-            ToggleButton splitViewButton,
-            ToggleButton previewOnlyButton,
-            Runnable updatePreviewAction) {
-        if (editorPreviewSplitPane == null || editorPane == null || previewPane == null || mode == null) {
-            return;
-        }
-
-        switch (mode) {
-            case EDITOR_ONLY:
-                editorPane.setVisible(true);
-                editorPane.setManaged(true);
-                previewPane.setVisible(false);
-                previewPane.setManaged(false);
-                if (editorPreviewSplitPane.getItems().contains(previewPane)) {
-                    editorPreviewSplitPane.getItems().remove(previewPane);
-                }
-                if (!editorPreviewSplitPane.getItems().contains(editorPane)) {
-                    editorPreviewSplitPane.getItems().add(editorPane);
-                }
-                break;
-            case PREVIEW_ONLY:
-                editorPane.setVisible(false);
-                editorPane.setManaged(false);
-                previewPane.setVisible(true);
-                previewPane.setManaged(true);
-                if (editorPreviewSplitPane.getItems().contains(editorPane)) {
-                    editorPreviewSplitPane.getItems().remove(editorPane);
-                }
-                if (!editorPreviewSplitPane.getItems().contains(previewPane)) {
-                    editorPreviewSplitPane.getItems().add(previewPane);
-                }
-                if (updatePreviewAction != null) {
-                    updatePreviewAction.run();
-                }
-                break;
-            case SPLIT:
-            default:
-                editorPane.setVisible(true);
-                editorPane.setManaged(true);
-                previewPane.setVisible(true);
-                previewPane.setManaged(true);
-                editorPreviewSplitPane.getItems().clear();
-                editorPreviewSplitPane.getItems().addAll(editorPane, previewPane);
-                editorPreviewSplitPane.setDividerPositions(0.5);
-                if (updatePreviewAction != null) {
-                    updatePreviewAction.run();
-                }
-                break;
-        }
-
-        if (editorOnlyButton != null) {
-            editorOnlyButton.setSelected(mode == ViewMode.EDITOR_ONLY);
-        }
-        if (splitViewButton != null) {
-            splitViewButton.setSelected(mode == ViewMode.SPLIT);
-        }
-        if (previewOnlyButton != null) {
-            previewOnlyButton.setSelected(mode == ViewMode.PREVIEW_ONLY);
-        }
-    }
-
-    public void toggleRightPanel(VBox rightPanel, ToggleButton infoButton, Note currentNote,
-            Runnable updateNoteInfoPanelAction) {
-        if (rightPanel == null) {
-            return;
-        }
-
-        boolean nextVisible = !rightPanel.isVisible();
-        rightPanel.setVisible(nextVisible);
-        rightPanel.setManaged(nextVisible);
-
-        if (infoButton != null) {
-            infoButton.setSelected(nextVisible);
-        }
-
-        if (nextVisible) {
-            rightPanel.setMinWidth(260);
-            rightPanel.setMaxWidth(340);
-            rightPanel.setPrefWidth(300);
-        } else {
-            rightPanel.setMinWidth(0);
-            rightPanel.setMaxWidth(0);
-            rightPanel.setPrefWidth(0);
-        }
-
-        if (nextVisible && currentNote != null && updateNoteInfoPanelAction != null) {
-            updateNoteInfoPanelAction.run();
-        }
-    }
-
-    public void closeRightPanel(VBox rightPanel, ToggleButton infoButton) {
-        if (rightPanel == null) {
-            return;
-        }
-        rightPanel.setVisible(false);
-        rightPanel.setManaged(false);
-        if (infoButton != null) {
-            infoButton.setSelected(false);
-        }
-    }
-}
-
-

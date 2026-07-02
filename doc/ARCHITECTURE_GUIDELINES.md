@@ -59,6 +59,13 @@ Use these names consistently:
   - read-only or cache-like registry of UI resources/options
 - `*Operations`
   - small imperative helper for a narrow workflow; do not use as a dumping ground
+- narrow helper role nouns that already exist in the shell layer
+  - `*Command`, `*Routing`, `*Registry`
+  - `*Layout`, `*Initialization`
+  - `*Settings`, `*Management`
+  - `*Lifecycle`, `*Ui` / `*UI`
+  - use these only when the shorter role name is clearer than forcing the class into
+    `*Support` or `*Operations`
 
 If a class does not clearly fit one of those roles, stop and rename or move it before adding more logic.
 

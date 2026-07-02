@@ -258,20 +258,20 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private NoteOperations noteOperations;
     private PluginManagerDialog pluginManagerDialog;
 
-    private final TagManagement tagManagement = new TagManagement(this);
+    private final TagManagement tagManagement = new TagManagement();
     
     private final PluginLifecycle pluginLifecycle = new PluginLifecycle();
     private final CommandUI commandUI = new CommandUI();
     private final DocumentSupport documentSupport = new DocumentSupport();
     private final DocumentWorkflowSupport documentWorkflowSupport = new DocumentWorkflowSupport();
     private final NoteCreationSupport noteCreationSupport = new NoteCreationSupport();
-    private final UiInitialization uiInitialization = new UiInitialization(this);
+    private final UiInitialization uiInitialization = new UiInitialization();
     private final UiLayout uiLayout = new UiLayout();
     private final CommandRegistry commandRegistry = new CommandRegistry();
     private final FolderOperations folderOperations = new FolderOperations();
 
-    private final NavigationCommand navigationCommand = new NavigationCommand(this);
-    private final DialogSupport dialogSupport = new DialogSupport(this);
+    private final NavigationCommand navigationCommand = new NavigationCommand();
+    private final DialogSupport dialogSupport = new DialogSupport();
     private final ThemeCommand themeCommand = new ThemeCommand();
     private final ThemeCatalog themeCatalog = new ThemeCatalog();
     private final CssSnippetCatalog cssSnippetCatalog = new CssSnippetCatalog();
@@ -279,8 +279,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             () -> themeCommand.detectSystemTheme(),
             this::applyThemeAndRefreshDependents);
     private final UiPreferencesStore uiPreferences = new UiPreferencesStore();
-    private final PluginUi pluginUi = new PluginUi(this);
-    private final AppSettings appSettings = new AppSettings(this);
+    private final PluginUi pluginUi = new PluginUi();
+    private final AppSettings appSettings = new AppSettings();
     private final List<EventBus.Subscription> uiEventSubscriptions = new ArrayList<>();
     private EventBus.Subscription systemActionSubscription = EventBus.Subscription.NO_OP;
 
@@ -348,10 +348,22 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             navSplitPane.setOrientation(javafx.geometry.Orientation.VERTICAL);
 
             initializeDatabase();
-            navigationCommand.wire(noteService);
+            navigationCommand.wire(this::getString, this::updateStatus, noteService);
             documentSupport.wire(noteService, folderService);
-            dialogSupport.wire(tagService);
-            tagManagement.wire(tagService, noteDAO);
+            dialogSupport.wire(this::getString, this::updateStatus, tagService);
+            tagManagement.wire(this::getString, this::updateStatus, tagService, noteDAO);
+            appSettings.wire(this::getString);
+            pluginUi.wire(this::getString, this::updateStatus, this::getPluginManager);
+            uiInitialization.wire(this::getString, new UiInitialization.OverflowActions(
+                    () -> handleNewNote(null),
+                    () -> handleNewCanvas(null),
+                    () -> handleNewFolder(null),
+                    () -> handleNewTag(null),
+                    () -> handleSave(null),
+                    () -> handleDelete(null),
+                    () -> handleToggleSidebar(null),
+                    () -> handleToggleNotesPanel(null),
+                    () -> handleViewLayoutSwitch(null)));
 
             if (toolbarController != null) {
                 toolbarController.wire(eventBus, this::showCommandPalette, this::showQuickSwitcher,
