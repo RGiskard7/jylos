@@ -1462,7 +1462,7 @@ public class EditorController {
         fp.getChildren().clear();
         if (note == null || note.getId() == null || note.getId().isEmpty()) return;
         try {
-            List<Tag> tags = noteDAO.fetchTags(note.getId());
+            List<Tag> tags = noteService != null ? noteService.getTagsForNote(note) : List.of();
             for (Tag tag : tags) {
                 HBox box = new HBox(4); box.setAlignment(Pos.CENTER_LEFT); box.getStyleClass().add("tag-container");
                 Label lbl = new Label(tag.getTitle()); lbl.getStyleClass().add("tag-label");

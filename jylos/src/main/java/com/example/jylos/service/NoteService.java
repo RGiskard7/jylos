@@ -294,6 +294,10 @@ public class NoteService {
      */
     public void restoreNote(String noteId) {
         noteDAO.restoreNote(noteId);
+        noteDAO.refreshCache();
+        if (folderDAO != null) {
+            folderDAO.refreshCache();
+        }
         logger.fine("Restored note from trash, ID: " + noteId);
     }
 
@@ -561,6 +565,16 @@ public class NoteService {
             return new ArrayList<>();
         }
         return noteDAO.fetchTags(note.getId());
+    }
+
+    /**
+     * Alias aligned with the service-boundary cleanup naming used by the UI layer.
+     *
+     * @param note The note
+     * @return List of tags
+     */
+    public List<Tag> getTagsForNote(Note note) {
+        return getNoteTags(note);
     }
 
     /**

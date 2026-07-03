@@ -1267,10 +1267,6 @@ public class SidebarController {
                     folderService.restoreFolder(c.getId());
                 else if (c instanceof Note)
                     noteService.restoreNote(c.getId());
-                if (folderDAO != null)
-                    folderDAO.refreshCache();
-                if (noteDAO != null)
-                    noteDAO.refreshCache();
                 loadFolders();
                 loadTrashTree();
                 publishStatusUpdate(getString("status.item_restored"));

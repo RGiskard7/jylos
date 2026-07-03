@@ -351,9 +351,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             navigationCommand.wire(this::getString, this::updateStatus, noteService);
             documentSupport.wire(noteService, folderService);
             dialogSupport.wire(this::getString, this::updateStatus, tagService);
-            tagManagement.wire(this::getString, this::updateStatus, tagService, noteDAO);
+            tagManagement.wire(this::getString, this::updateStatus, tagService);
             appSettings.wire(this::getString);
             pluginUi.wire(this::getString, this::updateStatus, this::getPluginManager);
+            folderOperations.wire(folderService);
             uiInitialization.wire(this::getString, new UiInitialization.OverflowActions(
                     () -> handleNewNote(null),
                     () -> handleNewCanvas(null),
@@ -2174,7 +2175,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
 
         FolderOperations.FolderCreationResult creation = folderOperations.createFolder(
-                folderDAO, result.get().trim(), currentFolder, createInRoot);
+                result.get().trim(), currentFolder, createInRoot);
         if (!creation.success() || creation.folder() == null) {
             String detail = creation.errorMessage();
             updateStatus(detail != null && !detail.isBlank()

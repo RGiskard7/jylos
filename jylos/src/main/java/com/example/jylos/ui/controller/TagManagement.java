@@ -9,7 +9,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
-import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.service.TagService;
@@ -37,14 +36,11 @@ class TagManagement {
     private Function<String, String> i18nFn;
     private Consumer<String> updateStatus;
     private TagService tagService;
-    private NoteDAO noteDAO;
 
-    void wire(Function<String, String> i18n, Consumer<String> updateStatus,
-            TagService tagService, NoteDAO noteDAO) {
+    void wire(Function<String, String> i18n, Consumer<String> updateStatus, TagService tagService) {
         this.i18nFn = i18n;
         this.updateStatus = updateStatus;
         this.tagService = tagService;
-        this.noteDAO = noteDAO;
     }
 
     /** Resolves an i18n key via the supplied callback. */
@@ -58,16 +54,12 @@ class TagManagement {
             return;
         }
 
-        if (tagService == null || noteDAO == null) {
+        if (tagService == null) {
             updateStatus.accept(i18n("status.error"));
             return;
         }
         try {
-            List<Tag> existingTags = tagService.getAllTags();
-            List<Tag> noteTags = noteDAO.fetchTags(currentNote.getId());
-
-            List<String> availableTagNames = existingTags.stream()
-                    .filter(tag -> noteTags.stream().noneMatch(nt -> nt.getId().equals(tag.getId())))
+            List<String> availableTagNames = tagService.getAvailableTagsForNote(currentNote).stream()
                     .map(Tag::getTitle)
                     .sorted()
                     .toList();
@@ -101,9 +93,7 @@ class TagManagement {
             }
 
             String tagName = result.get().trim();
-            Optional<Tag> existingTag = existingTags.stream()
-                    .filter(t -> t.getTitle().equals(tagName))
-                    .findFirst();
+            Optional<Tag> existingTag = tagService.getTagByTitle(tagName);
 
             Tag tag;
             if (existingTag.isPresent()) {
@@ -114,8 +104,8 @@ class TagManagement {
                 tag.setId(createdTag.getId());
             }
 
-            boolean alreadyHasTag = noteDAO.fetchTags(currentNote.getId()).stream()
-                    .anyMatch(t -> t.getId().equals(tag.getId()));
+            boolean alreadyHasTag = tagService.getTagsForNote(currentNote).stream()
+                    .anyMatch(t -> t.getId() != null && t.getId().equals(tag.getId()));
 
             if (alreadyHasTag) {
                 Alert alert = new Alert(Alert.AlertType.INFORMATION);
@@ -125,7 +115,7 @@ class TagManagement {
                 return;
             }
 
-            noteDAO.addTag(currentNote, tag);
+            tagService.addTagToNote(currentNote, tag);
             reloadCurrentNoteTags.accept(currentNote);
             refreshSidebarTags.run();
             updateStatus.accept(MessageFormat.format(i18n("status.tag_added"), tagName));
@@ -153,11 +143,11 @@ class TagManagement {
         Optional<ButtonType> result = com.example.jylos.ui.UiDialogs.show(confirm);
         if (result.isPresent() && result.get() == ButtonType.OK) {
             try {
-                if (noteDAO == null) {
+                if (tagService == null) {
                     updateStatus.accept(i18n("status.tag_remove_error"));
                     return;
                 }
-                noteDAO.removeTag(currentNote, tag);
+                tagService.removeTagFromNote(currentNote, tag);
                 reloadCurrentNoteTags.accept(currentNote);
                 updateStatus.accept(MessageFormat.format(i18n("status.tag_removed"), tag.getTitle()));
             } catch (Exception e) {
