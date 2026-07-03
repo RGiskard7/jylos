@@ -27,6 +27,21 @@ class UiServiceBoundaryGuardTest {
     }
 
     @Test
+    void noteServiceShouldNotOwnNoteTagRelationshipWorkflows() throws IOException {
+        String source = Files.readString(Path.of("src/main/java/com/example/jylos/service/NoteService.java"),
+                StandardCharsets.UTF_8);
+
+        assertFalse(source.contains("public List<Tag> getNoteTags("),
+                "NoteService should not own note-tag lookup once TagService is canonical.");
+        assertFalse(source.contains("public List<Tag> getTagsForNote("),
+                "NoteService should not expose note-tag lookup once TagService is canonical.");
+        assertFalse(source.contains("public void addTagToNote("),
+                "NoteService should not mutate note-tag relationships once TagService is canonical.");
+        assertFalse(source.contains("public void removeTagFromNote("),
+                "NoteService should not mutate note-tag relationships once TagService is canonical.");
+    }
+
+    @Test
     void folderOperationsShouldUseFolderServiceInsteadOfFolderDao() throws IOException {
         String source = Files.readString(FOLDER_OPERATIONS, StandardCharsets.UTF_8);
 
@@ -37,20 +52,30 @@ class UiServiceBoundaryGuardTest {
     }
 
     @Test
-    void editorControllerShouldLoadTagsThroughNoteService() throws IOException {
+    void editorControllerShouldLoadTagsThroughTagServiceWithoutDaoResidue() throws IOException {
         String source = Files.readString(EDITOR_CONTROLLER, StandardCharsets.UTF_8);
 
         assertFalse(source.contains("noteDAO.fetchTags("),
-                "EditorController should load note tags through NoteService, not NoteDAO.");
+                "EditorController should load note tags through TagService, not NoteDAO.");
+        assertFalse(source.contains("NoteDAO"),
+                "EditorController should not retain NoteDAO once tag loading is owned by TagService.");
+        assertFalse(source.contains("noteService.getTagsForNote("),
+                "EditorController should not load note tags through NoteService once TagService is canonical.");
+        assertFalse(source.contains("noteDAO."),
+                "EditorController should not keep direct NoteDAO usage.");
     }
 
     @Test
-    void sidebarControllerShouldNotRefreshCachesAfterRestoreFlows() throws IOException {
+    void sidebarControllerShouldNotRefreshCachesOrRetainDaoWiring() throws IOException {
         String source = Files.readString(SIDEBAR_CONTROLLER, StandardCharsets.UTF_8);
 
         assertFalse(source.contains("folderDAO.refreshCache()"),
                 "SidebarController should not manually refresh FolderDAO caches after restore flows.");
         assertFalse(source.contains("noteDAO.refreshCache()"),
                 "SidebarController should not manually refresh NoteDAO caches after restore flows.");
+        assertFalse(source.contains("FolderDAO"),
+                "SidebarController should not retain FolderDAO wiring once services own the workflow.");
+        assertFalse(source.contains("NoteDAO"),
+                "SidebarController should not retain NoteDAO wiring once services own the workflow.");
     }
 }

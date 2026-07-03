@@ -20,8 +20,6 @@ import java.util.function.Consumer;
 import org.kordamp.ikonli.javafx.FontIcon;
 
 import com.example.jylos.config.LoggerConfig;
-import com.example.jylos.data.dao.interfaces.FolderDAO;
-import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
@@ -126,8 +124,6 @@ public class SidebarController {
     private NoteService noteService;
     private FolderService folderService;
     private TagService tagService;
-    private FolderDAO folderDAO;
-    private NoteDAO noteDAO;
     private EventBus eventBus;
     private ResourceBundle bundle;
     private Consumer<Folder> folderSelectionAction = folder -> {
@@ -189,15 +185,13 @@ public class SidebarController {
 
     // Setters for MainController
     public void wire(EventBus eventBus, NoteService noteService, TagService tagService,
-            FolderService folderService, FolderDAO folderDAO, NoteDAO noteDAO, ResourceBundle bundle,
+            FolderService folderService, ResourceBundle bundle,
             Consumer<Folder> folderSelectionAction, Consumer<Tag> tagSelectionAction,
             Consumer<Component> trashSelectionAction, Consumer<Note> openNoteAction,
             Consumer<String> statusUpdateAction) {
         setNoteService(noteService);
         setTagService(tagService);
         setFolderService(folderService);
-        setFolderDAO(folderDAO);
-        setNoteDAO(noteDAO);
         setBundle(bundle);
         this.folderSelectionAction = folderSelectionAction != null ? folderSelectionAction : folder -> {
         };
@@ -238,14 +232,6 @@ public class SidebarController {
         refreshLocalizedRootLabels();
         refreshLocalizedMenus();
         applySidebarTabPresentation();
-    }
-
-    private void setFolderDAO(FolderDAO fd) {
-        this.folderDAO = fd;
-    }
-
-    private void setNoteDAO(NoteDAO nd) {
-        this.noteDAO = nd;
     }
 
     @FXML

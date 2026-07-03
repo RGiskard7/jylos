@@ -381,7 +381,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 subscribeToShellAndDomainEvents();
             }
             if (sidebarController != null) {
-                sidebarController.wire(eventBus, noteService, tagService, folderService, folderDAO, noteDAO, resources,
+                sidebarController.wire(eventBus, noteService, tagService, folderService, resources,
                         this::handleUiFolderSelected, this::handleUiTagSelected, this::handleUiTrashItemSelected,
                         this::handleUiNoteOpenRequest, this::updateStatus);
             }
@@ -394,7 +394,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 notesListView = notesListController.getNotesListView();
             }
             if (editorController != null) {
-                editorController.wire(eventBus, noteDAO, noteService, resources, this::handleUiNoteModified);
+                editorController.wire(eventBus, noteService, tagService, resources, this::handleUiNoteModified);
                 editorController.setWikiLinkHandler(title -> noteService.findNoteByTitle(title).ifPresentOrElse(
                         this::handleUiNoteOpenRequest,
                         () -> updateStatus("Note not found: " + title)));

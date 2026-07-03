@@ -21,7 +21,6 @@ import org.fxmisc.richtext.CodeArea;
 import org.kordamp.ikonli.javafx.FontIcon;
 
 import com.example.jylos.config.LoggerConfig;
-import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.NoteProperty;
 import com.example.jylos.data.models.Tag;
@@ -31,6 +30,7 @@ import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.plugin.PreviewEnhancer;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.RichLinkService;
+import com.example.jylos.service.TagService;
 import com.example.jylos.ui.components.CanvasView;
 import com.example.jylos.util.AttachmentType;
 import com.example.jylos.util.MarkdownHighlighter;
@@ -104,7 +104,7 @@ public class EditorController {
     // ── Service / state ─────────────────────────────────────────────────────
     private EventBus eventBus;
     private NoteService noteService;
-    private NoteDAO noteDAO;
+    private TagService tagService;
     private ResourceBundle bundle;
     private Consumer<Note> noteModifiedAction = note -> {
     };
@@ -206,11 +206,11 @@ public class EditorController {
         subscribeToEvents();
     }
 
-    private void setNoteDAO(NoteDAO noteDAO) {
-        this.noteDAO = noteDAO;
+    private void setTagService(TagService tagService) {
+        this.tagService = tagService;
     }
 
-    private void setServices(NoteService noteService) {
+    private void setNoteService(NoteService noteService) {
         this.noteService = noteService;
     }
 
@@ -218,10 +218,10 @@ public class EditorController {
         this.bundle = bundle;
     }
 
-    public void wire(EventBus eventBus, NoteDAO noteDAO, NoteService noteService, ResourceBundle bundle,
+    public void wire(EventBus eventBus, NoteService noteService, TagService tagService, ResourceBundle bundle,
             Consumer<Note> noteModifiedAction) {
-        setNoteDAO(noteDAO);
-        setServices(noteService);
+        setNoteService(noteService);
+        setTagService(tagService);
         setBundle(bundle);
         this.noteModifiedAction = noteModifiedAction != null ? noteModifiedAction : note -> {
         };
@@ -1462,7 +1462,7 @@ public class EditorController {
         fp.getChildren().clear();
         if (note == null || note.getId() == null || note.getId().isEmpty()) return;
         try {
-            List<Tag> tags = noteService != null ? noteService.getTagsForNote(note) : List.of();
+            List<Tag> tags = tagService != null ? tagService.getTagsForNote(note) : List.of();
             for (Tag tag : tags) {
                 HBox box = new HBox(4); box.setAlignment(Pos.CENTER_LEFT); box.getStyleClass().add("tag-container");
                 Label lbl = new Label(tag.getTitle()); lbl.getStyleClass().add("tag-label");

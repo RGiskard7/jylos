@@ -12,7 +12,6 @@ import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
-import com.example.jylos.data.models.Tag;
 
 /**
  * Service layer for note-related business logic.
@@ -26,7 +25,6 @@ import com.example.jylos.data.models.Tag;
  * <li>CRUD operations for notes</li>
  * <li>Search and filtering</li>
  * <li>Sorting and ordering</li>
- * <li>Tag management for notes</li>
  * <li>Favorites management</li>
  * </ul>
  * 
@@ -550,67 +548,6 @@ public class NoteService {
             return note.getModifiedDate();
         }
         return note.getCreatedDate() != null ? note.getCreatedDate() : "";
-    }
-
-    // ==================== Tag Management ====================
-
-    /**
-     * Gets all tags assigned to a note.
-     * 
-     * @param note The note
-     * @return List of tags
-     */
-    public List<Tag> getNoteTags(Note note) {
-        if (note == null || note.getId() == null) {
-            return new ArrayList<>();
-        }
-        return noteDAO.fetchTags(note.getId());
-    }
-
-    /**
-     * Alias aligned with the service-boundary cleanup naming used by the UI layer.
-     *
-     * @param note The note
-     * @return List of tags
-     */
-    public List<Tag> getTagsForNote(Note note) {
-        return getNoteTags(note);
-    }
-
-    /**
-     * Adds a tag to a note.
-     * 
-     * @param note The note
-     * @param tag  The tag to add
-     */
-    public void addTagToNote(Note note, Tag tag) {
-        if (note == null || tag == null) {
-            throw new IllegalArgumentException("Note and tag cannot be null");
-        }
-
-        // Check if tag already exists on note
-        List<Tag> currentTags = getNoteTags(note);
-        boolean alreadyHasTag = currentTags.stream()
-                .anyMatch(t -> t.getId().equals(tag.getId()));
-
-        if (!alreadyHasTag) {
-            noteDAO.addTag(note, tag);
-            logger.info("Added tag '" + tag.getTitle() + "' to note: " + note.getTitle());
-        }
-    }
-
-    /**
-     * Removes a tag from a note.
-     * 
-     * @param note The note
-     * @param tag  The tag to remove
-     */
-    public void removeTagFromNote(Note note, Tag tag) {
-        if (note == null || tag == null) {
-            throw new IllegalArgumentException("Note and tag cannot be null");
-        }
-        noteDAO.removeTag(note, tag);
-        logger.info("Removed tag '" + tag.getTitle() + "' from note: " + note.getTitle());
     }
 
     // ==================== Favorites Management ====================

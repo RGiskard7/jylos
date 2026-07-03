@@ -14,7 +14,7 @@ import com.example.jylos.data.models.Tag;
 
 /**
  * Service layer for tag-related business logic.
- * Provides a clean API for tag operations and note-tag relationships.
+ * Provides a clean API for tag operations and owns note-tag relationships.
  * 
  * <p>
  * This service handles:

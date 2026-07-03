@@ -26,7 +26,7 @@ ui/ (FXML, controllers, components, GraphCanvas)
 | `ui.components` | `CommandPalette`, `QuickSwitcher`, `PluginManagerDialog`, `FileViewer`, `EditorTabs` (open-note tab strip), `KanbanBoard` (Kanban overlay) |
 | `graph` | `GraphBuilder`, `GraphData` — vault graph from notes, wiki-links, tags |
 | `git` | `GitService` — status, stage, commit, sync when vault is a Git repo |
-| `service` | Business rules (`NoteService`, `FolderService`, `TagService`, `BacklinkService`, `NoteTitleIndex`, `EncryptionService`, `DatabaseBackupService`, …) |
+| `service` | Business rules (`NoteService`, `FolderService`, `TagService` for note-tag relationships, `BacklinkService`, `NoteTitleIndex`, `EncryptionService`, `DatabaseBackupService`, …) |
 | `data.dao` | SQLite and filesystem implementations |
 | `data.models` | `Note` (incl. `status`, `isPrivate`), `Folder`, `Tag`, `ToDoNote` |
 | `event` | `EventBus`, typed events under `event.events` (including `SystemActionEvent`) |

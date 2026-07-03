@@ -144,6 +144,9 @@ Services should not:
 
 If a class mostly transforms strings, collections, or files without owning workflow policy, it probably belongs in `util/*` or a feature package, not necessarily in `service/*`.
 
+For note-tag relationships, `TagService` is the canonical owner. UI code should not route
+that workflow through `NoteService` or directly through DAOs.
+
 ### Event publication from services
 
 Prefer one canonical publisher per workflow.
