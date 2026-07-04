@@ -287,7 +287,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     /** Custom accent ({@code #rrggbb}) or "" for the theme default. */
     private String uiAccentColor = "";
     private double editorFontSize = 14.0;
-    private final PauseTransition noteModifiedDebounce = new PauseTransition(Duration.millis(120));
+    private final PauseTransition noteModifiedDebounce = new PauseTransition(Duration.millis(250));
     private final PauseTransition toolbarSearchDebounce = new PauseTransition(Duration.millis(180));
     private final PauseTransition autosaveDebounce = new PauseTransition(
             Duration.millis(UiPreferencesStore.DEFAULT_AUTOSAVE_IDLE_MS));
@@ -2046,7 +2046,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     /** Re-renders the editor's Markdown preview, applying the correct dark/light theme to the WebView. */
     private void refreshEditorPreview() {
-        if (editorController != null) {
+        if (editorController != null && editorController.isPreviewVisible()) {
             editorController.refreshPreview(isDarkThemeActive());
         }
     }

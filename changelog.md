@@ -2,6 +2,68 @@
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-07-04
+
+Release centrada en el **cierre del saneamiento arquitectónico**, la **normalización del wiring de la UI**, el **endurecimiento de guardas y contratos internos**, y un pulido importante de **temas, snippets CSS, overlays y diálogos** para dejar el proyecto en un estado más coherente de cara a una release pública.
+
+### Arquitectura y saneamiento
+
+- **Fronteras UI/service más claras**: se consolidó el uso de `TagService`, `FolderService` y `NoteService` como owners de sus workflows reales, reduciendo atajos desde la UI hacia DAOs cuando ya existía una capa de servicio válida.
+- **Composición UI más explícita y homogénea**: controladores y supports principales quedaron alineados alrededor de wiring explícito, callbacks tipados y responsabilidades mejor delimitadas.
+- **`AppContext` eliminado del flujo operativo**: se cerró su uso como atajo global, reforzando dependencias explícitas y eliminando residuos del patrón anterior.
+- **`EventBus` más acotado**: se movieron flujos UI uno-a-uno hacia callbacks directos y se reservaron los eventos para fan-out real, coordinación shell y extensibilidad.
+- **Taxonomía de `ui/controller` saneada**: separación de helpers, supports, stores y catálogos con naming y ubicación más consistentes, sin rehacer media arquitectura.
+- **Guardas arquitectónicas reforzadas**: nuevos tests y reglas para evitar regresiones en composición UI, límites service/data, uso de `EventBus` y ownership de tags.
+
+### Implementación y mantenimiento
+
+- **MainController más limpio** dentro de su núcleo legítimo de coordinación, extrayendo flujos secundarios a supports cohesionados sin fragmentar su rol shell.
+- **Servicios e índices más coherentes**: mejor separación entre negocio, infraestructura técnica e índices/cachés, con documentación normativa actualizada.
+- **Ajustes de robustez en filesystem/SQLite**: mejoras incrementales en carga de vault, refrescos, cachés, concurrencia y coherencia post-restore.
+- **Acceso persistente más consistente**: se sincronizó mejor el acceso concurrente a la base de datos entre DAOs y se pulieron consultas calientes y resolución de nombres de archivo en SQLite.
+- **Backlinks, índices y tareas internas más sólidos**: se ajustaron suscripciones, tareas y flujos incrementales para reducir estados intermedios frágiles.
+- **Plugins y overlays alineados** con el modelo saneado de wiring y publicación de acciones.
+
+### UX, theming y diálogos
+
+- **Temas y snippets CSS** integrados de forma más consistente en overlays y diálogos visibles, evitando superficies que se quedaban con estilo por defecto.
+- **Botonera unificada**: colores, bordes, hover y estados activos se normalizaron para reducir inconsistencias visuales entre core, overlays y plugins.
+- **Nuevo color principal** más legible: se sustituyó el acento anterior por una variante más oscura y con matiz violeta para asegurar contraste correcto con texto blanco.
+- **Command Palette y Quick Switcher** más integrados con el sistema real de temas y snippets.
+- **Pulido de modales**: mejor coherencia visual en inputs, tabs, botones y fondos en diálogos clave como Preferencias, Acerca de, Git Sync y paneles de análisis.
+- **Indicadores y microdetalles UI** revisados: conteo canónico en barra inferior, estado de guardado del editor más estable y ajustes en headers y empty states.
+
+### Rendimiento percibido
+
+- **Menos trabajo inútil en editor/preview**: la preview ya no se re-renderiza cuando no está visible y el debounce de refresco se suavizó para reducir tirones con `WebView` y Markdown pesado.
+- **Syntax highlighting más conservador**: ajuste de debounce para aliviar recalculados agresivos en notas medianas y grandes.
+
+### Documentación y distribución
+
+- **Documentación técnica y de usuario actualizada** para reflejar el estado saneado de la arquitectura, el uso de JBang, el empaquetado y el flujo de lanzamiento.
+- **Versión alineada a `2.3.0`** en `pom`, metadatos de app, scripts de packaging, README, docs operativas y catálogo JBang.
+
+### Commits incluidos en esta release (pendientes de push al remoto al cerrar esta versión)
+
+- `2026-07-04` — `61a76d8` — `refactor: Refactorización de estilos de interfaz de usuario y mejora del manejo de diálogos`
+- `2026-07-03` — `b6bee5e` — `refactor: Clarificación de la propiedad de relaciones entre notas y etiquetas`
+- `2026-07-03` — `a7ed3a5` — `refactor: Actualización de la gestión de notas y carpetas para usar la capa de servicio.`
+- `2026-07-02` — `c617892` — `refactor: Consolidación y mejora de la nomenclatura en controladores y clases de soporte`
+- `2026-07-02` — `d1295e9` — `refactor: Eliminación de AppContext y mejora en la gestión de eventos`
+- `2026-07-02` — `af0b616` — `refactor: Extracción de lógica de creación de notas y flujos de trabajo a clases de soporte`
+- `2026-07-02` — `5fd6047` — `refactor: Mejora en la inyección de dependencias y gestión de eventos en BacklinkService`
+- `2026-07-02` — `dde91c9` — `refactor: Transición a funciones de devolución de llamada explícitas para el manejo de eventos en componentes de interfaz de usuario`
+- `2026-07-02` — `c5308fd` — `refactor: Mejora en la gestión de dependencias y eliminación de algunas referencias a AppContext`
+- `2026-07-02` — `b594b97` — `refactor: Reorganización y refactorización de paquetes de ui/controller`
+- `2026-07-01` — `e584084` — `refactor: Encapsulación de métodos de configuración en controladores`
+- `2026-07-01` — `aae2001` — `refactor: Simplificación y mejora en la gestión de servicios en controladores`
+- `2026-07-01` — `d90ab4e` — `docs: Actualización de la documentación para incluir referencias a ARCHITECTURE_GUIDELINES.md`
+- `2026-06-30` — `9284144` — `refactor: Actualización de la versión y mejoras en la documentación y gestión de notas`
+- `2026-06-30` — `9f51362` — `refactor: Mejora en la gestión de nombres de archivos y optimización de consultas en SQLiteDB`
+- `2026-06-30` — `c1cfa6d` — `refactor: Simplificación de la gestión de servicios en NoteService`
+- `2026-06-30` — `9d20c1a` — `refactor: Mejora en la gestión de tareas y suscripciones en EventBus y BacklinksSupport`
+- `2026-06-30` — `575bfd9` — `feat+fix: Sincronización del acceso a la base de datos entre DAOs`
+
 ## [2.2.0] - 2026-06-25
 
 Esta versión gira en torno a **Canvas** (visor → editor compatible con Obsidian), **transclusión** y **enlaces enriquecidos**, y un refuerzo importante de las **notas privadas** (modelo de desbloqueo por-nota/global, indicadores visuales y protección frente a borrado/exportación), además de varias correcciones de listas/paneles.

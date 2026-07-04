@@ -93,6 +93,7 @@ import javafx.stage.Popup;
 public class EditorController {
 
     private static final Logger logger = LoggerConfig.getLogger(EditorController.class);
+    private static final Duration SYNTAX_HIGHLIGHT_DEBOUNCE = Duration.ofMillis(300);
 
     /** Matches an open [[query before the text-area caret. */
     private static final Pattern WIKI_TRIGGER = Pattern.compile("\\[\\[([^\\]\\[\\n]*)$");
@@ -480,7 +481,7 @@ public class EditorController {
             return;
         }
         noteContentArea.multiPlainChanges()
-                .successionEnds(Duration.ofMillis(200))
+                .successionEnds(SYNTAX_HIGHLIGHT_DEBOUNCE)
                 .subscribe(ignore -> applyHighlighting());
     }
 
@@ -1524,7 +1525,7 @@ public class EditorController {
     }
 
     public void refreshPreview(boolean darkTheme) {
-        if (previewWebView == null || currentNote == null) {
+        if (previewWebView == null || currentNote == null || !isPreviewVisible()) {
             return;
         }
 
@@ -1550,13 +1551,34 @@ public class EditorController {
             }
         };
         task.setOnSucceeded(e -> {
+            if (task != currentPreviewTask || task.isCancelled() || !isPreviewVisible()) {
+                return;
+            }
             previewWebView.getEngine().loadContent(task.getValue(), "text/html");
             installWikiLinkListener();
+        });
+        task.setOnCancelled(e -> {
+            if (currentPreviewTask == task) {
+                currentPreviewTask = null;
+            }
+        });
+        task.setOnFailed(e -> {
+            if (currentPreviewTask == task) {
+                currentPreviewTask = null;
+            }
+            logger.warning("Preview render failed: " + task.getException());
         });
         currentPreviewTask = task;
         Thread thread = new Thread(task, "preview-render");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    public boolean isPreviewVisible() {
+        return !viewingAttachment
+                && previewPane != null
+                && previewPane.isVisible()
+                && previewPane.isManaged();
     }
 
     private String resolveEmbedContentByTitle(String title) {

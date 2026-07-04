@@ -927,7 +927,12 @@
 /* Inline save indicator dot (next to the note title). */
 .save-indicator-dot {
     -fx-font-size: 9px;
-    -fx-padding: 0 1 0 1;
+    -fx-padding: 0;
+    -fx-min-width: 10px;
+    -fx-pref-width: 10px;
+    -fx-max-width: 10px;
+    -fx-alignment: center;
+    -fx-text-overrun: clip;
     -fx-text-fill: -fx-success;
 }
 .save-indicator-dot.dirty {
