@@ -174,6 +174,8 @@
     .shot-card:hover img { transform: scale(1.03); }
     .shot-card img { width: 100%; display: block; transition: transform 0.35s ease; }
     .shot-card figcaption { padding: 12px 16px; font-size: 0.82rem; color: var(--text-secondary); background: rgba(0,0,0,0.3); border-top: 1px solid var(--glass-border); }
+    body[data-theme="light"] .shot-card { background: rgba(255,255,255,0.92); }
+    body[data-theme="light"] .shot-card figcaption { color: var(--text-primary); background: rgba(255,255,255,0.94); }
     .shot-overlay { position: absolute; top: 12px; right: 12px; width: 36px; height: 36px; background: rgba(0,0,0,0.55); backdrop-filter: blur(6px); border-radius: 8px; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity var(--transition); pointer-events: none; }
     .shot-card:hover .shot-overlay { opacity: 1; }
     .shot-overlay svg { width: 18px; height: 18px; color: #fff; }
@@ -504,7 +506,7 @@
           <figcaption data-i18n="shot3">Navigate thousands of connected notes through a scalable graph view</figcaption>
         </figure>
         <figure class="shot-card" onclick="openLightbox(this.querySelector('img').src)">
-          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-22.png" alt="Workspace layout" loading="lazy">
+          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-17.png" alt="Workspace layout" loading="lazy">
           <div class="shot-overlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div>
           <figcaption data-i18n="shot4">Customizable workspace with notes, navigation and live preview</figcaption>
         </figure>
@@ -514,7 +516,7 @@
           <figcaption data-i18n="shot5">Organize tasks and projects with built-in Kanban boards</figcaption>
         </figure>
         <figure class="shot-card" onclick="openLightbox(this.querySelector('img').src)">
-          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-23.png" alt="Canvas editor" loading="lazy">
+          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-22.png" alt="Canvas editor" loading="lazy">
           <div class="shot-overlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div>
           <figcaption data-i18n="shot6">Organize your notes visually with the canvas editor</figcaption>
         </figure>
