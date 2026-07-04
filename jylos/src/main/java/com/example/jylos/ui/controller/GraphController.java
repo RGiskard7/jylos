@@ -32,6 +32,7 @@ import javafx.fxml.FXML;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
@@ -63,6 +64,7 @@ public class GraphController {
     @FXML private StackPane graphCanvasHolder;
 
     // Settings panel
+    @FXML private ScrollPane settingsScrollPane;
     @FXML private VBox settingsPanel;
     @FXML private TextField graphFilterField;
     @FXML private ComboBox<String> tagFilterCombo;
@@ -331,12 +333,15 @@ public class GraphController {
     /** Shows/hides the settings panel (gear button). */
     @FXML
     private void handleToggleSettings() {
-        if (settingsPanel == null) {
+        if (settingsScrollPane == null) {
             return;
         }
         boolean show = settingsBtn != null && settingsBtn.isSelected();
-        settingsPanel.setVisible(show);
-        settingsPanel.setManaged(show);
+        settingsScrollPane.setVisible(show);
+        settingsScrollPane.setManaged(show);
+        if (show) {
+            settingsScrollPane.setVvalue(0.0);
+        }
     }
 
     /** A filter checkbox (orphans/ghosts) changed → rebuild the model. */

@@ -75,6 +75,7 @@ Prebuilt packages for all major platforms are available on the [Releases page](.
     - [Storage](#storage)
     - [App icons](#app-icons)
     - [Themes](#themes)
+    - [CSS snippets](#css-snippets)
     - [Plugins](#plugins)
   - [Documentation](#documentation)
   - [Troubleshooting](#troubleshooting)
@@ -203,14 +204,10 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 ## Screenshots
 
 <div align="center">
-  <img src="resources/images/interfaz-1.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-2.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-3.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-4.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-5.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-6.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-7.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-16.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-17.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-18.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-21.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-22.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-8.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-9.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-10.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">

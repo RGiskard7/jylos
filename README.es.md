@@ -75,6 +75,7 @@ Los paquetes precompilados para las principales plataformas están disponibles e
     - [Almacenamiento](#almacenamiento)
     - [Iconos de la aplicación](#iconos-de-la-aplicación)
     - [Temas](#temas)
+    - [Snippets CSS](#snippets-css)
     - [Plugins](#plugins)
   - [Documentación](#documentación)
   - [Resolución de Problemas](#resolución-de-problemas)
@@ -203,14 +204,10 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 ## Capturas
 
 <div align="center">
-  <img src="resources/images/interfaz-1.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-2.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-3.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-4.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-5.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-6.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-7.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-16.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-17.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-18.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-21.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-22.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-8.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-9.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-10.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
@@ -219,7 +216,6 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
   <img src="resources/images/interfaz-13.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-14.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-15.png" alt="" style="width: 100%; max-width: 100%; display: block;">
-
 </div>
 
 ## Stack Tecnológico

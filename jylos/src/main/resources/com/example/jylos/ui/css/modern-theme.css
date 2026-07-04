@@ -2760,6 +2760,16 @@
     -fx-pref-width: 210;
 }
 
+.graph-settings-scroll {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-fit-to-width: true;
+}
+
+.graph-settings-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
 /* ── Editor breadcrumb path bar ───────────────────────────── */
 .editor-path-bar {
     -fx-background-color: -fx-header-bg;
