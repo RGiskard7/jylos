@@ -36,7 +36,7 @@ class FileSystemConcurrencyIntegrationTest {
         FolderDAOFileSystem folderDAO = new FolderDAOFileSystem(root);
         TagDAOFileSystem tagDAO = new TagDAOFileSystem(noteDAO);
         FolderService folderService = new FolderService(folderDAO, noteDAO);
-        NoteService noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+        NoteService noteService = new NoteService(noteDAO, folderDAO);
 
         Folder project = folderService.createFolder("Project");
         Folder docs = folderService.createSubfolder("Docs", project);
@@ -106,7 +106,7 @@ class FileSystemConcurrencyIntegrationTest {
         FolderDAOFileSystem folderDAO = new FolderDAOFileSystem(root);
         TagDAOFileSystem tagDAO = new TagDAOFileSystem(noteDAO);
         FolderService folderService = new FolderService(folderDAO, noteDAO);
-        NoteService noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+        NoteService noteService = new NoteService(noteDAO, folderDAO);
 
         Folder project = folderService.createFolder("Project");
         Folder docs = folderService.createSubfolder("Docs", project);

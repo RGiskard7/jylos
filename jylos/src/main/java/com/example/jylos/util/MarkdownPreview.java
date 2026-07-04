@@ -5,13 +5,11 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.logging.Logger;
 
-import com.example.jylos.config.AppContext;
 import com.example.jylos.config.LoggerConfig;
-import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.PreviewEnhancer;
-import com.example.jylos.service.NoteService;
 import com.example.jylos.service.NoteTitleIndex;
 
 /**
@@ -42,7 +40,7 @@ public class MarkdownPreview {
             + "\\x{2190}-\\x{21FF}\\x{FE00}-\\x{FE0F}\\x{20E3}\\x{200D}\\x{1F1E6}-\\x{1F1FF}\\x{1F3FB}-\\x{1F3FF}]+");
 
     public static String buildPreviewHtml(String markdownContent, boolean isDarkTheme, Collection<PreviewEnhancer> enhancers) {
-        return buildPreviewHtml(markdownContent, isDarkTheme, enhancers, null);
+        return buildPreviewHtml(markdownContent, isDarkTheme, enhancers, null, null);
     }
 
     /**
@@ -56,6 +54,12 @@ public class MarkdownPreview {
      */
     public static String buildPreviewHtml(String markdownContent, boolean isDarkTheme,
             Collection<PreviewEnhancer> enhancers, java.nio.file.Path baseDir) {
+        return buildPreviewHtml(markdownContent, isDarkTheme, enhancers, baseDir, null);
+    }
+
+    public static String buildPreviewHtml(String markdownContent, boolean isDarkTheme,
+            Collection<PreviewEnhancer> enhancers, java.nio.file.Path baseDir,
+            Function<String, String> embeddedContentResolver) {
         String raw = markdownContent != null ? markdownContent : "";
 
         // Resolve [[WikiLinks]] in the raw Markdown source FIRST, then pass
@@ -71,7 +75,8 @@ public class MarkdownPreview {
         // Expand ![[transclusions]] FIRST: ![[X]] contains a [[X]] that WikiLinkResolver
         // would otherwise rewrite. Each embed is rendered now and parked behind a token,
         // re-injected after CommonMark (see Transclusion).
-        Transclusion.Result embeds = Transclusion.protect(raw, MarkdownPreview::embedContentByTitle, knownTitles);
+        Transclusion.Result embeds = Transclusion.protect(raw,
+                title -> embedContentByTitle(title, embeddedContentResolver), knownTitles);
         raw = embeds.markdown();
 
         raw = WikiLinkResolver.resolve(raw, knownTitles);
@@ -149,19 +154,14 @@ public class MarkdownPreview {
     }
 
     /**
-     * Resolves a note title to its raw Markdown for {@code ![[embeds]]}. Uses the live
-     * {@link NoteService} (via {@link AppContext}) so the embedded content matches what
-     * the target note actually holds; returns {@code null} when the note does not exist.
+     * Resolves a note title to raw Markdown for {@code ![[embeds]]}. The caller provides
+     * the resolution strategy so preview rendering stays independent from global state.
      */
-    private static String embedContentByTitle(String title) {
-        if (!AppContext.isInitialized()) {
+    private static String embedContentByTitle(String title, Function<String, String> embeddedContentResolver) {
+        if (embeddedContentResolver == null || title == null || title.isBlank()) {
             return null;
         }
-        NoteService ns = AppContext.getNoteService();
-        return ns.findNoteByTitle(title)
-                .flatMap(note -> ns.getNoteById(note.getId()))
-                .map(Note::getContent)
-                .orElse(null);
+        return embeddedContentResolver.apply(title);
     }
 
     public static String buildEmptyHtml(boolean isDarkTheme) {

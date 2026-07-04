@@ -30,7 +30,7 @@ read_property() {
 
 # Read application metadata from app.properties
 APP_NAME=$(read_property "app.name" "Jylos")
-APP_VERSION=$(read_property "app.version" "2.2.0")
+APP_VERSION=$(read_property "app.version" "2.3.0")
 APP_VENDOR=$(read_property "app.vendor" "Jylos")
 APP_DESCRIPTION=$(read_property "app.description" "A free and open-source note-taking application")
 APP_COPYRIGHT=$(read_property "app.copyright" "Copyright 2025 Jylos")
@@ -168,7 +168,7 @@ if [ -n "${JYLOS_MAC_SIGN_IDENTITY:-}" ]; then
     echo "Code signing enabled (identity: $JYLOS_MAC_SIGN_IDENTITY)"
     JPACKAGE_CMD="$JPACKAGE_CMD --mac-sign --mac-signing-key-user-name \"$JYLOS_MAC_SIGN_IDENTITY\""
 else
-    echo "Code signing disabled (set JYLOS_MAC_SIGN_IDENTITY to enable). See doc/PACKAGING.md."
+    echo "Code signing disabled (set JYLOS_MAC_SIGN_IDENTITY to enable). See docs/PACKAGING.md."
 fi
 
 # Use jpackage to create DMG installer
@@ -217,7 +217,7 @@ if [ $? -eq 0 ]; then
             fi
         fi
     else
-        echo "Notarization disabled (set JYLOS_NOTARY_PROFILE to enable). See doc/PACKAGING.md."
+        echo "Notarization disabled (set JYLOS_NOTARY_PROFILE to enable). See docs/PACKAGING.md."
     fi
 
     echo ""

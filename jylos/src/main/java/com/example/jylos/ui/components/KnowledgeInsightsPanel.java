@@ -25,7 +25,6 @@ import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
-import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
@@ -139,9 +138,9 @@ public final class KnowledgeInsightsPanel {
 
     private VBox connectedTab(KnowledgeHealthReport r) {
         TableView<NoteConnectivityInfo> table = new TableView<>();
-        table.getColumns().add(column("insights.col_note", "title", 320));
-        table.getColumns().add(column("insights.col_inbound", "inbound", 70));
-        table.getColumns().add(column("insights.col_outbound", "outbound", 70));
+        table.getColumns().add(column("insights.col_note", NoteConnectivityInfo::title, 320));
+        table.getColumns().add(column("insights.col_inbound", NoteConnectivityInfo::inbound, 70));
+        table.getColumns().add(column("insights.col_outbound", NoteConnectivityInfo::outbound, 70));
         TableColumn<NoteConnectivityInfo, Integer> totalCol = new TableColumn<>(str("insights.col_total"));
         totalCol.setCellValueFactory(c -> new javafx.beans.property.SimpleIntegerProperty(
                 c.getValue().total()).asObject());
@@ -155,8 +154,8 @@ public final class KnowledgeInsightsPanel {
 
     private VBox brokenTab(KnowledgeHealthReport r) {
         TableView<BrokenLinkInfo> table = new TableView<>();
-        table.getColumns().add(column("insights.col_source", "sourceTitle", 320));
-        table.getColumns().add(column("insights.col_target", "targetTitle", 300));
+        table.getColumns().add(column("insights.col_source", BrokenLinkInfo::sourceTitle, 320));
+        table.getColumns().add(column("insights.col_target", BrokenLinkInfo::targetTitle, 300));
         table.getItems().setAll(r.brokenLinks());
         table.setPlaceholder(new Label(str("insights.none_broken")));
         onRowOpen(table, BrokenLinkInfo::sourceNoteId);
@@ -165,8 +164,8 @@ public final class KnowledgeInsightsPanel {
 
     private VBox tagsTab(KnowledgeHealthReport r) {
         TableView<TagUsage> table = new TableView<>();
-        table.getColumns().add(column("insights.col_tag", "tag", 420));
-        table.getColumns().add(column("insights.col_count", "count", 100));
+        table.getColumns().add(column("insights.col_tag", TagUsage::tag, 420));
+        table.getColumns().add(column("insights.col_count", TagUsage::count, 100));
         table.getItems().setAll(r.tagUsage());
         table.setPlaceholder(new Label(str("insights.none_tags")));
         return wrapTable(table);
@@ -204,9 +203,9 @@ public final class KnowledgeInsightsPanel {
         return t;
     }
 
-    private <T> TableColumn<T, ?> column(String headerKey, String property, double width) {
-        TableColumn<T, Object> col = new TableColumn<>(str(headerKey));
-        col.setCellValueFactory(new PropertyValueFactory<>(property));
+    private <T, V> TableColumn<T, V> column(String headerKey, Function<T, V> valueOf, double width) {
+        TableColumn<T, V> col = new TableColumn<>(str(headerKey));
+        col.setCellValueFactory(cell -> new javafx.beans.property.ReadOnlyObjectWrapper<>(valueOf.apply(cell.getValue())));
         col.setPrefWidth(width);
         return col;
     }

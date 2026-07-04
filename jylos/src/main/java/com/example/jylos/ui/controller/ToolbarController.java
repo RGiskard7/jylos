@@ -1,9 +1,7 @@
 package com.example.jylos.ui.controller;
 
-import com.example.jylos.config.AppContext;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.SystemActionEvent;
-import com.example.jylos.event.events.UIEvents;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -15,6 +13,36 @@ import javafx.scene.layout.HBox;
 public class ToolbarController {
 
     private EventBus eventBus;
+    private Runnable showCommandPaletteAction = () -> {
+    };
+    private Runnable showQuickSwitcherAction = () -> {
+    };
+    private Runnable showKeyboardShortcutsAction = () -> {
+    };
+    private Runnable applyLightThemeAction = () -> {
+    };
+    private Runnable applyDarkThemeAction = () -> {
+    };
+    private Runnable applySystemThemeAction = () -> {
+    };
+
+    public void wire(EventBus eventBus, Runnable showCommandPaletteAction,
+            Runnable showQuickSwitcherAction, Runnable showKeyboardShortcutsAction,
+            Runnable applyLightThemeAction, Runnable applyDarkThemeAction, Runnable applySystemThemeAction) {
+        setEventBus(eventBus);
+        this.showCommandPaletteAction = showCommandPaletteAction != null ? showCommandPaletteAction : () -> {
+        };
+        this.showQuickSwitcherAction = showQuickSwitcherAction != null ? showQuickSwitcherAction : () -> {
+        };
+        this.showKeyboardShortcutsAction = showKeyboardShortcutsAction != null ? showKeyboardShortcutsAction : () -> {
+        };
+        this.applyLightThemeAction = applyLightThemeAction != null ? applyLightThemeAction : () -> {
+        };
+        this.applyDarkThemeAction = applyDarkThemeAction != null ? applyDarkThemeAction : () -> {
+        };
+        this.applySystemThemeAction = applySystemThemeAction != null ? applySystemThemeAction : () -> {
+        };
+    }
 
     // FXML injected fields
     @FXML
@@ -77,9 +105,8 @@ public class ToolbarController {
     @FXML
     private MenuItem toggleNotesListMenuItem;
 
-    public void setEventBus(EventBus eventBus) {
-        this.eventBus = eventBus != null ? eventBus
-                : (AppContext.isInitialized() ? AppContext.getEventBus() : null);
+    private void setEventBus(EventBus eventBus) {
+        this.eventBus = eventBus;
     }
 
     public Menu getPluginsMenu() {
@@ -328,14 +355,12 @@ public class ToolbarController {
 
     @FXML
     private void handleCommandPalette(ActionEvent event) {
-        if (eventBus != null)
-            eventBus.publish(new UIEvents.ShowCommandPaletteEvent());
+        showCommandPaletteAction.run();
     }
 
     @FXML
     private void handleQuickSwitcher(ActionEvent event) {
-        if (eventBus != null)
-            eventBus.publish(new UIEvents.ShowQuickSwitcherEvent());
+        showQuickSwitcherAction.run();
     }
 
     @FXML
@@ -405,9 +430,7 @@ public class ToolbarController {
 
     @FXML
     private void handleKeyboardShortcuts(ActionEvent event) {
-        if (eventBus != null) {
-            eventBus.publish(new com.example.jylos.event.events.UIEvents.ShowKeyboardShortcutsEvent());
-        }
+        showKeyboardShortcutsAction.run();
     }
 
     @FXML
@@ -457,22 +480,22 @@ public class ToolbarController {
 
     @FXML
     private void handleLightTheme(ActionEvent event) {
-        if (eventBus != null && lightThemeMenuItem.isSelected()) {
-            eventBus.publish(new UIEvents.ThemeChangedEvent("light"));
+        if (lightThemeMenuItem.isSelected()) {
+            applyLightThemeAction.run();
         }
     }
 
     @FXML
     private void handleDarkTheme(ActionEvent event) {
-        if (eventBus != null && darkThemeMenuItem.isSelected()) {
-            eventBus.publish(new UIEvents.ThemeChangedEvent("dark"));
+        if (darkThemeMenuItem.isSelected()) {
+            applyDarkThemeAction.run();
         }
     }
 
     @FXML
     private void handleSystemTheme(ActionEvent event) {
-        if (eventBus != null && systemThemeMenuItem.isSelected()) {
-            eventBus.publish(new UIEvents.ThemeChangedEvent("system"));
+        if (systemThemeMenuItem.isSelected()) {
+            applySystemThemeAction.run();
         }
     }
 

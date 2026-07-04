@@ -10,7 +10,6 @@ import java.util.stream.Collectors;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
-import com.example.jylos.data.dao.interfaces.TagDAO;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
@@ -27,7 +26,6 @@ import com.example.jylos.data.models.Tag;
  * <li>CRUD operations for notes</li>
  * <li>Search and filtering</li>
  * <li>Sorting and ordering</li>
- * <li>Tag management for notes</li>
  * <li>Favorites management</li>
  * </ul>
  * 
@@ -40,6 +38,7 @@ public class NoteService {
 
     private final NoteDAO noteDAO;
     private final FolderDAO folderDAO;
+    private NoteTitleIndex noteTitleIndex;
 
     /**
      * Sorting options for notes list.
@@ -74,30 +73,26 @@ public class NoteService {
 
     /**
      * Creates a new NoteService with the required DAOs.
-     * 
+     *
      * @param noteDAO   Data access object for notes
      * @param folderDAO Data access object for folders
-     * @param tagDAO    Data access object for tags
      */
-    public NoteService(NoteDAO noteDAO, FolderDAO folderDAO, TagDAO tagDAO) {
+    public NoteService(NoteDAO noteDAO, FolderDAO folderDAO) {
         this.noteDAO = noteDAO;
         this.folderDAO = folderDAO;
 
         logger.info("NoteService initialized");
     }
 
+    public void setNoteTitleIndex(NoteTitleIndex noteTitleIndex) {
+        this.noteTitleIndex = noteTitleIndex;
+    }
+
     // ==================== CRUD Operations ====================
 
     /**
      * Creates a new note with the given title and content.
-     * 
-     * @param title   The note title
-     * @param content The note content (Markdown)
-     * @return The created note with its generated ID
-     */
-    /**
-     * Creates a new note with the given title and content.
-     * 
+     *
      * @param title   The note title
      * @param content The note content (Markdown)
      * @return The created note with its generated ID
@@ -298,6 +293,10 @@ public class NoteService {
      */
     public void restoreNote(String noteId) {
         noteDAO.restoreNote(noteId);
+        noteDAO.refreshCache();
+        if (folderDAO != null) {
+            folderDAO.refreshCache();
+        }
         logger.fine("Restored note from trash, ID: " + noteId);
     }
 
@@ -413,6 +412,16 @@ public class NoteService {
             return Optional.empty();
         }
         String target = title.trim();
+        if (noteTitleIndex != null) {
+            Optional<String> indexedId = noteTitleIndex.findNoteIdByTitle(target);
+            if (indexedId.isPresent()) {
+                Optional<Note> indexed = getNoteById(indexedId.get());
+                if (indexed.isPresent()) {
+                    return indexed;
+                }
+                noteTitleIndex.invalidate();
+            }
+        }
         return getAllNotes().stream()
                 .filter(n -> target.equalsIgnoreCase(n.getTitle()))
                 .findFirst();
@@ -540,57 +549,6 @@ public class NoteService {
             return note.getModifiedDate();
         }
         return note.getCreatedDate() != null ? note.getCreatedDate() : "";
-    }
-
-    // ==================== Tag Management ====================
-
-    /**
-     * Gets all tags assigned to a note.
-     * 
-     * @param note The note
-     * @return List of tags
-     */
-    public List<Tag> getNoteTags(Note note) {
-        if (note == null || note.getId() == null) {
-            return new ArrayList<>();
-        }
-        return noteDAO.fetchTags(note.getId());
-    }
-
-    /**
-     * Adds a tag to a note.
-     * 
-     * @param note The note
-     * @param tag  The tag to add
-     */
-    public void addTagToNote(Note note, Tag tag) {
-        if (note == null || tag == null) {
-            throw new IllegalArgumentException("Note and tag cannot be null");
-        }
-
-        // Check if tag already exists on note
-        List<Tag> currentTags = getNoteTags(note);
-        boolean alreadyHasTag = currentTags.stream()
-                .anyMatch(t -> t.getId().equals(tag.getId()));
-
-        if (!alreadyHasTag) {
-            noteDAO.addTag(note, tag);
-            logger.info("Added tag '" + tag.getTitle() + "' to note: " + note.getTitle());
-        }
-    }
-
-    /**
-     * Removes a tag from a note.
-     * 
-     * @param note The note
-     * @param tag  The tag to remove
-     */
-    public void removeTagFromNote(Note note, Tag tag) {
-        if (note == null || tag == null) {
-            throw new IllegalArgumentException("Note and tag cannot be null");
-        }
-        noteDAO.removeTag(note, tag);
-        logger.info("Removed tag '" + tag.getTitle() + "' from note: " + note.getTitle());
     }
 
     // ==================== Favorites Management ====================

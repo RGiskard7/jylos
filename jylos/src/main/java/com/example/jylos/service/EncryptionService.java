@@ -71,7 +71,7 @@ public final class EncryptionService {
 
     private static final EncryptionService INSTANCE = new EncryptionService();
 
-    private final Preferences prefs = Preferences.userNodeForPackage(EncryptionService.class);
+    private final Preferences prefs;
     private final SecureRandom random = new SecureRandom();
 
     /** Derived key; non-null once a correct password has been entered this session. */
@@ -82,10 +82,23 @@ public final class EncryptionService {
     private final java.util.Set<String> revealedNoteIds = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     private EncryptionService() {
+        this.prefs = Preferences.userNodeForPackage(EncryptionService.class);
+    }
+
+    private EncryptionService(Preferences prefs) {
+        this.prefs = prefs;
     }
 
     public static EncryptionService getInstance() {
         return INSTANCE;
+    }
+
+    /**
+     * Creates a fresh, independent instance backed by the given {@code Preferences} node.
+     * <b>For testing only</b> — production code must use {@link #getInstance()}.
+     */
+    public static EncryptionService createForTesting(Preferences prefs) {
+        return new EncryptionService(prefs);
     }
 
     // ------------------------------------------------------------------
@@ -261,14 +274,18 @@ public final class EncryptionService {
     // ------------------------------------------------------------------
 
     private SecretKey deriveKey(char[] password, byte[] salt) {
+        PBEKeySpec spec = null;
         try {
             SecretKeyFactory factory = SecretKeyFactory.getInstance(PBKDF2);
-            PBEKeySpec spec = new PBEKeySpec(password, salt, ITERATIONS, KEY_BITS);
+            spec = new PBEKeySpec(password, salt, ITERATIONS, KEY_BITS);
             byte[] keyBytes = factory.generateSecret(spec).getEncoded();
-            spec.clearPassword();
             return new SecretKeySpec(keyBytes, "AES");
-        } catch (Exception e) {
+        } catch (java.security.NoSuchAlgorithmException | java.security.spec.InvalidKeySpecException e) {
             throw new IllegalStateException("Key derivation failed", e);
+        } finally {
+            if (spec != null) {
+                spec.clearPassword();
+            }
         }
     }
 

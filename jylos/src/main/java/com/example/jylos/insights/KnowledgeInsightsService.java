@@ -108,7 +108,7 @@ public final class KnowledgeInsightsService {
                 continue;
             }
             try {
-                if (noteService.getNoteTags(note).isEmpty()) {
+                if (tagService.getTagsForNote(note).isEmpty()) {
                     result.add(new KnowledgeHealthReport.NoteRef(note.getId(), titleOf(note)));
                 }
             } catch (Exception e) {

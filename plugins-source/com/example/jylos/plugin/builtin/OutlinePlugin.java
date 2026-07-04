@@ -90,7 +90,7 @@ public class OutlinePlugin implements Plugin {
         
         // Subscribe to note content changes (if available)
         EventBus.Subscription saveSub = context.subscribe(NoteEvents.NoteSavedEvent.class, event -> {
-            if (currentNote != null && event.getNote().getId() == currentNote.getId()) {
+            if (currentNote != null && java.util.Objects.equals(event.getNote().getId(), currentNote.getId())) {
                 this.currentNote = event.getNote();
                 Platform.runLater(() -> updateOutline(currentNote.getContent()));
             }

@@ -1,5 +1,6 @@
 package com.example.jylos.ui.controller;
 
+import java.util.Arrays;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -39,30 +40,38 @@ final class PrivacySupport {
 
     /** Prompts for the master password and unlocks <b>all</b> private notes for the session. */
     boolean promptUnlockAll() {
-        String pw = promptPassword(getString("dialog.unlock.title"), getString("dialog.unlock.header"));
+        char[] pw = promptPassword(getString("dialog.unlock.title"), getString("dialog.unlock.header"));
         if (pw == null) {
             return false;
         }
-        if (EncryptionService.getInstance().unlock(pw.toCharArray())) {
-            updateStatus(getString("status.unlocked"));
-            return true;
+        try {
+            if (EncryptionService.getInstance().unlock(pw)) {
+                updateStatus(getString("status.unlocked"));
+                return true;
+            }
+            showError(getString("dialog.unlock.title"), getString("status.unlock_failed"));
+            return false;
+        } finally {
+            Arrays.fill(pw, '\0');
         }
-        showError(getString("dialog.unlock.title"), getString("status.unlock_failed"));
-        return false;
     }
 
     /** Prompts for the master password and reveals only {@code noteId} (others stay 🔒). */
     boolean promptRevealNote(String noteId) {
-        String pw = promptPassword(getString("dialog.unlock.title"), getString("dialog.unlock.header"));
+        char[] pw = promptPassword(getString("dialog.unlock.title"), getString("dialog.unlock.header"));
         if (pw == null) {
             return false;
         }
-        if (EncryptionService.getInstance().revealNote(noteId, pw.toCharArray())) {
-            updateStatus(getString("status.note_unlocked"));
-            return true;
+        try {
+            if (EncryptionService.getInstance().revealNote(noteId, pw)) {
+                updateStatus(getString("status.note_unlocked"));
+                return true;
+            }
+            showError(getString("dialog.unlock.title"), getString("status.unlock_failed"));
+            return false;
+        } finally {
+            Arrays.fill(pw, '\0');
         }
-        showError(getString("dialog.unlock.title"), getString("status.unlock_failed"));
-        return false;
     }
 
     /**
@@ -74,39 +83,51 @@ final class PrivacySupport {
         if (enc.hasKey()) {
             return true;
         }
-        String pw = promptPassword(getString("dialog.unlock.title"), getString("dialog.unlock.header"));
+        char[] pw = promptPassword(getString("dialog.unlock.title"), getString("dialog.unlock.header"));
         if (pw == null) {
             return false;
         }
-        if (enc.acquireKey(pw.toCharArray())) {
-            return true;
+        try {
+            if (enc.acquireKey(pw)) {
+                return true;
+            }
+            showError(getString("dialog.unlock.title"), getString("status.unlock_failed"));
+            return false;
+        } finally {
+            Arrays.fill(pw, '\0');
         }
-        showError(getString("dialog.unlock.title"), getString("status.unlock_failed"));
-        return false;
     }
 
     /** First-time setup of the master password (entered twice). */
     boolean setupMasterPassword() {
-        String pw = promptPassword(getString("dialog.setup_password.title"), getString("dialog.setup_password.header"));
-        if (pw == null || pw.isEmpty()) {
+        char[] pw = promptPassword(getString("dialog.setup_password.title"), getString("dialog.setup_password.header"));
+        if (pw == null || pw.length == 0) {
             return false;
         }
-        String confirm = promptPassword(getString("dialog.setup_password.title"),
-                getString("dialog.setup_password.confirm"));
-        if (confirm == null) {
-            return false;
+        try {
+            char[] confirm = promptPassword(getString("dialog.setup_password.title"),
+                    getString("dialog.setup_password.confirm"));
+            if (confirm == null) {
+                return false;
+            }
+            try {
+                if (!Arrays.equals(pw, confirm)) {
+                    showError(getString("dialog.setup_password.title"), getString("status.password_mismatch"));
+                    return false;
+                }
+                EncryptionService.getInstance().configure(pw);
+                updateStatus(getString("status.unlocked"));
+                return true;
+            } finally {
+                Arrays.fill(confirm, '\0');
+            }
+        } finally {
+            Arrays.fill(pw, '\0');
         }
-        if (!pw.equals(confirm)) {
-            showError(getString("dialog.setup_password.title"), getString("status.password_mismatch"));
-            return false;
-        }
-        EncryptionService.getInstance().configure(pw.toCharArray());
-        updateStatus(getString("status.unlocked"));
-        return true;
     }
 
-    private String promptPassword(String title, String header) {
-        Dialog<String> dialog = new Dialog<>();
+    private char[] promptPassword(String title, String header) {
+        Dialog<char[]> dialog = new Dialog<>();
         dialog.setTitle(title);
         dialog.setHeaderText(header);
         Scene scene = sceneSupplier != null ? sceneSupplier.get() : null;
@@ -120,7 +141,7 @@ final class PrivacySupport {
         box.setPadding(new Insets(16));
         dialog.getDialogPane().setContent(box);
         Platform.runLater(field::requestFocus);
-        dialog.setResultConverter(b -> b == ButtonType.OK ? field.getText() : null);
+        dialog.setResultConverter(b -> b == ButtonType.OK ? field.getText().toCharArray() : null);
         return UiDialogs.show(dialog).orElse(null);
     }
 

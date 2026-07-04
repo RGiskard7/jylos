@@ -1,12 +1,15 @@
 package com.example.jylos.ui.controller;
 
+import java.nio.file.Path;
 import java.text.MessageFormat;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.ResourceBundle;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -14,10 +17,10 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import com.example.jylos.config.AppContext;
-import com.example.jylos.ui.UiDialogs;
+import org.fxmisc.richtext.CodeArea;
+import org.kordamp.ikonli.javafx.FontIcon;
+
 import com.example.jylos.config.LoggerConfig;
-import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.NoteProperty;
 import com.example.jylos.data.models.Tag;
@@ -26,6 +29,9 @@ import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.plugin.PreviewEnhancer;
 import com.example.jylos.service.NoteService;
+import com.example.jylos.service.RichLinkService;
+import com.example.jylos.service.TagService;
+import com.example.jylos.ui.components.CanvasView;
 import com.example.jylos.util.AttachmentType;
 import com.example.jylos.util.MarkdownHighlighter;
 import com.example.jylos.util.MarkdownPreview;
@@ -40,21 +46,34 @@ import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.control.*;
+import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ContentDisplay;
+import javafx.scene.control.Control;
 import javafx.scene.control.Dialog;
+import javafx.scene.control.Hyperlink;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.SplitPane;
+import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
-import javafx.scene.layout.*;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
+import javafx.scene.web.WebView;
 import javafx.stage.Popup;
-
-import org.fxmisc.richtext.CodeArea;
-
-import java.time.Duration;
-import java.util.ResourceBundle;
 
 /**
  * FXML controller for the note editor pane.
@@ -74,6 +93,7 @@ import java.util.ResourceBundle;
 public class EditorController {
 
     private static final Logger logger = LoggerConfig.getLogger(EditorController.class);
+    private static final Duration SYNTAX_HIGHLIGHT_DEBOUNCE = Duration.ofMillis(300);
 
     /** Matches an open [[query before the text-area caret. */
     private static final Pattern WIKI_TRIGGER = Pattern.compile("\\[\\[([^\\]\\[\\n]*)$");
@@ -85,11 +105,18 @@ public class EditorController {
     // ── Service / state ─────────────────────────────────────────────────────
     private EventBus eventBus;
     private NoteService noteService;
-    private NoteDAO noteDAO;
+    private TagService tagService;
     private ResourceBundle bundle;
+    private Consumer<Note> noteModifiedAction = note -> {
+    };
 
     private Note currentNote;
     private boolean isModified = false;
+
+    /** Cancels any in-flight preview render so FX thread is never blocked by markdown parsing. */
+    private volatile Task<String> currentPreviewTask;
+
+    private final List<EventBus.Subscription> subscriptions = new ArrayList<>();
 
     /** True when the editor is in "read" (preview-only) view: properties become read-only. */
     private boolean readOnlyView = false;
@@ -103,8 +130,10 @@ public class EditorController {
     private boolean wikiLinkListenerInstalled;
     private WikiLinkHandler wikiLinkHandler;
     private final PreviewJavaBridge previewJavaBridge = new PreviewJavaBridge();
-    private final com.example.jylos.service.RichLinkService richLinkService =
-            new com.example.jylos.service.RichLinkService();
+    private final RichLinkService richLinkService = new RichLinkService();
+    private CanvasView currentCanvasView;
+    private Path currentCanvasPath;
+    private AttachmentType currentAttachmentType = AttachmentType.MARKDOWN;
 
     /** Opens a note when the user clicks a wiki-link in the Markdown preview. */
     @FunctionalInterface
@@ -114,7 +143,7 @@ public class EditorController {
 
     // ── FXML — header ───────────────────────────────────────────────────────
     @FXML private VBox editorContainer;
-    @FXML private javafx.scene.control.ScrollPane editorTabScroll;
+    @FXML private ScrollPane editorTabScroll;
     @FXML private HBox editorTabBar;
     @FXML private HBox editorPathBar;
     @FXML private Label notePathLabel;
@@ -128,7 +157,7 @@ public class EditorController {
     @FXML private Label dirtySaveIndicator;
     @FXML private Tooltip dirtySaveIndicatorTip;
     @FXML private Label privateIndicator;
-    @FXML private org.kordamp.ikonli.javafx.FontIcon privateIndicatorIcon;
+    @FXML private FontIcon privateIndicatorIcon;
     @FXML private Tooltip privateIndicatorTip;
     @FXML private ToggleButton toggleTagsBtn;
     @FXML private ToggleButton editorOnlyButton;
@@ -159,9 +188,8 @@ public class EditorController {
     @FXML private Button    highlightBtn, linkBtn, richLinkBtn, imageBtn;
     @FXML private Button    todoBtn, bulletBtn, numberBtn;
     @FXML private Button    quoteBtn, codeBtn;
-    @FXML private Label     wordCountLabel;
     @FXML private VBox      previewPane;
-    @FXML private javafx.scene.web.WebView previewWebView;
+    @FXML private WebView previewWebView;
 
     // ── Wiki-link autocomplete ───────────────────────────────────────────────
     private Popup autocompletePopup;
@@ -171,23 +199,33 @@ public class EditorController {
     // Setters
     // ============================================================
 
-    public void setEventBus(EventBus eventBus) {
-        this.eventBus = eventBus != null ? eventBus
-                : (AppContext.isInitialized() ? AppContext.getEventBus() : null);
+    private void setEventBus(EventBus eventBus) {
+        subscriptions.forEach(EventBus.Subscription::cancel);
+        subscriptions.clear();
+        this.eventBus = eventBus;
         subscribeToEvents();
     }
 
-    public void setNoteDAO(NoteDAO noteDAO) {
-        this.noteDAO = noteDAO;
+    private void setTagService(TagService tagService) {
+        this.tagService = tagService;
     }
 
-    public void setServices(NoteService noteService) {
-        this.noteService = noteService != null ? noteService
-                : (AppContext.isInitialized() ? AppContext.getNoteService() : null);
+    private void setNoteService(NoteService noteService) {
+        this.noteService = noteService;
     }
 
-    public void setBundle(ResourceBundle bundle) {
-        this.bundle = bundle != null ? bundle : AppContext.getBundle();
+    private void setBundle(ResourceBundle bundle) {
+        this.bundle = bundle;
+    }
+
+    public void wire(EventBus eventBus, NoteService noteService, TagService tagService, ResourceBundle bundle,
+            Consumer<Note> noteModifiedAction) {
+        setNoteService(noteService);
+        setTagService(tagService);
+        setBundle(bundle);
+        this.noteModifiedAction = noteModifiedAction != null ? noteModifiedAction : note -> {
+        };
+        setEventBus(eventBus);
     }
 
     /** Plugin editor-hook dispatcher (nullable; wired by MainController). */
@@ -287,7 +325,6 @@ public class EditorController {
     public SplitPane       getEditorPreviewSplitPane()  { return editorPreviewSplitPane; }
     public VBox            getEditorPane()              { return editorPane; }
     public CodeArea        getNoteContentArea()         { return noteContentArea; }
-    public Label           getWordCountLabel()          { return wordCountLabel; }
     public VBox            getPreviewPane()             { return previewPane; }
     public javafx.scene.web.WebView getPreviewWebView() { return previewWebView; }
 
@@ -444,7 +481,7 @@ public class EditorController {
             return;
         }
         noteContentArea.multiPlainChanges()
-                .successionEnds(Duration.ofMillis(200))
+                .successionEnds(SYNTAX_HIGHLIGHT_DEBOUNCE)
                 .subscribe(ignore -> applyHighlighting());
     }
 
@@ -519,14 +556,17 @@ public class EditorController {
             return;
         }
 
-        if (isModified && currentNote != null) handleSave();
-
         currentNote = (noteService != null)
                 ? noteService.getNoteById(note.getId()).orElse(note)
                 : note;
 
+        if (noteTitleField != null) {
+            noteTitleField.setText(orEmpty(currentNote.getTitle()));
+        }
+
         // PDFs and images are not editable: show a native viewer instead of the editor.
         AttachmentType type = AttachmentType.fromName(currentNote.getId());
+        currentAttachmentType = type;
         if (type.isAttachment()) {
             showAttachment(currentNote, type);
             isModified = false;
@@ -536,7 +576,6 @@ public class EditorController {
         }
         hideAttachmentViewer();
 
-        if (noteTitleField  != null) noteTitleField.setText(orEmpty(currentNote.getTitle()));
         if (noteContentArea != null) noteContentArea.replaceText(orEmpty(currentNote.getContent()));
 
         setNoteOpen(true);
@@ -598,8 +637,11 @@ public class EditorController {
     /** Shows {@code note} (a PDF/image) in a native viewer, hiding the editor chrome. */
     private void showAttachment(Note note, AttachmentType type) {
         viewingAttachment = true;
+        currentAttachmentType = type;
         ensureAttachmentViewer();
         attachmentViewer.getChildren().clear();
+        currentCanvasView = null;
+        currentCanvasPath = null;
 
         java.nio.file.Path path = (noteService != null)
                 ? noteService.getNoteFilePath(note.getId()).orElse(null)
@@ -617,7 +659,7 @@ public class EditorController {
         }
 
         setNodeVisible(editorPathBar, true);
-        setNodeVisible(editorHeaderBar, false);
+        setNodeVisible(editorHeaderBar, type == AttachmentType.CANVAS);
         setNodeVisible(editorPreviewSplitPane, false);
         setNodeVisible(tagsContainer, false);
         setNodeVisible(propertiesSection, false);
@@ -633,12 +675,15 @@ public class EditorController {
             com.example.jylos.util.CanvasModel.Document canvasDoc =
                     com.example.jylos.util.CanvasModel.Document.parse(json);
             final java.nio.file.Path vaultRoot = vaultRootFor(path, currentNote != null ? currentNote.getId() : "");
-            return new com.example.jylos.ui.components.CanvasView(
+            currentCanvasPath = path;
+            currentCanvasView = new com.example.jylos.ui.components.CanvasView(
                     canvasDoc,
                     file -> openNoteByTitle(canvasFileToTitle(file)),
                     ref -> resolveCanvasFile(vaultRoot, ref),
-                    updatedJson -> writeCanvas(path, updatedJson),
+                    this::persistCurrentCanvas,
+                    this::markCanvasModified,
                     this::safeI18n);
+            return currentCanvasView;
         } catch (Exception e) {
             logger.warning("Could not open canvas '" + path + "': " + e.getMessage());
             Label error = new Label(bundle != null ? bundle.getString("viewer.canvas_error")
@@ -648,14 +693,64 @@ public class EditorController {
         }
     }
 
-    /** Writes the (edited) canvas JSON back to its file. */
-    private void writeCanvas(java.nio.file.Path path, String json) {
+    /** Persists the current canvas through the same note update path used for title renames. */
+    private void persistCurrentCanvas(String json) {
+        if (currentNote == null || currentAttachmentType != AttachmentType.CANVAS) {
+            return;
+        }
+        String previousNoteId = currentNote.getId();
+        String updatedJson = json != null ? json : "";
+        if (noteTitleField != null) {
+            currentNote.setTitle(normalizeCanvasTitle(noteTitleField.getText()));
+            noteTitleField.setText(currentNote.getTitle());
+        }
+        currentNote.setContent(updatedJson);
+        if (noteService != null) {
+            noteService.updateNote(currentNote);
+            currentCanvasPath = noteService.getNoteFilePath(currentNote.getId()).orElse(currentCanvasPath);
+        } else if (currentCanvasPath != null) {
+            writeCanvasFile(currentCanvasPath, updatedJson);
+        }
+        isModified = false;
+        updateBreadcrumb(currentNote);
+        updateSaveIndicator(false);
+        if (eventBus != null) {
+            eventBus.publish(new NoteEvents.NoteSavedEvent(currentNote, previousNoteId));
+        }
+        if (editorHooks != null && !editorHooks.isEmpty()) {
+            editorHooks.fireAfterSave(currentNote, currentNote.getContent());
+        }
+    }
+
+    private void markCanvasModified() {
+        if (currentNote == null) {
+            return;
+        }
+        isModified = true;
+        publishModified();
+    }
+
+    /** Writes the (edited) canvas JSON back to its file when no note service is available. */
+    private void writeCanvasFile(java.nio.file.Path path, String json) {
         try {
             java.nio.file.Files.writeString(path, json);
             logger.info("Canvas saved: " + path.getFileName());
         } catch (Exception e) {
             logger.warning("Could not save canvas '" + path + "': " + e.getMessage());
         }
+    }
+
+    private String normalizeCanvasTitle(String title) {
+        String normalized = orEmpty(title).trim();
+        if (normalized.isEmpty()) {
+            normalized = getString("canvas.new_filename", "New Canvas");
+        }
+        String extension = AttachmentType.extensionOf(normalized);
+        if (!extension.isEmpty()) {
+            int dot = normalized.lastIndexOf('.');
+            normalized = dot > 0 ? normalized.substring(0, dot) : normalized;
+        }
+        return normalized + ".canvas";
     }
 
     /** Derives the vault root from a note's absolute path and its vault-relative id. */
@@ -711,6 +806,9 @@ public class EditorController {
 
     private void hideAttachmentViewer() {
         viewingAttachment = false;
+        currentAttachmentType = AttachmentType.MARKDOWN;
+        currentCanvasView = null;
+        currentCanvasPath = null;
         if (attachmentViewer != null) {
             attachmentViewer.getChildren().clear(); // release rendered images
             setNodeVisible(attachmentViewer, false);
@@ -718,7 +816,16 @@ public class EditorController {
     }
 
     public void handleSave() {
-        if (currentNote == null || !isModified || noteService == null) return;
+        if (currentNote == null) return;
+        if (currentAttachmentType == AttachmentType.CANVAS && currentCanvasView != null) {
+            if (isModified || currentCanvasView.hasUnsavedChanges()) {
+                persistCurrentCanvas(currentCanvasView.serialize());
+                currentCanvasView.markSaved();
+            }
+            return;
+        }
+        if (!isModified || noteService == null) return;
+        String previousNoteId = currentNote.getId();
         if (noteTitleField  != null) currentNote.setTitle(noteTitleField.getText());
         if (noteContentArea != null) currentNote.setContent(noteContentArea.getText());
         // Property values are editable only in edit/split view; in read view the
@@ -738,8 +845,9 @@ public class EditorController {
         }
         noteService.updateNote(currentNote);
         isModified = false;
+        updateBreadcrumb(currentNote);
         updateSaveIndicator(false);
-        if (eventBus != null) eventBus.publish(new NoteEvents.NoteSavedEvent(currentNote));
+        if (eventBus != null) eventBus.publish(new NoteEvents.NoteSavedEvent(currentNote, previousNoteId));
         if (editorHooks != null && !editorHooks.isEmpty()) {
             editorHooks.fireAfterSave(currentNote, currentNote.getContent());
         }
@@ -910,11 +1018,12 @@ public class EditorController {
         if (propertiesContent != null) propertiesContent.getChildren().clear();
     }
 
-    /** Opens a note by title via the EventBus (mirrors the wiki-link click flow). */
+    /** Opens a note by title via the owning shell callback. */
     private void openNoteByTitle(String title) {
-        if (title == null || title.isBlank() || eventBus == null) return;
-        Note lookup = new Note(title, "");
-        eventBus.publish(new NoteEvents.NoteOpenRequestEvent(lookup));
+        if (title == null || title.isBlank() || wikiLinkHandler == null) {
+            return;
+        }
+        wikiLinkHandler.openNoteByTitle(title);
     }
 
     // ============================================================
@@ -1056,7 +1165,7 @@ public class EditorController {
     private void subscribeToEvents() {
         if (eventBus == null) return;
 
-        eventBus.subscribe(SystemActionEvent.class, event -> Platform.runLater(() -> {
+        subscriptions.add(eventBus.subscribe(SystemActionEvent.class, event -> Platform.runLater(() -> {
             switch (event.getActionType()) {
                 case BOLD      -> insertMarkdownFormat("**", "**");
                 case ITALIC    -> insertMarkdownFormat("*", "*");
@@ -1077,7 +1186,7 @@ public class EditorController {
                 case SAVE      -> handleSave();
                 default        -> { /* not handled here */ }
             }
-        }));
+        })));
 
         if (noteContentArea != null) {
             noteContentArea.textProperty().addListener((obs, oldVal, newVal) -> {
@@ -1098,9 +1207,14 @@ public class EditorController {
             });
         }
 
-        eventBus.subscribe(NoteEvents.NoteSavedEvent.class,   e -> refreshNoteTitlesCache());
-        eventBus.subscribe(NoteEvents.NoteDeletedEvent.class, e -> refreshNoteTitlesCache());
-        eventBus.subscribe(NoteEvents.NoteCreatedEvent.class, e -> refreshNoteTitlesCache());
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class,   e -> refreshNoteTitlesCache()));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteDeletedEvent.class, e -> refreshNoteTitlesCache()));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteCreatedEvent.class, e -> refreshNoteTitlesCache()));
+    }
+
+    public void teardown() {
+        subscriptions.forEach(EventBus.Subscription::cancel);
+        subscriptions.clear();
     }
 
     // ============================================================
@@ -1347,7 +1461,7 @@ public class EditorController {
         fp.getChildren().clear();
         if (note == null || note.getId() == null || note.getId().isEmpty()) return;
         try {
-            List<Tag> tags = noteDAO.fetchTags(note.getId());
+            List<Tag> tags = tagService != null ? tagService.getTagsForNote(note) : List.of();
             for (Tag tag : tags) {
                 HBox box = new HBox(4); box.setAlignment(Pos.CENTER_LEFT); box.getStyleClass().add("tag-container");
                 Label lbl = new Label(tag.getTitle()); lbl.getStyleClass().add("tag-label");
@@ -1368,12 +1482,11 @@ public class EditorController {
     }
 
     public void updateNoteMetadata(Note note, Label modLabel,
-            Label created, Label modified, Label words, Label chars,
+            Label created, Label modified,
             Label lat, Label lon, Label author, Label source,
             Function<String, String> i18n) {
         if (note == null) {
             setLabelSafe(modLabel, ""); setLabelSafe(created, "-"); setLabelSafe(modified, "-");
-            setLabelSafe(words, "0"); setLabelSafe(chars, "0");
             if (lat    != null) lat.setText(MessageFormat.format(i18n.apply("info.lat"),    "-"));
             if (lon    != null) lon.setText(MessageFormat.format(i18n.apply("info.lon"),    "-"));
             if (author != null) author.setText(MessageFormat.format(i18n.apply("info.author"), "-"));
@@ -1383,13 +1496,6 @@ public class EditorController {
         setLabelSafe(modLabel, note.getModifiedDate() != null ? "Modified " + note.getModifiedDate() : "");
         setLabelSafe(created,  orDash(note.getCreatedDate()));
         setLabelSafe(modified, orDash(note.getModifiedDate()));
-        String body = liveEditorContent(note);
-        int wordCount = countWords(body);
-        setLabelSafe(words, String.valueOf(wordCount));
-        setLabelSafe(chars, String.valueOf(body.length()));
-        if (wordCountLabel != null && i18n != null) {
-            wordCountLabel.setText(MessageFormat.format(i18n.apply("info.words_count"), wordCount));
-        }
         if (lat    != null) lat.setText(MessageFormat.format(i18n.apply("info.lat"), note.getLatitude()  != 0 ? String.valueOf(note.getLatitude())  : "-"));
         if (lon    != null) lon.setText(MessageFormat.format(i18n.apply("info.lon"), note.getLongitude() != 0 ? String.valueOf(note.getLongitude()) : "-"));
         if (author != null) author.setText(MessageFormat.format(i18n.apply("info.author"), orDash(note.getAuthor())));
@@ -1419,15 +1525,70 @@ public class EditorController {
     }
 
     public void refreshPreview(boolean darkTheme) {
-        if (previewWebView == null || currentNote == null) {
+        if (previewWebView == null || currentNote == null || !isPreviewVisible()) {
             return;
         }
+
+        Task<String> prev = currentPreviewTask;
+        if (prev != null) {
+            prev.cancel();
+        }
+
         String content = liveEditorContent(currentNote);
-        String html = (content != null && !content.trim().isEmpty())
-                ? MarkdownPreview.buildPreviewHtml(content, darkTheme, previewEnhancers.values(), previewBaseDir())
-                : MarkdownPreview.buildEmptyHtml(darkTheme);
-        previewWebView.getEngine().loadContent(html, "text/html");
-        installWikiLinkListener();
+        // Capture stable references for the background thread
+        java.util.Collection<PreviewEnhancer> enhancers =
+                new java.util.ArrayList<>(previewEnhancers.values());
+        java.nio.file.Path baseDir = previewBaseDir();
+
+        Task<String> task = new Task<>() {
+            @Override
+            protected String call() {
+                if (content != null && !content.trim().isEmpty()) {
+                    return MarkdownPreview.buildPreviewHtml(content, darkTheme, enhancers, baseDir,
+                            EditorController.this::resolveEmbedContentByTitle);
+                }
+                return MarkdownPreview.buildEmptyHtml(darkTheme);
+            }
+        };
+        task.setOnSucceeded(e -> {
+            if (task != currentPreviewTask || task.isCancelled() || !isPreviewVisible()) {
+                return;
+            }
+            previewWebView.getEngine().loadContent(task.getValue(), "text/html");
+            installWikiLinkListener();
+        });
+        task.setOnCancelled(e -> {
+            if (currentPreviewTask == task) {
+                currentPreviewTask = null;
+            }
+        });
+        task.setOnFailed(e -> {
+            if (currentPreviewTask == task) {
+                currentPreviewTask = null;
+            }
+            logger.warning("Preview render failed: " + task.getException());
+        });
+        currentPreviewTask = task;
+        Thread thread = new Thread(task, "preview-render");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    public boolean isPreviewVisible() {
+        return !viewingAttachment
+                && previewPane != null
+                && previewPane.isVisible()
+                && previewPane.isManaged();
+    }
+
+    private String resolveEmbedContentByTitle(String title) {
+        if (noteService == null || title == null || title.isBlank()) {
+            return null;
+        }
+        return noteService.findNoteByTitle(title)
+                .flatMap(note -> noteService.getNoteById(note.getId()))
+                .map(Note::getContent)
+                .orElse(null);
     }
 
     /** Folder of the current note, used to resolve relative image paths in the preview. */
@@ -1450,16 +1611,6 @@ public class EditorController {
         if (previewWebView != null && !previewWebView.getStyleClass().contains("webview-theme")) {
             previewWebView.getStyleClass().add("webview-theme");
         }
-    }
-
-    public void refreshWordCount(Function<String, String> i18n, Label externalWords, Label externalChars) {
-        String content = liveEditorContent(currentNote);
-        int wordCount = countWords(content);
-        if (wordCountLabel != null && i18n != null) {
-            wordCountLabel.setText(MessageFormat.format(i18n.apply("info.words_count"), wordCount));
-        }
-        setLabelSafe(externalWords, String.valueOf(wordCount));
-        setLabelSafe(externalChars, String.valueOf(content.length()));
     }
 
     public void syncFavoritePinButtons(Function<String, String> i18n) {
@@ -1634,8 +1785,9 @@ public class EditorController {
     }
 
     private void publishModified() {
-        if (eventBus != null && currentNote != null)
-            eventBus.publish(new NoteEvents.NoteModifiedEvent(currentNote));
+        if (currentNote != null) {
+            noteModifiedAction.accept(currentNote);
+        }
         updateSaveIndicator(true);
     }
 
@@ -1647,7 +1799,8 @@ public class EditorController {
         if (dirtySaveIndicator == null) {
             return;
         }
-        boolean show = currentNote != null && !viewingAttachment;
+        boolean show = currentNote != null
+                && (!viewingAttachment || currentAttachmentType == AttachmentType.CANVAS);
         setNodeVisible(dirtySaveIndicator, show);
         if (!show) {
             return;

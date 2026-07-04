@@ -119,7 +119,7 @@ function Read-AppProperty {
 }
 
 $APP_NAME = Read-AppProperty 'app.name' 'Jylos'
-$APP_VERSION = Read-AppProperty 'app.version' '2.2.0'
+$APP_VERSION = Read-AppProperty 'app.version' '2.3.0'
 $APP_VENDOR = Read-AppProperty 'app.vendor' 'Jylos'
 $APP_DESCRIPTION = Read-AppProperty 'app.description' 'A free and open-source note-taking application'
 $APP_COPYRIGHT = Read-AppProperty 'app.copyright' 'Copyright 2025 Jylos'

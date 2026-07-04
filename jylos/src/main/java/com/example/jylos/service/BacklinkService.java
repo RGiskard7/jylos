@@ -35,7 +35,7 @@ import com.example.jylos.util.WikiLinkResolver;
  * </ul>
  *
  * <p>Note events invalidate only the affected note's forward entry (a cheap,
- * FX-thread-safe operation); re-indexing then reuses the targets carried by the
+ * thread-safe operation); re-indexing then reuses the targets carried by the
  * refreshed {@link Note}.</p>
  *
  * <h3>Coverage on large vaults</h3>
@@ -51,18 +51,21 @@ import com.example.jylos.util.WikiLinkResolver;
 public class BacklinkService {
 
     private final NoteService noteService;
+    private final List<EventBus.Subscription> subscriptions = new ArrayList<>();
 
     /** noteId → cached outgoing targets, validated by {@code modified} timestamp. */
     private final Map<String, CachedLinks> forward = new ConcurrentHashMap<>();
     /** normalized target title → ids of notes that link to it. */
     private final Map<String, Set<String>> inverse = new ConcurrentHashMap<>();
+    /** True once the whole current vault snapshot has been indexed. */
+    private volatile boolean fullIndexBuilt;
 
     private record CachedLinks(String modified, Set<String> targets) {
     }
 
-    public BacklinkService(NoteService noteService) {
-        this.noteService = noteService;
-        subscribeToInvalidationEvents();
+    public BacklinkService(NoteService noteService, EventBus eventBus) {
+        this.noteService = Objects.requireNonNull(noteService, "noteService");
+        subscribeToInvalidationEvents(eventBus);
     }
 
     /**
@@ -77,29 +80,18 @@ public class BacklinkService {
         String wanted = normalize(target.getTitle());
         String targetId = target.getId();
 
-        // Ensure every current note's forward targets are indexed (lazy, only reads
-        // content for notes whose cache is missing or stale). Keeps the inverse map
-        // consistent as a side effect.
-        List<Note> allNotes = noteService.getAllNotes();
-        for (Note note : allNotes) {
-            if (note != null && note.getId() != null) {
-                ensureIndexed(note);
-            }
-        }
+        ensureFullIndex();
 
         Set<String> linkingIds = inverse.getOrDefault(wanted, Set.of());
         if (linkingIds.isEmpty()) {
             return List.of();
         }
         List<Note> result = new ArrayList<>();
-        for (Note note : allNotes) {
-            if (note == null || note.getId() == null
-                    || Objects.equals(note.getId(), targetId)) {
+        for (String linkingId : linkingIds) {
+            if (Objects.equals(linkingId, targetId)) {
                 continue;
             }
-            if (linkingIds.contains(note.getId())) {
-                result.add(note);
-            }
+            noteService.getNoteById(linkingId).ifPresent(result::add);
         }
         result.sort((a, b) -> safeTitle(a).compareToIgnoreCase(safeTitle(b)));
         return result;
@@ -109,6 +101,24 @@ public class BacklinkService {
     public void invalidate() {
         forward.clear();
         inverse.clear();
+        fullIndexBuilt = false;
+    }
+
+    private void ensureFullIndex() {
+        if (fullIndexBuilt || noteService == null) {
+            return;
+        }
+        synchronized (this) {
+            if (fullIndexBuilt || noteService == null) {
+                return;
+            }
+            for (Note note : noteService.getAllNotes()) {
+                if (note != null && note.getId() != null) {
+                    ensureIndexed(note);
+                }
+            }
+            fullIndexBuilt = true;
+        }
     }
 
     /**
@@ -171,15 +181,18 @@ public class BacklinkService {
         }
     }
 
-    private void subscribeToInvalidationEvents() {
-        EventBus bus = EventBus.getInstance();
-        // Cheap, FX-thread-safe: just drop the note's forward entry so the next
-        // backlinksFor() re-reads its content lazily (off the FX thread).
-        bus.subscribe(NoteEvents.NoteSavedEvent.class, e -> dropForward(idOf(e.getNote())));
-        bus.subscribe(NoteEvents.NoteCreatedEvent.class, e -> dropForward(idOf(e.getNote())));
-        bus.subscribe(NoteEvents.NoteUpdatedEvent.class, e -> dropForward(idOf(e.getNote())));
-        bus.subscribe(NoteEvents.NoteDeletedEvent.class, e -> removeFromIndex(e.getNoteId()));
-        bus.subscribe(NoteEvents.NotesRefreshRequestedEvent.class, e -> invalidate());
+    private void subscribeToInvalidationEvents(EventBus bus) {
+        Objects.requireNonNull(bus, "eventBus");
+        subscriptions.add(bus.subscribe(NoteEvents.NoteSavedEvent.class, e -> reindex(e.getNote())));
+        subscriptions.add(bus.subscribe(NoteEvents.NoteCreatedEvent.class, e -> reindex(e.getNote())));
+        subscriptions.add(bus.subscribe(NoteEvents.NoteUpdatedEvent.class, e -> reindex(e.getNote())));
+        subscriptions.add(bus.subscribe(NoteEvents.NoteDeletedEvent.class, e -> removeFromIndex(e.getNoteId())));
+        subscriptions.add(bus.subscribe(NoteEvents.NotesRefreshRequestedEvent.class, e -> invalidate()));
+    }
+
+    public void shutdown() {
+        subscriptions.forEach(EventBus.Subscription::cancel);
+        subscriptions.clear();
     }
 
     private void dropForward(String id) {
@@ -191,6 +204,14 @@ public class BacklinkService {
             // Keep inverse consistent until re-indexed; remove this id's contributions.
             applyToInverse(id, cached.targets(), Set.of());
         }
+    }
+
+    private void reindex(Note note) {
+        if (note == null || note.getId() == null) {
+            return;
+        }
+        dropForward(note.getId());
+        ensureIndexed(note);
     }
 
     private static String idOf(Note note) {

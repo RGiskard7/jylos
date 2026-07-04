@@ -44,7 +44,7 @@ class StorageCoreFlowIntegrationTest {
             NoteDAOSQLite noteDAO = new NoteDAOSQLite(connection);
             TagDAOSQLite tagDAO = new TagDAOSQLite(connection);
             FolderService folderService = new FolderService(folderDAO, noteDAO);
-            NoteService noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+            NoteService noteService = new NoteService(noteDAO, folderDAO);
 
             runCoreFlow(folderService, noteService, false);
         } finally {
@@ -60,7 +60,7 @@ class StorageCoreFlowIntegrationTest {
         FolderDAOFileSystem folderDAO = new FolderDAOFileSystem(root);
         TagDAOFileSystem tagDAO = new TagDAOFileSystem(noteDAO);
         FolderService folderService = new FolderService(folderDAO, noteDAO);
-        NoteService noteService = new NoteService(noteDAO, folderDAO, tagDAO);
+        NoteService noteService = new NoteService(noteDAO, folderDAO);
 
         runCoreFlow(folderService, noteService, true);
     }

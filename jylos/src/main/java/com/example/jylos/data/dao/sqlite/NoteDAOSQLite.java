@@ -25,8 +25,12 @@ import com.example.jylos.exceptions.InvalidParameterException;
 /**
  * SQLite implementation of the NoteDAO interface.
  * This class provides methods for interacting with notes in the SQLite
- * database,
- * including creation, retrieval, updating, deletion, and tag management.
+ * database, including creation, retrieval, updating, deletion, and tag management.
+ *
+ * <p>All methods that access the shared {@link Connection} are synchronized on the
+ * connection object. The same connection instance is shared with {@link FolderDAOSQLite}
+ * and {@link TagDAOSQLite}; synchronizing on the connection itself ensures correctness
+ * regardless of how many DAO instances are created from the same connection.</p>
  */
 public class NoteDAOSQLite implements NoteDAO {
 
@@ -63,7 +67,9 @@ public class NoteDAOSQLite implements NoteDAO {
 	private static final String DELETE_TAG_NOTE_SQL = "DELETE FROM tagsNotes WHERE tag_id = ? AND note_id = ?";
 
 	private static final Logger logger = LoggerConfig.getLogger(NoteDAOSQLite.class);
-	private Connection connection;
+
+	/** Shared connection; all public methods synchronize on this object. */
+	final Connection connection;
 
 	/**
 	 * Constructs a NoteDAOSQLite with the given database connection.
@@ -77,89 +83,86 @@ public class NoteDAOSQLite implements NoteDAO {
 	// CRUD Methods
 	@Override
 	public String createNote(Note note) {
-		String newId = null;
-
 		if (note == null) {
 			throw new InvalidParameterException("Note object cannot be null");
 		}
-
 		if (note.getId() == null || note.getId().isEmpty()) {
 			note.setId(UUID.randomUUID().toString());
 		}
-		newId = note.getId();
+		String newId = note.getId();
 
-		try (PreparedStatement pstmt = connection.prepareStatement(INSERT_NOTE_SQL)) {
+		synchronized (connection) {
+			try (PreparedStatement pstmt = connection.prepareStatement(INSERT_NOTE_SQL)) {
 
-			pstmt.setString(1, newId);
-			pstmt.setString(2, note.getTitle());
-			pstmt.setString(3, note.getContent());
-			pstmt.setString(4, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
-			pstmt.setString(5, note.getModifiedDate());
-			pstmt.setDouble(6, note.getLatitude() != null ? note.getLatitude() : 0.0);
-			pstmt.setDouble(7, note.getLongitude() != null ? note.getLongitude() : 0.0);
-			pstmt.setString(8, note.getAuthor());
-			pstmt.setString(9, note.getSourceUrl());
-			pstmt.setString(10, note.getSource());
-			pstmt.setString(11, note.getSourceApplication());
+				pstmt.setString(1, newId);
+				pstmt.setString(2, note.getTitle());
+				pstmt.setString(3, note.getContent());
+				pstmt.setString(4, note.getCreatedDate() != null
+						? note.getCreatedDate()
+						: DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
+				pstmt.setString(5, note.getModifiedDate());
+				pstmt.setDouble(6, note.getLatitude() != null ? note.getLatitude() : 0.0);
+				pstmt.setDouble(7, note.getLongitude() != null ? note.getLongitude() : 0.0);
+				pstmt.setString(8, note.getAuthor());
+				pstmt.setString(9, note.getSourceUrl());
+				pstmt.setString(10, note.getSource());
+				pstmt.setString(11, note.getSourceApplication());
 
-			if (note instanceof ToDoNote) {
-				pstmt.setInt(12, 1); // is_todo
-				pstmt.setString(13, ((ToDoNote) note).getToDoDue());
-				pstmt.setString(14, ((ToDoNote) note).getToDoCompleted());
-			} else {
-				pstmt.setInt(12, 0);
-				pstmt.setString(13, null);
-				pstmt.setString(14, null);
+				if (note instanceof ToDoNote) {
+					pstmt.setInt(12, 1);
+					pstmt.setString(13, ((ToDoNote) note).getToDoDue());
+					pstmt.setString(14, ((ToDoNote) note).getToDoCompleted());
+				} else {
+					pstmt.setInt(12, 0);
+					pstmt.setString(13, null);
+					pstmt.setString(14, null);
+				}
+
+				pstmt.setInt(15, note.isFavorite() ? 1 : 0);
+				pstmt.setInt(16, note.isPinned() ? 1 : 0);
+				pstmt.setInt(17, note.isDeleted() ? 1 : 0);
+				pstmt.setString(18, note.getDeletedDate());
+				pstmt.setString(19, note.getStatus());
+				pstmt.setInt(20, note.isPrivate() ? 1 : 0);
+				pstmt.setString(21,
+						(note.getParent() != null && !"ROOT".equals(note.getParent().getId())) ? note.getParent().getId()
+								: null);
+
+				pstmt.executeUpdate();
+				connection.commit();
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error createNote(): " + e.getMessage(), e);
+				try {
+					connection.rollback();
+				} catch (SQLException rollbackEx) {
+					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
+				}
+				return null;
 			}
-
-			pstmt.setInt(15, note.isFavorite() ? 1 : 0); // is_favorite
-			pstmt.setInt(16, note.isPinned() ? 1 : 0); // is_pinned
-			pstmt.setInt(17, note.isDeleted() ? 1 : 0); // is_deleted
-			pstmt.setString(18, note.getDeletedDate()); // deleted_date
-			pstmt.setString(19, note.getStatus()); // status
-			pstmt.setInt(20, note.isPrivate() ? 1 : 0); // is_private
-			pstmt.setString(21,
-					(note.getParent() != null && !"ROOT".equals(note.getParent().getId())) ? note.getParent().getId()
-							: null);
-
-			pstmt.executeUpdate();
-
-			connection.commit(); // Confirmar transacción
-		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "Error createNote(): " + e.getMessage(), e);
-			try {
-				connection.rollback();
-			} catch (SQLException rollbackEx) {
-				logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
-			}
-			return null;
 		}
 
-		return newId; // Retorna el ID de la nueva nota
+		return newId;
 	}
 
 	@Override
 	public Note getNoteById(String id) {
-		Note note = null;
-
 		if (id == null || id.isEmpty()) {
 			throw new IllegalArgumentException("Note ID cannot be null or empty");
 		}
 
-		try (PreparedStatement pstmt = connection.prepareStatement(SELECT_NOTE_BY_ID_SQL)) {
-			pstmt.setString(1, id);
-
-			try (ResultSet rs = pstmt.executeQuery()) {
-				// Process the result set
-				if (rs.next()) {
-					note = mapResultSetToNote(rs);
+		synchronized (connection) {
+			try (PreparedStatement pstmt = connection.prepareStatement(SELECT_NOTE_BY_ID_SQL)) {
+				pstmt.setString(1, id);
+				try (ResultSet rs = pstmt.executeQuery()) {
+					if (rs.next()) {
+						return mapResultSetToNote(rs);
+					}
 				}
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error getNoteById(): " + e.getMessage(), e);
 			}
-		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "Error getNoteById(): " + e.getMessage(), e);
 		}
-
-		return note;
+		return null;
 	}
 
 	@Override
@@ -168,27 +171,28 @@ public class NoteDAOSQLite implements NoteDAO {
 			throw new IllegalArgumentException("Note object cannot be null");
 		}
 
-		try (PreparedStatement pstmt = connection.prepareStatement(UPDATE_NOTE_SQL)) {
-			pstmt.setString(1, note.getTitle());
-			pstmt.setString(2, note.getContent());
-			pstmt.setString(3, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
-			pstmt.setInt(4, note.isFavorite() ? 1 : 0);
-			pstmt.setInt(5, note.isPinned() ? 1 : 0);
-			pstmt.setString(6, note.getStatus());
-			pstmt.setInt(7, note.isPrivate() ? 1 : 0);
-			pstmt.setString(8,
-					(note.getParent() != null && !"ROOT".equals(note.getParent().getId())) ? note.getParent().getId()
-							: null);
-			pstmt.setString(9, note.getId());
-			pstmt.executeUpdate();
-			connection.commit();
-
-		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "Error updateNote(): " + e.getMessage(), e);
-			try {
-				connection.rollback();
-			} catch (SQLException rollbackEx) {
-				logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
+		synchronized (connection) {
+			try (PreparedStatement pstmt = connection.prepareStatement(UPDATE_NOTE_SQL)) {
+				pstmt.setString(1, note.getTitle());
+				pstmt.setString(2, note.getContent());
+				pstmt.setString(3, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
+				pstmt.setInt(4, note.isFavorite() ? 1 : 0);
+				pstmt.setInt(5, note.isPinned() ? 1 : 0);
+				pstmt.setString(6, note.getStatus());
+				pstmt.setInt(7, note.isPrivate() ? 1 : 0);
+				pstmt.setString(8,
+						(note.getParent() != null && !"ROOT".equals(note.getParent().getId())) ? note.getParent().getId()
+								: null);
+				pstmt.setString(9, note.getId());
+				pstmt.executeUpdate();
+				connection.commit();
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error updateNote(): " + e.getMessage(), e);
+				try {
+					connection.rollback();
+				} catch (SQLException rollbackEx) {
+					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
+				}
 			}
 		}
 	}
@@ -199,15 +203,18 @@ public class NoteDAOSQLite implements NoteDAO {
 			throw new IllegalArgumentException("Note ID cannot be null or empty");
 		}
 
-		try {
-			softDeleteNoteWithoutCommit(id);
-			connection.commit();
-		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "Error deleteNote() (Soft Delete): " + e.getMessage(), e);
-			rollbackQuietly();
+		synchronized (connection) {
+			try {
+				softDeleteNoteWithoutCommit(id);
+				connection.commit();
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error deleteNote() (Soft Delete): " + e.getMessage(), e);
+				rollbackQuietly();
+			}
 		}
 	}
 
+	/** Called within a synchronized(connection) block by callers managing their own transaction. */
 	void softDeleteNoteWithoutCommit(String id) throws SQLException {
 		try (PreparedStatement pstmt = connection.prepareStatement(SOFT_DELETE_NOTE_SQL)) {
 			pstmt.setString(1, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
@@ -216,6 +223,7 @@ public class NoteDAOSQLite implements NoteDAO {
 		}
 	}
 
+	/** Called within a synchronized(connection) block by callers managing their own transaction. */
 	void restoreNoteWithoutCommit(String id) throws SQLException {
 		try (PreparedStatement pstmt = connection.prepareStatement(RESTORE_NOTE_SQL)) {
 			pstmt.setString(1, id);
@@ -237,17 +245,18 @@ public class NoteDAOSQLite implements NoteDAO {
 			throw new IllegalArgumentException("Note ID cannot be null or empty");
 		}
 
-		try (PreparedStatement pstmt = connection.prepareStatement(DELETE_NOTE_SQL)) {
-			pstmt.setString(1, id);
-			pstmt.executeUpdate();
-			connection.commit();
-
-		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "Error permanentlyDeleteNote(): " + e.getMessage(), e);
-			try {
-				connection.rollback();
-			} catch (SQLException rollbackEx) {
-				logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
+		synchronized (connection) {
+			try (PreparedStatement pstmt = connection.prepareStatement(DELETE_NOTE_SQL)) {
+				pstmt.setString(1, id);
+				pstmt.executeUpdate();
+				connection.commit();
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error permanentlyDeleteNote(): " + e.getMessage(), e);
+				try {
+					connection.rollback();
+				} catch (SQLException rollbackEx) {
+					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
+				}
 			}
 		}
 	}
@@ -258,17 +267,18 @@ public class NoteDAOSQLite implements NoteDAO {
 			throw new IllegalArgumentException("Note ID cannot be null or empty");
 		}
 
-		try (PreparedStatement pstmt = connection.prepareStatement(RESTORE_NOTE_SQL)) {
-			pstmt.setString(1, id);
-			pstmt.executeUpdate();
-			connection.commit();
-
-		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "Error restoreNote(): " + e.getMessage(), e);
-			try {
-				connection.rollback();
-			} catch (SQLException rollbackEx) {
-				logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
+		synchronized (connection) {
+			try (PreparedStatement pstmt = connection.prepareStatement(RESTORE_NOTE_SQL)) {
+				pstmt.setString(1, id);
+				pstmt.executeUpdate();
+				connection.commit();
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error restoreNote(): " + e.getMessage(), e);
+				try {
+					connection.rollback();
+				} catch (SQLException rollbackEx) {
+					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
+				}
 			}
 		}
 	}
@@ -276,14 +286,15 @@ public class NoteDAOSQLite implements NoteDAO {
 	@Override
 	public List<Note> fetchTrashNotes() {
 		List<Note> list = new ArrayList<>();
-		try (Statement stmt = connection.createStatement()) {
-			try (ResultSet rs = stmt.executeQuery(SELECT_TRASH_NOTES_SQL)) {
+		synchronized (connection) {
+			try (Statement stmt = connection.createStatement();
+					ResultSet rs = stmt.executeQuery(SELECT_TRASH_NOTES_SQL)) {
 				while (rs.next()) {
 					list.add(mapResultSetToNote(rs));
 				}
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error fetchTrashNotes(): " + e.getMessage(), e);
 			}
-		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "Error fetchTrashNotes(): " + e.getMessage(), e);
 		}
 		return list;
 	}
@@ -297,20 +308,20 @@ public class NoteDAOSQLite implements NoteDAO {
 				? "SELECT * FROM notes WHERE (parent_id IS NULL OR parent_id = '') AND is_deleted = 0"
 				: SELECT_NOTES_BY_FOLDER_ID_SQL;
 
-		try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-			if (!sql.contains("IS NULL")) {
-				pstmt.setString(1, folderId);
-			}
-
-			try (ResultSet rs = pstmt.executeQuery()) {
-				while (rs.next()) {
-					list.add(mapResultSetToNote(rs));
+		synchronized (connection) {
+			try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+				if (!sql.contains("IS NULL")) {
+					pstmt.setString(1, folderId);
 				}
+				try (ResultSet rs = pstmt.executeQuery()) {
+					while (rs.next()) {
+						list.add(mapResultSetToNote(rs));
+					}
+				}
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error fetchNotesByFolderId(): " + e.getMessage(), e);
 			}
-		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "Error fetchNotesByFolderId(): " + e.getMessage(), e);
 		}
-
 		return list;
 	}
 
@@ -319,7 +330,6 @@ public class NoteDAOSQLite implements NoteDAO {
 		if (folder == null) {
 			throw new IllegalArgumentException("Folder object can't be null");
 		}
-
 		List<Note> notes = fetchNotesByFolderId(folder.getId());
 		for (Note note : notes) {
 			folder.add(note);
@@ -330,17 +340,16 @@ public class NoteDAOSQLite implements NoteDAO {
 	@Override
 	public List<Note> fetchAllNotes() {
 		List<Note> list = new ArrayList<>();
-
-		try (Statement stmt = connection.createStatement()) {
-			try (ResultSet rs = stmt.executeQuery(SELECT_ALL_NOTES_SQL)) {
+		synchronized (connection) {
+			try (Statement stmt = connection.createStatement();
+					ResultSet rs = stmt.executeQuery(SELECT_ALL_NOTES_SQL)) {
 				while (rs.next()) {
 					list.add(mapResultSetToNote(rs));
 				}
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error fetchAllNotes(): " + e.getMessage(), e);
 			}
-		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "Error fetchAllNotes(): " + e.getMessage(), e);
 		}
-
 		return list;
 	}
 
@@ -357,20 +366,21 @@ public class NoteDAOSQLite implements NoteDAO {
 			throw new IllegalArgumentException("Note ID and tag ID must not be null or empty");
 		}
 
-		try (PreparedStatement pstmt = connection.prepareStatement(INSERT_TAG_NOTE_SQL)) {
-			pstmt.setString(1, UUID.randomUUID().toString()); // tagsNotes ID
-			pstmt.setString(2, tagId);
-			pstmt.setString(3, noteId);
-			pstmt.setString(4, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
-			pstmt.executeUpdate();
-			connection.commit();
-
-		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "Error addTag(): " + e.getMessage(), e);
-			try {
-				connection.rollback();
-			} catch (SQLException rollbackEx) {
-				logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
+		synchronized (connection) {
+			try (PreparedStatement pstmt = connection.prepareStatement(INSERT_TAG_NOTE_SQL)) {
+				pstmt.setString(1, UUID.randomUUID().toString());
+				pstmt.setString(2, tagId);
+				pstmt.setString(3, noteId);
+				pstmt.setString(4, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
+				pstmt.executeUpdate();
+				connection.commit();
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error addTag(): " + e.getMessage(), e);
+				try {
+					connection.rollback();
+				} catch (SQLException rollbackEx) {
+					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
+				}
 			}
 		}
 	}
@@ -380,7 +390,6 @@ public class NoteDAOSQLite implements NoteDAO {
 		if (note == null || tag == null) {
 			throw new InvalidParameterException("Note object or tag object are null");
 		}
-
 		addTag(note.getId(), tag.getId());
 	}
 
@@ -390,18 +399,19 @@ public class NoteDAOSQLite implements NoteDAO {
 			throw new IllegalArgumentException("Note ID and tag ID must not be null or empty");
 		}
 
-		try (PreparedStatement pstmt = connection.prepareStatement(DELETE_TAG_NOTE_SQL)) {
-			pstmt.setString(1, tagId);
-			pstmt.setString(2, noteId);
-			pstmt.executeUpdate();
-			connection.commit();
-
-		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "Error removeTag(): " + e.getMessage(), e);
-			try {
-				connection.rollback();
-			} catch (SQLException rollbackEx) {
-				logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
+		synchronized (connection) {
+			try (PreparedStatement pstmt = connection.prepareStatement(DELETE_TAG_NOTE_SQL)) {
+				pstmt.setString(1, tagId);
+				pstmt.setString(2, noteId);
+				pstmt.executeUpdate();
+				connection.commit();
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error removeTag(): " + e.getMessage(), e);
+				try {
+					connection.rollback();
+				} catch (SQLException rollbackEx) {
+					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
+				}
 			}
 		}
 	}
@@ -411,7 +421,6 @@ public class NoteDAOSQLite implements NoteDAO {
 		if (note == null || tag == null) {
 			throw new InvalidParameterException("Note object or tag object are null");
 		}
-
 		removeTag(note.getId(), tag.getId());
 	}
 
@@ -422,24 +431,22 @@ public class NoteDAOSQLite implements NoteDAO {
 		}
 
 		List<Tag> list = new ArrayList<>();
-
-		try (PreparedStatement pstmt = connection.prepareStatement(SELECT_ALL_TAGS_NOTE_SQL)) {
-			pstmt.setString(1, noteId);
-
-			try (ResultSet rs = pstmt.executeQuery()) {
-				while (rs.next()) {
-					String id = rs.getString("tag_id");
-					String title = rs.getString("title");
-					String createdDate = rs.getString("created_date");
-					String modifiedDate = rs.getString("modified_date");
-
-					list.add(new Tag(id, title, createdDate, modifiedDate));
+		synchronized (connection) {
+			try (PreparedStatement pstmt = connection.prepareStatement(SELECT_ALL_TAGS_NOTE_SQL)) {
+				pstmt.setString(1, noteId);
+				try (ResultSet rs = pstmt.executeQuery()) {
+					while (rs.next()) {
+						String id = rs.getString("tag_id");
+						String title = rs.getString("title");
+						String createdDate = rs.getString("created_date");
+						String modifiedDate = rs.getString("modified_date");
+						list.add(new Tag(id, title, createdDate, modifiedDate));
+					}
 				}
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error fetchTags(): " + e.getMessage(), e);
 			}
-		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "Error fetchTags(): " + e.getMessage(), e);
 		}
-
 		return list;
 	}
 
@@ -448,7 +455,6 @@ public class NoteDAOSQLite implements NoteDAO {
 		if (note == null) {
 			throw new InvalidParameterException("Note object cannot be null");
 		}
-
 		List<Tag> tags = fetchTags(note.getId());
 		note.addAllTags(tags);
 	}
@@ -460,19 +466,18 @@ public class NoteDAOSQLite implements NoteDAO {
 		}
 
 		List<Note> list = new ArrayList<>();
-
-		try (PreparedStatement pstmt = connection.prepareStatement(SELECT_NOTES_BY_TAG_ID_SQL)) {
-			pstmt.setString(1, tagId);
-
-			try (ResultSet rs = pstmt.executeQuery()) {
-				while (rs.next()) {
-					list.add(mapResultSetToNote(rs));
+		synchronized (connection) {
+			try (PreparedStatement pstmt = connection.prepareStatement(SELECT_NOTES_BY_TAG_ID_SQL)) {
+				pstmt.setString(1, tagId);
+				try (ResultSet rs = pstmt.executeQuery()) {
+					while (rs.next()) {
+						list.add(mapResultSetToNote(rs));
+					}
 				}
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error fetchNotesByTagId(): " + e.getMessage(), e);
 			}
-		} catch (SQLException e) {
-			logger.log(Level.SEVERE, "Error fetchNotesByTagId(): " + e.getMessage(), e);
 		}
-
 		return list;
 	}
 
@@ -509,7 +514,7 @@ public class NoteDAOSQLite implements NoteDAO {
 				status = rs.getString("status");
 				isPrivate = rs.getInt("is_private");
 			} catch (SQLException e) {
-				// Columns might not exist in older databases
+				// Columns might not exist in older databases being migrated
 				logger.warning("Optional columns not found, using defaults: " + e.getMessage());
 			}
 
@@ -532,7 +537,6 @@ public class NoteDAOSQLite implements NoteDAO {
 			note.setStatus(status);
 			note.setPrivate(isPrivate == 1);
 
-			// Populate parent placeholder for hierarchy reconstruction
 			String parentId = rs.getString("parent_id");
 			if (parentId != null && !parentId.isEmpty()) {
 				note.setParent(new com.example.jylos.data.models.Folder(parentId, ""));

@@ -8,22 +8,19 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 
 import com.example.jylos.AppConfig;
-import com.example.jylos.config.AppContext;
 import com.example.jylos.ui.AppIconLoader;
-import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.config.LoggerConfig;
-import com.example.jylos.data.dao.interfaces.NoteDAO;
-import com.example.jylos.data.models.Note;
-import com.example.jylos.data.models.Tag;
 import com.example.jylos.service.TagService;
+import com.example.jylos.ui.preferences.UiPreferencesStore;
+import com.example.jylos.ui.theme.CssSnippetCatalog;
+import com.example.jylos.ui.theme.ThemeCatalog;
 
-import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
@@ -34,37 +31,33 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
-import javafx.scene.control.ListCell;
-import javafx.scene.control.ListView;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextInputDialog;
-import javafx.scene.control.ToggleGroup;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
-import javafx.stage.Window;
 
 /**
  * Lightweight application dialogs (preferences, about, docs, new tag).
- *
- * <p>Holds its {@link MainController} for i18n strings and status updates, so the
- * caller only passes data and post-action callbacks.</p>
  */
-class UiDialog {
+class DialogSupport {
 
-    private static final Logger logger = LoggerConfig.getLogger(UiDialog.class);
+    private static final Logger logger = LoggerConfig.getLogger(DialogSupport.class);
 
-    private final MainController controller;
+    private Function<String, String> i18nFn;
+    private Consumer<String> updateStatus;
+    private TagService tagService;
 
-    UiDialog(MainController controller) {
-        this.controller = controller;
+    void wire(Function<String, String> i18n, Consumer<String> updateStatus, TagService tagService) {
+        this.i18nFn = i18n;
+        this.updateStatus = updateStatus;
+        this.tagService = tagService;
     }
 
-    /** Delegates i18n string resolution to the host {@link MainController}. */
+    /** Resolves an i18n key via the supplied callback. */
     private String i18n(String key) {
-        return controller.getString(key);
+        return i18nFn.apply(key);
     }
 
     /**
@@ -73,7 +66,7 @@ class UiDialog {
      * that did not reflect the real (and configurable) location.
      */
     private String currentStorageLocation() {
-        Preferences prefs = Preferences.userNodeForPackage(MainController.class);
+        Preferences prefs = Preferences.userNodeForPackage(DialogSupport.class);
         String type = prefs.get("storage_type", System.getProperty("jylos.storage", "sqlite"));
         if ("filesystem".equalsIgnoreCase(type)) {
             String path = prefs.get("filesystem_path", "");
@@ -108,10 +101,11 @@ class UiDialog {
 
         VBox content = new VBox(15);
         content.setPadding(new Insets(20));
+        content.getStyleClass().add("preferences-content");
 
         Label dbLabel = new Label(i18n("dialog.preferences.storage_location"));
         Label dbPathLabel = new Label(currentStorageLocation());
-        dbPathLabel.setStyle("-fx-text-fill: gray;");
+        dbPathLabel.getStyleClass().add("dialog-muted-label");
 
         CheckBox autosaveEnabledCheck = new CheckBox(i18n("dialog.preferences.autosave_enabled"));
         autosaveEnabledCheck.setSelected(current.autosaveEnabled());
@@ -194,7 +188,7 @@ class UiDialog {
                 enabledSnippets != null ? enabledSnippets : Set.of());
         Label snippetsLabel = new Label(i18n("dialog.preferences.css_snippets"));
         Label snippetsHint = new Label(i18n("dialog.preferences.css_snippets_hint"));
-        snippetsHint.setStyle("-fx-text-fill: gray; -fx-font-size: 11px;");
+        snippetsHint.getStyleClass().add("dialog-hint-label");
         snippetsHint.setWrapText(true);
         VBox snippetsBox = new VBox(6);
         Runnable populateSnippets = () -> {
@@ -203,7 +197,7 @@ class UiDialog {
                     snippetCatalog != null ? snippetCatalog.getAvailableSnippets() : List.of();
             if (available.isEmpty()) {
                 Label none = new Label(i18n("dialog.preferences.css_snippets_empty"));
-                none.setStyle("-fx-text-fill: gray;");
+                none.getStyleClass().add("dialog-muted-label");
                 snippetsBox.getChildren().add(none);
                 return;
             }
@@ -356,6 +350,7 @@ class UiDialog {
         VBox content = new VBox(16);
         content.setPadding(new Insets(20));
         content.setAlignment(Pos.CENTER);
+        content.getStyleClass().add("about-content");
 
         AppIconLoader.load(72).ifPresent(img -> {
             ImageView icon = new ImageView(img);
@@ -366,13 +361,13 @@ class UiDialog {
         });
 
         Label titleLabel = new Label(i18n("about.app_name"));
-        titleLabel.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
+        titleLabel.getStyleClass().add("about-title");
 
         Label versionLabel = new Label(MessageFormat.format(i18n("about.version"), AppConfig.getAppVersion()));
-        versionLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: gray;");
+        versionLabel.getStyleClass().add("about-version");
 
         Label descLabel = new Label(AppConfig.getAppDescription());
-        descLabel.setStyle("-fx-font-size: 13px;");
+        descLabel.getStyleClass().add("about-description");
         descLabel.setWrapText(true);
         descLabel.setMaxWidth(350);
         descLabel.setAlignment(Pos.CENTER);
@@ -381,18 +376,18 @@ class UiDialog {
         separator.setPrefWidth(300);
 
         Label techLabel = new Label(i18n("about.tech_stack"));
-        techLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: gray;");
+        techLabel.getStyleClass().add("about-meta");
 
         Label copyrightLabel = new Label(AppConfig.getAppCopyright());
-        copyrightLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: gray;");
+        copyrightLabel.getStyleClass().add("about-meta");
 
         Label developerLabel = new Label(i18n("about.developer_credit"));
-        developerLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold;");
+        developerLabel.getStyleClass().add("about-credit");
 
         content.getChildren().addAll(
                 titleLabel, versionLabel, descLabel,
                 separator,
-                techLabel, copyrightLabel, developerLabel);
+                techLabel, developerLabel, copyrightLabel);
 
         dialog.getDialogPane().setContent(content);
         dialog.getDialogPane().setPrefSize(400, 380);
@@ -416,7 +411,10 @@ class UiDialog {
             return;
         }
 
-        TagService tagService = AppContext.getTagService();
+        if (tagService == null) {
+            updateStatus.accept(i18n("status.error"));
+            return;
+        }
         try {
             String tagName = result.get().trim();
             if (tagService.tagExists(tagName)) {
@@ -432,390 +430,10 @@ class UiDialog {
             if (refreshTagsAction != null) {
                 refreshTagsAction.run();
             }
-            controller.updateStatus(MessageFormat.format(i18n("status.tag_created"), tagName));
+            updateStatus.accept(MessageFormat.format(i18n("status.tag_created"), tagName));
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Failed to create tag", e);
-            controller.updateStatus(i18n("status.error") + ": " + e.getMessage());
-        }
-    }
-}
-
-/**
- * App settings flows (theme/language/storage menus and dialogs).
- *
- * <p>Holds its {@link MainController} for i18n strings used in the storage dialog.</p>
- */
-class AppSettings {
-
-    private final MainController controller;
-
-    AppSettings(MainController controller) {
-        this.controller = controller;
-    }
-
-    /** Delegates i18n string resolution to the host {@link MainController}. */
-    private String i18n(String key) {
-        return controller.getString(key);
-    }
-
-    void handleSwitchStorage(Window owner, Preferences prefs) {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle(i18n("pref.storage"));
-        alert.setHeaderText(i18n("pref.storage.header"));
-        alert.setContentText(i18n("pref.storage.content"));
-
-        ButtonType sqliteBtn = new ButtonType(i18n("pref.storage.sqlite"));
-        ButtonType filesystemBtn = new ButtonType(i18n("pref.storage.filesystem"));
-        ButtonType cancelBtn = new ButtonType(i18n("action.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
-
-        alert.getButtonTypes().setAll(sqliteBtn, filesystemBtn, cancelBtn);
-
-        Optional<ButtonType> result = com.example.jylos.ui.UiDialogs.show(alert);
-        if (result.isEmpty() || result.get() == cancelBtn) {
-            return;
-        }
-
-        String newType = "sqlite";
-        String customPath = "";
-        boolean changed = false;
-
-        String currentType = prefs.get("storage_type", "sqlite");
-        String currentPath = prefs.get("filesystem_path", "");
-
-        if (result.get() == sqliteBtn) {
-            newType = "sqlite";
-            changed = !newType.equals(currentType);
-        } else if (result.get() == filesystemBtn) {
-            DirectoryChooser directoryChooser = new DirectoryChooser();
-            directoryChooser.setTitle(i18n("pref.storage.browse"));
-
-            File selectedDirectory = directoryChooser.showDialog(owner);
-            if (selectedDirectory == null) {
-                return;
-            }
-            newType = "filesystem";
-            customPath = selectedDirectory.getAbsolutePath();
-            changed = !newType.equals(currentType) || !customPath.equals(currentPath);
-        }
-
-        if (!changed) {
-            return;
-        }
-
-        prefs.put("storage_type", newType);
-        prefs.put("filesystem_path", customPath);
-
-        Alert restartAlert = new Alert(Alert.AlertType.INFORMATION);
-        restartAlert.setTitle(i18n("app.restart_required"));
-        restartAlert.setHeaderText(null);
-        restartAlert.setContentText(i18n("app.restart_storage_message"));
-        com.example.jylos.ui.UiDialogs.show(restartAlert);
-    }
-
-    ToggleGroup initializeThemeMenu(ToolbarController toolbarController, String currentTheme,
-            Supplier<String> detectSystemTheme,
-            Consumer<String> setCurrentTheme,
-            Runnable updateThemeMenuSelection,
-            Runnable applyTheme) {
-        ToggleGroup themeToggleGroup = new ToggleGroup();
-
-        if (toolbarController != null) {
-            if (toolbarController.getLightThemeMenuItem() != null) {
-                toolbarController.getLightThemeMenuItem().setToggleGroup(themeToggleGroup);
-            }
-            if (toolbarController.getDarkThemeMenuItem() != null) {
-                toolbarController.getDarkThemeMenuItem().setToggleGroup(themeToggleGroup);
-            }
-            if (toolbarController.getSystemThemeMenuItem() != null) {
-                toolbarController.getSystemThemeMenuItem().setToggleGroup(themeToggleGroup);
-            }
-        }
-
-        if (updateThemeMenuSelection != null) {
-            updateThemeMenuSelection.run();
-        }
-
-        if (applyTheme != null) {
-            Platform.runLater(applyTheme);
-        }
-
-        return themeToggleGroup;
-    }
-
-    ToggleGroup initializeLanguageMenu(ToolbarController toolbarController, Preferences prefs,
-            java.util.function.Consumer<String> onLanguageSelected) {
-        ToggleGroup languageToggleGroup = new ToggleGroup();
-        if (toolbarController == null) {
-            return languageToggleGroup;
-        }
-
-        if (toolbarController.getEnglishLangMenuItem() != null) {
-            toolbarController.getEnglishLangMenuItem().setToggleGroup(languageToggleGroup);
-            toolbarController.getEnglishLangMenuItem().setOnAction(e -> {
-                if (onLanguageSelected != null && toolbarController.getEnglishLangMenuItem().isSelected()) {
-                    onLanguageSelected.accept("en");
-                }
-            });
-        }
-        if (toolbarController.getSpanishLangMenuItem() != null) {
-            toolbarController.getSpanishLangMenuItem().setToggleGroup(languageToggleGroup);
-            toolbarController.getSpanishLangMenuItem().setOnAction(e -> {
-                if (onLanguageSelected != null && toolbarController.getSpanishLangMenuItem().isSelected()) {
-                    onLanguageSelected.accept("es");
-                }
-            });
-        }
-
-        String currentLang = prefs.get("language", Locale.getDefault().getLanguage());
-        if ("es".equals(currentLang)) {
-            if (toolbarController.getSpanishLangMenuItem() != null) {
-                toolbarController.getSpanishLangMenuItem().setSelected(true);
-            }
-        } else {
-            if (toolbarController.getEnglishLangMenuItem() != null) {
-                toolbarController.getEnglishLangMenuItem().setSelected(true);
-            }
-        }
-
-        return languageToggleGroup;
-    }
-
-    boolean changeLanguage(String lang, Preferences prefs) {
-        String currentLang = prefs.get("language", Locale.getDefault().getLanguage());
-        if (currentLang.equals(lang)) {
-            return false;
-        }
-        prefs.put("language", lang);
-        return true;
-    }
-
-    void updateThemeMenuSelection(ToolbarController toolbarController, ToggleGroup themeToggleGroup,
-            String currentTheme) {
-        if (themeToggleGroup == null || toolbarController == null) {
-            return;
-        }
-
-        if ("dark".equals(currentTheme)) {
-            if (toolbarController.getDarkThemeMenuItem() != null) {
-                toolbarController.getDarkThemeMenuItem().setSelected(true);
-            }
-            return;
-        }
-
-        if ("system".equalsIgnoreCase(currentTheme)) {
-            if (toolbarController.getSystemThemeMenuItem() != null) {
-                toolbarController.getSystemThemeMenuItem().setSelected(true);
-            }
-            return;
-        }
-
-        if (toolbarController.getLightThemeMenuItem() != null) {
-            toolbarController.getLightThemeMenuItem().setSelected(true);
-        }
-    }
-}
-
-/**
- * Tag dialogs (manager, add/remove tag on the current note).
- *
- * <p>Holds its {@link MainController} for i18n/status; tag and note persistence
- * come from {@link AppContext}.</p>
- */
-class TagManagement {
-
-    private static final Logger logger = LoggerConfig.getLogger(TagManagement.class);
-
-    private final MainController controller;
-
-    TagManagement(MainController controller) {
-        this.controller = controller;
-    }
-
-    /** Delegates i18n string resolution to the host {@link MainController}. */
-    private String i18n(String key) {
-        return controller.getString(key);
-    }
-
-    void handleAddTagToNote(Note currentNote, Runnable refreshSidebarTags, Consumer<Note> reloadCurrentNoteTags) {
-        if (currentNote == null) {
-            controller.updateStatus(i18n("status.no_note"));
-            return;
-        }
-
-        TagService tagService = AppContext.getTagService();
-        NoteDAO noteDAO = AppContext.getNoteDAO();
-        try {
-            List<Tag> existingTags = tagService.getAllTags();
-            List<Tag> noteTags = noteDAO.fetchTags(currentNote.getId());
-
-            List<String> availableTagNames = existingTags.stream()
-                    .filter(tag -> noteTags.stream().noneMatch(nt -> nt.getId().equals(tag.getId())))
-                    .map(Tag::getTitle)
-                    .sorted()
-                    .toList();
-
-            Dialog<String> dialog = new Dialog<>();
-            dialog.setTitle(i18n("dialog.add_tag.title"));
-            dialog.setHeaderText(availableTagNames.isEmpty()
-                    ? i18n("dialog.add_tag.header_new")
-                    : i18n("dialog.add_tag.header_select"));
-
-            ButtonType addButtonType = new ButtonType(i18n("action.add"), ButtonBar.ButtonData.OK_DONE);
-            dialog.getDialogPane().getButtonTypes().addAll(addButtonType, ButtonType.CANCEL);
-
-            VBox content = new VBox(10);
-            ComboBox<String> tagComboBox = new ComboBox<>();
-            tagComboBox.setEditable(true);
-            tagComboBox.getItems().addAll(availableTagNames);
-            tagComboBox.setPromptText(i18n("dialog.add_tag.prompt"));
-            tagComboBox.setPrefWidth(300);
-            content.getChildren().add(new Label(i18n("label.tag")));
-            content.getChildren().add(tagComboBox);
-            dialog.getDialogPane().setContent(content);
-
-            dialog.setResultConverter(dialogButton -> dialogButton == addButtonType
-                    ? tagComboBox.getEditor().getText()
-                    : null);
-
-            Optional<String> result = com.example.jylos.ui.UiDialogs.show(dialog);
-            if (result.isEmpty() || result.get().trim().isEmpty()) {
-                return;
-            }
-
-            String tagName = result.get().trim();
-            Optional<Tag> existingTag = existingTags.stream()
-                    .filter(t -> t.getTitle().equals(tagName))
-                    .findFirst();
-
-            Tag tag;
-            if (existingTag.isPresent()) {
-                tag = existingTag.get();
-            } else {
-                tag = new Tag(tagName);
-                Tag createdTag = tagService.createTag(tag.getTitle());
-                tag.setId(createdTag.getId());
-            }
-
-            boolean alreadyHasTag = noteDAO.fetchTags(currentNote.getId()).stream()
-                    .anyMatch(t -> t.getId().equals(tag.getId()));
-
-            if (alreadyHasTag) {
-                Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                alert.setTitle(i18n("dialog.tag_already_assigned.title"));
-                alert.setHeaderText(MessageFormat.format(i18n("dialog.tag_already_assigned.header"), tagName));
-                com.example.jylos.ui.UiDialogs.show(alert);
-                return;
-            }
-
-            noteDAO.addTag(currentNote, tag);
-            reloadCurrentNoteTags.accept(currentNote);
-            refreshSidebarTags.run();
-            controller.updateStatus(MessageFormat.format(i18n("status.tag_added"), tagName));
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Failed to add tag to note", e);
-            controller.updateStatus(i18n("status.tag_add_error"));
-        }
-    }
-
-    void removeTagFromNote(Note currentNote, Tag tag, Consumer<Note> reloadCurrentNoteTags) {
-        if (currentNote == null) {
-            controller.updateStatus(i18n("status.no_note_selected"));
-            return;
-        }
-        if (tag == null || tag.getId() == null) {
-            controller.updateStatus(i18n("status.invalid_tag"));
-            return;
-        }
-
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-        confirm.setTitle(i18n("dialog.remove_tag.title"));
-        confirm.setHeaderText(MessageFormat.format(i18n("dialog.remove_tag.header"), tag.getTitle()));
-        confirm.setContentText(i18n("dialog.remove_tag.content"));
-
-        Optional<ButtonType> result = com.example.jylos.ui.UiDialogs.show(confirm);
-        if (result.isPresent() && result.get() == ButtonType.OK) {
-            try {
-                AppContext.getNoteDAO().removeTag(currentNote, tag);
-                reloadCurrentNoteTags.accept(currentNote);
-                controller.updateStatus(MessageFormat.format(i18n("status.tag_removed"), tag.getTitle()));
-            } catch (Exception e) {
-                logger.log(Level.SEVERE, "Failed to remove tag from note", e);
-                controller.updateStatus(MessageFormat.format(i18n("status.tag_remove_error"), e.getMessage()));
-            }
-        }
-    }
-
-    void showTagsManager(Runnable refreshSidebarTags) {
-        TagService tagService = AppContext.getTagService();
-        try {
-            List<Tag> allTags = tagService.getAllTags();
-
-            Dialog<Void> dialog = new Dialog<>();
-            dialog.setTitle(i18n("dialog.tags_manager.title"));
-            dialog.setHeaderText(i18n("dialog.tags_manager.header"));
-
-            ButtonType closeButton = new ButtonType(i18n("action.close"), ButtonBar.ButtonData.CANCEL_CLOSE);
-            dialog.getDialogPane().getButtonTypes().add(closeButton);
-
-            VBox content = new VBox(10);
-            content.setPadding(new Insets(20));
-
-            ListView<Tag> tagListView = new ListView<>();
-            tagListView.getItems().addAll(allTags);
-            tagListView.setCellFactory(lv -> new ListCell<Tag>() {
-                @Override
-                protected void updateItem(Tag tag, boolean empty) {
-                    super.updateItem(tag, empty);
-                    if (empty || tag == null) {
-                        setText(null);
-                        setGraphic(null);
-                    } else {
-                        HBox hbox = new HBox(10);
-                        Label nameLabel = new Label(tag.getTitle());
-                        nameLabel.setPrefWidth(200);
-                        Label dateLabel = new Label(
-                                tag.getCreatedDate() != null ? tag.getCreatedDate() : i18n("label.not_available"));
-                        dateLabel.setStyle("-fx-text-fill: gray;");
-
-                        ButtonType deleteType = new ButtonType(i18n("action.delete"), ButtonBar.ButtonData.OK_DONE);
-                        javafx.scene.control.Button deleteButton = new javafx.scene.control.Button(i18n("action.delete"));
-                        deleteButton.setOnAction(e -> {
-                            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-                            confirm.setTitle(i18n("dialog.delete_tag.title"));
-                            confirm.setHeaderText(i18n("dialog.tags_manager.delete_header"));
-                            confirm.setContentText(i18n("dialog.tags_manager.delete_content"));
-                            confirm.getButtonTypes().setAll(deleteType, ButtonType.CANCEL);
-                            Optional<ButtonType> confirmResult = com.example.jylos.ui.UiDialogs.show(confirm);
-                            if (confirmResult.isPresent() && confirmResult.get() == deleteType) {
-                                try {
-                                    tagService.deleteTag(tag.getId());
-                                    tagListView.getItems().remove(tag);
-                                    refreshSidebarTags.run();
-                                    controller.updateStatus(
-                                            MessageFormat.format(i18n("status.tag_deleted"), tag.getTitle()));
-                                } catch (Exception ex) {
-                                    logger.log(Level.SEVERE, "Failed to delete tag from tags manager", ex);
-                                    controller.updateStatus(i18n("status.error_deleting_tag"));
-                                }
-                            }
-                        });
-
-                        hbox.getChildren().addAll(nameLabel, dateLabel, deleteButton);
-                        setGraphic(hbox);
-                    }
-                }
-            });
-
-            content.getChildren().add(
-                    new Label(MessageFormat.format(i18n("dialog.tags_manager.all_tags_count"), allTags.size())));
-            content.getChildren().add(tagListView);
-            dialog.getDialogPane().setContent(content);
-            dialog.getDialogPane().setPrefSize(500, 400);
-
-            com.example.jylos.ui.UiDialogs.show(dialog);
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Failed to open tags manager", e);
-            controller.updateStatus(i18n("status.tags_manager_error"));
+            updateStatus.accept(i18n("status.error") + ": " + e.getMessage());
         }
     }
 }

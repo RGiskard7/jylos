@@ -56,6 +56,8 @@ public final class KanbanBoard extends VBox {
     private final NoteService noteService;
     private final Consumer<String> onOpenNoteTitle;
     private final Runnable onClose;
+    private final Consumer<Note> onNoteCreated;
+    private final Consumer<Note> onNoteUpdated;
     private final Function<String, String> i18n;
 
     private final ComboBox<Note> boardSelector = new ComboBox<>();
@@ -69,10 +71,14 @@ public final class KanbanBoard extends VBox {
     public KanbanBoard(NoteService noteService,
             Consumer<String> onOpenNoteTitle,
             Runnable onClose,
+            Consumer<Note> onNoteCreated,
+            Consumer<Note> onNoteUpdated,
             Function<String, String> i18n) {
         this.noteService = noteService;
         this.onOpenNoteTitle = onOpenNoteTitle;
         this.onClose = onClose;
+        this.onNoteCreated = onNoteCreated;
+        this.onNoteUpdated = onNoteUpdated;
         this.i18n = i18n;
 
         getStyleClass().add("kanban-board");
@@ -234,8 +240,9 @@ public final class KanbanBoard extends VBox {
         }
         currentBoard.setContent(model.toMarkdown());
         noteService.updateNote(currentBoard);
-        com.example.jylos.event.EventBus.getInstance()
-                .publish(new com.example.jylos.event.events.NoteEvents.NoteUpdatedEvent(currentBoard));
+        if (onNoteUpdated != null) {
+            onNoteUpdated.accept(currentBoard);
+        }
     }
 
     private void createBoard() {
@@ -252,8 +259,9 @@ public final class KanbanBoard extends VBox {
                 str("kanban.col_doing", "Doing"),
                 str("kanban.col_done", "Done"));
         Note board = noteService.createNote(new Note(name.trim(), fresh.toMarkdown()));
-        com.example.jylos.event.EventBus.getInstance()
-                .publish(new com.example.jylos.event.events.NoteEvents.NoteCreatedEvent(board));
+        if (onNoteCreated != null) {
+            onNoteCreated.accept(board);
+        }
         currentBoard = board;
         reload();
     }
@@ -445,8 +453,9 @@ public final class KanbanBoard extends VBox {
             return;
         }
         Note note = noteService.createNote(new Note(text.trim(), ""));
-        com.example.jylos.event.EventBus.getInstance()
-                .publish(new com.example.jylos.event.events.NoteEvents.NoteCreatedEvent(note));
+        if (onNoteCreated != null) {
+            onNoteCreated.accept(note);
+        }
         int idx = col.getCards().indexOf(text);
         if (idx >= 0) {
             col.getCards().set(idx, "[[" + text.trim() + "]]");

@@ -8,8 +8,8 @@ import java.util.stream.Collectors;
 
 import java.util.ResourceBundle;
 
-import com.example.jylos.config.AppContext;
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.util.FuzzySearchUtils;
 
 import javafx.animation.FadeTransition;
@@ -52,7 +52,7 @@ public class CommandPalette {
     private ListView<Command> commandListView;
     private final List<Command> commands = new ArrayList<>();
     private Consumer<String> commandHandler;
-    private boolean isDarkTheme = false;
+    private ResourceBundle bundle;
     
     /**
      * Creates a new Command Palette.
@@ -64,10 +64,13 @@ public class CommandPalette {
         initializeDefaultCommands();
     }
 
+    public void setBundle(ResourceBundle bundle) {
+        this.bundle = bundle;
+    }
+
     /** Resolves an i18n string, falling back to the key if the bundle is unavailable. */
     private String i18n(String key) {
         try {
-            ResourceBundle bundle = AppContext.isInitialized() ? AppContext.getBundle() : null;
             return bundle != null ? bundle.getString(key) : key;
         } catch (Exception e) {
             return key;
@@ -286,13 +289,6 @@ public class CommandPalette {
     }
     
     /**
-     * Sets the theme for the palette.
-     */
-    public void setDarkTheme(boolean isDark) {
-        this.isDarkTheme = isDark;
-    }
-    
-    /**
      * Sets the action handler for commands.
      */
     public void setCommandHandler(Consumer<String> handler) {
@@ -353,123 +349,66 @@ public class CommandPalette {
         paletteStage.initOwner(parentStage);
         paletteStage.initModality(Modality.APPLICATION_MODAL);
         paletteStage.initStyle(StageStyle.TRANSPARENT);
-        
-        // Colors matching app's dark/light theme (from CSS)
-        String bg = isDarkTheme ? "#1e1e1e" : "#ffffff";
-        String fg = isDarkTheme ? "#e0e0e0" : "#1e1e1e";
-        String border = isDarkTheme ? "#3a3a3a" : "#e0e0e0";
-        String searchBg = isDarkTheme ? "#252525" : "#f5f5f5";
-        String hoverBg = isDarkTheme ? "#333333" : "#f0f0f0";
-        String accentColor = "#7c3aed";
-        String mutedColor = isDarkTheme ? "#888888" : "#666666";
-        
-        // Main container with elegant styling
+
         VBox mainContainer = new VBox(0);
         mainContainer.setMaxWidth(600);
         mainContainer.setMaxHeight(450);
-        mainContainer.setStyle(String.format(
-            "-fx-background-color: %s; " +
-            "-fx-background-radius: 12; " +
-            "-fx-border-radius: 12; " +
-            "-fx-border-color: %s; " +
-            "-fx-border-width: 1; " +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 25, 0, 0, 8);",
-            bg, border
-        ));
+        mainContainer.getStyleClass().addAll("overlay-panel", "command-palette-panel");
         
-        // Search container
         HBox searchContainer = new HBox(12);
         searchContainer.setAlignment(Pos.CENTER_LEFT);
         searchContainer.setPadding(new Insets(16, 20, 16, 20));
-        searchContainer.setStyle(String.format(
-            "-fx-background-color: %s; " +
-            "-fx-background-radius: 12 12 0 0;",
-            searchBg
-        ));
+        searchContainer.getStyleClass().add("overlay-search-row");
         
-        // Search icon (universal character)
         Label searchIcon = new Label(">");
-        searchIcon.setStyle(String.format(
-            "-fx-font-size: 18px; " +
-            "-fx-font-weight: bold; " +
-            "-fx-text-fill: %s;",
-            accentColor
-        ));
+        searchIcon.getStyleClass().add("overlay-search-icon");
         
-        // Search field
         searchField = new TextField();
         searchField.setPromptText(i18n("palette.search_placeholder"));
-        searchField.setStyle(String.format(
-            "-fx-background-color: transparent; " +
-            "-fx-text-fill: %s; " +
-            "-fx-font-size: 16px; " +
-            "-fx-prompt-text-fill: %s; " +
-            "-fx-border-width: 0;",
-            fg, mutedColor
-        ));
+        searchField.getStyleClass().add("overlay-search-field");
         HBox.setHgrow(searchField, Priority.ALWAYS);
         
-        // Shortcut hint
         Label shortcutHint = new Label(i18n("palette.hint.close"));
-        shortcutHint.setStyle(String.format(
-            "-fx-font-size: 11px; " +
-            "-fx-text-fill: %s;",
-            mutedColor
-        ));
+        shortcutHint.getStyleClass().add("overlay-hint");
         
         searchContainer.getChildren().addAll(searchIcon, searchField, shortcutHint);
         
-        // Separator
         Region separator = new Region();
         separator.setPrefHeight(1);
-        separator.setStyle(String.format("-fx-background-color: %s;", border));
+        separator.getStyleClass().add("overlay-divider");
         
-        // Command list
         commandListView = new ListView<>();
-        commandListView.setStyle(String.format(
-            "-fx-background-color: %s; " +
-            "-fx-background-insets: 0; " +
-            "-fx-padding: 8;",
-            bg
-        ));
-        commandListView.setCellFactory(lv -> createCommandCell(bg, fg, hoverBg, accentColor, mutedColor));
+        commandListView.getStyleClass().add("overlay-list-view");
+        commandListView.setCellFactory(lv -> createCommandCell());
         commandListView.setFixedCellSize(56);
         VBox.setVgrow(commandListView, Priority.ALWAYS);
         
-        // Footer hint
         HBox footer = new HBox(20);
         footer.setAlignment(Pos.CENTER);
         footer.setPadding(new Insets(10, 16, 10, 16));
-        footer.setStyle(String.format(
-            "-fx-background-color: %s; " +
-            "-fx-background-radius: 0 0 12 12; " +
-            "-fx-border-color: %s transparent transparent transparent; " +
-            "-fx-border-width: 1 0 0 0;",
-            searchBg, border
-        ));
+        footer.getStyleClass().add("overlay-footer");
         
         Label navHint = new Label(i18n("palette.hint.navigate"));
-        navHint.setStyle(String.format("-fx-font-size: 11px; -fx-text-fill: %s;", mutedColor));
+        navHint.getStyleClass().add("overlay-hint");
         Label selectHint = new Label(i18n("palette.hint.select"));
-        selectHint.setStyle(String.format("-fx-font-size: 11px; -fx-text-fill: %s;", mutedColor));
+        selectHint.getStyleClass().add("overlay-hint");
         footer.getChildren().addAll(navHint, selectHint);
         
         mainContainer.getChildren().addAll(searchContainer, separator, commandListView, footer);
         
-        // Overlay
         StackPane overlay = new StackPane(mainContainer);
         overlay.setAlignment(Pos.TOP_CENTER);
         overlay.setPadding(new Insets(80, 0, 0, 0));
-        overlay.setStyle("-fx-background-color: rgba(0,0,0,0.4);");
+        overlay.getStyleClass().addAll("overlay-backdrop", "command-palette-overlay");
         overlay.setOnMouseClicked(e -> {
             if (e.getTarget() == overlay) {
                 hide();
             }
         });
         
-        // Scene
         Scene scene = new Scene(overlay);
         scene.setFill(Color.TRANSPARENT);
+        UiDialogs.apply(scene);
         paletteStage.setScene(scene);
         
         // Size to match parent
@@ -499,91 +438,48 @@ public class CommandPalette {
     /**
      * Creates a styled command cell.
      */
-    private ListCell<Command> createCommandCell(String bg, String fg, String hoverBg, String accentColor, String mutedColor) {
+    private ListCell<Command> createCommandCell() {
         return new ListCell<>() {
             @Override
             protected void updateItem(Command command, boolean empty) {
                 super.updateItem(command, empty);
+                if (!getStyleClass().contains("overlay-list-cell")) {
+                    getStyleClass().addAll("overlay-list-cell", "command-palette-cell");
+                }
                 
                 if (empty || command == null) {
                     setGraphic(null);
                     setText(null);
-                    setStyle("-fx-background-color: transparent;");
                 } else {
                     HBox container = new HBox(14);
                     container.setAlignment(Pos.CENTER_LEFT);
                     container.setPadding(new Insets(8, 12, 8, 12));
+                    container.getStyleClass().add("overlay-item");
                     
-                    // Icon container
                     Label iconLabel = new Label(command.getIcon() != null ? command.getIcon() : ">");
                     iconLabel.setMinWidth(28);
                     iconLabel.setAlignment(Pos.CENTER);
-                    iconLabel.setStyle(String.format(
-                        "-fx-font-size: 14px; " +
-                        "-fx-font-weight: bold; " +
-                        "-fx-text-fill: %s; " +
-                        "-fx-background-color: %s; " +
-                        "-fx-background-radius: 6; " +
-                        "-fx-padding: 4 8;",
-                        accentColor, isDarkTheme ? "#333333" : "#f0f0f0"
-                    ));
+                    iconLabel.getStyleClass().add("overlay-item-icon");
                     
-                    // Text container
                     VBox textContainer = new VBox(2);
                     Label nameLabel = new Label(command.getName());
-                    nameLabel.setStyle(String.format(
-                        "-fx-font-size: 14px; " +
-                        "-fx-font-weight: bold; " +
-                        "-fx-text-fill: %s;",
-                        fg
-                    ));
+                    nameLabel.getStyleClass().add("overlay-item-title");
                     
                     Label descLabel = new Label(command.getDescription());
-                    descLabel.setStyle(String.format(
-                        "-fx-font-size: 11px; " +
-                        "-fx-text-fill: %s;",
-                        mutedColor
-                    ));
+                    descLabel.getStyleClass().add("overlay-item-subtitle");
                     
                     textContainer.getChildren().addAll(nameLabel, descLabel);
                     HBox.setHgrow(textContainer, Priority.ALWAYS);
                     
                     container.getChildren().addAll(iconLabel, textContainer);
                     
-                    // Shortcut badge
                     if (command.getShortcut() != null && !command.getShortcut().isEmpty()) {
                         Label shortcutLabel = new Label(command.getShortcut());
-                        shortcutLabel.setStyle(String.format(
-                            "-fx-font-size: 10px; " +
-                            "-fx-text-fill: %s; " +
-                            "-fx-background-color: %s; " +
-                            "-fx-padding: 3 8; " +
-                            "-fx-background-radius: 4;",
-                            mutedColor, isDarkTheme ? "#2d2d2d" : "#e8e8e8"
-                        ));
+                        shortcutLabel.getStyleClass().add("overlay-shortcut-badge");
                         container.getChildren().add(shortcutLabel);
                     }
                     
                     setGraphic(container);
-                    
-                    // Hover and selection styles
-                    String baseStyle = "-fx-background-color: transparent; -fx-background-radius: 8; -fx-padding: 2;";
-                    String hoverStyle = String.format("-fx-background-color: %s; -fx-background-radius: 8; -fx-padding: 2;", hoverBg);
-                    String selectedStyle = String.format("-fx-background-color: %s; -fx-background-radius: 8; -fx-padding: 2;", accentColor);
-                    
-                    if (isSelected()) {
-                        setStyle(selectedStyle);
-                        nameLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: white;");
-                        descLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: rgba(255,255,255,0.8);");
-                        // Clear hover handlers: otherwise hovering the (white-text) selected
-                        // row would swap in the light hover background, hiding the text.
-                        setOnMouseEntered(null);
-                        setOnMouseExited(null);
-                    } else {
-                        setStyle(baseStyle);
-                        setOnMouseEntered(e -> setStyle(hoverStyle));
-                        setOnMouseExited(e -> setStyle(baseStyle));
-                    }
                 }
             }
         };

@@ -34,7 +34,7 @@ class ImportServiceTest {
         NoteDAOFileSystem noteDao = new NoteDAOFileSystem(storageDir.toString());
         FolderDAOFileSystem folderDao = new FolderDAOFileSystem(storageDir.toString());
         return new Services(
-                new NoteService(noteDao, folderDao, new TagDAOFileSystem(noteDao)),
+                new NoteService(noteDao, folderDao),
                 new FolderService(folderDao, noteDao));
     }
 

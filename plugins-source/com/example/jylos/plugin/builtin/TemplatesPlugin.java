@@ -370,7 +370,7 @@ public class TemplatesPlugin implements Plugin {
                 return null;
             });
             
-            dialog.showAndWait().ifPresent(this::createFromTemplate);
+            com.example.jylos.ui.UiDialogs.show(dialog).ifPresent(this::createFromTemplate);
         });
     }
     
@@ -416,7 +416,7 @@ public class TemplatesPlugin implements Plugin {
                 return null;
             });
             
-            dialog.showAndWait().ifPresent(title -> {
+            com.example.jylos.ui.UiDialogs.show(dialog).ifPresent(title -> {
                 if (title != null && !title.trim().isEmpty()) {
                     createNote(title.trim(), template);
                 }

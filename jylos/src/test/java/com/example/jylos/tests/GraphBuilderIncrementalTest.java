@@ -49,8 +49,7 @@ class GraphBuilderIncrementalTest {
         Files.writeString(vault.resolve("C.md"), "# C\n", StandardCharsets.UTF_8);
 
         NoteDAOFileSystem noteDao = new NoteDAOFileSystem(vault.toString());
-        NoteService noteSvc = new NoteService(noteDao, new FolderDAOFileSystem(vault.toString()),
-                new TagDAOFileSystem(noteDao));
+        NoteService noteSvc = new NoteService(noteDao, new FolderDAOFileSystem(vault.toString()));
         TagService tagSvc = new TagService(new TagDAOFileSystem(noteDao), noteDao);
         GraphBuilder graph = new GraphBuilder(noteSvc, tagSvc);
 
@@ -82,8 +81,7 @@ class GraphBuilderIncrementalTest {
         Files.writeString(vault.resolve("B.md"), "# B\n", StandardCharsets.UTF_8);
 
         NoteDAOFileSystem noteDao = new NoteDAOFileSystem(vault.toString());
-        NoteService noteSvc = new NoteService(noteDao, new FolderDAOFileSystem(vault.toString()),
-                new TagDAOFileSystem(noteDao));
+        NoteService noteSvc = new NoteService(noteDao, new FolderDAOFileSystem(vault.toString()));
         TagService tagSvc = new TagService(new TagDAOFileSystem(noteDao), noteDao);
         GraphBuilder graph = new GraphBuilder(noteSvc, tagSvc);
 

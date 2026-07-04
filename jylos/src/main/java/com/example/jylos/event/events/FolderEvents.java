@@ -16,22 +16,6 @@ public final class FolderEvents {
     }
 
     /**
-     * Event fired when a folder is selected.
-     */
-    public static class FolderSelectedEvent extends AppEvent {
-        private final Folder folder;
-
-        public FolderSelectedEvent(Folder folder) {
-            super("FolderTree");
-            this.folder = folder;
-        }
-
-        public Folder getFolder() {
-            return folder;
-        }
-    }
-
-    /**
      * Event fired when a folder is created.
      */
     public static class FolderCreatedEvent extends AppEvent {

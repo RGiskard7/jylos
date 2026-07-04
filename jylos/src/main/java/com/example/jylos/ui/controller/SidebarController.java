@@ -16,26 +16,27 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.prefs.Preferences;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.function.Consumer;
 import org.kordamp.ikonli.javafx.FontIcon;
 
-import com.example.jylos.config.AppContext;
 import com.example.jylos.config.LoggerConfig;
-import com.example.jylos.data.dao.interfaces.FolderDAO;
-import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.data.models.interfaces.Component;
 import com.example.jylos.event.AppEvent;
 import com.example.jylos.event.EventBus;
-import com.example.jylos.event.events.*;
+import com.example.jylos.event.events.FolderEvents;
+import com.example.jylos.event.events.NoteEvents;
+import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
 
 /**
  * Sidebar: folders, tags, recent, favorites, and trash.
- * Publishes selection events consumed by {@link MainController}.
+ * Uses explicit callbacks for single-owner selections and typed events where fan-out
+ * or cross-feature coordination is useful.
  */
 public class SidebarController {
 
@@ -123,10 +124,18 @@ public class SidebarController {
     private NoteService noteService;
     private FolderService folderService;
     private TagService tagService;
-    private FolderDAO folderDAO;
-    private NoteDAO noteDAO;
     private EventBus eventBus;
     private ResourceBundle bundle;
+    private Consumer<Folder> folderSelectionAction = folder -> {
+    };
+    private Consumer<Tag> tagSelectionAction = tag -> {
+    };
+    private Consumer<Component> trashSelectionAction = component -> {
+    };
+    private Consumer<Note> openNoteAction = note -> {
+    };
+    private Consumer<String> statusUpdateAction = message -> {
+    };
     private final List<EventBus.Subscription> eventSubscriptions = new ArrayList<>();
     private final PauseTransition foldersFilterDebounce = new PauseTransition(Duration.millis(180));
     private final PauseTransition trashFilterDebounce = new PauseTransition(Duration.millis(180));
@@ -175,65 +184,58 @@ public class SidebarController {
     }
 
     // Setters for MainController
-    public void setEventBus(EventBus eb) {
-        this.eventBus = eb;
-        registerEventSubscriptions();
+    public void wire(EventBus eventBus, NoteService noteService, TagService tagService,
+            FolderService folderService, ResourceBundle bundle,
+            Consumer<Folder> folderSelectionAction, Consumer<Tag> tagSelectionAction,
+            Consumer<Component> trashSelectionAction, Consumer<Note> openNoteAction,
+            Consumer<String> statusUpdateAction) {
+        setNoteService(noteService);
+        setTagService(tagService);
+        setFolderService(folderService);
+        setBundle(bundle);
+        this.folderSelectionAction = folderSelectionAction != null ? folderSelectionAction : folder -> {
+        };
+        this.tagSelectionAction = tagSelectionAction != null ? tagSelectionAction : tag -> {
+        };
+        this.trashSelectionAction = trashSelectionAction != null ? trashSelectionAction : component -> {
+        };
+        this.openNoteAction = openNoteAction != null ? openNoteAction : note -> {
+        };
+        this.statusUpdateAction = statusUpdateAction != null ? statusUpdateAction : message -> {
+        };
+        setEventBus(eventBus);
     }
 
-    public void setNoteService(NoteService ns) {
+    private void setEventBus(EventBus eb) {
+        eventSubscriptions.forEach(EventBus.Subscription::cancel);
+        eventSubscriptions.clear();
+        this.eventBus = eb;
+        if (this.eventBus != null) {
+            registerEventSubscriptions();
+        }
+    }
+
+    private void setNoteService(NoteService ns) {
         this.noteService = ns;
     }
 
-    public void setTagService(TagService ts) {
+    private void setTagService(TagService ts) {
         this.tagService = ts;
     }
 
-    public void setFolderService(FolderService fs) {
+    private void setFolderService(FolderService fs) {
         this.folderService = fs;
     }
 
-    public void setBundle(ResourceBundle b) {
+    private void setBundle(ResourceBundle b) {
         this.bundle = b;
         refreshLocalizedRootLabels();
         refreshLocalizedMenus();
         applySidebarTabPresentation();
     }
 
-    public void setFolderDAO(FolderDAO fd) {
-        this.folderDAO = fd;
-    }
-
-    public void setNoteDAO(NoteDAO nd) {
-        this.noteDAO = nd;
-    }
-
     @FXML
     public void initialize() {
-        // Auto-populate from AppContext if setters were not called yet.
-        if (AppContext.isInitialized()) {
-            if (eventBus == null) {
-                eventBus = AppContext.getEventBus();
-            }
-            if (noteService == null) {
-                noteService = AppContext.getNoteService();
-            }
-            if (tagService == null) {
-                tagService = AppContext.getTagService();
-            }
-            if (folderService == null) {
-                folderService = AppContext.getFolderService();
-            }
-            if (folderDAO == null) {
-                folderDAO = AppContext.getFolderDAO();
-            }
-            if (noteDAO == null) {
-                noteDAO = AppContext.getNoteDAO();
-            }
-            if (bundle == null) {
-                bundle = AppContext.getBundle();
-            }
-        }
-
         // Core initialization of tree structures (invisible roots)
         initializeFolderTree();
         initializeTrashTree();
@@ -253,9 +255,9 @@ public class SidebarController {
             if (newVal != null && newVal.getValue() != null) {
                 Folder f = newVal.getValue();
                 if ("ALL_NOTES_VIRTUAL".equals(f.getId())) {
-                    publishEvent(new FolderEvents.FolderSelectedEvent(f));
+                    folderSelectionAction.accept(f);
                 } else if (!"INVISIBLE_ROOT".equals(f.getTitle())) {
-                    publishEvent(new FolderEvents.FolderSelectedEvent(f));
+                    folderSelectionAction.accept(f);
                 }
             }
         });
@@ -264,7 +266,7 @@ public class SidebarController {
             if (newVal != null) {
                 Tag selected = tagsByTitleCache.get(newVal);
                 if (selected != null) {
-                    publishEvent(new TagEvents.TagSelectedEvent(selected));
+                    tagSelectionAction.accept(selected);
                 }
             }
         });
@@ -272,7 +274,7 @@ public class SidebarController {
         recentNotesListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
                 cachedRecentNotes.stream().filter(n -> n.getTitle().equals(newVal)).findFirst().ifPresent(n -> {
-                    publishEvent(new NoteEvents.NoteOpenRequestEvent(n));
+                    openNoteAction.accept(n);
                 });
             }
         });
@@ -280,14 +282,14 @@ public class SidebarController {
         favoritesListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
                 cachedFavoriteNotes.stream().filter(n -> n.getTitle().equals(newVal)).findFirst().ifPresent(n -> {
-                    publishEvent(new NoteEvents.NoteOpenRequestEvent(n));
+                    openNoteAction.accept(n);
                 });
             }
         });
 
         trashTreeView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null && newVal.getValue() != null) {
-                publishEvent(new NoteEvents.TrashItemSelectedEvent(newVal.getValue()));
+                trashSelectionAction.accept(newVal.getValue());
             }
         });
 
@@ -325,7 +327,7 @@ public class SidebarController {
         // Vault Root Folder logic literal
         String vaultName = "My Vault";
         try {
-            Preferences prefs = Preferences.userNodeForPackage(MainController.class);
+            Preferences prefs = Preferences.userNodeForPackage(SidebarController.class);
             String path = prefs.get("filesystem_path", "");
             if (!path.isEmpty()) {
                 File f = new File(path);
@@ -352,7 +354,7 @@ public class SidebarController {
         }
         if (vaultRootItem != null && vaultRootItem.getValue() != null) {
             try {
-                Preferences prefs = Preferences.userNodeForPackage(MainController.class);
+                Preferences prefs = Preferences.userNodeForPackage(SidebarController.class);
                 if ("sqlite".equals(prefs.get("storage_type", "sqlite"))) {
                     vaultRootItem.getValue().setTitle(getString("app.my_notes"));
                 }
@@ -668,6 +670,12 @@ public class SidebarController {
             requestTrashReload();
             requestFoldersReload();
         }));
+    }
+
+    public void teardown() {
+        eventSubscriptions.forEach(EventBus.Subscription::cancel);
+        eventSubscriptions.clear();
+        sidebarLoadExecutor.shutdownNow();
     }
 
     private void setupFilteredList(ListView<String> listView, javafx.collections.ObservableList<String> masterList,
@@ -1214,7 +1222,7 @@ public class SidebarController {
         alert.setHeaderText(getString("dialog.empty_trash.header"));
         alert.setContentText(getString("dialog.empty_trash.content"));
         alert.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
-        alert.showAndWait().filter(r -> r == ButtonType.OK).ifPresent(r -> {
+        com.example.jylos.ui.UiDialogs.show(alert).filter(r -> r == ButtonType.OK).ifPresent(r -> {
             try {
                 for (Note n : noteService.getTrashNotes())
                     noteService.permanentlyDeleteNote(n.getId());
@@ -1245,10 +1253,6 @@ public class SidebarController {
                     folderService.restoreFolder(c.getId());
                 else if (c instanceof Note)
                     noteService.restoreNote(c.getId());
-                if (folderDAO != null)
-                    folderDAO.refreshCache();
-                if (noteDAO != null)
-                    noteDAO.refreshCache();
                 loadFolders();
                 loadTrashTree();
                 publishStatusUpdate(getString("status.item_restored"));
@@ -1272,7 +1276,7 @@ public class SidebarController {
             a.setHeaderText(java.text.MessageFormat.format(getString("dialog.delete_permanently.header"), c.getTitle()));
             a.setContentText(getString("dialog.delete_permanently.content"));
             a.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
-            if (a.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
+            if (com.example.jylos.ui.UiDialogs.show(a).orElse(ButtonType.CANCEL) == ButtonType.OK) {
                 try {
                     if (c instanceof Folder)
                         folderService.permanentlyDeleteFolder(c.getId());
@@ -1327,7 +1331,7 @@ public class SidebarController {
         if (eventBus == null || folder == null) {
             return;
         }
-        eventBus.publish(new FolderEvents.FolderSelectedEvent(folder));
+        folderSelectionAction.accept(folder);
         eventBus.publish(new SystemActionEvent(SystemActionEvent.ActionType.NEW_NOTE));
     }
 
@@ -1335,7 +1339,7 @@ public class SidebarController {
         if (eventBus == null || folder == null) {
             return;
         }
-        eventBus.publish(new FolderEvents.FolderSelectedEvent(folder));
+        folderSelectionAction.accept(folder);
         eventBus.publish(new SystemActionEvent(SystemActionEvent.ActionType.NEW_FOLDER));
     }
 
@@ -1346,7 +1350,7 @@ public class SidebarController {
             return;
         }
         TextInputDialog d = new TextInputDialog(f.getTitle());
-        d.showAndWait().ifPresent(name -> {
+        com.example.jylos.ui.UiDialogs.show(d).ifPresent(name -> {
             try {
                 folderService.renameFolder(f, name);
                 loadFolders();
@@ -1368,7 +1372,7 @@ public class SidebarController {
         a.setHeaderText(getString("dialog.delete_folder.header"));
         a.setContentText(getString("dialog.delete_folder.content"));
         a.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
-        a.showAndWait().filter(r -> r == ButtonType.OK).ifPresent(r -> {
+        com.example.jylos.ui.UiDialogs.show(a).filter(r -> r == ButtonType.OK).ifPresent(r -> {
             try {
                 folderService.deleteFolder(f.getId());
                 loadFolders();
@@ -1399,7 +1403,7 @@ public class SidebarController {
         a.setHeaderText(getString("dialog.delete_tag.header"));
         a.setContentText(java.text.MessageFormat.format(getString("dialog.delete_tag.content"), tagName));
         a.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
-        a.showAndWait().filter(r -> r == ButtonType.OK).ifPresent(r -> {
+        com.example.jylos.ui.UiDialogs.show(a).filter(r -> r == ButtonType.OK).ifPresent(r -> {
             Optional.ofNullable(tagsByTitleCache.get(tagName)).ifPresent(t -> {
                 try {
                     tagService.deleteTag(t.getId());
@@ -1504,8 +1508,9 @@ public class SidebarController {
     }
 
     private void publishStatusUpdate(String m) {
-        if (eventBus != null)
-            eventBus.publish(new UIEvents.StatusUpdateEvent(m));
+        if (m != null && !m.isBlank()) {
+            statusUpdateAction.accept(m);
+        }
     }
 
     private void publishEvent(AppEvent event) {

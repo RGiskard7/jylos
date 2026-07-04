@@ -3,12 +3,10 @@ package com.example.jylos.ui.controller;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
-import com.example.jylos.config.AppContext;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
-import com.example.jylos.event.events.UIEvents;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
@@ -31,11 +29,13 @@ import javafx.scene.input.TransferMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -60,11 +60,22 @@ public class NotesListController {
     private static final Logger logger = LoggerConfig.getLogger(NotesListController.class);
 
     private EventBus eventBus;
+    private final List<EventBus.Subscription> subscriptions = new ArrayList<>();
     private NoteService noteService;
     private TagService tagService;
     private FolderService folderService;
     private com.example.jylos.search.AdvancedSearchService advancedSearch;
     private ResourceBundle bundle;
+    private Consumer<Note> noteSelectionAction = note -> {
+    };
+    private Consumer<Note> noteExportAction = note -> {
+    };
+    private Consumer<Note> notePrivacyToggleAction = note -> {
+    };
+    private BiConsumer<List<Note>, String> notesLoadedAction = (notes, message) -> {
+    };
+    private Consumer<String> statusUpdateAction = message -> {
+    };
 
     /** Initial content of a freshly created {@code .canvas} file (empty JSON Canvas). */
     private static final String EMPTY_CANVAS_JSON = "{\n\t\"nodes\":[],\n\t\"edges\":[]\n}";
@@ -74,6 +85,8 @@ public class NotesListController {
     private Tag currentTag;
     /** Guards the selection listener while a refresh restores the prior note selection. */
     private boolean restoringNotesSelection = false;
+    /** Note ID to select after the next async list refresh; consumed once. */
+    private volatile String pendingSelectNoteId = null;
     private final ExecutorService notesLoadExecutor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "jylos-notes-loader");
         t.setDaemon(true);
@@ -103,15 +116,15 @@ public class NotesListController {
 
     @FXML
     public void initialize() {
-        // Publish event when a note is selected
+        // Forward note selection to the owner explicitly; this no longer uses EventBus.
         notesListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             // Suppressed while re-selecting the same note after a list refresh, so the
             // editor is not reloaded (which would discard the cursor / unsaved edits).
             if (restoringNotesSelection) {
                 return;
             }
-            if (newVal != null && eventBus != null) {
-                eventBus.publish(new NoteEvents.NoteSelectedEvent(newVal));
+            if (newVal != null) {
+                noteSelectionAction.accept(newVal);
             }
         });
 
@@ -290,8 +303,8 @@ public class NotesListController {
 
                 openItem.setOnAction(e -> {
                     Note note = getItem();
-                    if (note != null && eventBus != null) {
-                        eventBus.publish(new NoteEvents.NoteSelectedEvent(note));
+                    if (note != null) {
+                        noteSelectionAction.accept(note);
                     }
                 });
                 favoriteItem.setOnAction(e -> {
@@ -302,8 +315,8 @@ public class NotesListController {
                 });
                 privateItem.setOnAction(e -> {
                     Note note = getItem();
-                    if (note != null && eventBus != null) {
-                        eventBus.publish(new NoteEvents.PrivacyToggleRequestEvent(note));
+                    if (note != null) {
+                        notePrivacyToggleAction.accept(note);
                     }
                 });
                 revealItem.setOnAction(e -> {
@@ -316,8 +329,8 @@ public class NotesListController {
                 revealItem.setVisible(isFileSystemStorage());
                 exportItem.setOnAction(e -> {
                     Note note = getItem();
-                    if (note != null && eventBus != null) {
-                        eventBus.publish(new NoteEvents.NoteExportRequestEvent(note));
+                    if (note != null) {
+                        noteExportAction.accept(note);
                     }
                 });
                 deleteItem.setOnAction(e -> {
@@ -580,7 +593,7 @@ public class NotesListController {
             noteService.updateNote(note);
             notesListView.refresh();
             if (eventBus != null) {
-                // NoteSavedEvent (not NoteModifiedEvent): the favorite flag is persisted,
+                // NoteSavedEvent: the favorite flag is persisted,
                 // and the sidebar Recent/Favorites panels listen to Saved — so favoriting
                 // from the list refreshes the Favorites panel live, like the editor button.
                 eventBus.publish(new NoteEvents.NoteSavedEvent(note));
@@ -598,17 +611,40 @@ public class NotesListController {
         return folder != null && "ALL_NOTES_VIRTUAL".equals(folder.getId());
     }
 
-    public void setEventBus(EventBus eventBus) {
-        this.eventBus = eventBus != null ? eventBus
-                : (AppContext.isInitialized() ? AppContext.getEventBus() : null);
+    private void setEventBus(EventBus eventBus) {
+        subscriptions.forEach(EventBus.Subscription::cancel);
+        subscriptions.clear();
+        this.eventBus = eventBus;
         subscribeToEvents();
+    }
+
+    public void wire(EventBus eventBus, NoteService noteService, TagService tagService,
+            FolderService folderService, ResourceBundle bundle,
+            Consumer<Note> noteSelectionAction,
+            Consumer<Note> noteExportAction,
+            Consumer<Note> notePrivacyToggleAction,
+            BiConsumer<List<Note>, String> notesLoadedAction,
+            Consumer<String> statusUpdateAction) {
+        setServices(noteService, tagService, folderService);
+        setBundle(bundle);
+        this.noteSelectionAction = noteSelectionAction != null ? noteSelectionAction : note -> {
+        };
+        this.noteExportAction = noteExportAction != null ? noteExportAction : note -> {
+        };
+        this.notePrivacyToggleAction = notePrivacyToggleAction != null ? notePrivacyToggleAction : note -> {
+        };
+        this.notesLoadedAction = notesLoadedAction != null ? notesLoadedAction : (notes, message) -> {
+        };
+        this.statusUpdateAction = statusUpdateAction != null ? statusUpdateAction : message -> {
+        };
+        setEventBus(eventBus);
     }
 
     private void subscribeToEvents() {
         if (eventBus == null)
             return;
 
-        eventBus.subscribe(SystemActionEvent.class, event -> {
+        subscriptions.add(eventBus.subscribe(SystemActionEvent.class, event -> {
             javafx.application.Platform.runLater(() -> {
                 if (event.getActionType() == SystemActionEvent.ActionType.NEW_NOTE) {
                     handleNewNote(null);
@@ -618,27 +654,30 @@ public class NotesListController {
                     handleDelete(null);
                 }
             });
-        });
-        eventBus.subscribe(NoteEvents.NoteCreatedEvent.class, event -> markAllNotesSearchCacheDirty());
-        eventBus.subscribe(NoteEvents.NoteSavedEvent.class, event -> markAllNotesSearchCacheDirty());
-        eventBus.subscribe(NoteEvents.NoteDeletedEvent.class, event -> markAllNotesSearchCacheDirty());
-        eventBus.subscribe(NoteEvents.TrashItemDeletedEvent.class, event -> markAllNotesSearchCacheDirty());
+        }));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteCreatedEvent.class, event -> markAllNotesSearchCacheDirty()));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class, event -> markAllNotesSearchCacheDirty()));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteDeletedEvent.class, event -> markAllNotesSearchCacheDirty()));
+        subscriptions.add(eventBus.subscribe(NoteEvents.TrashItemDeletedEvent.class, event -> markAllNotesSearchCacheDirty()));
     }
 
-    public void setServices(NoteService noteService, TagService tagService, FolderService folderService) {
-        this.noteService = noteService != null ? noteService
-                : (AppContext.isInitialized() ? AppContext.getNoteService() : null);
-        this.tagService = tagService != null ? tagService
-                : (AppContext.isInitialized() ? AppContext.getTagService() : null);
-        this.folderService = folderService != null ? folderService
-                : (AppContext.isInitialized() ? AppContext.getFolderService() : null);
+    public void teardown() {
+        subscriptions.forEach(EventBus.Subscription::cancel);
+        subscriptions.clear();
+        notesLoadExecutor.shutdownNow();
+    }
+
+    private void setServices(NoteService noteService, TagService tagService, FolderService folderService) {
+        this.noteService = noteService;
+        this.tagService = tagService;
+        this.folderService = folderService;
         this.advancedSearch = this.noteService != null && this.tagService != null
                 ? new com.example.jylos.search.AdvancedSearchService(this.noteService, this.tagService)
                 : null;
     }
 
-    public void setBundle(ResourceBundle bundle) {
-        this.bundle = bundle != null ? bundle : AppContext.getBundle();
+    private void setBundle(ResourceBundle bundle) {
+        this.bundle = bundle;
     }
 
     public VBox getNotesPanel() {
@@ -906,21 +945,65 @@ public class NotesListController {
     }
 
     /**
+     * Requests that the note with the given ID be selected after the next async refresh.
+     * Consumed once by {@link #applyNotesPreservingSelection}.
+     */
+    void requestSelectAfterRefresh(String noteId) {
+        this.pendingSelectNoteId = noteId;
+    }
+
+    /**
+     * Applies a saved note to the currently rendered list without forcing a full reload.
+     * This keeps the selected row coherent when a filesystem rename changes the note id.
+     */
+    void handleSavedNote(Note saved, String previousNoteId) {
+        if (saved == null || notesListView == null) {
+            return;
+        }
+        List<Note> items = notesListView.getItems();
+        for (int i = 0; i < items.size(); i++) {
+            Note item = items.get(i);
+            if (item == null) {
+                continue;
+            }
+            if (Objects.equals(item.getId(), saved.getId()) || Objects.equals(item.getId(), previousNoteId)) {
+                boolean selected = notesListView.getSelectionModel().getSelectedIndex() == i;
+                notesListView.getItems().set(i, saved);
+                if (selected) {
+                    restoringNotesSelection = true;
+                    try {
+                        notesListView.getSelectionModel().select(i);
+                    } finally {
+                        restoringNotesSelection = false;
+                    }
+                }
+                notesListView.refresh();
+                return;
+            }
+        }
+    }
+
+    /**
      * Replaces the list items, preserving the selected note and scroll position when
      * that note is still present (a refresh of the same view). On navigation to a
      * different folder/tag the previous note is absent, so the selection simply clears.
      * Re-selection is guarded so it does not republish a note-open event.
      */
     private void applyNotesPreservingSelection(List<Note> notes) {
+        String pending = pendingSelectNoteId;
+        pendingSelectNoteId = null;
+
         Note selected = notesListView.getSelectionModel().getSelectedItem();
-        String selectedId = selected != null ? selected.getId() : null;
+        String targetId = pending != null ? pending
+                : (selected != null ? selected.getId() : null);
+
         notesListView.getItems().setAll(notes);
-        if (selectedId == null) {
+        if (targetId == null) {
             return;
         }
         for (int i = 0; i < notes.size(); i++) {
             Note n = notes.get(i);
-            if (n != null && selectedId.equals(n.getId())) {
+            if (n != null && targetId.equals(n.getId())) {
                 restoringNotesSelection = true;
                 try {
                     notesListView.getSelectionModel().select(i);
@@ -954,9 +1037,7 @@ public class NotesListController {
     }
 
     private void publishNotesLoadedEvent(List<Note> notes, String message) {
-        if (eventBus != null) {
-            eventBus.publish(new NoteEvents.NotesLoadedEvent(notes, message));
-        }
+        notesLoadedAction.accept(notes != null ? List.copyOf(notes) : List.of(), message);
     }
 
     @FXML
@@ -1093,8 +1174,8 @@ public class NotesListController {
     }
 
     private void publishStatusUpdate(String message) {
-        if (eventBus != null) {
-            eventBus.publish(new UIEvents.StatusUpdateEvent(message));
+        if (message != null && !message.isBlank()) {
+            statusUpdateAction.accept(message);
         }
     }
 
@@ -1172,7 +1253,7 @@ public class NotesListController {
         alert.setHeaderText(getString("dialog.delete_note.header"));
         alert.setContentText(getString("dialog.delete_note.content"));
 
-        Optional<ButtonType> result = alert.showAndWait();
+        Optional<ButtonType> result = com.example.jylos.ui.UiDialogs.show(alert);
         if (result.isPresent() && result.get() == ButtonType.OK) {
             try {
                 noteService.moveToTrash(note.getId());

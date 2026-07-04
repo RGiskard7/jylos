@@ -2,7 +2,7 @@
 
 Each theme is a folder with `theme.properties` and `theme.css`.
 
-By default the app loads **only** your CSS. Set `base=dark` or `base=light` in `theme.properties` to stack the built-in stylesheet underneath (recommended for full UI coverage — graph, git panel, plugin manager, etc.). **Retro Phosphor** uses `base=dark` plus a green overlay in `theme.css`.
+By default the app loads **only** your CSS. Set `base=dark` or `base=light` in `theme.properties` to stack the built-in stylesheet underneath (recommended for full UI coverage — graph, git panel, command palette, quick switcher, themed dialogs, plugin manager, etc.). **Retro Phosphor** uses `base=dark` plus a green overlay in `theme.css`.
 
 Spanish notes below; see also [README.md](../README.md) (Configuration → Themes).
 

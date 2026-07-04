@@ -12,7 +12,7 @@
 <div align="center">
 
 [![Licencia: MIT](https://img.shields.io/badge/Licencia-MIT-yellow.svg)](LICENSE)
-[![Versión](https://img.shields.io/badge/versión-2.2.0-success.svg)](changelog.md)
+[![Versión](https://img.shields.io/badge/versión-2.3.0-success.svg)](changelog.md)
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/)
 [![JavaFX](https://img.shields.io/badge/JavaFX-23-blue.svg)](https://openjfx.io/)
 [![SQLite](https://img.shields.io/badge/SQLite-3-lightgrey.svg)](https://www.sqlite.org/)
@@ -33,6 +33,11 @@ Los paquetes precompilados para las principales plataformas están disponibles e
 - **macOS** — DMG
 - **Linux** — DEB/RPM (vía `jpackage`)
 - **Cualquier plataforma** — uber-JAR (requiere Java 21 + JavaFX 23 en `PATH`)
+- **Vía [JBang](https://www.jbang.dev/)** — un solo comando, sin compilar:
+  ```bash
+  jbang jylos@RGiskard7/jylos
+  ```
+  JBang descarga automáticamente Java 21 y los módulos JavaFX si hacen falta.
 
 ## Índice
 
@@ -70,6 +75,7 @@ Los paquetes precompilados para las principales plataformas están disponibles e
     - [Almacenamiento](#almacenamiento)
     - [Iconos de la aplicación](#iconos-de-la-aplicación)
     - [Temas](#temas)
+    - [Snippets CSS](#snippets-css)
     - [Plugins](#plugins)
   - [Documentación](#documentación)
   - [Resolución de Problemas](#resolución-de-problemas)
@@ -140,7 +146,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 ### Tablero Kanban
 
 - Un tablero es una nota normal cuyo cuerpo Markdown contiene columnas (`## Encabezado`) y tarjetas de texto (`- tarjeta`), al estilo del plugin Kanban de Obsidian
-- Abrir con **Ver → Tablero Kanban** o **`Ctrl/Cmd+Shift+K`**; elige o crea tableros desde la barra
+- Abrir con **Ver → Tablero Kanban** o **`Ctrl/Cmd+K`**; elige o crea tableros desde la barra
 - Añadir/renombrar/borrar columnas, crear/editar/borrar tarjetas y **arrastrar tarjetas entre columnas**
 - Una tarjeta puede enlazar a una nota (`[[Título]]`) o **convertirse en nota**
 - **Límites WIP** por columna (`[wip=N]`, el contador se pone rojo al superarse) y **colores** (`[color=#rrggbb]`) — ambos guardados en la línea de encabezado, configurables desde el menú de columna
@@ -157,7 +163,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 ### Grafo de conocimiento
 
 - Overlay a pantalla completa: **Ver → Vista de Grafo**, botón en barra o **`Ctrl+G`** / paleta de comandos
-- **Grafo global**: todas las notas y aristas por wiki-links; nodos de **etiquetas** opcionales
+- **Grafo global**: todas las notas y aristas resueltas por wiki-links; nodos de **etiquetas** opcionales y aristas nota→etiqueta
 - **Grafo local**: nota actual y vecinos a N saltos
 - Simulación de fuerzas en **Canvas JavaFX** (repulsión Barnes–Hut, muelles, enfriamiento de alpha — en reposo no consume CPU)
 - Zoom/pan, arrastrar nodos, hover resalta vecinos, **clic en nota para abrirla**
@@ -165,12 +171,12 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 ### Bóveda, Git y adjuntos (modo filesystem)
 
-- Bóveda Markdown; PDF e imágenes con visores integrados
+- Bóveda Markdown con layout opcional por carpetas; los archivos no-`.md` (PDF, imágenes) se abren con visores integrados
 - **Git** si la bóveda es un repositorio: estado, preparar/despreparar, commit con mensaje y sincronización push/pull — todo en el **panel Git Sync** unificado (menú **Git**)
 
 ### Productividad
 
-- **Backlinks** en el panel derecho (enlaces entrantes)
+- **Backlinks** en el panel derecho (wiki-links entrantes y enlaces Markdown internos)
 - **Nota diaria** y **nueva nota desde plantilla** (`{{title}}`, `{{date}}`, …)
 - Exportación por nota y **exportación masiva** de la bóveda a HTML/PDF
 - Importar/exportar notas individuales
@@ -191,21 +197,17 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 - Plugins JAR en `jylos/plugins/` (`scripts/build-plugins.sh`; bytecode **Java 21**)
 - Gestor de plugins con IDs estables y carga/deshabilitado seguro
-- API de plugins: paleta de comandos, menús, paneles laterales, enhancers del preview, **botones de toolbar** y **hooks del editor** (`onBeforeTextInsert` / `onBeforeSave` / `onAfterSave`) — ver [doc/PLUGINS.md](doc/PLUGINS.md)
+- API de plugins: paleta de comandos, menús, paneles laterales, enhancers del preview, **botones de toolbar** y **hooks del editor** (`onBeforeTextInsert` / `onBeforeSave` / `onAfterSave`) — ver [docs/PLUGINS.md](docs/PLUGINS.md)
 - **Mermaid** integrado en preview (fuente en `plugins-source/`)
 - Catálogo de temas externos con fallback seguro
 
 ## Capturas
 
 <div align="center">
-  <img src="resources/images/interfaz-1.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-2.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-3.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-4.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-5.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-6.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-7.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-16.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-17.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-18.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-21.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-22.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-8.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-9.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-10.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
@@ -214,7 +216,6 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
   <img src="resources/images/interfaz-13.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-14.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-15.png" alt="" style="width: 100%; max-width: 100%; display: block;">
-
 </div>
 
 ## Stack Tecnológico
@@ -252,7 +253,7 @@ cd jylos
 
 ### 2) Compilar
 
-Desde la raíz del repositorio (genera `jylos/target/jylos-2.2.0-uber.jar`):
+Desde la raíz del repositorio (genera `jylos/target/jylos-2.3.0-uber.jar`):
 
 ```bash
 ./scripts/build_all.sh
@@ -270,7 +271,13 @@ mvn -f jylos/pom.xml clean package -DskipTests
 
 ### 3) Ejecutar
 
-Usa un launcher (configura `--module-path` de JavaFX). Requiere el uber-JAR del paso 2:
+**Opción A — JBang (sin compilar):**
+
+```bash
+jbang jylos@RGiskard7/jylos
+```
+
+**Opción B — Launcher** (configura el `--module-path` de JavaFX; requiere el uber-JAR del paso 2):
 
 ```bash
 ./scripts/launch-jylos.sh
@@ -347,7 +354,7 @@ Cada script `package-*` compila el uber-JAR, opcionalmente `build-plugins.sh`, y
 
 | Plataforma | Comando | Salida típica |
 |---|---|---|
-| macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-2.2.0.dmg` |
+| macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-2.3.0.dmg` |
 | Linux (deb/rpm) | `./scripts/package-linux.sh` | `jylos/target/installers/` |
 | Windows portable (app-image) | `.\scripts\package-windows.ps1` | `jylos\target\installers\Jylos\` |
 | Windows instalador .exe (WiX) | `.\scripts\package-windows-exe.ps1` | `jylos\target\installers\Jylos-<versión>.exe` |
@@ -362,7 +369,7 @@ Cada script `package-*` compila el uber-JAR, opcionalmente `build-plugins.sh`, y
 .\scripts\package-windows.ps1
 ```
 
-Iconos: ventana y diálogo Acerca de usan `jylos/src/main/resources/icons/app-icon.png`; instaladores usan `icon.{icns,ico,png}` (`app.properties` y [jylos/src/main/resources/icons/README.md](jylos/src/main/resources/icons/README.md)). Detalle: [doc/PACKAGING.md](doc/PACKAGING.md).
+Iconos: ventana y diálogo Acerca de usan `jylos/src/main/resources/icons/app-icon.png`; instaladores usan `icon.{icns,ico,png}` (`app.properties` y [jylos/src/main/resources/icons/README.md](jylos/src/main/resources/icons/README.md)). Detalle: [docs/PACKAGING.md](docs/PACKAGING.md).
 
 ### Ejecución Maven (desarrollo)
 
@@ -387,19 +394,24 @@ Raíz del repositorio (contiene el módulo Maven `jylos/` y `scripts/`):
 ├── jylos/                              # módulo Maven (aplicación)
 │   ├── pom.xml
 │   ├── src/main/java/com/example/jylos/
-│   │   ├── config/                     # AppContext, LoggerConfig
+│   │   ├── config/                     # LoggerConfig
 │   │   ├── data/                       # modelos; DAOs (sqlite/, filesystem/)
 │   │   ├── event/                      # EventBus + eventos de dominio
 │   │   ├── exceptions/
 │   │   ├── git/                        # GitService (repositorios en bóveda)
 │   │   ├── graph/                      # GraphBuilder, GraphData, nodos/aristas
+│   │   ├── insights/                   # análisis de salud y reportes de conocimiento
 │   │   ├── plugin/                     # loader, manager, registros; mermaid/
+│   │   ├── search/                     # parser y servicio de búsqueda avanzada
 │   │   ├── service/                    # Note, Folder, Tag, Backlink, backup, …
 │   │   ├── ui/
 │   │   │   ├── controller/             # Main, Editor, Sidebar, Graph, Toolbar, …
-│   │   │   ├── components/             # CommandPalette, QuickSwitcher, FileViewer
+│   │   │   ├── components/             # CommandPalette, QuickSwitcher, diálogos Git/insights, canvas
+│   │   │   ├── preferences/            # estado persistido de preferencias UI
+│   │   │   ├── theme/                  # aplicación de temas, catálogos y snippets
 │   │   │   └── graph/                  # GraphCanvas (render del grafo)
-│   │   └── util/                       # WikiLinkResolver, MarkdownPreview, NoteExporter
+│   │   ├── util/                       # WikiLinkResolver, MarkdownPreview, NoteExporter
+│   │   └── workspace/                  # espacios de trabajo guardados
 │   ├── src/main/resources/
 │   │   ├── app.properties              # nombre, iconos, título de ventana
 │   │   ├── icons/                      # app-icon.png + icon.{ico,icns,png}
@@ -411,6 +423,7 @@ Raíz del repositorio (contiene el módulo Maven `jylos/` y `scripts/`):
 │   ├── src/test/java/com/example/jylos/
 │   ├── plugins/                        # JAR de plugins en runtime (suele ignorarse en git)
 │   ├── themes/                         # temas externos instalados
+│   ├── snippets/                       # snippets CSS del usuario sobre el tema activo
 │   ├── data/                           # BD o bóveda en runtime (gitignored)
 │   ├── logs/
 │   └── backups/
@@ -418,22 +431,22 @@ Raíz del repositorio (contiene el módulo Maven `jylos/` y `scripts/`):
 ├── themes/                             # fuentes → build-themes → jylos/themes/
 ├── resources/images/                   # banner y capturas del README
 ├── scripts/                            # build, launch, package, smoke tests
-├── doc/                                # documentación técnica (doc/README.md)
+├── docs/                                # documentación técnica (docs/README.md)
 ├── AGENTS.md
 ├── changelog.md
 ├── README.md
 └── README.es.md
 ```
 
-No forma parte de la app: `replica-grafo/` (experimento Typst/grafo opcional; ver [doc/README.md](doc/README.md)).
+No forma parte de la app: `replica-grafo/` (experimento Typst/grafo opcional; ver [docs/README.md](docs/README.md)).
 
 ## Configuración
 
 ### Almacenamiento
 
 - **SQLite** (por defecto): `jylos/data/database.db`
-- **Bóveda filesystem**: carpeta de notas `.md` con frontmatter YAML; cambio en **Herramientas → Cambiar almacenamiento** (requiere reinicio)
-- Otros directorios runtime bajo `jylos/`: `logs/`, `backups/`, `plugins/`, `themes/`
+- **Bóveda filesystem**: carpeta de notas `.md` con frontmatter YAML; cambio en **Herramientas → Cambiar almacenamiento**. Cambiar de una bóveda filesystem a otra recarga la sesión **sin reiniciar**; cambiar entre **SQLite** y **filesystem** sigue requiriendo reinicio
+- Otros directorios runtime bajo `jylos/`: `logs/`, `backups/`, `plugins/`, `themes/`, `snippets/`
 
 ### Iconos de la aplicación
 
@@ -452,7 +465,7 @@ Paquetes en `themes/<id>/` (`theme.properties` + `theme.css`). En desarrollo: `.
 
 ### Snippets CSS
 
-Coloca ficheros `.css` en la carpeta `snippets/` para retocar la interfaz sobre el tema activo (estilo Obsidian), sin crear un tema completo. Actívalos en **Preferencias → Snippets CSS**; cada snippet activo se superpone **después** del tema, así que sus reglas tienen prioridad. Usa **Abrir carpeta** en ese diálogo para llegar al directorio (`<appData>/snippets`). El nombre de un snippet debe ser un fichero `.css` simple. Hay ejemplos listos para usar y adaptables al tema (Atom One, Nord, Solarized — cada uno con variante clara y oscura) en [snippets-examples/](snippets-examples/). Los snippets pueden ramificar con la clase `theme-dark` / `theme-light` que Jylos pone en el root de la escena (estilo Obsidian).
+Coloca ficheros `.css` en la carpeta `snippets/` para retocar la interfaz sobre el tema activo (estilo Obsidian), sin crear un tema completo. Actívalos en **Preferencias → Snippets CSS**; cada snippet activo se superpone **después** del tema, así que sus reglas tienen prioridad. Usa **Abrir carpeta** en ese diálogo para llegar al directorio (`<appData>/snippets`). El nombre de un snippet debe ser un fichero `.css` simple. Hay ejemplos listos para usar y adaptables al tema (Atom One, Nord, Solarized — cada uno con variante clara y oscura) en [snippets-examples/](snippets-examples/). Los snippets pueden ramificar con la clase `theme-dark` / `theme-light` que Jylos pone en el root de la escena (estilo Obsidian), y esas mismas capas de estilo se propagan también a diálogos tematizados y overlays de comandos como la paleta y el quick switcher.
 
 ### Plugins
 
@@ -461,13 +474,18 @@ Coloca ficheros `.css` en la carpeta `snippets/` para retocar la interfaz sobre 
 
 ## Documentación
 
-- [doc/README.md](doc/README.md) — índice
-- [doc/BUILD.md](doc/BUILD.md)
-- [doc/LAUNCH_APP.md](doc/LAUNCH_APP.md)
-- [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md)
-- [doc/PLUGINS.md](doc/PLUGINS.md)
-- [doc/PACKAGING.md](doc/PACKAGING.md)
-- [doc/EVENT_BUS_CONTRACT.md](doc/EVENT_BUS_CONTRACT.md)
+- [docs/README.md](docs/README.md) — índice
+- [docs/BUILD.md](docs/BUILD.md)
+- [docs/LAUNCH_APP.md](docs/LAUNCH_APP.md)
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [docs/ARCHITECTURE_GUIDELINES.md](docs/ARCHITECTURE_GUIDELINES.md)
+- [docs/PLUGINS.md](docs/PLUGINS.md)
+- [docs/PACKAGING.md](docs/PACKAGING.md)
+- [docs/EVENT_BUS_CONTRACT.md](docs/EVENT_BUS_CONTRACT.md)
+- [docs/GIT.md](docs/GIT.md)
+- [docs/GRAPH.md](docs/GRAPH.md)
+- [docs/SEARCH.md](docs/SEARCH.md)
+- [docs/WORKSPACES.md](docs/WORKSPACES.md)
 - [AGENTS.md](AGENTS.md)
 - [changelog.md](changelog.md)
 

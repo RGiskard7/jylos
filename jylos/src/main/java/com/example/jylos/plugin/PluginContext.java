@@ -41,6 +41,7 @@ public class PluginContext {
     private final PreviewEnhancerRegistry previewEnhancerRegistry;
     private final EditorHookRegistry editorHookRegistry;
     private final ToolbarRegistry toolbarRegistry;
+    private final Consumer<Note> noteOpenAction;
     private final List<String> registeredCommandIds = new ArrayList<>();
 
     /**
@@ -57,6 +58,7 @@ public class PluginContext {
      * @param previewEnhancerRegistry The preview enhancer registry
      * @param editorHookRegistry The editor hook registry (may be null in tests)
      * @param toolbarRegistry    The toolbar button registry (may be null in tests)
+     * @param noteOpenAction     Owner callback for opening a note from plugin code
      */
     public PluginContext(
             String pluginId,
@@ -69,7 +71,8 @@ public class PluginContext {
             SidePanelRegistry sidePanelRegistry,
             PreviewEnhancerRegistry previewEnhancerRegistry,
             EditorHookRegistry editorHookRegistry,
-            ToolbarRegistry toolbarRegistry) {
+            ToolbarRegistry toolbarRegistry,
+            Consumer<Note> noteOpenAction) {
         this.pluginId = pluginId;
         this.noteService = noteService;
         this.folderService = folderService;
@@ -81,6 +84,7 @@ public class PluginContext {
         this.previewEnhancerRegistry = previewEnhancerRegistry;
         this.editorHookRegistry = editorHookRegistry;
         this.toolbarRegistry = toolbarRegistry;
+        this.noteOpenAction = noteOpenAction;
     }
 
     /**
@@ -322,9 +326,9 @@ public class PluginContext {
      * @param note The note to open
      */
     public void requestOpenNote(Note note) {
-        if (eventBus != null && note != null) {
+        if (noteOpenAction != null && note != null) {
             Platform.runLater(() -> {
-                eventBus.publish(new NoteEvents.NoteOpenRequestEvent(note));
+                noteOpenAction.accept(note);
             });
         }
     }

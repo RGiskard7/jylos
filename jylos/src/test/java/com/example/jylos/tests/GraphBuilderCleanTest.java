@@ -42,8 +42,7 @@ class GraphBuilderCleanTest {
         Files.writeString(vault.resolve("folder/Note C.md"), "# Note C\n", StandardCharsets.UTF_8);
 
         NoteDAOFileSystem noteDao = new NoteDAOFileSystem(vault.toString());
-        NoteService noteSvc = new NoteService(noteDao, new FolderDAOFileSystem(vault.toString()),
-                new TagDAOFileSystem(noteDao));
+        NoteService noteSvc = new NoteService(noteDao, new FolderDAOFileSystem(vault.toString()));
         TagService tagSvc = new TagService(new TagDAOFileSystem(noteDao), noteDao);
         GraphBuilder graph = new GraphBuilder(noteSvc, tagSvc);
 

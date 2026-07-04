@@ -206,6 +206,49 @@ public final class EditorTabs {
         }
     }
 
+    /**
+     * Rebinds a tab from {@code oldId} to {@code newId}, preserving its visual order and
+     * active state. Used when a filesystem-backed note is renamed and its path-based id changes.
+     */
+    public void rebindId(String oldId, String newId, String title) {
+        if (oldId == null || newId == null) {
+            return;
+        }
+        if (oldId.equals(newId)) {
+            setTitle(newId, title);
+            return;
+        }
+
+        TabNode node = tabs.get(oldId);
+        if (node == null) {
+            setTitle(newId, title);
+            return;
+        }
+        if (tabs.containsKey(newId)) {
+            removeTab(oldId);
+            setTitle(newId, title);
+            return;
+        }
+
+        node.noteId = newId;
+        node.title.setText(displayTitle(title));
+
+        Map<String, TabNode> rebound = new LinkedHashMap<>();
+        for (Map.Entry<String, TabNode> entry : tabs.entrySet()) {
+            if (entry.getKey().equals(oldId)) {
+                rebound.put(newId, node);
+            } else {
+                rebound.put(entry.getKey(), entry.getValue());
+            }
+        }
+        tabs.clear();
+        tabs.putAll(rebound);
+
+        if (oldId.equals(activeId)) {
+            activeId = newId;
+        }
+    }
+
     /** Closes all tabs. */
     public void clear() {
         tabs.clear();

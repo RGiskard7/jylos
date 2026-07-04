@@ -17,22 +17,6 @@ public final class TagEvents {
     }
 
     /**
-     * Event fired when a tag is selected for filtering.
-     */
-    public static class TagSelectedEvent extends AppEvent {
-        private final Tag tag;
-
-        public TagSelectedEvent(Tag tag) {
-            super("TagList");
-            this.tag = tag;
-        }
-
-        public Tag getTag() {
-            return tag;
-        }
-    }
-
-    /**
      * Event fired when a tag is created.
      */
     public static class TagCreatedEvent extends AppEvent {

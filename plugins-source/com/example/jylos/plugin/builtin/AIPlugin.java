@@ -290,7 +290,7 @@ public class AIPlugin implements Plugin {
                 return null;
             });
             
-            Optional<String> langResult = langDialog.showAndWait();
+            Optional<String> langResult = com.example.jylos.ui.UiDialogs.show(langDialog);
             if (langResult.isEmpty()) return;
             
             String targetLang = langResult.get();
@@ -414,7 +414,7 @@ public class AIPlugin implements Plugin {
                 return null;
             });
             
-            Optional<String> promptResult = promptDialog.showAndWait();
+            Optional<String> promptResult = com.example.jylos.ui.UiDialogs.show(promptDialog);
             if (promptResult.isEmpty() || promptResult.get().trim().isEmpty()) return;
             
             String prompt = promptResult.get();
@@ -546,7 +546,7 @@ public class AIPlugin implements Plugin {
             Label helpLabel = new Label("Tip: Select a provider to auto-fill endpoint and model. " +
                                        "For custom providers, enter your own endpoint.");
             helpLabel.setWrapText(true);
-            helpLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #666;");
+            helpLabel.getStyleClass().add("dialog-hint-label");
             grid.add(helpLabel, 0, 4, 2, 1);
             
             configDialog.getDialogPane().setContent(grid);
@@ -580,7 +580,7 @@ public class AIPlugin implements Plugin {
                 return null;
             });
             
-            configDialog.showAndWait();
+            com.example.jylos.ui.UiDialogs.show(configDialog);
         });
     }
     
@@ -793,7 +793,7 @@ public class AIPlugin implements Plugin {
                 alert.setTitle("API Key Required");
                 alert.setHeaderText("AI API key not configured");
                 alert.setContentText("Please configure your AI API key first using 'AI: Configure API' command.");
-                alert.showAndWait();
+                com.example.jylos.ui.UiDialogs.show(alert);
             });
             return false;
         }
@@ -835,7 +835,7 @@ public class AIPlugin implements Plugin {
             return null;
         });
         
-        Optional<Note> result = dialog.showAndWait();
+        Optional<Note> result = com.example.jylos.ui.UiDialogs.show(dialog);
         return result.orElse(null);
     }
     
@@ -913,6 +913,7 @@ public class AIPlugin implements Plugin {
             
             Scene scene = new Scene(content);
             progressStage.setScene(scene);
+            com.example.jylos.ui.UiDialogs.apply(scene);
             
             // Center on screen
             progressStage.centerOnScreen();
@@ -951,7 +952,7 @@ public class AIPlugin implements Plugin {
             textArea.setWrapText(true);
             textArea.setPrefRowCount(15);
             textArea.setPrefColumnCount(60);
-            textArea.setStyle("-fx-font-family: monospace;");
+            textArea.getStyleClass().add("dialog-monospace-area");
             
             ButtonType saveButton = new ButtonType("Save as Note", ButtonBar.ButtonData.OK_DONE);
             dialog.getDialogPane().getButtonTypes().addAll(saveButton, ButtonType.CLOSE);
@@ -970,7 +971,7 @@ public class AIPlugin implements Plugin {
                 return null;
             });
             
-            dialog.showAndWait();
+            com.example.jylos.ui.UiDialogs.show(dialog);
         });
     }
     

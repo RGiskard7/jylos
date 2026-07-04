@@ -12,7 +12,7 @@
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.2.0-success.svg)](changelog.md)
+[![Version](https://img.shields.io/badge/version-2.3.0-success.svg)](changelog.md)
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/)
 [![JavaFX](https://img.shields.io/badge/JavaFX-23-blue.svg)](https://openjfx.io/)
 [![SQLite](https://img.shields.io/badge/SQLite-3-lightgrey.svg)](https://www.sqlite.org/)
@@ -75,6 +75,7 @@ Prebuilt packages for all major platforms are available on the [Releases page](.
     - [Storage](#storage)
     - [App icons](#app-icons)
     - [Themes](#themes)
+    - [CSS snippets](#css-snippets)
     - [Plugins](#plugins)
   - [Documentation](#documentation)
   - [Troubleshooting](#troubleshooting)
@@ -145,7 +146,7 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 ### Task board (Kanban)
 
 - A board is a normal note whose Markdown body holds columns (`## Heading`) and text cards (`- card`), in the spirit of Obsidian's Kanban plugin
-- Open with **View → Kanban Board** or **`Ctrl/Cmd+Shift+K`**; pick or create boards from the toolbar
+- Open with **View → Kanban Board** or **`Ctrl/Cmd+K`**; pick or create boards from the toolbar
 - Add/rename/delete columns, create/edit/delete cards, and **drag cards between columns**
 - A card can link to a note (`[[Title]]`) or be **converted into a note**
 - Per-column **WIP limits** (`[wip=N]`, count badge turns red when exceeded) and **colors** (`[color=#rrggbb]`) — both stored in the heading line, set from the column menu
@@ -196,21 +197,17 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 
 - External plugin JARs loaded from `jylos/plugins/` (see `scripts/build-plugins.sh`; bytecode **Java 21**)
 - Plugin manager UI with stable command IDs and safe load/disable lifecycle
-- Plugin API: command palette, menus, side panels, preview enhancers, **toolbar buttons** and **editor hooks** (`onBeforeTextInsert` / `onBeforeSave` / `onAfterSave`) — see [doc/PLUGINS.md](doc/PLUGINS.md)
+- Plugin API: command palette, menus, side panels, preview enhancers, **toolbar buttons** and **editor hooks** (`onBeforeTextInsert` / `onBeforeSave` / `onAfterSave`) — see [docs/PLUGINS.md](docs/PLUGINS.md)
 - Built-in **Mermaid** diagram support in preview (plugin source under `plugins-source/`)
 - Theme catalog with external theme discovery and safe fallback
 
 ## Screenshots
 
 <div align="center">
-  <img src="resources/images/interfaz-1.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-2.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-3.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-4.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-5.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-6.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-7.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-16.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-17.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-18.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-21.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-22.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-8.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-9.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
   <img src="resources/images/interfaz-10.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
@@ -256,7 +253,7 @@ cd jylos
 
 ### 2) Build
 
-From the repository root (produces `jylos/target/jylos-2.2.0-uber.jar`):
+From the repository root (produces `jylos/target/jylos-2.3.0-uber.jar`):
 
 ```bash
 ./scripts/build_all.sh
@@ -357,7 +354,7 @@ Each `package-*` script builds the uber-JAR, optionally runs `build-plugins.sh`,
 
 | Platform | Command | Typical output |
 |---|---|---|
-| macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-2.2.0.dmg` |
+| macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-2.3.0.dmg` |
 | Linux (deb/rpm) | `./scripts/package-linux.sh` | `jylos/target/installers/` |
 | Windows portable (app-image) | `.\scripts\package-windows.ps1` | `jylos\target\installers\Jylos\` |
 | Windows .exe installer (WiX) | `.\scripts\package-windows-exe.ps1` | `jylos\target\installers\Jylos-<version>.exe` |
@@ -372,7 +369,7 @@ Each `package-*` script builds the uber-JAR, optionally runs `build-plugins.sh`,
 .\scripts\package-windows.ps1
 ```
 
-Icons: window + About dialog use `jylos/src/main/resources/icons/app-icon.png`; installers use `icon.{icns,ico,png}` (see `app.properties` and [jylos/src/main/resources/icons/README.md](jylos/src/main/resources/icons/README.md)). Details: [doc/PACKAGING.md](doc/PACKAGING.md).
+Icons: window + About dialog use `jylos/src/main/resources/icons/app-icon.png`; installers use `icon.{icns,ico,png}` (see `app.properties` and [jylos/src/main/resources/icons/README.md](jylos/src/main/resources/icons/README.md)). Details: [docs/PACKAGING.md](docs/PACKAGING.md).
 
 ### Maven development run
 
@@ -397,19 +394,24 @@ Repository root (contains the Maven module `jylos/` and `scripts/`):
 ├── jylos/                              # Maven module (app)
 │   ├── pom.xml
 │   ├── src/main/java/com/example/jylos/
-│   │   ├── config/                     # AppContext, LoggerConfig
+│   │   ├── config/                     # LoggerConfig
 │   │   ├── data/                       # models; DAOs (sqlite/, filesystem/)
 │   │   ├── event/                      # EventBus + domain events
 │   │   ├── exceptions/
 │   │   ├── git/                        # GitService (vault repositories)
 │   │   ├── graph/                      # GraphBuilder, GraphData, nodes/edges
+│   │   ├── insights/                   # knowledge-health analysis and reports
 │   │   ├── plugin/                     # loader, manager, registries; mermaid/
+│   │   ├── search/                     # advanced search parser + service
 │   │   ├── service/                    # Note, Folder, Tag, Backlink, backup, …
 │   │   ├── ui/
 │   │   │   ├── controller/             # Main, Editor, Sidebar, Graph, Toolbar, …
-│   │   │   ├── components/             # CommandPalette, QuickSwitcher, FileViewer
+│   │   │   ├── components/             # CommandPalette, QuickSwitcher, Git/insights dialogs, canvas
+│   │   │   ├── preferences/            # persisted UI preference state
+│   │   │   ├── theme/                  # theme application, catalogs, snippets
 │   │   │   └── graph/                  # GraphCanvas (force-directed renderer)
-│   │   └── util/                       # WikiLinkResolver, MarkdownPreview, NoteExporter
+│   │   ├── util/                       # WikiLinkResolver, MarkdownPreview, NoteExporter
+│   │   └── workspace/                  # saved tab/layout workspaces
 │   ├── src/main/resources/
 │   │   ├── app.properties              # app name, icon paths, window title
 │   │   ├── icons/                      # app-icon.png + icon.{ico,icns,png}
@@ -421,6 +423,7 @@ Repository root (contains the Maven module `jylos/` and `scripts/`):
 │   ├── src/test/java/com/example/jylos/
 │   ├── plugins/                        # runtime plugin JARs (often gitignored)
 │   ├── themes/                         # installed external themes
+│   ├── snippets/                       # user CSS snippets layered over the theme
 │   ├── data/                           # runtime DB or vault (gitignored)
 │   ├── logs/
 │   └── backups/
@@ -428,22 +431,22 @@ Repository root (contains the Maven module `jylos/` and `scripts/`):
 ├── themes/                             # theme sources → build-themes → jylos/themes/
 ├── resources/images/                   # README banner and screenshots
 ├── scripts/                            # build, launch, package, smoke tests
-├── doc/                                # technical docs (see doc/README.md)
+├── docs/                                # technical docs (see docs/README.md)
 ├── AGENTS.md
 ├── changelog.md
 ├── README.md
 └── README.es.md
 ```
 
-Not part of the app: `replica-grafo/` (optional Typst/graph experiment; see [doc/README.md](doc/README.md)).
+Not part of the app: `replica-grafo/` (optional Typst/graph experiment; see [docs/README.md](docs/README.md)).
 
 ## Configuration
 
 ### Storage
 
 - **SQLite** (default): `jylos/data/database.db`
-- **Filesystem vault**: folder of `.md` notes with YAML frontmatter; switch in **Tools → Switch storage** (restart required)
-- Other runtime dirs (auto-created under `jylos/`): `logs/`, `backups/`, `plugins/`, `themes/`
+- **Filesystem vault**: folder of `.md` notes with YAML frontmatter; switch in **Tools → Switch storage**. Changing from one filesystem vault to another reloads the session **without restarting**; switching between **SQLite** and **filesystem** still requires restart
+- Other runtime dirs (auto-created under `jylos/`): `logs/`, `backups/`, `plugins/`, `themes/`, `snippets/`
 
 ### App icons
 
@@ -462,7 +465,7 @@ Source packs live in `themes/<id>/` (`theme.properties` + `theme.css`). Developm
 
 ### CSS snippets
 
-Drop plain `.css` files into the `snippets/` folder to tweak the interface on top of the active theme (Obsidian-style), without authoring a full theme. Enable them in **Preferences → CSS snippets**; each enabled snippet is layered **after** the theme, so its rules win. Use **Open folder** in that dialog to reach the directory (`<appData>/snippets`). Snippet names must be simple `.css` filenames. Ready-made, theme-adaptive examples (Atom One, Nord, Solarized — each with a dark and light variant) live in [snippets-examples/](snippets-examples/). Snippets can branch on the `theme-dark` / `theme-light` class Jylos sets on the scene root (Obsidian-style).
+Drop plain `.css` files into the `snippets/` folder to tweak the interface on top of the active theme (Obsidian-style), without authoring a full theme. Enable them in **Preferences → CSS snippets**; each enabled snippet is layered **after** the theme, so its rules win. Use **Open folder** in that dialog to reach the directory (`<appData>/snippets`). Snippet names must be simple `.css` filenames. Ready-made, theme-adaptive examples (Atom One, Nord, Solarized — each with a dark and light variant) live in [snippets-examples/](snippets-examples/). Snippets can branch on the `theme-dark` / `theme-light` class Jylos sets on the scene root (Obsidian-style), and the same layered styles are propagated to themed dialogs and command overlays such as the command palette and quick switcher.
 
 ### Plugins
 
@@ -471,13 +474,18 @@ Drop plain `.css` files into the `snippets/` folder to tweak the interface on to
 
 ## Documentation
 
-- [doc/README.md](doc/README.md) — index
-- [doc/BUILD.md](doc/BUILD.md)
-- [doc/LAUNCH_APP.md](doc/LAUNCH_APP.md)
-- [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md)
-- [doc/PLUGINS.md](doc/PLUGINS.md)
-- [doc/PACKAGING.md](doc/PACKAGING.md)
-- [doc/EVENT_BUS_CONTRACT.md](doc/EVENT_BUS_CONTRACT.md)
+- [docs/README.md](docs/README.md) — index
+- [docs/BUILD.md](docs/BUILD.md)
+- [docs/LAUNCH_APP.md](docs/LAUNCH_APP.md)
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [docs/ARCHITECTURE_GUIDELINES.md](docs/ARCHITECTURE_GUIDELINES.md)
+- [docs/PLUGINS.md](docs/PLUGINS.md)
+- [docs/PACKAGING.md](docs/PACKAGING.md)
+- [docs/EVENT_BUS_CONTRACT.md](docs/EVENT_BUS_CONTRACT.md)
+- [docs/GIT.md](docs/GIT.md)
+- [docs/GRAPH.md](docs/GRAPH.md)
+- [docs/SEARCH.md](docs/SEARCH.md)
+- [docs/WORKSPACES.md](docs/WORKSPACES.md)
 - [AGENTS.md](AGENTS.md)
 - [changelog.md](changelog.md)
 

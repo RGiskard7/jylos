@@ -19,13 +19,14 @@ mvn -f jylos/pom.xml test
 ```powershell
 .\scripts\build_all.ps1
 .\scripts\launch-jylos.bat
+.\scripts\launch-jylos.ps1
 ```
 
 ```bash
 mvn -f jylos/pom.xml clean compile exec:java -Dexec.mainClass="com.example.jylos.Launcher"
 ```
 
-Uber-JAR: `jylos/target/jylos-1.0.0-uber.jar`. Use `launch-*` scripts for JavaFX modules.
+Uber-JAR: `jylos/target/jylos-2.3.0-uber.jar`. Use `launch-*` scripts for JavaFX modules.
 
 ## Layout
 
@@ -34,7 +35,7 @@ Uber-JAR: `jylos/target/jylos-1.0.0-uber.jar`. Use `launch-*` scripts for JavaFX
 - Graph model: `graph/` (`GraphBuilder` uses `WikiLinkResolver` for edges)
 - Git (vault): `git/GitService.java`
 - DAOs: `data/dao/sqlite/`, `data/dao/filesystem/`
-- Runtime (gitignored, cwd usually `jylos/`): `data/`, `logs/`, `backups/`, `plugins/`, `themes/`
+- Runtime (gitignored, cwd usually `jylos/`): `data/`, `logs/`, `backups/`, `plugins/`, `themes/`, `snippets/`
 - Icons: `src/main/resources/icons/` (`app-icon.png` for window/About; `icon.*` for jpackage)
 - Plugin sources: `plugins-source/` → build to `jylos/plugins/`
 - Theme sources: `themes/` → `scripts/build-themes.sh` → `jylos/themes/`
@@ -69,7 +70,7 @@ fragment that across helpers just to shrink line count.
 ## Gotchas
 
 - JavaFX preview needs `javafx.web` on module-path when not using uber-JAR launch path.
-- `SQLiteDB.initDatabase()`: no automatic migrations.
+- `SQLiteDB.initDatabase()` performs only limited/idempotent schema adjustments (e.g. guarded `ALTER TABLE` additions); non-trivial SQL changes still need an explicit migration plan.
 - Plugins: no hardcoded plugin classes in core; JARs in `plugins/` under app base dir.
 - Warnings on `org.openjfx:javafx-*` parent POM during Maven build are harmless.
 
@@ -79,4 +80,4 @@ fragment that across helpers just to shrink line count.
 
 **New FXML view:** `ui/view/*.fxml` + controller + wire in `MainController`.
 
-**Docs:** keep [README.md](README.md), [doc/](doc/), and this file aligned with code — no outdated paths (e.g. plugins live under `jylos/plugins/`, not repo-root `plugins/` only).
+**Docs:** keep [README.md](README.md), [docs/](docs/), especially [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/ARCHITECTURE_GUIDELINES.md](docs/ARCHITECTURE_GUIDELINES.md), and this file aligned with code — no outdated paths (e.g. plugins live under `jylos/plugins/`, not repo-root `plugins/` only).

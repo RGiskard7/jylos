@@ -493,66 +493,69 @@ public class NoteDAOFileSystem implements NoteDAO {
     public void updateNote(Note note) {
         FileSystemIoLock.LOCK.lock();
         try {
-        if (note == null || note.getId() == null)
-            throw new InvalidParameterException("Invalid note");
+            if (note == null || note.getId() == null)
+                throw new InvalidParameterException("Invalid note");
 
-        String normalizedId = normalizeId(note.getId());
-        note.setId(normalizedId);
-        Path path = idToPathMap.get(note.getId());
-        if (path == null) {
-            path = idToPathMap.get(normalizedId);
-        }
-        if (path == null) {
-            // Check if file exists at ID location
-            path = rootPath.resolve(normalizedId.replace("/", File.separator));
-            if (!Files.exists(path)) {
-                logger.warning("Attempted to update non-existent note: " + note.getId());
-                return;
+            String normalizedId = normalizeId(note.getId());
+            note.setId(normalizedId);
+            Path path = idToPathMap.get(note.getId());
+            if (path == null) {
+                path = idToPathMap.get(normalizedId);
             }
-        }
-
-        // Rename logic if Title changed
-        String currentFilename = path.getFileName().toString();
-        String expectedFilename = sanitizeFilename(note.getTitle()) + ".md";
-
-        if (!currentFilename.equals(expectedFilename)) {
-            Path newPath = path.resolveSibling(expectedFilename);
-            if (!Files.exists(newPath)) {
-                try {
-                    Files.move(path, newPath);
-                    // Update ID map and Cache
-                    String oldId = normalizedId;
-                    idToPathMap.remove(oldId);
-                    cachedNotes.remove(oldId);
-
-                    String newId = normalizeId(rootPath.relativize(newPath).toString());
-                    idToPathMap.put(newId, newPath);
-                    note.setId(newId); // Update object ID
-                    path = newPath;
-                    cachedNotes.put(newId, note);
-                    notesByFolderIndexDirty = true;
-                } catch (IOException e) {
-                    logger.warning("Failed to rename note file during update: " + e.getMessage());
+            if (path == null) {
+                // Check if file exists at ID location
+                path = rootPath.resolve(normalizedId.replace("/", File.separator));
+                if (!Files.exists(path)) {
+                    logger.warning("Attempted to update non-existent note: " + note.getId());
+                    return;
                 }
             }
-        }
 
-        note.setModifiedDate(DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
+            boolean attachment = isAttachmentNote(path, note);
+            String currentFilename = path.getFileName().toString();
+            String expectedFilename = attachment
+                    ? expectedAttachmentFilename(currentFilename, note.getTitle())
+                    : sanitizeFilename(note.getTitle()) + ".md";
 
-        try {
-            String fileContent = FrontmatterHandler.generate(note);
-            Files.writeString(path, fileContent, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-            String currentId = normalizeId(note.getId());
-            if (!normalizedId.equals(currentId)) {
-                cachedNotes.remove(normalizedId);
-                idToPathMap.remove(normalizedId);
+            if (!currentFilename.equals(expectedFilename)) {
+                Path newPath = path.resolveSibling(expectedFilename);
+                if (!Files.exists(newPath)) {
+                    try {
+                        Files.move(path, newPath);
+                        String oldId = normalizedId;
+                        idToPathMap.remove(oldId);
+                        cachedNotes.remove(oldId);
+
+                        String newId = normalizeId(rootPath.relativize(newPath).toString());
+                        idToPathMap.put(newId, newPath);
+                        note.setId(newId);
+                        path = newPath;
+                        cachedNotes.put(newId, note);
+                        notesByFolderIndexDirty = true;
+                    } catch (IOException e) {
+                        logger.warning("Failed to rename note file during update: " + e.getMessage());
+                    }
+                }
             }
-            cachedNotes.put(currentId, note);
-            idToPathMap.put(currentId, path);
-            notesByFolderIndexDirty = true;
-        } catch (IOException e) {
-            logger.log(Level.SEVERE, "Failed to update note file: " + path, e);
-        }
+
+            note.setModifiedDate(DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
+
+            try {
+                String fileContent = attachment
+                        ? (note.getContent() != null ? note.getContent() : "")
+                        : FrontmatterHandler.generate(note);
+                Files.writeString(path, fileContent, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                String currentId = normalizeId(note.getId());
+                if (!normalizedId.equals(currentId)) {
+                    cachedNotes.remove(normalizedId);
+                    idToPathMap.remove(normalizedId);
+                }
+                cachedNotes.put(currentId, note);
+                idToPathMap.put(currentId, path);
+                notesByFolderIndexDirty = true;
+            } catch (IOException e) {
+                logger.log(Level.SEVERE, "Failed to update note file: " + path, e);
+            }
         } finally {
             FileSystemIoLock.LOCK.unlock();
         }
@@ -940,7 +943,27 @@ public class NoteDAOFileSystem implements NoteDAO {
 
     /** Replaces characters that are illegal in filenames with underscores while preserving Unicode letters and digits. */
     private String sanitizeFilename(String title) {
-        return title.replaceAll("[^\\p{L}\\p{N}\\.\\-_ ]", "_");
+        String sanitized = title.replaceAll("[^\\p{L}\\p{N}\\.\\-_ ]", "_").trim();
+        return sanitized.isBlank() ? "note" : sanitized;
+    }
+
+    private boolean isAttachmentNote(Path path, Note note) {
+        return (path != null && com.example.jylos.util.AttachmentType.isAttachment(path.getFileName().toString()))
+                || (note != null && com.example.jylos.util.AttachmentType.isAttachment(note.getTitle()));
+    }
+
+    private String expectedAttachmentFilename(String currentFilename, String requestedTitle) {
+        String sanitized = sanitizeFilename(requestedTitle);
+        String currentExtension = com.example.jylos.util.AttachmentType.extensionOf(currentFilename);
+        String extension = currentExtension;
+        String base = sanitized;
+
+        if (!currentExtension.isEmpty()) {
+            int dot = sanitized.lastIndexOf('.');
+            base = dot > 0 ? sanitized.substring(0, dot) : sanitized;
+        }
+
+        return extension.isEmpty() ? base : base + "." + extension;
     }
 
     /** Normalizes a note ID to use forward slashes and returns an empty string for null input. */
