@@ -168,7 +168,7 @@ if [ -n "${JYLOS_MAC_SIGN_IDENTITY:-}" ]; then
     echo "Code signing enabled (identity: $JYLOS_MAC_SIGN_IDENTITY)"
     JPACKAGE_CMD="$JPACKAGE_CMD --mac-sign --mac-signing-key-user-name \"$JYLOS_MAC_SIGN_IDENTITY\""
 else
-    echo "Code signing disabled (set JYLOS_MAC_SIGN_IDENTITY to enable). See doc/PACKAGING.md."
+    echo "Code signing disabled (set JYLOS_MAC_SIGN_IDENTITY to enable). See docs/PACKAGING.md."
 fi
 
 # Use jpackage to create DMG installer
@@ -217,7 +217,7 @@ if [ $? -eq 0 ]; then
             fi
         fi
     else
-        echo "Notarization disabled (set JYLOS_NOTARY_PROFILE to enable). See doc/PACKAGING.md."
+        echo "Notarization disabled (set JYLOS_NOTARY_PROFILE to enable). See docs/PACKAGING.md."
     fi
 
     echo ""

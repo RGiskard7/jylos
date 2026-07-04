@@ -23,6 +23,9 @@ import javafx.stage.Window;
  */
 class AppSettings {
 
+    record StorageSwitchPlan(boolean changed, boolean reloadVaultLive, String storageType, String filesystemPath) {
+    }
+
     private Function<String, String> i18nFn;
 
     void wire(Function<String, String> i18n) {
@@ -34,7 +37,7 @@ class AppSettings {
         return i18nFn.apply(key);
     }
 
-    void handleSwitchStorage(Window owner, Preferences prefs) {
+    void handleSwitchStorage(Window owner, Preferences prefs, Consumer<String> reloadVaultAction) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle(i18n("pref.storage"));
         alert.setHeaderText(i18n("pref.storage.header"));
@@ -60,10 +63,15 @@ class AppSettings {
 
         if (result.get() == sqliteBtn) {
             newType = "sqlite";
-            changed = !newType.equals(currentType);
         } else if (result.get() == filesystemBtn) {
             DirectoryChooser directoryChooser = new DirectoryChooser();
             directoryChooser.setTitle(i18n("pref.storage.browse"));
+            if (!currentPath.isBlank()) {
+                File initialDirectory = new File(currentPath);
+                if (initialDirectory.isDirectory()) {
+                    directoryChooser.setInitialDirectory(initialDirectory);
+                }
+            }
 
             File selectedDirectory = directoryChooser.showDialog(owner);
             if (selectedDirectory == null) {
@@ -71,21 +79,42 @@ class AppSettings {
             }
             newType = "filesystem";
             customPath = selectedDirectory.getAbsolutePath();
-            changed = !newType.equals(currentType) || !customPath.equals(currentPath);
         }
 
+        StorageSwitchPlan plan = planStorageSwitch(currentType, currentPath, newType, customPath);
+        changed = plan.changed();
         if (!changed) {
             return;
         }
 
-        prefs.put("storage_type", newType);
-        prefs.put("filesystem_path", customPath);
+        if (plan.reloadVaultLive() && reloadVaultAction != null) {
+            reloadVaultAction.accept(plan.filesystemPath());
+            return;
+        }
+
+        prefs.put("storage_type", plan.storageType());
+        prefs.put("filesystem_path", plan.filesystemPath());
 
         Alert restartAlert = new Alert(Alert.AlertType.INFORMATION);
         restartAlert.setTitle(i18n("app.restart_required"));
         restartAlert.setHeaderText(null);
         restartAlert.setContentText(i18n("app.restart_storage_message"));
         com.example.jylos.ui.UiDialogs.show(restartAlert);
+    }
+
+    static StorageSwitchPlan planStorageSwitch(String currentType, String currentPath, String newType, String newPath) {
+        String resolvedCurrentType = currentType != null ? currentType : "sqlite";
+        String resolvedCurrentPath = currentPath != null ? currentPath : "";
+        String resolvedNewType = newType != null ? newType : resolvedCurrentType;
+        String resolvedNewPath = "filesystem".equalsIgnoreCase(resolvedNewType) && newPath != null ? newPath : "";
+
+        boolean changed = !resolvedNewType.equalsIgnoreCase(resolvedCurrentType)
+                || ("filesystem".equalsIgnoreCase(resolvedNewType) && !resolvedNewPath.equals(resolvedCurrentPath));
+        boolean reloadVaultLive = changed
+                && "filesystem".equalsIgnoreCase(resolvedCurrentType)
+                && "filesystem".equalsIgnoreCase(resolvedNewType);
+
+        return new StorageSwitchPlan(changed, reloadVaultLive, resolvedNewType, resolvedNewPath);
     }
 
     ToggleGroup initializeThemeMenu(ToolbarController toolbarController, String currentTheme,

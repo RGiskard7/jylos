@@ -92,7 +92,10 @@ App icons: `src/main/resources/icons/` — see [icons README](../jylos/src/main/
 
 Notes carry a `status` column (Kanban legacy/free use) and an `is_private` column (SQLite) / `private:` frontmatter (vault). `SQLiteDB.initDatabase()` performs **idempotent `ALTER TABLE` migrations** (checks `PRAGMA table_info` before adding a column); other SQL schema changes still need a documented manual step.
 
-Preferences key `storage_type`: `sqlite` vs `filesystem` (restart to switch).
+Preferences keys `storage_type` / `filesystem_path` define the active backend. Switching
+between two filesystem vaults reloads the backend session in place (same UI shell, new
+DAOs/services/controllers wiring, cleared tabs/editor state, stale-callback guard by
+session generation). Switching between `sqlite` and `filesystem` still requires restart.
 
 ## Private notes (encryption)
 

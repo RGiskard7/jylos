@@ -40,7 +40,7 @@ class AppContextUsageGuardTest {
 
     @Test
     void architectureDocsShouldNotRecommendRemovedAppContextModel() throws IOException {
-        Path docDir = Files.exists(Path.of("doc")) ? Path.of("doc") : Path.of("..", "doc");
+        Path docDir = Files.exists(Path.of("docs")) ? Path.of("docs") : Path.of("..", "docs");
         try (Stream<Path> files = Files.walk(docDir)) {
             boolean foundRecommendedAppContextUsage = false;
             for (Path file : files.filter(path -> path.toString().endsWith(".md")).toList()) {

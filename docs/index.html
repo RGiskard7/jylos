@@ -4,8 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Jylos — Local-first knowledge management</title>
-  <meta name="description" content="Jylos is a local-first, open-source desktop app for Markdown notes, wiki-links, backlinks, knowledge graphs, Kanban boards, plugins, and themes. Windows, macOS, Linux.">
+  <meta name="description" content="Jylos is a local-first, open-source desktop app for Markdown notes, wiki-links, backlinks, knowledge graphs, Obsidian-compatible Canvas, Kanban boards, plugins, themes and Git sync. Windows, macOS and Linux.">
   <meta name="theme-color" content="#0a0a1a">
+  <link rel="icon" type="image/png" href="assets/app-icon.png">
+  <link rel="shortcut icon" type="image/png" href="assets/app-icon.png">
+  <link rel="apple-touch-icon" href="assets/app-icon.png">
+  <meta property="og:title" content="Jylos">
+  <meta property="og:description" content="Local-first desktop notes app for Markdown, wiki-links, Canvas, Kanban and graph views.">
+  <meta property="og:image" content="assets/app-icon.png">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:image" content="assets/app-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -17,6 +26,8 @@
       --bg: #0c0c22;
       --bg-surface: rgba(17, 17, 42, 0.60);
       --bg-card: rgba(22, 22, 55, 0.50);
+      --header-bg: rgba(8,8,26,0.78);
+      --header-bg-solid: rgba(8,8,26,0.96);
       --glass-border: rgba(255, 255, 255, 0.07);
       --glass-border-hover: rgba(255, 255, 255, 0.14);
       --text-primary: #eaecf3;
@@ -39,6 +50,23 @@
       --font-mono: 'JetBrains Mono', ui-monospace, monospace;
       --transition: 0.2s ease;
     }
+    body[data-theme="light"] {
+      --bg-deep: #edf2fb;
+      --bg: #f6f9ff;
+      --bg-surface: rgba(255, 255, 255, 0.78);
+      --bg-card: rgba(255, 255, 255, 0.86);
+      --header-bg: rgba(245, 248, 255, 0.84);
+      --header-bg-solid: rgba(245, 248, 255, 0.96);
+      --glass-border: rgba(25, 37, 68, 0.10);
+      --glass-border-hover: rgba(25, 37, 68, 0.18);
+      --text-primary: #1a2338;
+      --text-secondary: #4f5e7d;
+      --text-muted: #72809d;
+      --shadow-sm: 0 1px 2px rgba(29, 43, 76, 0.10);
+      --shadow-md: 0 10px 28px rgba(31, 48, 87, 0.10);
+      --shadow-lg: 0 18px 48px rgba(31, 48, 87, 0.14);
+      --shadow-glow: 0 0 24px rgba(124,58,237,0.20);
+    }
     body {
       font-family: var(--font);
       background: var(--bg-deep);
@@ -47,6 +75,7 @@
       -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
     }
+    body[data-theme="light"] .bg-orb { opacity: 0.08; }
     .bg-orb { position: fixed; border-radius: 50%; filter: blur(120px); opacity: 0.10; pointer-events: none; z-index: 0; }
     .bg-orb--violet { width: 700px; height: 700px; background: var(--accent-violet); top: -200px; right: -150px; }
     .bg-orb--blue { width: 500px; height: 500px; background: var(--accent-blue); bottom: 10%; left: -150px; }
@@ -61,17 +90,40 @@
     }
     .glass-card:hover { border-color: var(--glass-border-hover); box-shadow: var(--shadow-md); transform: translateY(-2px); }
 
-    /* Header */
-    .header { position: sticky; top: 0; z-index: 100; background: rgba(8,8,26,0.78); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--glass-border); }
+    .header { position: sticky; top: 0; z-index: 100; background: var(--header-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--glass-border); }
     .header-inner { display: flex; align-items: center; justify-content: space-between; height: 60px; max-width: 1140px; margin: 0 auto; padding: 0 32px; }
     .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text-primary); font-weight: 700; font-size: 1.2rem; }
     .logo img { width: 32px; height: 32px; }
+    .header-actions { display: flex; align-items: center; gap: 10px; }
     .nav { display: flex; align-items: center; gap: 6px; }
     .nav a { color: var(--text-secondary); text-decoration: none; font-size: 0.88rem; font-weight: 500; padding: 7px 14px; border-radius: 8px; transition: all var(--transition); }
     .nav a:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
+    body[data-theme="light"] .nav a:hover { background: rgba(31, 48, 87, 0.06); }
+    .control-group { display: inline-flex; align-items: center; gap: 4px; padding: 4px; border: 1px solid var(--glass-border); border-radius: 999px; background: rgba(255,255,255,0.03); }
+    .control-pill {
+      min-width: 42px;
+      height: 32px;
+      padding: 0 12px;
+      border: none;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      transition: all var(--transition);
+      cursor: pointer;
+    }
+    .control-pill:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
+    body[data-theme="light"] .control-pill:hover { background: rgba(31, 48, 87, 0.06); }
+    .control-pill.is-active {
+      color: #fff;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-violet));
+      box-shadow: 0 8px 20px rgba(79,70,229,0.24);
+    }
+    .control-pill--theme { min-width: 46px; font-size: 0.92rem; }
     .mobile-toggle { display: none; background: none; border: none; color: var(--text-primary); font-size: 1.4rem; cursor: pointer; padding: 4px; line-height: 1; }
 
-    /* Buttons */
     .btn { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font); font-weight: 600; font-size: 0.88rem; text-decoration: none; border-radius: var(--radius-sm); padding: 10px 20px; cursor: pointer; border: none; transition: all var(--transition); white-space: nowrap; }
     .btn-primary { background: var(--accent-violet); color: #fff; box-shadow: var(--shadow-glow); }
     .btn-primary:hover { background: #8b5cf6; box-shadow: 0 0 36px rgba(124,58,237,0.4); transform: translateY(-1px); }
@@ -84,7 +136,6 @@
     .btn-hero { justify-content: center; width: auto; }
     .btn-hero-primary { font-size: 1rem; padding: 15px 32px; border-radius: var(--radius); box-shadow: 0 0 32px rgba(124,58,237,0.35); }
 
-    /* Hero */
     .hero { padding: 64px 0 56px; position: relative; z-index: 1; }
     .hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
     .hero-title { font-size: clamp(2.6rem, 6vw, 4.2rem); font-weight: 800; letter-spacing: -0.035em; line-height: 1.08; margin-bottom: 16px; }
@@ -98,14 +149,12 @@
     .hero-img-wrap { position: relative; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); }
     .hero-img-wrap img { width: 100%; display: block; }
 
-    /* Section */
     .section { padding: 80px 0; position: relative; z-index: 1; }
     .section-label { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent-violet-light); margin-bottom: 10px; }
     .section-title { font-size: clamp(1.6rem, 2.8vw, 2.1rem); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 8px; }
     .section-subtitle { font-size: 0.98rem; color: var(--text-secondary); margin-bottom: 48px; max-width: 600px; }
     .divider { height: 1px; background: linear-gradient(90deg, transparent, var(--glass-border), transparent); margin: 0 32px; }
 
-    /* Download cards */
     .dl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
     .dl-card { padding: 32px 28px; }
     .dl-card__icon { width: 40px; height: 40px; color: var(--accent-cyan); margin-bottom: 16px; }
@@ -113,14 +162,12 @@
     .dl-card__subtitle { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 20px; }
     .dl-card__btns { display: flex; flex-direction: column; gap: 8px; }
 
-    /* Features */
     .features-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 18px; }
     .feature-card { padding: 28px 24px; }
     .feature-card svg { width: 30px; height: 30px; color: var(--accent-violet-light); margin-bottom: 16px; }
     .feature-card h3 { font-size: 0.92rem; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.01em; }
     .feature-card p { font-size: 0.81rem; color: var(--text-secondary); line-height: 1.5; }
 
-    /* Screenshots */
     .shots-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
     .shot-card:last-child { grid-column: 1 / -1; width: calc(50% - 12px); justify-self: center; }
     .shot-card { cursor: pointer; overflow: hidden; border-radius: var(--radius); border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); position: relative; transition: border-color var(--transition), box-shadow var(--transition); }
@@ -132,21 +179,18 @@
     .shot-card:hover .shot-overlay { opacity: 1; }
     .shot-overlay svg { width: 18px; height: 18px; color: #fff; }
 
-    /* Lightbox */
     .lightbox { display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.88); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); cursor: pointer; }
     .lightbox.active { display: flex; align-items: center; justify-content: center; padding: 32px; }
     .lightbox img { max-width: 90vw; max-height: 85vh; border-radius: var(--radius); box-shadow: 0 0 60px rgba(124,58,237,0.2); cursor: default; }
     .lightbox-close { position: absolute; top: 20px; right: 28px; font-size: 2rem; color: #fff; cursor: pointer; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255,255,255,0.08); border: none; transition: background var(--transition); }
     .lightbox-close:hover { background: rgba(255,255,255,0.15); }
 
-    /* Why Jylos */
     .why-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
     .why-item { display: flex; align-items: flex-start; gap: 12px; padding: 20px; border-radius: var(--radius); border: 1px solid var(--glass-border); background: rgba(255,255,255,0.02); }
     .why-item svg { width: 22px; height: 22px; color: var(--accent-cyan); flex-shrink: 0; margin-top: 2px; }
     .why-item h4 { font-size: 0.88rem; font-weight: 600; margin-bottom: 2px; }
     .why-item p { font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; }
 
-    /* Social proof */
     .social-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; margin-bottom: 20px; }
     .social-stat { text-align: center; padding: 18px 28px; background: rgba(255,255,255,0.025); border-radius: var(--radius-sm); border: 1px solid var(--glass-border); min-width: 110px; }
     .social-stat__num { font-size: 1.6rem; font-weight: 700; color: var(--accent-cyan-light); }
@@ -154,7 +198,6 @@
     .social-labels { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
     .social-label { font-size: 0.73rem; font-weight: 500; color: var(--text-muted); background: rgba(255,255,255,0.025); border: 1px solid var(--glass-border); border-radius: 20px; padding: 5px 16px; }
 
-    /* JBang */
     .jbang-card { padding: 32px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; margin-top: 44px; }
     .jbang-icon { width: 40px; height: 40px; color: var(--accent-cyan); flex-shrink: 0; }
     .jbang-text { flex: 1; min-width: 220px; }
@@ -174,19 +217,16 @@
     .copied-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--accent-violet); color: #fff; padding: 10px 24px; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 600; z-index: 9999; opacity: 0; transition: opacity 0.25s; pointer-events: none; }
     .copied-toast.show { opacity: 1; }
 
-    /* Privacy */
     .privacy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
     .privacy-item { padding: 26px; text-align: center; }
     .privacy-item svg { width: 36px; height: 36px; color: var(--accent-cyan); margin-bottom: 12px; }
     .privacy-item h4 { font-weight: 600; font-size: 0.92rem; margin-bottom: 4px; }
     .privacy-item p { font-size: 0.8rem; color: var(--text-secondary); }
 
-    /* CTA */
     .cta-card { padding: 48px; text-align: center; max-width: 700px; margin: 0 auto; }
     .cta-card h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 12px; }
     .cta-card p { color: var(--text-secondary); margin-bottom: 24px; }
 
-    /* Footer */
     .footer { border-top: 1px solid var(--glass-border); padding: 56px 0 0; font-size: 0.85rem; color: var(--text-muted); }
     .footer-grid { display: flex; flex-wrap: wrap; gap: 56px; max-width: 1140px; margin: 0 auto; padding: 0 32px; }
     .footer-col { min-width: 130px; }
@@ -195,7 +235,6 @@
     .footer-col a:hover { color: var(--text-primary); }
     .footer-bottom { max-width: 1140px; margin: 40px auto 0; padding: 22px 32px; border-top: 1px solid var(--glass-border); font-size: 0.8rem; }
 
-    /* Responsive */
     @media (max-width: 900px) {
       .hero-grid { grid-template-columns: 1fr; gap: 32px; }
       .hero-img-wrap { order: -1; max-width: 560px; margin: 0 auto; }
@@ -204,13 +243,16 @@
       .badges { justify-content: center; }
       .dl-grid { grid-template-columns: 1fr; max-width: 460px; margin: 0 auto; }
       .shots-grid { grid-template-columns: 1fr; max-width: 560px; margin: 0 auto; }
+      .shot-card:last-child { grid-column: auto; width: 100%; justify-self: stretch; }
       .jbang-card { flex-direction: column; align-items: flex-start; }
       .social-row { gap: 12px; }
       .social-stat { padding: 14px 20px; min-width: 90px; }
     }
     @media (max-width: 640px) {
       .nav { display: none; }
-      .nav.open { display: flex; flex-direction: column; position: absolute; top: 60px; left: 0; right: 0; background: rgba(8,8,26,0.96); backdrop-filter: blur(20px); border-bottom: 1px solid var(--glass-border); padding: 12px; gap: 4px; }
+      .header-actions { gap: 8px; }
+      .control-group { padding: 3px; }
+      .nav.open { display: flex; flex-direction: column; position: absolute; top: 60px; left: 0; right: 0; background: var(--header-bg-solid); backdrop-filter: blur(20px); border-bottom: 1px solid var(--glass-border); padding: 12px; gap: 4px; }
       .mobile-toggle { display: block; }
       .features-grid { grid-template-columns: 1fr; }
       .why-grid { grid-template-columns: 1fr; }
@@ -243,34 +285,42 @@
         Jylos
       </a>
       <button class="mobile-toggle" id="mobileToggle" aria-label="Menu">☰</button>
-      <nav class="nav" id="nav">
-        <a href="#features">Features</a>
-        <a href="#screenshots">Screenshots</a>
-        <a href="#download">Download</a>
-        <a href="https://github.com/RGiskard7/jylos" target="_blank" rel="noopener">GitHub</a>
-      </nav>
+      <div class="header-actions">
+        <nav class="nav" id="nav">
+          <a href="#features" data-i18n="navFeatures">Features</a>
+          <a href="#screenshots" data-i18n="navScreenshots">Screenshots</a>
+          <a href="#download" data-i18n="navDownload">Download</a>
+          <a href="https://github.com/RGiskard7/jylos" target="_blank" rel="noopener">GitHub</a>
+        </nav>
+        <div class="control-group" aria-label="Language selector">
+          <button class="control-pill" id="langEn" type="button">EN</button>
+          <button class="control-pill" id="langEs" type="button">ES</button>
+        </div>
+        <div class="control-group" aria-label="Theme toggle">
+          <button class="control-pill control-pill--theme" id="themeToggle" type="button" title="Toggle theme">☾</button>
+        </div>
+      </div>
     </div>
   </header>
 
-  <!-- Hero -->
   <section class="hero">
     <div class="container">
       <div class="hero-grid">
         <div class="hero-left">
           <h1 class="hero-title"><span class="hero-gradient">Jylos</span></h1>
-          <p class="hero-subtitle">Local-first knowledge management for Markdown notes, wiki-links, backlinks and knowledge graphs.</p>
-          <p class="hero-desc">Open-source desktop app for Windows, macOS and Linux. Your notes stay local. No accounts, no cloud backend, no telemetry.</p>
+          <p class="hero-subtitle" data-i18n="heroSubtitle">Desktop notes app for Markdown, wiki-links, Canvas, Kanban and graph views.</p>
+          <p class="hero-desc" data-i18n="heroDesc">Open source, local-first, and built for Windows, macOS and Linux. Works with SQLite or plain Markdown vaults.</p>
           <div class="hero-buttons">
-            <a href="#download" class="btn btn-primary btn-lg btn-hero btn-hero-primary">Download</a>
-            <a href="https://github.com/RGiskard7/jylos" target="_blank" rel="noopener" class="btn btn-outline btn-lg btn-hero">View on GitHub</a>
+            <a href="#download" class="btn btn-primary btn-lg btn-hero btn-hero-primary" data-i18n="heroDownload">Download</a>
+            <a href="https://github.com/RGiskard7/jylos" target="_blank" rel="noopener" class="btn btn-outline btn-lg btn-hero" data-i18n="heroGithub">View on GitHub</a>
           </div>
           <div class="badges">
-            <span class="badge badge--cyan">MIT License</span>
+            <span class="badge badge--cyan" data-i18n="badgeLicense">MIT License</span>
             <span class="badge">Java 21</span>
             <span class="badge">JavaFX 23</span>
-            <span class="badge">Local-first</span>
-            <span class="badge">Open Source</span>
-            <span class="badge">Windows · macOS · Linux</span>
+            <span class="badge" data-i18n="badgeLocalFirst">Local-first</span>
+            <span class="badge" data-i18n="badgeStorage">SQLite or Markdown vault</span>
+            <span class="badge" data-i18n="badgePlatforms">Windows · macOS · Linux</span>
           </div>
         </div>
         <div class="hero-img-wrap">
@@ -282,78 +332,69 @@
 
   <div class="divider"></div>
 
-  <!-- Social proof -->
   <section class="section" style="padding: 48px 0;">
     <div class="container">
       <div class="social-row">
         <div class="social-stat">
-          <div class="social-stat__num">v2.1.0</div>
-          <div class="social-stat__label">Latest Release</div>
+          <div class="social-stat__num">v2.3.0</div>
+          <div class="social-stat__label" data-i18n="statRelease">Release</div>
         </div>
         <div class="social-stat">
           <div class="social-stat__num">MIT</div>
-          <div class="social-stat__label">License</div>
-        </div>
-        <div class="social-stat">
-          <div class="social-stat__num">3</div>
-          <div class="social-stat__label">Platforms</div>
+          <div class="social-stat__label" data-i18n="statLicense">License</div>
         </div>
       </div>
       <div class="social-labels">
-        <span class="social-label">Open Source Project</span>
-        <span class="social-label">Actively Maintained</span>
+        <span class="social-label" data-i18n="socialOpenSource">Desktop application</span>
+        <span class="social-label" data-i18n="socialMaintained">No account required</span>
       </div>
     </div>
   </section>
 
   <div class="divider"></div>
 
-  <!-- Download -->
   <section class="section" id="download">
     <div class="container">
-      <div class="section-label">Download</div>
-      <h2 class="section-title">Get Jylos</h2>
-      <p class="section-subtitle">Direct download links for every platform. All packages are built from the same source.</p>
+      <div class="section-label" data-i18n="downloadLabel">Download</div>
+      <h2 class="section-title" data-i18n="downloadTitle">Get Jylos</h2>
+      <p class="section-subtitle" data-i18n="downloadSubtitle">Packages for the current release, plus a JBang launcher if you prefer to run it without installing manually.</p>
       <div class="dl-grid">
-        <!-- Windows -->
         <div class="dl-card glass-card">
           <svg class="dl-card__icon" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0V3.449zm10.949-1.4L24 0v11.551H10.949V2.049zM0 12.949h9.75V22.5L0 21.051V12.949zm10.949 0H24V24l-13.051-1.451V12.949z"/></svg>
           <div class="dl-card__title">Windows</div>
           <div class="dl-card__subtitle">Windows 10/11 · x64</div>
           <div class="dl-card__btns">
-            <a href="https://github.com/RGiskard7/jylos/releases/download/v2.1.0/jylos-2.1.0.exe" class="btn btn-dl">
+            <a href="https://github.com/RGiskard7/jylos/releases/download/v2.3.0/jylos-2.3.0.exe" class="btn btn-dl">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
               .exe installer
             </a>
-            <a href="https://github.com/RGiskard7/jylos/releases/download/v2.1.0/jylos-2.1.0.msi" class="btn btn-dl">
+            <a href="https://github.com/RGiskard7/jylos/releases/download/v2.3.0/jylos-2.3.0.msi" class="btn btn-dl">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
               .msi installer
             </a>
-            <a href="https://github.com/RGiskard7/jylos/releases/download/v2.1.0/jylos-2.1.0-windows-portable.zip" class="btn btn-dl">
+            <a href="https://github.com/RGiskard7/jylos/releases/download/v2.3.0/jylos-2.3.0-windows-portable.zip" class="btn btn-dl">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
               Portable ZIP
             </a>
           </div>
         </div>
-        <!-- macOS -->
         <div class="dl-card glass-card">
           <svg class="dl-card__icon" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
           <div class="dl-card__title">macOS</div>
           <div class="dl-card__subtitle">Apple Silicon</div>
           <div class="dl-card__btns">
-            <a href="https://github.com/RGiskard7/jylos/releases/download/v2.1.0/jylos-2.1.0.dmg" class="btn btn-dl">
+            <a href="https://github.com/RGiskard7/jylos/releases/download/v2.3.0/jylos-2.3.0.dmg" class="btn btn-dl">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
               .dmg disk image
             </a>
           </div>
         </div>
-        <!-- Linux -->
         <div class="dl-card glass-card">
           <img src="https://cdn.simpleicons.org/linux/22d3ee" alt="Linux" class="dl-card__icon">
           <div class="dl-card__title">Linux</div>
           <div class="dl-card__subtitle">x64 · deb</div>
           <div class="dl-card__btns">
-            <a href="https://github.com/RGiskard7/jylos/releases/download/v2.1.0/jylos_2.1.0_amd64.deb" class="btn btn-dl">
+            <a href="https://github.com/RGiskard7/jylos/releases/download/v2.3.0/jylos_2.3.0_amd64.deb" class="btn btn-dl">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
               .deb (Debian / Ubuntu)
             </a>
@@ -361,83 +402,81 @@
         </div>
       </div>
 
-      <!-- JBang -->
       <div class="jbang-card glass-card">
         <svg class="jbang-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="2" width="20" height="20" rx="4"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>
         <div class="jbang-text">
-          <div class="jbang-label">Run instantly with JBang</div>
+          <div class="jbang-label" data-i18n="jbangLabel">Run instantly with JBang</div>
           <div class="jbang-code-wrap">
             <code class="jbang-code" id="jbangCode">jbang jylos@RGiskard7/jylos</code>
-            <button class="btn btn-copy" id="btnCopy" onclick="copyJbang()">Copy</button>
+            <button class="btn btn-copy" id="btnCopy" onclick="copyJbang()" data-i18n="copy">Copy</button>
           </div>
-          <div class="jbang-hint">JBang downloads Java 21 and JavaFX automatically if needed. No build required.</div>
+          <div class="jbang-hint" data-i18n="jbangHint">JBang downloads Java 21 and JavaFX automatically if needed. No build required.</div>
         </div>
       </div>
-      <div class="copied-toast" id="copiedToast">Copied to clipboard</div>
+      <div class="copied-toast" id="copiedToast" data-i18n="copiedToast">Copied to clipboard</div>
       <div style="text-align: center; margin-top: 24px;">
-        <a href="https://github.com/RGiskard7/jylos/releases/latest" class="btn btn-outline">View all releases</a>
+        <a href="https://github.com/RGiskard7/jylos/releases/latest" class="btn btn-outline" data-i18n="allReleases">View all releases</a>
       </div>
     </div>
   </section>
 
   <div class="divider"></div>
 
-  <!-- Features -->
   <section class="section" id="features">
     <div class="container">
-      <div class="section-label">Features</div>
-      <h2 class="section-title">Built for knowledge work</h2>
-      <p class="section-subtitle">A powerful toolkit that stays out of your way.</p>
+      <div class="section-label" data-i18n="featuresLabel">Features</div>
+      <h2 class="section-title" data-i18n="featuresTitle">Built for knowledge work</h2>
+      <p class="section-subtitle" data-i18n="featuresSubtitle">The main workflows available in the app today.</p>
       <div class="features-grid">
         <div class="feature-card glass-card">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"/><path d="M14 2v6h6"/></svg>
-          <h3>Markdown Editor</h3>
-          <p>Live syntax highlighting, side-by-side preview, GFM tables and KaTeX math.</p>
+          <h3 data-i18n="featureEditorTitle">Markdown Editor</h3>
+          <p data-i18n="featureEditorDesc">Live syntax highlighting, side-by-side preview, GFM tables and KaTeX math.</p>
         </div>
         <div class="feature-card glass-card">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-          <h3>Wiki-links</h3>
-          <p><code>[[autocomplete]]</code>, backlinks panel, click-to-open navigation between notes.</p>
+          <h3 data-i18n="featureWikiTitle">Wiki-links</h3>
+          <p data-i18n="featureWikiDesc">Wiki-link autocomplete, backlinks panel and click-to-open navigation between notes.</p>
         </div>
         <div class="feature-card glass-card">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>
-          <h3>Knowledge Graph</h3>
-          <p>Interactive force-directed graph. Zoom, pan, drag nodes, local neighbourhood views.</p>
+          <h3 data-i18n="featureGraphTitle">Knowledge Graph</h3>
+          <p data-i18n="featureGraphDesc">Interactive force-directed graph. Zoom, pan, drag nodes, local neighbourhood views.</p>
         </div>
         <div class="feature-card glass-card">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-          <h3>Kanban Boards</h3>
-          <p>Task boards inside notes with drag-and-drop, WIP limits, and column colors.</p>
+          <h3 data-i18n="featureCanvasTitle">Canvas & Kanban</h3>
+          <p data-i18n="featureCanvasDesc">Obsidian-compatible Canvas boards and Kanban workflows for projects, planning and spatial thinking.</p>
         </div>
         <div class="feature-card glass-card">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="10"/><polyline points="16 12 12 8 8 12"/><line x1="12" y1="8" x2="12" y2="16"/></svg>
-          <h3>Git Sync</h3>
-          <p>Stage, commit, push and pull from a unified panel. Full Git integration.</p>
+          <h3 data-i18n="featureGitTitle">Git Sync</h3>
+          <p data-i18n="featureGitDesc">Stage, commit, push and pull from a unified panel. Full Git integration.</p>
         </div>
         <div class="feature-card glass-card">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-          <h3>AES-256 Encryption</h3>
-          <p>Encrypt note bodies with AES-256-GCM behind a master password.</p>
+          <h3 data-i18n="featureEncryptionTitle">AES-256 Encryption</h3>
+          <p data-i18n="featureEncryptionDesc">Encrypt note bodies with AES-256-GCM behind a master password.</p>
         </div>
         <div class="feature-card glass-card">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.657 3.582 3 8 3s8-1.343 8-3V6"/></svg>
-          <h3>Storage Freedom</h3>
-          <p>SQLite database or plain Markdown vault. Switch anytime, your choice.</p>
+          <h3 data-i18n="featureStorageTitle">Storage Freedom</h3>
+          <p data-i18n="featureStorageDesc">SQLite database or plain Markdown vault. Switch anytime, your choice.</p>
         </div>
         <div class="feature-card glass-card">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l10 6.5v7L12 22 2 15.5v-7L12 2z"/></svg>
-          <h3>Plugins & Themes</h3>
-          <p>Plugin JARs, Mermaid diagrams, CSS themes, and a plugin manager.</p>
+          <h3 data-i18n="featurePluginsTitle">Plugins & Themes</h3>
+          <p data-i18n="featurePluginsDesc">Plugin JARs, Mermaid diagrams, CSS themes, snippets and a plugin manager.</p>
         </div>
         <div class="feature-card glass-card">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-          <h3>Advanced Search</h3>
-          <p>Operators, date shorthands, command palette and quick switcher.</p>
+          <h3 data-i18n="featureSearchTitle">Advanced Search</h3>
+          <p data-i18n="featureSearchDesc">Operators, date shorthands, command palette and quick switcher.</p>
         </div>
         <div class="feature-card glass-card">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="20" height="14" rx="2"/><rect x="8" y="17" width="8" height="4" rx="1"/></svg>
-          <h3>Workspaces</h3>
-          <p>Save and restore open tabs, view state and layout per context.</p>
+          <h3 data-i18n="featureWorkspacesTitle">Workspaces</h3>
+          <p data-i18n="featureWorkspacesDesc">Save and restore open tabs, view state and layout per context.</p>
         </div>
       </div>
     </div>
@@ -445,43 +484,41 @@
 
   <div class="divider"></div>
 
-  <!-- Screenshots -->
   <section class="section" id="screenshots">
     <div class="container">
-      <div class="section-label">Screenshots</div>
-      <h2 class="section-title">See Jylos in action</h2>
-      <p class="section-subtitle">Click any image to expand it.</p>
+      <div class="section-label" data-i18n="screenshotsLabel">Screenshots</div>
+      <h2 class="section-title" data-i18n="screenshotsTitle">Interface overview</h2>
+      <p class="section-subtitle" data-i18n="screenshotsSubtitle">Click any image to expand it.</p>
       <div class="shots-grid">
         <figure class="shot-card" onclick="openLightbox(this.querySelector('img').src)">
           <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-6.png" alt="Knowledge graph" loading="lazy">
           <div class="shot-overlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div>
-          <figcaption>Write notes in Markdown and visualize Mermaid diagrams in real time</figcaption>
+          <figcaption data-i18n="shot1">Write notes in Markdown and visualize Mermaid diagrams in real time</figcaption>
         </figure>
         <figure class="shot-card" onclick="openLightbox(this.querySelector('img').src)">
           <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-10.png" alt="Mermaid diagrams" loading="lazy">
           <div class="shot-overlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div>
-          <figcaption>Interactive knowledge graph with customizable visualization settings</figcaption>
+          <figcaption data-i18n="shot2">Interactive knowledge graph with customizable visualization settings</figcaption>
         </figure>
         <figure class="shot-card" onclick="openLightbox(this.querySelector('img').src)">
           <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-8.png" alt="Kanban board" loading="lazy">
           <div class="shot-overlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div>
-          <figcaption>Navigate thousands of connected notes through a scalable graph view</figcaption>
+          <figcaption data-i18n="shot3">Navigate thousands of connected notes through a scalable graph view</figcaption>
         </figure>
         <figure class="shot-card" onclick="openLightbox(this.querySelector('img').src)">
-          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-15.png" alt="Git Sync and search" loading="lazy">
+          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-15.png" alt="Workspace layout" loading="lazy">
           <div class="shot-overlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div>
-          <figcaption>Customizable workspace with notes, navigation and live preview</figcaption>
+          <figcaption data-i18n="shot4">Customizable workspace with notes, navigation and live preview</figcaption>
         </figure>
         <figure class="shot-card" onclick="openLightbox(this.querySelector('img').src)">
-          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-16.png" alt="Git Sync and search" loading="lazy">
+          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-16.png" alt="Canvas board" loading="lazy">
           <div class="shot-overlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div>
-          <figcaption>Organize tasks and projects with built-in Kanban boards</figcaption>
+          <figcaption data-i18n="shot5">Organize tasks and projects with built-in Kanban boards</figcaption>
         </figure>
       </div>
     </div>
   </section>
 
-  <!-- Lightbox -->
   <div class="lightbox" id="lightbox" onclick="closeLightbox()">
     <button class="lightbox-close" onclick="closeLightbox()">✕</button>
     <img id="lightboxImg" alt="">
@@ -489,44 +526,43 @@
 
   <div class="divider"></div>
 
-  <!-- Why Jylos -->
   <section class="section">
     <div class="container">
-      <div class="section-label">Why Jylos?</div>
-      <h2 class="section-title">Built differently</h2>
-      <p class="section-subtitle">A knowledge tool designed for people who care about where their data lives.</p>
+      <div class="section-label" data-i18n="whyLabel">Design choices</div>
+      <h2 class="section-title" data-i18n="whyTitle">Practical decisions</h2>
+      <p class="section-subtitle" data-i18n="whySubtitle">The app is built around local storage, open formats and a desktop workflow.</p>
       <div class="why-grid">
         <div class="why-item">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-6h14l2 6"/><path d="M3 12v8h18v-8"/><path d="M12 9v7m-3-4l3 4 3-4"/></svg>
-          <div><h4>Local-first</h4><p>Your notes live on your disk. SQLite or plain Markdown files — always yours.</p></div>
+          <div><h4 data-i18n="why1Title">Local-first</h4><p data-i18n="why1Desc">Your notes live on your disk. SQLite or plain Markdown files — always yours.</p></div>
         </div>
         <div class="why-item">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7v10l10 5 10-5V7l-10-5z"/></svg>
-          <div><h4>Open Source (MIT)</h4><p>Free forever. Audit the code, modify it, contribute back.</p></div>
+          <div><h4 data-i18n="why2Title">Open Source (MIT)</h4><p data-i18n="why2Desc">Free forever. Audit the code, modify it, contribute back.</p></div>
         </div>
         <div class="why-item">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"/></svg>
-          <div><h4>Markdown-native</h4><p>Plain text Markdown with YAML frontmatter. No proprietary format lock-in.</p></div>
+          <div><h4 data-i18n="why3Title">Markdown-native</h4><p data-i18n="why3Desc">Plain text Markdown with YAML frontmatter. No proprietary format lock-in.</p></div>
         </div>
         <div class="why-item">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-          <div><h4>No Account Required</h4><p>No sign-up, no login, no user database. Just open the app and write.</p></div>
+          <div><h4 data-i18n="why4Title">No Account Required</h4><p data-i18n="why4Desc">No sign-up, no login, no user database. Just open the app and write.</p></div>
         </div>
         <div class="why-item">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 1l22 22"/><path d="M9 9v2a3 3 0 005.06 1.6M15 9V7a3 3 0 00-5.06-1.6"/></svg>
-          <div><h4>No Telemetry</h4><p>Zero usage tracking. No analytics, no data collection of any kind.</p></div>
+          <div><h4 data-i18n="why5Title">No Telemetry</h4><p data-i18n="why5Desc">Zero usage tracking. No analytics, no data collection of any kind.</p></div>
         </div>
         <div class="why-item">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l10 6.5v7L12 22 2 15.5v-7L12 2z"/></svg>
-          <div><h4>Plugin System</h4><p>Extend Jylos with external JARs. Built-in Mermaid diagram support.</p></div>
+          <div><h4 data-i18n="why6Title">Plugin System</h4><p data-i18n="why6Desc">Extend Jylos with external JARs, built-in helpers and custom UI theming.</p></div>
         </div>
         <div class="why-item">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="2" x2="12" y2="4"/></svg>
-          <div><h4>Knowledge Graph</h4><p>Visualize connections between notes. Interactive, zoomable, local and global views.</p></div>
+          <div><h4 data-i18n="why7Title">Knowledge Graph</h4><p data-i18n="why7Desc">Visualize connections between notes. Interactive, zoomable, local and global views.</p></div>
         </div>
         <div class="why-item">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="8" cy="6" r="1"/><circle cx="8" cy="18" r="1"/></svg>
-          <div><h4>Cross-platform</h4><p>Windows, macOS and Linux. Native installers built with jpackage.</p></div>
+          <div><h4 data-i18n="why8Title">Cross-platform</h4><p data-i18n="why8Desc">Windows, macOS and Linux. Native installers built with jpackage.</p></div>
         </div>
       </div>
     </div>
@@ -534,32 +570,31 @@
 
   <div class="divider"></div>
 
-  <!-- Privacy -->
   <section class="section">
     <div class="container">
-      <div class="section-label">Privacy by Design</div>
-      <h2 class="section-title">Your data, your rules</h2>
-      <p class="section-subtitle">No servers. No accounts. No nonsense.</p>
+      <div class="section-label" data-i18n="privacyLabel">Privacy by Design</div>
+      <h2 class="section-title" data-i18n="privacyTitle">Local by default</h2>
+      <p class="section-subtitle" data-i18n="privacySubtitle">No account system, no hosted backend and no telemetry.</p>
       <div class="privacy-grid">
         <div class="privacy-item glass-card">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M21 16V8a2 2 0 00-1-1.73L13 2.27a2 2 0 00-2 0L4 6.27A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
-          <h4>Stored Locally</h4>
-          <p>Everything lives on your device in SQLite or plain Markdown files.</p>
+          <h4 data-i18n="privacy1Title">Stored Locally</h4>
+          <p data-i18n="privacy1Desc">Everything lives on your device in SQLite or plain Markdown files.</p>
         </div>
         <div class="privacy-item glass-card">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-          <h4>No Accounts</h4>
-          <p>No sign-up, no login, no user database.</p>
+          <h4 data-i18n="privacy2Title">No Accounts</h4>
+          <p data-i18n="privacy2Desc">No sign-up, no login, no user database.</p>
         </div>
         <div class="privacy-item glass-card">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
-          <h4>No Cloud Backend</h4>
-          <p>There is no server to call, ever.</p>
+          <h4 data-i18n="privacy3Title">No Cloud Backend</h4>
+          <p data-i18n="privacy3Desc">There is no server to call, ever.</p>
         </div>
         <div class="privacy-item glass-card">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1 1l22 22"/><path d="M9 9v2a3 3 0 005.06 1.6M15 9V7a3 3 0 00-5.06-1.6"/></svg>
-          <h4>No Telemetry</h4>
-          <p>Zero usage tracking or analytics.</p>
+          <h4 data-i18n="privacy4Title">No Telemetry</h4>
+          <p data-i18n="privacy4Desc">Zero usage tracking or analytics.</p>
         </div>
       </div>
     </div>
@@ -567,15 +602,14 @@
 
   <div class="divider"></div>
 
-  <!-- CTA -->
   <section class="section">
     <div class="container">
       <div class="cta-card glass-card">
-        <div class="section-label">Open Source</div>
-        <h2>Free and open source, forever</h2>
-        <p>Jylos is MIT-licensed, built with Java 21 and JavaFX 23. Contributions, feedback and pull requests are welcome.</p>
+        <div class="section-label" data-i18n="ctaLabel">Project</div>
+        <h2 data-i18n="ctaTitle">Open source and actively maintained</h2>
+        <p data-i18n="ctaDesc">Jylos is released under MIT and built with Java 21 and JavaFX 23. Issues, feedback and pull requests are welcome.</p>
         <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 24px;">
-          <span class="badge badge--cyan">MIT License</span>
+          <span class="badge badge--cyan" data-i18n="badgeLicense">MIT License</span>
           <span class="badge">Java 21</span>
           <span class="badge">JavaFX 23</span>
           <span class="badge">Maven 3.9+</span>
@@ -583,27 +617,26 @@
         </div>
         <a href="https://github.com/RGiskard7/jylos" target="_blank" rel="noopener" class="btn btn-primary">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-          Contribute on GitHub
+          <span data-i18n="ctaButton">Contribute on GitHub</span>
         </a>
       </div>
     </div>
   </section>
 
-  <!-- Footer -->
   <footer class="footer">
     <div class="footer-grid">
       <div class="footer-col">
         <h4>Jylos</h4>
-        <a href="#">Back to top</a>
-        <a href="https://github.com/RGiskard7/jylos/blob/main/changelog.md" target="_blank" rel="noopener">Changelog</a>
+        <a href="#" data-i18n="footerTop">Back to top</a>
+        <a href="https://github.com/RGiskard7/jylos/blob/main/changelog.md" target="_blank" rel="noopener" data-i18n="footerChangelog">Changelog</a>
         <a href="https://github.com/RGiskard7/jylos/blob/main/README.md" target="_blank" rel="noopener">README</a>
       </div>
       <div class="footer-col">
         <h4>Links</h4>
         <a href="https://github.com/RGiskard7/jylos" target="_blank" rel="noopener">GitHub</a>
-        <a href="https://github.com/RGiskard7/jylos/releases" target="_blank" rel="noopener">Releases</a>
-        <a href="https://github.com/RGiskard7/jylos/blob/main/doc/README.md" target="_blank" rel="noopener">Documentation</a>
-        <a href="https://github.com/RGiskard7/jylos/blob/main/LICENSE" target="_blank" rel="noopener">License (MIT)</a>
+        <a href="https://github.com/RGiskard7/jylos/releases" target="_blank" rel="noopener" data-i18n="footerReleases">Releases</a>
+        <a href="https://github.com/RGiskard7/jylos/blob/main/docs/README.md" target="_blank" rel="noopener" data-i18n="footerDocs">Documentation</a>
+        <a href="https://github.com/RGiskard7/jylos/blob/main/LICENSE" target="_blank" rel="noopener" data-i18n="footerLicense">License (MIT)</a>
       </div>
       <div class="footer-col">
         <h4>Stack</h4>
@@ -614,12 +647,11 @@
       </div>
     </div>
     <div class="footer-bottom">
-      <span>Made by Eduardo Díaz Sánchez / RGiskard7</span>
+      <span data-i18n="footerMadeBy">Made by Eduardo Díaz Sánchez / RGiskard7</span>
     </div>
   </footer>
 
   <script>
-    // Mobile toggle
     (function() {
       const toggle = document.getElementById('mobileToggle');
       const nav = document.getElementById('nav');
@@ -635,7 +667,253 @@
       });
     })();
 
-    // Copy JBang command
+    const translations = {
+      en: {
+        pageTitle: "Jylos — Local-first knowledge management",
+        pageDescription: "Jylos is a local-first, open-source desktop app for Markdown notes, wiki-links, backlinks, knowledge graphs, Obsidian-compatible Canvas, Kanban boards, plugins, themes and Git sync. Windows, macOS and Linux.",
+        navFeatures: "Features",
+        navScreenshots: "Screenshots",
+        navDownload: "Download",
+        heroSubtitle: "Desktop notes app for Markdown, wiki-links, Canvas, Kanban and graph views.",
+        heroDesc: "Open source, local-first, and built for Windows, macOS and Linux. Works with SQLite or plain Markdown vaults.",
+        heroDownload: "Download",
+        heroGithub: "View on GitHub",
+        badgeLicense: "MIT License",
+        badgeLocalFirst: "Local-first",
+        badgeStorage: "SQLite or Markdown vault",
+        badgePlatforms: "Windows · macOS · Linux",
+        statRelease: "Release",
+        statStorage: "Storage modes",
+        statLicense: "License",
+        socialOpenSource: "Desktop application",
+        socialMaintained: "No account required",
+        downloadLabel: "Download",
+        downloadTitle: "Get Jylos",
+        downloadSubtitle: "Packages for the current release, plus a JBang launcher if you prefer to run it without installing manually.",
+        jbangLabel: "Run instantly with JBang",
+        copy: "Copy",
+        jbangHint: "JBang downloads Java 21 and JavaFX automatically if needed. No build required.",
+        copiedToast: "Copied to clipboard",
+        allReleases: "View all releases",
+        featuresLabel: "Features",
+        featuresTitle: "Core capabilities",
+        featuresSubtitle: "The main workflows available in the app today.",
+        featureEditorTitle: "Markdown Editor",
+        featureEditorDesc: "Live syntax highlighting, side-by-side preview, GFM tables and KaTeX math.",
+        featureWikiTitle: "Wiki-links",
+        featureWikiDesc: "Wiki-link autocomplete, backlinks panel and click-to-open navigation between notes.",
+        featureGraphTitle: "Knowledge Graph",
+        featureGraphDesc: "Interactive force-directed graph. Zoom, pan, drag nodes, local neighbourhood views.",
+        featureCanvasTitle: "Canvas & Kanban",
+        featureCanvasDesc: "Obsidian-compatible Canvas boards and Kanban workflows for projects, planning and spatial thinking.",
+        featureGitTitle: "Git Sync",
+        featureGitDesc: "Stage, commit, push and pull from a unified panel. Full Git integration.",
+        featureEncryptionTitle: "AES-256 Encryption",
+        featureEncryptionDesc: "Encrypt note bodies with AES-256-GCM behind a master password.",
+        featureStorageTitle: "Storage Freedom",
+        featureStorageDesc: "SQLite database or plain Markdown vault. Switch anytime, your choice.",
+        featurePluginsTitle: "Plugins & Themes",
+        featurePluginsDesc: "Plugin JARs, Mermaid diagrams, CSS themes, snippets and a plugin manager.",
+        featureSearchTitle: "Advanced Search",
+        featureSearchDesc: "Operators, date shorthands, command palette and quick switcher.",
+        featureWorkspacesTitle: "Workspaces",
+        featureWorkspacesDesc: "Save and restore open tabs, view state and layout per context.",
+        screenshotsLabel: "Screenshots",
+        screenshotsTitle: "Interface overview",
+        screenshotsSubtitle: "Click any image to expand it.",
+        shot1: "Write notes in Markdown and visualize Mermaid diagrams in real time",
+        shot2: "Interactive knowledge graph with customizable visualization settings",
+        shot3: "Navigate thousands of connected notes through a scalable graph view",
+        shot4: "Customizable workspace with notes, navigation and live preview",
+        shot5: "Organize tasks and projects with built-in Kanban boards",
+        whyLabel: "Design choices",
+        whyTitle: "Practical decisions",
+        whySubtitle: "The app is built around local storage, open formats and a desktop workflow.",
+        why1Title: "Local-first",
+        why1Desc: "Your notes live on your disk. SQLite or plain Markdown files — always yours.",
+        why2Title: "Open Source (MIT)",
+        why2Desc: "Free forever. Audit the code, modify it, contribute back.",
+        why3Title: "Markdown-native",
+        why3Desc: "Plain text Markdown with YAML frontmatter. No proprietary format lock-in.",
+        why4Title: "No Account Required",
+        why4Desc: "No sign-up, no login, no user database. Just open the app and write.",
+        why5Title: "No Telemetry",
+        why5Desc: "Zero usage tracking. No analytics, no data collection of any kind.",
+        why6Title: "Plugin System",
+        why6Desc: "Extend Jylos with external JARs, built-in helpers and custom UI theming.",
+        why7Title: "Knowledge Graph",
+        why7Desc: "Visualize connections between notes. Interactive, zoomable, local and global views.",
+        why8Title: "Cross-platform",
+        why8Desc: "Windows, macOS and Linux. Native installers built with jpackage.",
+        privacyLabel: "Privacy by Design",
+        privacyTitle: "Local by default",
+        privacySubtitle: "No account system, no hosted backend and no telemetry.",
+        privacy1Title: "Stored Locally",
+        privacy1Desc: "Everything lives on your device in SQLite or plain Markdown files.",
+        privacy2Title: "No Accounts",
+        privacy2Desc: "No sign-up, no login, no user database.",
+        privacy3Title: "No Cloud Backend",
+        privacy3Desc: "There is no server to call, ever.",
+        privacy4Title: "No Telemetry",
+        privacy4Desc: "Zero usage tracking or analytics.",
+        ctaLabel: "Project",
+        ctaTitle: "Open source and actively maintained",
+        ctaDesc: "Jylos is released under MIT and built with Java 21 and JavaFX 23. Issues, feedback and pull requests are welcome.",
+        ctaButton: "Contribute on GitHub",
+        footerTop: "Back to top",
+        footerChangelog: "Changelog",
+        footerReleases: "Releases",
+        footerDocs: "Documentation",
+        footerLicense: "License (MIT)",
+        footerMadeBy: "Made by Eduardo Díaz Sánchez / RGiskard7"
+      },
+      es: {
+        pageTitle: "Jylos — Gestión del conocimiento local-first",
+        pageDescription: "Jylos es una aplicación de escritorio local-first y de código abierto para notas Markdown, wiki-links, backlinks, grafo de conocimiento, Canvas compatible con Obsidian, tableros Kanban, plugins, temas y sincronización Git. Windows, macOS y Linux.",
+        navFeatures: "Funciones",
+        navScreenshots: "Capturas",
+        navDownload: "Descarga",
+        heroSubtitle: "Aplicación de notas de escritorio para Markdown, wiki-links, Canvas, Kanban y vistas de grafo.",
+        heroDesc: "Aplicación de escritorio de código abierto, local-first y disponible para Windows, macOS y Linux. Funciona con SQLite o con vaults Markdown planos.",
+        heroDownload: "Descargar",
+        heroGithub: "Ver en GitHub",
+        badgeLicense: "Licencia MIT",
+        badgeLocalFirst: "Local-first",
+        badgeStorage: "SQLite o vault Markdown",
+        badgePlatforms: "Windows · macOS · Linux",
+        statRelease: "Versión",
+        statStorage: "Modos de almacenamiento",
+        statLicense: "Licencia",
+        socialOpenSource: "Aplicación de escritorio",
+        socialMaintained: "Sin cuenta obligatoria",
+        downloadLabel: "Descarga",
+        downloadTitle: "Consigue Jylos",
+        downloadSubtitle: "Paquetes de la versión actual y, si lo prefieres, un lanzador con JBang para ejecutarlo sin instalación manual.",
+        jbangLabel: "Ejecútalo al instante con JBang",
+        copy: "Copiar",
+        jbangHint: "JBang descarga Java 21 y JavaFX automáticamente si hace falta. Sin compilar nada.",
+        copiedToast: "Copiado al portapapeles",
+        allReleases: "Ver todas las versiones",
+        featuresLabel: "Funciones",
+        featuresTitle: "Capacidades principales",
+        featuresSubtitle: "Los flujos principales que ofrece la aplicación hoy.",
+        featureEditorTitle: "Editor Markdown",
+        featureEditorDesc: "Resaltado de sintaxis en vivo, vista previa lado a lado, tablas GFM y fórmulas KaTeX.",
+        featureWikiTitle: "Wiki-links",
+        featureWikiDesc: "Autocompletado de wiki-links, panel de backlinks y navegación entre notas con un clic.",
+        featureGraphTitle: "Grafo de conocimiento",
+        featureGraphDesc: "Grafo interactivo por fuerzas. Zoom, paneo, arrastre de nodos y vistas de vecindario local.",
+        featureCanvasTitle: "Canvas y Kanban",
+        featureCanvasDesc: "Canvas compatible con Obsidian y flujos Kanban para proyectos, planificación y pensamiento espacial.",
+        featureGitTitle: "Sincronización Git",
+        featureGitDesc: "Preparar, confirmar, hacer push y pull desde un panel unificado. Integración Git completa.",
+        featureEncryptionTitle: "Cifrado AES-256",
+        featureEncryptionDesc: "Cifra el contenido de las notas con AES-256-GCM protegido por una contraseña maestra.",
+        featureStorageTitle: "Libertad de almacenamiento",
+        featureStorageDesc: "Base de datos SQLite o vault Markdown plano. Cambia cuando quieras.",
+        featurePluginsTitle: "Plugins y temas",
+        featurePluginsDesc: "Plugins JAR, diagramas Mermaid, temas CSS, snippets y gestor de plugins.",
+        featureSearchTitle: "Búsqueda avanzada",
+        featureSearchDesc: "Operadores, atajos de fecha, command palette y quick switcher.",
+        featureWorkspacesTitle: "Workspaces",
+        featureWorkspacesDesc: "Guarda y restaura pestañas abiertas, estado de vistas y layout por contexto.",
+        screenshotsLabel: "Capturas",
+        screenshotsTitle: "Vista general de la interfaz",
+        screenshotsSubtitle: "Haz clic en cualquier imagen para ampliarla.",
+        shot1: "Escribe notas en Markdown y visualiza diagramas Mermaid en tiempo real",
+        shot2: "Grafo de conocimiento interactivo con ajustes de visualización personalizables",
+        shot3: "Navega miles de notas conectadas mediante una vista de grafo escalable",
+        shot4: "Espacio de trabajo personalizable con notas, navegación y vista previa en vivo",
+        shot5: "Organiza tareas y proyectos con tableros Kanban integrados",
+        whyLabel: "Decisiones de diseño",
+        whyTitle: "Elecciones prácticas",
+        whySubtitle: "La aplicación está construida alrededor de almacenamiento local, formatos abiertos y un flujo de trabajo de escritorio.",
+        why1Title: "Local-first",
+        why1Desc: "Tus notas viven en tu disco. SQLite o archivos Markdown planos: siempre tuyos.",
+        why2Title: "Código abierto (MIT)",
+        why2Desc: "Gratis para siempre. Audita el código, modifícalo y contribuye de vuelta.",
+        why3Title: "Nativo en Markdown",
+        why3Desc: "Markdown plano con frontmatter YAML. Sin bloqueo en formatos propietarios.",
+        why4Title: "Sin cuenta obligatoria",
+        why4Desc: "Sin registro, sin inicio de sesión y sin base de datos de usuarios. Abres la app y escribes.",
+        why5Title: "Sin telemetría",
+        why5Desc: "Cero seguimiento de uso. Sin analíticas ni recolección de datos de ningún tipo.",
+        why6Title: "Sistema de plugins",
+        why6Desc: "Amplía Jylos con JARs externos, ayudas integradas y tematización personalizada de la interfaz.",
+        why7Title: "Grafo de conocimiento",
+        why7Desc: "Visualiza conexiones entre notas. Interactivo, con zoom y vistas locales y globales.",
+        why8Title: "Multiplataforma",
+        why8Desc: "Windows, macOS y Linux. Instaladores nativos generados con jpackage.",
+        privacyLabel: "Privacidad por diseño",
+        privacyTitle: "Local por defecto",
+        privacySubtitle: "Sin sistema de cuentas, sin backend alojado y sin telemetría.",
+        privacy1Title: "Guardado en local",
+        privacy1Desc: "Todo vive en tu dispositivo, ya sea en SQLite o en archivos Markdown planos.",
+        privacy2Title: "Sin cuentas",
+        privacy2Desc: "Sin registro, sin inicio de sesión y sin base de datos de usuarios.",
+        privacy3Title: "Sin backend en la nube",
+        privacy3Desc: "No existe ningún servidor al que llamar, nunca.",
+        privacy4Title: "Sin telemetría",
+        privacy4Desc: "Cero seguimiento de uso o analíticas.",
+        ctaLabel: "Proyecto",
+        ctaTitle: "Código abierto y mantenimiento activo",
+        ctaDesc: "Jylos se publica bajo licencia MIT y está construido con Java 21 y JavaFX 23. Los issues, el feedback y los pull requests son bienvenidos.",
+        ctaButton: "Contribuir en GitHub",
+        footerTop: "Volver arriba",
+        footerChangelog: "Changelog",
+        footerReleases: "Versiones",
+        footerDocs: "Documentación",
+        footerLicense: "Licencia (MIT)",
+        footerMadeBy: "Hecho por Eduardo Díaz Sánchez / RGiskard7"
+      }
+    };
+
+    function applyLanguage(lang) {
+      const locale = translations[lang] || translations.en;
+      document.documentElement.lang = lang;
+      document.title = locale.pageTitle;
+      document.querySelector('meta[name="description"]').setAttribute('content', locale.pageDescription);
+      document.querySelectorAll('[data-i18n]').forEach(function(node) {
+        const key = node.getAttribute('data-i18n');
+        if (locale[key]) {
+          node.textContent = locale[key];
+        }
+      });
+      document.getElementById('langEn').classList.toggle('is-active', lang === 'en');
+      document.getElementById('langEs').classList.toggle('is-active', lang === 'es');
+      localStorage.setItem('jylos-site-lang', lang);
+    }
+
+    function applyTheme(theme) {
+      document.body.setAttribute('data-theme', theme);
+      const themeToggle = document.getElementById('themeToggle');
+      themeToggle.textContent = theme === 'dark' ? '☾' : '☀';
+      themeToggle.setAttribute('title', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+      themeToggle.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+      document.querySelector('meta[name="theme-color"]').setAttribute('content', theme === 'light' ? '#edf2fb' : '#0a0a1a');
+      localStorage.setItem('jylos-site-theme', theme);
+    }
+
+    (function() {
+      const savedLang = localStorage.getItem('jylos-site-lang');
+      const browserLang = navigator.language && navigator.language.toLowerCase().startsWith('es') ? 'es' : 'en';
+      const lang = savedLang || browserLang;
+
+      const savedTheme = localStorage.getItem('jylos-site-theme');
+      const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+      const theme = savedTheme || (prefersLight ? 'light' : 'dark');
+
+      document.getElementById('langEn').addEventListener('click', function() { applyLanguage('en'); });
+      document.getElementById('langEs').addEventListener('click', function() { applyLanguage('es'); });
+      document.getElementById('themeToggle').addEventListener('click', function() {
+        const currentTheme = document.body.getAttribute('data-theme') || 'dark';
+        applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+      });
+
+      applyLanguage(lang);
+      applyTheme(theme);
+    })();
+
     function copyJbang() {
       var code = document.getElementById('jbangCode').textContent;
       navigator.clipboard.writeText(code).then(function() {
@@ -645,7 +923,6 @@
       });
     }
 
-    // Lightbox
     function openLightbox(src) {
       var img = document.getElementById('lightboxImg');
       img.src = src;

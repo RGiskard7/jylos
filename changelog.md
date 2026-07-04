@@ -19,6 +19,7 @@ Release centrada en el **cierre del saneamiento arquitectónico**, la **normaliz
 
 - **MainController más limpio** dentro de su núcleo legítimo de coordinación, extrayendo flujos secundarios a supports cohesionados sin fragmentar su rol shell.
 - **Servicios e índices más coherentes**: mejor separación entre negocio, infraestructura técnica e índices/cachés, con documentación normativa actualizada.
+- **Cambio de vault sin reinicio en modo filesystem**: `filesystem -> filesystem` ahora rehace la sesión activa en caliente con confirmación de cambios sin guardar, cierre limpio de tabs, rewire de servicios/controladores, invalidación de índices/cachés y protección frente a callbacks tardíos del vault anterior; `sqlite <-> filesystem` sigue requiriendo reinicio.
 - **Ajustes de robustez en filesystem/SQLite**: mejoras incrementales en carga de vault, refrescos, cachés, concurrencia y coherencia post-restore.
 - **Acceso persistente más consistente**: se sincronizó mejor el acceso concurrente a la base de datos entre DAOs y se pulieron consultas calientes y resolución de nombres de archivo en SQLite.
 - **Backlinks, índices y tareas internas más sólidos**: se ajustaron suscripciones, tareas y flujos incrementales para reducir estados intermedios frágiles.
@@ -309,7 +310,7 @@ Mejora incremental sobre la búsqueda full-text existente: si escribes texto nor
 - **Integración no invasiva**: `NotesListController.performSearch` delega en `AdvancedSearchService` reutilizando el caché de contenido completo; el render de resultados (lista actual) no cambia. Si el servicio no está disponible, cae al filtrado simple anterior.
 - **UI**: placeholder con ejemplo (`Search notes… try tag:java modified:last-week`) y tooltip «Search syntax» en la caja de búsqueda. i18n EN/ES con paridad.
 - **Tests:** `SearchQueryParserTest` (13) y `AdvancedSearchServiceTest` (8) — texto libre, frases, tag/folder/title/body, negación, fechas, combinación AND y consultas inválidas. 192/192 tests verdes.
-- **Doc:** nuevo `doc/SEARCH.md` con la sección "Advanced Search Syntax".
+- **Doc:** nuevo `docs/SEARCH.md` con la sección "Advanced Search Syntax".
 
 ### Feat: Graph 2.0 + Knowledge Insights (2026-06-13)
 
@@ -322,7 +323,7 @@ Convierte el grafo de conocimiento en una herramienta analítica, sin lógica de
 - **Definiciones** documentadas: *enlace resuelto* (ambos extremos existen), *enlace roto* (a nota inexistente / nodo ghost), *huérfana* (sin enlaces resueltos). 
 - **i18n** EN/ES con paridad (`insights.*`, `graph.filter_*`, `action.knowledge_insights`) y CSS del panel en ambos temas. Acción `KNOWLEDGE_INSIGHTS` + comando `cmd.knowledge_insights`.
 - **Tests:** nuevo `KnowledgeInsightsTest` (6 casos: huérfanas, enlaces rotos, ranking de conectividad, health score con clamp/tope y vault vacío). 171/171 tests verdes.
-- **Doc:** nuevo `doc/GRAPH.md`.
+- **Doc:** nuevo `docs/GRAPH.md`.
 
 ### Feat: panel «Git Sync» de primera clase para vaults Markdown (2026-06-13)
 
@@ -335,7 +336,7 @@ Filosofía: *tus notas, tu repositorio, tu control*. Sin sincronización en la n
 - **No bloquea la UI:** toda operación corre en un `Task` daemon fuera del hilo de JavaFX; mientras tanto los botones se deshabilitan y se muestra una barra de progreso indeterminada. Errores claros para Git ausente, sin repo, sin remoto, conflicto en pull, push rechazado y fallo de credenciales.
 - **i18n** EN/ES con paridad de claves (`git.panel.*`, `action.git_panel`) y CSS en ambos temas (`.git-change-badge`, `.git-conflict-banner`, `.git-primary-btn`, `.git-log-area`…).
 - **Tests:** `GitServiceTest` amplía a 8 casos — round-trip de `stageAll`/`unstageAll` y detección de un conflicto de merge real. 165/165 tests verdes.
-- **Doc:** nuevo `doc/GIT.md`.
+- **Doc:** nuevo `docs/GIT.md`.
 
 ## [2.0.0] - 2026-06-13
 
@@ -359,20 +360,20 @@ Versión **major** por dos rupturas de compatibilidad: el requisito mínimo de J
 
 - **`scripts/package-windows.ps1`**: elige JDK 21+ aunque `java` en PATH sea 17; usa `.tools/wix314` si existe.
 - **`scripts/setup-packaging-windows.ps1`**: setup one-shot (winget JDK 21 + descarga WiX 3.14 sin admin).
-- **`doc/PACKAGING.md`**: documentado el flujo de setup.
+- **`docs/PACKAGING.md`**: documentado el flujo de setup.
 
 ### Feat: instaladores Windows, API de plugins, importadores, historial, Kanban+ y firma macOS (2026-06-08)
 
-- **Instaladores Windows (.exe / .msi):** `package-windows.ps1` es ahora el núcleo parametrizado (`-Type portable|exe|msi`; portable por defecto) con dos wrappers `package-windows-exe.ps1` / `package-windows-msi.ps1`. Ambos instaladores requieren **WiX Toolset** (lo usa jpackage), incluyen selector de directorio, grupo de menú Inicio, acceso directo, página de licencia MIT y un **UUID de upgrade estable** (las versiones nuevas actualizan en vez de duplicarse). Documentado en `doc/PACKAGING.md`. *(No ejecutables en macOS — pendientes de prueba en Windows.)*
-- **Fase 5a — API de plugins ampliada:** nuevos `EditorHook`/`EditorHooks` (dispatcher con cadena en orden de registro, hooks que lanzan se saltan) con `onBeforeTextInsert` (inserciones programáticas: diálogos de enlace/imagen, autocompletado `[[`, plantillas), `onBeforeSave` (transforma el contenido antes de persistir, editor sincronizado) y `onAfterSave`; y `ToolbarRegistry` → `PluginContext.registerToolbarButton(...)` (botones Feather en el toolbar, limpieza automática al deshabilitar). `WordCountPlugin` de ejemplo usa el botón. Tests `EditorHooksTest` + lifecycle ampliado. API documentada en `doc/PLUGINS.md`.
+- **Instaladores Windows (.exe / .msi):** `package-windows.ps1` es ahora el núcleo parametrizado (`-Type portable|exe|msi`; portable por defecto) con dos wrappers `package-windows-exe.ps1` / `package-windows-msi.ps1`. Ambos instaladores requieren **WiX Toolset** (lo usa jpackage), incluyen selector de directorio, grupo de menú Inicio, acceso directo, página de licencia MIT y un **UUID de upgrade estable** (las versiones nuevas actualizan en vez de duplicarse). Documentado en `docs/PACKAGING.md`. *(No ejecutables en macOS — pendientes de prueba en Windows.)*
+- **Fase 5a — API de plugins ampliada:** nuevos `EditorHook`/`EditorHooks` (dispatcher con cadena en orden de registro, hooks que lanzan se saltan) con `onBeforeTextInsert` (inserciones programáticas: diálogos de enlace/imagen, autocompletado `[[`, plantillas), `onBeforeSave` (transforma el contenido antes de persistir, editor sincronizado) y `onAfterSave`; y `ToolbarRegistry` → `PluginContext.registerToolbarButton(...)` (botones Feather en el toolbar, limpieza automática al deshabilitar). `WordCountPlugin` de ejemplo usa el botón. Tests `EditorHooksTest` + lifecycle ampliado. API documentada en `docs/PLUGINS.md`.
 - **Importadores (menú Archivo):** **bóveda Obsidian** (jerarquía de carpetas recreada, título = nombre de fichero salvo `title:` explícito en frontmatter, cuerpo sin frontmatter intacto, etiquetas preservadas, `.obsidian/.trash` omitidos) y **Evernote `.enex`** (parser XML endurecido sin entidades externas; ENML→Markdown vía `EnexConverter`: negrita/cursiva/código, encabezados, listas, enlaces, checkboxes; etiquetas conservadas; adjuntos como placeholder). Importación aditiva y tolerante a fallos por nota (resumen + diálogo de errores). `ImportService` + `ImportSupport`; tests `ImportServiceTest`.
 - **Historial de versiones de nota:** `NoteHistoryService` guarda un snapshot del contenido **tal como estaba almacenado** antes de cada `updateNote` (las notas privadas se historian **cifradas**), con ventana de coalescencia de 60 s (el autoguardado no genera ruido) y tope de 50 snapshots/nota con poda. Visor (Herramientas → Historial, `Ctrl/Cmd+Shift+H`): lista de versiones + **diff por líneas** (`LineDiff`, LCS con fallback prefijo/sufijo para notas enormes) + **restaurar** (el estado previo a la restauración se snapshotea, así que es reversible). Tests `NoteHistoryServiceTest`.
 - **Kanban:** **límites WIP** y **colores por columna** como anotaciones serializables en el encabezado (`## Doing [wip=3] [color=#e06c75]`), configurables desde el menú ⋯ de columna (badge rojo al superar el límite; franja de color en la columna); **miniaturas** en tarjetas que referencian imágenes o PDFs (primera página vía PDFBox), resueltas en absoluto o relativo al fichero del tablero. Tests de round-trip en `KanbanModelTest`.
-- **macOS firmado/notarizado (opt-in):** `package-macos.sh` firma con jpackage si `JYLOS_MAC_SIGN_IDENTITY` está definida (certificado *Developer ID Application*) y notariza+staplea el DMG si además `JYLOS_NOTARY_PROFILE` apunta a un perfil de `notarytool`; sin variables, build local sin firmar como siempre. Pasos de configuración en `doc/PACKAGING.md`.
+- **macOS firmado/notarizado (opt-in):** `package-macos.sh` firma con jpackage si `JYLOS_MAC_SIGN_IDENTITY` está definida (certificado *Developer ID Application*) y notariza+staplea el DMG si además `JYLOS_NOTARY_PROFILE` apunta a un perfil de `notarytool`; sin variables, build local sin firmar como siempre. Pasos de configuración en `docs/PACKAGING.md`.
 ### Docs: instalar temas externos tras el instalador (2026-06-12)
 
 - **`themes/README.md`**: rutas por SO (macOS/Windows/Linux), copiar `themes/<id>/` al AppData, script `--appdata` y activación en Preferencias.
-- **`README.md`**, **`README.es.md`**, **`doc/PACKAGING.md`**: enlace/resumen; los instaladores no incluyen temas.
+- **`README.md`**, **`README.es.md`**, **`docs/PACKAGING.md`**: enlace/resumen; los instaladores no incluyen temas.
 
 ### Feat: color de acento personalizable + tamaño de texto persistente (2026-06-08)
 
@@ -389,8 +390,8 @@ Versión **major** por dos rupturas de compatibilidad: el requisito mínimo de J
 ### Docs: documentación al día con las funcionalidades reales (2026-06-08)
 
 - **READMEs (EN/ES):** nueva sección **«Why Jylos / Por qué Jylos»** — honesta, sin marketing: inspirada en Obsidian (el autor es fan), pero **no es un clon, alternativa ni competidor**; app independiente, local-first, offline, MIT, para la comunidad. Reflejadas las funcionalidades nuevas (editor con resaltado RichTextFX, pestañas, indicador de guardado, modo concentración, **Kanban**, **notas privadas/cifrado**, persistencia de splits) y stack (RichTextFX, PDFBox).
-- **`doc/ARCHITECTURE.md`:** editor `CodeArea` (no `TextArea`), `EditorTabs`, overlays grafo+Kanban (`OverlaySupport`), modo focus, `KanbanModel`, cifrado (`EncryptionService`), columnas `status`/`is_private` + migraciones idempotentes, y el patrón «feature support» de `MainController` con los nuevos controladores.
-- **`doc/EVENT_BUS_CONTRACT.md`:** acciones nuevas (`KANBAN_VIEW`, `FOCUS_MODE`, `PRIVATE_TOGGLE`/`NOTES_LOCK`) y delegación a los support.
+- **`docs/ARCHITECTURE.md`:** editor `CodeArea` (no `TextArea`), `EditorTabs`, overlays grafo+Kanban (`OverlaySupport`), modo focus, `KanbanModel`, cifrado (`EncryptionService`), columnas `status`/`is_private` + migraciones idempotentes, y el patrón «feature support» de `MainController` con los nuevos controladores.
+- **`docs/EVENT_BUS_CONTRACT.md`:** acciones nuevas (`KANBAN_VIEW`, `FOCUS_MODE`, `PRIVATE_TOGGLE`/`NOTES_LOCK`) y delegación a los support.
 ### Refactor: adelgazar MainController (patrón "feature support") (2026-06-08)
 
 - **`MainController` 3558 → 2822 líneas (−736, −21%)** extrayendo responsabilidades a clases dedicadas con `wire(...)` + callbacks (`i18n`, `status`, `scene`). Patrón documentado en `AGENTS.md`; los handlers FXML quedan como delegadores finos.
@@ -491,8 +492,8 @@ Versión **major** por dos rupturas de compatibilidad: el requisito mínimo de J
 
 ### Docs: resto de documentación técnica (2026-06-04)
 
-- **`doc/ARCHITECTURE.md`**: reescrito (grafo, git, backlinks, `GraphCanvas`, paquetes actuales, UI con overlay; eliminado `AppShellServices` obsoleto).
-- **`doc/PLUGINS.md`**, **`doc/PACKAGING.md`**, **`doc/LAUNCH_APP.md`**, **`doc/BUILD.md`**, **`doc/EVENT_BUS_CONTRACT.md`**, **`doc/README.md`**: iconos, Java 17 en plugins, smoke del grafo, `SystemActionEvent`, enlaces a README/i18n/icons.
+- **`docs/ARCHITECTURE.md`**: reescrito (grafo, git, backlinks, `GraphCanvas`, paquetes actuales, UI con overlay; eliminado `AppShellServices` obsoleto).
+- **`docs/PLUGINS.md`**, **`docs/PACKAGING.md`**, **`docs/LAUNCH_APP.md`**, **`docs/BUILD.md`**, **`docs/EVENT_BUS_CONTRACT.md`**, **`docs/README.md`**: iconos, Java 17 en plugins, smoke del grafo, `SystemActionEvent`, enlaces a README/i18n/icons.
 - **`plugins-source/README.md`**, **`themes/README.md`**: Java 17, tema sistema, `UiDialogs`.
 - **`scripts/README.md`**: nota bytecode 17 en build-plugins.
 - **i18n** `dialog.documentation.content` (EN/ES): texto de Ayuda → Documentación alineado con funciones actuales.
@@ -746,7 +747,7 @@ Versión **major** por dos rupturas de compatibilidad: el requisito mínimo de J
 ### Documentation (2026-05-31)
 
 - **README.md / README.es.md**: kept banner, badges, and screenshots; fixed plugin/theme paths, doc links, and removed a hardcoded local path; documented sidebar nav and note-list preview.
-- Restored [doc/LAUNCH_APP.md](doc/LAUNCH_APP.md) and [doc/EVENT_BUS_CONTRACT.md](doc/EVENT_BUS_CONTRACT.md); updated [doc/README.md](doc/README.md) index.
+- Restored [docs/LAUNCH_APP.md](docs/LAUNCH_APP.md) and [docs/EVENT_BUS_CONTRACT.md](docs/EVENT_BUS_CONTRACT.md); updated [docs/README.md](docs/README.md) index.
 - No intentional removal of README branding or portfolio visuals.
 
 ## [1.0.0] - 2026-03-03

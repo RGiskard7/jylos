@@ -80,4 +80,4 @@ fragment that across helpers just to shrink line count.
 
 **New FXML view:** `ui/view/*.fxml` + controller + wire in `MainController`.
 
-**Docs:** keep [README.md](README.md), [doc/](doc/), especially [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md) and [doc/ARCHITECTURE_GUIDELINES.md](doc/ARCHITECTURE_GUIDELINES.md), and this file aligned with code — no outdated paths (e.g. plugins live under `jylos/plugins/`, not repo-root `plugins/` only).
+**Docs:** keep [README.md](README.md), [docs/](docs/), especially [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/ARCHITECTURE_GUIDELINES.md](docs/ARCHITECTURE_GUIDELINES.md), and this file aligned with code — no outdated paths (e.g. plugins live under `jylos/plugins/`, not repo-root `plugins/` only).

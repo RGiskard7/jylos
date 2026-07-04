@@ -196,7 +196,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 - Plugins JAR en `jylos/plugins/` (`scripts/build-plugins.sh`; bytecode **Java 21**)
 - Gestor de plugins con IDs estables y carga/deshabilitado seguro
-- API de plugins: paleta de comandos, menús, paneles laterales, enhancers del preview, **botones de toolbar** y **hooks del editor** (`onBeforeTextInsert` / `onBeforeSave` / `onAfterSave`) — ver [doc/PLUGINS.md](doc/PLUGINS.md)
+- API de plugins: paleta de comandos, menús, paneles laterales, enhancers del preview, **botones de toolbar** y **hooks del editor** (`onBeforeTextInsert` / `onBeforeSave` / `onAfterSave`) — ver [docs/PLUGINS.md](docs/PLUGINS.md)
 - **Mermaid** integrado en preview (fuente en `plugins-source/`)
 - Catálogo de temas externos con fallback seguro
 
@@ -373,7 +373,7 @@ Cada script `package-*` compila el uber-JAR, opcionalmente `build-plugins.sh`, y
 .\scripts\package-windows.ps1
 ```
 
-Iconos: ventana y diálogo Acerca de usan `jylos/src/main/resources/icons/app-icon.png`; instaladores usan `icon.{icns,ico,png}` (`app.properties` y [jylos/src/main/resources/icons/README.md](jylos/src/main/resources/icons/README.md)). Detalle: [doc/PACKAGING.md](doc/PACKAGING.md).
+Iconos: ventana y diálogo Acerca de usan `jylos/src/main/resources/icons/app-icon.png`; instaladores usan `icon.{icns,ico,png}` (`app.properties` y [jylos/src/main/resources/icons/README.md](jylos/src/main/resources/icons/README.md)). Detalle: [docs/PACKAGING.md](docs/PACKAGING.md).
 
 ### Ejecución Maven (desarrollo)
 
@@ -435,21 +435,21 @@ Raíz del repositorio (contiene el módulo Maven `jylos/` y `scripts/`):
 ├── themes/                             # fuentes → build-themes → jylos/themes/
 ├── resources/images/                   # banner y capturas del README
 ├── scripts/                            # build, launch, package, smoke tests
-├── doc/                                # documentación técnica (doc/README.md)
+├── docs/                                # documentación técnica (docs/README.md)
 ├── AGENTS.md
 ├── changelog.md
 ├── README.md
 └── README.es.md
 ```
 
-No forma parte de la app: `replica-grafo/` (experimento Typst/grafo opcional; ver [doc/README.md](doc/README.md)).
+No forma parte de la app: `replica-grafo/` (experimento Typst/grafo opcional; ver [docs/README.md](docs/README.md)).
 
 ## Configuración
 
 ### Almacenamiento
 
 - **SQLite** (por defecto): `jylos/data/database.db`
-- **Bóveda filesystem**: carpeta de notas `.md` con frontmatter YAML; cambio en **Herramientas → Cambiar almacenamiento** (requiere reinicio)
+- **Bóveda filesystem**: carpeta de notas `.md` con frontmatter YAML; cambio en **Herramientas → Cambiar almacenamiento**. Cambiar de una bóveda filesystem a otra recarga la sesión **sin reiniciar**; cambiar entre **SQLite** y **filesystem** sigue requiriendo reinicio
 - Otros directorios runtime bajo `jylos/`: `logs/`, `backups/`, `plugins/`, `themes/`, `snippets/`
 
 ### Iconos de la aplicación
@@ -478,18 +478,18 @@ Coloca ficheros `.css` en la carpeta `snippets/` para retocar la interfaz sobre 
 
 ## Documentación
 
-- [doc/README.md](doc/README.md) — índice
-- [doc/BUILD.md](doc/BUILD.md)
-- [doc/LAUNCH_APP.md](doc/LAUNCH_APP.md)
-- [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md)
-- [doc/ARCHITECTURE_GUIDELINES.md](doc/ARCHITECTURE_GUIDELINES.md)
-- [doc/PLUGINS.md](doc/PLUGINS.md)
-- [doc/PACKAGING.md](doc/PACKAGING.md)
-- [doc/EVENT_BUS_CONTRACT.md](doc/EVENT_BUS_CONTRACT.md)
-- [doc/GIT.md](doc/GIT.md)
-- [doc/GRAPH.md](doc/GRAPH.md)
-- [doc/SEARCH.md](doc/SEARCH.md)
-- [doc/WORKSPACES.md](doc/WORKSPACES.md)
+- [docs/README.md](docs/README.md) — índice
+- [docs/BUILD.md](docs/BUILD.md)
+- [docs/LAUNCH_APP.md](docs/LAUNCH_APP.md)
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [docs/ARCHITECTURE_GUIDELINES.md](docs/ARCHITECTURE_GUIDELINES.md)
+- [docs/PLUGINS.md](docs/PLUGINS.md)
+- [docs/PACKAGING.md](docs/PACKAGING.md)
+- [docs/EVENT_BUS_CONTRACT.md](docs/EVENT_BUS_CONTRACT.md)
+- [docs/GIT.md](docs/GIT.md)
+- [docs/GRAPH.md](docs/GRAPH.md)
+- [docs/SEARCH.md](docs/SEARCH.md)
+- [docs/WORKSPACES.md](docs/WORKSPACES.md)
 - [AGENTS.md](AGENTS.md)
 - [changelog.md](changelog.md)
 
