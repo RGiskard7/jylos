@@ -23,8 +23,9 @@
     -fx-base-bg: #fafafa;
     -fx-sidebar-bg: #eef0f2;
     -fx-header-bg: #e8eaed;
-    -fx-accent: #7c3aed;
-    -fx-accent-hover: #6d28d9;
+    -fx-accent: #5563d6;
+    -fx-accent-hover: #4755c2;
+    -fx-accent-pressed: #3946ad;
     -fx-accent-contrast: #ffffff;
 
     -fx-text-main: #1f2024;
@@ -35,7 +36,7 @@
     -fx-hover-bg: #e2e5e9;
     -fx-hover-text: #111111;
 
-    -fx-selected-bg: #7c3aed;
+    -fx-selected-bg: #5563d6;
     -fx-selected-text: #ffffff;
 
     /* Semantic Colors */
@@ -44,9 +45,17 @@
     -fx-danger: #ef4444;
 
     /* Folder Colors (Restored variety) */
-    -fx-folder-all: #9f7aea;
+    -fx-folder-all: #8ea0ff;
     -fx-folder-open: #48bb78;
     -fx-folder-closed: #ed8936;
+
+    -fx-button-neutral-bg: #ffffff;
+    -fx-button-neutral-hover-bg: #eef7ff;
+    -fx-button-neutral-pressed-bg: #deeffb;
+    -fx-button-border: #c8d2dc;
+    -fx-button-border-hover: -fx-accent;
+    -fx-focus-ring: rgba(85, 99, 214, 0.18);
+    -fx-accent-soft: rgba(85, 99, 214, 0.18);
 
     -fx-background-color: -fx-base-bg;
     background-color: -fx-base-bg;
@@ -267,7 +276,11 @@
     fill: white;
 }
 
-.toolbar-btn-primary {
+.button:default,
+.toolbar-btn-primary,
+.empty-state-btn,
+.git-primary-btn,
+.plugin-manager-close-btn {
     -fx-background-color: -fx-accent;
     background-color: -fx-accent;
     -fx-text-fill: -fx-accent-contrast;
@@ -276,7 +289,11 @@
     border-color: -fx-accent;
 }
 
-.toolbar-btn-primary:hover {
+.button:default:hover,
+.toolbar-btn-primary:hover,
+.empty-state-btn:hover,
+.git-primary-btn:hover,
+.plugin-manager-close-btn:hover {
     -fx-background-color: -fx-accent-hover;
     background-color: -fx-accent-hover;
     -fx-border-color: -fx-accent-hover;
@@ -1946,6 +1963,35 @@
     background-color: -fx-header-bg;
 }
 
+.button:default {
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+}
+
+/* Primary button family: keep the standard Jylos accent appearance even when
+   the generic .button rule would otherwise win later in the cascade. */
+.empty-state-btn,
+.git-primary-btn,
+.plugin-manager-close-btn {
+    -fx-background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
+    -fx-border-color: -fx-accent;
+}
+
+.empty-state-btn:hover,
+.git-primary-btn:hover,
+.plugin-manager-close-btn:hover {
+    -fx-background-color: -fx-accent-hover;
+    -fx-border-color: -fx-accent-hover;
+}
+
+.empty-state-btn:pressed,
+.git-primary-btn:pressed,
+.plugin-manager-close-btn:pressed {
+    -fx-background-color: derive(-fx-accent-hover, -20%);
+    -fx-border-color: derive(-fx-accent-hover, -20%);
+}
+
 /* ========================================
    TOGGLE BUTTONS
    ======================================== */
@@ -2319,7 +2365,7 @@
 .tree-view:focused,
 .tab-pane:focused {
     -fx-focus-color: -fx-accent;
-    -fx-faint-focus-color: rgba(124, 58, 237, 0.18);
+    -fx-faint-focus-color: -fx-focus-ring;
 }
 
 .notes-list .list-cell {
@@ -2430,7 +2476,7 @@
 }
 
 .drag-over-target {
-    -fx-background-color: rgba(124, 58, 237, 0.18);
+    -fx-background-color: -fx-accent-soft;
     -fx-border-color: -fx-accent;
     -fx-border-width: 1px;
     -fx-border-radius: 6;
@@ -2453,11 +2499,17 @@
     background-color: derive(-fx-danger, -20%);
 }
 
+.button:default:pressed,
 .toolbar-btn-primary:pressed,
+.empty-state-btn:pressed,
+.git-primary-btn:pressed,
+.plugin-manager-close-btn:pressed,
 .sidebar-btn-primary:pressed,
 .dialog-btn-primary:pressed {
     -fx-background-color: derive(-fx-accent-hover, -20%);
     background-color: derive(-fx-accent-hover, -20%);
+    -fx-border-color: derive(-fx-accent-hover, -20%);
+    border-color: derive(-fx-accent-hover, -20%);
 }
 
 .toolbar-btn:selected:pressed,
@@ -2735,14 +2787,12 @@
     -fx-text-fill: -fx-text-muted;
 }
 .empty-state-btn {
-    -fx-background-color: -fx-accent;
-    -fx-text-fill: -fx-accent-contrast;
     -fx-font-size: 13px;
     -fx-padding: 8 18;
     -fx-background-radius: 6;
+    -fx-border-radius: 6;
     -fx-cursor: hand;
 }
-.empty-state-btn:hover { -fx-background-color: -fx-accent-hover; }
 .empty-state-btn .feather-icon { -fx-icon-color: -fx-accent-contrast; -fx-fill: -fx-accent-contrast; }
 .empty-state-btn-secondary {
     -fx-background-color: transparent;
@@ -2867,19 +2917,136 @@
     -fx-padding: 1 6 1 6;
 }
 .git-primary-btn {
-    -fx-background-color: -fx-accent;
-    -fx-text-fill: white;
     -fx-font-weight: 600;
-    -fx-background-radius: 4;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-border-width: 1;
     -fx-cursor: hand;
 }
-.git-primary-btn:hover { -fx-background-color: derive(-fx-accent, -8%); }
 .git-log-area {
     -fx-font-family: "monospace";
     -fx-font-size: 11px;
     -fx-text-fill: -fx-text-muted;
 }
 .git-commit-meta    { -fx-font-size: 11px; -fx-text-fill: -fx-text-faint; }
+
+/* ── Overlay windows (Command Palette / Quick Switcher) ─────────────────── */
+.overlay-backdrop {
+    -fx-background-color: rgba(16, 22, 35, 0.42);
+}
+.overlay-panel {
+    -fx-background-color: -fx-base-bg;
+    -fx-background-radius: 12;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-width: 1;
+    -fx-border-radius: 12;
+    -fx-effect: dropshadow(gaussian, rgba(10, 16, 28, 0.24), 28, 0, 0, 8);
+}
+.overlay-search-row {
+    -fx-background-color: -fx-header-bg;
+    -fx-background-radius: 12 12 0 0;
+}
+.overlay-search-icon {
+    -fx-text-fill: -fx-accent;
+    -fx-font-size: 18px;
+    -fx-font-weight: 700;
+}
+.overlay-search-field {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-border-width: 0;
+    -fx-padding: 0;
+    -fx-text-fill: -fx-text-main;
+    -fx-prompt-text-fill: -fx-text-faint;
+    -fx-font-size: 16px;
+}
+.overlay-search-field:focused {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-border-width: 0;
+}
+.overlay-divider {
+    -fx-background-color: -fx-fn-border-color;
+}
+.overlay-list-view {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 8;
+}
+.overlay-list-view .virtual-flow,
+.overlay-list-view .clipped-container,
+.overlay-list-view .sheet,
+.overlay-list-view .list-cell {
+    -fx-background-color: transparent;
+}
+.overlay-list-view .list-cell {
+    -fx-background-radius: 8;
+    -fx-padding: 2;
+}
+.overlay-list-view .list-cell:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+.overlay-list-view .list-cell:selected {
+    -fx-background-color: -fx-accent;
+}
+.overlay-item-icon {
+    -fx-background-color: -fx-hover-bg;
+    -fx-background-radius: 6;
+    -fx-padding: 4 8;
+    -fx-text-fill: -fx-accent;
+    -fx-font-size: 14px;
+    -fx-font-weight: 700;
+}
+.quick-switcher-cell .overlay-item-icon {
+    -fx-padding: 6 8;
+    -fx-font-size: 16px;
+}
+.overlay-item-icon-favorite {
+    -fx-text-fill: -fx-warning;
+}
+.overlay-item-title {
+    -fx-text-fill: -fx-text-main;
+    -fx-font-size: 14px;
+    -fx-font-weight: 700;
+}
+.overlay-item-subtitle {
+    -fx-text-fill: -fx-text-muted;
+    -fx-font-size: 11px;
+}
+.overlay-item-meta {
+    -fx-text-fill: -fx-text-faint;
+    -fx-font-size: 10px;
+}
+.overlay-shortcut-badge {
+    -fx-background-color: -fx-hover-bg;
+    -fx-background-radius: 4;
+    -fx-padding: 3 8;
+    -fx-text-fill: -fx-text-faint;
+    -fx-font-size: 10px;
+}
+.overlay-list-view .list-cell:selected .overlay-item-title,
+.overlay-list-view .list-cell:selected .overlay-item-subtitle,
+.overlay-list-view .list-cell:selected .overlay-item-meta,
+.overlay-list-view .list-cell:selected .overlay-shortcut-badge,
+.overlay-list-view .list-cell:selected .overlay-item-icon,
+.overlay-list-view .list-cell:selected .overlay-item-icon-favorite {
+    -fx-text-fill: -fx-accent-contrast;
+}
+.overlay-list-view .list-cell:selected .overlay-shortcut-badge,
+.overlay-list-view .list-cell:selected .overlay-item-icon {
+    -fx-background-color: rgba(255, 255, 255, 0.18);
+}
+.overlay-footer {
+    -fx-background-color: -fx-header-bg;
+    -fx-background-radius: 0 0 12 12;
+    -fx-border-color: -fx-fn-border-color transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+.overlay-hint,
+.overlay-status {
+    -fx-text-fill: -fx-text-faint;
+    -fx-font-size: 11px;
+}
 
 /* ── Dialogs (modals) — themed so they read correctly in dark & light ── */
 .dialog-pane {
@@ -2897,6 +3064,150 @@
 .dialog-pane .label {
     -fx-text-fill: -fx-text-main;
 }
+.dialog-pane .text-field,
+.dialog-pane .password-field,
+.dialog-pane .text-area,
+.dialog-pane .combo-box,
+.dialog-pane .list-view,
+.dialog-pane .scroll-pane {
+    -fx-background-color: -fx-base-bg;
+    -fx-control-inner-background: -fx-base-bg;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-background-insets: 0;
+}
+.dialog-pane .text-field,
+.dialog-pane .password-field,
+.dialog-pane .text-area,
+.dialog-pane .combo-box > .list-cell {
+    -fx-text-fill: -fx-text-main;
+    -fx-prompt-text-fill: -fx-text-faint;
+}
+.dialog-pane .combo-box .list-cell {
+    -fx-text-fill: -fx-text-main;
+    -fx-background-color: transparent;
+}
+.dialog-pane .combo-box .arrow-button {
+    -fx-background-color: transparent;
+}
+.dialog-pane .combo-box .arrow {
+    -fx-background-color: -fx-text-muted;
+}
+.dialog-pane .text-field:focused,
+.dialog-pane .password-field:focused,
+.dialog-pane .text-area:focused,
+.dialog-pane .combo-box:focused,
+.dialog-pane .list-view:focused,
+.dialog-pane .scroll-pane:focused {
+    -fx-border-color: -fx-accent;
+}
+.dialog-pane .text-area .content,
+.dialog-pane .scroll-pane > .viewport,
+.dialog-pane .list-view .virtual-flow,
+.dialog-pane .list-view .clipped-container,
+.dialog-pane .list-view .sheet {
+    -fx-background-color: -fx-base-bg;
+}
+.dialog-pane .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: -fx-text-main;
+}
+.dialog-pane .list-cell:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+.dialog-pane .list-cell:selected {
+    -fx-background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
+}
+.dialog-pane .combo-box-popup .list-view {
+    -fx-background-color: -fx-base-bg;
+    -fx-border-color: -fx-fn-border-color;
+}
+.dialog-pane .combo-box-popup .list-view .list-cell {
+    -fx-text-fill: -fx-text-main;
+    -fx-background-color: -fx-base-bg;
+    -fx-padding: 6 12;
+}
+.dialog-pane .combo-box-popup .list-view .list-cell:filled:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-text-main;
+}
+.dialog-pane .combo-box-popup .list-view .list-cell:filled:selected {
+    -fx-background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
+}
+.dialog-pane .separator:horizontal .line,
+.dialog-pane .separator:vertical .line {
+    -fx-border-color: -fx-fn-border-color;
+}
+.dialog-pane .tab-pane {
+    -fx-background-color: transparent;
+}
+.dialog-pane .tab-pane > .tab-header-area {
+    -fx-background-color: transparent;
+    -fx-padding: 0 0 8 0;
+    -fx-background-insets: 0;
+}
+.dialog-pane .tab-pane > .tab-header-area > .tab-header-background {
+    -fx-background-color: -fx-header-bg;
+    -fx-background-insets: 0;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+}
+.dialog-pane .tab-pane > .tab-header-area > .headers-region {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+}
+.dialog-pane .tab-pane > .tab-content-area {
+    -fx-background-color: transparent;
+}
+.dialog-pane .tab-pane > .tab-header-area > .headers-region > .tab {
+    -fx-background-color: -fx-header-bg;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
+    -fx-background-radius: 8 8 0 0;
+    -fx-border-radius: 8 8 0 0;
+    -fx-padding: 6 14 7 14;
+}
+.dialog-pane .tab-pane > .tab-header-area > .headers-region > .tab:selected {
+    -fx-background-color: -fx-base-bg;
+}
+.dialog-pane .tab-pane > .tab-header-area > .headers-region > .tab .tab-label {
+    -fx-text-fill: -fx-text-main;
+}
+.dialog-pane .table-view {
+    -fx-background-color: -fx-base-bg;
+    -fx-control-inner-background: -fx-base-bg;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+}
+.dialog-pane .table-view .column-header-background,
+.dialog-pane .table-view .filler {
+    -fx-background-color: -fx-header-bg;
+}
+.dialog-pane .table-view .column-header {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+}
+.dialog-pane .table-view .column-header .label {
+    -fx-text-fill: -fx-text-main;
+}
+.dialog-pane .table-row-cell {
+    -fx-background-color: -fx-base-bg;
+    -fx-table-cell-border-color: -fx-fn-border-color;
+}
+.dialog-pane .table-row-cell:filled:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+.dialog-pane .table-row-cell:filled:selected {
+    -fx-background-color: -fx-accent;
+}
+.dialog-pane .table-row-cell:filled:selected .text {
+    -fx-fill: -fx-accent-contrast;
+}
 .dialog-pane .button-bar .button {
     -fx-background-color: -fx-hover-bg;
     -fx-text-fill: -fx-text-main;
@@ -2910,8 +3221,40 @@
     -fx-text-fill: -fx-accent-contrast;
 }
 .dialog-pane .button-bar .button:default {
-    -fx-background-color: -fx-accent;
-    -fx-text-fill: -fx-accent-contrast;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+}
+.dialog-muted-label {
+    -fx-text-fill: -fx-text-muted;
+}
+.dialog-hint-label {
+    -fx-text-fill: -fx-text-faint;
+    -fx-font-size: 11px;
+}
+.dialog-monospace-area {
+    -fx-font-family: "monospace";
+}
+.about-title {
+    -fx-font-size: 24px;
+    -fx-font-weight: 700;
+    -fx-text-fill: -fx-text-main;
+}
+.about-version {
+    -fx-font-size: 14px;
+    -fx-text-fill: -fx-text-muted;
+}
+.about-description {
+    -fx-font-size: 13px;
+    -fx-text-fill: -fx-text-main;
+}
+.about-meta {
+    -fx-font-size: 11px;
+    -fx-text-fill: -fx-text-muted;
+}
+.about-credit {
+    -fx-font-size: 12px;
+    -fx-font-weight: 700;
+    -fx-text-fill: -fx-text-main;
 }
 
 /* TextArea (used by the commit dialog and elsewhere) */
@@ -3014,17 +3357,12 @@
     -fx-border-width: 1 0 0 0;
 }
 .plugin-manager-close-btn {
-    -fx-background-color: -fx-accent;
-    -fx-text-fill: -fx-accent-contrast;
     -fx-font-size: 13px;
     -fx-padding: 8 20 8 20;
     -fx-background-radius: 6;
     -fx-border-radius: 6;
-    -fx-border-width: 0;
+    -fx-border-width: 1;
     -fx-cursor: hand;
-}
-.plugin-manager-close-btn:hover {
-    -fx-background-color: derive(-fx-accent, 12%);
 }
 /* iOS-style pill toggle: track colour + knob position driven entirely by state */
 .plugin-switch {
@@ -3306,3 +3644,278 @@
     -fx-border-color: -fx-fn-border-color; -fx-border-width: 0 0 0 3; -fx-padding: 0 0 0 8;
 }
 .md-mini-quote .md-mini-run { -fx-fill: -fx-text-muted; }
+
+/* ========================================
+   FINAL BUTTON UNIFICATION LAYER
+   ======================================== */
+
+.button,
+.dialog-pane .button-bar .button,
+.toolbar-btn,
+.modern-toggle-btn,
+.format-toolbar .format-btn,
+.view-btn,
+.icon-btn,
+.icon-btn-small,
+.panel-close-btn,
+.empty-state-btn-secondary,
+.dialog-btn {
+    -fx-background-color: -fx-button-neutral-bg;
+    background-color: -fx-button-neutral-bg;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+    -fx-border-color: -fx-button-border;
+    border-color: -fx-button-border;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
+}
+
+.button:hover,
+.dialog-pane .button-bar .button:hover,
+.toolbar-btn:hover,
+.modern-toggle-btn:hover,
+.format-toolbar .format-btn:hover,
+.view-btn:hover,
+.icon-btn:hover,
+.icon-btn-small:hover,
+.panel-close-btn:hover,
+.empty-state-btn-secondary:hover,
+.dialog-btn:hover {
+    -fx-background-color: -fx-button-neutral-hover-bg;
+    background-color: -fx-button-neutral-hover-bg;
+    -fx-border-color: -fx-button-border-hover;
+    border-color: -fx-button-border-hover;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+}
+
+.button:pressed,
+.dialog-pane .button-bar .button:pressed,
+.toolbar-btn:pressed,
+.modern-toggle-btn:pressed,
+.format-toolbar .format-btn:pressed,
+.view-btn:pressed,
+.icon-btn:pressed,
+.icon-btn-small:pressed,
+.panel-close-btn:pressed,
+.empty-state-btn-secondary:pressed,
+.dialog-btn:pressed {
+    -fx-background-color: -fx-button-neutral-pressed-bg;
+    background-color: -fx-button-neutral-pressed-bg;
+    -fx-border-color: -fx-button-border-hover;
+    border-color: -fx-button-border-hover;
+}
+
+.button .feather-icon,
+.button .ikonli-font-icon,
+.dialog-pane .button-bar .button .feather-icon,
+.dialog-pane .button-bar .button .ikonli-font-icon,
+.toolbar-btn .feather-icon,
+.toolbar-btn .ikonli-font-icon,
+.modern-toggle-btn .feather-icon,
+.modern-toggle-btn .ikonli-font-icon,
+.format-toolbar .format-btn .feather-icon,
+.format-toolbar .format-btn .ikonli-font-icon,
+.view-btn .feather-icon,
+.view-btn .ikonli-font-icon,
+.icon-btn .feather-icon,
+.icon-btn .ikonli-font-icon,
+.icon-btn-small .feather-icon,
+.icon-btn-small .ikonli-font-icon,
+.panel-close-btn .feather-icon,
+.panel-close-btn .ikonli-font-icon,
+.empty-state-btn-secondary .feather-icon,
+.empty-state-btn-secondary .ikonli-font-icon,
+.dialog-btn .feather-icon,
+.dialog-btn .ikonli-font-icon {
+    -fx-icon-color: -fx-text-main;
+    -fx-fill: -fx-text-main;
+    fill: -fx-text-main;
+}
+
+.button:hover .feather-icon,
+.button:hover .ikonli-font-icon,
+.dialog-pane .button-bar .button:hover .feather-icon,
+.dialog-pane .button-bar .button:hover .ikonli-font-icon,
+.toolbar-btn:hover .feather-icon,
+.toolbar-btn:hover .ikonli-font-icon,
+.modern-toggle-btn:hover .feather-icon,
+.modern-toggle-btn:hover .ikonli-font-icon,
+.format-toolbar .format-btn:hover .feather-icon,
+.format-toolbar .format-btn:hover .ikonli-font-icon,
+.view-btn:hover .feather-icon,
+.view-btn:hover .ikonli-font-icon,
+.icon-btn:hover .feather-icon,
+.icon-btn:hover .ikonli-font-icon,
+.icon-btn-small:hover .feather-icon,
+.icon-btn-small:hover .ikonli-font-icon,
+.panel-close-btn:hover .feather-icon,
+.panel-close-btn:hover .ikonli-font-icon,
+.empty-state-btn-secondary:hover .feather-icon,
+.empty-state-btn-secondary:hover .ikonli-font-icon,
+.dialog-btn:hover .feather-icon,
+.dialog-btn:hover .ikonli-font-icon {
+    -fx-icon-color: -fx-text-main;
+    -fx-fill: -fx-text-main;
+    fill: -fx-text-main;
+}
+
+.button:default,
+.dialog-pane .button-bar .button:default,
+.toolbar-btn-primary,
+.toolbar-btn:selected,
+.modern-toggle-btn:selected,
+.toggle-button:selected,
+.view-btn:selected,
+.empty-state-btn,
+.git-primary-btn,
+.plugin-manager-close-btn,
+.sidebar-btn-primary,
+.dialog-btn-primary,
+.toolbar-btn-active {
+    -fx-background-color: -fx-accent;
+    background-color: -fx-accent;
+    -fx-text-fill: -fx-accent-contrast;
+    color: -fx-accent-contrast;
+    -fx-border-color: -fx-accent;
+    border-color: -fx-accent;
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
+}
+
+.button:default:hover,
+.dialog-pane .button-bar .button:default:hover,
+.toolbar-btn-primary:hover,
+.toolbar-btn:selected:hover,
+.modern-toggle-btn:selected:hover,
+.toggle-button:selected:hover,
+.view-btn:selected:hover,
+.empty-state-btn:hover,
+.git-primary-btn:hover,
+.plugin-manager-close-btn:hover,
+.sidebar-btn-primary:hover,
+.dialog-btn-primary:hover,
+.toolbar-btn-active:hover {
+    -fx-background-color: -fx-accent-hover;
+    background-color: -fx-accent-hover;
+    -fx-border-color: -fx-accent-hover;
+    border-color: -fx-accent-hover;
+    -fx-text-fill: -fx-accent-contrast;
+    color: -fx-accent-contrast;
+}
+
+.button:default:pressed,
+.dialog-pane .button-bar .button:default:pressed,
+.toolbar-btn-primary:pressed,
+.toolbar-btn:selected:pressed,
+.modern-toggle-btn:selected:pressed,
+.toggle-button:selected:pressed,
+.view-btn:selected:pressed,
+.empty-state-btn:pressed,
+.git-primary-btn:pressed,
+.plugin-manager-close-btn:pressed,
+.sidebar-btn-primary:pressed,
+.dialog-btn-primary:pressed,
+.toolbar-btn-active:pressed {
+    -fx-background-color: -fx-accent-pressed;
+    background-color: -fx-accent-pressed;
+    -fx-border-color: -fx-accent-pressed;
+    border-color: -fx-accent-pressed;
+}
+
+.button:default .feather-icon,
+.button:default .ikonli-font-icon,
+.dialog-pane .button-bar .button:default .feather-icon,
+.dialog-pane .button-bar .button:default .ikonli-font-icon,
+.toolbar-btn-primary .feather-icon,
+.toolbar-btn-primary .ikonli-font-icon,
+.toolbar-btn:selected .feather-icon,
+.toolbar-btn:selected .ikonli-font-icon,
+.modern-toggle-btn:selected .feather-icon,
+.modern-toggle-btn:selected .ikonli-font-icon,
+.toggle-button:selected .feather-icon,
+.toggle-button:selected .ikonli-font-icon,
+.view-btn:selected .feather-icon,
+.view-btn:selected .ikonli-font-icon,
+.empty-state-btn .feather-icon,
+.empty-state-btn .ikonli-font-icon,
+.git-primary-btn .feather-icon,
+.git-primary-btn .ikonli-font-icon,
+.plugin-manager-close-btn .feather-icon,
+.plugin-manager-close-btn .ikonli-font-icon,
+.sidebar-btn-primary .feather-icon,
+.sidebar-btn-primary .ikonli-font-icon,
+.dialog-btn-primary .feather-icon,
+.dialog-btn-primary .ikonli-font-icon,
+.toolbar-btn-active .feather-icon,
+.toolbar-btn-active .ikonli-font-icon {
+    -fx-icon-color: -fx-accent-contrast;
+    -fx-fill: -fx-accent-contrast;
+    fill: -fx-accent-contrast;
+}
+
+.toolbar-btn-danger,
+.dialog-btn-danger {
+    -fx-background-color: -fx-button-neutral-bg;
+    background-color: -fx-button-neutral-bg;
+    -fx-text-fill: -fx-danger;
+    color: -fx-danger;
+    -fx-border-color: -fx-danger;
+    border-color: -fx-danger;
+}
+
+.toolbar-btn-danger:hover,
+.dialog-btn-danger:hover {
+    -fx-background-color: -fx-danger;
+    background-color: -fx-danger;
+    -fx-text-fill: -fx-accent-contrast;
+    color: -fx-accent-contrast;
+    -fx-border-color: -fx-danger;
+    border-color: -fx-danger;
+}
+
+.toolbar-btn-danger:pressed,
+.dialog-btn-danger:pressed {
+    -fx-background-color: derive(-fx-danger, -12%);
+    background-color: derive(-fx-danger, -12%);
+    -fx-border-color: derive(-fx-danger, -12%);
+    border-color: derive(-fx-danger, -12%);
+}
+
+.toolbar-btn-danger .feather-icon,
+.toolbar-btn-danger .ikonli-font-icon,
+.dialog-btn-danger .feather-icon,
+.dialog-btn-danger .ikonli-font-icon {
+    -fx-icon-color: -fx-danger;
+    -fx-fill: -fx-danger;
+    fill: -fx-danger;
+}
+
+.toolbar-btn-danger:hover .feather-icon,
+.toolbar-btn-danger:hover .ikonli-font-icon,
+.dialog-btn-danger:hover .feather-icon,
+.dialog-btn-danger:hover .ikonli-font-icon {
+    -fx-icon-color: -fx-accent-contrast;
+    -fx-fill: -fx-accent-contrast;
+    fill: -fx-accent-contrast;
+}
+
+.button:focused,
+.toggle-button:focused,
+.menu-button:focused,
+.list-view:focused,
+.tree-view:focused,
+.tab-pane:focused,
+.combo-box:focused,
+.text-field:focused,
+.dialog-pane .button-bar .button:focused {
+    -fx-focus-color: -fx-accent;
+    -fx-faint-focus-color: -fx-focus-ring;
+}
+
+.drag-over-target {
+    -fx-background-color: -fx-accent-soft;
+    -fx-border-color: -fx-accent;
+}

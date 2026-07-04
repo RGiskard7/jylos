@@ -145,7 +145,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 ### Tablero Kanban
 
 - Un tablero es una nota normal cuyo cuerpo Markdown contiene columnas (`## Encabezado`) y tarjetas de texto (`- tarjeta`), al estilo del plugin Kanban de Obsidian
-- Abrir con **Ver → Tablero Kanban** o **`Ctrl/Cmd+Shift+K`**; elige o crea tableros desde la barra
+- Abrir con **Ver → Tablero Kanban** o **`Ctrl/Cmd+K`**; elige o crea tableros desde la barra
 - Añadir/renombrar/borrar columnas, crear/editar/borrar tarjetas y **arrastrar tarjetas entre columnas**
 - Una tarjeta puede enlazar a una nota (`[[Título]]`) o **convertirse en nota**
 - **Límites WIP** por columna (`[wip=N]`, el contador se pone rojo al superarse) y **colores** (`[color=#rrggbb]`) — ambos guardados en la línea de encabezado, configurables desde el menú de columna
@@ -404,13 +404,18 @@ Raíz del repositorio (contiene el módulo Maven `jylos/` y `scripts/`):
 │   │   ├── exceptions/
 │   │   ├── git/                        # GitService (repositorios en bóveda)
 │   │   ├── graph/                      # GraphBuilder, GraphData, nodos/aristas
+│   │   ├── insights/                   # análisis de salud y reportes de conocimiento
 │   │   ├── plugin/                     # loader, manager, registros; mermaid/
+│   │   ├── search/                     # parser y servicio de búsqueda avanzada
 │   │   ├── service/                    # Note, Folder, Tag, Backlink, backup, …
 │   │   ├── ui/
 │   │   │   ├── controller/             # Main, Editor, Sidebar, Graph, Toolbar, …
-│   │   │   ├── components/             # CommandPalette, QuickSwitcher, FileViewer
+│   │   │   ├── components/             # CommandPalette, QuickSwitcher, diálogos Git/insights, canvas
+│   │   │   ├── preferences/            # estado persistido de preferencias UI
+│   │   │   ├── theme/                  # aplicación de temas, catálogos y snippets
 │   │   │   └── graph/                  # GraphCanvas (render del grafo)
-│   │   └── util/                       # WikiLinkResolver, MarkdownPreview, NoteExporter
+│   │   ├── util/                       # WikiLinkResolver, MarkdownPreview, NoteExporter
+│   │   └── workspace/                  # espacios de trabajo guardados
 │   ├── src/main/resources/
 │   │   ├── app.properties              # nombre, iconos, título de ventana
 │   │   ├── icons/                      # app-icon.png + icon.{ico,icns,png}
@@ -422,6 +427,7 @@ Raíz del repositorio (contiene el módulo Maven `jylos/` y `scripts/`):
 │   ├── src/test/java/com/example/jylos/
 │   ├── plugins/                        # JAR de plugins en runtime (suele ignorarse en git)
 │   ├── themes/                         # temas externos instalados
+│   ├── snippets/                       # snippets CSS del usuario sobre el tema activo
 │   ├── data/                           # BD o bóveda en runtime (gitignored)
 │   ├── logs/
 │   └── backups/
@@ -444,7 +450,7 @@ No forma parte de la app: `replica-grafo/` (experimento Typst/grafo opcional; ve
 
 - **SQLite** (por defecto): `jylos/data/database.db`
 - **Bóveda filesystem**: carpeta de notas `.md` con frontmatter YAML; cambio en **Herramientas → Cambiar almacenamiento** (requiere reinicio)
-- Otros directorios runtime bajo `jylos/`: `logs/`, `backups/`, `plugins/`, `themes/`
+- Otros directorios runtime bajo `jylos/`: `logs/`, `backups/`, `plugins/`, `themes/`, `snippets/`
 
 ### Iconos de la aplicación
 
@@ -463,7 +469,7 @@ Paquetes en `themes/<id>/` (`theme.properties` + `theme.css`). En desarrollo: `.
 
 ### Snippets CSS
 
-Coloca ficheros `.css` en la carpeta `snippets/` para retocar la interfaz sobre el tema activo (estilo Obsidian), sin crear un tema completo. Actívalos en **Preferencias → Snippets CSS**; cada snippet activo se superpone **después** del tema, así que sus reglas tienen prioridad. Usa **Abrir carpeta** en ese diálogo para llegar al directorio (`<appData>/snippets`). El nombre de un snippet debe ser un fichero `.css` simple. Hay ejemplos listos para usar y adaptables al tema (Atom One, Nord, Solarized — cada uno con variante clara y oscura) en [snippets-examples/](snippets-examples/). Los snippets pueden ramificar con la clase `theme-dark` / `theme-light` que Jylos pone en el root de la escena (estilo Obsidian).
+Coloca ficheros `.css` en la carpeta `snippets/` para retocar la interfaz sobre el tema activo (estilo Obsidian), sin crear un tema completo. Actívalos en **Preferencias → Snippets CSS**; cada snippet activo se superpone **después** del tema, así que sus reglas tienen prioridad. Usa **Abrir carpeta** en ese diálogo para llegar al directorio (`<appData>/snippets`). El nombre de un snippet debe ser un fichero `.css` simple. Hay ejemplos listos para usar y adaptables al tema (Atom One, Nord, Solarized — cada uno con variante clara y oscura) en [snippets-examples/](snippets-examples/). Los snippets pueden ramificar con la clase `theme-dark` / `theme-light` que Jylos pone en el root de la escena (estilo Obsidian), y esas mismas capas de estilo se propagan también a diálogos tematizados y overlays de comandos como la paleta y el quick switcher.
 
 ### Plugins
 
@@ -480,6 +486,10 @@ Coloca ficheros `.css` en la carpeta `snippets/` para retocar la interfaz sobre 
 - [doc/PLUGINS.md](doc/PLUGINS.md)
 - [doc/PACKAGING.md](doc/PACKAGING.md)
 - [doc/EVENT_BUS_CONTRACT.md](doc/EVENT_BUS_CONTRACT.md)
+- [doc/GIT.md](doc/GIT.md)
+- [doc/GRAPH.md](doc/GRAPH.md)
+- [doc/SEARCH.md](doc/SEARCH.md)
+- [doc/WORKSPACES.md](doc/WORKSPACES.md)
 - [AGENTS.md](AGENTS.md)
 - [changelog.md](changelog.md)
 

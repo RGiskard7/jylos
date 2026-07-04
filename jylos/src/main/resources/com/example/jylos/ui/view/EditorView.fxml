@@ -226,7 +226,6 @@
                         </Button>
                     </HBox>
                 </ScrollPane>
-                <Label fx:id="wordCountLabel" text="" styleClass="word-count"/>
             </HBox>
         </VBox>
 

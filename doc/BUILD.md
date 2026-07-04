@@ -27,7 +27,7 @@ mvn -f jylos/pom.xml clean package -DskipTests
 
 ## Run (recommended)
 
-Launch scripts set JavaFX `--module-path` and run from `jylos/` so `data/`, `logs/`, and `plugins/` resolve correctly:
+Launch scripts set JavaFX `--module-path` and run from `jylos/` so `data/`, `logs/`, `plugins/`, `themes/`, and `snippets/` resolve correctly:
 
 ```bash
 ./scripts/launch-jylos.sh
@@ -73,6 +73,9 @@ Optional integration smoke (storage backends):
 ./scripts/build-themes.sh       # copies themes/ → jylos/themes/
 ./scripts/build-themes.sh --appdata   # also copies to user AppData themes folder
 ```
+
+CSS snippets are plain `.css` files placed directly in `<appData>/snippets`; they do
+not need a build script.
 
 ## Packaging
 

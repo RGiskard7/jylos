@@ -1222,7 +1222,7 @@ public class SidebarController {
         alert.setHeaderText(getString("dialog.empty_trash.header"));
         alert.setContentText(getString("dialog.empty_trash.content"));
         alert.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
-        alert.showAndWait().filter(r -> r == ButtonType.OK).ifPresent(r -> {
+        com.example.jylos.ui.UiDialogs.show(alert).filter(r -> r == ButtonType.OK).ifPresent(r -> {
             try {
                 for (Note n : noteService.getTrashNotes())
                     noteService.permanentlyDeleteNote(n.getId());
@@ -1276,7 +1276,7 @@ public class SidebarController {
             a.setHeaderText(java.text.MessageFormat.format(getString("dialog.delete_permanently.header"), c.getTitle()));
             a.setContentText(getString("dialog.delete_permanently.content"));
             a.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
-            if (a.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
+            if (com.example.jylos.ui.UiDialogs.show(a).orElse(ButtonType.CANCEL) == ButtonType.OK) {
                 try {
                     if (c instanceof Folder)
                         folderService.permanentlyDeleteFolder(c.getId());
@@ -1350,7 +1350,7 @@ public class SidebarController {
             return;
         }
         TextInputDialog d = new TextInputDialog(f.getTitle());
-        d.showAndWait().ifPresent(name -> {
+        com.example.jylos.ui.UiDialogs.show(d).ifPresent(name -> {
             try {
                 folderService.renameFolder(f, name);
                 loadFolders();
@@ -1372,7 +1372,7 @@ public class SidebarController {
         a.setHeaderText(getString("dialog.delete_folder.header"));
         a.setContentText(getString("dialog.delete_folder.content"));
         a.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
-        a.showAndWait().filter(r -> r == ButtonType.OK).ifPresent(r -> {
+        com.example.jylos.ui.UiDialogs.show(a).filter(r -> r == ButtonType.OK).ifPresent(r -> {
             try {
                 folderService.deleteFolder(f.getId());
                 loadFolders();
@@ -1403,7 +1403,7 @@ public class SidebarController {
         a.setHeaderText(getString("dialog.delete_tag.header"));
         a.setContentText(java.text.MessageFormat.format(getString("dialog.delete_tag.content"), tagName));
         a.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
-        a.showAndWait().filter(r -> r == ButtonType.OK).ifPresent(r -> {
+        com.example.jylos.ui.UiDialogs.show(a).filter(r -> r == ButtonType.OK).ifPresent(r -> {
             Optional.ofNullable(tagsByTitleCache.get(tagName)).ifPresent(t -> {
                 try {
                     tagService.deleteTag(t.getId());

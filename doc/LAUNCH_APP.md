@@ -4,7 +4,7 @@ See also [BUILD.md](BUILD.md) for build and test commands.
 
 ## Recommended launchers
 
-Set JavaFX module-path and run from `jylos/` (so `data/`, `logs/`, `plugins/` resolve correctly):
+Set JavaFX module-path and run from `jylos/` (so `data/`, `logs/`, `plugins/`, `themes/`, and `snippets/` resolve correctly):
 
 ```bash
 ./scripts/build_all.sh   # required first time (uber-JAR)
@@ -33,6 +33,7 @@ Created on first launch when writable (typically under `jylos/`):
 - `logs/`
 - `plugins/`
 - `themes/`
+- `snippets/`
 - `backups/` — SQLite startup backups (when using SQLite mode)
 
 ## Common issues

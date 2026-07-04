@@ -36,6 +36,8 @@ Compiles sources under `plugins-source/` with **`javac --release 21`** and write
 | `registerPreviewEnhancer(...)` | CSS/JS injected into the Markdown preview |
 | `registerToolbarButton(buttonId, tooltip, iconLiteral, action)` | A button in the main toolbar (Feather icon literal like `fth-clock`, or text); removed automatically on disable |
 | `registerEditorHook(EditorHook)` | Editor lifecycle hooks (below) |
+| `requestOpenNote(note)` | Ask the shell owner to open a note directly in the editor UI |
+| `requestRefreshNotes()` | Ask the shell to fan out a notes refresh event |
 | `subscribe(...)` / `publish(...)` | Typed `EventBus` access |
 
 ### Editor hooks
@@ -53,6 +55,10 @@ Rules: hooks chain in registration order (each receives the previous output), ru
 the JavaFX Application Thread (keep them fast), a throwing hook is logged and
 skipped, and all of a plugin's hooks are removed when it is disabled. Example: see
 `WordCountPlugin` (toolbar button) in `plugins-source/`.
+
+`requestOpenNote(Note)` is intentionally **not** an ad-hoc UI event path anymore: it
+delegates to a typed callback owned by `MainController`, keeping plugin note-open
+requests explicit while preserving the public plugin API.
 
 ## Lifecycle
 

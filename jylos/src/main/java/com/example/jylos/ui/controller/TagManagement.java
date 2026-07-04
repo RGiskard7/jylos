@@ -190,7 +190,7 @@ class TagManagement {
                         nameLabel.setPrefWidth(200);
                         Label dateLabel = new Label(
                                 tag.getCreatedDate() != null ? tag.getCreatedDate() : i18n("label.not_available"));
-                        dateLabel.setStyle("-fx-text-fill: gray;");
+                        dateLabel.getStyleClass().add("dialog-muted-label");
 
                         ButtonType deleteType = new ButtonType(i18n("action.delete"), ButtonBar.ButtonData.OK_DONE);
                         javafx.scene.control.Button deleteButton = new javafx.scene.control.Button(i18n("action.delete"));

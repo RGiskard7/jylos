@@ -35,7 +35,7 @@ Uber-JAR: `jylos/target/jylos-2.2.0-uber.jar`. Use `launch-*` scripts for JavaFX
 - Graph model: `graph/` (`GraphBuilder` uses `WikiLinkResolver` for edges)
 - Git (vault): `git/GitService.java`
 - DAOs: `data/dao/sqlite/`, `data/dao/filesystem/`
-- Runtime (gitignored, cwd usually `jylos/`): `data/`, `logs/`, `backups/`, `plugins/`, `themes/`
+- Runtime (gitignored, cwd usually `jylos/`): `data/`, `logs/`, `backups/`, `plugins/`, `themes/`, `snippets/`
 - Icons: `src/main/resources/icons/` (`app-icon.png` for window/About; `icon.*` for jpackage)
 - Plugin sources: `plugins-source/` → build to `jylos/plugins/`
 - Theme sources: `themes/` → `scripts/build-themes.sh` → `jylos/themes/`

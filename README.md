@@ -145,7 +145,7 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 ### Task board (Kanban)
 
 - A board is a normal note whose Markdown body holds columns (`## Heading`) and text cards (`- card`), in the spirit of Obsidian's Kanban plugin
-- Open with **View → Kanban Board** or **`Ctrl/Cmd+Shift+K`**; pick or create boards from the toolbar
+- Open with **View → Kanban Board** or **`Ctrl/Cmd+K`**; pick or create boards from the toolbar
 - Add/rename/delete columns, create/edit/delete cards, and **drag cards between columns**
 - A card can link to a note (`[[Title]]`) or be **converted into a note**
 - Per-column **WIP limits** (`[wip=N]`, count badge turns red when exceeded) and **colors** (`[color=#rrggbb]`) — both stored in the heading line, set from the column menu
@@ -403,13 +403,18 @@ Repository root (contains the Maven module `jylos/` and `scripts/`):
 │   │   ├── exceptions/
 │   │   ├── git/                        # GitService (vault repositories)
 │   │   ├── graph/                      # GraphBuilder, GraphData, nodes/edges
+│   │   ├── insights/                   # knowledge-health analysis and reports
 │   │   ├── plugin/                     # loader, manager, registries; mermaid/
+│   │   ├── search/                     # advanced search parser + service
 │   │   ├── service/                    # Note, Folder, Tag, Backlink, backup, …
 │   │   ├── ui/
 │   │   │   ├── controller/             # Main, Editor, Sidebar, Graph, Toolbar, …
-│   │   │   ├── components/             # CommandPalette, QuickSwitcher, FileViewer
+│   │   │   ├── components/             # CommandPalette, QuickSwitcher, Git/insights dialogs, canvas
+│   │   │   ├── preferences/            # persisted UI preference state
+│   │   │   ├── theme/                  # theme application, catalogs, snippets
 │   │   │   └── graph/                  # GraphCanvas (force-directed renderer)
-│   │   └── util/                       # WikiLinkResolver, MarkdownPreview, NoteExporter
+│   │   ├── util/                       # WikiLinkResolver, MarkdownPreview, NoteExporter
+│   │   └── workspace/                  # saved tab/layout workspaces
 │   ├── src/main/resources/
 │   │   ├── app.properties              # app name, icon paths, window title
 │   │   ├── icons/                      # app-icon.png + icon.{ico,icns,png}
@@ -421,6 +426,7 @@ Repository root (contains the Maven module `jylos/` and `scripts/`):
 │   ├── src/test/java/com/example/jylos/
 │   ├── plugins/                        # runtime plugin JARs (often gitignored)
 │   ├── themes/                         # installed external themes
+│   ├── snippets/                       # user CSS snippets layered over the theme
 │   ├── data/                           # runtime DB or vault (gitignored)
 │   ├── logs/
 │   └── backups/
@@ -443,7 +449,7 @@ Not part of the app: `replica-grafo/` (optional Typst/graph experiment; see [doc
 
 - **SQLite** (default): `jylos/data/database.db`
 - **Filesystem vault**: folder of `.md` notes with YAML frontmatter; switch in **Tools → Switch storage** (restart required)
-- Other runtime dirs (auto-created under `jylos/`): `logs/`, `backups/`, `plugins/`, `themes/`
+- Other runtime dirs (auto-created under `jylos/`): `logs/`, `backups/`, `plugins/`, `themes/`, `snippets/`
 
 ### App icons
 
@@ -462,7 +468,7 @@ Source packs live in `themes/<id>/` (`theme.properties` + `theme.css`). Developm
 
 ### CSS snippets
 
-Drop plain `.css` files into the `snippets/` folder to tweak the interface on top of the active theme (Obsidian-style), without authoring a full theme. Enable them in **Preferences → CSS snippets**; each enabled snippet is layered **after** the theme, so its rules win. Use **Open folder** in that dialog to reach the directory (`<appData>/snippets`). Snippet names must be simple `.css` filenames. Ready-made, theme-adaptive examples (Atom One, Nord, Solarized — each with a dark and light variant) live in [snippets-examples/](snippets-examples/). Snippets can branch on the `theme-dark` / `theme-light` class Jylos sets on the scene root (Obsidian-style).
+Drop plain `.css` files into the `snippets/` folder to tweak the interface on top of the active theme (Obsidian-style), without authoring a full theme. Enable them in **Preferences → CSS snippets**; each enabled snippet is layered **after** the theme, so its rules win. Use **Open folder** in that dialog to reach the directory (`<appData>/snippets`). Snippet names must be simple `.css` filenames. Ready-made, theme-adaptive examples (Atom One, Nord, Solarized — each with a dark and light variant) live in [snippets-examples/](snippets-examples/). Snippets can branch on the `theme-dark` / `theme-light` class Jylos sets on the scene root (Obsidian-style), and the same layered styles are propagated to themed dialogs and command overlays such as the command palette and quick switcher.
 
 ### Plugins
 
@@ -479,6 +485,10 @@ Drop plain `.css` files into the `snippets/` folder to tweak the interface on to
 - [doc/PLUGINS.md](doc/PLUGINS.md)
 - [doc/PACKAGING.md](doc/PACKAGING.md)
 - [doc/EVENT_BUS_CONTRACT.md](doc/EVENT_BUS_CONTRACT.md)
+- [doc/GIT.md](doc/GIT.md)
+- [doc/GRAPH.md](doc/GRAPH.md)
+- [doc/SEARCH.md](doc/SEARCH.md)
+- [doc/WORKSPACES.md](doc/WORKSPACES.md)
 - [AGENTS.md](AGENTS.md)
 - [changelog.md](changelog.md)
 

@@ -1,9 +1,12 @@
 package com.example.jylos.ui;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
+import javafx.scene.Scene;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
+import javafx.scene.Parent;
 
 /**
  * Applies the active application theme to JavaFX dialogs and alerts.
@@ -20,6 +23,8 @@ import javafx.scene.control.DialogPane;
 public final class UiDialogs {
 
     private static volatile List<String> stylesheets = List.of();
+    private static volatile List<String> rootThemeClasses = List.of();
+    private static volatile String rootInlineStyle = "";
 
     private UiDialogs() {
     }
@@ -27,6 +32,32 @@ public final class UiDialogs {
     /** Registers the active theme stylesheets (called by the shell on theme changes). */
     public static void setStylesheets(List<String> sheets) {
         stylesheets = sheets != null ? List.copyOf(sheets) : List.of();
+    }
+
+    /**
+     * Captures the full visual theme context from the main scene so dialogs inherit not
+     * only the stylesheets, but also theme marker classes and root inline overrides such
+     * as custom accent or zoom.
+     */
+    public static void syncFromScene(Scene scene) {
+        if (scene == null) {
+            stylesheets = List.of();
+            rootThemeClasses = List.of();
+            rootInlineStyle = "";
+            return;
+        }
+        setStylesheets(scene.getStylesheets());
+        Parent root = scene.getRoot();
+        if (root == null) {
+            rootThemeClasses = List.of();
+            rootInlineStyle = "";
+            return;
+        }
+        rootThemeClasses = root.getStyleClass().stream()
+                .filter(styleClass -> "root-container".equals(styleClass) || styleClass.startsWith("theme-"))
+                .distinct()
+                .collect(Collectors.toList());
+        rootInlineStyle = root.getStyle() != null ? root.getStyle() : "";
     }
 
     /** Themes a dialog so it matches the current light/dark theme. */
@@ -47,6 +78,7 @@ public final class UiDialogs {
         if (pane == null) {
             return;
         }
+        applyRootContext(pane);
         if (!stylesheets.isEmpty()) {
             pane.getStylesheets().setAll(stylesheets);
             // Combo-box / context-menu popups are separate windows that read their
@@ -71,14 +103,29 @@ public final class UiDialogs {
             return;
         }
         applyToScene(scene);
-        if (scene.getRoot() != null && !scene.getRoot().getStyleClass().contains("root-container")) {
-            scene.getRoot().getStyleClass().add("root-container");
+        if (scene.getRoot() != null) {
+            applyRootContext(scene.getRoot());
         }
     }
 
     private static void applyToScene(javafx.scene.Scene scene) {
         if (scene != null && !stylesheets.isEmpty()) {
             scene.getStylesheets().setAll(stylesheets);
+        }
+    }
+
+    private static void applyRootContext(Parent root) {
+        if (root == null) {
+            return;
+        }
+        root.getStyleClass().removeIf(styleClass -> styleClass.startsWith("theme-"));
+        for (String styleClass : rootThemeClasses) {
+            if (!root.getStyleClass().contains(styleClass)) {
+                root.getStyleClass().add(styleClass);
+            }
+        }
+        if (!rootInlineStyle.isBlank()) {
+            root.setStyle(rootInlineStyle);
         }
     }
 }

@@ -77,16 +77,6 @@
                                 <Label text="%info.modified" styleClass="info-label"/>
                                 <Label fx:id="infoModifiedLabel" text="-" styleClass="info-value"/>
                             </VBox>
-                            <HBox spacing="24">
-                                <VBox spacing="2">
-                                    <Label text="%info.words" styleClass="info-label"/>
-                                    <Label fx:id="infoWordsLabel" text="0" styleClass="info-value"/>
-                                </VBox>
-                                <VBox spacing="2">
-                                    <Label text="%info.chars" styleClass="info-label"/>
-                                    <Label fx:id="infoCharsLabel" text="0" styleClass="info-value"/>
-                                </VBox>
-                            </HBox>
                             <VBox spacing="2">
                                 <Label text="%info.location" styleClass="info-label"/>
                                 <Label fx:id="infoLatitudeLabel" text="Lat: -" styleClass="info-value-small"/>

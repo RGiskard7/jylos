@@ -23,15 +23,18 @@ ui/ (FXML, controllers, components, GraphCanvas)
 | `ui.theme` | Theme application/detection plus read-only theme and CSS snippet catalogs (`ThemeCommand`, `ThemeCatalog`, `CssSnippetCatalog`, `SystemThemeMonitor`) |
 | `ui.preferences` | Persistence of serialized UI preference state (`UiPreferencesStore`) |
 | `ui.graph` | `GraphCanvas` — native JavaFX force-directed graph renderer |
-| `ui.components` | `CommandPalette`, `QuickSwitcher`, `PluginManagerDialog`, `FileViewer`, `EditorTabs` (open-note tab strip), `KanbanBoard` (Kanban overlay) |
+| `ui.components` | `CommandPalette`, `QuickSwitcher`, `PluginManagerDialog`, `GitSyncPanel`, `KnowledgeInsightsPanel`, `FileViewer`, `CanvasView`, `EditorTabs` (open-note tab strip), `KanbanBoard` (Kanban overlay) |
 | `graph` | `GraphBuilder`, `GraphData` — vault graph from notes, wiki-links, tags |
+| `insights` | `KnowledgeInsightsService`, `GraphAnalysisService`, immutable graph-health DTOs |
 | `git` | `GitService` — status, stage, commit, sync when vault is a Git repo |
+| `search` | Search query parser/model plus `AdvancedSearchService` |
 | `service` | Business rules (`NoteService`, `FolderService`, `TagService` for note-tag relationships, `BacklinkService`, `NoteTitleIndex`, `EncryptionService`, `DatabaseBackupService`, …) |
 | `data.dao` | SQLite and filesystem implementations |
 | `data.models` | `Note` (incl. `status`, `isPrivate`), `Folder`, `Tag`, `ToDoNote` |
 | `event` | `EventBus`, typed events under `event.events` (including `SystemActionEvent`) |
 | `plugin` | `PluginLoader`, `PluginManager`, `AbstractPlugin`, `PluginIds`; built-in Mermaid under `plugin/mermaid/` |
 | `util` | `WikiLinkResolver`, `MarkdownProcessor`, `MarkdownPreview` (CommonMark + KaTeX + emoji), `MarkdownHighlighter` (editor syntax highlighting), `KanbanModel`, `NoteExporter` |
+| `workspace` | Workspace capture/persistence (`Workspace`, `WorkspaceRepository`, `WorkspaceService`) |
 | `config` | `LoggerConfig` |
 
 > **MainController pattern.** `MainController` is the FXML shell coordinator and must stay thin: each self-contained feature lives in its own `ui/controller/*Controller`/`*Support` class with a `wire(...)` method (FXML nodes + small callbacks). `MainController` remains the owner of shell wiring, note-open flows, and cross-feature callbacks. New features follow this — no feature bodies inside `MainController`. See `AGENTS.md`.
@@ -40,7 +43,7 @@ ui/ (FXML, controllers, components, GraphCanvas)
 
 - `MainView.fxml` — `BorderPane`: toolbar | center `StackPane` (main `SplitPane` + **graph and Kanban overlays**) | collapsible right panel | status bar (optional **Git** strip in vault mode).
 - Center split — sidebar | (notes list | editor/preview).
-- **Overlays** — graph (`GraphView.fxml` + `GraphController` + `GraphCanvas`) and Kanban (`KanbanBoard`) share the center `StackPane` and are mutually exclusive; both managed by `OverlaySupport`. Toggled via `SystemActionEvent.GRAPH_VIEW` (`Ctrl+G`) and `KANBAN_VIEW` (`Ctrl/Cmd+Shift+K`).
+- **Overlays** — graph (`GraphView.fxml` + `GraphController` + `GraphCanvas`) and Kanban (`KanbanBoard`) share the center `StackPane` and are mutually exclusive; both managed by `OverlaySupport`. Toggled via `SystemActionEvent.GRAPH_VIEW` (`Ctrl/Cmd+G`) and `KANBAN_VIEW` (`Ctrl/Cmd+K`).
 - Sidebar — icon nav bar + `TabPane` (folders, tags, recent, favorites, trash).
 - Notes list — custom `ListCell` (title, preview lines, dates, pin/favorite icons).
 - Editor — `EditorTabs` strip (one tab per open note) above a **RichTextFX `CodeArea`** (live Markdown highlighting via `MarkdownHighlighter`) + `WebView` preview (`MarkdownPreview`, wiki-link clicks via `jylos://` protocol). Inline save indicator; `[[` autocomplete.
@@ -75,6 +78,7 @@ Resolved by `AppDataDirectory` (typically `jylos/` when launched via project scr
 | `logs/` | Application logs |
 | `plugins/` | External plugin JARs |
 | `themes/` | Installed external themes (`theme.properties` + `theme.css`) |
+| `snippets/` | User CSS snippets layered after the active theme |
 | `backups/` | SQLite auto-backups on startup (gitignored; `DatabaseBackupService`) |
 
 External theme sources: repo `themes/` → `scripts/build-themes.sh` → `jylos/themes/`. Catalog also scans AppData and cwd.

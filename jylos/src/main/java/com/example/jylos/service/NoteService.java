@@ -12,6 +12,7 @@ import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
+import com.example.jylos.data.models.Tag;
 
 /**
  * Service layer for note-related business logic.

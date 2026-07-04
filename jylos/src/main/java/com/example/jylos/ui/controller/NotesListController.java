@@ -1253,7 +1253,7 @@ public class NotesListController {
         alert.setHeaderText(getString("dialog.delete_note.header"));
         alert.setContentText(getString("dialog.delete_note.content"));
 
-        Optional<ButtonType> result = alert.showAndWait();
+        Optional<ButtonType> result = com.example.jylos.ui.UiDialogs.show(alert);
         if (result.isPresent() && result.get() == ButtonType.OK) {
             try {
                 noteService.moveToTrash(note.getId());

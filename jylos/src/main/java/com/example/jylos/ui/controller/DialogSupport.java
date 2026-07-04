@@ -101,10 +101,11 @@ class DialogSupport {
 
         VBox content = new VBox(15);
         content.setPadding(new Insets(20));
+        content.getStyleClass().add("preferences-content");
 
         Label dbLabel = new Label(i18n("dialog.preferences.storage_location"));
         Label dbPathLabel = new Label(currentStorageLocation());
-        dbPathLabel.setStyle("-fx-text-fill: gray;");
+        dbPathLabel.getStyleClass().add("dialog-muted-label");
 
         CheckBox autosaveEnabledCheck = new CheckBox(i18n("dialog.preferences.autosave_enabled"));
         autosaveEnabledCheck.setSelected(current.autosaveEnabled());
@@ -187,7 +188,7 @@ class DialogSupport {
                 enabledSnippets != null ? enabledSnippets : Set.of());
         Label snippetsLabel = new Label(i18n("dialog.preferences.css_snippets"));
         Label snippetsHint = new Label(i18n("dialog.preferences.css_snippets_hint"));
-        snippetsHint.setStyle("-fx-text-fill: gray; -fx-font-size: 11px;");
+        snippetsHint.getStyleClass().add("dialog-hint-label");
         snippetsHint.setWrapText(true);
         VBox snippetsBox = new VBox(6);
         Runnable populateSnippets = () -> {
@@ -196,7 +197,7 @@ class DialogSupport {
                     snippetCatalog != null ? snippetCatalog.getAvailableSnippets() : List.of();
             if (available.isEmpty()) {
                 Label none = new Label(i18n("dialog.preferences.css_snippets_empty"));
-                none.setStyle("-fx-text-fill: gray;");
+                none.getStyleClass().add("dialog-muted-label");
                 snippetsBox.getChildren().add(none);
                 return;
             }
@@ -349,6 +350,7 @@ class DialogSupport {
         VBox content = new VBox(16);
         content.setPadding(new Insets(20));
         content.setAlignment(Pos.CENTER);
+        content.getStyleClass().add("about-content");
 
         AppIconLoader.load(72).ifPresent(img -> {
             ImageView icon = new ImageView(img);
@@ -359,13 +361,13 @@ class DialogSupport {
         });
 
         Label titleLabel = new Label(i18n("about.app_name"));
-        titleLabel.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
+        titleLabel.getStyleClass().add("about-title");
 
         Label versionLabel = new Label(MessageFormat.format(i18n("about.version"), AppConfig.getAppVersion()));
-        versionLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: gray;");
+        versionLabel.getStyleClass().add("about-version");
 
         Label descLabel = new Label(AppConfig.getAppDescription());
-        descLabel.setStyle("-fx-font-size: 13px;");
+        descLabel.getStyleClass().add("about-description");
         descLabel.setWrapText(true);
         descLabel.setMaxWidth(350);
         descLabel.setAlignment(Pos.CENTER);
@@ -374,18 +376,18 @@ class DialogSupport {
         separator.setPrefWidth(300);
 
         Label techLabel = new Label(i18n("about.tech_stack"));
-        techLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: gray;");
+        techLabel.getStyleClass().add("about-meta");
 
         Label copyrightLabel = new Label(AppConfig.getAppCopyright());
-        copyrightLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: gray;");
+        copyrightLabel.getStyleClass().add("about-meta");
 
         Label developerLabel = new Label(i18n("about.developer_credit"));
-        developerLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold;");
+        developerLabel.getStyleClass().add("about-credit");
 
         content.getChildren().addAll(
                 titleLabel, versionLabel, descLabel,
                 separator,
-                techLabel, copyrightLabel, developerLabel);
+                techLabel, developerLabel, copyrightLabel);
 
         dialog.getDialogPane().setContent(content);
         dialog.getDialogPane().setPrefSize(400, 380);

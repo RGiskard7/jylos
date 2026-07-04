@@ -236,7 +236,8 @@ public class TableOfContentsPlugin implements Plugin {
             });
             
             // Show and process result
-            Optional<Note> result = dialog.showAndWait();
+            com.example.jylos.ui.UiDialogs.apply(dialog);
+            Optional<Note> result = com.example.jylos.ui.UiDialogs.show(dialog);
             result.ifPresent(note -> {
                 String toc = generateToc(note.getContent(), numbered);
                 if (toc.isEmpty()) {
@@ -258,7 +259,7 @@ public class TableOfContentsPlugin implements Plugin {
         alert.setTitle("Table of Contents");
         alert.setHeaderText(header);
         alert.setContentText(content);
-        alert.showAndWait();
+        com.example.jylos.ui.UiDialogs.show(alert);
     }
     
     /**
@@ -351,7 +352,7 @@ public class TableOfContentsPlugin implements Plugin {
             textArea.setWrapText(true);
             textArea.setPrefRowCount(15);
             textArea.setPrefColumnCount(50);
-            textArea.setStyle("-fx-font-family: monospace;");
+            textArea.getStyleClass().add("dialog-monospace-area");
             
             VBox content = new VBox(10);
             content.setPadding(new Insets(10));
@@ -374,7 +375,7 @@ public class TableOfContentsPlugin implements Plugin {
                 return null;
             });
             
-            dialog.showAndWait();
+            com.example.jylos.ui.UiDialogs.show(dialog);
         });
     }
 }

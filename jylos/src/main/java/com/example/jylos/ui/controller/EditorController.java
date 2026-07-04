@@ -187,7 +187,6 @@ public class EditorController {
     @FXML private Button    highlightBtn, linkBtn, richLinkBtn, imageBtn;
     @FXML private Button    todoBtn, bulletBtn, numberBtn;
     @FXML private Button    quoteBtn, codeBtn;
-    @FXML private Label     wordCountLabel;
     @FXML private VBox      previewPane;
     @FXML private WebView previewWebView;
 
@@ -325,7 +324,6 @@ public class EditorController {
     public SplitPane       getEditorPreviewSplitPane()  { return editorPreviewSplitPane; }
     public VBox            getEditorPane()              { return editorPane; }
     public CodeArea        getNoteContentArea()         { return noteContentArea; }
-    public Label           getWordCountLabel()          { return wordCountLabel; }
     public VBox            getPreviewPane()             { return previewPane; }
     public javafx.scene.web.WebView getPreviewWebView() { return previewWebView; }
 
@@ -1483,12 +1481,11 @@ public class EditorController {
     }
 
     public void updateNoteMetadata(Note note, Label modLabel,
-            Label created, Label modified, Label words, Label chars,
+            Label created, Label modified,
             Label lat, Label lon, Label author, Label source,
             Function<String, String> i18n) {
         if (note == null) {
             setLabelSafe(modLabel, ""); setLabelSafe(created, "-"); setLabelSafe(modified, "-");
-            setLabelSafe(words, "0"); setLabelSafe(chars, "0");
             if (lat    != null) lat.setText(MessageFormat.format(i18n.apply("info.lat"),    "-"));
             if (lon    != null) lon.setText(MessageFormat.format(i18n.apply("info.lon"),    "-"));
             if (author != null) author.setText(MessageFormat.format(i18n.apply("info.author"), "-"));
@@ -1498,13 +1495,6 @@ public class EditorController {
         setLabelSafe(modLabel, note.getModifiedDate() != null ? "Modified " + note.getModifiedDate() : "");
         setLabelSafe(created,  orDash(note.getCreatedDate()));
         setLabelSafe(modified, orDash(note.getModifiedDate()));
-        String body = liveEditorContent(note);
-        int wordCount = countWords(body);
-        setLabelSafe(words, String.valueOf(wordCount));
-        setLabelSafe(chars, String.valueOf(body.length()));
-        if (wordCountLabel != null && i18n != null) {
-            wordCountLabel.setText(MessageFormat.format(i18n.apply("info.words_count"), wordCount));
-        }
         if (lat    != null) lat.setText(MessageFormat.format(i18n.apply("info.lat"), note.getLatitude()  != 0 ? String.valueOf(note.getLatitude())  : "-"));
         if (lon    != null) lon.setText(MessageFormat.format(i18n.apply("info.lon"), note.getLongitude() != 0 ? String.valueOf(note.getLongitude()) : "-"));
         if (author != null) author.setText(MessageFormat.format(i18n.apply("info.author"), orDash(note.getAuthor())));
@@ -1599,16 +1589,6 @@ public class EditorController {
         if (previewWebView != null && !previewWebView.getStyleClass().contains("webview-theme")) {
             previewWebView.getStyleClass().add("webview-theme");
         }
-    }
-
-    public void refreshWordCount(Function<String, String> i18n, Label externalWords, Label externalChars) {
-        String content = liveEditorContent(currentNote);
-        int wordCount = countWords(content);
-        if (wordCountLabel != null && i18n != null) {
-            wordCountLabel.setText(MessageFormat.format(i18n.apply("info.words_count"), wordCount));
-        }
-        setLabelSafe(externalWords, String.valueOf(wordCount));
-        setLabelSafe(externalChars, String.valueOf(content.length()));
     }
 
     public void syncFavoritePinButtons(Function<String, String> i18n) {

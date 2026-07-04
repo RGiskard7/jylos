@@ -172,10 +172,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     @FXML
     private Label infoModifiedLabel;
     @FXML
-    private Label infoWordsLabel;
-    @FXML
-    private Label infoCharsLabel;
-    @FXML
     private Label infoLatitudeLabel;
     @FXML
     private Label infoLongitudeLabel;
@@ -435,6 +431,13 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             sidebarController.loadRecentNotes();
             sidebarController.loadFavorites();
             sidebarController.loadTrashTree();
+            Platform.runLater(() -> {
+                if (sidebarController != null
+                        && sidebarController.getFolderTreeView() != null
+                        && sidebarController.getFolderTreeView().getSelectionModel().getSelectedItem() == null) {
+                    goToAllNotes();
+                }
+            });
 
             Platform.runLater(this::initializeKeyboardShortcuts);
 
@@ -646,7 +649,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     public void showCommandPalette() {
         ensureCommandUisInitialized(getPrimaryStage());
         if (commandPalette != null) {
-            commandPalette.setDarkTheme(isDarkThemeActive());
             commandPalette.show();
             logger.info("Command Palette opened");
         } else {
@@ -659,7 +661,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     public void showQuickSwitcher() {
         ensureCommandUisInitialized(getPrimaryStage());
         if (quickSwitcher != null) {
-            quickSwitcher.setDarkTheme(isDarkThemeActive());
             if (!quickSwitcherNotesCache.isEmpty()) {
                 quickSwitcher.setNotes(quickSwitcherNotesCache);
             }
@@ -2004,8 +2005,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 editorController.getModifiedDateLabel(),
                 infoCreatedLabel,
                 infoModifiedLabel,
-                infoWordsLabel,
-                infoCharsLabel,
                 infoLatitudeLabel,
                 infoLongitudeLabel,
                 infoAuthorLabel,
@@ -2056,7 +2055,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (editorController == null) {
             return;
         }
-        editorController.refreshWordCount(this::getString, infoWordsLabel, infoCharsLabel);
         refreshEditorPreview();
         updateNoteMetadata(getCurrentNote());
     }
@@ -2655,7 +2653,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 cssSnippetCatalog.resolveEnabledUris(enabledSnippets));
         // Make modals/alerts follow the active theme (JavaFX dialogs don't inherit
         // the scene's stylesheets on their own).
-        com.example.jylos.ui.UiDialogs.setStylesheets(scene.getStylesheets());
+        com.example.jylos.ui.UiDialogs.syncFromScene(scene);
     }
 
     /** Applies the theme, refreshes all theme-dependent UI elements, and updates the system-theme monitor state. */
