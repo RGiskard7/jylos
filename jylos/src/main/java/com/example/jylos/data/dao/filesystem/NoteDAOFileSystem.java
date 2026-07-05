@@ -546,6 +546,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                         : FrontmatterHandler.generate(note);
                 Files.writeString(path, fileContent, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
                 String currentId = normalizeId(note.getId());
+                removeCacheAliasesForIds(normalizedId, currentId);
                 if (!normalizedId.equals(currentId)) {
                     cachedNotes.remove(normalizedId);
                     idToPathMap.remove(normalizedId);
@@ -790,7 +791,6 @@ public class NoteDAOFileSystem implements NoteDAO {
     /** Returns all non-deleted notes whose immediate parent directory matches {@code folderId} (or root when null/ROOT). */
     @Override
     public List<Note> fetchNotesByFolderId(String folderId) {
-        pruneStaleCacheEntriesIfNeeded();
         if (cachedNotes.isEmpty()) {
             refreshCache();
         }
@@ -818,7 +818,6 @@ public class NoteDAOFileSystem implements NoteDAO {
     /** Returns a snapshot of all cached notes (lightweight), refreshing the cache if it is empty. */
     @Override
     public List<Note> fetchAllNotes() {
-        pruneStaleCacheEntriesIfNeeded();
         if (cachedNotes.isEmpty()) {
             refreshCache();
         }
@@ -972,6 +971,43 @@ public class NoteDAOFileSystem implements NoteDAO {
             return "";
         }
         return id.replace("\\", "/");
+    }
+
+    /**
+     * Removes stale alias entries that can appear after filesystem moves/renames
+     * performed outside the NoteDAO cache ownership path.
+     */
+    private void removeCacheAliasesForIds(String previousId, String currentId) {
+        String normalizedPreviousId = normalizeId(previousId);
+        String normalizedCurrentId = normalizeId(currentId);
+        if (normalizedCurrentId.equals(normalizedPreviousId) && cachedNotes.containsKey(normalizedCurrentId)) {
+            return;
+        }
+
+        List<String> aliasKeys = new ArrayList<>();
+        for (Map.Entry<String, Note> entry : cachedNotes.entrySet()) {
+            String entryKey = normalizeId(entry.getKey());
+            Note cached = entry.getValue();
+            String cachedId = cached != null ? normalizeId(cached.getId()) : "";
+
+            boolean previousAlias = !normalizedPreviousId.isBlank()
+                    && cachedId.equals(normalizedPreviousId)
+                    && !entryKey.equals(normalizedPreviousId);
+            boolean currentAlias = !normalizedCurrentId.isBlank()
+                    && cachedId.equals(normalizedCurrentId)
+                    && !entryKey.equals(normalizedCurrentId);
+
+            if (previousAlias || currentAlias) {
+                aliasKeys.add(entry.getKey());
+            }
+        }
+
+        for (String aliasKey : aliasKeys) {
+            cachedNotes.remove(aliasKey);
+            cachedNotes.remove(normalizeId(aliasKey));
+            idToPathMap.remove(aliasKey);
+            idToPathMap.remove(normalizeId(aliasKey));
+        }
     }
 
     /** Removes cache entries whose backing files no longer exist on disk, then re-indexes the surviving entries. */

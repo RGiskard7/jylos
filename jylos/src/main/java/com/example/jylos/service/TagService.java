@@ -250,6 +250,10 @@ public class TagService {
         if (note == null || note.getId() == null) {
             return new ArrayList<>();
         }
+        List<Tag> noteTags = note.getTags();
+        if (noteTags != null && !noteTags.isEmpty()) {
+            return noteTags;
+        }
         return noteDAO.fetchTags(note.getId());
     }
 

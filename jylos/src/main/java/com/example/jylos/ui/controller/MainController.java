@@ -515,7 +515,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             notesListView = notesListController.getNotesListView();
         }
         if (editorController != null) {
-            editorController.wire(eventBus, noteService, tagService, resources, this::handleUiNoteModified);
+            editorController.wire(eventBus, noteService, tagService, resources,
+                    this::handleUiNoteModified, com.example.jylos.service.NoteTitleIndex.getInstance()::titlesSorted);
             editorController.setWikiLinkHandler(title -> noteService.findNoteByTitle(title).ifPresentOrElse(
                     this::handleUiNoteOpenRequest,
                     () -> updateStatus("Note not found: " + title)));
@@ -550,7 +551,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 sceneSupplier);
         privacySupport.wire(this::getString, this::updateStatus, sceneSupplier);
         backlinksSupport.wire(backlinksContent, backlinkService, noteService, this::getString,
-                this::loadNoteInEditor);
+                this::loadNoteInEditor,
+                () -> backlinksSection != null && backlinksSection.isVisible() && backlinksSection.isManaged()
+                        && backlinksContent != null && backlinksContent.isVisible() && backlinksContent.isManaged());
         historySupport.wire(noteService, this::getString, this::updateStatus, sceneSupplier,
                 this::getCurrentNote, this::loadNoteInEditor);
         noteCreationSupport.wire(noteService, noteOperations,
@@ -1896,7 +1899,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 noteInfoContent,
                 noteInfoCollapseIcon,
                 pluginPanelsContainer);
-        uiInitialization.wireCollapsibleSection(backlinksHeader, backlinksContent, backlinksCollapseIcon);
+        uiInitialization.wireCollapsibleSection(backlinksHeader, backlinksContent, backlinksCollapseIcon,
+                expand -> {
+                    if (expand) {
+                        refreshBacklinks(getCurrentNote());
+                    }
+                });
     }
 
     /** Resets the filter state and asks {@link NotesListController} to display every note. */
@@ -2023,6 +2031,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     }
 
     void loadNoteInEditor(Note note) {
+        if (note != null && note.getId() != null && noteService != null) {
+            note = noteService.getNoteById(note.getId()).orElse(note);
+        }
         // A locked private note loads as a placeholder; offer to unlock just this note
         // (the global "unlock private notes" command is what reveals all of them).
         if (note != null && note.isPrivate() && note.getId() != null && noteService != null) {

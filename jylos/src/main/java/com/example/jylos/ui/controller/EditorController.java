@@ -13,6 +13,7 @@ import java.util.ResourceBundle;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -28,6 +29,7 @@ import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.plugin.PreviewEnhancer;
+import com.example.jylos.service.NoteTitleIndex;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.RichLinkService;
 import com.example.jylos.service.TagService;
@@ -123,8 +125,8 @@ public class EditorController {
     /** Whether the properties panel body is expanded. Collapsed by default. */
     private boolean propertiesExpanded = false;
 
-    /** Cached note titles for wiki-link autocomplete — refreshed on note events. */
-    private List<String> cachedNoteTitles = new ArrayList<>();
+    /** Titles supplier for wiki-link autocomplete. Defaults to the global title index. */
+    private Supplier<List<String>> autocompleteTitlesSupplier = () -> NoteTitleIndex.getInstance().titlesSorted();
 
     private final Map<String, PreviewEnhancer> previewEnhancers = new HashMap<>();
     private boolean wikiLinkListenerInstalled;
@@ -219,12 +221,15 @@ public class EditorController {
     }
 
     public void wire(EventBus eventBus, NoteService noteService, TagService tagService, ResourceBundle bundle,
-            Consumer<Note> noteModifiedAction) {
+            Consumer<Note> noteModifiedAction, Supplier<List<String>> autocompleteTitlesSupplier) {
         setNoteService(noteService);
         setTagService(tagService);
         setBundle(bundle);
         this.noteModifiedAction = noteModifiedAction != null ? noteModifiedAction : note -> {
         };
+        this.autocompleteTitlesSupplier = autocompleteTitlesSupplier != null
+                ? autocompleteTitlesSupplier
+                : () -> NoteTitleIndex.getInstance().titlesSorted();
         setEventBus(eventBus);
     }
 
@@ -556,9 +561,7 @@ public class EditorController {
             return;
         }
 
-        currentNote = (noteService != null)
-                ? noteService.getNoteById(note.getId()).orElse(note)
-                : note;
+        currentNote = note;
 
         if (noteTitleField != null) {
             noteTitleField.setText(orEmpty(currentNote.getTitle()));
@@ -581,7 +584,6 @@ public class EditorController {
         setNoteOpen(true);
         updateBreadcrumb(currentNote);
         rebuildPropertiesPanel();
-        refreshNoteTitlesCache();
         isModified = false;
         updateSaveIndicator(false);
         updatePrivateIndicator();
@@ -1092,8 +1094,10 @@ public class EditorController {
     }
 
     private List<String> filterTitles(String query) {
-        if (cachedNoteTitles.isEmpty()) refreshNoteTitlesCache();
         String q = query.toLowerCase();
+        List<String> cachedNoteTitles = autocompleteTitlesSupplier != null
+                ? autocompleteTitlesSupplier.get()
+                : List.of();
         List<String> result = new ArrayList<>();
         for (String t : cachedNoteTitles) {
             if (q.isBlank() || t.toLowerCase().contains(q)) result.add(t);
@@ -1142,20 +1146,6 @@ public class EditorController {
 
     private void hideAutocompletePopup() {
         if (isAutocompleteVisible()) autocompletePopup.hide();
-    }
-
-    private void refreshNoteTitlesCache() {
-        if (noteService == null) return;
-        try {
-            cachedNoteTitles = new ArrayList<>(
-                    noteService.getAllNotes().stream()
-                            .map(Note::getTitle)
-                            .filter(t -> t != null && !t.isBlank())
-                            .sorted(String.CASE_INSENSITIVE_ORDER)
-                            .toList());
-        } catch (Exception e) {
-            logger.warning("Failed to refresh note titles cache: " + e.getMessage());
-        }
     }
 
     // ============================================================
@@ -1207,9 +1197,6 @@ public class EditorController {
             });
         }
 
-        subscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class,   e -> refreshNoteTitlesCache()));
-        subscriptions.add(eventBus.subscribe(NoteEvents.NoteDeletedEvent.class, e -> refreshNoteTitlesCache()));
-        subscriptions.add(eventBus.subscribe(NoteEvents.NoteCreatedEvent.class, e -> refreshNoteTitlesCache()));
     }
 
     public void teardown() {

@@ -15,6 +15,7 @@ class UiServiceBoundaryGuardTest {
     private static final Path FOLDER_OPERATIONS = Path.of("src/main/java/com/example/jylos/ui/controller/FolderOperations.java");
     private static final Path EDITOR_CONTROLLER = Path.of("src/main/java/com/example/jylos/ui/controller/EditorController.java");
     private static final Path SIDEBAR_CONTROLLER = Path.of("src/main/java/com/example/jylos/ui/controller/SidebarController.java");
+    private static final Path NOTE_DAO_FILESYSTEM = Path.of("src/main/java/com/example/jylos/data/dao/filesystem/NoteDAOFileSystem.java");
 
     @Test
     void tagManagementShouldUseTagServiceInsteadOfNoteDao() throws IOException {
@@ -63,6 +64,8 @@ class UiServiceBoundaryGuardTest {
                 "EditorController should not load note tags through NoteService once TagService is canonical.");
         assertFalse(source.contains("noteDAO."),
                 "EditorController should not keep direct NoteDAO usage.");
+        assertFalse(source.contains("noteService.getAllNotes()"),
+                "EditorController should not rebuild global note-title caches from NoteService on note open.");
     }
 
     @Test
@@ -77,5 +80,15 @@ class UiServiceBoundaryGuardTest {
                 "SidebarController should not retain FolderDAO wiring once services own the workflow.");
         assertFalse(source.contains("NoteDAO"),
                 "SidebarController should not retain NoteDAO wiring once services own the workflow.");
+    }
+
+    @Test
+    void filesystemDaoHotReadsShouldNotRunGlobalCachePruning() throws IOException {
+        String source = Files.readString(NOTE_DAO_FILESYSTEM, StandardCharsets.UTF_8);
+
+        assertFalse(source.contains("public List<Note> fetchNotesByFolderId(String folderId) {\n        pruneStaleCacheEntriesIfNeeded();"),
+                "Folder note listing should not trigger a global filesystem cache prune on the hot path.");
+        assertFalse(source.contains("public List<Note> fetchAllNotes() {\n        pruneStaleCacheEntriesIfNeeded();"),
+                "Global note listing should not trigger a global filesystem cache prune on the hot path.");
     }
 }
