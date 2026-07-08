@@ -677,11 +677,16 @@ public class EditorController {
             com.example.jylos.util.CanvasModel.Document canvasDoc =
                     com.example.jylos.util.CanvasModel.Document.parse(json);
             final java.nio.file.Path vaultRoot = vaultRootFor(path, currentNote != null ? currentNote.getId() : "");
+            final List<String> canvasReferenceSuggestions = canvasFileReferenceSuggestions(vaultRoot);
             currentCanvasPath = path;
             currentCanvasView = new com.example.jylos.ui.components.CanvasView(
                     canvasDoc,
-                    file -> openNoteByTitle(canvasFileToTitle(file)),
+                    file -> openCanvasReference(vaultRoot, file),
                     ref -> resolveCanvasFile(vaultRoot, ref),
+                    ref -> canonicalCanvasFileRef(vaultRoot, ref),
+                    noteId -> noteIdToCanvasRef(vaultRoot, noteId),
+                    () -> NoteTitleIndex.getInstance().titlesSorted(),
+                    () -> canvasReferenceSuggestions,
                     this::persistCurrentCanvas,
                     this::markCanvasModified,
                     this::safeI18n);
@@ -774,9 +779,10 @@ public class EditorController {
         if (ref == null || ref.isBlank()) {
             return null;
         }
+        String normalizedRef = ref.trim();
         if (vaultRoot != null) {
             try {
-                java.nio.file.Path p = vaultRoot.resolve(ref).normalize();
+                java.nio.file.Path p = vaultRoot.resolve(normalizedRef).normalize();
                 if (java.nio.file.Files.exists(p)) {
                     return p;
                 }
@@ -784,7 +790,124 @@ public class EditorController {
                 // fall through to the note-store lookup
             }
         }
-        return noteService != null ? noteService.getNoteFilePath(ref).orElse(null) : null;
+        if (noteService == null) {
+            return null;
+        }
+        java.nio.file.Path byId = noteService.getNoteFilePath(normalizedRef).orElse(null);
+        if (byId != null) {
+            return byId;
+        }
+        String titleCandidate = normalizedRef.endsWith(".md")
+                ? normalizedRef.substring(0, normalizedRef.length() - 3)
+                : normalizedRef;
+        return noteService.findNoteByTitle(titleCandidate)
+                .flatMap(note -> noteService.getNoteFilePath(note.getId()))
+                .orElse(null);
+    }
+
+    private String canonicalCanvasFileRef(java.nio.file.Path vaultRoot, String ref) {
+        if (ref == null || ref.isBlank()) {
+            return "";
+        }
+        String normalizedRef = ref.trim().replace('\\', '/');
+        java.nio.file.Path resolved = resolveCanvasFile(vaultRoot, normalizedRef);
+        if (resolved == null) {
+            try {
+                java.nio.file.Path absolute = java.nio.file.Path.of(normalizedRef).normalize();
+                if (absolute.isAbsolute() && vaultRoot != null && absolute.startsWith(vaultRoot.normalize())) {
+                    return vaultRoot.normalize().relativize(absolute).toString().replace('\\', '/');
+                }
+                if (absolute.isAbsolute()) {
+                    return "";
+                }
+            } catch (Exception ignored) {
+                // fall through to title-based handling
+            }
+        }
+        if (resolved == null) {
+            if (noteService != null) {
+                String titleCandidate = normalizedRef.endsWith(".md")
+                        ? normalizedRef.substring(0, normalizedRef.length() - 3)
+                        : normalizedRef;
+                java.util.Optional<Note> note = noteService.findNoteByTitle(titleCandidate);
+                if (note.isPresent() && note.get().getId() != null && !note.get().getId().isBlank()) {
+                    return note.get().getId().replace('\\', '/');
+                }
+            }
+            return normalizedRef.contains("/") || AttachmentType.extensionOf(normalizedRef).isEmpty()
+                    ? normalizedRef
+                    : "";
+        }
+        if (vaultRoot != null) {
+            try {
+                return vaultRoot.relativize(resolved).toString().replace('\\', '/');
+            } catch (Exception ignored) {
+                // fall through to note-id lookup
+            }
+        }
+        if (noteService != null) {
+            String titleCandidate = normalizedRef.endsWith(".md")
+                    ? normalizedRef.substring(0, normalizedRef.length() - 3)
+                    : normalizedRef;
+            java.util.Optional<Note> note = noteService.findNoteByTitle(titleCandidate);
+            if (note.isPresent() && note.get().getId() != null && !note.get().getId().isBlank()) {
+                return note.get().getId().replace('\\', '/');
+            }
+        }
+        return normalizedRef;
+    }
+
+    private String noteIdToCanvasRef(java.nio.file.Path vaultRoot, String noteId) {
+        if (noteId == null || noteId.isBlank()) {
+            return "";
+        }
+        if (noteService != null) {
+            java.nio.file.Path path = noteService.getNoteFilePath(noteId).orElse(null);
+            if (path != null && vaultRoot != null) {
+                try {
+                    return vaultRoot.relativize(path).toString().replace('\\', '/');
+                } catch (Exception ignored) {
+                    // fall through to generic canonicalization
+                }
+            }
+        }
+        return canonicalCanvasFileRef(vaultRoot, noteId);
+    }
+
+    private List<String> canvasFileReferenceSuggestions(java.nio.file.Path vaultRoot) {
+        if (noteService == null) {
+            return List.of();
+        }
+        List<String> references = new ArrayList<>();
+        for (Note note : noteService.getAllNotes()) {
+            if (note == null || note.getId() == null || note.getId().isBlank()) {
+                continue;
+            }
+            if (AttachmentType.fromName(note.getId()) == AttachmentType.MARKDOWN) {
+                if (note.getTitle() != null && !note.getTitle().isBlank()) {
+                    references.add(note.getTitle());
+                }
+                continue;
+            }
+            String reference = noteIdToCanvasRef(vaultRoot, note.getId());
+            if (!reference.isBlank()) {
+                references.add(reference);
+            }
+        }
+        references.sort(String.CASE_INSENSITIVE_ORDER);
+        return references;
+    }
+
+    private void openCanvasReference(java.nio.file.Path vaultRoot, String ref) {
+        String canonicalRef = canonicalCanvasFileRef(vaultRoot, ref);
+        if (noteService != null) {
+            java.util.Optional<Note> note = noteService.getNoteById(canonicalRef);
+            if (note.isPresent()) {
+                openNoteByTitle(note.get().getTitle());
+                return;
+            }
+        }
+        openNoteByTitle(canvasFileToTitle(canonicalRef));
     }
 
     /** Resolves an i18n key, returning the key itself (never throwing) when absent. */

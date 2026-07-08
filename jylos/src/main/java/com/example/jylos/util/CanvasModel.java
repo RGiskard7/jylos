@@ -146,6 +146,14 @@ public final class CanvasModel {
             return n.get("id").getAsString();
         }
 
+        /** Adds a new file node and returns its generated id. */
+        public String addFileNode(double x, double y, double width, double height, String file) {
+            JsonObject n = newNode("file", x, y, width, height);
+            n.addProperty("file", file == null ? "" : file);
+            root.getAsJsonArray("nodes").add(n);
+            return n.get("id").getAsString();
+        }
+
         /** Adds a new group node (labelled rectangle) and returns its generated id. */
         public String addGroupNode(double x, double y, double width, double height, String label) {
             JsonObject n = newNode("group", x, y, width, height);
@@ -189,6 +197,24 @@ public final class CanvasModel {
             for (JsonElement el : root.getAsJsonArray("edges")) {
                 if (el.isJsonObject() && id.equals(str(el.getAsJsonObject(), "id"))) {
                     applyColorProperty(el.getAsJsonObject(), color);
+                    return;
+                }
+            }
+        }
+
+        /** Sets (or clears, when {@code label} is null/blank) an edge label. */
+        public void setEdgeLabel(String id, String label) {
+            if (id == null || !root.get("edges").isJsonArray()) {
+                return;
+            }
+            for (JsonElement el : root.getAsJsonArray("edges")) {
+                if (el.isJsonObject() && id.equals(str(el.getAsJsonObject(), "id"))) {
+                    JsonObject edge = el.getAsJsonObject();
+                    if (label == null || label.isBlank()) {
+                        edge.remove("label");
+                    } else {
+                        edge.addProperty("label", label);
+                    }
                     return;
                 }
             }
