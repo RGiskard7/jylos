@@ -39,7 +39,7 @@ import com.example.jylos.event.events.NoteEvents;
  */
 public final class NoteTitleIndex {
 
-    private record Snapshot(Set<String> titles, Map<String, String> noteIdsByNormalizedTitle) {
+    private record Snapshot(List<String> sortedTitles, Set<String> titles, Map<String, String> noteIdsByNormalizedTitle) {
     }
 
     private static final Logger logger = LoggerConfig.getLogger(NoteTitleIndex.class);
@@ -65,6 +65,14 @@ public final class NoteTitleIndex {
      */
     public Set<String> titles() {
         return snapshot().titles();
+    }
+
+    /**
+     * Returns the known note titles sorted case-insensitively for UI consumers such as
+     * wiki-link autocomplete. Reuses the same warm snapshot as {@link #titles()}.
+     */
+    public List<String> titlesSorted() {
+        return snapshot().sortedTitles();
     }
 
     /**
@@ -112,9 +120,9 @@ public final class NoteTitleIndex {
         try {
             NoteService ns = noteService;
             if (ns == null) {
-                return new Snapshot(Set.of(), Map.of());
+                return new Snapshot(List.of(), Set.of(), Map.of());
             }
-            Set<String> titles = new LinkedHashSet<>();
+            Set<String> titles = new java.util.TreeSet<>(String.CASE_INSENSITIVE_ORDER);
             Map<String, String> noteIdsByNormalizedTitle = new LinkedHashMap<>();
             for (Note note : ns.getAllNotes()) {
                 if (note == null || note.getTitle() == null || note.getTitle().isBlank()) {
@@ -125,11 +133,12 @@ public final class NoteTitleIndex {
                     noteIdsByNormalizedTitle.putIfAbsent(normalize(note.getTitle()), note.getId());
                 }
             }
-            return new Snapshot(Set.copyOf(titles), Map.copyOf(noteIdsByNormalizedTitle));
+            List<String> sortedTitles = List.copyOf(titles);
+            return new Snapshot(sortedTitles, Set.copyOf(titles), Map.copyOf(noteIdsByNormalizedTitle));
         } catch (Exception e) {
             logger.warning("NoteTitleIndex rebuild failed: " + e.getMessage());
         }
-        return new Snapshot(Set.of(), Map.of());
+        return new Snapshot(List.of(), Set.of(), Map.of());
     }
 
     public void shutdown() {

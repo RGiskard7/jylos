@@ -1,5 +1,7 @@
 package com.example.jylos.ui.controller;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.MessageFormat;
 import java.time.Duration;
@@ -8,11 +10,11 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.ResourceBundle;
-import java.util.function.BiConsumer;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -28,6 +30,7 @@ import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.plugin.PreviewEnhancer;
+import com.example.jylos.service.NoteTitleIndex;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.RichLinkService;
 import com.example.jylos.service.TagService;
@@ -123,8 +126,8 @@ public class EditorController {
     /** Whether the properties panel body is expanded. Collapsed by default. */
     private boolean propertiesExpanded = false;
 
-    /** Cached note titles for wiki-link autocomplete — refreshed on note events. */
-    private List<String> cachedNoteTitles = new ArrayList<>();
+    /** Titles supplier for wiki-link autocomplete. Defaults to the global title index. */
+    private Supplier<List<String>> autocompleteTitlesSupplier = () -> NoteTitleIndex.getInstance().titlesSorted();
 
     private final Map<String, PreviewEnhancer> previewEnhancers = new HashMap<>();
     private boolean wikiLinkListenerInstalled;
@@ -133,7 +136,11 @@ public class EditorController {
     private final RichLinkService richLinkService = new RichLinkService();
     private CanvasView currentCanvasView;
     private Path currentCanvasPath;
+    private DocumentFingerprint currentCanvasFingerprint;
     private AttachmentType currentAttachmentType = AttachmentType.MARKDOWN;
+
+    private record DocumentFingerprint(long lastModifiedMillis, long size) {
+    }
 
     /** Opens a note when the user clicks a wiki-link in the Markdown preview. */
     @FunctionalInterface
@@ -159,6 +166,7 @@ public class EditorController {
     @FXML private Label privateIndicator;
     @FXML private FontIcon privateIndicatorIcon;
     @FXML private Tooltip privateIndicatorTip;
+    @FXML private HBox noteOnlyControls;
     @FXML private ToggleButton toggleTagsBtn;
     @FXML private ToggleButton editorOnlyButton;
     @FXML private ToggleButton splitViewButton;
@@ -219,12 +227,15 @@ public class EditorController {
     }
 
     public void wire(EventBus eventBus, NoteService noteService, TagService tagService, ResourceBundle bundle,
-            Consumer<Note> noteModifiedAction) {
+            Consumer<Note> noteModifiedAction, Supplier<List<String>> autocompleteTitlesSupplier) {
         setNoteService(noteService);
         setTagService(tagService);
         setBundle(bundle);
         this.noteModifiedAction = noteModifiedAction != null ? noteModifiedAction : note -> {
         };
+        this.autocompleteTitlesSupplier = autocompleteTitlesSupplier != null
+                ? autocompleteTitlesSupplier
+                : () -> NoteTitleIndex.getInstance().titlesSorted();
         setEventBus(eventBus);
     }
 
@@ -504,6 +515,7 @@ public class EditorController {
         hideAttachmentViewer();
         setNodeVisible(editorPathBar, open);
         setNodeVisible(editorHeaderBar, open);
+        setNodeVisible(noteOnlyControls, open);
         setNodeVisible(editorPreviewSplitPane, open);
         if (!open) {
             setNodeVisible(tagsContainer, false);
@@ -545,6 +557,7 @@ public class EditorController {
         hideAutocompletePopup();
 
         if (note == null) {
+            clearReusableCanvasIfClean();
             currentNote = null;
             if (noteTitleField  != null) noteTitleField.clear();
             if (noteContentArea != null) noteContentArea.clear();
@@ -553,25 +566,32 @@ public class EditorController {
             isModified = false;
             updateSaveIndicator(false);
             updatePrivateIndicator();
+            syncFavoritePinButtons(key -> getString(key, key));
             return;
         }
 
-        currentNote = (noteService != null)
-                ? noteService.getNoteById(note.getId()).orElse(note)
-                : note;
+        currentNote = note;
 
         if (noteTitleField != null) {
             noteTitleField.setText(orEmpty(currentNote.getTitle()));
+            noteTitleField.setEditable(true);
+        }
+        if (infoButton != null) {
+            setNodeVisible(infoButton, true);
         }
 
         // PDFs and images are not editable: show a native viewer instead of the editor.
         AttachmentType type = AttachmentType.fromName(currentNote.getId());
         currentAttachmentType = type;
+        if (type != AttachmentType.CANVAS) {
+            clearReusableCanvasIfClean();
+        }
         if (type.isAttachment()) {
             showAttachment(currentNote, type);
             isModified = false;
             updateSaveIndicator(false);
             updatePrivateIndicator();
+            syncFavoritePinButtons(key -> getString(key, key));
             return;
         }
         hideAttachmentViewer();
@@ -581,10 +601,10 @@ public class EditorController {
         setNoteOpen(true);
         updateBreadcrumb(currentNote);
         rebuildPropertiesPanel();
-        refreshNoteTitlesCache();
         isModified = false;
         updateSaveIndicator(false);
         updatePrivateIndicator();
+        syncFavoritePinButtons(key -> getString(key, key));
         applyHighlighting();
     }
 
@@ -639,27 +659,36 @@ public class EditorController {
         viewingAttachment = true;
         currentAttachmentType = type;
         ensureAttachmentViewer();
-        attachmentViewer.getChildren().clear();
-        currentCanvasView = null;
-        currentCanvasPath = null;
 
         java.nio.file.Path path = (noteService != null)
                 ? noteService.getNoteFilePath(note.getId()).orElse(null)
                 : null;
+        javafx.scene.Node attachmentContent;
         if (path != null && type == AttachmentType.CANVAS) {
-            attachmentViewer.getChildren().add(buildCanvasView(path));
+            if (canReuseCurrentCanvas(path)) {
+                attachmentContent = currentCanvasView;
+            } else {
+                attachmentContent = buildCanvasView(path);
+            }
         } else if (path != null) {
-            attachmentViewer.getChildren().add(
-                    com.example.jylos.ui.components.FileViewer.forAttachment(path, type, bundle));
+            attachmentContent = com.example.jylos.ui.components.FileViewer.forAttachment(path, type, bundle);
         } else {
             Label missing = new Label(bundle != null ? bundle.getString("viewer.file_not_found")
                     : "File not found");
             missing.getStyleClass().add("viewer-info");
-            attachmentViewer.getChildren().add(missing);
+            attachmentContent = missing;
         }
+        attachmentViewer.getChildren().setAll(attachmentContent);
 
         setNodeVisible(editorPathBar, true);
-        setNodeVisible(editorHeaderBar, type == AttachmentType.CANVAS);
+        setNodeVisible(editorHeaderBar, true);
+        setNodeVisible(noteOnlyControls, false);
+        if (infoButton != null) {
+            setNodeVisible(infoButton, type == AttachmentType.CANVAS);
+        }
+        if (noteTitleField != null) {
+            noteTitleField.setEditable(type == AttachmentType.CANVAS);
+        }
         setNodeVisible(editorPreviewSplitPane, false);
         setNodeVisible(tagsContainer, false);
         setNodeVisible(propertiesSection, false);
@@ -668,29 +697,85 @@ public class EditorController {
         updateBreadcrumb(note);
     }
 
+    /**
+     * Reuses the current canvas only while it still maps to the same file and that file
+     * has not changed externally. If the editor has local unsaved changes, the current
+     * view wins to avoid discarding in-memory edits.
+     */
+    private boolean canReuseCurrentCanvas(Path path) {
+        if (path == null || currentCanvasView == null || currentCanvasPath == null || !path.equals(currentCanvasPath)) {
+            return false;
+        }
+        if (isModified || currentCanvasView.hasUnsavedChanges()) {
+            return true;
+        }
+        DocumentFingerprint latest = fingerprint(path);
+        if (latest == null || !latest.equals(currentCanvasFingerprint)) {
+            currentCanvasView = null;
+            currentCanvasPath = null;
+            currentCanvasFingerprint = null;
+            return false;
+        }
+        return true;
+    }
+
+    private void clearReusableCanvasIfClean() {
+        if (currentCanvasView == null) {
+            return;
+        }
+        if (isModified || currentCanvasView.hasUnsavedChanges()) {
+            return;
+        }
+        currentCanvasView = null;
+        currentCanvasPath = null;
+        currentCanvasFingerprint = null;
+    }
+
     /** Reads, parses and renders a {@code .canvas} file; file nodes open the referenced note. */
     private javafx.scene.Node buildCanvasView(java.nio.file.Path path) {
         try {
-            String json = java.nio.file.Files.readString(path);
+            String json = Files.readString(path);
             com.example.jylos.util.CanvasModel.Document canvasDoc =
                     com.example.jylos.util.CanvasModel.Document.parse(json);
             final java.nio.file.Path vaultRoot = vaultRootFor(path, currentNote != null ? currentNote.getId() : "");
+            final Supplier<List<String>> canvasReferenceSuggestions = memoizedCanvasReferenceSuggestions(vaultRoot);
             currentCanvasPath = path;
             currentCanvasView = new com.example.jylos.ui.components.CanvasView(
                     canvasDoc,
-                    file -> openNoteByTitle(canvasFileToTitle(file)),
+                    file -> openCanvasReference(vaultRoot, file),
                     ref -> resolveCanvasFile(vaultRoot, ref),
+                    ref -> canonicalCanvasFileRef(vaultRoot, ref),
+                    noteId -> noteIdToCanvasRef(vaultRoot, noteId),
+                    () -> NoteTitleIndex.getInstance().titlesSorted(),
+                    canvasReferenceSuggestions,
                     this::persistCurrentCanvas,
                     this::markCanvasModified,
                     this::safeI18n);
+            currentCanvasFingerprint = fingerprint(path);
             return currentCanvasView;
         } catch (Exception e) {
             logger.warning("Could not open canvas '" + path + "': " + e.getMessage());
+            currentCanvasPath = null;
+            currentCanvasFingerprint = null;
+            currentCanvasView = null;
             Label error = new Label(bundle != null ? bundle.getString("viewer.canvas_error")
                     : "Could not open canvas");
             error.getStyleClass().add("viewer-info");
             return error;
         }
+    }
+
+    private Supplier<List<String>> memoizedCanvasReferenceSuggestions(java.nio.file.Path vaultRoot) {
+        AtomicReference<List<String>> cache = new AtomicReference<>();
+        return () -> {
+            List<String> cached = cache.get();
+            if (cached != null) {
+                return cached;
+            }
+            List<String> loaded = canvasFileReferenceSuggestions(vaultRoot);
+            cache.compareAndSet(null, loaded);
+            return cache.get();
+        };
     }
 
     /** Persists the current canvas through the same note update path used for title renames. */
@@ -700,17 +785,19 @@ public class EditorController {
         }
         String previousNoteId = currentNote.getId();
         String updatedJson = json != null ? json : "";
+        String previousStoredContent = currentCanvasView != null ? currentCanvasView.lastSavedSnapshot() : null;
         if (noteTitleField != null) {
             currentNote.setTitle(normalizeCanvasTitle(noteTitleField.getText()));
             noteTitleField.setText(currentNote.getTitle());
         }
         currentNote.setContent(updatedJson);
         if (noteService != null) {
-            noteService.updateNote(currentNote);
+            noteService.updateNote(currentNote, previousStoredContent);
             currentCanvasPath = noteService.getNoteFilePath(currentNote.getId()).orElse(currentCanvasPath);
         } else if (currentCanvasPath != null) {
             writeCanvasFile(currentCanvasPath, updatedJson);
         }
+        currentCanvasFingerprint = fingerprint(currentCanvasPath);
         isModified = false;
         updateBreadcrumb(currentNote);
         updateSaveIndicator(false);
@@ -733,10 +820,22 @@ public class EditorController {
     /** Writes the (edited) canvas JSON back to its file when no note service is available. */
     private void writeCanvasFile(java.nio.file.Path path, String json) {
         try {
-            java.nio.file.Files.writeString(path, json);
+            Files.writeString(path, json);
             logger.info("Canvas saved: " + path.getFileName());
         } catch (Exception e) {
             logger.warning("Could not save canvas '" + path + "': " + e.getMessage());
+        }
+    }
+
+    private DocumentFingerprint fingerprint(Path path) {
+        if (path == null || !Files.exists(path)) {
+            return null;
+        }
+        try {
+            return new DocumentFingerprint(Files.getLastModifiedTime(path).toMillis(), Files.size(path));
+        } catch (IOException e) {
+            logger.fine("Could not fingerprint canvas '" + path + "': " + e.getMessage());
+            return null;
         }
     }
 
@@ -772,9 +871,10 @@ public class EditorController {
         if (ref == null || ref.isBlank()) {
             return null;
         }
+        String normalizedRef = ref.trim();
         if (vaultRoot != null) {
             try {
-                java.nio.file.Path p = vaultRoot.resolve(ref).normalize();
+                java.nio.file.Path p = vaultRoot.resolve(normalizedRef).normalize();
                 if (java.nio.file.Files.exists(p)) {
                     return p;
                 }
@@ -782,7 +882,122 @@ public class EditorController {
                 // fall through to the note-store lookup
             }
         }
-        return noteService != null ? noteService.getNoteFilePath(ref).orElse(null) : null;
+        if (noteService == null) {
+            return null;
+        }
+        java.nio.file.Path byId = noteService.getNoteFilePath(normalizedRef).orElse(null);
+        if (byId != null) {
+            return byId;
+        }
+        String titleCandidate = normalizedRef.endsWith(".md")
+                ? normalizedRef.substring(0, normalizedRef.length() - 3)
+                : normalizedRef;
+        return noteService.findNoteByTitle(titleCandidate)
+                .flatMap(note -> noteService.getNoteFilePath(note.getId()))
+                .orElse(null);
+    }
+
+    private String canonicalCanvasFileRef(java.nio.file.Path vaultRoot, String ref) {
+        if (ref == null || ref.isBlank()) {
+            return "";
+        }
+        String normalizedRef = ref.trim().replace('\\', '/');
+        java.nio.file.Path resolved = resolveCanvasFile(vaultRoot, normalizedRef);
+        if (resolved == null) {
+            try {
+                java.nio.file.Path absolute = java.nio.file.Path.of(normalizedRef).normalize();
+                if (absolute.isAbsolute() && vaultRoot != null && absolute.startsWith(vaultRoot.normalize())) {
+                    return vaultRoot.normalize().relativize(absolute).toString().replace('\\', '/');
+                }
+                if (absolute.isAbsolute()) {
+                    return "";
+                }
+            } catch (Exception ignored) {
+                // fall through to title-based handling
+            }
+        }
+        if (resolved == null) {
+            if (noteService != null) {
+                String titleCandidate = normalizedRef.endsWith(".md")
+                        ? normalizedRef.substring(0, normalizedRef.length() - 3)
+                        : normalizedRef;
+                java.util.Optional<Note> note = noteService.findNoteByTitle(titleCandidate);
+                if (note.isPresent() && note.get().getId() != null && !note.get().getId().isBlank()) {
+                    return note.get().getId().replace('\\', '/');
+                }
+            }
+            return normalizedRef.contains("/") || AttachmentType.extensionOf(normalizedRef).isEmpty()
+                    ? normalizedRef
+                    : "";
+        }
+        if (vaultRoot != null) {
+            try {
+                return vaultRoot.relativize(resolved).toString().replace('\\', '/');
+            } catch (Exception ignored) {
+                // fall through to note-id lookup
+            }
+        }
+        if (noteService != null) {
+            String titleCandidate = normalizedRef.endsWith(".md")
+                    ? normalizedRef.substring(0, normalizedRef.length() - 3)
+                    : normalizedRef;
+            java.util.Optional<Note> note = noteService.findNoteByTitle(titleCandidate);
+            if (note.isPresent() && note.get().getId() != null && !note.get().getId().isBlank()) {
+                return note.get().getId().replace('\\', '/');
+            }
+        }
+        return normalizedRef;
+    }
+
+    private String noteIdToCanvasRef(java.nio.file.Path vaultRoot, String noteId) {
+        if (noteId == null || noteId.isBlank()) {
+            return "";
+        }
+        if (noteService != null) {
+            java.nio.file.Path path = noteService.getNoteFilePath(noteId).orElse(null);
+            if (path != null && vaultRoot != null) {
+                try {
+                    return vaultRoot.relativize(path).toString().replace('\\', '/');
+                } catch (Exception ignored) {
+                    // fall through to generic canonicalization
+                }
+            }
+        }
+        return canonicalCanvasFileRef(vaultRoot, noteId);
+    }
+
+    private List<String> canvasFileReferenceSuggestions(java.nio.file.Path vaultRoot) {
+        java.util.LinkedHashSet<String> references = new java.util.LinkedHashSet<>();
+        if (autocompleteTitlesSupplier != null) {
+            references.addAll(autocompleteTitlesSupplier.get());
+        }
+        if (vaultRoot != null && java.nio.file.Files.isDirectory(vaultRoot)) {
+            try (java.util.stream.Stream<java.nio.file.Path> stream = java.nio.file.Files.walk(vaultRoot)) {
+                stream.filter(java.nio.file.Files::isRegularFile)
+                        .filter(path -> !path.startsWith(vaultRoot.resolve(".trash")))
+                        .map(path -> vaultRoot.relativize(path).toString().replace('\\', '/'))
+                        .filter(ref -> !ref.isBlank())
+                        .filter(ref -> AttachmentType.fromName(ref) != AttachmentType.MARKDOWN)
+                        .forEach(references::add);
+            } catch (Exception e) {
+                logger.fine("Could not enumerate canvas file references: " + e.getMessage());
+            }
+        }
+        List<String> sorted = new ArrayList<>(references);
+        sorted.sort(String.CASE_INSENSITIVE_ORDER);
+        return sorted;
+    }
+
+    private void openCanvasReference(java.nio.file.Path vaultRoot, String ref) {
+        String canonicalRef = canonicalCanvasFileRef(vaultRoot, ref);
+        if (noteService != null) {
+            java.util.Optional<Note> note = noteService.getNoteById(canonicalRef);
+            if (note.isPresent()) {
+                openNoteByTitle(note.get().getTitle());
+                return;
+            }
+        }
+        openNoteByTitle(canvasFileToTitle(canonicalRef));
     }
 
     /** Resolves an i18n key, returning the key itself (never throwing) when absent. */
@@ -807,8 +1022,12 @@ public class EditorController {
     private void hideAttachmentViewer() {
         viewingAttachment = false;
         currentAttachmentType = AttachmentType.MARKDOWN;
-        currentCanvasView = null;
-        currentCanvasPath = null;
+        if (noteTitleField != null) {
+            noteTitleField.setEditable(true);
+        }
+        if (infoButton != null) {
+            setNodeVisible(infoButton, true);
+        }
         if (attachmentViewer != null) {
             attachmentViewer.getChildren().clear(); // release rendered images
             setNodeVisible(attachmentViewer, false);
@@ -1092,8 +1311,10 @@ public class EditorController {
     }
 
     private List<String> filterTitles(String query) {
-        if (cachedNoteTitles.isEmpty()) refreshNoteTitlesCache();
         String q = query.toLowerCase();
+        List<String> cachedNoteTitles = autocompleteTitlesSupplier != null
+                ? autocompleteTitlesSupplier.get()
+                : List.of();
         List<String> result = new ArrayList<>();
         for (String t : cachedNoteTitles) {
             if (q.isBlank() || t.toLowerCase().contains(q)) result.add(t);
@@ -1142,20 +1363,6 @@ public class EditorController {
 
     private void hideAutocompletePopup() {
         if (isAutocompleteVisible()) autocompletePopup.hide();
-    }
-
-    private void refreshNoteTitlesCache() {
-        if (noteService == null) return;
-        try {
-            cachedNoteTitles = new ArrayList<>(
-                    noteService.getAllNotes().stream()
-                            .map(Note::getTitle)
-                            .filter(t -> t != null && !t.isBlank())
-                            .sorted(String.CASE_INSENSITIVE_ORDER)
-                            .toList());
-        } catch (Exception e) {
-            logger.warning("Failed to refresh note titles cache: " + e.getMessage());
-        }
     }
 
     // ============================================================
@@ -1207,9 +1414,6 @@ public class EditorController {
             });
         }
 
-        subscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class,   e -> refreshNoteTitlesCache()));
-        subscriptions.add(eventBus.subscribe(NoteEvents.NoteDeletedEvent.class, e -> refreshNoteTitlesCache()));
-        subscriptions.add(eventBus.subscribe(NoteEvents.NoteCreatedEvent.class, e -> refreshNoteTitlesCache()));
     }
 
     public void teardown() {
@@ -1614,25 +1818,26 @@ public class EditorController {
     }
 
     public void syncFavoritePinButtons(Function<String, String> i18n) {
-        if (favoriteButton != null && currentNote != null) {
-            boolean isFav = currentNote.isFavorite();
+        if (favoriteButton != null) {
+            boolean hasNote = currentNote != null;
+            boolean isFav = hasNote && currentNote.isFavorite();
+            favoriteButton.setDisable(!hasNote);
             favoriteButton.setSelected(isFav);
             if (favoriteButton.getTooltip() != null && i18n != null) {
                 favoriteButton.getTooltip().setText(
-                        isFav ? i18n.apply("action.remove_favorite") : i18n.apply("action.add_favorite"));
+                        !hasNote ? i18n.apply("tooltip.add_favorite")
+                                : isFav ? i18n.apply("action.remove_favorite") : i18n.apply("action.add_favorite"));
             }
         }
         if (pinButton != null) {
-            if (currentNote != null && currentNote.isPinned()) {
-                pinButton.setSelected(true);
-                if (i18n != null) {
-                    pinButton.setTooltip(new Tooltip(i18n.apply("action.unpin_note")));
-                }
-            } else {
-                pinButton.setSelected(false);
-                if (i18n != null) {
-                    pinButton.setTooltip(new Tooltip(i18n.apply("tooltip.pin_note")));
-                }
+            boolean hasNote = currentNote != null;
+            boolean isPinned = hasNote && currentNote.isPinned();
+            pinButton.setDisable(!hasNote);
+            pinButton.setSelected(isPinned);
+            if (pinButton.getTooltip() != null && i18n != null) {
+                pinButton.getTooltip().setText(
+                        !hasNote ? i18n.apply("tooltip.pin_note")
+                                : isPinned ? i18n.apply("action.unpin_note") : i18n.apply("tooltip.pin_note"));
             }
         }
     }
@@ -1736,39 +1941,6 @@ public class EditorController {
         /** Opens an external {@code http(s)} link (e.g. a rich-link card) in the system browser. */
         public void openExternal(String url) {
             Platform.runLater(() -> SystemBrowser.open(url));
-        }
-    }
-
-    // ============================================================
-    // Favorite / pin toggles
-    // ============================================================
-
-    public record NoteToggleResult(boolean success, boolean newState, String successStatusKey, String errorMessage) {}
-
-    public interface NoteMutationPort { void updateNote(Note note); }
-
-    public NoteToggleResult toggleFavorite(Note note, NoteMutationPort port) {
-        return toggleFlag(note, port, Note::isFavorite, Note::setFavorite,
-                "status.note_marked_favorite", "status.note_unmarked_favorite");
-    }
-
-    public NoteToggleResult togglePin(Note note, NoteMutationPort port) {
-        return toggleFlag(note, port, Note::isPinned, Note::setPinned,
-                "status.note_pinned", "status.note_unpinned");
-    }
-
-    private NoteToggleResult toggleFlag(Note note, NoteMutationPort port,
-            Function<Note, Boolean> getter, BiConsumer<Note, Boolean> setter, String onKey, String offKey) {
-        if (note == null) return new NoteToggleResult(false, false, null, "Note is null");
-        if (port == null) return new NoteToggleResult(false, false, null, "Port is null");
-        try {
-            boolean next = !Objects.equals(Boolean.TRUE, getter.apply(note));
-            setter.accept(note, next);
-            port.updateNote(note);
-            return new NoteToggleResult(true, next, next ? onKey : offKey, null);
-        } catch (Exception e) {
-            logger.warning("Failed to toggle note flag: " + e.getMessage());
-            return new NoteToggleResult(false, false, null, e.getMessage());
         }
     }
 

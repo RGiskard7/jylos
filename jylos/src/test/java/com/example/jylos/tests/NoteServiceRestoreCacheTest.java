@@ -1,17 +1,25 @@
 package com.example.jylos.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Proxy;
+import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
+import com.example.jylos.data.models.Note;
+import com.example.jylos.service.NoteHistoryService;
 import com.example.jylos.service.NoteService;
 
 class NoteServiceRestoreCacheTest {
+
+    @TempDir
+    Path tempDir;
 
     @Test
     void restoreNoteShouldRefreshNoteAndFolderCachesAfterRestore() {
@@ -54,6 +62,85 @@ class NoteServiceRestoreCacheTest {
         assertEquals(1, restoreNoteCalls.get());
         assertEquals(1, noteRefreshCalls.get());
         assertEquals(1, folderRefreshCalls.get());
+    }
+
+    @Test
+    void updateCanvasShouldNotReadStoredContentAgainForHistory() {
+        AtomicInteger getNoteByIdCalls = new AtomicInteger();
+        AtomicInteger updateNoteCalls = new AtomicInteger();
+
+        NoteDAO noteDAO = (NoteDAO) Proxy.newProxyInstance(
+                NoteDAO.class.getClassLoader(),
+                new Class<?>[] { NoteDAO.class },
+                (proxy, method, args) -> {
+                    return switch (method.getName()) {
+                        case "getNoteById" -> {
+                            getNoteByIdCalls.incrementAndGet();
+                            yield null;
+                        }
+                        case "updateNote" -> {
+                            updateNoteCalls.incrementAndGet();
+                            yield null;
+                        }
+                        default -> defaultValue(method.getReturnType());
+                    };
+                });
+
+        FolderDAO folderDAO = (FolderDAO) Proxy.newProxyInstance(
+                FolderDAO.class.getClassLoader(),
+                new Class<?>[] { FolderDAO.class },
+                (proxy, method, args) -> defaultValue(method.getReturnType()));
+
+        NoteService noteService = new NoteService(noteDAO, folderDAO);
+        noteService.setHistoryService(new NoteHistoryService(tempDir, 10, 0));
+
+        Note canvas = new Note("Board.canvas", "{\"nodes\":[],\"edges\":[]}");
+        canvas.setId("Board.canvas");
+
+        noteService.updateNote(canvas);
+
+        assertEquals(0, getNoteByIdCalls.get());
+        assertEquals(1, updateNoteCalls.get());
+    }
+
+    @Test
+    void toggleFavoriteShouldPersistWithoutReadingStoredContentForHistory() {
+        AtomicInteger getNoteByIdCalls = new AtomicInteger();
+        AtomicInteger updateNoteCalls = new AtomicInteger();
+
+        NoteDAO noteDAO = (NoteDAO) Proxy.newProxyInstance(
+                NoteDAO.class.getClassLoader(),
+                new Class<?>[] { NoteDAO.class },
+                (proxy, method, args) -> {
+                    return switch (method.getName()) {
+                        case "getNoteById" -> {
+                            getNoteByIdCalls.incrementAndGet();
+                            yield null;
+                        }
+                        case "updateNote" -> {
+                            updateNoteCalls.incrementAndGet();
+                            yield null;
+                        }
+                        default -> defaultValue(method.getReturnType());
+                    };
+                });
+
+        FolderDAO folderDAO = (FolderDAO) Proxy.newProxyInstance(
+                FolderDAO.class.getClassLoader(),
+                new Class<?>[] { FolderDAO.class },
+                (proxy, method, args) -> defaultValue(method.getReturnType()));
+
+        NoteService noteService = new NoteService(noteDAO, folderDAO);
+        noteService.setHistoryService(new NoteHistoryService(tempDir, 10, 0));
+
+        Note note = new Note("A", "Body");
+        note.setId("A.md");
+
+        boolean favorite = noteService.toggleFavorite(note);
+
+        assertTrue(favorite);
+        assertEquals(0, getNoteByIdCalls.get());
+        assertEquals(1, updateNoteCalls.get());
     }
 
     private static Object defaultValue(Class<?> type) {

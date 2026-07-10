@@ -114,8 +114,28 @@ public class CommandPalette {
         public String getShortcut() { return shortcut; }
         public String getIcon() { return icon; }
         public String getCategory() { return category; }
+        public String getDisplayName(ResourceBundle bundle) {
+            return i18n(bundle, "palette.command." + id + ".name", name);
+        }
+        public String getDisplayDescription(ResourceBundle bundle) {
+            return i18n(bundle, "palette.command." + id + ".desc", description);
+        }
+        public String getDisplayCategory(ResourceBundle bundle) {
+            if (category == null || category.isBlank()) {
+                return "";
+            }
+            return i18n(bundle, "palette.category." + category.toLowerCase(java.util.Locale.ROOT), category);
+        }
         public void setAction(Runnable action) { this.action = action; }
         public void execute() { if (action != null) action.run(); }
+
+        private static String i18n(ResourceBundle bundle, String key, String fallback) {
+            try {
+                return bundle != null && key != null ? bundle.getString(key) : fallback;
+            } catch (Exception e) {
+                return fallback;
+            }
+        }
     }
     
     /**
@@ -462,10 +482,10 @@ public class CommandPalette {
                     iconLabel.getStyleClass().add("overlay-item-icon");
                     
                     VBox textContainer = new VBox(2);
-                    Label nameLabel = new Label(command.getName());
+                    Label nameLabel = new Label(command.getDisplayName(bundle));
                     nameLabel.getStyleClass().add("overlay-item-title");
                     
-                    Label descLabel = new Label(command.getDescription());
+                    Label descLabel = new Label(command.getDisplayDescription(bundle));
                     descLabel.getStyleClass().add("overlay-item-subtitle");
                     
                     textContainer.getChildren().addAll(nameLabel, descLabel);
@@ -532,10 +552,10 @@ public class CommandPalette {
             List<Command> filtered = commands.stream()
                 .map(cmd -> {
                     int best = Math.max(
-                        FuzzySearchUtils.fuzzyScore(trimmed, cmd.getName()),
+                        FuzzySearchUtils.fuzzyScore(trimmed, cmd.getDisplayName(bundle)),
                         Math.max(
-                            FuzzySearchUtils.fuzzyScore(trimmed, cmd.getDescription()),
-                            FuzzySearchUtils.fuzzyScore(trimmed, cmd.getCategory())
+                            FuzzySearchUtils.fuzzyScore(trimmed, cmd.getDisplayDescription(bundle)),
+                            FuzzySearchUtils.fuzzyScore(trimmed, cmd.getDisplayCategory(bundle))
                         ));
                     return new Object[]{ cmd, best };
                 })

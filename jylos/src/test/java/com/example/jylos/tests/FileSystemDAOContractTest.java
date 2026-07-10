@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -379,10 +380,12 @@ class FileSystemDAOContractTest {
         Path file = tempDir.resolve(id.replace("/", java.io.File.separator));
         assertTrue(java.nio.file.Files.exists(file), "canvas file should exist on disk");
 
-        // Written verbatim: raw JSON, no YAML frontmatter wrapper.
+        // Written as JSON canvas content, without Markdown frontmatter wrapping.
         String onDisk = java.nio.file.Files.readString(file);
-        assertEquals(json, onDisk);
         assertFalse(onDisk.startsWith("---"), "attachment must not be wrapped in frontmatter");
+        var root = com.google.gson.JsonParser.parseString(onDisk).getAsJsonObject();
+        assertTrue(root.has("nodes"));
+        assertTrue(root.has("edges"));
     }
 
     @Test
@@ -404,8 +407,11 @@ class FileSystemDAOContractTest {
 
         Path file = tempDir.resolve(loaded.getId().replace("/", java.io.File.separator));
         assertTrue(java.nio.file.Files.exists(file), "renamed canvas file should exist on disk");
-        assertEquals(updatedJson, java.nio.file.Files.readString(file),
-                "Canvas updates must be written verbatim, without Markdown frontmatter.");
+        String onDisk = java.nio.file.Files.readString(file);
+        assertFalse(onDisk.startsWith("---"), "Canvas updates must not be wrapped in frontmatter.");
+        var root = com.google.gson.JsonParser.parseString(onDisk).getAsJsonObject();
+        assertEquals(1, root.getAsJsonArray("nodes").size(),
+                "Canvas updates must preserve the JSON canvas body.");
     }
 
     @Test
@@ -444,5 +450,28 @@ class FileSystemDAOContractTest {
         assertTrue(noteService.getAllNotes().stream()
                 .filter(n -> "Secret".equals(n.getTitle()))
                 .allMatch(n -> NoteService.LOCKED_PLACEHOLDER.equals(n.getContent())));
+    }
+
+    @Test
+    void movingBinaryAttachmentBetweenFoldersKeepsPersistedMetadata() throws Exception {
+        Folder assets = new Folder("Assets");
+        folderDAO.createFolder(assets);
+
+        Files.write(tempDir.resolve("diagram.png"), new byte[] { 1, 3, 5, 7 });
+        noteDAO.refreshCache();
+
+        Note binary = noteDAO.getNoteById("diagram.png");
+        assertNotNull(binary);
+        binary.setFavorite(true);
+        binary.setPinned(true);
+        noteDAO.updateNote(binary);
+
+        folderDAO.addNote(assets, binary);
+
+        NoteDAOFileSystem reopened = new NoteDAOFileSystem(tempDir.toString());
+        Note moved = reopened.getNoteById("Assets/diagram.png");
+        assertNotNull(moved);
+        assertTrue(moved.isFavorite());
+        assertTrue(moved.isPinned());
     }
 }

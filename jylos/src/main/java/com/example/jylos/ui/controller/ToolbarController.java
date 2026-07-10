@@ -105,6 +105,13 @@ public class ToolbarController {
     @FXML
     private MenuItem toggleNotesListMenuItem;
 
+    @FXML
+    private void initialize() {
+        if (menuBar != null) {
+            menuBar.setUseSystemMenuBar(true);
+        }
+    }
+
     private void setEventBus(EventBus eventBus) {
         this.eventBus = eventBus;
     }

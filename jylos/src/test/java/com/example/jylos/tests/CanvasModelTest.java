@@ -170,6 +170,21 @@ class CanvasModelTest {
     }
 
     @Test
+    void documentSetEdgeLabelSetsAndClears() {
+        CanvasModel.Document doc = CanvasModel.Document.parse(null);
+        String a = doc.addTextNode(0, 0, 100, 50, "A");
+        String b = doc.addTextNode(200, 0, 100, 50, "B");
+        String edgeId = doc.addEdge(a, "right", b, "left");
+
+        doc.setEdgeLabel(edgeId, "depends on");
+        assertEquals("depends on", doc.edges().get(0).label());
+
+        doc.setEdgeLabel(edgeId, " ");
+        assertTrue(doc.edges().get(0).label().isEmpty());
+        assertTrue(!doc.toJson().contains("depends on"));
+    }
+
+    @Test
     void documentAddLinkAndGroupNodes() {
         CanvasModel.Document doc = CanvasModel.Document.parse(null);
         String link = doc.addLinkNode(0, 0, 250, 80, "https://example.com");
@@ -182,6 +197,18 @@ class CanvasModelTest {
         CanvasNode g = doc.nodes().stream().filter(n -> group.equals(n.id())).findFirst().orElseThrow();
         assertEquals("group", g.type());
         assertEquals("Area", g.label());
+    }
+
+    @Test
+    void documentAddFileNodeStoresVaultReference() {
+        CanvasModel.Document doc = CanvasModel.Document.parse(null);
+        String file = doc.addFileNode(15, 25, 320, 240, "Projects/Plan.md");
+
+        assertEquals(1, doc.nodes().size());
+        CanvasNode node = doc.nodes().stream().filter(n -> file.equals(n.id())).findFirst().orElseThrow();
+        assertEquals("file", node.type());
+        assertEquals("Projects/Plan.md", node.file());
+        assertTrue(doc.toJson().contains("\"file\": \"Projects/Plan.md\""));
     }
 
     @Test

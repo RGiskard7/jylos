@@ -89,6 +89,7 @@ App icons: `src/main/resources/icons/` — see [icons README](../jylos/src/main/
 
 - **SQLite** (default) — `SQLiteDB.initDatabase()`; DAOs in `data.dao.sqlite`.
 - **Filesystem vault** — Markdown + YAML frontmatter (`FrontmatterHandler`); lightweight list cache (`parseLightweight`); full body on open/export/graph/backlinks.
+- In filesystem mode, **external edits are not reconciled continuously** while navigating. Global sync with out-of-process changes remains **explicit refresh**; heavyweight viewers that are temporarily reused in the UI (for example `.canvas`) must invalidate themselves against the backing file before being reused.
 
 Notes carry a `status` column (Kanban legacy/free use) and an `is_private` column (SQLite) / `private:` frontmatter (vault). `SQLiteDB.initDatabase()` performs **idempotent `ALTER TABLE` migrations** (checks `PRAGMA table_info` before adding a column); other SQL schema changes still need a documented manual step.
 

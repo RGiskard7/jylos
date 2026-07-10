@@ -24,6 +24,19 @@ class MarkdownPreviewTest {
     }
 
     @Test
+    void injectsHighlightJsOnlyWhenCodeBlocksArePresent() {
+        String withCode = MarkdownPreview.buildPreviewHtml("""
+                ```java
+                System.out.println("hello");
+                ```
+                """, false, null);
+        assertTrue(withCode.contains("highlightElement"), "highlight.js should be injected for fenced code blocks");
+
+        String noCode = MarkdownPreview.buildPreviewHtml("Just plain text, no code block.", false, null);
+        assertFalse(noCode.contains("highlightElement"), "highlight.js must not be injected without code blocks");
+    }
+
+    @Test
     void emojisAreInlinedAsImages() {
         String html = MarkdownPreview.buildPreviewHtml("Launch 🚀 now", false, null);
         assertTrue(html.contains("data:image/png;base64,"),

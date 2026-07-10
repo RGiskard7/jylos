@@ -3,6 +3,7 @@ package com.example.jylos.config;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -57,5 +58,21 @@ class NoteTitleIndexIntegrationTest {
         assertTrue(titleIndex.findNoteIdByTitle("Alpha").isEmpty());
         assertEquals(alpha.getId(), titleIndex.findNoteIdByTitle("renamed").orElseThrow());
         assertEquals(alpha.getId(), noteService.findNoteByTitle("Renamed").orElseThrow().getId());
+    }
+
+    @Test
+    void titleIndexExposesSortedTitlesForAutocomplete(@TempDir Path vault) throws Exception {
+        Files.writeString(vault.resolve("zeta.md"), "# zeta\n", StandardCharsets.UTF_8);
+        Files.writeString(vault.resolve("Alpha.md"), "# Alpha\n", StandardCharsets.UTF_8);
+        Files.writeString(vault.resolve("middle.md"), "# middle\n", StandardCharsets.UTF_8);
+
+        NoteDAOFileSystem noteDao = new NoteDAOFileSystem(vault.toString());
+        FolderDAOFileSystem folderDao = new FolderDAOFileSystem(vault.toString());
+        NoteService noteService = new NoteService(noteDao, folderDao);
+
+        NoteTitleIndex titleIndex = NoteTitleIndex.getInstance();
+        titleIndex.wire(noteService, EventBus.getInstance());
+
+        assertEquals(List.of("Alpha", "middle", "zeta"), titleIndex.titlesSorted());
     }
 }

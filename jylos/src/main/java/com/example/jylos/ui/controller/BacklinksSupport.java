@@ -3,6 +3,7 @@ package com.example.jylos.ui.controller;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.service.BacklinkService;
@@ -27,22 +28,28 @@ final class BacklinksSupport {
     private NoteService noteService;
     private Function<String, String> i18n;
     private Consumer<Note> openNote;
+    private Supplier<Boolean> backlinksVisible = () -> true;
 
     /** Guards against stale results: a task completing after a newer one replaces it. */
     private volatile Task<List<Note>> currentTask;
 
     void wire(VBox backlinksContent, BacklinkService backlinkService, NoteService noteService,
-            Function<String, String> i18n, Consumer<Note> openNote) {
+            Function<String, String> i18n, Consumer<Note> openNote, Supplier<Boolean> backlinksVisible) {
         this.backlinksContent = backlinksContent;
         this.backlinkService = backlinkService;
         this.noteService = noteService;
         this.i18n = i18n;
         this.openNote = openNote;
+        this.backlinksVisible = backlinksVisible != null ? backlinksVisible : () -> true;
     }
 
     /** Recomputes (off the FX thread) and renders the backlinks for {@code note}. */
     void refresh(Note note) {
         if (backlinksContent == null) {
+            return;
+        }
+        if (backlinksVisible != null && !backlinksVisible.get()) {
+            backlinksContent.getChildren().clear();
             return;
         }
         if (backlinkService == null || note == null || note.getId() == null) {

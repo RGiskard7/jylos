@@ -2,6 +2,17 @@
 
 Guide for contributors and automated agents. Human overview: [README.md](README.md).
 
+## OpenWiki
+
+This repository has documentation located in the /openwiki directory.
+
+Start here:
+- [OpenWiki quickstart](openwiki/quickstart.md)
+
+OpenWiki includes repository overview, architecture notes, workflows, domain concepts, operations, integrations, testing guidance, and source maps.
+
+When working in this repository, read the OpenWiki quickstart first, then follow its links to the relevant architecture, workflow, domain, operation, and testing notes.
+
 ## Project
 
 - Desktop notes app: folders, tags, trash, Markdown preview.
@@ -26,7 +37,7 @@ mvn -f jylos/pom.xml test
 mvn -f jylos/pom.xml clean compile exec:java -Dexec.mainClass="com.example.jylos.Launcher"
 ```
 
-Uber-JAR: `jylos/target/jylos-2.3.0-uber.jar`. Use `launch-*` scripts for JavaFX modules.
+Uber-JAR: `jylos/target/jylos-2.4.0-uber.jar`. Use `launch-*` scripts for JavaFX modules.
 
 ## Layout
 

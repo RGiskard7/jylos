@@ -64,31 +64,33 @@
         <!-- Read (preview-only) view: title shown as a plain heading, not an input. -->
         <Label fx:id="noteTitleLabel" styleClass="title-heading" HBox.hgrow="ALWAYS"
                maxWidth="Infinity" visible="false" managed="false"/>
+        <HBox fx:id="noteOnlyControls" alignment="CENTER_LEFT" spacing="8">
+            <Separator orientation="VERTICAL" styleClass="header-separator"/>
 
-        <Separator orientation="VERTICAL" styleClass="header-separator"/>
+            <!-- Tags toggle -->
+            <ToggleButton fx:id="toggleTagsBtn" onAction="#handleToggleTags" styleClass="modern-toggle-btn" selected="false">
+                <tooltip><Tooltip text="%tooltip.toggle_tags"/></tooltip>
+                <graphic><FontIcon iconLiteral="fth-hash" styleClass="feather-icon"/></graphic>
+            </ToggleButton>
 
-        <!-- Tags toggle -->
-        <ToggleButton fx:id="toggleTagsBtn" onAction="#handleToggleTags" styleClass="modern-toggle-btn" selected="false">
-            <tooltip><Tooltip text="%tooltip.toggle_tags"/></tooltip>
-            <graphic><FontIcon iconLiteral="fth-hash" styleClass="feather-icon"/></graphic>
-        </ToggleButton>
+            <Separator orientation="VERTICAL" styleClass="header-separator"/>
 
-        <Separator orientation="VERTICAL" styleClass="header-separator"/>
+            <!-- View mode -->
+            <ToggleButton fx:id="editorOnlyButton" onAction="#handleEditorOnlyMode" styleClass="modern-toggle-btn">
+                <tooltip><Tooltip text="%tooltip.editor_only"/></tooltip>
+                <graphic><FontIcon iconLiteral="fth-edit-3" styleClass="feather-icon"/></graphic>
+            </ToggleButton>
+            <ToggleButton fx:id="splitViewButton" onAction="#handleSplitViewMode" styleClass="modern-toggle-btn">
+                <tooltip><Tooltip text="%tooltip.split_view"/></tooltip>
+                <graphic><FontIcon iconLiteral="fth-columns" styleClass="feather-icon"/></graphic>
+            </ToggleButton>
+            <ToggleButton fx:id="previewOnlyButton" onAction="#handlePreviewOnlyMode" styleClass="modern-toggle-btn">
+                <tooltip><Tooltip text="%tooltip.preview_only"/></tooltip>
+                <graphic><FontIcon iconLiteral="fth-book-open" styleClass="feather-icon"/></graphic>
+            </ToggleButton>
+            <Separator orientation="VERTICAL" styleClass="header-separator"/>
+        </HBox>
 
-        <!-- View mode -->
-        <ToggleButton fx:id="editorOnlyButton" onAction="#handleEditorOnlyMode" styleClass="modern-toggle-btn">
-            <tooltip><Tooltip text="%tooltip.editor_only"/></tooltip>
-            <graphic><FontIcon iconLiteral="fth-edit-3" styleClass="feather-icon"/></graphic>
-        </ToggleButton>
-        <ToggleButton fx:id="splitViewButton" onAction="#handleSplitViewMode" styleClass="modern-toggle-btn">
-            <tooltip><Tooltip text="%tooltip.split_view"/></tooltip>
-            <graphic><FontIcon iconLiteral="fth-columns" styleClass="feather-icon"/></graphic>
-        </ToggleButton>
-        <ToggleButton fx:id="previewOnlyButton" onAction="#handlePreviewOnlyMode" styleClass="modern-toggle-btn">
-            <tooltip><Tooltip text="%tooltip.preview_only"/></tooltip>
-            <graphic><FontIcon iconLiteral="fth-book-open" styleClass="feather-icon"/></graphic>
-        </ToggleButton>
-        <Separator orientation="VERTICAL" styleClass="header-separator"/>
         <ToggleButton fx:id="pinButton" onAction="#handleTogglePin" styleClass="modern-toggle-btn">
             <tooltip><Tooltip text="%tooltip.pin_note"/></tooltip>
             <graphic><FontIcon iconLiteral="bi-pin-angle" styleClass="feather-icon"/></graphic>

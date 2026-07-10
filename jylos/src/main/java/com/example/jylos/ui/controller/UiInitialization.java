@@ -114,6 +114,11 @@ class UiInitialization {
 
     /** Wires a header/content/icon trio as a click-to-collapse section. */
     public void wireCollapsibleSection(HBox header, VBox content, Label collapseIcon) {
+        wireCollapsibleSection(header, content, collapseIcon, null);
+    }
+
+    /** Wires a header/content/icon trio as a click-to-collapse section. */
+    public void wireCollapsibleSection(HBox header, VBox content, Label collapseIcon, Consumer<Boolean> onToggle) {
         if (header == null || content == null || collapseIcon == null) {
             return;
         }
@@ -122,6 +127,9 @@ class UiInitialization {
             content.setVisible(expand);
             content.setManaged(expand);
             collapseIcon.setText(expand ? "▼" : "▶");
+            if (onToggle != null) {
+                onToggle.accept(expand);
+            }
         });
         header.setStyle("-fx-cursor: hand;");
     }

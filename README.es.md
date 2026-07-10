@@ -12,7 +12,7 @@
 <div align="center">
 
 [![Licencia: MIT](https://img.shields.io/badge/Licencia-MIT-yellow.svg)](LICENSE)
-[![Versión](https://img.shields.io/badge/versión-2.3.0-success.svg)](changelog.md)
+[![Versión](https://img.shields.io/badge/versión-2.4.0-success.svg)](changelog.md)
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/)
 [![JavaFX](https://img.shields.io/badge/JavaFX-23-blue.svg)](https://openjfx.io/)
 [![SQLite](https://img.shields.io/badge/SQLite-3-lightgrey.svg)](https://www.sqlite.org/)
@@ -22,7 +22,7 @@
 </div>
 
 <div align="center">
-  <strong>Gestión del conocimiento local-first de escritorio: notas Markdown, wiki-links, backlinks, grafo de conocimiento interactivo, tablero Kanban, cifrado por nota, plugins y almacenamiento SQLite o bóveda Markdown.</strong>
+  <strong>Gestión del conocimiento local-first de escritorio: notas Markdown, wiki-links, backlinks, grafo de conocimiento interactivo, Kanban, archivos canvas, cifrado por nota, plugins y almacenamiento SQLite o bóveda Markdown.</strong>
 </div>
 
 ## Descarga
@@ -253,7 +253,7 @@ cd jylos
 
 ### 2) Compilar
 
-Desde la raíz del repositorio (genera `jylos/target/jylos-2.3.0-uber.jar`):
+Desde la raíz del repositorio (genera `jylos/target/jylos-2.4.0-uber.jar`):
 
 ```bash
 ./scripts/build_all.sh
@@ -354,7 +354,7 @@ Cada script `package-*` compila el uber-JAR, opcionalmente `build-plugins.sh`, y
 
 | Plataforma | Comando | Salida típica |
 |---|---|---|
-| macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-2.3.0.dmg` |
+| macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-2.4.0.dmg` |
 | Linux (deb/rpm) | `./scripts/package-linux.sh` | `jylos/target/installers/` |
 | Windows portable (app-image) | `.\scripts\package-windows.ps1` | `jylos\target\installers\Jylos\` |
 | Windows instalador .exe (WiX) | `.\scripts\package-windows-exe.ps1` | `jylos\target\installers\Jylos-<versión>.exe` |
@@ -479,6 +479,7 @@ Coloca ficheros `.css` en la carpeta `snippets/` para retocar la interfaz sobre 
 - [docs/LAUNCH_APP.md](docs/LAUNCH_APP.md)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - [docs/ARCHITECTURE_GUIDELINES.md](docs/ARCHITECTURE_GUIDELINES.md)
+- [docs/I18N.md](docs/I18N.md)
 - [docs/PLUGINS.md](docs/PLUGINS.md)
 - [docs/PACKAGING.md](docs/PACKAGING.md)
 - [docs/EVENT_BUS_CONTRACT.md](docs/EVENT_BUS_CONTRACT.md)
