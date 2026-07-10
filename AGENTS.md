@@ -37,7 +37,7 @@ mvn -f jylos/pom.xml test
 mvn -f jylos/pom.xml clean compile exec:java -Dexec.mainClass="com.example.jylos.Launcher"
 ```
 
-Uber-JAR: `jylos/target/jylos-2.3.0-uber.jar`. Use `launch-*` scripts for JavaFX modules.
+Uber-JAR: `jylos/target/jylos-2.4.0-uber.jar`. Use `launch-*` scripts for JavaFX modules.
 
 ## Layout
 

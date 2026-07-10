@@ -2064,6 +2064,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
         Note activeNote = getCurrentNote();
         if (activeNote == null) {
+            editorController.syncFavoritePinButtons(this::getString);
             editorController.clearPreview();
             updateNoteMetadata(null);
             updateStatus(getString("status.no_note_selected"));
@@ -2079,6 +2080,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         publishNoteSelected(activeNote);
         updateNoteMetadata(activeNote);
         refreshBacklinks(activeNote);
+        editorController.syncFavoritePinButtons(this::getString);
 
         // Attachments (PDF/images) show a native viewer — skip the Markdown-only work
         // (tags, preview render, word stats, favorite/pin toggles).
@@ -2091,7 +2093,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         updateNoteStats(activeNote);
         editorController.ensurePreviewWebViewThemeClass();
         refreshEditorPreview();
-        editorController.syncFavoritePinButtons(this::getString);
 
         updateStatus(java.text.MessageFormat.format(getString("status.note_loaded"), activeNote.getTitle()));
     }
@@ -2377,10 +2378,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         // autosave) caused a redundant reload that could race a cache prune and blank the
         // list. The recents/favorites lists (whose order may change) refresh via the
         // NoteSavedEvent the editor publishes.
-        if (sidebarController != null) {
-            sidebarController.loadRecentNotes();
-            sidebarController.loadFavorites();
-        }
     }
 
     /**
@@ -3076,6 +3073,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     @FXML
     private void handleRefresh(ActionEvent event) {
+        if (noteService != null) {
+            noteService.refreshStorageCache();
+        }
+        refreshOpenNoteAfterStorageRefresh();
         navigationCommand.refreshByContext(
                 currentFilterType,
                 currentFolder,
@@ -3100,6 +3101,30 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 });
     }
 
+    private void refreshOpenNoteAfterStorageRefresh() {
+        Note current = getCurrentNote();
+        if (current == null || current.getId() == null || noteService == null || editorController == null) {
+            return;
+        }
+        java.util.Optional<Note> refreshed = noteService.getNoteById(current.getId());
+        if (refreshed.isEmpty()) {
+            return;
+        }
+        Note latest = refreshed.get();
+        if (!isModified()) {
+            loadNoteInEditor(latest);
+            return;
+        }
+        current.setFavorite(latest.isFavorite());
+        current.setPinned(latest.isPinned());
+        current.setPrivate(latest.isPrivate());
+        current.setDeleted(latest.isDeleted());
+        current.setDeletedDate(latest.getDeletedDate());
+        current.setStatus(latest.getStatus());
+        updateNoteMetadata(current);
+        editorController.syncFavoritePinButtons(this::getString);
+    }
+
     @FXML
     private void handleToggleFavorite(ActionEvent event) {
         if (getCurrentNote() == null) {
@@ -3112,17 +3137,21 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private void toggleFavorite(Note note) {
         if (note == null)
             return;
-        EditorController.NoteToggleResult result = editorController.toggleFavorite(note, noteService::updateNote);
-        if (!result.success()) {
+        try {
+            boolean newState = noteService.toggleFavorite(note);
+            if (getCurrentNote() != null && getCurrentNote().getId().equals(note.getId())) {
+                editorController.syncFavoritePinButtons(this::getString);
+            }
+            if (eventBus != null) {
+                eventBus.publish(new NoteEvents.NoteSavedEvent(note));
+            }
+            if ("favorites".equals(currentFilterType)) {
+                refreshNotesList();
+            }
+            updateStatus(getString(newState ? "status.note_marked_favorite" : "status.note_unmarked_favorite"));
+        } catch (Exception e) {
             updateStatus(getString("status.fav_error"));
-            return;
         }
-        if (getCurrentNote() != null && getCurrentNote().getId().equals(note.getId())) {
-            editorController.syncFavoritePinButtons(this::getString);
-        }
-        refreshNotesList();
-        sidebarController.loadFavorites();
-        updateStatus(getString(result.successStatusKey()));
     }
 
     @FXML
@@ -3137,16 +3166,22 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private void togglePin(Note note) {
         if (note == null)
             return;
-        EditorController.NoteToggleResult result = editorController.togglePin(note, noteService::updateNote);
-        if (!result.success()) {
+        try {
+            boolean newState = noteService.togglePinned(note);
+            if (getCurrentNote() != null && getCurrentNote().getId().equals(note.getId())) {
+                editorController.syncFavoritePinButtons(this::getString);
+            }
+            if (eventBus != null) {
+                eventBus.publish(new NoteEvents.NoteSavedEvent(note));
+            }
+            if (notesListController != null) {
+                notesListController.resortVisibleNotes();
+            }
+            refreshNotesGridIfActive();
+            updateStatus(getString(newState ? "status.note_pinned" : "status.note_unpinned"));
+        } catch (Exception e) {
             updateStatus(getString("status.pin_error"));
-            return;
         }
-        if (getCurrentNote() != null && getCurrentNote().getId().equals(note.getId())) {
-            editorController.syncFavoritePinButtons(this::getString);
-        }
-        refreshNotesList();
-        updateStatus(getString(result.successStatusKey()));
     }
 
     @FXML

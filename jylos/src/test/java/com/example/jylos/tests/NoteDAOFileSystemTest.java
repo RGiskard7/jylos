@@ -16,6 +16,8 @@ import org.junit.jupiter.api.io.TempDir;
 import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 class NoteDAOFileSystemTest {
 
@@ -162,5 +164,166 @@ class NoteDAOFileSystemTest {
 
         Note updated = noteDAO.getNoteById(id);
         assertEquals(2, updated.getTags().size());
+    }
+
+    @Test
+    void markdownFavoriteAndPinnedPersistAcrossRestart() {
+        Note note = new Note("Flags", "Body");
+        String id = noteDAO.createNote(note);
+
+        Note loaded = noteDAO.getNoteById(id);
+        loaded.setFavorite(true);
+        loaded.setPinned(true);
+        noteDAO.updateNote(loaded);
+
+        NoteDAOFileSystem reopened = new NoteDAOFileSystem(tempDir.toString());
+        Note persisted = reopened.getNoteById(loaded.getId());
+        assertNotNull(persisted);
+        assertTrue(persisted.isFavorite());
+        assertTrue(persisted.isPinned());
+    }
+
+    @Test
+    void canvasFavoriteAndPinnedPersistWithoutLosingContent() throws Exception {
+        String canvasJson = """
+                {
+                  "nodes": [
+                    { "id": "n1", "type": "text", "text": "hello" }
+                  ],
+                  "edges": []
+                }
+                """;
+        Note canvas = new Note("Board.canvas", canvasJson);
+        String id = noteDAO.createNote(canvas);
+
+        Note loaded = noteDAO.getNoteById(id);
+        assertNotNull(loaded);
+        loaded.setFavorite(true);
+        loaded.setPinned(true);
+        noteDAO.updateNote(loaded);
+
+        NoteDAOFileSystem reopened = new NoteDAOFileSystem(tempDir.toString());
+        Note persisted = reopened.getNoteById(loaded.getId());
+        assertNotNull(persisted);
+        assertTrue(persisted.isFavorite());
+        assertTrue(persisted.isPinned());
+
+        JsonObject root = JsonParser.parseString(Files.readString(tempDir.resolve(loaded.getId()))).getAsJsonObject();
+        assertTrue(root.has("nodes"));
+        assertEquals(1, root.getAsJsonArray("nodes").size());
+        assertEquals("hello", root.getAsJsonArray("nodes").get(0).getAsJsonObject().get("text").getAsString());
+        assertTrue(!root.has("favorite"), "Canvas JSON must remain free of Jylos-only metadata keys.");
+        assertTrue(!root.has("pinned"), "Canvas JSON must remain compatible with Obsidian.");
+    }
+
+    @Test
+    void canvasListingUsesLightweightMetadataWithoutHydratingFullJson() {
+        String canvasJson = """
+                {
+                  "nodes": [
+                    { "id": "n1", "type": "text", "text": "hello" }
+                  ],
+                  "edges": []
+                }
+                """;
+        Note canvas = new Note("Board.canvas", canvasJson);
+        String id = noteDAO.createNote(canvas);
+
+        Note loaded = noteDAO.getNoteById(id);
+        loaded.setFavorite(true);
+        noteDAO.updateNote(loaded);
+
+        NoteDAOFileSystem reopened = new NoteDAOFileSystem(tempDir.toString());
+        Note lightweight = reopened.fetchAllNotes().stream()
+                .filter(note -> id.equals(note.getId()))
+                .findFirst()
+                .orElseThrow();
+
+        assertTrue(lightweight.getContent() == null || lightweight.getContent().isEmpty(),
+                "Canvas listings must not hydrate the full JSON body.");
+        assertTrue(lightweight.isFavorite(), "Canvas metadata must come from the sidecar in lightweight listings.");
+    }
+
+    @Test
+    void canvasLightweightMetadataUpdateDoesNotOverwriteCanvasJson() throws Exception {
+        String canvasJson = """
+                {
+                  "nodes": [
+                    { "id": "n1", "type": "text", "text": "hello" }
+                  ],
+                  "edges": []
+                }
+                """;
+        Note canvas = new Note("Board.canvas", canvasJson);
+        String id = noteDAO.createNote(canvas);
+
+        NoteDAOFileSystem reopened = new NoteDAOFileSystem(tempDir.toString());
+        Note lightweight = reopened.fetchAllNotes().stream()
+                .filter(note -> id.equals(note.getId()))
+                .findFirst()
+                .orElseThrow();
+
+        assertTrue(lightweight.getContent() == null || lightweight.getContent().isEmpty(),
+                "The regression test must use a list-level canvas note without hydrated JSON.");
+
+        lightweight.setFavorite(true);
+        lightweight.setPinned(true);
+        reopened.updateNote(lightweight);
+
+        String persistedJson = Files.readString(tempDir.resolve(id));
+        JsonObject root = JsonParser.parseString(persistedJson).getAsJsonObject();
+        assertEquals("hello", root.getAsJsonArray("nodes").get(0).getAsJsonObject().get("text").getAsString());
+
+        Note persisted = new NoteDAOFileSystem(tempDir.toString()).getNoteById(id);
+        assertNotNull(persisted);
+        assertTrue(persisted.isFavorite());
+        assertTrue(persisted.isPinned());
+    }
+
+    @Test
+    void binaryAttachmentFlagsPersistAcrossRestartAndRenameWithoutTouchingBytes() throws Exception {
+        Path image = tempDir.resolve("diagram.png");
+        byte[] originalBytes = new byte[] { 1, 2, 3, 4, 5 };
+        Files.write(image, originalBytes);
+        noteDAO.refreshCache();
+
+        Note loaded = noteDAO.getNoteById("diagram.png");
+        assertNotNull(loaded);
+        loaded.setFavorite(true);
+        loaded.setPinned(true);
+        noteDAO.updateNote(loaded);
+
+        loaded.setTitle("diagram-renamed.png");
+        noteDAO.updateNote(loaded);
+
+        NoteDAOFileSystem reopened = new NoteDAOFileSystem(tempDir.toString());
+        Note persisted = reopened.getNoteById(loaded.getId());
+        assertNotNull(persisted);
+        assertTrue(persisted.isFavorite());
+        assertTrue(persisted.isPinned());
+        assertEquals("diagram-renamed.png", persisted.getTitle());
+        assertTrue(Files.exists(tempDir.resolve("diagram-renamed.png")));
+        assertTrue(java.util.Arrays.equals(originalBytes, Files.readAllBytes(tempDir.resolve("diagram-renamed.png"))));
+    }
+
+    @Test
+    void binaryAttachmentMetadataSidecarIsRemovedOnPermanentDelete() throws Exception {
+        Path pdf = tempDir.resolve("manual.pdf");
+        Files.write(pdf, new byte[] { 9, 8, 7 });
+        noteDAO.refreshCache();
+
+        Note loaded = noteDAO.getNoteById("manual.pdf");
+        assertNotNull(loaded);
+        loaded.setFavorite(true);
+        noteDAO.updateNote(loaded);
+
+        noteDAO.deleteNote(loaded.getId());
+        noteDAO.permanentlyDeleteNote(".trash/manual.pdf");
+
+        Path sidecar = tempDir.resolve(".jylos").resolve("document-metadata.json");
+        if (Files.exists(sidecar)) {
+            String json = Files.readString(sidecar);
+            assertTrue(!json.contains("manual.pdf"), "Deleted binary metadata must be removed from sidecar.");
+        }
     }
 }

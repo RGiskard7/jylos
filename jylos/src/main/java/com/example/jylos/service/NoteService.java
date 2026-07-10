@@ -13,6 +13,7 @@ import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
+import com.example.jylos.util.AttachmentType;
 
 /**
  * Service layer for note-related business logic.
@@ -172,6 +173,21 @@ public class NoteService {
      * @param note The note with updated data
      */
     public void updateNote(Note note) {
+        updateNote(note, null);
+    }
+
+    /**
+     * Updates an existing note, optionally using a caller-provided snapshot of the
+     * previously persisted content for history capture.
+     *
+     * @param note The note with updated data
+     * @param previousStoredContent the previous persisted body, or {@code null}
+     */
+    public void updateNote(Note note, String previousStoredContent) {
+        persistNote(note, previousStoredContent, true);
+    }
+
+    private void persistNote(Note note, String previousStoredContent, boolean snapshotHistory) {
         if (note == null || note.getId() == null) {
             throw new IllegalArgumentException("Note or note ID cannot be null");
         }
@@ -184,11 +200,15 @@ public class NoteService {
         }
         // Version history: capture the previously *stored* content (raw from the DAO,
         // i.e. ciphertext for private notes — history must never leak plaintext).
-        if (historyService != null) {
+        if (snapshotHistory && historyService != null && shouldSnapshotHistory(note)) {
             try {
-                Note stored = noteDAO.getNoteById(note.getId());
-                if (stored != null && stored.getContent() != null) {
-                    historyService.snapshot(note.getId(), stored.getContent());
+                if (previousStoredContent != null) {
+                    historyService.snapshot(note.getId(), previousStoredContent);
+                } else if (canResolveStoredHistoryFromDao(note)) {
+                    Note stored = noteDAO.getNoteById(note.getId());
+                    if (stored != null && stored.getContent() != null) {
+                        historyService.snapshot(note.getId(), stored.getContent());
+                    }
                 }
             } catch (Exception e) {
                 logger.fine("History snapshot skipped: " + e.getMessage());
@@ -204,6 +224,23 @@ public class NoteService {
             }
         }
         logger.info("Updated note: " + note.getTitle());
+    }
+
+    private boolean shouldSnapshotHistory(Note note) {
+        if (note == null) {
+            return false;
+        }
+        String name = note.getId() != null && !note.getId().isBlank() ? note.getId() : note.getTitle();
+        AttachmentType type = AttachmentType.fromName(name);
+        return type == AttachmentType.MARKDOWN || type == AttachmentType.CANVAS;
+    }
+
+    private boolean canResolveStoredHistoryFromDao(Note note) {
+        if (note == null) {
+            return false;
+        }
+        String name = note.getId() != null && !note.getId().isBlank() ? note.getId() : note.getTitle();
+        return AttachmentType.fromName(name) == AttachmentType.MARKDOWN;
     }
 
     /** Optional local version-history recorder (see {@link NoteHistoryService}). */
@@ -298,6 +335,17 @@ public class NoteService {
             folderDAO.refreshCache();
         }
         logger.fine("Restored note from trash, ID: " + noteId);
+    }
+
+    /**
+     * Reloads storage-backed caches after an explicit user refresh. In filesystem
+     * mode this picks up out-of-process edits made by tools such as Obsidian.
+     */
+    public void refreshStorageCache() {
+        noteDAO.refreshCache();
+        if (folderDAO != null) {
+            folderDAO.refreshCache();
+        }
     }
 
     /**
@@ -566,8 +614,26 @@ public class NoteService {
 
         boolean newStatus = !note.isFavorite();
         note.setFavorite(newStatus);
-        updateNote(note);
+        persistNote(note, null, false);
         logger.info("Note '" + note.getTitle() + "' favorite status: " + newStatus);
+        return newStatus;
+    }
+
+    /**
+     * Toggles the pinned status of a note.
+     *
+     * @param note The note
+     * @return The new pinned status
+     */
+    public boolean togglePinned(Note note) {
+        if (note == null) {
+            throw new IllegalArgumentException("Note cannot be null");
+        }
+
+        boolean newStatus = !note.isPinned();
+        note.setPinned(newStatus);
+        persistNote(note, null, false);
+        logger.info("Note '" + note.getTitle() + "' pinned status: " + newStatus);
         return newStatus;
     }
 

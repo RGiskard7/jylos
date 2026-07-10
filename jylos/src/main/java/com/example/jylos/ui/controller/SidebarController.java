@@ -1301,6 +1301,14 @@ public class SidebarController {
             }
         });
 
+        MenuItem newCanvas = new MenuItem(getString("action.new_canvas"));
+        newCanvas.setOnAction(e -> {
+            Folder f = cell != null ? cell.getItem() : null;
+            if (f != null) {
+                handleCreateCanvasInFolder(f);
+            }
+        });
+
         MenuItem newSubfolder = new MenuItem(getString("action.new_subfolder"));
         newSubfolder.setOnAction(e -> {
             Folder f = cell != null ? cell.getItem() : null;
@@ -1323,7 +1331,7 @@ public class SidebarController {
                 handleDeleteFolder(f);
             }
         });
-        m.getItems().addAll(newNote, newSubfolder, new SeparatorMenuItem(), r, d);
+        m.getItems().addAll(newNote, newCanvas, newSubfolder, new SeparatorMenuItem(), r, d);
         return m;
     }
 
@@ -1333,6 +1341,14 @@ public class SidebarController {
         }
         folderSelectionAction.accept(folder);
         eventBus.publish(new SystemActionEvent(SystemActionEvent.ActionType.NEW_NOTE));
+    }
+
+    private void handleCreateCanvasInFolder(Folder folder) {
+        if (eventBus == null || folder == null) {
+            return;
+        }
+        folderSelectionAction.accept(folder);
+        eventBus.publish(new SystemActionEvent(SystemActionEvent.ActionType.NEW_CANVAS));
     }
 
     private void handleCreateSubfolderInFolder(Folder folder) {

@@ -228,8 +228,10 @@ public class NotesListController {
             private final Rectangle clip = new Rectangle();
             private final ContextMenu contextMenu = new ContextMenu();
             private final MenuItem openItem = new MenuItem(getString("action.open"));
+            private final MenuItem pinItem = new MenuItem();
             private final MenuItem favoriteItem = new MenuItem();
             private final MenuItem privateItem = new MenuItem();
+            private final MenuItem renameItem = new MenuItem(getString("action.rename"));
             private final MenuItem revealItem = new MenuItem(getString("action.reveal_in_files"));
             private final MenuItem exportItem = new MenuItem(getString("action.export_note"));
             private final MenuItem deleteItem = new MenuItem(getString("action.move_to_trash"));
@@ -307,6 +309,12 @@ public class NotesListController {
                         noteSelectionAction.accept(note);
                     }
                 });
+                pinItem.setOnAction(e -> {
+                    Note note = getItem();
+                    if (note != null) {
+                        togglePin(note);
+                    }
+                });
                 favoriteItem.setOnAction(e -> {
                     Note note = getItem();
                     if (note != null) {
@@ -333,13 +341,19 @@ public class NotesListController {
                         noteExportAction.accept(note);
                     }
                 });
+                renameItem.setOnAction(e -> {
+                    Note note = getItem();
+                    if (note != null) {
+                        renameNote(note);
+                    }
+                });
                 deleteItem.setOnAction(e -> {
                     Note note = getItem();
                     if (note != null) {
                         deleteNote(note);
                     }
                 });
-                contextMenu.getItems().addAll(openItem, favoriteItem, privateItem, revealItem, exportItem,
+                contextMenu.getItems().addAll(openItem, pinItem, favoriteItem, privateItem, renameItem, revealItem, exportItem,
                         new SeparatorMenuItem(), deleteItem);
 
                 setOnDragDetected(event -> {
@@ -452,6 +466,8 @@ public class NotesListController {
                     }
                     layoutCellContent(contentWidth);
 
+                    pinItem.setText(note.isPinned() ? getString("action.unpin_note")
+                            : getString("action.pin_note"));
                     favoriteItem.setText(note.isFavorite() ? getString("action.remove_favorite")
                             : getString("action.add_favorite"));
                     privateItem.setText(note.isPrivate() ? getString("action.make_normal")
@@ -588,18 +604,36 @@ public class NotesListController {
     }
 
     private void toggleFavorite(Note note) {
+        if (note == null || noteService == null) {
+            return;
+        }
         try {
-            note.setFavorite(!note.isFavorite());
-            noteService.updateNote(note);
-            notesListView.refresh();
+            noteService.toggleFavorite(note);
             if (eventBus != null) {
-                // NoteSavedEvent: the favorite flag is persisted,
-                // and the sidebar Recent/Favorites panels listen to Saved — so favoriting
-                // from the list refreshes the Favorites panel live, like the editor button.
                 eventBus.publish(new NoteEvents.NoteSavedEvent(note));
+            }
+            if ("favorites".equals(currentFilterType) && !note.isFavorite()) {
+                notesListView.getItems().removeIf(item -> item != null && Objects.equals(item.getId(), note.getId()));
+            } else {
+                notesListView.refresh();
             }
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Failed to toggle favorite", e);
+        }
+    }
+
+    private void togglePin(Note note) {
+        if (note == null || noteService == null) {
+            return;
+        }
+        try {
+            noteService.togglePinned(note);
+            if (eventBus != null) {
+                eventBus.publish(new NoteEvents.NoteSavedEvent(note));
+            }
+            resortVisibleNotes();
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Failed to toggle pin", e);
         }
     }
 
@@ -896,6 +930,18 @@ public class NotesListController {
             return;
         List<Note> notes = sortNotesData(new ArrayList<>(notesListView.getItems()), sortOption);
         applyNotesPreservingSelection(notes);
+    }
+
+    public void resortVisibleNotes() {
+        if (notesListView == null) {
+            return;
+        }
+        String sortOption = sortComboBox != null ? sortComboBox.getValue() : null;
+        if (sortOption == null) {
+            notesListView.refresh();
+            return;
+        }
+        sortNotes(sortOption);
     }
 
     private List<Note> sortNotesData(List<Note> notes, String sortOption) {
@@ -1233,9 +1279,48 @@ public class NotesListController {
         }
     }
 
-    private void deleteNote(Note note) {
-        if (note == null)
+    private void renameNote(Note note) {
+        if (note == null) {
             return;
+        }
+        if (noteService == null) {
+            logger.warning("Cannot rename note: noteService is null");
+            publishStatusUpdate(getString("status.note_rename_error"));
+            return;
+        }
+
+        TextInputDialog dialog = new TextInputDialog(note.getTitle());
+        dialog.setTitle(getString("dialog.rename_note.title"));
+        dialog.setHeaderText(getString("dialog.rename_note.header"));
+        dialog.setContentText(getString("dialog.rename_note.content"));
+
+        com.example.jylos.ui.UiDialogs.show(dialog).ifPresent(name -> {
+            String trimmed = name != null ? name.trim() : "";
+            if (trimmed.isBlank() || trimmed.equals(note.getTitle())) {
+                return;
+            }
+            try {
+                String previousNoteId = note.getId();
+                note.setTitle(trimmed);
+                noteService.updateNote(note);
+                requestSelectAfterRefresh(note.getId());
+                handleSavedNote(note, previousNoteId);
+                if (eventBus != null) {
+                    eventBus.publish(new NoteEvents.NoteSavedEvent(note, previousNoteId));
+                }
+                publishStatusUpdate(java.text.MessageFormat.format(
+                        getString("status.renamed_note"), note.getTitle()));
+            } catch (Exception e) {
+                logger.log(Level.WARNING, "Failed to rename note " + note.getId(), e);
+                publishStatusUpdate(getString("status.note_rename_error"));
+            }
+        });
+    }
+
+    private void deleteNote(Note note) {
+        if (note == null) {
+            return;
+        }
         if (noteService == null) {
             logger.warning("Cannot delete note: noteService is null");
             publishStatusUpdate(getString("status.note_delete_error"));
@@ -1518,9 +1603,60 @@ public class NotesListController {
             notesListView.getSelectionModel().select(note);
             openNoteAction.accept(note);
         });
+        card.setOnContextMenuRequested(event -> {
+            ContextMenu contextMenu = createGridNoteContextMenu(note, () -> {
+                notesListView.getSelectionModel().select(note);
+                openNoteAction.accept(note);
+            });
+            if (contextMenu != null) {
+                contextMenu.show(card, event.getScreenX(), event.getScreenY());
+            }
+        });
 
         setupNoteCardDrag(card, note, i18n, statusUpdate);
         return card;
+    }
+
+    private ContextMenu createGridNoteContextMenu(Note note, Runnable openAction) {
+        if (note == null) {
+            return null;
+        }
+
+        MenuItem openItem = new MenuItem(getString("action.open"));
+        openItem.setOnAction(e -> openAction.run());
+
+        MenuItem pinItem = new MenuItem(
+                note.isPinned() ? getString("action.unpin_note") : getString("action.pin_note"));
+        pinItem.setOnAction(e -> togglePin(note));
+
+        MenuItem favoriteItem = new MenuItem(
+                note.isFavorite() ? getString("action.remove_favorite") : getString("action.add_favorite"));
+        favoriteItem.setOnAction(e -> toggleFavorite(note));
+
+        MenuItem privateItem = new MenuItem(
+                note.isPrivate() ? getString("action.make_normal") : getString("action.make_private"));
+        privateItem.setOnAction(e -> notePrivacyToggleAction.accept(note));
+
+        MenuItem renameItem = new MenuItem(getString("action.rename"));
+        renameItem.setOnAction(e -> renameNote(note));
+
+        MenuItem exportItem = new MenuItem(getString("action.export_note"));
+        exportItem.setOnAction(e -> noteExportAction.accept(note));
+
+        MenuItem deleteItem = new MenuItem(getString("action.move_to_trash"));
+        deleteItem.setOnAction(e -> deleteNote(note));
+
+        ContextMenu menu = new ContextMenu();
+        menu.getItems().addAll(openItem, pinItem, favoriteItem, privateItem, renameItem);
+
+        if (isFileSystemStorage()) {
+            MenuItem revealItem = new MenuItem(getString("action.reveal_in_files"));
+            revealItem.setOnAction(e -> revealInFileManager(note));
+            menu.getItems().add(revealItem);
+        }
+
+        menu.getItems().addAll(exportItem, new SeparatorMenuItem(), deleteItem);
+        return menu;
     }
 
     private void setupNoteCardDrag(

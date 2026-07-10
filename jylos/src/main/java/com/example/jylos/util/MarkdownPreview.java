@@ -17,12 +17,12 @@ import com.example.jylos.service.NoteTitleIndex;
  */
 public class MarkdownPreview {
     private static final Logger logger = LoggerConfig.getLogger(MarkdownPreview.class);
-    private static final String HLJS_SCRIPT = loadResourceText(
-            "/com/example/jylos/ui/preview/highlightjs/highlight.min.js");
-    private static final String HLJS_LIGHT_CSS = loadResourceText(
-            "/com/example/jylos/ui/preview/highlightjs/vs.min.css");
-    private static final String HLJS_DARK_CSS = loadResourceText(
-            "/com/example/jylos/ui/preview/highlightjs/vs2015.min.css");
+    private static final String HLJS_SCRIPT_RESOURCE =
+            "/com/example/jylos/ui/preview/highlightjs/highlight.min.js";
+    private static final String HLJS_LIGHT_CSS_RESOURCE =
+            "/com/example/jylos/ui/preview/highlightjs/vs.min.css";
+    private static final String HLJS_DARK_CSS_RESOURCE =
+            "/com/example/jylos/ui/preview/highlightjs/vs2015.min.css";
 
     /**
      * Emoji rendering: JavaFX's WebKit renders neither the OS colour-emoji fonts nor a
@@ -90,15 +90,19 @@ public class MarkdownPreview {
         html = embedLocalImages(html, baseDir);
         html = emojifyToImages(html, isDarkTheme);
         Injections injections = MarkdownPreview.collectInjections(enhancers);
-        String highlightCss = isDarkTheme ? HLJS_DARK_CSS : HLJS_LIGHT_CSS;
+        boolean codeBlocks = containsCodeBlocks(html);
+        String highlightCss = codeBlocks
+                ? (isDarkTheme ? highlightDarkCss() : highlightLightCss())
+                : "";
+        String highlightAsset = codeBlocks ? highlightJsScript() : "";
 
         String styleBlock = isDarkTheme ? MarkdownPreview.darkStyles() : MarkdownPreview.lightStyles();
-        String highlightScript = MarkdownPreview.highlightScriptBlock();
+        String highlightScript = codeBlocks ? MarkdownPreview.highlightScriptBlock() : "";
 
         // KaTeX math (offline) — only when the note actually contains math delimiters.
         boolean math = containsMath(raw);
         if (math) {
-            styleBlock = styleBlock + "\n" + KATEX_CSS;
+            styleBlock = styleBlock + "\n" + katexCss();
         }
         String mathScript = math ? katexScriptBlock() : "";
 
@@ -149,7 +153,7 @@ public class MarkdownPreview {
                 %s
                 </body>
                 </html>
-                """.formatted(injections.head(), highlightCss, styleBlock, html, HLJS_SCRIPT,
+                """.formatted(injections.head(), highlightCss, styleBlock, html, highlightAsset,
                 highlightScript, mathScript, injections.body());
     }
 
@@ -218,6 +222,8 @@ public class MarkdownPreview {
         return """
                 html { background-color: #1E1E1E; margin: 0; padding: 0; }
                 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; padding: 20px; line-height: 1.6; color: #E0E0E0; background-color: #1E1E1E; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; overflow-x: hidden; }
+                body > :first-child { margin-top: 0; }
+                body > :last-child { margin-bottom: 0; }
                 h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; font-weight: 600; color: #FFFFFF; }
                 h1 { font-size: 2em; border-bottom: 2px solid #3a3a3a; padding-bottom: 0.3em; }
                 h2 { font-size: 1.5em; border-bottom: 1px solid #3a3a3a; padding-bottom: 0.3em; }
@@ -266,6 +272,8 @@ public class MarkdownPreview {
         return """
                 html { background-color: #FFFFFF; margin: 0; padding: 0; }
                 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; padding: 20px; line-height: 1.6; color: #24292e; background-color: #FFFFFF; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; overflow-x: hidden; }
+                body > :first-child { margin-top: 0; }
+                body > :last-child { margin-bottom: 0; }
                 h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; font-weight: 600; color: #24292e; }
                 h1 { font-size: 2em; border-bottom: 2px solid #eaecef; padding-bottom: 0.3em; }
                 h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
@@ -469,18 +477,54 @@ public class MarkdownPreview {
                 """;
     }
 
+    private static boolean containsCodeBlocks(String html) {
+        return html != null && html.contains("<pre><code");
+    }
+
+    private static String highlightJsScript() {
+        return HighlightAssets.SCRIPT;
+    }
+
+    private static String highlightLightCss() {
+        return HighlightAssets.LIGHT_CSS;
+    }
+
+    private static String highlightDarkCss() {
+        return HighlightAssets.DARK_CSS;
+    }
+
+    /** Lazy holder: avoid loading highlight.js assets for notes without code blocks. */
+    private static final class HighlightAssets {
+        private static final String SCRIPT = loadResourceText(HLJS_SCRIPT_RESOURCE);
+        private static final String LIGHT_CSS = loadResourceText(HLJS_LIGHT_CSS_RESOURCE);
+        private static final String DARK_CSS = loadResourceText(HLJS_DARK_CSS_RESOURCE);
+    }
+
     // ── KaTeX (offline math rendering) ──────────────────────────────────────────
 
     private static final String KATEX_DIR = "/com/example/jylos/ui/preview/katex/";
     /** Matches a likely math delimiter so KaTeX is only injected when needed. */
     private static final java.util.regex.Pattern MATH_HINT = java.util.regex.Pattern.compile(
             "\\$\\$[\\s\\S]+?\\$\\$|\\$[^\\$\\n]+\\$|\\\\\\([\\s\\S]+?\\\\\\)|\\\\\\[[\\s\\S]+?\\\\\\]");
-    private static final String KATEX_CSS = buildKatexCss();
-    private static final String KATEX_JS =
-            loadResourceText(KATEX_DIR + "katex.min.js") + "\n" + loadResourceText(KATEX_DIR + "auto-render.min.js");
 
     private static boolean containsMath(String markdown) {
         return markdown != null && MATH_HINT.matcher(markdown).find();
+    }
+
+    private static String katexCss() {
+        return KatexAssets.CSS;
+    }
+
+    private static String katexJs() {
+        return KatexAssets.JS;
+    }
+
+    /** Lazy holder: KaTeX is sizeable, so load it only when math delimiters exist. */
+    private static final class KatexAssets {
+        private static final String CSS = buildKatexCss();
+        private static final String JS = loadResourceText(KATEX_DIR + "katex.min.js")
+                + "\n"
+                + loadResourceText(KATEX_DIR + "auto-render.min.js");
     }
 
     /** KaTeX stylesheet with its woff2 fonts inlined as data URIs (WebView is opaque-origin). */
@@ -518,10 +562,11 @@ public class MarkdownPreview {
 
     /** Script that loads KaTeX and renders $…$ / $$…$$ / \\(…\\) / \\[…\\] in the body. */
     private static String katexScriptBlock() {
-        if (KATEX_JS.isBlank()) {
+        String js = katexJs();
+        if (js.isBlank()) {
             return "";
         }
-        return "<script>" + KATEX_JS + "</script>\n"
+        return "<script>" + js + "</script>\n"
                 + "<script>try{renderMathInElement(document.body,{delimiters:["
                 + "{left:'$$',right:'$$',display:true},"
                 + "{left:'$',right:'$',display:false},"

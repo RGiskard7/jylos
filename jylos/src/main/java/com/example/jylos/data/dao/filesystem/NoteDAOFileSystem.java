@@ -31,6 +31,7 @@ import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.exceptions.DataAccessException;
 import com.example.jylos.exceptions.InvalidParameterException;
+import com.example.jylos.util.AttachmentType;
 import com.example.jylos.util.WikiLinkResolver;
 
 /**
@@ -44,6 +45,7 @@ public class NoteDAOFileSystem implements NoteDAO {
     // DAO layer must stay locale-neutral; UI is responsible for localized labels.
     private static final String ROOT_TITLE = "ROOT";
     private final Path rootPath;
+    private final FileSystemDocumentMetadataStore metadataStore;
 
     // Cache to map Note ID (Relative Path) -> Absolute Path
     private final Map<String, Path> idToPathMap = new ConcurrentHashMap<>();
@@ -86,6 +88,7 @@ public class NoteDAOFileSystem implements NoteDAO {
      */
     public NoteDAOFileSystem(String rootDirectory, boolean deferContentLoad) {
         this.rootPath = Paths.get(rootDirectory);
+        this.metadataStore = new FileSystemDocumentMetadataStore(this.rootPath);
         if (!Files.exists(rootPath)) {
             try {
                 Files.createDirectories(rootPath);
@@ -253,12 +256,20 @@ public class NoteDAOFileSystem implements NoteDAO {
         String title = filename.endsWith(".md") ? filename.substring(0, filename.length() - 3) : filename;
         Note note = new Note(id, title, "");
         applyFileTimestampsIfMissing(note, path);
+        if (com.example.jylos.util.AttachmentType.isAttachment(filename)) {
+            metadataStore.applyDocumentMetadata(id, note);
+        }
         return note;
     }
 
     /** Reads up to {@link #LIGHTWEIGHT_READ_BYTES} of the file to populate title, frontmatter, body preview and link targets. */
     private Note createLightweightNote(String id, Path path) {
         String filename = path.getFileName().toString();
+        if (isCanvasFile(filename)) {
+            Note canvas = createMetadataNote(id, path);
+            canvas.setTitle(filename);
+            return canvas;
+        }
         String title = filename.endsWith(".md") ? filename.substring(0, filename.length() - 3) : filename;
 
         // Attachments (PDF, images) are binary: never parse them as Markdown/frontmatter.
@@ -266,6 +277,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         if (com.example.jylos.util.AttachmentType.isAttachment(filename)) {
             Note attachment = new Note(id, title, "");
             applyFileTimestampsIfMissing(attachment, path);
+            metadataStore.applyDocumentMetadata(id, attachment);
             return attachment;
         }
 
@@ -290,6 +302,19 @@ public class NoteDAOFileSystem implements NoteDAO {
             applyFileTimestampsIfMissing(fallback, path);
             return fallback;
         }
+    }
+
+    private static boolean isCanvasFile(String filename) {
+        return com.example.jylos.util.AttachmentType.fromName(filename) == com.example.jylos.util.AttachmentType.CANVAS;
+    }
+
+    private Note readCanvasNote(String id, Path path) throws IOException {
+        String filename = path.getFileName().toString();
+        String content = Files.exists(path) ? Files.readString(path) : "";
+        Note note = new Note(id, filename, content);
+        metadataStore.applyDocumentMetadata(id, note);
+        applyFileTimestampsIfMissing(note, path);
+        return note;
     }
 
     /** Reads at most {@code maxBytes} from the start of a file, returning the bytes decoded as UTF-8. */
@@ -388,10 +413,18 @@ public class NoteDAOFileSystem implements NoteDAO {
             note.setId(relativePath);
 
             try {
-                String fileContent = attachment
-                        ? (note.getContent() != null ? note.getContent() : "")
-                        : FrontmatterHandler.generate(note);
+                String fileContent;
+                if (!attachment) {
+                    fileContent = FrontmatterHandler.generate(note);
+                } else if (isCanvasFile(filename)) {
+                    fileContent = metadataStore.normalizeCanvasDocument(note.getContent());
+                } else {
+                    fileContent = note.getContent() != null ? note.getContent() : "";
+                }
                 Files.writeString(filePath, fileContent, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                if (attachment) {
+                    metadataStore.persistDocumentMetadata(note);
+                }
                 idToPathMap.put(relativePath, filePath);
                 cachedNotes.put(relativePath, note);
                 notesByFolderIndexDirty = true;
@@ -457,7 +490,16 @@ public class NoteDAOFileSystem implements NoteDAO {
         // Attachments (PDF, images) are binary — return their metadata, never decode
         // the bytes as Markdown text.
         if (com.example.jylos.util.AttachmentType.isAttachment(path.getFileName().toString())) {
-            return createLightweightNote(normalizedId, path);
+            if (isCanvasFile(path.getFileName().toString())) {
+                try {
+                    return readCanvasNote(normalizedId, path);
+                } catch (IOException e) {
+                    logger.warning("Could not read canvas file (skipped): " + path + " — " + e.getMessage());
+                    return null;
+                }
+            }
+            Note attachment = createLightweightNote(normalizedId, path);
+            return attachment;
         }
 
         try {
@@ -527,6 +569,9 @@ public class NoteDAOFileSystem implements NoteDAO {
                         cachedNotes.remove(oldId);
 
                         String newId = normalizeId(rootPath.relativize(newPath).toString());
+                        if (attachment) {
+                            metadataStore.moveDocumentMetadata(oldId, newId);
+                        }
                         idToPathMap.put(newId, newPath);
                         note.setId(newId);
                         path = newPath;
@@ -541,10 +586,23 @@ public class NoteDAOFileSystem implements NoteDAO {
             note.setModifiedDate(DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
 
             try {
-                String fileContent = attachment
-                        ? (note.getContent() != null ? note.getContent() : "")
-                        : FrontmatterHandler.generate(note);
-                Files.writeString(path, fileContent, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                if (!attachment) {
+                    Files.writeString(path, FrontmatterHandler.generate(note),
+                            StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                } else if (isCanvasFile(path.getFileName().toString())) {
+                    String content = note.getContent();
+                    // Canvas list entries are metadata-only. Do not let a favorite/pinned
+                    // toggle rewrite a real .canvas file with an empty lightweight body.
+                    if (content != null && !content.isBlank()) {
+                        Files.writeString(path, metadataStore.normalizeCanvasDocument(content),
+                                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                    }
+                } else {
+                    metadataStore.persistDocumentMetadata(note);
+                }
+                if (attachment && isCanvasFile(path.getFileName().toString())) {
+                    metadataStore.persistDocumentMetadata(note);
+                }
                 String currentId = normalizeId(note.getId());
                 removeCacheAliasesForIds(normalizedId, currentId);
                 if (!normalizedId.equals(currentId)) {
@@ -605,11 +663,18 @@ public class NoteDAOFileSystem implements NoteDAO {
                 // Avoid collision in trash
                 if (Files.exists(targetPath)) {
                     String filename = targetPath.getFileName().toString();
-                    String name = filename.endsWith(".md") ? filename.substring(0, filename.length() - 3) : filename;
-                    targetPath = targetPath.getParent().resolve(name + "_" + System.currentTimeMillis() + ".md");
+                    int dot = filename.lastIndexOf('.');
+                    String name = dot > 0 ? filename.substring(0, dot) : filename;
+                    String extension = dot > 0 ? filename.substring(dot) : "";
+                    targetPath = targetPath.getParent()
+                            .resolve(name + "_" + System.currentTimeMillis() + extension);
                 }
 
                 Files.move(sourcePath, targetPath);
+                if (usesSidecarMetadata(sourcePath)) {
+                    String trashedId = normalizeId(rootPath.relativize(targetPath).toString());
+                    metadataStore.moveDocumentMetadata(normalizedId, trashedId);
+                }
 
                 // Remove from cache (by exact and normalized key/path)
                 idToPathMap.remove(id);
@@ -656,13 +721,14 @@ public class NoteDAOFileSystem implements NoteDAO {
             if (Files.exists(trashPath) && Files.isDirectory(trashPath)) {
                 try (Stream<Path> stream = Files.walk(trashPath)) {
                     stream.filter(Files::isRegularFile)
-                            .filter(p -> p.toString().endsWith(".md"))
                             .filter(p -> !p.getFileName().toString().startsWith(".")) // Ignore hidden files
                             .filter(p -> {
-                                // Only skip truly hidden system files like .DS_Store or .obsidian
-                                // but allow trashed folders starting with dot
                                 String filename = p.getFileName().toString();
-                                return !filename.startsWith(".") || filename.endsWith(".md");
+                                if (filename.startsWith(".")) {
+                                    return false;
+                                }
+                                AttachmentType type = AttachmentType.fromName(filename);
+                                return filename.endsWith(".md") || type.isAttachment();
                             })
                             .forEach(p -> {
                                 // Create note with ID relative to root (e.g. .trash/sub/note.md)
@@ -740,6 +806,10 @@ public class NoteDAOFileSystem implements NoteDAO {
                 }
 
                 Files.move(source, target);
+                if (usesSidecarMetadata(target)) {
+                    String restoredId = normalizeId(rootPath.relativize(target).toString());
+                    metadataStore.moveDocumentMetadata(normalizedId, restoredId);
+                }
 
                 // Update cache
                 refreshCache();
@@ -762,6 +832,9 @@ public class NoteDAOFileSystem implements NoteDAO {
             Path path = rootPath.resolve(normalizedId.replace("/", File.separator)); // id starts with .trash/ usually
 
             if (Files.exists(path)) {
+                if (usesSidecarMetadata(path)) {
+                    metadataStore.deleteDocumentMetadata(normalizedId);
+                }
                 Files.delete(path);
                 idToPathMap.remove(id);
                 idToPathMap.remove(normalizedId);
@@ -949,6 +1022,11 @@ public class NoteDAOFileSystem implements NoteDAO {
     private boolean isAttachmentNote(Path path, Note note) {
         return (path != null && com.example.jylos.util.AttachmentType.isAttachment(path.getFileName().toString()))
                 || (note != null && com.example.jylos.util.AttachmentType.isAttachment(note.getTitle()));
+    }
+
+    private boolean usesSidecarMetadata(Path path) {
+        return path != null
+                && com.example.jylos.util.AttachmentType.isAttachment(path.getFileName().toString());
     }
 
     private String expectedAttachmentFilename(String currentFilename, String requestedTitle) {

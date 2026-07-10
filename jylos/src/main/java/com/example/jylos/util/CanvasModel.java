@@ -319,6 +319,21 @@ public final class CanvasModel {
             return java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16);
         }
 
+        /** Replaces the whole document from JSON while keeping this mutable wrapper instance alive. */
+        public void replaceWith(String json) {
+            JsonObject parsed = parseObject(json);
+            root.entrySet().removeIf(entry -> true);
+            for (var entry : parsed.entrySet()) {
+                root.add(entry.getKey(), entry.getValue());
+            }
+            if (!root.has("nodes")) {
+                root.add("nodes", new JsonArray());
+            }
+            if (!root.has("edges")) {
+                root.add("edges", new JsonArray());
+            }
+        }
+
         /** Serializes the canvas back to pretty-printed JSON, preserving unknown fields. */
         public String toJson() {
             return new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(root);

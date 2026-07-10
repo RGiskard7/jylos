@@ -3600,6 +3600,20 @@
    (colours follow the theme lookup variables)
    ======================================== */
 .canvas-view, .canvas-viewport { -fx-background-color: -fx-base-bg; }
+.canvas-toolbar {
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-width: 1;
+    -fx-border-radius: 14;
+    -fx-background-radius: 14;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.10), 18, 0.20, 0, 4);
+}
+.canvas-toolbar .separator {
+    -fx-padding: 2 0;
+}
+.canvas-toolbar .separator .line {
+    -fx-border-color: -fx-fn-border-color;
+}
 .canvas-node {
     -fx-background-color: -fx-sidebar-bg;
     -fx-border-color: -fx-fn-border-color;
@@ -3623,6 +3637,26 @@
 .canvas-edge { -fx-stroke: -fx-text-muted; -fx-stroke-width: 2; -fx-cursor: hand; }
 .canvas-edge-selected { -fx-stroke: -fx-accent; -fx-stroke-width: 3.5; }
 .canvas-edge-arrow { -fx-fill: -fx-text-muted; -fx-cursor: hand; }
+.canvas-connect-handle {
+    -fx-pref-width: 12;
+    -fx-pref-height: 12;
+    -fx-background-color: -fx-accent;
+    -fx-border-color: -fx-base-bg;
+    -fx-border-width: 2;
+    -fx-background-radius: 999;
+    -fx-border-radius: 999;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.22), 6, 0.25, 0, 1);
+}
+.canvas-connect-handle:hover {
+    -fx-scale-x: 1.12;
+    -fx-scale-y: 1.12;
+}
+.canvas-connect-handle-active {
+    -fx-scale-x: 1.2;
+    -fx-scale-y: 1.2;
+    -fx-effect: dropshadow(gaussian, -fx-accent, 10, 0.4, 0, 0);
+}
 .canvas-resize-handle {
     -fx-background-color: -fx-accent;
     -fx-border-color: white; -fx-border-width: 2;

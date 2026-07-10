@@ -3,10 +3,12 @@ package com.example.jylos.ui.components;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Deque;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -52,6 +54,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.Rectangle;
@@ -104,6 +107,8 @@ public final class CanvasView extends BorderPane {
 
     /** Node id → its on-canvas box, used to drag nodes and re-anchor edges. */
     private final Map<String, Region> nodeBoxes = new HashMap<>();
+    /** Explicit cardinal connect handles shown in connect mode for reliable linking. */
+    private final List<ConnectHandle> connectHandles = new ArrayList<>();
     /** Drawn edges paired with their model, so they follow the nodes as they move. */
     private final List<EdgeLine> edgeLines = new ArrayList<>();
     /** A single bottom-right resize grip shown over the selected node. */
@@ -115,7 +120,12 @@ public final class CanvasView extends BorderPane {
     private double dragAnchorY;
     private boolean fitted = false;
     private boolean dirty = false;
-    private Button saveButton;
+    private final List<String> historySnapshots = new ArrayList<>();
+    private String lastSavedSnapshot;
+    private int historyIndex = -1;
+    private boolean replayingHistory = false;
+    private Button undoButton;
+    private Button redoButton;
     private Button connectButton;
     /** Currently selected node id (for delete), or null. */
     private String selectedNodeId;
@@ -127,6 +137,8 @@ public final class CanvasView extends BorderPane {
     private boolean connecting = false;
     /** First node picked in connect mode, awaiting a target; null otherwise. */
     private String connectSourceId;
+    /** Side picked on the source node while connecting. */
+    private String connectSourceSide;
     private Popup autocompletePopup;
     private ListView<String> autocompleteList;
     private TextInputControl autocompleteOwner;
@@ -134,6 +146,9 @@ public final class CanvasView extends BorderPane {
     private String autocompletePrefix = "[[";
 
     private record EdgeLine(CanvasEdge edge, Line line, javafx.scene.shape.Polygon arrow) {
+    }
+
+    private record ConnectHandle(String nodeId, String side, Region handle) {
     }
 
     /**
@@ -166,12 +181,23 @@ public final class CanvasView extends BorderPane {
         viewport.setClip(buildClip());
         viewport.widthProperty().addListener((o, a, b) -> fitToContentOnce());
         viewport.heightProperty().addListener((o, a, b) -> fitToContentOnce());
-
         initResizeHandle();
         buildWorld();
         installPanZoom();
-        setTop(buildToolbar());
-        setCenter(viewport);
+
+        VBox toolbar = buildToolbar();
+        toolbar.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+        toolbar.setPickOnBounds(false);
+
+        StackPane canvasStack = new StackPane(viewport, toolbar);
+        StackPane.setAlignment(toolbar, Pos.CENTER_RIGHT);
+        StackPane.setMargin(toolbar, new Insets(16));
+        setCenter(canvasStack);
+
+        lastSavedSnapshot = document.toJson();
+        historySnapshots.add(lastSavedSnapshot);
+        historyIndex = 0;
+        updateHistoryButtons();
 
         // Delete removes the selected node (and its edges). Click the background to
         // deselect; the view must be focusable for key events to arrive.
@@ -194,57 +220,125 @@ public final class CanvasView extends BorderPane {
 
     // ── Toolbar ────────────────────────────────────────────────────────────
 
-    private HBox buildToolbar() {
-        HBox bar = new HBox(6);
-        bar.getStyleClass().add("graph-toolbar");
-        bar.setAlignment(Pos.CENTER_LEFT);
-        bar.setPadding(new Insets(8, 12, 8, 14));
+    private VBox buildToolbar() {
+        VBox bar = new VBox(8);
+        bar.getStyleClass().addAll("graph-toolbar", "canvas-toolbar");
+        bar.setAlignment(Pos.CENTER);
+        bar.setPadding(new Insets(10));
+        bar.setFillWidth(false);
 
-        FontIcon icon = new FontIcon("fth-grid");
-        icon.getStyleClass().add("feather-icon");
-        Label title = new Label(tr("canvas.title", "Canvas"));
-        title.getStyleClass().add("graph-title");
-
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        Button addText = iconButton("fth-plus", tr("canvas.add_text", "Add text node"), e -> addTextNode());
+        Button addText = iconButton("fth-type", tr("canvas.add_text", "Add text node"), e -> addTextNode());
         Button addFile = iconButton("fth-file", tr("canvas.add_file", "Add file node"), e -> addFileNode());
         Button addLink = iconButton("fth-link", tr("canvas.add_link", "Add link node"), e -> addLinkNode());
         Button addGroup = iconButton("fth-square", tr("canvas.add_group", "Add group"), e -> addGroupNode());
         connectButton = iconButton("fth-git-commit", tr("canvas.connect", "Connect nodes"), e -> toggleConnect());
-        Button zoomOut = iconButton("fth-zoom-out", tr("canvas.zoom_out", "Zoom out"),
-                e -> zoomAt(1 / ZOOM_STEP, viewport.getWidth() / 2, viewport.getHeight() / 2));
+        undoButton = iconButton("fth-rotate-ccw", tr("action.undo", "Undo"), e -> undo());
+        redoButton = iconButton("fth-rotate-cw", tr("action.redo", "Redo"), e -> redo());
         Button zoomIn = iconButton("fth-zoom-in", tr("canvas.zoom_in", "Zoom in"),
                 e -> zoomAt(ZOOM_STEP, viewport.getWidth() / 2, viewport.getHeight() / 2));
-        Button fit = iconButton("fth-maximize", tr("canvas.fit", "Fit to content"), e -> { fitted = false; fit(); });
+        Button zoomOut = iconButton("fth-zoom-out", tr("canvas.zoom_out", "Zoom out"),
+                e -> zoomAt(1 / ZOOM_STEP, viewport.getWidth() / 2, viewport.getHeight() / 2));
+        Button fit = iconButton("fth-maximize", tr("canvas.fit", "Fit to content"), e -> {
+            fitted = false;
+            fit();
+        });
 
-        bar.getChildren().addAll(icon, title, spacer, addText, addFile, addLink, addGroup, connectButton, zoomOut, zoomIn, fit);
-
-        if (onSave != null) {
-            saveButton = iconButton("fth-save", tr("canvas.save", "Save"), e -> save());
-            saveButton.setDisable(true);
-            bar.getChildren().add(saveButton);
-        }
+        bar.getChildren().addAll(
+                addText,
+                addFile,
+                addLink,
+                addGroup,
+                toolbarSeparator(),
+                connectButton,
+                undoButton,
+                redoButton,
+                toolbarSeparator(),
+                zoomIn,
+                zoomOut,
+                fit);
         return bar;
+    }
+
+    private Node toolbarSeparator() {
+        javafx.scene.control.Separator separator = new javafx.scene.control.Separator();
+        separator.setMaxWidth(24);
+        return separator;
     }
 
     public void save() {
         if (onSave == null) {
             return;
         }
-        onSave.accept(document.toJson());
-        markSaved();
+        String snapshot = document.toJson();
+        onSave.accept(snapshot);
+        markSaved(snapshot);
     }
 
     private void markDirty() {
-        boolean wasDirty = dirty;
-        dirty = true;
-        if (saveButton != null) {
-            saveButton.setDisable(false);
+        if (replayingHistory) {
+            return;
         }
-        if (!wasDirty && onDirty != null) {
+        pushHistorySnapshot(document.toJson());
+    }
+
+    private void pushHistorySnapshot(String snapshot) {
+        if (snapshot == null) {
+            return;
+        }
+        if (historyIndex >= 0 && historyIndex < historySnapshots.size()
+                && snapshot.equals(historySnapshots.get(historyIndex))) {
+            updateDirtyState(snapshot);
+            updateHistoryButtons();
+            return;
+        }
+        while (historySnapshots.size() > historyIndex + 1) {
+            historySnapshots.remove(historySnapshots.size() - 1);
+        }
+        historySnapshots.add(snapshot);
+        historyIndex = historySnapshots.size() - 1;
+        updateDirtyState(snapshot);
+        updateHistoryButtons();
+    }
+
+    private void undo() {
+        applyHistorySnapshot(historyIndex - 1);
+    }
+
+    private void redo() {
+        applyHistorySnapshot(historyIndex + 1);
+    }
+
+    private void applyHistorySnapshot(int targetIndex) {
+        if (targetIndex < 0 || targetIndex >= historySnapshots.size() || targetIndex == historyIndex) {
+            updateHistoryButtons();
+            return;
+        }
+        historyIndex = targetIndex;
+        replayingHistory = true;
+        try {
+            document.replaceWith(historySnapshots.get(historyIndex));
+            rebuild();
+        } finally {
+            replayingHistory = false;
+        }
+        updateDirtyState(historySnapshots.get(historyIndex));
+        updateHistoryButtons();
+    }
+
+    private void updateDirtyState(String snapshot) {
+        boolean wasDirty = dirty;
+        dirty = lastSavedSnapshot == null || !lastSavedSnapshot.equals(snapshot);
+        if (!wasDirty && dirty && onDirty != null) {
             onDirty.run();
+        }
+    }
+
+    private void updateHistoryButtons() {
+        if (undoButton != null) {
+            undoButton.setDisable(historyIndex <= 0);
+        }
+        if (redoButton != null) {
+            redoButton.setDisable(historyIndex < 0 || historyIndex >= historySnapshots.size() - 1);
         }
     }
 
@@ -257,25 +351,33 @@ public final class CanvasView extends BorderPane {
     }
 
     public void markSaved() {
-        dirty = false;
-        if (saveButton != null) {
-            saveButton.setDisable(true);
-        }
+        markSaved(document.toJson());
     }
 
-    // ── World construction ───────────────────────────────────────────────────
+    public String lastSavedSnapshot() {
+        return lastSavedSnapshot;
+    }
+
+    private void markSaved(String snapshot) {
+        lastSavedSnapshot = snapshot;
+        dirty = false;
+        updateHistoryButtons();
+    }
 
     /** Re-renders the whole canvas from the (mutated) document, keeping the current pan/zoom. */
+
     private void rebuild() {
         selectedNodeId = null;
         selectedEdgeId = null;
         connectSourceId = null;
+        connectSourceSide = null;
         buildWorld();
     }
 
     private void buildWorld() {
         world.getChildren().clear();
         nodeBoxes.clear();
+        connectHandles.clear();
         edgeLines.clear();
         for (CanvasNode n : document.nodes()) {
             if ("group".equals(n.type())) {
@@ -283,6 +385,7 @@ public final class CanvasView extends BorderPane {
                 nodeBoxes.put(n.id(), box);
                 world.getChildren().add(box);
                 installNodeInteraction(box, n);
+                installConnectHandles(n.id(), box);
             }
         }
         for (CanvasEdge e : document.edges()) {
@@ -327,9 +430,11 @@ public final class CanvasView extends BorderPane {
                 nodeBoxes.put(n.id(), box);
                 world.getChildren().add(box);
                 installNodeInteraction(box, n);
+                installConnectHandles(n.id(), box);
             }
         }
         refreshEdges();
+        refreshConnectHandles();
         if (document.isEmpty()) {
             Label empty = new Label(tr("canvas.empty", "This canvas is empty."));
             empty.getStyleClass().add("canvas-empty");
@@ -503,7 +608,6 @@ public final class CanvasView extends BorderPane {
         VBox box = new VBox(view);
         box.setAlignment(Pos.CENTER_LEFT);
         box.getStyleClass().add("canvas-embed-image");
-        markInteractive(box);
         return box;
     }
 
@@ -600,12 +704,12 @@ public final class CanvasView extends BorderPane {
         if (edge == null) {
             return;
         }
-        javafx.scene.control.TextInputDialog dialog = new javafx.scene.control.TextInputDialog(edge.label());
-        dialog.setTitle(tr("canvas.edge_label", "Edit label"));
-        dialog.setHeaderText(null);
-        dialog.setContentText(tr("canvas.edge_label_value", "Label:"));
-        com.example.jylos.ui.UiDialogs.apply(dialog);
-        String value = com.example.jylos.ui.UiDialogs.show(dialog).orElse(null);
+        String value = showSingleFieldDialog(
+                tr("canvas.edge_label", "Edit label"),
+                tr("canvas.edge_label_value", "Label:"),
+                edge.label(),
+                null,
+                tr("action.accept", "Accept"));
         if (value == null) {
             return;
         }
@@ -632,6 +736,7 @@ public final class CanvasView extends BorderPane {
             el.line().setEndY(b[1]);
             updateArrow(el.arrow(), a[0], a[1], b[0], b[1]);
         }
+        refreshConnectHandles();
         // Re-position any edge labels at the midpoint of their edge.
         for (Node node : world.getChildren()) {
             if (node instanceof Label label && label.getStyleClass().contains("canvas-edge-label")
@@ -901,7 +1006,7 @@ public final class CanvasView extends BorderPane {
         });
         box.addEventFilter(MouseEvent.MOUSE_DRAGGED, e -> {
             if (editing || connecting || isInteractiveTarget(e.getTarget())) {
-                return; // editing: allow text selection; connecting: clicks pick endpoints
+                return; // editing: allow text selection; connecting: avoid accidental moves
             }
             double s = scaleTransform.getX();
             double dx = (e.getSceneX() - last[0]) / s;
@@ -939,15 +1044,15 @@ public final class CanvasView extends BorderPane {
             }
         });
         box.setOnMouseClicked(e -> {
+            if (connecting) {
+                requestFocus();
+                e.consume();
+                return;
+            }
             if (isInteractiveTarget(e.getTarget())) {
                 return;
             }
             requestFocus();
-            if (connecting) {
-                handleConnectClick(id);
-                e.consume();
-                return;
-            }
             if (e.getClickCount() >= 2) {
                 switch (node.type()) {
                     case "file" -> {
@@ -977,6 +1082,28 @@ public final class CanvasView extends BorderPane {
             menu.show(box, e.getScreenX(), e.getScreenY());
             e.consume();
         });
+    }
+
+    private void installConnectHandles(String id, Region box) {
+        for (String side : List.of("top", "right", "bottom", "left")) {
+            Region handle = new Region();
+            handle.getStyleClass().add("canvas-connect-handle");
+            handle.setPickOnBounds(true);
+            handle.setManaged(false);
+            handle.setVisible(connecting);
+            handle.setOnMousePressed(event -> event.consume());
+            handle.setOnMouseDragged(event -> event.consume());
+            handle.setOnMouseReleased(event -> event.consume());
+            handle.setOnMouseClicked(event -> {
+                requestFocus();
+                handleConnectClick(id, side);
+                event.consume();
+            });
+            ConnectHandle connectHandle = new ConnectHandle(id, side, handle);
+            connectHandles.add(connectHandle);
+            world.getChildren().add(handle);
+            positionConnectHandle(box, connectHandle);
+        }
     }
 
     // ── Selection / create / edit / delete ─────────────────────────────────
@@ -1121,12 +1248,60 @@ public final class CanvasView extends BorderPane {
         world.getChildren().remove(resizeHandle);
     }
 
+    private void refreshConnectHandles() {
+        for (ConnectHandle connectHandle : connectHandles) {
+            Region box = nodeBoxes.get(connectHandle.nodeId());
+            Region handle = connectHandle.handle();
+            if (box == null || handle == null) {
+                continue;
+            }
+            positionConnectHandle(box, connectHandle);
+            handle.setVisible(connecting);
+            handle.getStyleClass().remove("canvas-connect-handle-active");
+            if (connecting
+                    && connectSourceId != null
+                    && connectSourceId.equals(connectHandle.nodeId())
+                    && connectSourceSide != null
+                    && connectSourceSide.equals(connectHandle.side())) {
+                handle.getStyleClass().add("canvas-connect-handle-active");
+            }
+            handle.toFront();
+        }
+        if (resizeHandle.isVisible()) {
+            resizeHandle.toFront();
+        }
+    }
+
+    private void positionConnectHandle(Region box, ConnectHandle connectHandle) {
+        if (box == null || connectHandle == null || connectHandle.handle() == null) {
+            return;
+        }
+        Region handle = connectHandle.handle();
+        double size = handle.prefWidth(-1) > 0 ? handle.prefWidth(-1) : 18;
+        double x = box.getLayoutX();
+        double y = box.getLayoutY();
+        double w = box.getPrefWidth();
+        double h = box.getPrefHeight();
+        double hx = switch (connectHandle.side()) {
+            case "left" -> x - size / 2.0;
+            case "right" -> x + w - size / 2.0;
+            default -> x + w / 2.0 - size / 2.0;
+        };
+        double hy = switch (connectHandle.side()) {
+            case "top" -> y - size / 2.0;
+            case "bottom" -> y + h - size / 2.0;
+            default -> y + h / 2.0 - size / 2.0;
+        };
+        handle.resizeRelocate(hx, hy, size, size);
+    }
+
     // ── Connect mode (draw edges) ──────────────────────────────────────────
 
     /** Toggles connect mode: click a source node, then a target, to draw an edge. */
     private void toggleConnect() {
         connecting = !connecting;
         connectSourceId = null;
+        connectSourceSide = null;
         select(null);
         if (connectButton != null) {
             connectButton.getStyleClass().remove("toolbar-btn-active");
@@ -1136,6 +1311,7 @@ public final class CanvasView extends BorderPane {
         }
         viewport.setCursor(connecting ? javafx.scene.Cursor.CROSSHAIR : javafx.scene.Cursor.DEFAULT);
         rebuildHighlights();
+        refreshConnectHandles();
     }
 
     private void cancelConnect() {
@@ -1144,26 +1320,30 @@ public final class CanvasView extends BorderPane {
         }
         connecting = false;
         connectSourceId = null;
+        connectSourceSide = null;
         if (connectButton != null) {
             connectButton.getStyleClass().remove("toolbar-btn-active");
         }
         viewport.setCursor(javafx.scene.Cursor.DEFAULT);
         rebuildHighlights();
+        refreshConnectHandles();
     }
 
-    /** In connect mode, the first click picks the source node; the second draws the edge. */
-    private void handleConnectClick(String id) {
+    /** In connect mode, the first click picks the source handle; the second draws the edge. */
+    private void handleConnectClick(String id, String side) {
         if (connectSourceId == null) {
             connectSourceId = id;
+            connectSourceSide = side;
             rebuildHighlights();
+            refreshConnectHandles();
             return;
         }
         if (!connectSourceId.equals(id)) {
-            String[] sides = bestSides(connectSourceId, id);
-            document.addEdge(connectSourceId, sides[0], id, sides[1]);
+            document.addEdge(connectSourceId, connectSourceSide, id, side);
             markDirty();
         }
         connectSourceId = null;
+        connectSourceSide = null;
         rebuild(); // redraw with the new edge (also clears the source highlight)
     }
 
@@ -1177,25 +1357,6 @@ public final class CanvasView extends BorderPane {
         } else if (selectedNodeId != null && nodeBoxes.containsKey(selectedNodeId)) {
             nodeBoxes.get(selectedNodeId).getStyleClass().add("canvas-selected");
         }
-    }
-
-    /** Picks the pair of sides (from, to) facing each other, based on node centres. */
-    private String[] bestSides(String fromId, String toId) {
-        Region from = nodeBoxes.get(fromId);
-        Region to = nodeBoxes.get(toId);
-        if (from == null || to == null) {
-            return new String[] {"right", "left"};
-        }
-        double fcx = from.getLayoutX() + from.getPrefWidth() / 2;
-        double fcy = from.getLayoutY() + from.getPrefHeight() / 2;
-        double tcx = to.getLayoutX() + to.getPrefWidth() / 2;
-        double tcy = to.getLayoutY() + to.getPrefHeight() / 2;
-        double dx = tcx - fcx;
-        double dy = tcy - fcy;
-        if (Math.abs(dx) >= Math.abs(dy)) {
-            return dx >= 0 ? new String[] {"right", "left"} : new String[] {"left", "right"};
-        }
-        return dy >= 0 ? new String[] {"bottom", "top"} : new String[] {"top", "bottom"};
     }
 
     /** World coordinates of the current viewport centre, where new nodes are placed. */
@@ -1235,12 +1396,12 @@ public final class CanvasView extends BorderPane {
     }
 
     private void addLinkNode(double worldX, double worldY) {
-        javafx.scene.control.TextInputDialog dialog = new javafx.scene.control.TextInputDialog("https://");
-        dialog.setTitle(tr("canvas.add_link", "Add link node"));
-        dialog.setHeaderText(null);
-        dialog.setContentText(tr("canvas.link_url", "URL:"));
-        com.example.jylos.ui.UiDialogs.apply(dialog);
-        String url = com.example.jylos.ui.UiDialogs.show(dialog).orElse(null);
+        String url = showSingleFieldDialog(
+                tr("canvas.add_link", "Add link node"),
+                tr("canvas.link_url", "URL:"),
+                "https://",
+                null,
+                tr("action.accept", "Accept"));
         if (url == null || url.isBlank()) {
             return;
         }
@@ -1287,7 +1448,6 @@ public final class CanvasView extends BorderPane {
     private String pickFileReference() {
         Dialog<String> dialog = new Dialog<>();
         dialog.setTitle(tr("canvas.add_file", "Add file node"));
-        dialog.setHeaderText(tr("canvas.add_file_help", "Type a note title, image name or vault-relative file path"));
         ButtonType insert = new ButtonType(tr("action.insert", "Insert"), ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(insert, ButtonType.CANCEL);
 
@@ -1335,8 +1495,11 @@ public final class CanvasView extends BorderPane {
             }
         });
 
-        VBox content = new VBox(8, new Label(tr("canvas.file_ref", "Reference:")), input, suggestions);
-        content.setPadding(new Insets(4, 0, 0, 0));
+        Label help = new Label(tr("canvas.add_file_help", "Type a note title, image name or vault-relative file path"));
+        help.setWrapText(true);
+        Label referenceLabel = new Label(tr("canvas.file_ref", "Reference:"));
+        VBox content = new VBox(10, help, referenceLabel, input, suggestions);
+        content.setPadding(new Insets(12, 12, 0, 12));
         dialog.getDialogPane().setContent(content);
         com.example.jylos.ui.UiDialogs.apply(dialog);
         dialog.setResultConverter(button -> {
@@ -1356,7 +1519,29 @@ public final class CanvasView extends BorderPane {
         return com.example.jylos.ui.UiDialogs.show(dialog).orElse(null);
     }
 
+    private String showSingleFieldDialog(String title, String labelText, String initialValue,
+            String promptText, String acceptText) {
+        Dialog<String> dialog = new Dialog<>();
+        dialog.setTitle(title);
+        ButtonType accept = new ButtonType(acceptText, ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(accept, ButtonType.CANCEL);
+
+        Label label = new Label(labelText);
+        TextField field = new TextField(initialValue != null ? initialValue : "");
+        if (promptText != null && !promptText.isBlank()) {
+            field.setPromptText(promptText);
+        }
+        VBox content = new VBox(10, label, field);
+        content.setPadding(new Insets(12, 12, 0, 12));
+        dialog.getDialogPane().setContent(content);
+        com.example.jylos.ui.UiDialogs.apply(dialog);
+        dialog.setResultConverter(button -> button == accept ? field.getText() : null);
+        javafx.application.Platform.runLater(field::requestFocus);
+        return com.example.jylos.ui.UiDialogs.show(dialog).orElse(null);
+    }
+
     /** Adds a group (labelled rectangle) at the centre of the current view. */
+
     private void addGroupNode() {
         double[] c = viewCenterWorld();
         addGroupNode(c[0], c[1]);

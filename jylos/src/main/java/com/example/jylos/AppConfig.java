@@ -31,7 +31,7 @@ public class AppConfig {
                 logger.warning("app.properties not found, using defaults");
                 // Set defaults
                 properties.setProperty("app.name", "Jylos");
-                properties.setProperty("app.version", "2.3.0");
+                properties.setProperty("app.version", "2.4.0");
                 properties.setProperty("app.vendor", "Jylos");
                 properties.setProperty("app.description", "A free and open-source note-taking application");
                 properties.setProperty("app.copyright", "Copyright © 2026 Eduardo Díaz Sánchez");
@@ -50,7 +50,7 @@ public class AppConfig {
             logger.warning("Failed to load app.properties: " + e.getMessage() + ", using defaults");
             // Set defaults on error
             properties.setProperty("app.name", "Jylos");
-            properties.setProperty("app.version", "2.3.0");
+            properties.setProperty("app.version", "2.4.0");
             properties.setProperty("app.vendor", "Jylos");
             properties.setProperty("app.description", "A free and open-source note-taking application");
             properties.setProperty("app.copyright", "Copyright © 2026 Eduardo Díaz Sánchez");
@@ -71,7 +71,7 @@ public class AppConfig {
     }
     
     public static String getAppVersion() {
-        return getProperty("app.version", "2.3.0");
+        return getProperty("app.version", "2.4.0");
     }
     
     public static String getAppVendor() {

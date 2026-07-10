@@ -2,6 +2,54 @@
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-07-10
+
+Release centrada en **fiabilidad del canvas**, **persistencia segura de metadata en vault filesystem**, **mejor compatibilidad con Obsidian**, y una pasada de rendimiento sobre **preview Markdown** y flujos calientes de apertura/listado.
+
+### Canvas y compatibilidad con Obsidian
+
+- **Canvas más completo y usable**: se añadieron nodos de archivo, mejoras en nodos embebidos, etiquetas y colores de aristas, controles laterales más cercanos al flujo de Obsidian y ajustes de interacción para conectar elementos con menos fricción.
+- **Aristas más robustas**: se revisó la creación de conexiones entre nodos y grupos, evitando estados donde los elementos quedaban difíciles de mover o seleccionar tras activar el modo de conexión.
+- **Edición externa más fiable**: al reabrir documentos desde un vault filesystem, Jylos vuelve a consultar el estado real del archivo para reflejar cambios hechos desde Obsidian u otras herramientas cuando corresponde.
+- **Persistencia de `.canvas` segura**: los cambios de metadata como favorito/fijado ya no pueden sobrescribir un canvas real con contenido vacío procedente de una nota ligera de listado.
+- **JSON de canvas compatible**: la normalización del documento se limita a guardados reales de canvas, preservando estructura válida y evitando escrituras innecesarias.
+
+### Metadata de documentos en filesystem
+
+- **Favoritos y fijados unificados por tipo de documento**: Markdown, canvas y adjuntos binarios comparten el mismo flujo de negocio en UI/service, con persistencia específica encapsulada en la capa filesystem.
+- **Sidecar privado para adjuntos**: la metadata de documentos que no pueden contener frontmatter se guarda en `.jylos/document-metadata.json`, sin modificar binarios ni mezclar lógica de persistencia en la UI.
+- **Markdown sigue usando frontmatter**: las notas `.md` mantienen su modelo compatible con vaults Markdown/Obsidian.
+- **Cache como aceleración, no fuente de verdad**: al leer documentos completos, la metadata se obtiene desde su persistencia real para evitar estados visuales falsos tras cerrar/reabrir.
+- **Cobertura de regresión**: se añadieron tests para persistencia de canvas, metadata filesystem, restauración/cache y contratos DAO.
+
+### Rendimiento y preview Markdown
+
+- **Preview más ligera en notas comunes**: `highlight.js` solo se carga cuando el HTML contiene bloques de código.
+- **KaTeX bajo demanda**: los assets de fórmulas matemáticas se cargan únicamente cuando la nota contiene delimitadores LaTeX.
+- **Soporte de fórmulas LaTeX** en preview Markdown mediante KaTeX offline.
+- **Menos trabajo al abrir/listar en filesystem**: ajustes en lectura ligera, cache y rutas calientes para reducir I/O innecesario en vaults grandes.
+- **Espaciado de preview ajustado**: se redujo margen extra al inicio/final del documento renderizado.
+
+### UI, i18n y documentación
+
+- **Vistas de adjuntos más consistentes**: se añadieron acciones de favorito/fijado donde faltaban y se alinearon con el flujo general del editor.
+- **Menús contextuales más completos**: se amplió el soporte de acciones sobre documentos desde la lista.
+- **Menú superior más integrado con el sistema**: el `MenuBar` usa la barra nativa del SO cuando JavaFX lo soporta, liberando espacio vertical en macOS sin cambiar el comportamiento en Windows/Linux.
+- **Creación de canvas desde carpetas**: el menú contextual de una carpeta ahora incluye `Nuevo Canvas` debajo de `Nueva Nota`, creando el canvas directamente en esa carpeta.
+- **Internacionalización documentada**: nueva guía para añadir idiomas y ajustes en bundles EN/ES.
+- **Documentación y tooling actualizados a `2.4.0`**: `pom`, metadatos de aplicación, scripts de packaging, README, docs operativas, web landing y catálogo JBang.
+- **Comentarios de intención revisados** en zonas sensibles: metadata filesystem, protección frente a sobrescritura de canvas y carga lazy de assets del preview.
+
+### Commits incluidos y cambios de cierre
+
+- `2026-07-08` — `c14b883` — `feat: Mejora de la funcionalidad del lienzo con soporte para nodos de archivo y etiquetado de bordes`
+- `2026-07-05` — `1c0a9f5` — `feat: Mejora en la gestión de notas y etiquetas, incluyendo optimizaciones en el acceso a datos y nuevas pruebas de rendimiento`
+- Cambios de cierre no comiteados al preparar la release:
+  - persistencia segura de metadata para canvas/adjuntos en filesystem;
+  - protección contra sobrescritura de `.canvas` en toggles de favorito/fijado;
+  - renderizado KaTeX bajo demanda y carga lazy de `highlight.js`;
+  - actualización de versión, documentación y catálogo JBang.
+
 ## [2.3.0] - 2026-07-04
 
 Release centrada en el **cierre del saneamiento arquitectónico**, la **normalización del wiring de la UI**, el **endurecimiento de guardas y contratos internos**, y un pulido importante de **temas, snippets CSS, overlays y diálogos** para dejar el proyecto en un estado más coherente de cara a una release pública.
