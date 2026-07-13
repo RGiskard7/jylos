@@ -125,9 +125,8 @@ public final class KanbanBoard extends VBox {
         HBox.setHgrow(spacer, Priority.ALWAYS);
         Button refresh = iconButton("fth-refresh-cw", "feather-icon",
                 str("kanban.refresh", "Refresh"), e -> reload());
-        Button close = iconButton("fth-x", "feather-icon-danger",
+        Button close = iconButton("fth-x", "feather-icon",
                 str("kanban.close", "Close board"), e -> { if (onClose != null) onClose.run(); });
-        close.getStyleClass().add("toolbar-btn-danger");
 
         toolbar.getChildren().addAll(icon, title, boardSelector, newBoard, spacer, refresh, close);
         return toolbar;
@@ -148,8 +147,6 @@ public final class KanbanBoard extends VBox {
             javafx.event.EventHandler<javafx.event.ActionEvent> onAction) {
         FontIcon fi = new FontIcon(iconLiteral);
         fi.getStyleClass().add(iconStyle);
-        // .feather-icon-danger doesn't define a size; pin 16 so every toolbar icon
-        // (including the close X) matches .feather-icon exactly, like the graph toolbar.
         fi.setIconSize(16);
         Button b = new Button();
         b.setGraphic(fi);

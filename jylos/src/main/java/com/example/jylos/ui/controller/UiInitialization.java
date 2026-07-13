@@ -30,6 +30,7 @@ class UiInitialization {
             Runnable delete,
             Runnable toggleSidebar,
             Runnable toggleNotesPanel,
+            Runnable toggleRightPanel,
             Runnable viewLayoutSwitch) {
     }
 
@@ -70,7 +71,6 @@ class UiInitialization {
             ToggleButton editorOnlyButton,
             ToggleButton splitViewButton,
             ToggleButton previewOnlyButton,
-            ToolbarController toolbarController,
             Runnable initializeGridView,
             Runnable applyViewMode) {
         ToggleGroup viewModeGroup = new ToggleGroup();
@@ -83,15 +83,6 @@ class UiInitialization {
         }
         if (previewOnlyButton != null) {
             previewOnlyButton.setToggleGroup(viewModeGroup);
-        }
-
-        ToggleGroup notesViewGroup = new ToggleGroup();
-        if (toolbarController != null && toolbarController.getListViewButton() != null) {
-            toolbarController.getListViewButton().setToggleGroup(notesViewGroup);
-            toolbarController.getListViewButton().setSelected(true);
-        }
-        if (toolbarController != null && toolbarController.getGridViewButton() != null) {
-            toolbarController.getGridViewButton().setToggleGroup(notesViewGroup);
         }
 
         if (initializeGridView != null) {
@@ -232,9 +223,12 @@ class UiInitialization {
                 toggleSidebar.setOnAction(e -> overflowActions.toggleSidebar().run());
                 MenuItem toggleNotes = new MenuItem(i18n("action.toggle_notes_list"));
                 toggleNotes.setOnAction(e -> overflowActions.toggleNotesPanel().run());
+                MenuItem toggleRightPanel = new MenuItem(i18n("action.toggle_right_panel"));
+                toggleRightPanel.setOnAction(e -> overflowActions.toggleRightPanel().run());
                 MenuItem switchLayout = new MenuItem(i18n("action.switch_layout"));
                 switchLayout.setOnAction(e -> overflowActions.viewLayoutSwitch().run());
-                toolbarController.getToolbarOverflowBtn().getItems().addAll(toggleSidebar, toggleNotes, switchLayout);
+                toolbarController.getToolbarOverflowBtn().getItems().addAll(
+                        toggleSidebar, toggleNotes, toggleRightPanel, switchLayout);
             }
 
             toolbarController.getToolbarOverflowBtn().setVisible(true);

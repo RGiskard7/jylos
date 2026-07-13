@@ -137,8 +137,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private final Map<SystemActionEvent.ActionType, Runnable> systemActionHandlers = new EnumMap<>(
             SystemActionEvent.ActionType.class);
     @FXML
-    private Button closeRightPanelBtn;
-
+    private SplitPane editorRightSplitPane;
     @FXML
     private VBox rightPanel;
     @FXML
@@ -358,6 +357,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                     () -> handleDelete(null),
                     () -> handleToggleSidebar(null),
                     () -> handleToggleNotesPanel(null),
+                    () -> handleToggleRightPanel(null),
                     () -> handleViewLayoutSwitch(null)));
 
             if (toolbarController != null) {
@@ -365,7 +365,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                         this::showKeyboardShortcutsHelp,
                         () -> handleLightTheme(null),
                         () -> handleDarkTheme(null),
-                        () -> handleSystemTheme(null));
+                        () -> handleSystemTheme(null),
+                        () -> handleToggleRightPanel(null));
             }
             initializeCommandRouting();
             initializeSystemActionHandlers();
@@ -381,6 +382,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             initializeSortOptions();
             initializeViewModeButtons();
             initializeRightPanelSections();
+            initializeRightPanelVisibility();
             setupToolbarResponsiveness();
             initializeLanguageMenu();
             applyUiPreferencesFromStore();
@@ -1777,7 +1779,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 editorController.getEditorOnlyButton(),
                 editorController.getSplitViewButton(),
                 editorController.getPreviewOnlyButton(),
-                toolbarController,
                 notesListController::initializeNotesGrid,
                 this::applyViewMode);
         applyEditorButtonsPresentation();
@@ -1787,7 +1788,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private void handleListView(ActionEvent event) {
         if (notesListController != null
                 && notesListController.showListView(this::refreshNotesGridIfActive, logger::warning)) {
-            syncNotesViewToolbar(false);
             updateStatus(getString("status.view_list"));
         }
     }
@@ -1796,20 +1796,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private void handleGridView(ActionEvent event) {
         if (notesListController != null
                 && notesListController.showGridView(this::refreshNotesGridIfActive, logger::warning)) {
-            syncNotesViewToolbar(true);
             updateStatus(getString("status.view_grid"));
-        }
-    }
-
-    private void syncNotesViewToolbar(boolean gridSelected) {
-        if (toolbarController == null) {
-            return;
-        }
-        if (toolbarController.getListViewButton() != null) {
-            toolbarController.getListViewButton().setSelected(!gridSelected);
-        }
-        if (toolbarController.getGridViewButton() != null) {
-            toolbarController.getGridViewButton().setSelected(gridSelected);
         }
     }
 
@@ -1883,15 +1870,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     @FXML
     private void handleToggleRightPanel(ActionEvent event) {
-        uiLayout.toggleRightPanel(rightPanel, editorController.getInfoButton(), getCurrentNote(),
+        uiLayout.toggleRightPanel(editorRightSplitPane, rightPanel,
+                toolbarController != null ? toolbarController.getRightPanelToggleBtn() : null,
+                getCurrentNote(),
                 () -> updateNoteMetadata(getCurrentNote()));
     }
-
-    @FXML
-    private void handleCloseRightPanel(ActionEvent event) {
-        uiLayout.closeRightPanel(rightPanel, editorController.getInfoButton());
-    }
-
 
     private void initializeRightPanelSections() {
         uiInitialization.initializeRightPanelSections(
@@ -1905,6 +1888,19 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                         refreshBacklinks(getCurrentNote());
                     }
                 });
+    }
+
+    private void initializeRightPanelVisibility() {
+        if (rightPanel != null) {
+            rightPanel.setVisible(true);
+            rightPanel.setManaged(true);
+            rightPanel.setMinWidth(0);
+            rightPanel.setMaxWidth(0);
+            rightPanel.setPrefWidth(0);
+        }
+        if (toolbarController != null && toolbarController.getRightPanelToggleBtn() != null) {
+            toolbarController.getRightPanelToggleBtn().setSelected(false);
+        }
     }
 
     /** Resets the filter state and asks {@link NotesListController} to display every note. */
@@ -2749,7 +2745,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 navSplitPane,
                 sidebarController.getSidebarPane(),
                 notesPanel,
-                editorController.getEditorContainer(),
+                editorRightSplitPane,
                 toolbarController);
     }
 

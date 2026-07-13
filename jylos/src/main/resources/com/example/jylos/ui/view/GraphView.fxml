@@ -22,35 +22,51 @@
 
         <ToggleButton fx:id="localGraphBtn" onAction="#handleToggleScope" styleClass="modern-toggle-btn">
             <tooltip><Tooltip text="%graph.local"/></tooltip>
-            <graphic><FontIcon iconLiteral="fth-target" styleClass="feather-icon"/></graphic>
+            <graphic>
+                <FontIcon iconLiteral="fth-target" styleClass="feather-icon"/>
+            </graphic>
         </ToggleButton>
         <ToggleButton fx:id="showTagsBtn" onAction="#handleToggleTags" selected="false" styleClass="modern-toggle-btn">
             <tooltip><Tooltip text="%graph.show_tags"/></tooltip>
-            <graphic><FontIcon iconLiteral="fth-hash" styleClass="feather-icon"/></graphic>
+            <graphic>
+                <FontIcon iconLiteral="fth-hash" styleClass="feather-icon"/>
+            </graphic>
         </ToggleButton>
         <ToggleButton fx:id="settingsBtn" onAction="#handleToggleSettings" styleClass="modern-toggle-btn">
             <tooltip><Tooltip text="%graph.settings"/></tooltip>
-            <graphic><FontIcon iconLiteral="fth-settings" styleClass="feather-icon"/></graphic>
+            <graphic>
+                <FontIcon iconLiteral="fth-settings" styleClass="feather-icon"/>
+            </graphic>
         </ToggleButton>
         <Button fx:id="zoomOutBtn" onAction="#handleZoomOut" styleClass="toolbar-btn">
             <tooltip><Tooltip text="%graph.zoom_out"/></tooltip>
-            <graphic><FontIcon iconLiteral="fth-zoom-out" styleClass="feather-icon"/></graphic>
+            <graphic>
+                <FontIcon iconLiteral="fth-zoom-out" styleClass="feather-icon"/>
+            </graphic>
         </Button>
         <Button fx:id="zoomInBtn" onAction="#handleZoomIn" styleClass="toolbar-btn">
             <tooltip><Tooltip text="%graph.zoom_in"/></tooltip>
-            <graphic><FontIcon iconLiteral="fth-zoom-in" styleClass="feather-icon"/></graphic>
+            <graphic>
+                <FontIcon iconLiteral="fth-zoom-in" styleClass="feather-icon"/>
+            </graphic>
         </Button>
         <Button fx:id="resetViewBtn" onAction="#handleResetView" styleClass="toolbar-btn">
             <tooltip><Tooltip text="%graph.reset_view"/></tooltip>
-            <graphic><FontIcon iconLiteral="fth-maximize-2" styleClass="feather-icon"/></graphic>
+            <graphic>
+                <FontIcon iconLiteral="fth-maximize-2" styleClass="feather-icon"/>
+            </graphic>
         </Button>
         <Button fx:id="refreshGraphBtn" onAction="#handleRefresh" styleClass="toolbar-btn">
             <tooltip><Tooltip text="%graph.refresh"/></tooltip>
-            <graphic><FontIcon iconLiteral="fth-refresh-cw" styleClass="feather-icon"/></graphic>
+            <graphic>
+                <FontIcon iconLiteral="fth-refresh-cw" styleClass="feather-icon"/>
+            </graphic>
         </Button>
-        <Button fx:id="closeGraphBtn" onAction="#handleClose" styleClass="toolbar-btn toolbar-btn-danger">
+        <Button fx:id="closeGraphBtn" onAction="#handleClose" styleClass="toolbar-btn">
             <tooltip><Tooltip text="%graph.close"/></tooltip>
-            <graphic><FontIcon iconLiteral="fth-x" styleClass="feather-icon-danger"/></graphic>
+            <graphic>
+                <FontIcon iconLiteral="fth-x" styleClass="feather-icon"/>
+            </graphic>
         </Button>
     </HBox>
 

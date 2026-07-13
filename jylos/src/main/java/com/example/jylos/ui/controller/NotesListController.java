@@ -110,6 +110,10 @@ public class NotesListController {
     @FXML
     private ComboBox<String> sortComboBox;
     @FXML
+    private Button viewModeToggleBtn;
+    @FXML
+    private FontIcon viewModeToggleIcon;
+    @FXML
     private Button refreshBtn;
     @FXML
     private ListView<Note> notesListView;
@@ -144,6 +148,7 @@ public class NotesListController {
         notesListView.setCellFactory(this::createNoteListCell);
         recomputeCellSize();
         disableHorizontalScrollOnListView(notesListView);
+        syncViewModeToggle();
     }
 
     private static void disableHorizontalScrollOnListView(ListView<?> listView) {
@@ -732,6 +737,10 @@ public class NotesListController {
 
     public Button getRefreshBtn() {
         return refreshBtn;
+    }
+
+    public Button getViewModeToggleBtn() {
+        return viewModeToggleBtn;
     }
 
     public ListView<Note> getNotesListView() {
@@ -1408,6 +1417,7 @@ public class NotesListController {
         }
         notesViewMode = NotesViewMode.LIST;
         applyCurrentNotesViewMode(gridRefreshAction, warningLogger);
+        syncViewModeToggle();
         return true;
     }
 
@@ -1418,7 +1428,33 @@ public class NotesListController {
         notesViewMode = NotesViewMode.GRID;
         initializeNotesGrid();
         applyCurrentNotesViewMode(gridRefreshAction, warningLogger);
+        syncViewModeToggle();
         return true;
+    }
+
+    @FXML
+    private void handleToggleViewMode(ActionEvent event) {
+        if (eventBus == null) {
+            return;
+        }
+        SystemActionEvent.ActionType action = isGridViewActive()
+                ? SystemActionEvent.ActionType.LIST_VIEW
+                : SystemActionEvent.ActionType.GRID_VIEW;
+        eventBus.publish(new SystemActionEvent(action));
+    }
+
+    private void syncViewModeToggle() {
+        if (viewModeToggleIcon != null) {
+            viewModeToggleIcon.setIconLiteral(isGridViewActive() ? "fth-align-justify" : "fth-grid");
+        }
+        if (viewModeToggleBtn != null) {
+            Tooltip tooltip = viewModeToggleBtn.getTooltip();
+            if (tooltip == null) {
+                tooltip = new Tooltip();
+                viewModeToggleBtn.setTooltip(tooltip);
+            }
+            tooltip.setText(getString(isGridViewActive() ? "action.list_view" : "action.grid_view"));
+        }
     }
 
     private void applyCurrentNotesViewMode(Runnable gridRefreshAction, Consumer<String> warningLogger) {
