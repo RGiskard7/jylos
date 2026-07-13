@@ -22,6 +22,12 @@
         <Label fx:id="notesPanelTitleLabel" text="%panel.notes.title" styleClass="panel-title"/>
         <Region HBox.hgrow="ALWAYS"/>
         <ComboBox fx:id="sortComboBox" prefWidth="120" styleClass="sort-combo"/>
+        <Button fx:id="viewModeToggleBtn" onAction="#handleToggleViewMode" styleClass="icon-btn">
+            <tooltip><Tooltip text="%action.grid_view"/></tooltip>
+            <graphic>
+                <FontIcon fx:id="viewModeToggleIcon" iconLiteral="fth-grid" styleClass="feather-icon"/>
+            </graphic>
+        </Button>
         <Button fx:id="refreshBtn" onAction="#handleRefresh" styleClass="icon-btn">
             <tooltip><Tooltip text="%tooltip.refresh_list"/></tooltip>
             <graphic>

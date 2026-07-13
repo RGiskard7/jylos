@@ -83,43 +83,36 @@ class UiLayout {
         }
     }
 
-    public void toggleRightPanel(VBox rightPanel, ToggleButton infoButton, Note currentNote,
+    public void toggleRightPanel(SplitPane editorRightSplitPane, VBox rightPanel, ToggleButton toggleButton, Note currentNote,
             Runnable updateNoteInfoPanelAction) {
         if (rightPanel == null) {
             return;
         }
 
-        boolean nextVisible = !rightPanel.isVisible();
-        rightPanel.setVisible(nextVisible);
-        rightPanel.setManaged(nextVisible);
-
-        if (infoButton != null) {
-            infoButton.setSelected(nextVisible);
-        }
-
-        if (nextVisible) {
-            rightPanel.setMinWidth(260);
-            rightPanel.setMaxWidth(340);
+        boolean isCollapsed = !rightPanel.isManaged() || !rightPanel.isVisible() || rightPanel.getPrefWidth() < 10;
+        if (isCollapsed) {
+            rightPanel.setVisible(true);
+            rightPanel.setManaged(true);
+            rightPanel.setMinWidth(240);
+            rightPanel.setMaxWidth(Double.MAX_VALUE);
             rightPanel.setPrefWidth(300);
+            if (editorRightSplitPane != null) {
+                editorRightSplitPane.setDividerPositions(0.78);
+            }
         } else {
             rightPanel.setMinWidth(0);
             rightPanel.setMaxWidth(0);
             rightPanel.setPrefWidth(0);
         }
 
-        if (nextVisible && currentNote != null && updateNoteInfoPanelAction != null) {
+        boolean isVisible = isCollapsed;
+        if (toggleButton != null) {
+            toggleButton.setSelected(isVisible);
+        }
+
+        if (isVisible && currentNote != null && updateNoteInfoPanelAction != null) {
             updateNoteInfoPanelAction.run();
         }
     }
 
-    public void closeRightPanel(VBox rightPanel, ToggleButton infoButton) {
-        if (rightPanel == null) {
-            return;
-        }
-        rightPanel.setVisible(false);
-        rightPanel.setManaged(false);
-        if (infoButton != null) {
-            infoButton.setSelected(false);
-        }
-    }
 }

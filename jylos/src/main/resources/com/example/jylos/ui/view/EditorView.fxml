@@ -99,10 +99,6 @@
             <tooltip><Tooltip text="%tooltip.add_favorite"/></tooltip>
             <graphic><FontIcon iconLiteral="fth-star" styleClass="feather-icon"/></graphic>
         </ToggleButton>
-        <ToggleButton fx:id="infoButton" onAction="#handleToggleRightPanel" styleClass="modern-toggle-btn">
-            <tooltip><Tooltip text="%tooltip.toggle_right_panel"/></tooltip>
-            <graphic><FontIcon iconLiteral="fth-menu" styleClass="feather-icon"/></graphic>
-        </ToggleButton>
     </HBox>
 
     <!-- ── Tags Bar (collapsible) ─────────────────────────────────────────── -->
@@ -233,12 +229,6 @@
 
         <!-- Preview Pane -->
         <VBox fx:id="previewPane" styleClass="preview-pane">
-            <HBox styleClass="preview-header">
-                <padding>
-                    <Insets top="8" right="12" bottom="8" left="12"/>
-                </padding>
-                <Label text="%panel.preview.title" styleClass="preview-label"/>
-            </HBox>
             <WebView fx:id="previewWebView" VBox.vgrow="ALWAYS"/>
         </VBox>
     </SplitPane>

@@ -29,6 +29,7 @@ Release centrada en **fiabilidad del canvas**, **persistencia segura de metadata
 - **Soporte de fórmulas LaTeX** en preview Markdown mediante KaTeX offline.
 - **Menos trabajo al abrir/listar en filesystem**: ajustes en lectura ligera, cache y rutas calientes para reducir I/O innecesario en vaults grandes.
 - **Espaciado de preview ajustado**: se redujo margen extra al inicio/final del documento renderizado.
+- **Visor PDF más escalable**: los PDFs ya no rasterizan todas las páginas al abrirse; ahora se abre el documento, se crean placeholders ligeros, se renderizan bajo demanda las páginas cercanas al viewport con una cache LRU pequeña, se calcula la página visible por posición real del viewport, se prioriza esa zona aunque el usuario haga scroll rápido y se recuerda la posición de scroll por documento durante la sesión. Esto reduce memoria, bloqueo inicial y lag en documentos grandes.
 
 ### UI, i18n y documentación
 
@@ -39,6 +40,7 @@ Release centrada en **fiabilidad del canvas**, **persistencia segura de metadata
 - **Internacionalización documentada**: nueva guía para añadir idiomas y ajustes en bundles EN/ES.
 - **Documentación y tooling actualizados a `2.4.0`**: `pom`, metadatos de aplicación, scripts de packaging, README, docs operativas, web landing y catálogo JBang.
 - **Comentarios de intención revisados** en zonas sensibles: metadata filesystem, protección frente a sobrescritura de canvas y carga lazy de assets del preview.
+- **Pulido final de UI**: botones de cierre en Graph/Kanban neutralizados y alineados con el resto de toolbars, scrollbar vertical real en el editor RichTextFX y scrollbar visible en el visor PDF.
 
 ### Commits incluidos y cambios de cierre
 
@@ -48,6 +50,8 @@ Release centrada en **fiabilidad del canvas**, **persistencia segura de metadata
   - persistencia segura de metadata para canvas/adjuntos en filesystem;
   - protección contra sobrescritura de `.canvas` en toggles de favorito/fijado;
   - renderizado KaTeX bajo demanda y carga lazy de `highlight.js`;
+  - renderizado PDF bajo demanda con cache pequeña y restauración de posición de scroll;
+  - ajustes finales de toolbar, diálogos, scrollbars y controles Graph/Kanban;
   - actualización de versión, documentación y catálogo JBang.
 
 ## [2.3.0] - 2026-07-04

@@ -20,6 +20,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.fxmisc.richtext.CodeArea;
+import org.fxmisc.flowless.VirtualizedScrollPane;
 import org.kordamp.ikonli.javafx.FontIcon;
 
 import com.example.jylos.config.LoggerConfig;
@@ -173,7 +174,6 @@ public class EditorController {
     @FXML private ToggleButton previewOnlyButton;
     @FXML private ToggleButton pinButton;
     @FXML private ToggleButton favoriteButton;
-    @FXML private ToggleButton infoButton;
 
     // ── FXML — tags bar ─────────────────────────────────────────────────────
     @FXML private VBox tagsContainer;
@@ -267,9 +267,12 @@ public class EditorController {
      * with their FXML tooltips. Called once the buttons are available.
      */
     public void applyViewModeButtonsPresentation() {
+        applyIconOnly(toggleTagsBtn);
         applyIconOnly(editorOnlyButton);
         applyIconOnly(splitViewButton);
         applyIconOnly(previewOnlyButton);
+        applyIconOnly(pinButton);
+        applyIconOnly(favoriteButton);
     }
 
     private void applyIconOnly(ToggleButton btn) {
@@ -329,7 +332,6 @@ public class EditorController {
     public ToggleButton    getPreviewOnlyButton()       { return previewOnlyButton; }
     public ToggleButton    getPinButton()               { return pinButton; }
     public ToggleButton    getFavoriteButton()          { return favoriteButton; }
-    public ToggleButton    getInfoButton()              { return infoButton; }
     public VBox            getTagsContainer()           { return tagsContainer; }
     public FlowPane        getTagsFlowPane()            { return tagsFlowPane; }
     public Label           getModifiedDateLabel()       { return modifiedDateLabel; }
@@ -474,12 +476,31 @@ public class EditorController {
     /** FXML lifecycle hook: start in the empty state (no note open). */
     @FXML
     private void initialize() {
+        installEditorScrollPane();
         setNoteOpen(false);
         // The read-view heading always mirrors the editable title field.
         if (noteTitleLabel != null && noteTitleField != null) {
             noteTitleLabel.textProperty().bind(noteTitleField.textProperty());
         }
         setupSyntaxHighlighting();
+    }
+
+    /** Wraps RichTextFX's CodeArea in its standard scroll container so the editor exposes a real vertical scrollbar. */
+    private void installEditorScrollPane() {
+        if (editorPane == null || noteContentArea == null || noteContentArea.getParent() != editorPane) {
+            return;
+        }
+        int index = editorPane.getChildren().indexOf(noteContentArea);
+        if (index < 0) {
+            return;
+        }
+        VirtualizedScrollPane<CodeArea> scrollPane = new VirtualizedScrollPane<>(
+                noteContentArea,
+                ScrollPane.ScrollBarPolicy.NEVER,
+                ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.getStyleClass().add("editor-scroll-pane");
+        VBox.setVgrow(scrollPane, Priority.ALWAYS);
+        editorPane.getChildren().set(index, scrollPane);
     }
 
     /**
@@ -576,10 +597,6 @@ public class EditorController {
             noteTitleField.setText(orEmpty(currentNote.getTitle()));
             noteTitleField.setEditable(true);
         }
-        if (infoButton != null) {
-            setNodeVisible(infoButton, true);
-        }
-
         // PDFs and images are not editable: show a native viewer instead of the editor.
         AttachmentType type = AttachmentType.fromName(currentNote.getId());
         currentAttachmentType = type;
@@ -683,9 +700,6 @@ public class EditorController {
         setNodeVisible(editorPathBar, true);
         setNodeVisible(editorHeaderBar, true);
         setNodeVisible(noteOnlyControls, false);
-        if (infoButton != null) {
-            setNodeVisible(infoButton, type == AttachmentType.CANVAS);
-        }
         if (noteTitleField != null) {
             noteTitleField.setEditable(type == AttachmentType.CANVAS);
         }
@@ -1024,9 +1038,6 @@ public class EditorController {
         currentAttachmentType = AttachmentType.MARKDOWN;
         if (noteTitleField != null) {
             noteTitleField.setEditable(true);
-        }
-        if (infoButton != null) {
-            setNodeVisible(infoButton, true);
         }
         if (attachmentViewer != null) {
             attachmentViewer.getChildren().clear(); // release rendered images

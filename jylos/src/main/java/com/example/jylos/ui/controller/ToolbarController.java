@@ -25,10 +25,13 @@ public class ToolbarController {
     };
     private Runnable applySystemThemeAction = () -> {
     };
+    private Runnable toggleRightPanelAction = () -> {
+    };
 
     public void wire(EventBus eventBus, Runnable showCommandPaletteAction,
             Runnable showQuickSwitcherAction, Runnable showKeyboardShortcutsAction,
-            Runnable applyLightThemeAction, Runnable applyDarkThemeAction, Runnable applySystemThemeAction) {
+            Runnable applyLightThemeAction, Runnable applyDarkThemeAction, Runnable applySystemThemeAction,
+            Runnable toggleRightPanelAction) {
         setEventBus(eventBus);
         this.showCommandPaletteAction = showCommandPaletteAction != null ? showCommandPaletteAction : () -> {
         };
@@ -41,6 +44,8 @@ public class ToolbarController {
         this.applyDarkThemeAction = applyDarkThemeAction != null ? applyDarkThemeAction : () -> {
         };
         this.applySystemThemeAction = applySystemThemeAction != null ? applySystemThemeAction : () -> {
+        };
+        this.toggleRightPanelAction = toggleRightPanelAction != null ? toggleRightPanelAction : () -> {
         };
     }
 
@@ -66,9 +71,7 @@ public class ToolbarController {
     @FXML
     private TextField searchField;
     @FXML
-    private ToggleButton listViewButton;
-    @FXML
-    private ToggleButton gridViewButton;
+    private ToggleButton rightPanelToggleBtn;
     @FXML
     private MenuButton toolbarOverflowBtn;
     @FXML
@@ -160,12 +163,8 @@ public class ToolbarController {
         return systemThemeMenuItem;
     }
 
-    public ToggleButton getListViewButton() {
-        return listViewButton;
-    }
-
-    public ToggleButton getGridViewButton() {
-        return gridViewButton;
+    public ToggleButton getRightPanelToggleBtn() {
+        return rightPanelToggleBtn;
     }
 
     public Button getLayoutSwitchBtn() {
@@ -476,13 +475,8 @@ public class ToolbarController {
     }
 
     @FXML
-    private void handleListView(ActionEvent event) {
-        publishEvent(SystemActionEvent.ActionType.LIST_VIEW);
-    }
-
-    @FXML
-    private void handleGridView(ActionEvent event) {
-        publishEvent(SystemActionEvent.ActionType.GRID_VIEW);
+    private void handleToggleRightPanel(ActionEvent event) {
+        toggleRightPanelAction.run();
     }
 
     @FXML
@@ -518,6 +512,10 @@ public class ToolbarController {
             notesPanelToggleBtn.setManaged(showLayoutToggles);
             layoutSwitchBtn.setVisible(showLayoutToggles);
             layoutSwitchBtn.setManaged(showLayoutToggles);
+            if (rightPanelToggleBtn != null) {
+                rightPanelToggleBtn.setVisible(showLayoutToggles);
+                rightPanelToggleBtn.setManaged(showLayoutToggles);
+            }
         }
         if (newNoteBtn != null) {
             newNoteBtn.setVisible(showFileActions);

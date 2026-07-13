@@ -2477,7 +2477,11 @@
 .icon-only-btn {
     -fx-content-display: graphic-only;
     -fx-padding: 6 8;
-    -fx-min-width: 34px;
+    -fx-min-width: 36px;
+    -fx-pref-width: 36px;
+    -fx-max-width: 36px;
+    -fx-min-height: 32px;
+    -fx-pref-height: 32px;
 }
 
 .drag-over-target {
@@ -3518,9 +3522,27 @@
     -fx-border-color: transparent;
 }
 .viewer-scroll > .viewport { -fx-background-color: -fx-base-bg; }
+.viewer-scroll .scroll-bar:vertical {
+    -fx-opacity: 1;
+    -fx-pref-width: 10px;
+    -fx-min-width: 10px;
+}
+.viewer-scroll .scroll-bar:vertical .track {
+    -fx-background-color: transparent;
+}
+.viewer-scroll .scroll-bar:vertical .thumb {
+    -fx-background-color: -fx-fn-border-color;
+    -fx-background-radius: 10;
+}
+.viewer-scroll .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: -fx-text-muted;
+}
 .viewer-canvas {
     -fx-background-color: -fx-base-bg;
     -fx-padding: 16;
+}
+.viewer-pdf-placeholder {
+    -fx-background-color: transparent;
 }
 .viewer-pdf-page {
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 8, 0, 0, 2);
@@ -3981,4 +4003,203 @@
 .drag-over-target {
     -fx-background-color: -fx-accent-soft;
     -fx-border-color: -fx-accent;
+}
+
+.editor-right-split {
+    -fx-background-color: -fx-base-bg;
+    -fx-padding: 0;
+}
+
+.editor-right-split > .split-pane-divider {
+    -fx-background-color: -fx-fn-border-color;
+    -fx-padding: 0 1 0 0;
+}
+
+.right-panel {
+    -fx-background-color: -fx-base-bg;
+    background-color: -fx-base-bg;
+    -fx-border-color: transparent transparent transparent -fx-fn-border-color;
+    border-color: transparent transparent transparent -fx-fn-border-color;
+    -fx-border-width: 0 0 0 1;
+    border-width: 0 0 0 1px;
+}
+
+.right-panel .panel-header {
+    -fx-background-color: -fx-sidebar-bg;
+    background-color: -fx-sidebar-bg;
+}
+
+.toolbar .toolbar-btn,
+.toolbar .modern-toggle-btn,
+.toolbar .menu-button {
+    -fx-min-width: 36px;
+    -fx-pref-width: 36px;
+    -fx-max-width: 36px;
+    -fx-min-height: 32px;
+    -fx-pref-height: 32px;
+    -fx-max-height: 32px;
+    -fx-padding: 0;
+    padding: 0;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    border-radius: 6px;
+    -fx-alignment: center;
+}
+
+.toolbar .toolbar-btn .feather-icon,
+.toolbar .toolbar-btn .ikonli-font-icon,
+.toolbar .modern-toggle-btn .feather-icon,
+.toolbar .modern-toggle-btn .ikonli-font-icon,
+.toolbar .menu-button .feather-icon,
+.toolbar .menu-button .ikonli-font-icon {
+    -fx-icon-size: 17px;
+}
+
+/* Final modal normalization: keep large dialogs visually consistent. */
+.dialog-pane .button,
+.dialog-pane .dialog-btn,
+.dialog-pane .git-primary-btn,
+.dialog-pane .git-stage-btn {
+    -fx-border-width: 1;
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-min-height: 34px;
+    -fx-padding: 6 16;
+}
+
+.dialog-pane .git-stage-btn {
+    -fx-min-width: 34px;
+    -fx-pref-width: 34px;
+    -fx-max-width: 34px;
+    -fx-padding: 0;
+}
+
+.dialog-pane .text-field,
+.dialog-pane .password-field,
+.dialog-pane .text-area,
+.dialog-pane .combo-box,
+.dialog-pane .list-view,
+.dialog-pane .table-view {
+    -fx-border-width: 1;
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+}
+
+.dialog-pane .combo-box > .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: -fx-text-main;
+    -fx-padding: 6 10;
+}
+
+.dialog-pane .text-area .content,
+.dialog-pane .scroll-pane > .viewport,
+.dialog-pane .list-view .virtual-flow,
+.dialog-pane .list-view .clipped-container,
+.dialog-pane .list-view .sheet {
+    -fx-background-color: -fx-base-bg;
+}
+
+.dialog-pane .label,
+.dialog-pane .tab-pane > .tab-header-area > .headers-region > .tab .tab-label {
+    -fx-font-weight: 400;
+}
+
+.dialog-pane > .header-panel .label,
+.dialog-pane .git-status-branch,
+.dialog-pane .git-change-title,
+.dialog-pane .git-commit-subject,
+.dialog-pane .git-section-header,
+.dialog-pane .git-conflict-banner,
+.dialog-pane .git-change-conflict-tag {
+    -fx-font-weight: 600;
+}
+
+.dialog-pane .git-change-badge {
+    -fx-font-weight: 600;
+}
+
+/* Graph and Kanban top bars use graph-toolbar, not the main app toolbar. */
+.graph-toolbar .toolbar-btn,
+.graph-toolbar .modern-toggle-btn {
+    -fx-min-width: 36px;
+    -fx-pref-width: 36px;
+    -fx-max-width: 36px;
+    -fx-min-height: 32px;
+    -fx-pref-height: 32px;
+    -fx-max-height: 32px;
+    -fx-padding: 0;
+    padding: 0;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    border-radius: 6px;
+    -fx-alignment: center;
+}
+
+.graph-toolbar .toolbar-btn .feather-icon,
+.graph-toolbar .toolbar-btn .ikonli-font-icon,
+.graph-toolbar .toolbar-btn .feather-icon-danger,
+.graph-toolbar .modern-toggle-btn .feather-icon,
+.graph-toolbar .modern-toggle-btn .ikonli-font-icon {
+    -fx-icon-size: 17px;
+}
+
+.graph-toolbar .toolbar-btn-danger,
+.graph-toolbar .toolbar-btn-danger:hover,
+.graph-toolbar .toolbar-btn-danger:pressed {
+    -fx-background-color: -fx-button-neutral-bg;
+    background-color: -fx-button-neutral-bg;
+    -fx-border-color: -fx-button-border;
+    border-color: -fx-button-border;
+    -fx-text-fill: -fx-text-main;
+    color: -fx-text-main;
+}
+
+.graph-toolbar .toolbar-btn-danger:hover {
+    -fx-background-color: -fx-button-neutral-hover-bg;
+    background-color: -fx-button-neutral-hover-bg;
+    -fx-border-color: -fx-button-border-hover;
+    border-color: -fx-button-border-hover;
+}
+
+.graph-toolbar .toolbar-btn-danger:pressed {
+    -fx-background-color: -fx-button-neutral-pressed-bg;
+    background-color: -fx-button-neutral-pressed-bg;
+}
+
+.graph-toolbar .toolbar-btn-danger .feather-icon,
+.graph-toolbar .toolbar-btn-danger .feather-icon-danger,
+.graph-toolbar .toolbar-btn-danger .ikonli-font-icon,
+.graph-toolbar .toolbar-btn-danger:hover .feather-icon,
+.graph-toolbar .toolbar-btn-danger:hover .feather-icon-danger,
+.graph-toolbar .toolbar-btn-danger:hover .ikonli-font-icon {
+    -fx-icon-color: -fx-text-main;
+    -fx-fill: -fx-text-main;
+    fill: -fx-text-main;
+}
+
+.editor-scroll-pane {
+    -fx-background-color: -fx-base-bg;
+}
+
+.editor-scroll-pane .scroll-bar:vertical {
+    -fx-opacity: 1;
+    -fx-pref-width: 10px;
+    -fx-min-width: 10px;
+}
+
+.editor-scroll-pane .scroll-bar:vertical .track {
+    -fx-background-color: transparent;
+}
+
+.editor-scroll-pane .scroll-bar:vertical .thumb {
+    -fx-background-color: -fx-fn-border-color;
+    -fx-background-radius: 10;
+}
+
+.editor-scroll-pane .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: -fx-text-muted;
 }

@@ -13,6 +13,7 @@ import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.service.NoteService;
 
+import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.SplitPane;
@@ -212,10 +213,10 @@ class NavigationCommand {
     }
 
     boolean switchLayout(boolean currentStackedLayout, SplitPane mainSplitPane, SplitPane contentSplitPane,
-            SplitPane navSplitPane, VBox sidebarPane, VBox notesPanel, VBox editorContainer,
+            SplitPane navSplitPane, VBox sidebarPane, VBox notesPanel, Node editorArea,
             ToolbarController toolbarController) {
         if (mainSplitPane == null || contentSplitPane == null || navSplitPane == null || sidebarPane == null
-                || notesPanel == null || editorContainer == null) {
+                || notesPanel == null || editorArea == null) {
             return currentStackedLayout;
         }
 
@@ -234,11 +235,11 @@ class NavigationCommand {
             navSplitPane.getItems().addAll(sidebarPane, notesPanel);
             navSplitPane.setDividerPositions(0.5);
 
-            mainSplitPane.getItems().addAll(navSplitPane, editorContainer);
+            mainSplitPane.getItems().addAll(navSplitPane, editorArea);
             mainSplitPane.setDividerPositions(0.25);
             updateStatus.accept(i18n("status.layout_stacked"));
         } else {
-            contentSplitPane.getItems().addAll(notesPanel, editorContainer);
+            contentSplitPane.getItems().addAll(notesPanel, editorArea);
             contentSplitPane.setDividerPositions(0.3);
 
             mainSplitPane.getItems().addAll(sidebarPane, contentSplitPane);

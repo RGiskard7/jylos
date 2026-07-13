@@ -154,7 +154,7 @@
         <Separator fx:id="toolbarSeparator1" orientation="VERTICAL" styleClass="toolbar-separator"/>
 
         <!-- File Actions -->
-        <Button fx:id="newNoteBtn" onAction="#handleNewNote" styleClass="toolbar-btn toolbar-btn-primary">
+        <Button fx:id="newNoteBtn" onAction="#handleNewNote" styleClass="toolbar-btn">
             <tooltip><Tooltip text="%action.new_note"/></tooltip>
             <graphic>
                 <FontIcon iconLiteral="fth-file-plus" styleClass="feather-icon"/>
@@ -181,7 +181,7 @@
                 <FontIcon iconLiteral="fth-save" styleClass="feather-icon"/>
             </graphic>
         </Button>
-        <Button fx:id="deleteBtn" onAction="#handleDelete" styleClass="toolbar-btn toolbar-btn-danger">
+        <Button fx:id="deleteBtn" onAction="#handleDelete" styleClass="toolbar-btn">
             <tooltip><Tooltip text="%action.delete"/></tooltip>
             <graphic>
                 <FontIcon iconLiteral="fth-trash-2" styleClass="feather-icon-danger"/>
@@ -200,17 +200,10 @@
 
         <Region HBox.hgrow="ALWAYS"/>
 
-        <!-- View toggle buttons (List/Grid) -->
-        <ToggleButton fx:id="listViewButton" onAction="#handleListView" styleClass="modern-toggle-btn" selected="true">
-            <tooltip><Tooltip text="%action.list_view"/></tooltip>
+        <ToggleButton fx:id="rightPanelToggleBtn" onAction="#handleToggleRightPanel" styleClass="modern-toggle-btn">
+            <tooltip><Tooltip text="%tooltip.toggle_right_panel"/></tooltip>
             <graphic>
-                <FontIcon iconLiteral="fth-align-justify" styleClass="feather-icon"/>
-            </graphic>
-        </ToggleButton>
-        <ToggleButton fx:id="gridViewButton" onAction="#handleGridView" styleClass="modern-toggle-btn">
-            <tooltip><Tooltip text="%action.grid_view"/></tooltip>
-            <graphic>
-                <FontIcon iconLiteral="fth-grid" styleClass="feather-icon"/>
+                <FontIcon iconLiteral="fth-sidebar" scaleX="-1" styleClass="feather-icon"/>
             </graphic>
         </ToggleButton>
 
