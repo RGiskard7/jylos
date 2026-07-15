@@ -1,6 +1,7 @@
 package com.example.jylos.ui.controller;
 
 import javafx.fxml.FXML;
+import javafx.beans.value.ChangeListener;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.input.*;
@@ -377,16 +378,31 @@ public class SidebarController {
     private void setupCellFactories() {
         folderTreeView.setCellFactory(tv -> new TreeCell<Folder>() {
             private final ContextMenu folderContextMenu = createFolderContextMenuForCell(this);
+            private final ChangeListener<Boolean> expandedListener = (obs, wasExpanded, isExpanded) -> refreshFolderIcon();
+            private TreeItem<Folder> observedFolderItem;
+            private Label folderIconLabel;
 
             @Override
             protected void updateItem(Folder folder, boolean empty) {
                 super.updateItem(folder, empty);
+                TreeItem<Folder> currentItem = getTreeItem();
+                if (observedFolderItem != currentItem) {
+                    if (observedFolderItem != null) {
+                        observedFolderItem.expandedProperty().removeListener(expandedListener);
+                    }
+                    observedFolderItem = currentItem;
+                    if (observedFolderItem != null) {
+                        observedFolderItem.expandedProperty().addListener(expandedListener);
+                    }
+                }
                 if (empty || folder == null) {
                     setText(null);
                     setGraphic(null);
                     setContextMenu(null);
+                    folderIconLabel = null;
                 } else {
                     Label iconLabel = new Label("");
+                    folderIconLabel = iconLabel;
                     iconLabel.getStyleClass().setAll("folder-cell-icon");
                     boolean isAllNotes = "ALL_NOTES_VIRTUAL".equals(folder.getId());
                     if (isAllNotes) {
@@ -429,6 +445,19 @@ public class SidebarController {
                     setupFolderDragSource(this, folder);
                     setupFolderDropTargets(this, folder);
                 }
+            }
+
+            private void refreshFolderIcon() {
+                Folder folder = getItem();
+                if (folder == null || folderIconLabel == null || "ALL_NOTES_VIRTUAL".equals(folder.getId())) {
+                    return;
+                }
+                TreeItem<Folder> item = getTreeItem();
+                boolean expanded = item != null && item.isExpanded();
+                folderIconLabel.setText(expanded ? "[/]" : "[+]");
+                folderIconLabel.getStyleClass().setAll(
+                        "folder-cell-icon",
+                        expanded ? "folder-expanded" : "folder-collapsed");
             }
         });
 

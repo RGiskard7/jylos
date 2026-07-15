@@ -180,11 +180,14 @@ public class MarkdownPreview {
                     <style>
                         html, body { color: %s; background-color: %s; margin: 0; padding: 0; width: 100%%; height: 100%%; }
                         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; }
+                        ::-webkit-scrollbar { width: 8px; height: 8px; }
+                        ::-webkit-scrollbar-track { background: %s; }
+                        ::-webkit-scrollbar-thumb { background: %s; border-radius: 10px; min-height: 32px; }
                     </style>
                 </head>
                 <body></body>
                 </html>
-                """.formatted(fg, bg);
+                """.formatted(fg, bg, bg, isDarkTheme ? "#505050" : "#CBD5E0");
     }
 
     private static Injections collectInjections(Collection<PreviewEnhancer> enhancers) {
@@ -222,6 +225,10 @@ public class MarkdownPreview {
         return """
                 html { background-color: #1E1E1E; margin: 0; padding: 0; }
                 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; padding: 20px; line-height: 1.6; color: #E0E0E0; background-color: #1E1E1E; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; overflow-x: hidden; }
+                ::-webkit-scrollbar { width: 8px; height: 8px; }
+                ::-webkit-scrollbar-track { background: #1E1E1E; }
+                ::-webkit-scrollbar-thumb { background: #505050; border-radius: 10px; min-height: 32px; }
+                ::-webkit-scrollbar-thumb:hover { background: #606060; }
                 body > :first-child { margin-top: 0; }
                 body > :last-child { margin-bottom: 0; }
                 h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; font-weight: 600; color: #FFFFFF; }
@@ -272,6 +279,10 @@ public class MarkdownPreview {
         return """
                 html { background-color: #FFFFFF; margin: 0; padding: 0; }
                 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; padding: 20px; line-height: 1.6; color: #24292e; background-color: #FFFFFF; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; overflow-x: hidden; }
+                ::-webkit-scrollbar { width: 8px; height: 8px; }
+                ::-webkit-scrollbar-track { background: #FFFFFF; }
+                ::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 10px; min-height: 32px; }
+                ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
                 body > :first-child { margin-top: 0; }
                 body > :last-child { margin-bottom: 0; }
                 h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; font-weight: 600; color: #24292e; }

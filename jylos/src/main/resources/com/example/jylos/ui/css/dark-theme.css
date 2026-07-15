@@ -832,6 +832,18 @@
     visibility: hidden;
 }
 
+.notes-list .scroll-bar:horizontal,
+.notes-list .scroll-bar:horizontal .track,
+.notes-list .scroll-bar:horizontal .thumb,
+.notes-list .scroll-bar:horizontal .increment-button,
+.notes-list .scroll-bar:horizontal .decrement-button {
+    -fx-opacity: 0;
+    -fx-padding: 0;
+    -fx-pref-height: 0;
+    -fx-max-height: 0;
+    -fx-min-height: 0;
+}
+
 .notes-list>.virtual-flow {
     -fx-max-width: 100%;
 }
@@ -1404,12 +1416,19 @@
     -fx-padding: 4 12 4 4;
     padding: 4px 12px 4px 4px;
     -fx-alignment: center-left;
+    -fx-min-height: 52px;
+    -fx-pref-height: 52px;
+    -fx-max-height: 52px;
 }
 
 .format-toolbar-scroll {
     -fx-background-color: transparent;
     -fx-border-color: transparent;
     -fx-padding: 0;
+    -fx-min-height: 44px;
+    -fx-pref-height: 44px;
+    -fx-max-height: 44px;
+    -fx-fit-to-height: true;
 }
 
 .format-toolbar-scroll>.viewport {
@@ -1446,6 +1465,9 @@
 .format-toolbar {
     -fx-background-color: transparent;
     -fx-border-color: transparent;
+    -fx-min-height: 36px;
+    -fx-pref-height: 36px;
+    -fx-max-height: 36px;
 }
 
 /* Flat, uniform icon/text buttons — no per-button border, hover background only. */
@@ -1779,11 +1801,23 @@
 }
 
 .scroll-bar:vertical {
-    -fx-pref-width: 10px;
+    -fx-pref-width: 8px;
+    -fx-min-width: 8px;
+    -fx-max-width: 8px;
+}
+
+.scroll-bar:vertical .thumb {
+    -fx-min-height: 32px;
 }
 
 .scroll-bar:horizontal {
-    -fx-pref-height: 10px;
+    -fx-pref-height: 8px;
+    -fx-min-height: 8px;
+    -fx-max-height: 8px;
+}
+
+.scroll-bar:horizontal .thumb {
+    -fx-min-width: 32px;
 }
 
 .scroll-bar .increment-button,
@@ -3356,6 +3390,23 @@
     -fx-background-color: -fx-hover-bg;
     -fx-text-fill: -fx-text-main;
 }
+.viewer-btn:selected {
+    -fx-background-color: -fx-selected-bg;
+    -fx-text-fill: -fx-text-main;
+}
+.viewer-page-field {
+    -fx-background-color: -fx-base-bg;
+    -fx-text-fill: -fx-text-main;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-width: 1;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-padding: 3 6 3 6;
+    -fx-font-size: 12px;
+    -fx-pref-width: 54px;
+    -fx-max-width: 54px;
+    -fx-alignment: center;
+}
 .viewer-scroll {
     -fx-background-color: -fx-base-bg;
     -fx-background: transparent;
@@ -3364,8 +3415,9 @@
 .viewer-scroll > .viewport { -fx-background-color: -fx-base-bg; }
 .viewer-scroll .scroll-bar:vertical {
     -fx-opacity: 1;
-    -fx-pref-width: 10px;
-    -fx-min-width: 10px;
+    -fx-pref-width: 8px;
+    -fx-min-width: 8px;
+    -fx-max-width: 8px;
 }
 .viewer-scroll .scroll-bar:vertical .track {
     -fx-background-color: transparent;
@@ -3373,6 +3425,7 @@
 .viewer-scroll .scroll-bar:vertical .thumb {
     -fx-background-color: #505050;
     -fx-background-radius: 10;
+    -fx-min-height: 32px;
 }
 .viewer-scroll .scroll-bar:vertical .thumb:hover {
     -fx-background-color: #606060;
@@ -3380,6 +3433,42 @@
 .viewer-canvas {
     -fx-background-color: -fx-base-bg;
     -fx-padding: 16;
+}
+.viewer-thumbnail-scroll {
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-border-color: transparent -fx-fn-border-color transparent transparent;
+    -fx-border-width: 0 1 0 0;
+    -fx-pref-width: 148px;
+    -fx-min-width: 148px;
+    -fx-max-width: 148px;
+}
+.viewer-thumbnail-scroll > .viewport {
+    -fx-background-color: -fx-sidebar-bg;
+}
+.viewer-thumbnail-list {
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-padding: 12 10 12 10;
+}
+.viewer-thumbnail {
+    -fx-background-color: -fx-button-neutral-bg;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-width: 1;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-padding: 6;
+    -fx-cursor: hand;
+}
+.viewer-thumbnail:hover,
+.viewer-thumbnail.selected {
+    -fx-border-color: -fx-accent;
+}
+.viewer-thumbnail-number {
+    -fx-background-color: rgba(0,0,0,0.68);
+    -fx-background-radius: 4;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-font-size: 11px;
+    -fx-padding: 2 5 2 5;
 }
 .viewer-pdf-placeholder {
     -fx-background-color: transparent;
@@ -4023,8 +4112,9 @@
 
 .editor-scroll-pane .scroll-bar:vertical {
     -fx-opacity: 1;
-    -fx-pref-width: 10px;
-    -fx-min-width: 10px;
+    -fx-pref-width: 8px;
+    -fx-min-width: 8px;
+    -fx-max-width: 8px;
 }
 
 .editor-scroll-pane .scroll-bar:vertical .track {
@@ -4034,6 +4124,7 @@
 .editor-scroll-pane .scroll-bar:vertical .thumb {
     -fx-background-color: #505050;
     -fx-background-radius: 10;
+    -fx-min-height: 32px;
 }
 
 .editor-scroll-pane .scroll-bar:vertical .thumb:hover {
