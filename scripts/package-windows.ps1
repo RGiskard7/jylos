@@ -118,8 +118,23 @@ function Read-AppProperty {
     return $defaultValue
 }
 
+function Read-PomVersion {
+    $pomFile = Join-Path (Get-Location) 'pom.xml'
+    $content = Get-Content $pomFile -Raw
+    if ($content -match '<version>([^<]+)</version>') {
+        return $matches[1]
+    }
+    return '2.4.0'
+}
+
 $APP_NAME = Read-AppProperty 'app.name' 'Jylos'
 $APP_VERSION = Read-AppProperty 'app.version' '2.4.0'
+if ($env:JYLOS_RELEASE_VERSION) {
+    $APP_VERSION = $env:JYLOS_RELEASE_VERSION
+}
+if ($APP_VERSION -like '*${*') {
+    $APP_VERSION = Read-PomVersion
+}
 $APP_VENDOR = Read-AppProperty 'app.vendor' 'Jylos'
 $APP_DESCRIPTION = Read-AppProperty 'app.description' 'A free and open-source note-taking application'
 $APP_COPYRIGHT = Read-AppProperty 'app.copyright' 'Copyright 2025 Jylos'
@@ -166,7 +181,7 @@ Write-Host ''
 
 # -- Build uber-JAR --------------------------------------------------------------
 Write-Host 'Building JAR...' -ForegroundColor Cyan
-& mvn clean package -DskipTests
+& mvn clean package -DskipTests "-Drelease.version=$APP_VERSION"
 if ($LASTEXITCODE -ne 0) {
     Write-Host 'Error: Maven build failed' -ForegroundColor Red
     Pop-Location

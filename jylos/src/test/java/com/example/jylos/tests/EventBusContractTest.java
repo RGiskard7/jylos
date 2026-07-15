@@ -19,6 +19,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import com.example.jylos.event.AppEvent;
 import com.example.jylos.event.EventBus;
@@ -46,6 +47,7 @@ class EventBusContractTest {
     }
 
     @BeforeAll
+    @Timeout(5)
     static void initFxRuntime() {
         CountDownLatch latch = new CountDownLatch(1);
         try {
@@ -64,6 +66,7 @@ class EventBusContractTest {
     }
 
     @Test
+    @Timeout(5)
     void pluginContextSubscribeReturnsNoOpWhenEventBusIsMissing() {
         PluginContext context = new PluginContext(
                 "test-plugin",
@@ -90,6 +93,7 @@ class EventBusContractTest {
     }
 
     @Test
+    @Timeout(5)
     void noOpSubscriptionIsSafeAndIdempotent() {
         EventBus.Subscription subscription = EventBus.Subscription.NO_OP;
         assertNotNull(subscription);
@@ -102,6 +106,7 @@ class EventBusContractTest {
     }
 
     @Test
+    @Timeout(10)
     void concurrentPublishSyncDispatchesToAllSubscribers() throws Exception {
         EventBus bus = EventBus.getInstance();
         AtomicInteger counter = new AtomicInteger(0);
@@ -123,6 +128,7 @@ class EventBusContractTest {
     }
 
     @Test
+    @Timeout(10)
     void asyncPublishRunsOnFxThreadAndKeepsOrder() throws Exception {
         Assumptions.assumeTrue(fxRuntimeAvailable, "JavaFX runtime no disponible");
 

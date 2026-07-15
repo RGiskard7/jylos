@@ -57,13 +57,6 @@ public class TagService {
      * @return The created tag with its generated ID
      * @throws IllegalArgumentException if a tag with this name already exists
      */
-    /**
-     * Creates a new tag.
-     * 
-     * @param title The tag title
-     * @return The created tag with its generated ID
-     * @throws IllegalArgumentException if a tag with this name already exists
-     */
     public Tag createTag(String title) {
         if (title == null || title.trim().isEmpty()) {
             throw new IllegalArgumentException("Tag title cannot be null or empty");
@@ -268,7 +261,7 @@ public class TagService {
         List<Tag> noteTags = getTagsForNote(note);
 
         return allTags.stream()
-                .filter(tag -> noteTags.stream().noneMatch(nt -> nt.getId().equals(tag.getId())))
+                .filter(tag -> noteTags.stream().noneMatch(noteTag -> sameTag(noteTag, tag)))
                 .sorted((a, b) -> a.getTitle().compareToIgnoreCase(b.getTitle()))
                 .collect(Collectors.toList());
     }
@@ -286,7 +279,7 @@ public class TagService {
 
         // Check if already has tag
         List<Tag> currentTags = getTagsForNote(note);
-        if (currentTags.stream().anyMatch(t -> t.getId().equals(tag.getId()))) {
+        if (currentTags.stream().anyMatch(current -> sameTag(current, tag))) {
             logger.info("Note already has tag: " + tag.getTitle());
             return;
         }
@@ -377,5 +370,20 @@ public class TagService {
         }
         // Tag titles should not be too long
         return title.trim().length() <= 50;
+    }
+
+    private static boolean sameTag(Tag left, Tag right) {
+        if (left == null || right == null) {
+            return false;
+        }
+        String leftId = left.getId();
+        String rightId = right.getId();
+        if (leftId != null && !leftId.isBlank() && rightId != null && !rightId.isBlank()) {
+            return leftId.equals(rightId);
+        }
+        String leftTitle = left.getTitle();
+        String rightTitle = right.getTitle();
+        return leftTitle != null && rightTitle != null
+                && leftTitle.trim().equalsIgnoreCase(rightTitle.trim());
     }
 }

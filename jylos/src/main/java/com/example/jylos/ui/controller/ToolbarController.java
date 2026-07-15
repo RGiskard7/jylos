@@ -440,6 +440,11 @@ public class ToolbarController {
     }
 
     @FXML
+    private void handleCheckUpdates(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.CHECK_UPDATES);
+    }
+
+    @FXML
     private void handleAbout(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.ABOUT);
     }

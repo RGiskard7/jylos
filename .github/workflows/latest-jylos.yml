@@ -19,6 +19,7 @@ jobs:
   test:
     name: Build and test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -31,5 +32,10 @@ jobs:
           java-version: '21'
           cache: maven
 
+      - name: Install headless UI test support
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+
       - name: Compile and run tests
-        run: mvn -B -f jylos/pom.xml clean test
+        run: xvfb-run -a mvn -B -f jylos/pom.xml clean test

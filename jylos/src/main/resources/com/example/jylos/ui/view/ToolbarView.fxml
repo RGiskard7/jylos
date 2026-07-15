@@ -114,6 +114,7 @@
         <Menu text="%menu.help">
             <MenuItem text="%menu.documentation" onAction="#handleDocumentation"/>
             <MenuItem text="%menu.shortcuts" onAction="#handleKeyboardShortcuts" accelerator="F1"/>
+            <MenuItem text="%menu.check_updates" onAction="#handleCheckUpdates"/>
             <SeparatorMenuItem/>
             <MenuItem text="%menu.about" onAction="#handleAbout"/>
         </Menu>

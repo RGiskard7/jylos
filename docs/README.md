@@ -11,6 +11,7 @@ Technical docs for Jylos. User-facing overview: [README.md](../README.md).
 | [I18N.md](I18N.md) | Supported locales and how to add a new language |
 | [PLUGINS.md](PLUGINS.md) | External plugin JAR workflow |
 | [PACKAGING.md](PACKAGING.md) | Platform packaging scripts |
+| [TESTING.md](TESTING.md) | Test strategy, commands, and guard-test rules |
 | [EVENT_BUS_CONTRACT.md](EVENT_BUS_CONTRACT.md) | Event bus usage rules |
 | [GIT.md](GIT.md) | Vault Git integration and sync panel |
 | [GRAPH.md](GRAPH.md) | Knowledge graph and Knowledge Insights |
