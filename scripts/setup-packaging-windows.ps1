@@ -17,6 +17,16 @@ $wixDir = Join-Path $root '.tools\wix314'
 $wixZipUrl = 'https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip'
 
 function Test-Jdk21Installed {
+    if ($env:JAVA_HOME) {
+        $javaExe = Join-Path $env:JAVA_HOME 'bin\java.exe'
+        if (Test-Path $javaExe) {
+            $ver = & $javaExe -version 2>&1 | Out-String
+            if ($ver -match 'version "(2[1-9]|[3-9]\d)') {
+                return $true
+            }
+        }
+    }
+
     foreach ($pattern in @(
             'C:\Program Files\Java\jdk-*',
             'C:\Program Files\Eclipse Adoptium\jdk-*',
