@@ -61,17 +61,27 @@ fi
 echo "jpackage found"
 echo ""
 
-# Detect Linux distribution
-if [ -f /etc/debian_version ]; then
+# Detect Linux distribution unless CI/local caller explicitly requests one format.
+if [ -n "${JYLOS_LINUX_PACKAGE_TYPE:-}" ]; then
+    case "$JYLOS_LINUX_PACKAGE_TYPE" in
+        deb|rpm)
+            PACKAGE_TYPE="$JYLOS_LINUX_PACKAGE_TYPE"
+            echo "Requested Linux package type: $PACKAGE_TYPE"
+            ;;
+        *)
+            echo "Error: JYLOS_LINUX_PACKAGE_TYPE must be 'deb' or 'rpm'." >&2
+            exit 1
+            ;;
+    esac
+elif [ -f /etc/debian_version ]; then
     PACKAGE_TYPE="deb"
     echo "Detected Debian/Ubuntu - will create DEB package"
 elif [ -f /etc/redhat-release ] || [ -f /etc/fedora-release ]; then
     PACKAGE_TYPE="rpm"
     echo "Detected RedHat/Fedora - will create RPM package"
 else
-    # Default to DEB, but try both
     PACKAGE_TYPE="deb"
-    echo "Unknown distribution - will create DEB package (you can modify to create RPM)"
+    echo "Unknown distribution - will create DEB package"
 fi
 
 echo ""

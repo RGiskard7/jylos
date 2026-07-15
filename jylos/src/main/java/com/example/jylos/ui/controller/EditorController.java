@@ -132,6 +132,9 @@ public class EditorController {
 
     private final Map<String, PreviewEnhancer> previewEnhancers = new HashMap<>();
     private boolean wikiLinkListenerInstalled;
+    private Double pendingPreviewScrollY;
+    private String pendingPreviewNoteId;
+    private String renderedPreviewNoteId;
     private WikiLinkHandler wikiLinkHandler;
     private final PreviewJavaBridge previewJavaBridge = new PreviewJavaBridge();
     private final RichLinkService richLinkService = new RichLinkService();
@@ -191,6 +194,7 @@ public class EditorController {
     @FXML private SplitPane editorPreviewSplitPane;
     @FXML private VBox      editorPane;
     @FXML private CodeArea  noteContentArea;
+    @FXML private HBox      formatToolbarContainer;
     @FXML private Button    heading1Btn, heading2Btn, heading3Btn;
     @FXML private Button    boldBtn, italicBtn, strikeBtn, underlineBtn;
     @FXML private Button    highlightBtn, linkBtn, richLinkBtn, imageBtn;
@@ -501,6 +505,10 @@ public class EditorController {
         scrollPane.getStyleClass().add("editor-scroll-pane");
         VBox.setVgrow(scrollPane, Priority.ALWAYS);
         editorPane.getChildren().set(index, scrollPane);
+        if (formatToolbarContainer != null && !editorPane.getChildren().contains(formatToolbarContainer)) {
+            VBox.setVgrow(formatToolbarContainer, Priority.NEVER);
+            editorPane.getChildren().add(formatToolbarContainer);
+        }
     }
 
     /**
@@ -701,7 +709,11 @@ public class EditorController {
         setNodeVisible(editorHeaderBar, true);
         setNodeVisible(noteOnlyControls, false);
         if (noteTitleField != null) {
-            noteTitleField.setEditable(type == AttachmentType.CANVAS);
+            setNodeVisible(noteTitleField, true);
+            noteTitleField.setEditable(true);
+        }
+        if (noteTitleLabel != null) {
+            setNodeVisible(noteTitleLabel, false);
         }
         setNodeVisible(editorPreviewSplitPane, false);
         setNodeVisible(tagsContainer, false);
@@ -1057,6 +1069,14 @@ public class EditorController {
         if (!isModified || noteService == null) return;
         String previousNoteId = currentNote.getId();
         if (noteTitleField  != null) currentNote.setTitle(noteTitleField.getText());
+        if (viewingAttachment) {
+            noteService.updateNote(currentNote);
+            isModified = false;
+            updateBreadcrumb(currentNote);
+            updateSaveIndicator(false);
+            if (eventBus != null) eventBus.publish(new NoteEvents.NoteSavedEvent(currentNote, previousNoteId));
+            return;
+        }
         if (noteContentArea != null) currentNote.setContent(noteContentArea.getText());
         // Property values are editable only in edit/split view; in read view the
         // model already holds the authoritative values, so we don't collect.
@@ -1750,6 +1770,9 @@ public class EditorController {
         }
 
         String content = liveEditorContent(currentNote);
+        String noteId = currentNote.getId();
+        boolean preserveScroll = noteId != null && noteId.equals(renderedPreviewNoteId);
+        double scrollY = preserveScroll ? currentPreviewScrollY() : 0;
         // Capture stable references for the background thread
         java.util.Collection<PreviewEnhancer> enhancers =
                 new java.util.ArrayList<>(previewEnhancers.values());
@@ -1769,6 +1792,8 @@ public class EditorController {
             if (task != currentPreviewTask || task.isCancelled() || !isPreviewVisible()) {
                 return;
             }
+            pendingPreviewScrollY = scrollY;
+            pendingPreviewNoteId = noteId;
             previewWebView.getEngine().loadContent(task.getValue(), "text/html");
             installWikiLinkListener();
         });
@@ -1787,6 +1812,18 @@ public class EditorController {
         Thread thread = new Thread(task, "preview-render");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private double currentPreviewScrollY() {
+        if (previewWebView == null) {
+            return 0;
+        }
+        try {
+            Object value = previewWebView.getEngine().executeScript("window.scrollY || 0");
+            return value instanceof Number number ? Math.max(0, number.doubleValue()) : 0;
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     public boolean isPreviewVisible() {
@@ -1928,11 +1965,38 @@ public class EditorController {
                     netscape.javascript.JSObject window = (netscape.javascript.JSObject)
                             previewWebView.getEngine().executeScript("window");
                     window.setMember("javaApp", previewJavaBridge);
+                    installAcceleratedPreviewScroll();
+                    restorePendingPreviewScroll();
                 } catch (Exception e) {
                     logger.warning("Failed to inject preview Java bridge: " + e.getMessage());
                 }
             }
         });
+    }
+
+    private void installAcceleratedPreviewScroll() {
+        previewWebView.getEngine().executeScript("""
+                if (!window.__jylosWheelSpeedInstalled) {
+                  window.__jylosWheelSpeedInstalled = true;
+                  document.addEventListener('wheel', function(e) {
+                    if (e.ctrlKey || e.metaKey) return;
+                    window.scrollBy(0, e.deltaY * 1.8);
+                    e.preventDefault();
+                  }, { passive: false });
+                }
+                """);
+    }
+
+    private void restorePendingPreviewScroll() {
+        if (pendingPreviewScrollY == null) {
+            return;
+        }
+        double scrollY = pendingPreviewScrollY;
+        String noteId = pendingPreviewNoteId;
+        pendingPreviewScrollY = null;
+        pendingPreviewNoteId = null;
+        previewWebView.getEngine().executeScript("window.scrollTo(0, " + scrollY + ");");
+        renderedPreviewNoteId = noteId;
     }
 
     /**
@@ -1982,8 +2046,7 @@ public class EditorController {
         if (dirtySaveIndicator == null) {
             return;
         }
-        boolean show = currentNote != null
-                && (!viewingAttachment || currentAttachmentType == AttachmentType.CANVAS);
+        boolean show = currentNote != null;
         setNodeVisible(dirtySaveIndicator, show);
         if (!show) {
             return;

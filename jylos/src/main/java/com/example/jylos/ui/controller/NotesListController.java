@@ -158,10 +158,18 @@ public class NotesListController {
         Runnable disableHbar = () -> listView.lookupAll(".scroll-bar").forEach(node -> {
             if (node instanceof ScrollBar scrollBar
                     && scrollBar.getOrientation() == javafx.geometry.Orientation.HORIZONTAL) {
+                scrollBar.setMin(0);
+                scrollBar.setMax(0);
+                scrollBar.setValue(0);
+                scrollBar.setDisable(true);
                 scrollBar.setVisible(false);
                 scrollBar.setManaged(false);
+                scrollBar.setMinWidth(0);
                 scrollBar.setPrefWidth(0);
                 scrollBar.setMaxWidth(0);
+                scrollBar.setMinHeight(0);
+                scrollBar.setPrefHeight(0);
+                scrollBar.setMaxHeight(0);
             }
         });
         Platform.runLater(disableHbar);
@@ -413,7 +421,7 @@ public class NotesListController {
             protected double computePrefWidth(double height) {
                 ListView<Note> lv = getListView();
                 if (lv != null && lv.getWidth() > 0) {
-                    return lv.getWidth();
+                    return resolveContentWidth(lv);
                 }
                 return super.computePrefWidth(height);
             }

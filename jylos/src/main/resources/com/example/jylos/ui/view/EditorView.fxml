@@ -145,11 +145,11 @@
                styleClass="editor-split">
 
         <!-- Editor Pane -->
-        <VBox fx:id="editorPane" styleClass="editor-pane">
+        <VBox fx:id="editorPane" VBox.vgrow="ALWAYS" styleClass="editor-pane">
             <CodeArea fx:id="noteContentArea" wrapText="true" VBox.vgrow="ALWAYS" styleClass="editor-area"/>
 
             <!-- Format Toolbar -->
-            <HBox styleClass="format-toolbar-container">
+            <HBox fx:id="formatToolbarContainer" styleClass="format-toolbar-container">
                 <ScrollPane hbarPolicy="AS_NEEDED" vbarPolicy="NEVER" fitToHeight="true"
                             styleClass="format-toolbar-scroll" HBox.hgrow="ALWAYS">
                     <HBox alignment="CENTER_LEFT" spacing="2" styleClass="format-toolbar">
