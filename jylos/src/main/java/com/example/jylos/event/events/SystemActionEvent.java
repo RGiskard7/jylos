@@ -47,6 +47,7 @@ public class SystemActionEvent extends AppEvent {
         PREFERENCES,
         SWITCH_STORAGE,
         DOCUMENTATION,
+        CHECK_UPDATES,
         ABOUT,
         SORT_FOLDERS,
         EXPAND_ALL_FOLDERS,

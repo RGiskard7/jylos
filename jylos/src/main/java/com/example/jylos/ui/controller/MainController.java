@@ -19,6 +19,7 @@ import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.config.VersionConfig;
 import com.example.jylos.data.dao.interfaces.FactoryDAO;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
@@ -41,6 +42,7 @@ import com.example.jylos.service.EncryptionService;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
+import com.example.jylos.service.UpdateChecker;
 import com.example.jylos.ui.components.CommandPalette;
 import com.example.jylos.ui.components.PluginManagerDialog;
 import com.example.jylos.ui.components.QuickSwitcher;
@@ -49,10 +51,12 @@ import com.example.jylos.ui.theme.CssSnippetCatalog;
 import com.example.jylos.ui.theme.SystemThemeMonitor;
 import com.example.jylos.ui.theme.ThemeCatalog;
 import com.example.jylos.ui.theme.ThemeCommand;
+import com.example.jylos.util.SystemBrowser;
 
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
+import javafx.geometry.Pos;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
@@ -60,6 +64,7 @@ import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
+import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Menu;
@@ -72,6 +77,7 @@ import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.Tooltip;
 import javafx.scene.control.TreeItem;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.util.Duration;
@@ -308,6 +314,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         t.setDaemon(true);
         return t;
     });
+    private final ExecutorService updateCheckExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "jylos-update-checker");
+        t.setDaemon(true);
+        return t;
+    });
+    private final UpdateChecker updateChecker = new UpdateChecker();
     private final AtomicLong quickSwitcherLoadVersion = new AtomicLong(0);
     private final AtomicLong backendSessionGeneration = new AtomicLong(0);
     private volatile List<Note> quickSwitcherNotesCache = List.of();
@@ -401,6 +413,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                     () -> editorController != null ? editorController.getEditorContainer() : null,
                     prefs, this::getString, this::updateStatus);
             updateStatus(getString("status.ready"));
+            checkForUpdatesAtStartup();
             logger.info("MainController initialized successfully");
 
         } catch (Exception e) {
@@ -1642,6 +1655,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         systemActionHandlers.put(SystemActionEvent.ActionType.PREFERENCES, () -> handlePreferences(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.SWITCH_STORAGE, this::handleSwitchStorage);
         systemActionHandlers.put(SystemActionEvent.ActionType.DOCUMENTATION, () -> handleDocumentation(null));
+        systemActionHandlers.put(SystemActionEvent.ActionType.CHECK_UPDATES, this::checkForUpdatesManually);
         systemActionHandlers.put(SystemActionEvent.ActionType.ABOUT, () -> handleAbout(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.SORT_FOLDERS, () -> sidebarController.handleSortFolders(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.EXPAND_ALL_FOLDERS,
@@ -2247,6 +2261,71 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         statusLabel.setTooltip(message != null && message.length() > 40 ? new Tooltip(message) : null);
     }
 
+    private void checkForUpdatesAtStartup() {
+        updateChecker.checkForUpdateAsync(VersionConfig.getVersion(), updateCheckExecutor)
+                .thenAccept(optionalRelease -> optionalRelease.ifPresent(release ->
+                        Platform.runLater(() -> showUpdateNotification(release))));
+    }
+
+    private void checkForUpdatesManually() {
+        updateStatus(getString("update.checking"));
+        updateChecker.checkLatestAsync(VersionConfig.getVersion(), updateCheckExecutor)
+                .thenAccept(result -> Platform.runLater(() -> {
+                    if (result.failed()) {
+                        updateStatus(getString("update.failed"));
+                    } else if (result.release().isPresent()) {
+                        showUpdateNotification(result.release().get());
+                    } else {
+                        updateStatus(getString("update.none"));
+                    }
+                }));
+    }
+
+    private void showUpdateNotification(UpdateChecker.ReleaseInfo release) {
+        if (centerStack == null || release == null) {
+            return;
+        }
+
+        VBox toast = new VBox(8);
+        toast.getStyleClass().add("update-toast");
+        toast.setMaxWidth(360);
+        toast.setMaxHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
+        toast.setPickOnBounds(false);
+
+        HBox header = new HBox(10);
+        header.setAlignment(Pos.CENTER_LEFT);
+        Label title = new Label(java.text.MessageFormat.format(
+                getString("update.available.title"), release.tagName()));
+        title.getStyleClass().add("update-toast-title");
+        Button closeButton = new Button("×");
+        closeButton.getStyleClass().addAll("toolbar-btn", "update-toast-close");
+        HBox.setHgrow(title, javafx.scene.layout.Priority.ALWAYS);
+        header.getChildren().addAll(title, closeButton);
+
+        Label message = new Label(getString("update.available.message"));
+        message.setWrapText(true);
+        message.getStyleClass().add("update-toast-message");
+
+        Hyperlink link = new Hyperlink(getString("update.available.download"));
+        link.getStyleClass().add("update-toast-link");
+        link.setOnAction(event -> openExternalUrl(release.htmlUrl()));
+
+        toast.getChildren().addAll(header, message, link);
+        closeButton.setOnAction(event -> centerStack.getChildren().remove(toast));
+
+        StackPane.setAlignment(toast, Pos.BOTTOM_RIGHT);
+        StackPane.setMargin(toast, new javafx.geometry.Insets(0, 18, 18, 0));
+        centerStack.getChildren().add(toast);
+
+        PauseTransition autoHide = new PauseTransition(Duration.seconds(18));
+        autoHide.setOnFinished(event -> centerStack.getChildren().remove(toast));
+        autoHide.play();
+    }
+
+    private void openExternalUrl(String url) {
+        SystemBrowser.open(url);
+    }
+
     private SaveDialogDecision showSaveDialog() {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle(getString("dialog.save_changes.title"));
@@ -2475,6 +2554,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             }
             com.example.jylos.plugin.PluginLoader.closeAllClassLoaders();
             quickSwitcherExecutor.shutdownNow();
+            updateCheckExecutor.shutdownNow();
 
             if (connection != null && !connection.isClosed()) {
                 SQLiteDB db = SQLiteDB.getInstance();

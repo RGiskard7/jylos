@@ -35,6 +35,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <javafx.version>23.0.2</javafx.version>
         <javafx.maven.plugin.version>0.0.8</javafx.maven.plugin.version>
+        <release.version>${project.version}</release.version>
     </properties>
 
     <dependencies>
@@ -201,7 +202,17 @@
         <resources>
             <resource>
                 <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+                <includes>
+                    <include>app.properties</include>
+                    <include>version.properties</include>
+                </includes>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
                 <excludes>
+                    <exclude>app.properties</exclude>
+                    <exclude>version.properties</exclude>
                     <exclude>**/plugin/builtin/**</exclude>
                 </excludes>
             </resource>

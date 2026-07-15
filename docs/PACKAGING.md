@@ -30,6 +30,14 @@ Each script:
 2. Optionally runs `scripts/build-plugins.sh` (JARs → `jylos/plugins/`)
 3. Invokes `jpackage` with `--main-class com.example.jylos.Launcher`
 
+Release automation sets `JYLOS_RELEASE_VERSION` from the pushed tag (for example
+`v2.4.1` becomes `2.4.1`). The release workflow temporarily sets the Maven
+project version from that tag with `versions:set`, then the packaging scripts pass
+the same value to Maven as `-Drelease.version=...`, so the Maven build log,
+`app.properties`, `version.properties`, installers and GitHub Release all agree.
+Local builds without that environment variable use the version declared in
+`jylos/pom.xml`.
+
 ### Windows formats
 
 `package-windows.ps1` is the single core script; `-Type portable|exe|msi` selects the

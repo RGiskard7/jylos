@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+- Los metadatos de la versión en tiempo de compilación ahora provienen del filtrado de Maven (`release.version`) en lugar de los recursos de la aplicación codificados, por lo que las versiones de CI etiquetadas incorporan la versión de la aplicación correspondiente.
+
+- Las compilaciones de versiones de GitHub Actions inyectan la etiqueta semántica de la versión en los scripts de empaquetado nativos y de Maven.
+
+- El workflow de release ajusta temporalmente la versión Maven desde el tag antes de compilar, evitando tener que editar `pom.xml` manualmente para cada release.
+
+- Jylos ahora comprueba las versiones de GitHub al iniciarse y muestra una pequeña notificación no bloqueante en la aplicación cuando hay una versión pública más reciente disponible.
+
+- El menú **Ayuda** incluye ahora **Buscar actualizaciones...**, usando el mismo comprobador de releases y mostrando feedback explícito si no hay actualización o si GitHub no se puede consultar.
+
 ## [2.4.0] - 2026-07-10
 
 Release centrada en **fiabilidad del canvas**, **persistencia segura de metadata en vault filesystem**, **mejor compatibilidad con Obsidian**, y una pasada de rendimiento sobre **preview Markdown** y flujos calientes de apertura/listado.
