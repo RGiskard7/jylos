@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [2.4.1] - 2026-07-15
 
 - Los metadatos de la versión en tiempo de compilación ahora provienen del filtrado de Maven (`release.version`) en lugar de los recursos de la aplicación codificados, por lo que las versiones de CI etiquetadas incorporan la versión de la aplicación correspondiente.
 
