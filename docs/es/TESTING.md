@@ -32,7 +32,7 @@ Reglas: `@TempDir`, no escribir rutas de usuario, verificar estado tras reabrir/
 
 ### Guardas arquitectónicas
 
-Solo para reglas difíciles de expresar como comportamiento: `service` sin JavaFX, `data` sin UI, no volver a `AppContext`, fronteras UI/service.
+Solo para reglas difíciles de expresar como comportamiento: `service` sin JavaFX, `data` sin UI, no volver a localizadores globales eliminados, fronteras UI/service.
 
 No usar guardas para estilo trivial, logs, comentarios o nombres privados.
 
