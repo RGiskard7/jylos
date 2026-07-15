@@ -1,5 +1,7 @@
 # Build and run
 
+Español: [es/BUILD.md](es/BUILD.md)
+
 ## Requirements
 
 - JDK 21
@@ -17,7 +19,7 @@ From repository root:
 .\scripts\build_all.ps1
 ```
 
-Produces: `jylos/target/jylos-2.4.0-uber.jar`
+Produces: `jylos/target/jylos-<version>-uber.jar`
 
 Equivalent:
 

@@ -1,5 +1,7 @@
 # Plugins
 
+Español: [es/PLUGINS.md](es/PLUGINS.md)
+
 ## Model
 
 External plugins are JAR files loaded at startup. The core app does not import concrete plugin classes.

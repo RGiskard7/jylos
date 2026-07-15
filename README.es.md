@@ -12,7 +12,7 @@
 <div align="center">
 
 [![Licencia: MIT](https://img.shields.io/badge/Licencia-MIT-yellow.svg)](LICENSE)
-[![Versión](https://img.shields.io/badge/versión-2.4.0-success.svg)](changelog.md)
+[![Versión](https://img.shields.io/badge/versión-2.4.4-success.svg)](changelog.md)
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/)
 [![JavaFX](https://img.shields.io/badge/JavaFX-23-blue.svg)](https://openjfx.io/)
 [![SQLite](https://img.shields.io/badge/SQLite-3-lightgrey.svg)](https://www.sqlite.org/)
@@ -30,8 +30,8 @@
 Los paquetes precompilados para las principales plataformas están disponibles en la [página de Releases](../../releases/latest):
 
 - **Windows** — instalador `.exe`, instalador `.msi`, ZIP portable
-- **macOS** — DMG
 - **Linux** — DEB/RPM (vía `jpackage`)
+- **macOS** — DMG cuando el empaquetado macOS esté activado; mientras tanto usa JBang, el uber-JAR o compila desde fuente
 - **Cualquier plataforma** — uber-JAR (requiere Java 21 + JavaFX 23 en `PATH`)
 - **Vía [JBang](https://www.jbang.dev/)** — un solo comando, sin compilar:
   ```bash
@@ -253,7 +253,7 @@ cd jylos
 
 ### 2) Compilar
 
-Desde la raíz del repositorio (genera `jylos/target/jylos-2.4.0-uber.jar`):
+Desde la raíz del repositorio (genera `jylos/target/jylos-<versión>-uber.jar`):
 
 ```bash
 ./scripts/build_all.sh
@@ -356,7 +356,7 @@ Cada script `package-*` compila el uber-JAR, opcionalmente `build-plugins.sh`, y
 
 | Plataforma | Comando | Salida típica |
 |---|---|---|
-| macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-2.4.0.dmg` |
+| macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-<versión>.dmg` |
 | Linux (deb/rpm) | `./scripts/package-linux.sh` | `jylos/target/installers/` |
 | Windows portable (app-image) | `.\scripts\package-windows.ps1` | `jylos\target\installers\Jylos\` |
 | Windows instalador .exe (WiX) | `.\scripts\package-windows-exe.ps1` | `jylos\target\installers\Jylos-<versión>.exe` |
@@ -476,20 +476,21 @@ Coloca ficheros `.css` en la carpeta `snippets/` para retocar la interfaz sobre 
 
 ## Documentación
 
-- [docs/README.md](docs/README.md) — índice
-- [docs/BUILD.md](docs/BUILD.md)
-- [docs/LAUNCH_APP.md](docs/LAUNCH_APP.md)
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- [docs/ARCHITECTURE_GUIDELINES.md](docs/ARCHITECTURE_GUIDELINES.md)
-- [docs/I18N.md](docs/I18N.md)
-- [docs/PLUGINS.md](docs/PLUGINS.md)
-- [docs/PACKAGING.md](docs/PACKAGING.md)
-- [docs/TESTING.md](docs/TESTING.md)
-- [docs/EVENT_BUS_CONTRACT.md](docs/EVENT_BUS_CONTRACT.md)
-- [docs/GIT.md](docs/GIT.md)
-- [docs/GRAPH.md](docs/GRAPH.md)
-- [docs/SEARCH.md](docs/SEARCH.md)
-- [docs/WORKSPACES.md](docs/WORKSPACES.md)
+- [docs/es/README.md](docs/es/README.md) — índice
+- [docs/es/BUILD.md](docs/es/BUILD.md)
+- [docs/es/LAUNCH_APP.md](docs/es/LAUNCH_APP.md)
+- [docs/es/ARCHITECTURE.md](docs/es/ARCHITECTURE.md)
+- [docs/es/ARCHITECTURE_GUIDELINES.md](docs/es/ARCHITECTURE_GUIDELINES.md)
+- [docs/es/I18N.md](docs/es/I18N.md)
+- [docs/es/PLUGINS.md](docs/es/PLUGINS.md)
+- [docs/es/PACKAGING.md](docs/es/PACKAGING.md)
+- [docs/es/CICD.md](docs/es/CICD.md)
+- [docs/es/TESTING.md](docs/es/TESTING.md)
+- [docs/es/EVENT_BUS_CONTRACT.md](docs/es/EVENT_BUS_CONTRACT.md)
+- [docs/es/GIT.md](docs/es/GIT.md)
+- [docs/es/GRAPH.md](docs/es/GRAPH.md)
+- [docs/es/SEARCH.md](docs/es/SEARCH.md)
+- [docs/es/WORKSPACES.md](docs/es/WORKSPACES.md)
 - [AGENTS.md](AGENTS.md)
 - [changelog.md](changelog.md)
 

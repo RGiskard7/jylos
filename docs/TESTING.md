@@ -1,5 +1,7 @@
 # Testing
 
+Español: [es/TESTING.md](es/TESTING.md)
+
 Jylos uses a focused JUnit 5 test suite as a release gate. The goal is not to
 inflate test count; every test should protect behaviour, storage compatibility,
 or an explicit architecture rule.
