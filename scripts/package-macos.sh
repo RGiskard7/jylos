@@ -84,7 +84,7 @@ BUILD_PLUGINS_SCRIPT="$ROOT_DIR/scripts/build-plugins.sh"
 if [ -f "$BUILD_PLUGINS_SCRIPT" ]; then
     echo ""
     echo "Building plugins..."
-    if "$BUILD_PLUGINS_SCRIPT"; then
+    if bash "$BUILD_PLUGINS_SCRIPT"; then
         PLUGINS_DIR="$JYLOS_DIR/plugins"
         if [ -d "$PLUGINS_DIR" ]; then
             PLUGIN_COUNT=$(find "$PLUGINS_DIR" -maxdepth 1 -name "*.jar" 2>/dev/null | wc -l | tr -d ' ')
