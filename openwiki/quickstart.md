@@ -34,7 +34,7 @@ Key source anchors / Anclas principales:
 - `docs/BUILD.md` — build/run/test commands.
 - `docs/PLUGINS.md` — plugin extension points and lifecycle.
 - `docs/GIT.md` — Git workflow for vault mode.
-- `.github/workflows/openwiki-update.yml` — scheduled/manual OpenWiki refresh workflow that runs on `workflow_dispatch` plus a daily cron and publishes OpenWiki updates with OpenRouter/LangSmith tracing configuration, including `LANGCHAIN_PROJECT=openwiki` and `LANGCHAIN_TRACING_V2=true`.
+- `.github/workflows/openwiki-update.yml` — scheduled/manual OpenWiki refresh workflow that runs on `workflow_dispatch` and a daily cron, publishes OpenWiki updates with OpenRouter, and enables LangSmith tracing via `LANGCHAIN_PROJECT=openwiki` and `LANGCHAIN_TRACING_V2=true`.
 
 Puntos clave del código / source anchors:
 - `README.md` — visión del producto, funcionalidades, comandos y troubleshooting.
