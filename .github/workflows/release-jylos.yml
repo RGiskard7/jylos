@@ -47,10 +47,11 @@ jobs:
           cache: maven
 
       - name: Set Maven project version from tag
+        shell: bash
         run: >
           mvn -B -f jylos/pom.xml
           versions:set
-          -DnewVersion="${{ env.JYLOS_RELEASE_VERSION }}"
+          -DnewVersion="${JYLOS_RELEASE_VERSION}"
           -DgenerateBackupPoms=false
 
       - name: Install Linux test display support
@@ -61,11 +62,13 @@ jobs:
 
       - name: Run tests
         if: runner.os != 'Linux'
-        run: mvn -B -f jylos/pom.xml -Drelease.version="${{ env.JYLOS_RELEASE_VERSION }}" test
+        shell: bash
+        run: mvn -B -f jylos/pom.xml "-Drelease.version=${JYLOS_RELEASE_VERSION}" test
 
       - name: Run tests
         if: runner.os == 'Linux'
-        run: xvfb-run -a mvn -B -f jylos/pom.xml -Drelease.version="${{ env.JYLOS_RELEASE_VERSION }}" test
+        shell: bash
+        run: xvfb-run -a mvn -B -f jylos/pom.xml "-Drelease.version=${JYLOS_RELEASE_VERSION}" test
 
       - name: Install Linux packaging tools
         if: runner.os == 'Linux'
@@ -113,7 +116,7 @@ jobs:
         env:
           JYLOS_LINUX_PACKAGE_TYPE: deb
         run: |
-          ./scripts/package-linux.sh
+          bash ./scripts/package-linux.sh
           mkdir -p dist-assets
           deb="$(find jylos/target/installers -maxdepth 1 -type f -name '*.deb' | sort | tail -n1)"
           test -n "$deb"
@@ -124,7 +127,7 @@ jobs:
         env:
           JYLOS_LINUX_PACKAGE_TYPE: rpm
         run: |
-          ./scripts/package-linux.sh
+          bash ./scripts/package-linux.sh
           mkdir -p dist-assets
           rpm="$(find jylos/target/installers -maxdepth 1 -type f -name '*.rpm' | sort | tail -n1)"
           test -n "$rpm"
@@ -133,7 +136,7 @@ jobs:
       - name: Package macOS DMG
         if: runner.os == 'macOS'
         run: |
-          ./scripts/package-macos.sh
+          bash ./scripts/package-macos.sh
           mkdir -p dist-assets
           dmg="$(find jylos/target/installers -maxdepth 1 -type f -name '*.dmg' | sort | tail -n1)"
           test -n "$dmg"

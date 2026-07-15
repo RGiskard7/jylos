@@ -4,7 +4,12 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - main  # O el nombre de tu rama principal
+      - main
+    paths-ignore:
+      # Si el ÚNICO cambio en el push son estos archivos, ignóralo y no arranques
+      - 'openwiki/**'
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
   #schedule:
   #  - cron: "0 8 * * *"
 
