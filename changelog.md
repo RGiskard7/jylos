@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.4.2] - 2026-07-15
+## [2.4.3] - 2026-07-15
 
 - Los metadatos de la versión en tiempo de compilación ahora provienen del filtrado de Maven (`release.version`) en lugar de los recursos de la aplicación codificados, por lo que las versiones de CI etiquetadas incorporan la versión de la aplicación correspondiente.
 
@@ -15,6 +15,8 @@
 - Los workflows de CI ejecutan los tests JavaFX de Ubuntu bajo `xvfb-run`, evitando bloqueos en tests FXML/UI dentro de runners headless.
 
 - El workflow de release usa `bash` para los comandos Maven con propiedades `-D...` y para scripts `.sh`, evitando errores de PowerShell en Windows y permisos de ejecución en Linux/macOS.
+
+- El empaquetado Windows corrige la detección de JARs de plugins y genera el classpath de plugins mediante archivo Maven, evitando fallos de PowerShell con colecciones de un solo elemento y errores `package javafx... does not exist`.
 
 ## [2.4.0] - 2026-07-10
 

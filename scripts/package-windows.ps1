@@ -254,7 +254,7 @@ try {
     $pluginsViaAppContent = $false
     $helpOut = & $jpackagePath --help 2>&1
     if (($helpOut -match 'app-content') -and (Test-Path $sourcePluginsDir)) {
-        $pluginJars = Get-ChildItem -Path $sourcePluginsDir -Filter '*.jar' -ErrorAction SilentlyContinue
+        $pluginJars = @(Get-ChildItem -Path $sourcePluginsDir -Filter '*.jar' -ErrorAction SilentlyContinue)
         if ($pluginJars.Count -gt 0) {
             $jpackageArgs += @('--app-content', $sourcePluginsDir)
             $pluginsViaAppContent = $true
@@ -297,7 +297,7 @@ try {
         $appImagePath = Join-Path $outputDir $APP_NAME
         # JDK 17 fallback: copy plugin JARs into the image when --app-content was unavailable.
         if (-not $pluginsViaAppContent -and (Test-Path $sourcePluginsDir)) {
-            $pluginJars = Get-ChildItem -Path $sourcePluginsDir -Filter '*.jar' -ErrorAction SilentlyContinue
+            $pluginJars = @(Get-ChildItem -Path $sourcePluginsDir -Filter '*.jar' -ErrorAction SilentlyContinue)
             if ($pluginJars.Count -gt 0) {
                 $destPluginsDir = Join-Path $appImagePath 'plugins'
                 New-Item -ItemType Directory -Force -Path $destPluginsDir | Out-Null

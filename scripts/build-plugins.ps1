@@ -103,11 +103,16 @@ try {
 Write-Host "Building classpath with Maven..." -ForegroundColor Gray
 Push-Location (Join-Path $ProjectRoot "jylos")
 try {
-    # Use Maven to get all dependencies
-    $mvnOutput = & mvn dependency:build-classpath -q 2>&1 | Out-String
-    $mavenClasspath = ($mvnOutput -split "`n" | Where-Object { $_ -match "Dependencies classpath:" } | ForEach-Object { 
-        if ($_ -match "Dependencies classpath: (.+)") { $matches[1] }
-    }) | Select-Object -First 1
+    $classpathFile = Join-Path (Get-Location) "target\plugin-classpath.txt"
+    & mvn dependency:build-classpath -q "-DincludeScope=compile" "-Dmdep.outputFile=$classpathFile"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "WARNING: Maven classpath generation failed" -ForegroundColor Yellow
+    }
+    $mavenClasspath = if (Test-Path $classpathFile) {
+        (Get-Content $classpathFile -Raw).Trim()
+    } else {
+        ""
+    }
     
     if ($mavenClasspath) {
         $ClassPath = "$TargetDir;$mavenClasspath"
