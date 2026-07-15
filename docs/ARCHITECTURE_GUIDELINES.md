@@ -1,5 +1,7 @@
 # Architecture Guidelines
 
+Español: [es/ARCHITECTURE_GUIDELINES.md](es/ARCHITECTURE_GUIDELINES.md)
+
 Normative growth rules for Jylos. This document complements [ARCHITECTURE.md](ARCHITECTURE.md): that file describes the current system; this one defines how we should extend and gradually sanitize it without a rewrite.
 
 ## Scope

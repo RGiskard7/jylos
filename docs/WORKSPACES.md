@@ -1,5 +1,7 @@
 # Workspaces
 
+Español: [es/WORKSPACES.md](es/WORKSPACES.md)
+
 > Workspaces let you save and restore groups of open notes and layout state, useful for
 > switching between writing, research, programming or personal contexts.
 

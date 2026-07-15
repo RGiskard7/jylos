@@ -1,109 +1,58 @@
-# Jylos OpenWiki quickstart / Inicio rápido
+# OpenWiki quickstart
 
-## English
+Jylos is a local-first desktop knowledge-management app built with Java 21, JavaFX 23, Maven, and SQLite, with an alternative filesystem Markdown vault mode. It combines note editing and preview, wiki-style links and backlinks, a knowledge graph, Kanban notes, canvas files, plugins, themes, workspace management, Git-aware vault workflows, and packaging/build scripts for Windows, macOS, and Linux.
 
-Jylos is a local-first desktop knowledge-management app built with Java 21, JavaFX 23, Maven, and either SQLite or a filesystem Markdown vault. It focuses on Markdown notes, wiki-links, backlinks, graph navigation, a Kanban board, optional per-note encryption, plugins, and theme/snippet customization.
+Start here if you are new to the repository or you are a coding agent preparing a change. The main app entry point is `jylos/src/main/java/com/example/jylos/Main.java`; most runtime behavior is coordinated by `jylos/src/main/java/com/example/jylos/ui/controller/MainController.java`.
 
-Start here:
-- [Architecture](architecture.md)
-- [Build and run](build-and-run.md)
-- [Plugins](plugins.md)
-- [Repository overview](README.md)
+## What to read first
 
-## Español
+- [Repository overview](overview.md) — where the app starts, how modules fit together, and what the core user experience is.
+- [Storage and data model](storage.md) — SQLite vs filesystem vaults, note/folder/tag persistence, and schema/runtime rules.
+- [UI, workflows, and extension points](ui-and-workflows.md) — major controllers, note workflows, search, workspaces, plugins, graph, and packaging flows.
 
-Jylos es una aplicación de escritorio de gestión del conocimiento local-first construida con Java 21, JavaFX 23, Maven y SQLite o una bóveda Markdown en el sistema de archivos. Se centra en notas Markdown, wiki-links, backlinks, navegación por grafo, un tablero Kanban, cifrado opcional por nota, plugins y personalización mediante temas/snippets.
+## Useful existing docs
 
-Empieza aquí:
-- [Arquitectura](architecture.md)
-- [Compilación y ejecución](build-and-run.md)
-- [Plugins](plugins.md)
+The repository already has detailed canonical docs under `docs/` and `README.md` / `README.es.md`. OpenWiki is a synthesis layer that points you to the right source files and explains how the pieces relate.
 
-## What this repository contains / Qué contiene este repositorio
+- User-facing overview: [README.md](../README.md)
+- Technical docs index: [docs/README.md](../docs/README.md)
+- Architecture: [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md)
+- Architecture guidelines: [docs/ARCHITECTURE_GUIDELINES.md](../docs/ARCHITECTURE_GUIDELINES.md)
+- Build and run: [docs/BUILD.md](../docs/BUILD.md)
+- Testing: [docs/TESTING.md](../docs/TESTING.md)
+- Plugins: [docs/PLUGINS.md](../docs/PLUGINS.md)
+- Packaging: [docs/PACKAGING.md](../docs/PACKAGING.md)
+- CI/CD: [docs/CICD.md](../docs/CICD.md)
+- Git vault workflows: [docs/GIT.md](../docs/GIT.md)
+- Search: [docs/SEARCH.md](../docs/SEARCH.md)
+- Workspaces: [docs/WORKSPACES.md](../docs/WORKSPACES.md)
+- Event bus contract: [docs/EVENT_BUS_CONTRACT.md](../docs/EVENT_BUS_CONTRACT.md)
+- Internationalization: [docs/I18N.md](../docs/I18N.md)
+- Graph: [docs/GRAPH.md](../docs/GRAPH.md)
+- Launching the app: [docs/LAUNCH_APP.md](../docs/LAUNCH_APP.md)
 
-The root README describes the product as a cross-platform desktop note app with Obsidian-like workflows: wiki-links, backlinks, graph view, Kanban boards, canvas files, private notes, Git integration for vault mode, external plugins, and theme/snippet support.
+## Repository shape at a glance
 
-El README raíz describe el producto como una app de notas de escritorio multiplataforma con flujos tipo Obsidian: wiki-links, backlinks, vista de grafo, tableros Kanban, archivos canvas, notas privadas, integración con Git en modo bóveda, plugins externos y soporte para temas/snippets.
+- `jylos/` — the application module and primary source tree
+- `scripts/` — build, test, launch, and packaging scripts
+- `plugins-source/` — source workspace for bundled/external plugins
+- `themes/` — external theme packs and theme build inputs
+- `resources/` and `docs/assets/` — images and documentation assets
+- `docs/` — canonical technical documentation, including Spanish translations in `docs/es/`
+- `openwiki/` — this synthesized map for humans and agents
 
-Key source anchors / Anclas principales:
-- `README.md` — product overview, feature list, commands, and troubleshooting.
-- `README.es.md` — Spanish product overview and mirrored usage guidance.
-- `AGENTS.md` — contributor and agent workflow notes.
-- `docs/ARCHITECTURE.md` — runtime architecture and source package map.
-- `docs/ARCHITECTURE_GUIDELINES.md` — boundaries for future code changes.
-- `docs/BUILD.md` — build/run/test commands.
-- `docs/PLUGINS.md` — plugin extension points and lifecycle.
-- `docs/GIT.md` — Git workflow for vault mode.
-- `.github/workflows/openwiki-update.yml` — scheduled/manual OpenWiki refresh workflow that runs on `workflow_dispatch` plus a daily cron and publishes OpenWiki updates with OpenRouter/LangSmith tracing configuration, including `LANGCHAIN_PROJECT=openwiki` and `LANGCHAIN_TRACING_V2=true`.
+## Change guidance
 
-Puntos clave del código / source anchors:
-- `README.md` — visión del producto, funcionalidades, comandos y troubleshooting.
-- `README.es.md` — visión del producto y guía equivalente en español.
-- `AGENTS.md` — notas para contribuidores y agentes.
-- `docs/ARCHITECTURE.md` — arquitectura en tiempo de ejecución y mapa de paquetes.
-- `docs/ARCHITECTURE_GUIDELINES.md` — límites para cambios futuros.
-- `docs/BUILD.md` — comandos de compilación, ejecución y pruebas.
-- `docs/PLUGINS.md` — puntos de extensión y ciclo de vida de plugins.
-- `docs/GIT.md` — flujo Git para el modo bóveda.
+- For UI changes, start with `MainController` and the relevant `ui/controller/*Support` or `*Controller` class instead of growing `MainController` with feature logic.
+- For storage changes, check both DAO families: `data/dao/sqlite/` and `data/dao/filesystem/`.
+- For plugin-related changes, inspect `plugin/`, `ui/components/PluginManagerDialog.java`, and the plugin docs before editing behavior.
+- For workflows that affect search, workspaces, Git integration, graph, or packaging, follow the links above and verify the corresponding tests in `jylos/src/test/java`.
 
-## Repository map / Mapa del repositorio
+## Source map
 
-- `jylos/` — Maven module for the desktop app.
-- `plugins-source/` — sample/built-in plugin sources.
-- `themes/` — external theme sources copied into the app runtime.
-- `scripts/` — build, launch, plugin, and theme helper scripts.
-- `docs/` — canonical documentation that this wiki mirrors and refines.
-- `resources/` — screenshots and other repo assets used by the README.
-
-- `jylos/` — módulo Maven de la aplicación de escritorio.
-- `plugins-source/` — fuentes de plugins de ejemplo/integrados.
-- `themes/` — fuentes de temas externos copiadas al runtime de la app.
-- `scripts/` — scripts auxiliares de build, lanzamiento, plugins y temas.
-- `docs/` — documentación canónica que este wiki refleja y afina.
-- `resources/` — capturas y otros recursos usados por el README.
-
-## Working model / Modelo de trabajo
-
-This is a desktop monolith, not a client/server app. The main flow is:
-
-`ui/` controllers and views → `service/` business rules → `data/dao/` storage implementations
-
-The app can run against either:
-- **SQLite** by default, or
-- a **filesystem Markdown vault** with YAML frontmatter and optional Git integration.
-
-Important change rule from `AGENTS.md` and `docs/ARCHITECTURE.md`:
-- keep `MainController` thin;
-- put self-contained feature logic in `*Controller` or `*Support` classes with `wire(...)`-style wiring;
-- route persistence through services/DAOs rather than direct UI code.
-
-Este es un monolito de escritorio, no una app cliente/servidor. El flujo principal es:
-
-`ui/` controllers and views → `service/` business rules → `data/dao/` storage implementations
-
-La app puede ejecutarse sobre:
-- **SQLite** por defecto, o
-- una **bóveda Markdown en filesystem** con frontmatter YAML e integración opcional con Git.
-
-Regla importante de cambio tomada de `AGENTS.md` y `docs/ARCHITECTURE.md`:
-- mantener `MainController` delgado;
-- colocar la lógica autocontenida en clases `*Controller` o `*Support` con wiring tipo `wire(...)`;
-- enrutar persistencia por services/DAOs en lugar de código UI directo.
-
-## When making changes / Cuando hagas cambios
-
-Use these docs as the canonical entry points:
-- architecture or layering changes → [Architecture](architecture.md)
-- build, run, packaging, or tests → [Build and run](build-and-run.md)
-- plugin API or plugin runtime behavior → [Plugins](plugins.md)
-- repo-level OpenWiki regeneration or automation → [.github/workflows/openwiki-update.yml](../.github/workflows/openwiki-update.yml)
-
-If a change affects the README, architecture, build instructions, or the OpenWiki workflow itself, update the corresponding source doc too so the wiki stays aligned with the repository.
-
-Usa estas páginas como puntos de entrada canónicos:
-- cambios de arquitectura o capas → [Arquitectura](architecture.md)
-- build, ejecución, empaquetado o pruebas → [Compilación y ejecución](build-and-run.md)
-- API de plugins o comportamiento en runtime → [Plugins](plugins.md)
-- regeneración o automatización de OpenWiki a nivel de repo → [.github/workflows/openwiki-update.yml](../.github/workflows/openwiki-update.yml)
-
-Si un cambio afecta el README, la arquitectura, las instrucciones de build o el propio workflow de OpenWiki, actualiza también el documento fuente correspondiente para mantener alineado el wiki con el repositorio.
+- App startup: `jylos/src/main/java/com/example/jylos/Main.java`, `Launcher.java`, `AppConfig.java`
+- UI shell: `jylos/src/main/java/com/example/jylos/ui/controller/MainController.java`
+- Storage: `jylos/src/main/java/com/example/jylos/data/database/SQLiteDB.java`
+- Filesystem vaults: `jylos/src/main/java/com/example/jylos/data/dao/filesystem/NoteDAOFileSystem.java`
+- Workspace persistence: `jylos/src/main/java/com/example/jylos/workspace/WorkspaceService.java`
+- Update checks: `jylos/src/main/java/com/example/jylos/service/UpdateChecker.java`

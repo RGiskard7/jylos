@@ -20,7 +20,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-14-arm64]
+        os:
+          - windows-latest
+          - ubuntu-latest
+          # macOS ARM packaging is intentionally disabled for now because
+          # GitHub-hosted macos-14-arm64 runners can remain queued for hours.
+          # Re-enable by uncommenting this line:
+          # - macos-14-arm64
 
     steps:
       - name: Validate semantic tag
@@ -133,6 +139,8 @@ jobs:
           test -n "$rpm"
           cp "$rpm" dist-assets/jylos-linux-amd64.rpm
 
+      # Kept for future use. This step only runs if macos-14-arm64 is enabled
+      # again in the matrix above.
       - name: Package macOS DMG
         if: runner.os == 'macOS'
         run: |
@@ -187,7 +195,7 @@ jobs:
             echo ""
             echo "Verify downloads with \`SHA256SUMS.txt\`."
             echo ""
-            echo "Windows and macOS packages are currently unsigned."
+            echo "Windows packages are currently unsigned. macOS packaging is temporarily disabled."
           } >> release-notes.md
 
       - name: Generate SHA256 checksums

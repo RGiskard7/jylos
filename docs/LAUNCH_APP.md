@@ -1,5 +1,7 @@
 # Launch Guide
 
+Español: [es/LAUNCH_APP.md](es/LAUNCH_APP.md)
+
 See also [BUILD.md](BUILD.md) for build and test commands.
 
 ## Recommended launchers

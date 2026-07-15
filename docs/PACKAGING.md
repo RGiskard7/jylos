@@ -1,5 +1,7 @@
 # Packaging
 
+Español: [es/PACKAGING.md](es/PACKAGING.md)
+
 Native installers use **jpackage** (JDK 21+, full SDK). Run scripts from the **repository root**; they `cd` into `jylos/` for the Maven build.
 
 ## Uber JAR (required for launchers and jpackage)
@@ -10,7 +12,7 @@ Native installers use **jpackage** (JDK 21+, full SDK). Run scripts from the **r
 mvn -f jylos/pom.xml clean package -DskipTests
 ```
 
-Output: `jylos/target/jylos-2.4.0-uber.jar`
+Output: `jylos/target/jylos-<version>-uber.jar`
 
 Run with JavaFX module-path via `scripts/launch-jylos.*`, not plain `java -jar` on all platforms.
 
@@ -18,7 +20,7 @@ Run with JavaFX module-path via `scripts/launch-jylos.*`, not plain `java -jar` 
 
 | OS | Script | Output (typical) |
 |----|--------|------------------|
-| macOS | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-2.4.0.dmg` |
+| macOS | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-<version>.dmg` |
 | Linux | `./scripts/package-linux.sh` | `jylos/target/installers/` (deb/rpm) |
 | Windows portable | `.\scripts\package-windows.ps1` | `jylos\target\installers\Jylos\` (app-image folder) |
 | Windows .exe installer | `.\scripts\package-windows-exe.ps1` | `jylos\target\installers\Jylos-<version>.exe` |

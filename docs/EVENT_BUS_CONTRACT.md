@@ -1,5 +1,7 @@
 # Event Bus Contract
 
+Español: [es/EVENT_BUS_CONTRACT.md](es/EVENT_BUS_CONTRACT.md)
+
 ## Principles
 
 - Events represent state changes or commands with explicit semantics.

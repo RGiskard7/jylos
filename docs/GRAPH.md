@@ -1,5 +1,7 @@
 # Knowledge graph & insights
 
+Español: [es/GRAPH.md](es/GRAPH.md)
+
 Jylos turns your notes, wiki-links, backlinks and tags into a knowledge graph — and,
 with **Knowledge Insights**, into an analytical tool.
 
