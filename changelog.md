@@ -12,6 +12,8 @@
 
 - El menú **Ayuda** incluye ahora **Buscar actualizaciones...**, usando el mismo comprobador de releases y mostrando feedback explícito si no hay actualización o si GitHub no se puede consultar.
 
+- Los workflows de CI ejecutan los tests JavaFX de Ubuntu bajo `xvfb-run`, evitando bloqueos en tests FXML/UI dentro de runners headless.
+
 ## [2.4.0] - 2026-07-10
 
 Release centrada en **fiabilidad del canvas**, **persistencia segura de metadata en vault filesystem**, **mejor compatibilidad con Obsidian**, y una pasada de rendimiento sobre **preview Markdown** y flujos calientes de apertura/listado.

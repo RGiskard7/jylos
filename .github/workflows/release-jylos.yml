@@ -53,8 +53,19 @@ jobs:
           -DnewVersion="${{ env.JYLOS_RELEASE_VERSION }}"
           -DgenerateBackupPoms=false
 
+      - name: Install Linux test display support
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+
       - name: Run tests
+        if: runner.os != 'Linux'
         run: mvn -B -f jylos/pom.xml -Drelease.version="${{ env.JYLOS_RELEASE_VERSION }}" test
+
+      - name: Run tests
+        if: runner.os == 'Linux'
+        run: xvfb-run -a mvn -B -f jylos/pom.xml -Drelease.version="${{ env.JYLOS_RELEASE_VERSION }}" test
 
       - name: Install Linux packaging tools
         if: runner.os == 'Linux'
