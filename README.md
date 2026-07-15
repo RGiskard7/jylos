@@ -305,6 +305,8 @@ All commands assume the **repository root** (the folder that contains `jylos/` a
 
 ### Tests and Quality Gates
 
+Testing policy and test types are documented in [docs/TESTING.md](docs/TESTING.md).
+
 ```bash
 mvn -f jylos/pom.xml test
 mvn -f jylos/pom.xml clean test
@@ -482,6 +484,7 @@ Drop plain `.css` files into the `snippets/` folder to tweak the interface on to
 - [docs/I18N.md](docs/I18N.md)
 - [docs/PLUGINS.md](docs/PLUGINS.md)
 - [docs/PACKAGING.md](docs/PACKAGING.md)
+- [docs/TESTING.md](docs/TESTING.md)
 - [docs/EVENT_BUS_CONTRACT.md](docs/EVENT_BUS_CONTRACT.md)
 - [docs/GIT.md](docs/GIT.md)
 - [docs/GRAPH.md](docs/GRAPH.md)

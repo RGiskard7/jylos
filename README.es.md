@@ -305,6 +305,8 @@ Todos los comandos asumen la **raíz del repositorio** (la carpeta que contiene 
 
 ### Tests y Gates de Calidad
 
+La política de testing y tipos de prueba está documentada en [docs/TESTING.md](docs/TESTING.md).
+
 ```bash
 mvn -f jylos/pom.xml test
 mvn -f jylos/pom.xml clean test
@@ -482,6 +484,7 @@ Coloca ficheros `.css` en la carpeta `snippets/` para retocar la interfaz sobre 
 - [docs/I18N.md](docs/I18N.md)
 - [docs/PLUGINS.md](docs/PLUGINS.md)
 - [docs/PACKAGING.md](docs/PACKAGING.md)
+- [docs/TESTING.md](docs/TESTING.md)
 - [docs/EVENT_BUS_CONTRACT.md](docs/EVENT_BUS_CONTRACT.md)
 - [docs/GIT.md](docs/GIT.md)
 - [docs/GRAPH.md](docs/GRAPH.md)

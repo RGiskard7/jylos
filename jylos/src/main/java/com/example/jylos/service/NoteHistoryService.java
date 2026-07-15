@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -56,6 +57,7 @@ public class NoteHistoryService {
     private final Path historyRoot;
     private final int maxSnapshotsPerNote;
     private final long minIntervalMs;
+    private final Clock clock;
 
     /** Production defaults: 50 snapshots per note, 60s coalescing window. */
     public NoteHistoryService(Path historyRoot) {
@@ -64,9 +66,15 @@ public class NoteHistoryService {
 
     /** Fully parameterised (used by tests with {@code minIntervalMs = 0}). */
     public NoteHistoryService(Path historyRoot, int maxSnapshotsPerNote, long minIntervalMs) {
+        this(historyRoot, maxSnapshotsPerNote, minIntervalMs, Clock.systemDefaultZone());
+    }
+
+    /** Fully deterministic constructor for tests that need stable timestamps. */
+    NoteHistoryService(Path historyRoot, int maxSnapshotsPerNote, long minIntervalMs, Clock clock) {
         this.historyRoot = historyRoot;
         this.maxSnapshotsPerNote = maxSnapshotsPerNote;
         this.minIntervalMs = minIntervalMs;
+        this.clock = clock;
     }
 
     /**
@@ -85,7 +93,7 @@ public class NoteHistoryService {
             List<Snapshot> existing = list(noteId);
             if (!existing.isEmpty()) {
                 Snapshot latest = existing.get(0);
-                long age = System.currentTimeMillis() - latest.timestamp().toEpochMilli();
+                long age = clock.millis() - latest.timestamp().toEpochMilli();
                 if (age < minIntervalMs) {
                     return; // coalesce rapid autosaves
                 }
@@ -95,7 +103,7 @@ public class NoteHistoryService {
                 }
             }
 
-            String stamp = STAMP.format(LocalDateTime.now());
+            String stamp = STAMP.format(LocalDateTime.now(clock));
             Files.writeString(dir.resolve(stamp + ".md"), previousContent, StandardCharsets.UTF_8);
             prune(dir);
         } catch (Exception e) {

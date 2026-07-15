@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-class AppContextUsageGuardTest {
+class ArchitectureResidueGuardTest {
 
     private static final Path MAIN_JAVA = Path.of("src/main/java/com/example/jylos");
     private static final Path APP_CONTEXT = Path.of("src/main/java/com/example/jylos/config/AppContext.java");

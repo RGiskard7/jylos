@@ -2,11 +2,8 @@ package com.example.jylos.tests;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Locale;
+import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -28,10 +25,6 @@ import javafx.scene.layout.Pane;
 
 class UiPresentationFxmlGuardTest {
 
-    private static final Path SIDEBAR_FXML = Path
-            .of("src/main/resources/com/example/jylos/ui/view/SidebarView.fxml");
-    private static final Path EDITOR_FXML = Path
-            .of("src/main/resources/com/example/jylos/ui/view/EditorView.fxml");
     private static boolean fxRuntimeAvailable = false;
 
     @BeforeAll
@@ -48,50 +41,60 @@ class UiPresentationFxmlGuardTest {
     }
 
     @Test
-    void sidebarTabsShouldExposeIdsForRuntimePresentationSwitch() throws IOException {
-        String source = Files.readString(SIDEBAR_FXML, StandardCharsets.UTF_8);
+    void sidebarTabsShouldExposeIdsForRuntimePresentationSwitch() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
 
-        assertTrue(source.contains("fx:id=\"foldersTab\""), "Sidebar folders tab should have fx:id.");
-        assertTrue(source.contains("fx:id=\"tagsTab\""), "Sidebar tags tab should have fx:id.");
-        assertTrue(source.contains("fx:id=\"recentTab\""), "Sidebar recent tab should have fx:id.");
-        assertTrue(source.contains("fx:id=\"favoritesTab\""), "Sidebar favorites tab should have fx:id.");
-        assertTrue(source.contains("fx:id=\"trashTab\""), "Sidebar trash tab should have fx:id.");
+        Map<String, Object> nodes = loadNamespace("/com/example/jylos/ui/view/SidebarView.fxml");
+
+        assertTrue(nodes.containsKey("foldersTab"), "Sidebar folders tab should have fx:id.");
+        assertTrue(nodes.containsKey("tagsTab"), "Sidebar tags tab should have fx:id.");
+        assertTrue(nodes.containsKey("recentTab"), "Sidebar recent tab should have fx:id.");
+        assertTrue(nodes.containsKey("favoritesTab"), "Sidebar favorites tab should have fx:id.");
+        assertTrue(nodes.containsKey("trashTab"), "Sidebar trash tab should have fx:id.");
     }
 
     @Test
-    void editorViewShouldStartWithCollapsedTagsAndViewModeIconsAvailable() throws IOException {
-        String source = Files.readString(EDITOR_FXML, StandardCharsets.UTF_8);
+    void editorViewShouldStartWithCollapsedTagsAndViewModeIconsAvailable() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
 
-        assertTrue(source.contains("fx:id=\"toggleTagsBtn\"") && source.contains("selected=\"false\""),
+        Map<String, Object> nodes = loadNamespace("/com/example/jylos/ui/view/EditorView.fxml");
+        Node toggleTagsBtn = node(nodes, "toggleTagsBtn");
+        Node tagsContainer = node(nodes, "tagsContainer");
+        Node editorOnlyButton = node(nodes, "editorOnlyButton");
+        Node splitViewButton = node(nodes, "splitViewButton");
+        Node previewOnlyButton = node(nodes, "previewOnlyButton");
+
+        assertTrue(!((javafx.scene.control.ToggleButton) toggleTagsBtn).isSelected(),
                 "Tags toggle should start collapsed by default.");
-        assertTrue(source.contains("fx:id=\"tagsContainer\"") && source.contains("visible=\"false\"")
-                && source.contains("managed=\"false\""),
+        assertTrue(!tagsContainer.isVisible() && !tagsContainer.isManaged(),
                 "Tags container should be hidden and unmanaged on startup.");
-        assertTrue(source.contains("fx:id=\"editorOnlyButton\"") && source.contains("FontIcon"),
+        assertTrue(((javafx.scene.control.ButtonBase) editorOnlyButton).getGraphic() != null,
                 "Editor-only button should support icon rendering.");
-        assertTrue(source.contains("fx:id=\"splitViewButton\"") && source.contains("FontIcon"),
+        assertTrue(((javafx.scene.control.ButtonBase) splitViewButton).getGraphic() != null,
                 "Split-view button should support icon rendering.");
-        assertTrue(source.contains("fx:id=\"previewOnlyButton\"") && source.contains("FontIcon"),
+        assertTrue(((javafx.scene.control.ButtonBase) previewOnlyButton).getGraphic() != null,
                 "Preview-only button should support icon rendering.");
     }
 
     @Test
-    void editorUsesCodeAreaForSyntaxHighlighting() throws IOException {
-        String source = Files.readString(EDITOR_FXML, StandardCharsets.UTF_8);
+    void editorUsesCodeAreaForSyntaxHighlighting() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
 
-        assertTrue(source.contains("import org.fxmisc.richtext.CodeArea"),
-                "EditorView should import RichTextFX CodeArea.");
-        assertTrue(source.contains("<CodeArea fx:id=\"noteContentArea\""),
+        Map<String, Object> nodes = loadNamespace("/com/example/jylos/ui/view/EditorView.fxml");
+
+        assertTrue(nodes.get("noteContentArea") instanceof org.fxmisc.richtext.CodeArea,
                 "Note content editor should be a CodeArea (syntax-highlighting editor).");
     }
 
     @Test
-    void editorExposesTabBarAndSaveIndicator() throws IOException {
-        String source = Files.readString(EDITOR_FXML, StandardCharsets.UTF_8);
+    void editorExposesTabBarAndSaveIndicator() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
 
-        assertTrue(source.contains("fx:id=\"editorTabBar\""),
+        Map<String, Object> nodes = loadNamespace("/com/example/jylos/ui/view/EditorView.fxml");
+
+        assertTrue(nodes.containsKey("editorTabBar"),
                 "EditorView should host the open-note tab strip.");
-        assertTrue(source.contains("fx:id=\"dirtySaveIndicator\""),
+        assertTrue(nodes.containsKey("dirtySaveIndicator"),
                 "EditorView should host the inline save indicator dot.");
     }
 
@@ -156,6 +159,35 @@ class UiPresentationFxmlGuardTest {
             }
         }
         return null;
+    }
+
+    private Map<String, Object> loadNamespace(String resource) throws Exception {
+        final Map<String, Object>[] namespace = new Map[1];
+        CountDownLatch latch = new CountDownLatch(1);
+        AssertionError[] failure = new AssertionError[1];
+        Platform.runLater(() -> {
+            try {
+                ResourceBundle bundle = ResourceBundle.getBundle("com.example.jylos.i18n.messages", Locale.ENGLISH);
+                FXMLLoader loader = new FXMLLoader(getClass().getResource(resource), bundle);
+                loader.load();
+                namespace[0] = loader.getNamespace();
+            } catch (Exception e) {
+                failure[0] = new AssertionError(e);
+            } finally {
+                latch.countDown();
+            }
+        });
+        assertTrue(latch.await(5, TimeUnit.SECONDS), "FXML load timed out: " + resource);
+        if (failure[0] != null) {
+            throw failure[0];
+        }
+        return namespace[0];
+    }
+
+    private static Node node(Map<String, Object> nodes, String id) {
+        Object node = nodes.get(id);
+        assertTrue(node instanceof Node, "Expected JavaFX node with fx:id=" + id);
+        return (Node) node;
     }
 
     private static String describeTree(Node node, int depth) {

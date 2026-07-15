@@ -1,15 +1,18 @@
-package com.example.jylos.tests;
+package com.example.jylos.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import com.example.jylos.service.NoteHistoryService;
 import com.example.jylos.util.LineDiff;
 
 /**
@@ -20,11 +23,12 @@ class NoteHistoryServiceTest {
 
     @Test
     void snapshotsChangedContentAndSkipsUnchanged(@TempDir Path dir) throws Exception {
-        NoteHistoryService history = new NoteHistoryService(dir, 50, 0);
+        MutableClock clock = new MutableClock();
+        NoteHistoryService history = new NoteHistoryService(dir, 50, 0, clock);
         history.snapshot("note-1", "v1");
-        Thread.sleep(5); // distinct millisecond timestamps for stable ordering
-        history.snapshot("note-1", "v1"); // unchanged → skipped
-        Thread.sleep(5);
+        clock.advanceMillis(1);
+        history.snapshot("note-1", "v1"); // unchanged: skipped
+        clock.advanceMillis(1);
         history.snapshot("note-1", "v2");
 
         List<NoteHistoryService.Snapshot> snaps = history.list("note-1");
@@ -35,10 +39,11 @@ class NoteHistoryServiceTest {
 
     @Test
     void prunesToTheConfiguredMaximum(@TempDir Path dir) throws Exception {
-        NoteHistoryService history = new NoteHistoryService(dir, 3, 0);
+        MutableClock clock = new MutableClock();
+        NoteHistoryService history = new NoteHistoryService(dir, 3, 0, clock);
         for (int i = 1; i <= 6; i++) {
             history.snapshot("note-1", "v" + i);
-            Thread.sleep(5);
+            clock.advanceMillis(1);
         }
         List<NoteHistoryService.Snapshot> snaps = history.list("note-1");
         assertEquals(3, snaps.size(), "history capped at 3 snapshots");
@@ -48,17 +53,20 @@ class NoteHistoryServiceTest {
 
     @Test
     void coalescingWindowSwallowsRapidSaves(@TempDir Path dir) {
-        NoteHistoryService history = new NoteHistoryService(dir, 50, 60_000);
+        MutableClock clock = new MutableClock();
+        NoteHistoryService history = new NoteHistoryService(dir, 50, 60_000, clock);
         history.snapshot("note-1", "v1");
-        history.snapshot("note-1", "v2"); // within the window → coalesced
+        history.snapshot("note-1", "v2"); // within the window: coalesced
         assertEquals(1, history.list("note-1").size());
     }
 
     @Test
     void notesWithPathIdsGetIsolatedHistories(@TempDir Path dir) throws Exception {
-        NoteHistoryService history = new NoteHistoryService(dir, 50, 0);
+        MutableClock clock = new MutableClock();
+        NoteHistoryService history = new NoteHistoryService(dir, 50, 0, clock);
         history.snapshot("a/b.md", "one");
-        history.snapshot("a_b.md", "two"); // sanitises to the same base name — must not collide
+        clock.advanceMillis(1);
+        history.snapshot("a_b.md", "two"); // same sanitised base name: must not collide
         assertEquals(1, history.list("a/b.md").size());
         assertEquals(1, history.list("a_b.md").size());
         assertEquals("one", history.read(history.list("a/b.md").get(0)));
@@ -72,5 +80,28 @@ class NoteHistoryServiceTest {
         assertTrue(diff.stream().anyMatch(l -> l.type() == LineDiff.Type.REMOVED && l.text().equals("b")));
         assertTrue(diff.stream().anyMatch(l -> l.type() == LineDiff.Type.ADDED && l.text().equals("X")));
         assertEquals(LineDiff.Type.SAME, diff.get(diff.size() - 1).type());
+    }
+
+    private static final class MutableClock extends Clock {
+        private Instant instant = Instant.parse("2026-01-01T00:00:00Z");
+
+        void advanceMillis(long millis) {
+            instant = instant.plus(Duration.ofMillis(millis));
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneId.systemDefault();
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return instant;
+        }
     }
 }

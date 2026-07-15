@@ -16,6 +16,7 @@ jobs:
   package:
     name: Package ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -127,6 +128,7 @@ jobs:
     name: Publish GitHub Release
     needs: package
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Download package artifacts
         uses: actions/download-artifact@v4
