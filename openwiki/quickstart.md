@@ -8,6 +8,7 @@ Start here:
 - [Architecture](architecture.md)
 - [Build and run](build-and-run.md)
 - [Plugins](plugins.md)
+- [Repository overview](README.md)
 
 ## Español
 
@@ -33,6 +34,7 @@ Key source anchors / Anclas principales:
 - `docs/BUILD.md` — build/run/test commands.
 - `docs/PLUGINS.md` — plugin extension points and lifecycle.
 - `docs/GIT.md` — Git workflow for vault mode.
+- `.github/workflows/openwiki-update.yml` — scheduled/manual OpenWiki refresh workflow.
 
 Puntos clave del código / source anchors:
 - `README.md` — visión del producto, funcionalidades, comandos y troubleshooting.
@@ -94,12 +96,14 @@ Use these docs as the canonical entry points:
 - architecture or layering changes → [Architecture](architecture.md)
 - build, run, packaging, or tests → [Build and run](build-and-run.md)
 - plugin API or plugin runtime behavior → [Plugins](plugins.md)
+- repo-level OpenWiki regeneration or automation → [.github/workflows/openwiki-update.yml](../.github/workflows/openwiki-update.yml)
 
-If a change affects the README, architecture, or build instructions, update the corresponding source doc too so the wiki stays aligned with the repository.
+If a change affects the README, architecture, build instructions, or the OpenWiki workflow itself, update the corresponding source doc too so the wiki stays aligned with the repository.
 
 Usa estas páginas como puntos de entrada canónicos:
 - cambios de arquitectura o capas → [Arquitectura](architecture.md)
 - build, ejecución, empaquetado o pruebas → [Compilación y ejecución](build-and-run.md)
 - API de plugins o comportamiento en runtime → [Plugins](plugins.md)
+- regeneración o automatización de OpenWiki a nivel de repo → [.github/workflows/openwiki-update.yml](../.github/workflows/openwiki-update.yml)
 
-Si un cambio afecta el README, la arquitectura o las instrucciones de build, actualiza también el documento fuente correspondiente para mantener alineado el wiki con el repositorio.
+Si un cambio afecta el README, la arquitectura, las instrucciones de build o el propio workflow de OpenWiki, actualiza también el documento fuente correspondiente para mantener alineado el wiki con el repositorio.
