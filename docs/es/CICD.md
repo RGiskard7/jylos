@@ -63,9 +63,10 @@ Hace:
 - valida que el tag sea semantico;
 - obtiene `JYLOS_RELEASE_VERSION` quitando la `v`;
 - configura Java 21 Temurin;
-- ajusta temporalmente la version Maven con `versions:set`;
+- pasa la version del tag a Maven mediante la propiedad estandar `revision`;
 - ejecuta tests;
 - empaqueta Windows y Linux;
+- recoge el JAR normal y el uber-JAR generados por Maven;
 - sube artefactos intermedios;
 - extrae release notes desde `changelog.md`;
 - genera `SHA256SUMS.txt`;
@@ -78,7 +79,15 @@ Assets publicados actualmente:
 - `jylos-windows-portable.zip`
 - `jylos-linux-amd64.deb`
 - `jylos-linux-amd64.rpm`
+- `jylos.jar`
+- `jylos-uber.jar`
 - `SHA256SUMS.txt`
+
+Los nombres de los JAR son estables a proposito, igual que los instaladores
+nativos. Herramientas como JBang pueden usar
+`releases/latest/download/jylos-uber.jar` para la ultima release. Quien necesite
+una version fija puede usar el mismo nombre de asset bajo una URL de tag concreta,
+por ejemplo `releases/download/v2.4.5/jylos-uber.jar`.
 
 ### `openwiki-update.yml`
 
@@ -167,6 +176,7 @@ jylos/src/main/resources/version.properties
 Ese recurso usa Maven resource filtering. En release, GitHub Actions pasa:
 
 ```bash
+-Drevision=${JYLOS_RELEASE_VERSION}
 -Drelease.version=${JYLOS_RELEASE_VERSION}
 ```
 
@@ -174,11 +184,30 @@ Resultado:
 
 - tag `v2.4.1`;
 - `JYLOS_RELEASE_VERSION=2.4.1`;
+- Maven genera `jylos-2.4.1.jar` y `jylos-2.4.1-uber.jar`;
+- la release publica esos archivos como assets estables: `jylos.jar` y `jylos-uber.jar`;
 - `version.properties` empaquetado con `2.4.1`;
 - panel `Acerca de Jylos` muestra `v2.4.1`;
 - update checker compara contra GitHub Releases.
 
 En builds locales sin parametro, Maven usa fallback del `pom.xml`.
+
+Los scripts de empaquetado nativo siguen la misma regla:
+
+- en CI, `JYLOS_RELEASE_VERSION` viene del tag enviado;
+- en local, define `JYLOS_RELEASE_VERSION` si quieres reproducir una version de
+  release sin editar `pom.xml`.
+
+Ejemplo:
+
+```bash
+JYLOS_RELEASE_VERSION=2.4.5 ./scripts/package-macos.sh
+```
+
+```powershell
+$env:JYLOS_RELEASE_VERSION = "2.4.5"
+.\scripts\package-windows.ps1 -Type exe
+```
 
 ## Release notes
 

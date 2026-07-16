@@ -190,6 +190,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     @FXML
     private Label statusLabel;
     @FXML
+    private Label updateIndicator;
+    @FXML
     private Label noteCountLabel;
     @FXML
     private Label storageLabel;
@@ -320,6 +322,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         return t;
     });
     private final UpdateChecker updateChecker = new UpdateChecker();
+    private UpdateChecker.ReleaseInfo availableUpdate;
+    private javafx.scene.Node updateToast;
     private final AtomicLong quickSwitcherLoadVersion = new AtomicLong(0);
     private final AtomicLong backendSessionGeneration = new AtomicLong(0);
     private volatile List<Note> quickSwitcherNotesCache = List.of();
@@ -2285,41 +2289,77 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (centerStack == null || release == null) {
             return;
         }
+        availableUpdate = release;
+        showUpdateIndicator(release);
+        if (updateToast != null) {
+            centerStack.getChildren().remove(updateToast);
+        }
 
-        VBox toast = new VBox(8);
+        HBox toast = new HBox(12);
         toast.getStyleClass().add("update-toast");
-        toast.setMaxWidth(360);
+        toast.setAlignment(Pos.CENTER_LEFT);
+        toast.setMaxWidth(420);
         toast.setMaxHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
+        toast.setMinHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
         toast.setPickOnBounds(false);
 
-        HBox header = new HBox(10);
-        header.setAlignment(Pos.CENTER_LEFT);
+        Label icon = new Label("!");
+        icon.getStyleClass().add("update-toast-icon");
+
+        VBox content = new VBox(4);
+        content.setAlignment(Pos.CENTER_LEFT);
         Label title = new Label(java.text.MessageFormat.format(
                 getString("update.available.title"), release.tagName()));
         title.getStyleClass().add("update-toast-title");
-        Button closeButton = new Button("×");
-        closeButton.getStyleClass().addAll("toolbar-btn", "update-toast-close");
-        HBox.setHgrow(title, javafx.scene.layout.Priority.ALWAYS);
-        header.getChildren().addAll(title, closeButton);
-
         Label message = new Label(getString("update.available.message"));
-        message.setWrapText(true);
         message.getStyleClass().add("update-toast-message");
 
         Hyperlink link = new Hyperlink(getString("update.available.download"));
         link.getStyleClass().add("update-toast-link");
         link.setOnAction(event -> openExternalUrl(release.htmlUrl()));
+        content.getChildren().addAll(title, message, link);
+        HBox.setHgrow(content, javafx.scene.layout.Priority.ALWAYS);
 
-        toast.getChildren().addAll(header, message, link);
-        closeButton.setOnAction(event -> centerStack.getChildren().remove(toast));
+        Button closeButton = new Button("×");
+        closeButton.getStyleClass().addAll("toolbar-btn", "update-toast-close");
+
+        toast.getChildren().addAll(icon, content, closeButton);
+        closeButton.setOnAction(event -> hideUpdateToast(toast));
 
         StackPane.setAlignment(toast, Pos.BOTTOM_RIGHT);
         StackPane.setMargin(toast, new javafx.geometry.Insets(0, 18, 18, 0));
         centerStack.getChildren().add(toast);
+        updateToast = toast;
 
-        PauseTransition autoHide = new PauseTransition(Duration.seconds(18));
-        autoHide.setOnFinished(event -> centerStack.getChildren().remove(toast));
+        PauseTransition autoHide = new PauseTransition(Duration.seconds(12));
+        autoHide.setOnFinished(event -> hideUpdateToast(toast));
         autoHide.play();
+    }
+
+    @FXML
+    private void handleUpdateIndicatorClick() {
+        if (availableUpdate != null) {
+            showUpdateNotification(availableUpdate);
+        }
+    }
+
+    private void showUpdateIndicator(UpdateChecker.ReleaseInfo release) {
+        if (updateIndicator == null || release == null) {
+            return;
+        }
+        updateIndicator.setVisible(true);
+        updateIndicator.setManaged(true);
+        updateIndicator.setTooltip(new Tooltip(java.text.MessageFormat.format(
+                getString("update.indicator.tooltip"), release.tagName())));
+    }
+
+    private void hideUpdateToast(javafx.scene.Node toast) {
+        if (centerStack != null && toast != null) {
+            centerStack.getChildren().remove(toast);
+        }
+        if (updateToast == toast) {
+            updateToast = null;
+        }
     }
 
     private void openExternalUrl(String url) {
