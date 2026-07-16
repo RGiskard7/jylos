@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.4.3] - 2026-07-15
+## [2.4.4] - 2026-07-16
 
 - Los metadatos de la versión en tiempo de compilación ahora provienen del filtrado de Maven (`release.version`) en lugar de los recursos de la aplicación codificados, por lo que las versiones de CI etiquetadas incorporan la versión de la aplicación correspondiente.
 
@@ -17,6 +17,14 @@
 - El workflow de release usa `bash` para los comandos Maven con propiedades `-D...` y para scripts `.sh`, evitando errores de PowerShell en Windows y permisos de ejecución en Linux/macOS.
 
 - El empaquetado Windows corrige la detección de JARs de plugins y genera el classpath de plugins mediante archivo Maven, evitando fallos de PowerShell con colecciones de un solo elemento y errores `package javafx... does not exist`.
+
+- El workflow de release desactiva temporalmente el empaquetado macOS ARM en la matriz para evitar colas de varias horas en GitHub-hosted runners, manteniendo el bloque DMG documentado y listo para reactivarse.
+
+- Nueva guía `docs/CICD.md` en inglés, con versión española en `docs/es/CICD.md`, documentando el flujo real de PR, pull de `main`, creación de tag, publicación automática, reintentos de release y estado actual de firmas.
+
+- README principal, README español y documentación de build/packaging alinean sus índices y ejemplos de artefactos con la nueva documentación CI/CD y evitan rutas hardcodeadas a versiones antiguas.
+
+- La documentación técnica mantiene ahora inglés como fuente principal en `docs/` y espejo español en `docs/es/`, con enlaces cruzados por documento y regla explícita en `AGENTS.md` para mantener ambas versiones sincronizadas.
 
 ## [2.4.0] - 2026-07-10
 

@@ -1,5 +1,7 @@
 # Architecture
 
+Español: [es/ARCHITECTURE.md](es/ARCHITECTURE.md)
+
 Desktop monolith: JavaFX UI, domain services, pluggable storage, in-process `EventBus`. Offline, single-user.
 
 For normative growth rules and cleanup boundaries, see [ARCHITECTURE_GUIDELINES.md](ARCHITECTURE_GUIDELINES.md).

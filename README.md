@@ -12,7 +12,7 @@
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.4.0-success.svg)](changelog.md)
+[![Version](https://img.shields.io/badge/version-2.4.4-success.svg)](changelog.md)
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/)
 [![JavaFX](https://img.shields.io/badge/JavaFX-23-blue.svg)](https://openjfx.io/)
 [![SQLite](https://img.shields.io/badge/SQLite-3-lightgrey.svg)](https://www.sqlite.org/)
@@ -30,8 +30,8 @@
 Prebuilt packages for all major platforms are available on the [Releases page](../../releases/latest):
 
 - **Windows** — `.exe` installer, `.msi` installer, portable ZIP
-- **macOS** — DMG
 - **Linux** — DEB/RPM (via `jpackage`)
+- **macOS** — DMG when macOS packaging is enabled; otherwise use JBang, the uber-JAR, or build from source
 - **Any platform** — uber-JAR (requires Java 21 + JavaFX 23 on `PATH`)
 - **Via [JBang](https://www.jbang.dev/)** — single command, no build needed:
   ```bash
@@ -253,7 +253,7 @@ cd jylos
 
 ### 2) Build
 
-From the repository root (produces `jylos/target/jylos-2.4.0-uber.jar`):
+From the repository root (produces `jylos/target/jylos-<version>-uber.jar`):
 
 ```bash
 ./scripts/build_all.sh
@@ -356,7 +356,7 @@ Each `package-*` script builds the uber-JAR, optionally runs `build-plugins.sh`,
 
 | Platform | Command | Typical output |
 |---|---|---|
-| macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-2.4.0.dmg` |
+| macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-<version>.dmg` |
 | Linux (deb/rpm) | `./scripts/package-linux.sh` | `jylos/target/installers/` |
 | Windows portable (app-image) | `.\scripts\package-windows.ps1` | `jylos\target\installers\Jylos\` |
 | Windows .exe installer (WiX) | `.\scripts\package-windows-exe.ps1` | `jylos\target\installers\Jylos-<version>.exe` |
@@ -484,6 +484,7 @@ Drop plain `.css` files into the `snippets/` folder to tweak the interface on to
 - [docs/I18N.md](docs/I18N.md)
 - [docs/PLUGINS.md](docs/PLUGINS.md)
 - [docs/PACKAGING.md](docs/PACKAGING.md)
+- [docs/CICD.md](docs/CICD.md)
 - [docs/TESTING.md](docs/TESTING.md)
 - [docs/EVENT_BUS_CONTRACT.md](docs/EVENT_BUS_CONTRACT.md)
 - [docs/GIT.md](docs/GIT.md)

@@ -1,5 +1,7 @@
 # Documentation index
 
+Español: [es/README.md](es/README.md)
+
 Technical docs for Jylos. User-facing overview: [README.md](../README.md).
 
 | File | Purpose |
@@ -11,6 +13,7 @@ Technical docs for Jylos. User-facing overview: [README.md](../README.md).
 | [I18N.md](I18N.md) | Supported locales and how to add a new language |
 | [PLUGINS.md](PLUGINS.md) | External plugin JAR workflow |
 | [PACKAGING.md](PACKAGING.md) | Platform packaging scripts |
+| [CICD.md](CICD.md) | GitHub Actions CI/CD and release workflow |
 | [TESTING.md](TESTING.md) | Test strategy, commands, and guard-test rules |
 | [EVENT_BUS_CONTRACT.md](EVENT_BUS_CONTRACT.md) | Event bus usage rules |
 | [GIT.md](GIT.md) | Vault Git integration and sync panel |

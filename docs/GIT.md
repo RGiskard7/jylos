@@ -1,5 +1,7 @@
 # Git integration
 
+Español: [es/GIT.md](es/GIT.md)
+
 > **Your notes, your repository, your control.**
 > Jylos versions your Markdown vault with plain Git. There is no Jylos cloud, no
 > backend, and no account — just your own repository, managed visually from the app.
