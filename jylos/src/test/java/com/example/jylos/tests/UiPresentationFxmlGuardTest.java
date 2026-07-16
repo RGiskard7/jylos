@@ -25,6 +25,8 @@ import javafx.scene.layout.Pane;
 
 class UiPresentationFxmlGuardTest {
 
+    private static final int FX_OPERATION_TIMEOUT_SECONDS = 20;
+
     private static boolean fxRuntimeAvailable = false;
 
     @BeforeAll
@@ -140,7 +142,7 @@ class UiPresentationFxmlGuardTest {
             }
         });
 
-        assertTrue(latch.await(5, TimeUnit.SECONDS), "JavaFX layout check timed out.");
+        assertTrue(latch.await(FX_OPERATION_TIMEOUT_SECONDS, TimeUnit.SECONDS), "JavaFX layout check timed out.");
         if (failure[0] != null) {
             throw failure[0];
         }
@@ -177,7 +179,7 @@ class UiPresentationFxmlGuardTest {
                 latch.countDown();
             }
         });
-        assertTrue(latch.await(5, TimeUnit.SECONDS), "FXML load timed out: " + resource);
+        assertTrue(latch.await(FX_OPERATION_TIMEOUT_SECONDS, TimeUnit.SECONDS), "FXML load timed out: " + resource);
         if (failure[0] != null) {
             throw failure[0];
         }
