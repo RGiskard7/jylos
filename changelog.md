@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.4.4] - 2026-07-16
+## [2.4.5] - 2026-07-16
 
 - Los metadatos de la versión en tiempo de compilación ahora provienen del filtrado de Maven (`release.version`) en lugar de los recursos de la aplicación codificados, por lo que las versiones de CI etiquetadas incorporan la versión de la aplicación correspondiente.
 
@@ -25,6 +25,8 @@
 - README principal, README español y documentación de build/packaging alinean sus índices y ejemplos de artefactos con la nueva documentación CI/CD y evitan rutas hardcodeadas a versiones antiguas.
 
 - La documentación técnica mantiene ahora inglés como fuente principal en `docs/` y espejo español en `docs/es/`, con enlaces cruzados por documento y regla explícita en `AGENTS.md` para mantener ambas versiones sincronizadas.
+
+- Los smoke tests JavaFX de FXML usan ahora un timeout más realista para runners Windows fríos, evitando falsos negativos al cargar `EditorView.fxml` durante CI.
 
 ## [2.4.0] - 2026-07-10
 

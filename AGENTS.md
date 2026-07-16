@@ -37,7 +37,7 @@ mvn -f jylos/pom.xml test
 mvn -f jylos/pom.xml clean compile exec:java -Dexec.mainClass="com.example.jylos.Launcher"
 ```
 
-Uber-JAR: `jylos/target/jylos-2.4.0-uber.jar`. Use `launch-*` scripts for JavaFX modules.
+Uber-JAR: `jylos/target/jylos-<version>-uber.jar`. Use `launch-*` scripts for JavaFX modules.
 
 ## Layout
 
@@ -99,13 +99,3 @@ Spanish counterpart in `docs/es/` in the same change, and keep language cross-li
 the top of both files. `README.md` must link English docs; `README.es.md` must link
 Spanish docs. Exception: `openwiki/`, `AGENTS.md`, and `CLAUDE.md` are managed by the
 OpenWiki workflow and do not need manual translation mirroring in `docs/es/`.
-
-<!-- OPENWIKI:START -->
-
-## OpenWiki
-
-This repository uses OpenWiki for recurring code documentation. Start with `openwiki/quickstart.md`, then follow its links to architecture, workflows, domain concepts, operations, integrations, testing guidance, and source maps.
-
-The scheduled OpenWiki GitHub Actions workflow refreshes the repository wiki. Do not hand-edit generated OpenWiki pages unless explicitly asked; prefer updating source code/docs and letting OpenWiki regenerate.
-
-<!-- OPENWIKI:END -->
