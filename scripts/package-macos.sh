@@ -29,7 +29,12 @@ read_property() {
 }
 
 read_pom_version() {
-    grep -m1 "<version>" "$JYLOS_DIR/pom.xml" | sed -E 's/.*<version>([^<]+)<\/version>.*/\1/'
+    local version
+    version=$(grep -m1 "<version>" "$JYLOS_DIR/pom.xml" | sed -E 's/.*<version>([^<]+)<\/version>.*/\1/')
+    if [[ "$version" == *'${revision}'* ]]; then
+        version=$(grep -m1 "<revision>" "$JYLOS_DIR/pom.xml" | sed -E 's/.*<revision>([^<]+)<\/revision>.*/\1/')
+    fi
+    echo "$version"
 }
 
 # Read application metadata from app.properties
@@ -72,7 +77,7 @@ echo ""
 
 # Build the JAR first
 echo "Building JAR..."
-mvn clean package -DskipTests -Drelease.version="$APP_VERSION"
+mvn clean package -DskipTests -Drevision="$APP_VERSION" -Drelease.version="$APP_VERSION"
 
 if [ $? -ne 0 ]; then
     echo "Error: Build failed"

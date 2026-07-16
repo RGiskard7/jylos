@@ -1,14 +1,22 @@
 # Changelog
 
-## [2.4.5] - 2026-07-16
+## [2.4.6] - 2026-07-16
 
 - Los metadatos de la versión en tiempo de compilación ahora provienen del filtrado de Maven (`release.version`) en lugar de los recursos de la aplicación codificados, por lo que las versiones de CI etiquetadas incorporan la versión de la aplicación correspondiente.
 
 - Las compilaciones de versiones de GitHub Actions inyectan la etiqueta semántica de la versión en los scripts de empaquetado nativos y de Maven.
 
-- El workflow de release ajusta temporalmente la versión Maven desde el tag antes de compilar, evitando tener que editar `pom.xml` manualmente para cada release.
+- El workflow de release usa la propiedad Maven `revision` desde el tag, evitando tener que editar `pom.xml` manualmente y garantizando que los JAR generados lleven el mismo número de versión que la release.
+
+- Las releases publican también `jylos.jar` y `jylos-uber.jar` como assets oficiales con nombres estables, evitando duplicados innecesarios y permitiendo usar tanto `releases/latest/download/...` como URLs de tags concretos.
+
+- El catálogo JBang apunta ahora a `releases/latest/download/jylos-uber.jar`, de modo que `jbang jylos@RGiskard7/jylos` usa siempre el uber-JAR de la última release sin mantener URLs hardcodeadas por versión.
+
+- Las notas de release generadas desde CI ya no añaden automáticamente el aviso final sobre paquetes Windows sin firmar y empaquetado macOS desactivado.
 
 - Jylos ahora comprueba las versiones de GitHub al iniciarse y muestra una pequeña notificación no bloqueante en la aplicación cuando hay una versión pública más reciente disponible.
+
+- El aviso visual de nueva versión pasa a ser un toast compacto y deja un indicador persistente en la barra inferior para volver a abrir la descarga sin molestar durante el trabajo.
 
 - El menú **Ayuda** incluye ahora **Buscar actualizaciones...**, usando el mismo comprobador de releases y mostrando feedback explícito si no hay actualización o si GitHub no se puede consultar.
 

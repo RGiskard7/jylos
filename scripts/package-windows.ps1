@@ -122,7 +122,11 @@ function Read-PomVersion {
     $pomFile = Join-Path (Get-Location) 'pom.xml'
     $content = Get-Content $pomFile -Raw
     if ($content -match '<version>([^<]+)</version>') {
-        return $matches[1]
+        $version = $matches[1]
+        if ($version -like '*${revision}*' -and $content -match '<revision>([^<]+)</revision>') {
+            return $matches[1]
+        }
+        return $version
     }
     return '2.4.0'
 }
@@ -181,7 +185,7 @@ Write-Host ''
 
 # -- Build uber-JAR --------------------------------------------------------------
 Write-Host 'Building JAR...' -ForegroundColor Cyan
-& mvn clean package -DskipTests "-Drelease.version=$APP_VERSION"
+& mvn clean package -DskipTests "-Drevision=$APP_VERSION" "-Drelease.version=$APP_VERSION"
 if ($LASTEXITCODE -ne 0) {
     Write-Host 'Error: Maven build failed' -ForegroundColor Red
     Pop-Location

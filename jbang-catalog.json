@@ -3,7 +3,7 @@
   "templates": {},
   "aliases": {
     "jylos": {
-      "script-ref": "https://github.com/RGiskard7/jylos/releases/download/v2.4.0/jylos-2.4.0-uber.jar",
+      "script-ref": "https://github.com/RGiskard7/jylos/releases/latest/download/jylos-uber.jar",
       "description": "Jylos - Local-first desktop knowledge base: Markdown notes, wiki-links, backlinks, knowledge graph, Kanban, canvas editor, per-note encryption and plugins (SQLite or Markdown vault)",
       "java": "21+",
       "dependencies": [

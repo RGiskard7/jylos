@@ -140,6 +140,8 @@
                  (e.g. git errors) with an ellipsis instead of squeezing the git bar. -->
             <Label fx:id="statusLabel" text="Ready" styleClass="status-text"
                    maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+            <Label fx:id="updateIndicator" text="!" styleClass="update-indicator"
+                   visible="false" managed="false" onMouseClicked="#handleUpdateIndicatorClick"/>
 
             <!-- Right: plugin items | note count | word / char counts -->
             <HBox fx:id="pluginStatusBarContainer" spacing="12" alignment="CENTER_LEFT"/>

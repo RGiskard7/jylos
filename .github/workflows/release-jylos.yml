@@ -52,14 +52,6 @@ jobs:
           java-version: '21'
           cache: maven
 
-      - name: Set Maven project version from tag
-        shell: bash
-        run: >
-          mvn -B -f jylos/pom.xml
-          versions:set
-          -DnewVersion="${JYLOS_RELEASE_VERSION}"
-          -DgenerateBackupPoms=false
-
       - name: Install Linux test display support
         if: runner.os == 'Linux'
         run: |
@@ -69,12 +61,12 @@ jobs:
       - name: Run tests
         if: runner.os != 'Linux'
         shell: bash
-        run: mvn -B -f jylos/pom.xml "-Drelease.version=${JYLOS_RELEASE_VERSION}" test
+        run: mvn -B -f jylos/pom.xml "-Drevision=${JYLOS_RELEASE_VERSION}" "-Drelease.version=${JYLOS_RELEASE_VERSION}" test
 
       - name: Run tests
         if: runner.os == 'Linux'
         shell: bash
-        run: xvfb-run -a mvn -B -f jylos/pom.xml "-Drelease.version=${JYLOS_RELEASE_VERSION}" test
+        run: xvfb-run -a mvn -B -f jylos/pom.xml "-Drevision=${JYLOS_RELEASE_VERSION}" "-Drelease.version=${JYLOS_RELEASE_VERSION}" test
 
       - name: Install Linux packaging tools
         if: runner.os == 'Linux'
@@ -139,6 +131,17 @@ jobs:
           test -n "$rpm"
           cp "$rpm" dist-assets/jylos-linux-amd64.rpm
 
+      - name: Collect release JARs
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p dist-assets
+          jar="jylos/target/jylos-${JYLOS_RELEASE_VERSION}.jar"
+          uber="jylos/target/jylos-${JYLOS_RELEASE_VERSION}-uber.jar"
+          test -f "$jar"
+          test -f "$uber"
+          cp "$jar" "dist-assets/jylos.jar"
+          cp "$uber" "dist-assets/jylos-uber.jar"
+
       # Kept for future use. This step only runs if macos-14-arm64 is enabled
       # again in the matrix above.
       - name: Package macOS DMG
@@ -194,8 +197,6 @@ jobs:
             echo "---"
             echo ""
             echo "Verify downloads with \`SHA256SUMS.txt\`."
-            echo ""
-            echo "Windows packages are currently unsigned. macOS packaging is temporarily disabled."
           } >> release-notes.md
 
       - name: Generate SHA256 checksums
