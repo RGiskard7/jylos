@@ -91,7 +91,14 @@ fragment that across helpers just to shrink line count.
 
 **New FXML view:** `ui/view/*.fxml` + controller + wire in `MainController`.
 
-**Docs:** keep [README.md](README.md), [docs/](docs/), especially [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/ARCHITECTURE_GUIDELINES.md](docs/ARCHITECTURE_GUIDELINES.md), and this file aligned with code — no outdated paths (e.g. plugins live under `jylos/plugins/`, not repo-root `plugins/` only).
+**Docs:** keep [README.md](README.md), [README.es.md](README.es.md), [docs/](docs/), especially [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/ARCHITECTURE_GUIDELINES.md](docs/ARCHITECTURE_GUIDELINES.md), and this file aligned with code — no outdated paths (e.g. plugins live under `jylos/plugins/`, not repo-root `plugins/` only).
+
+Canonical technical docs live in English under `docs/*.md`. Spanish translations live
+under `docs/es/*.md` with the same filename. When changing a doc in `docs/`, update its
+Spanish counterpart in `docs/es/` in the same change, and keep language cross-links at
+the top of both files. `README.md` must link English docs; `README.es.md` must link
+Spanish docs. Exception: `openwiki/`, `AGENTS.md`, and `CLAUDE.md` are managed by the
+OpenWiki workflow and do not need manual translation mirroring in `docs/es/`.
 
 <!-- OPENWIKI:START -->
 
