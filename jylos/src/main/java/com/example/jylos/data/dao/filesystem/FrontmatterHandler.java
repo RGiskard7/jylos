@@ -34,9 +34,6 @@ public final class FrontmatterHandler {
             "author", "source_url", "tags", "status", "private",
             "is_todo", "todo_due", "todo_completed");
 
-    private static final Yaml YAML_PARSER = new Yaml(new SafeConstructor(new LoaderOptions()));
-    private static final Yaml YAML_DUMPER = new Yaml(createDumperOptions());
-
     private FrontmatterHandler() {
         // utility class
     }
@@ -126,7 +123,7 @@ public final class FrontmatterHandler {
 
         StringBuilder sb = new StringBuilder();
         sb.append(SEPARATOR).append('\n');
-        sb.append(trimTrailingDocumentMarker(YAML_DUMPER.dump(root)));
+        sb.append(trimTrailingDocumentMarker(newYamlDumper().dump(root)));
         sb.append(SEPARATOR).append("\n\n");
         if (note.getContent() != null) {
             sb.append(note.getContent());
@@ -238,7 +235,7 @@ public final class FrontmatterHandler {
         if (yaml == null || yaml.isBlank()) {
             return new LinkedHashMap<>();
         }
-        Object loaded = YAML_PARSER.load(yaml);
+        Object loaded = newYamlParser().load(yaml);
         if (!(loaded instanceof Map<?, ?> rawMap)) {
             return new LinkedHashMap<>();
         }
@@ -249,6 +246,14 @@ public final class FrontmatterHandler {
             }
         }
         return result;
+    }
+
+    private static Yaml newYamlParser() {
+        return new Yaml(new SafeConstructor(new LoaderOptions()));
+    }
+
+    private static Yaml newYamlDumper() {
+        return new Yaml(createDumperOptions());
     }
 
     private static String trimTrailingDocumentMarker(String dumpedYaml) {
