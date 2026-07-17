@@ -67,6 +67,7 @@ public class Note extends LeafModel implements Serializable {
 	 * read it covers the whole body. {@code null} means "not indexed yet".</p>
 	 */
 	private transient List<String> linkTargets = null;
+	private transient boolean contentComplete = true;
 
 	public Note(String title, String content) {
 		super(title, null, null);
@@ -119,6 +120,15 @@ public class Note extends LeafModel implements Serializable {
 		// Any cached link index is derived from the content; mutating the content
 		// invalidates it so consumers re-derive (see linkTargets / getLinkTargets()).
 		this.linkTargets = null;
+		this.contentComplete = true;
+	}
+
+	public boolean isContentComplete() {
+		return contentComplete;
+	}
+
+	public void setContentComplete(boolean contentComplete) {
+		this.contentComplete = contentComplete;
 	}
 
 	/*

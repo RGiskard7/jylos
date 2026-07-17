@@ -255,6 +255,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         String filename = path.getFileName().toString();
         String title = filename.endsWith(".md") ? filename.substring(0, filename.length() - 3) : filename;
         Note note = new Note(id, title, "");
+        note.setContentComplete(false);
         applyFileTimestampsIfMissing(note, path);
         if (com.example.jylos.util.AttachmentType.isAttachment(filename)) {
             metadataStore.applyDocumentMetadata(id, note);
@@ -276,6 +277,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         // Keep the full filename as title so the list shows "report.pdf", "diagram.png".
         if (com.example.jylos.util.AttachmentType.isAttachment(filename)) {
             Note attachment = new Note(id, title, "");
+            attachment.setContentComplete(false);
             applyFileTimestampsIfMissing(attachment, path);
             metadataStore.applyDocumentMetadata(id, attachment);
             return attachment;
@@ -290,6 +292,7 @@ public class NoteDAOFileSystem implements NoteDAO {
             Note note = FrontmatterHandler.parseLightweight(head, LIGHTWEIGHT_BODY_CHARS);
             note.setId(id);
             note.setTitle(title);
+            note.setContentComplete(false);
             applyFileTimestampsIfMissing(note, path);
             // Index outgoing links from the (untruncated) content head already read, so the
             // backlink index needs no second full-file read per note — critical on large or
@@ -299,6 +302,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         } catch (IOException e) {
             logger.log(Level.FINE, "Failed lightweight read for: " + path, e);
             Note fallback = new Note(id, title, "");
+            fallback.setContentComplete(false);
             applyFileTimestampsIfMissing(fallback, path);
             return fallback;
         }
@@ -312,6 +316,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         String filename = path.getFileName().toString();
         String content = Files.exists(path) ? Files.readString(path) : "";
         Note note = new Note(id, filename, content);
+        note.setContentComplete(true);
         metadataStore.applyDocumentMetadata(id, note);
         applyFileTimestampsIfMissing(note, path);
         return note;
@@ -547,13 +552,17 @@ public class NoteDAOFileSystem implements NoteDAO {
             if (path == null) {
                 // Check if file exists at ID location
                 path = rootPath.resolve(normalizedId.replace("/", File.separator));
-                if (!Files.exists(path)) {
-                    logger.warning("Attempted to update non-existent note: " + note.getId());
-                    return;
-                }
             }
 
             boolean attachment = isAttachmentNote(path, note);
+            boolean canvas = isCanvasFile(path.getFileName().toString());
+            boolean missingOnDisk = !Files.exists(path);
+            if (missingOnDisk && attachment && !canvas) {
+                logger.warning("Attempted to update missing binary attachment: " + note.getId());
+                removeCacheAliasesForIds(normalizedId, normalizedId);
+                notesByFolderIndexDirty = true;
+                throw new DataAccessException("Cannot update missing binary attachment: " + note.getId(), null);
+            }
             String currentFilename = path.getFileName().toString();
             String expectedFilename = attachment
                     ? expectedAttachmentFilename(currentFilename, note.getTitle())
@@ -561,7 +570,16 @@ public class NoteDAOFileSystem implements NoteDAO {
 
             if (!currentFilename.equals(expectedFilename)) {
                 Path newPath = path.resolveSibling(expectedFilename);
-                if (!Files.exists(newPath)) {
+                if (!Files.exists(newPath) && missingOnDisk) {
+                    String oldId = normalizedId;
+                    String newId = normalizeId(rootPath.relativize(newPath).toString());
+                    idToPathMap.remove(oldId);
+                    cachedNotes.remove(oldId);
+                    note.setId(newId);
+                    path = newPath;
+                    missingOnDisk = true;
+                    notesByFolderIndexDirty = true;
+                } else if (!Files.exists(newPath)) {
                     try {
                         Files.move(path, newPath);
                         String oldId = normalizedId;
@@ -586,7 +604,11 @@ public class NoteDAOFileSystem implements NoteDAO {
             note.setModifiedDate(DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
 
             try {
+                if (missingOnDisk && path.getParent() != null) {
+                    Files.createDirectories(path.getParent());
+                }
                 if (!attachment) {
+                    ensureMarkdownContentComplete(note, path);
                     Files.writeString(path, FrontmatterHandler.generate(note),
                             StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
                 } else if (isCanvasFile(path.getFileName().toString())) {
@@ -618,6 +640,38 @@ public class NoteDAOFileSystem implements NoteDAO {
         } finally {
             FileSystemIoLock.LOCK.unlock();
         }
+    }
+
+    private void ensureMarkdownContentComplete(Note note, Path path) throws IOException {
+        if (note == null || note.isContentComplete() || path == null || !Files.exists(path)) {
+            return;
+        }
+        String persisted = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+        Note full = FrontmatterHandler.parse(persisted);
+        if ((note.getCreatedDate() == null || note.getCreatedDate().isBlank()) && full.getCreatedDate() != null) {
+            note.setCreatedDate(full.getCreatedDate());
+        }
+        if ((note.getDeletedDate() == null || note.getDeletedDate().isBlank()) && full.getDeletedDate() != null) {
+            note.setDeletedDate(full.getDeletedDate());
+        }
+        if ((note.getStatus() == null || note.getStatus().isBlank()) && full.getStatus() != null) {
+            note.setStatus(full.getStatus());
+        }
+        if ((note.getAuthor() == null || note.getAuthor().isBlank()) && full.getAuthor() != null) {
+            note.setAuthor(full.getAuthor());
+        }
+        if ((note.getSourceUrl() == null || note.getSourceUrl().isBlank()) && full.getSourceUrl() != null) {
+            note.setSourceUrl(full.getSourceUrl());
+        }
+        if ((note.getCustomProperties() == null || note.getCustomProperties().isEmpty())
+                && full.getCustomProperties() != null) {
+            note.setCustomProperties(full.getCustomProperties());
+        }
+        if (note.getTags().isEmpty() && !full.getTags().isEmpty()) {
+            note.setTags(full.getTags());
+        }
+        note.setContent(full.getContent());
+        note.setContentComplete(true);
     }
 
     /** Moves the note file to the {@code .trash} subfolder, removing it from all caches (soft delete). */

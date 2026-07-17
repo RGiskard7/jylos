@@ -69,8 +69,8 @@ public class Main extends Application {
             primaryStage.setMinWidth(800);
             primaryStage.setMinHeight(600);
             primaryStage.setOnCloseRequest(event -> {
-                if (mainController != null) {
-                    mainController.shutdownApplication();
+                if (mainController != null && !mainController.requestApplicationClose()) {
+                    event.consume();
                 }
             });
             primaryStage.show();

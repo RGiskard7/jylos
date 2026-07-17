@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -111,6 +112,8 @@ public class EditorController {
     private NoteService noteService;
     private TagService tagService;
     private ResourceBundle bundle;
+    private Consumer<String> statusAction = message -> {
+    };
     private Consumer<Note> noteModifiedAction = note -> {
     };
 
@@ -231,11 +234,14 @@ public class EditorController {
     }
 
     public void wire(EventBus eventBus, NoteService noteService, TagService tagService, ResourceBundle bundle,
-            Consumer<Note> noteModifiedAction, Supplier<List<String>> autocompleteTitlesSupplier) {
+            Consumer<Note> noteModifiedAction, Consumer<String> statusAction,
+            Supplier<List<String>> autocompleteTitlesSupplier) {
         setNoteService(noteService);
         setTagService(tagService);
         setBundle(bundle);
         this.noteModifiedAction = noteModifiedAction != null ? noteModifiedAction : note -> {
+        };
+        this.statusAction = statusAction != null ? statusAction : message -> {
         };
         this.autocompleteTitlesSupplier = autocompleteTitlesSupplier != null
                 ? autocompleteTitlesSupplier
@@ -306,6 +312,24 @@ public class EditorController {
     // ============================================================
 
     public Note getCurrentNote() { return currentNote; }
+
+    public void syncCurrentNoteIdentity(Note note) {
+        if (currentNote == null || note == null) {
+            return;
+        }
+        currentNote.setId(note.getId());
+        currentNote.setTitle(note.getTitle());
+        currentNote.setFavorite(note.isFavorite());
+        currentNote.setPinned(note.isPinned());
+        currentNote.setPrivate(note.isPrivate());
+        currentNote.setDeleted(note.isDeleted());
+        currentNote.setDeletedDate(note.getDeletedDate());
+        currentNote.setStatus(note.getStatus());
+        if (noteTitleField != null) {
+            noteTitleField.setText(note.getTitle() != null ? note.getTitle() : "");
+        }
+        updateBreadcrumb(currentNote);
+    }
 
     /** Live editor content (includes unsaved edits); empty while viewing an attachment. */
     public String getCurrentContent() {
@@ -849,7 +873,7 @@ public class EditorController {
             Files.writeString(path, json);
             logger.info("Canvas saved: " + path.getFileName());
         } catch (Exception e) {
-            logger.warning("Could not save canvas '" + path + "': " + e.getMessage());
+            throw new IllegalStateException("Could not save canvas '" + path + "'", e);
         }
     }
 
@@ -1061,8 +1085,12 @@ public class EditorController {
         if (currentNote == null) return;
         if (currentAttachmentType == AttachmentType.CANVAS && currentCanvasView != null) {
             if (isModified || currentCanvasView.hasUnsavedChanges()) {
-                persistCurrentCanvas(currentCanvasView.serialize());
-                currentCanvasView.markSaved();
+                try {
+                    persistCurrentCanvas(currentCanvasView.serialize());
+                    currentCanvasView.markSaved();
+                } catch (RuntimeException e) {
+                    reportSaveFailure(e);
+                }
             }
             return;
         }
@@ -1070,7 +1098,12 @@ public class EditorController {
         String previousNoteId = currentNote.getId();
         if (noteTitleField  != null) currentNote.setTitle(noteTitleField.getText());
         if (viewingAttachment) {
-            noteService.updateNote(currentNote);
+            try {
+                noteService.updateNote(currentNote);
+            } catch (RuntimeException e) {
+                reportSaveFailure(e);
+                return;
+            }
             isModified = false;
             updateBreadcrumb(currentNote);
             updateSaveIndicator(false);
@@ -1093,7 +1126,12 @@ public class EditorController {
                 }
             }
         }
-        noteService.updateNote(currentNote);
+        try {
+            noteService.updateNote(currentNote);
+        } catch (RuntimeException e) {
+            reportSaveFailure(e);
+            return;
+        }
         isModified = false;
         updateBreadcrumb(currentNote);
         updateSaveIndicator(false);
@@ -1101,6 +1139,12 @@ public class EditorController {
         if (editorHooks != null && !editorHooks.isEmpty()) {
             editorHooks.fireAfterSave(currentNote, currentNote.getContent());
         }
+    }
+
+    private void reportSaveFailure(RuntimeException error) {
+        logger.log(Level.WARNING, "Could not save current note", error);
+        statusAction.accept(safeI18n("status.error_saving"));
+        updateSaveIndicator(true);
     }
 
     // ============================================================

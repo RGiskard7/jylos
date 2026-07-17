@@ -1,5 +1,27 @@
 # Changelog
 
+## [Unrelease]
+
+## [2.4.7] - 2026-07-17
+
+- El refresh global vuelve a emitir el evento interno de notas refrescadas para que sidebar, índices y vistas suscritas invaliden cachés sin cambiar el filtro visible de la lista.
+
+- La reconstrucción interna del árbol de carpetas ya no dispara navegación accidental durante el refresh global, preservando la carpeta visible en la lista de notas.
+
+- El click derecho sobre notas o carpetas abre el menú contextual sin abrir la nota ni navegar de carpeta por accidente, incluyendo la vista de cuadrícula.
+
+- Renombrar una nota Markdown desde una entrada ligera de listado ya no puede truncar el contenido real del archivo: el DAO filesystem recarga el cuerpo completo antes de persistir cambios de metadata o título.
+
+- El menú contextual de carpetas en vault filesystem añade “Mostrar en el explorador de archivos”, alineado con la acción equivalente de documentos.
+
+- Al refrescar un vault, una nota abierta eliminada externamente se cierra si está limpia; si tiene cambios sin guardar, Jylos la conserva abierta y avisa para evitar pérdida de contenido.
+
+- Guardar una nota Markdown o Canvas que seguía abierta tras ser eliminada externamente recrea el documento en su ruta original, evitando que quede en un estado limbo sin persistencia real.
+
+- Cerrar la ventana principal pasa ahora por la misma confirmación de cambios sin guardar que el resto de flujos de salida, permitiendo cancelar el cierre si el guardado falla o el usuario decide seguir editando.
+
+- Los adjuntos binarios eliminados externamente ya no simulan un guardado correcto ni se recrean como archivos vacíos al renombrarlos desde Jylos.
+
 ## [2.4.6] - 2026-07-16
 
 - Los metadatos de la versión en tiempo de compilación ahora provienen del filtrado de Maven (`release.version`) en lugar de los recursos de la aplicación codificados, por lo que las versiones de CI etiquetadas incorporan la versión de la aplicación correspondiente.

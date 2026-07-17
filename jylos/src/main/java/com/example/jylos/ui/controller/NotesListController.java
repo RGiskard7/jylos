@@ -25,6 +25,8 @@ import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.ListCell;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
 import java.util.ArrayList;
 import java.util.List;
@@ -368,6 +370,14 @@ public class NotesListController {
                 });
                 contextMenu.getItems().addAll(openItem, pinItem, favoriteItem, privateItem, renameItem, revealItem, exportItem,
                         new SeparatorMenuItem(), deleteItem);
+
+                addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+                    if (event.getButton() == MouseButton.SECONDARY && !isEmpty()) {
+                        restoringNotesSelection = true;
+                        notesListView.getSelectionModel().select(getIndex());
+                        Platform.runLater(() -> restoringNotesSelection = false);
+                    }
+                });
 
                 setOnDragDetected(event -> {
                     Note note = getItem();
@@ -1644,10 +1654,16 @@ public class NotesListController {
         card.getChildren().addAll(titleRow, previewLabel, dateLabel);
 
         card.setOnMouseClicked(e -> {
+            if (e.getButton() != MouseButton.PRIMARY) {
+                return;
+            }
             notesListView.getSelectionModel().select(note);
             openNoteAction.accept(note);
         });
         card.setOnContextMenuRequested(event -> {
+            restoringNotesSelection = true;
+            notesListView.getSelectionModel().select(note);
+            Platform.runLater(() -> restoringNotesSelection = false);
             ContextMenu contextMenu = createGridNoteContextMenu(note, () -> {
                 notesListView.getSelectionModel().select(note);
                 openNoteAction.accept(note);

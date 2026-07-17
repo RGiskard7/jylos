@@ -535,7 +535,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
         if (editorController != null) {
             editorController.wire(eventBus, noteService, tagService, resources,
-                    this::handleUiNoteModified, com.example.jylos.service.NoteTitleIndex.getInstance()::titlesSorted);
+                    this::handleUiNoteModified, this::updateStatus,
+                    com.example.jylos.service.NoteTitleIndex.getInstance()::titlesSorted);
             editorController.setWikiLinkHandler(title -> noteService.findNoteByTitle(title).ifPresentOrElse(
                     this::handleUiNoteOpenRequest,
                     () -> updateStatus("Note not found: " + title)));
@@ -954,6 +955,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             Note active = getCurrentNote();
             if (active != null && (Objects.equals(active.getId(), saved.getId())
                     || Objects.equals(previousNoteId, active.getId()))) {
+                if (editorController != null) {
+                    editorController.syncCurrentNoteIdentity(saved);
+                    updateNoteMetadata(getCurrentNote());
+                    editorController.syncFavoritePinButtons(this::getString);
+                }
                 pendingModifiedNoteId = saved.getId();
             }
             refreshNotesGridIfActive();
@@ -2062,14 +2068,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             recordNavigation(leaving.getId());
         }
 
-        if (isModified() && leaving != null) {
-            SaveDialogDecision decision = showSaveDialog();
-            if (decision == SaveDialogDecision.CANCEL) {
-                return;
-            }
-            if (decision == SaveDialogDecision.SAVE) {
-                handleSave(new ActionEvent());
-            }
+        if (isModified() && leaving != null && !confirmLeaveCurrent()) {
+            return;
         }
 
         if (editorController != null) {
@@ -2161,6 +2161,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             }
             if (decision == SaveDialogDecision.SAVE) {
                 handleSave(new ActionEvent());
+                return !isModified();
             } else if (editorController != null) {
                 editorController.markClean();
             }
@@ -2549,19 +2550,18 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     @FXML
     private void handleExit(ActionEvent event) {
-        if (isModified() && getCurrentNote() != null) {
-            SaveDialogDecision decision = showSaveDialog();
-            if (decision == SaveDialogDecision.CANCEL) {
-                return;
-            }
-            if (decision == SaveDialogDecision.SAVE) {
-                handleSave(event);
-            }
+        if (requestApplicationClose()) {
+            Platform.exit();
+            System.exit(0);
         }
+    }
 
+    public boolean requestApplicationClose() {
+        if (!confirmLeaveCurrent()) {
+            return false;
+        }
         shutdownApplication();
-        Platform.exit();
-        System.exit(0);
+        return true;
     }
 
     /** Cancels all event subscriptions, shuts down plugins, closes the executor and the database connection in orderly fashion. */
@@ -3192,6 +3192,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (noteService != null) {
             noteService.refreshStorageCache();
         }
+        if (eventBus != null) {
+            eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
+        }
         refreshOpenNoteAfterStorageRefresh();
         navigationCommand.refreshByContext(
                 currentFilterType,
@@ -3224,6 +3227,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
         java.util.Optional<Note> refreshed = noteService.getNoteById(current.getId());
         if (refreshed.isEmpty()) {
+            handleMissingOpenNoteAfterStorageRefresh(current);
             return;
         }
         Note latest = refreshed.get();
@@ -3239,6 +3243,26 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         current.setStatus(latest.getStatus());
         updateNoteMetadata(current);
         editorController.syncFavoritePinButtons(this::getString);
+    }
+
+    private void handleMissingOpenNoteAfterStorageRefresh(Note missingNote) {
+        if (missingNote == null || missingNote.getId() == null) {
+            return;
+        }
+        if (isModified()) {
+            updateStatus(getString("status.open_note_missing_dirty"));
+            return;
+        }
+        if (editorTabs != null && editorTabs.isOpen(missingNote.getId())) {
+            String neighbor = editorTabs.neighborOf(missingNote.getId());
+            editorTabs.removeTab(missingNote.getId());
+            if (neighbor != null) {
+                openNoteInTab(neighbor);
+                return;
+            }
+        }
+        clearEditorToEmpty();
+        updateStatus(getString("status.open_note_missing_closed"));
     }
 
     @FXML
