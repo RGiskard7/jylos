@@ -1,3 +1,10 @@
+---
+type: Storage Architecture
+title: Storage and data model
+description: Explains SQLite and filesystem vault persistence, shared domain concepts, and storage rules.
+tags: [storage, sqlite, filesystem, data-model]
+---
+
 # Storage and data model
 
 Jylos supports two persistence strategies that share the same user-facing concepts:

@@ -1,3 +1,10 @@
+---
+type: Contributor Guide
+title: OpenWiki quickstart
+description: First-stop guide for contributors and coding agents working inside the Jylos repository.
+tags: [quickstart, contributors, agents]
+---
+
 # OpenWiki quickstart
 
 Jylos is a local-first desktop knowledge-management app built with Java 21, JavaFX 23, Maven, and SQLite, with an alternative filesystem Markdown vault mode. It combines note editing and preview, wiki-style links and backlinks, a knowledge graph, Kanban notes, canvas files, plugins, themes, workspace management, Git-aware vault workflows, and packaging/build scripts for Windows, macOS, and Linux.

@@ -1,3 +1,10 @@
+---
+type: Wiki Index
+title: OpenWiki for Jylos
+description: Root index for the OpenWiki repository documentation and its main entry points.
+tags: [openwiki, index, documentation]
+---
+
 # OpenWiki for Jylos
 
 Start with [quickstart](quickstart.md).
