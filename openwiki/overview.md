@@ -1,3 +1,10 @@
+---
+type: Repository Overview
+title: Repository overview
+description: High-level map of Jylos domains, runtime shell, storage backends, and source entry points.
+tags: [repository, overview, architecture]
+---
+
 # Repository overview
 
 Jylos is a Java 21 / JavaFX 23 desktop application for local-first knowledge management. The codebase is organized around a single desktop client with two storage backends:

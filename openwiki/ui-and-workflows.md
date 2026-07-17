@@ -1,3 +1,10 @@
+---
+type: UI Workflow Guide
+title: UI, workflows, and extension points
+description: Describes the main UI shell, controller composition, major user flows, and plugin-facing extension points.
+tags: [ui, workflows, controllers, plugins]
+---
+
 # UI, workflows, and extension points
 
 Most day-to-day product logic lives in the UI layer and its supporting services. The codebase follows a "thin shell, focused helpers" pattern: `MainController` orchestrates the screen, while smaller controllers/support classes own focused workflows. The same pattern is echoed in contributor guidance and in recent refactors that split shell responsibilities into targeted support classes.
