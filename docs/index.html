@@ -349,7 +349,7 @@
     <div class="container">
       <div class="social-row">
         <div class="social-stat">
-          <div class="social-stat__num">v2.4.0</div>
+          <div class="social-stat__num" id="latest-release-version">v2.4.7</div>
           <div class="social-stat__label" data-i18n="statRelease">Release</div>
         </div>
         <div class="social-stat">
@@ -916,7 +916,25 @@
 
       applyLanguage(lang);
       applyTheme(theme);
+      loadLatestReleaseVersion();
     })();
+
+    async function loadLatestReleaseVersion() {
+      var releaseNode = document.getElementById('latest-release-version');
+      if (!releaseNode) return;
+      try {
+        var response = await fetch('https://api.github.com/repos/RGiskard7/jylos/releases/latest', {
+          headers: { 'Accept': 'application/vnd.github+json' }
+        });
+        if (!response.ok) return;
+        var payload = await response.json();
+        if (payload && typeof payload.tag_name === 'string' && /^v\\d+\\.\\d+\\.\\d+$/.test(payload.tag_name)) {
+          releaseNode.textContent = payload.tag_name;
+        }
+      } catch (error) {
+        // Keep bundled fallback version when GitHub is unavailable.
+      }
+    }
 
     function copyJbang() {
       var code = document.getElementById('jbangCode').textContent;
