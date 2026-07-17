@@ -22,6 +22,10 @@
 
 - Los adjuntos binarios eliminados externamente ya no simulan un guardado correcto ni se recrean como archivos vacíos al renombrarlos desde Jylos.
 
+- El guardado con `editorHooks.applyBeforeSave(...)` deja de reescribir el editor antes de confirmar persistencia: si el hook transforma contenido, la UI solo se sincroniza tras un guardado exitoso, evitando falsos guardados y reduciendo efectos extraños en el historial de deshacer.
+
+- La toolbar inferior del editor añade botones visibles de `Deshacer` y `Rehacer` al inicio de la barra de formato, alineados con el flujo habitual de edición.
+
 ## [2.4.6] - 2026-07-16
 
 - Los metadatos de la versión en tiempo de compilación ahora provienen del filtrado de Maven (`release.version`) en lugar de los recursos de la aplicación codificados, por lo que las versiones de CI etiquetadas incorporan la versión de la aplicación correspondiente.

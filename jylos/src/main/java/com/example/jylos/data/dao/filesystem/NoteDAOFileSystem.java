@@ -299,7 +299,7 @@ public class NoteDAOFileSystem implements NoteDAO {
             // cloud-backed vaults where each read can block on an on-demand download.
             note.setLinkTargets(WikiLinkResolver.extractLinkTargets(FrontmatterHandler.stripFrontmatter(head)));
             return note;
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             logger.log(Level.FINE, "Failed lightweight read for: " + path, e);
             Note fallback = new Note(id, title, "");
             fallback.setContentComplete(false);
@@ -422,7 +422,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                 if (!attachment) {
                     fileContent = FrontmatterHandler.generate(note);
                 } else if (isCanvasFile(filename)) {
-                    fileContent = metadataStore.normalizeCanvasDocument(note.getContent());
+                    fileContent = metadataStore.createCanvasDocument(note.getContent());
                 } else {
                     fileContent = note.getContent() != null ? note.getContent() : "";
                 }
@@ -563,6 +563,13 @@ public class NoteDAOFileSystem implements NoteDAO {
                 notesByFolderIndexDirty = true;
                 throw new DataAccessException("Cannot update missing binary attachment: " + note.getId(), null);
             }
+            if (missingOnDisk && !attachment && !note.isContentComplete()) {
+                logger.warning("Attempted to recreate missing Markdown note from incomplete state: " + note.getId());
+                removeCacheAliasesForIds(normalizedId, normalizedId);
+                notesByFolderIndexDirty = true;
+                throw new DataAccessException("Cannot recreate missing Markdown note from incomplete state: "
+                        + note.getId(), null);
+            }
             String currentFilename = path.getFileName().toString();
             String expectedFilename = attachment
                     ? expectedAttachmentFilename(currentFilename, note.getTitle())
@@ -616,8 +623,12 @@ public class NoteDAOFileSystem implements NoteDAO {
                     // Canvas list entries are metadata-only. Do not let a favorite/pinned
                     // toggle rewrite a real .canvas file with an empty lightweight body.
                     if (content != null && !content.isBlank()) {
-                        Files.writeString(path, metadataStore.normalizeCanvasDocument(content),
-                                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                        try {
+                            Files.writeString(path, metadataStore.normalizeCanvasDocument(content),
+                                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                        } catch (IllegalArgumentException e) {
+                            throw new DataAccessException("Invalid canvas document: " + note.getId(), e);
+                        }
                     }
                 } else {
                     metadataStore.persistDocumentMetadata(note);
@@ -635,7 +646,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                 idToPathMap.put(currentId, path);
                 notesByFolderIndexDirty = true;
             } catch (IOException e) {
-                logger.log(Level.SEVERE, "Failed to update note file: " + path, e);
+                throw new DataAccessException("Failed to update note file: " + path, e);
             }
         } finally {
             FileSystemIoLock.LOCK.unlock();
@@ -666,6 +677,14 @@ public class NoteDAOFileSystem implements NoteDAO {
         if ((note.getCustomProperties() == null || note.getCustomProperties().isEmpty())
                 && full.getCustomProperties() != null) {
             note.setCustomProperties(full.getCustomProperties());
+        }
+        if ((note.getStructuredFrontmatterProperties() == null || note.getStructuredFrontmatterProperties().isEmpty())
+                && full.getStructuredFrontmatterProperties() != null) {
+            note.setStructuredFrontmatterProperties(full.getStructuredFrontmatterProperties());
+        }
+        if ((note.getDisplayableFrontmatterPropertyKeys() == null || note.getDisplayableFrontmatterPropertyKeys().isEmpty())
+                && full.getDisplayableFrontmatterPropertyKeys() != null) {
+            note.setDisplayableFrontmatterPropertyKeys(full.getDisplayableFrontmatterPropertyKeys());
         }
         if (note.getTags().isEmpty() && !full.getTags().isEmpty()) {
             note.setTags(full.getTags());
@@ -849,9 +868,7 @@ public class NoteDAOFileSystem implements NoteDAO {
 
                 // Handle conflicts
                 if (Files.exists(target)) {
-                    String filename = target.getFileName().toString();
-                    String name = filename.endsWith(".md") ? filename.substring(0, filename.length() - 3) : filename;
-                    target = target.getParent().resolve(name + "_restored_" + System.currentTimeMillis() + ".md");
+                    target = withConflictSuffix(target, "_restored_" + System.currentTimeMillis());
                 }
 
                 // Ensure parent exists (always true if it's rootPath, but safe to keep)
@@ -1095,6 +1112,14 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
 
         return extension.isEmpty() ? base : base + "." + extension;
+    }
+
+    private Path withConflictSuffix(Path targetPath, String suffix) {
+        String filename = targetPath.getFileName().toString();
+        int dot = filename.lastIndexOf('.');
+        String base = dot > 0 ? filename.substring(0, dot) : filename;
+        String extension = dot > 0 ? filename.substring(dot) : "";
+        return targetPath.getParent().resolve(base + suffix + extension);
     }
 
     /** Normalizes a note ID to use forward slashes and returns an empty string for null input. */

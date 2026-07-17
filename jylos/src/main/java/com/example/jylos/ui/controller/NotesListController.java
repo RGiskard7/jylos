@@ -7,6 +7,7 @@ import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
+import com.example.jylos.exceptions.DataAccessException;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
@@ -642,6 +643,7 @@ public class NotesListController {
             }
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Failed to toggle favorite", e);
+            publishPersistenceFailure(e, "status.note_update_error");
         }
     }
 
@@ -657,6 +659,7 @@ public class NotesListController {
             resortVisibleNotes();
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Failed to toggle pin", e);
+            publishPersistenceFailure(e, "status.note_update_error");
         }
     }
 
@@ -1339,9 +1342,19 @@ public class NotesListController {
                         getString("status.renamed_note"), note.getTitle()));
             } catch (Exception e) {
                 logger.log(Level.WARNING, "Failed to rename note " + note.getId(), e);
-                publishStatusUpdate(getString("status.note_rename_error"));
+                publishPersistenceFailure(e, "status.note_rename_error");
             }
         });
+    }
+
+    private void publishPersistenceFailure(Exception error, String fallbackKey) {
+        if (error instanceof DataAccessException dataAccess
+                && dataAccess.getMessage() != null
+                && dataAccess.getMessage().contains("missing")) {
+            publishStatusUpdate(getString("status.note_missing_on_disk"));
+            return;
+        }
+        publishStatusUpdate(getString(fallbackKey));
     }
 
     private void deleteNote(Note note) {

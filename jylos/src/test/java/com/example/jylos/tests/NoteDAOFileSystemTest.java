@@ -155,6 +155,30 @@ class NoteDAOFileSystemTest {
     }
 
     @Test
+    void updateMissingLightweightMarkdownNoteFailsWithoutRecreatingPartialFile() throws Exception {
+        StringBuilder body = new StringBuilder();
+        for (int i = 0; i < 200; i++) {
+            body.append("Line ").append(i).append(" of the real document.\n");
+        }
+        Note note = new Note("Long Draft", body.toString());
+        String id = noteDAO.createNote(note);
+
+        NoteDAOFileSystem reopened = new NoteDAOFileSystem(tempDir.toString());
+        Note lightweight = reopened.fetchAllNotes().stream()
+                .filter(candidate -> id.equals(candidate.getId()))
+                .findFirst()
+                .orElseThrow();
+        assertTrue(!lightweight.isContentComplete(), "list notes must stay lightweight in this scenario");
+
+        Files.delete(tempDir.resolve(id));
+        lightweight.setTitle("Long Draft Renamed");
+
+        assertThrows(DataAccessException.class, () -> reopened.updateNote(lightweight));
+        assertTrue(!Files.exists(tempDir.resolve("Long Draft Renamed.md")),
+                "A lightweight note must not recreate a missing Markdown file from partial state.");
+    }
+
+    @Test
     void updateMissingBinaryAttachmentDoesNotCreateEmptyFile() throws Exception {
         Path image = tempDir.resolve("image.png");
         Files.write(image, new byte[] { 1, 2, 3 });
@@ -168,6 +192,47 @@ class NoteDAOFileSystemTest {
         assertThrows(DataAccessException.class, () -> noteDAO.updateNote(opened));
         assertTrue(!Files.exists(tempDir.resolve("renamed.png")),
                 "Missing binary attachments must not be recreated as empty files.");
+    }
+
+    @Test
+    void updateInvalidCanvasDoesNotOverwriteExistingFile() throws Exception {
+        Note canvas = new Note("Board.canvas", "{\"nodes\":[],\"edges\":[]}");
+        String id = noteDAO.createNote(canvas);
+        Path path = tempDir.resolve(id);
+        String original = Files.readString(path, StandardCharsets.UTF_8);
+
+        Note opened = noteDAO.getNoteById(id);
+        assertNotNull(opened);
+        opened.setContent("{invalid json");
+
+        assertThrows(DataAccessException.class, () -> noteDAO.updateNote(opened));
+        assertEquals(original, Files.readString(path, StandardCharsets.UTF_8),
+                "Invalid canvas JSON must fail without overwriting the existing file.");
+    }
+
+    @Test
+    void fetchAllNotesToleratesInvalidFrontmatterWithoutThrowing() throws Exception {
+        Path broken = tempDir.resolve("Broken.md");
+        Files.writeString(broken, """
+                ---
+                bad:
+                  - ok
+                 broken
+                ---
+
+                body
+                """);
+
+        noteDAO.refreshCache();
+
+        List<Note> notes = noteDAO.fetchAllNotes();
+        Note listed = notes.stream()
+                .filter(candidate -> "Broken.md".equals(candidate.getId()))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals("Broken", listed.getTitle());
+        assertTrue(!listed.isContentComplete(), "Invalid frontmatter must degrade to a safe lightweight fallback.");
     }
 
     @Test

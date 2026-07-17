@@ -1110,8 +1110,17 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (note == null || getCurrentNote() == null || !Objects.equals(note.getId(), getCurrentNote().getId())) {
             return;
         }
+        boolean dirty = isModified();
         if (editorTabs != null) {
-            editorTabs.setDirty(note.getId(), true);
+            editorTabs.setDirty(note.getId(), dirty);
+        }
+        if (!dirty) {
+            pendingModifiedNoteId = null;
+            noteModifiedDebounce.stop();
+            autosaveDebounce.stop();
+            refreshEditorAfterEdit();
+            updateNoteStats(note);
+            return;
         }
         pendingModifiedNoteId = note.getId();
         noteModifiedDebounce.playFromStart();
@@ -3221,6 +3230,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     }
 
     private void refreshOpenNoteAfterStorageRefresh() {
+        refreshInactiveOpenTabsAfterStorageRefresh();
         Note current = getCurrentNote();
         if (current == null || current.getId() == null || noteService == null || editorController == null) {
             return;
@@ -3243,6 +3253,25 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         current.setStatus(latest.getStatus());
         updateNoteMetadata(current);
         editorController.syncFavoritePinButtons(this::getString);
+    }
+
+    private void refreshInactiveOpenTabsAfterStorageRefresh() {
+        if (editorTabs == null || noteService == null) {
+            return;
+        }
+        String activeId = editorTabs.getActiveId();
+        for (String openId : new ArrayList<>(editorTabs.getOpenIds())) {
+            if (Objects.equals(openId, activeId)) {
+                continue;
+            }
+            Optional<Note> refreshed = noteService.getNoteById(openId);
+            if (refreshed.isEmpty()) {
+                editorTabs.removeTab(openId);
+                continue;
+            }
+            editorTabs.setTitle(openId, refreshed.get().getTitle());
+            editorTabs.setDirty(openId, false);
+        }
     }
 
     private void handleMissingOpenNoteAfterStorageRefresh(Note missingNote) {
