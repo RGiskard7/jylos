@@ -32,7 +32,10 @@ jobs:
         run: npm install --global openwiki@0.2.0
 
       - name: Run OpenWiki
-        run: openwiki code --update --print
+        run: >
+          openwiki code --update --print
+          "Update only the repository-local /openwiki docs plus AGENTS.md and CLAUDE.md.
+          Do not inspect, read, or write ~/.openwiki/wiki or any personal wiki path."
         env:
           OPENWIKI_PROVIDER: openrouter
           #OPENAI_API_KEY: {{ secrets.OPENAI_API_KEY }}
