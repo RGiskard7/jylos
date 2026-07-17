@@ -3,6 +3,7 @@ package com.example.jylos.data.models;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +56,8 @@ public class Note extends LeafModel implements Serializable {
 	 * Examples: {@code aliases}, {@code date}, {@code priority}, user-defined fields.
 	 */
 	private Map<String, String> customProperties = new LinkedHashMap<>();
+	private transient Map<String, Object> structuredFrontmatterProperties = new LinkedHashMap<>();
+	private transient Set<String> displayableFrontmatterPropertyKeys = new LinkedHashSet<>();
 
 	/**
 	 * Outgoing internal-link targets ({@code [[wiki]]} / {@code [label](note)}),
@@ -67,6 +70,7 @@ public class Note extends LeafModel implements Serializable {
 	 * read it covers the whole body. {@code null} means "not indexed yet".</p>
 	 */
 	private transient List<String> linkTargets = null;
+	private transient boolean contentComplete = true;
 
 	public Note(String title, String content) {
 		super(title, null, null);
@@ -119,6 +123,15 @@ public class Note extends LeafModel implements Serializable {
 		// Any cached link index is derived from the content; mutating the content
 		// invalidates it so consumers re-derive (see linkTargets / getLinkTargets()).
 		this.linkTargets = null;
+		this.contentComplete = true;
+	}
+
+	public boolean isContentComplete() {
+		return contentComplete;
+	}
+
+	public void setContentComplete(boolean contentComplete) {
+		this.contentComplete = contentComplete;
 	}
 
 	/*
@@ -267,6 +280,34 @@ public class Note extends LeafModel implements Serializable {
 		this.customProperties = customProperties != null
 				? new LinkedHashMap<>(customProperties)
 				: new LinkedHashMap<>();
+	}
+
+	/**
+	 * Structured non-system frontmatter values preserved for round-tripping values that
+	 * do not fit the flat key/value UI model (nested maps, rich lists, typed scalars).
+	 */
+	public Map<String, Object> getStructuredFrontmatterProperties() {
+		return structuredFrontmatterProperties;
+	}
+
+	public void setStructuredFrontmatterProperties(Map<String, Object> structuredFrontmatterProperties) {
+		this.structuredFrontmatterProperties = structuredFrontmatterProperties != null
+				? new LinkedHashMap<>(structuredFrontmatterProperties)
+				: new LinkedHashMap<>();
+	}
+
+	/**
+	 * Keys mirrored into {@link #customProperties} so a later save can distinguish an
+	 * intentional UI deletion from a hidden structured value that should remain preserved.
+	 */
+	public Set<String> getDisplayableFrontmatterPropertyKeys() {
+		return displayableFrontmatterPropertyKeys;
+	}
+
+	public void setDisplayableFrontmatterPropertyKeys(Set<String> displayableFrontmatterPropertyKeys) {
+		this.displayableFrontmatterPropertyKeys = displayableFrontmatterPropertyKeys != null
+				? new LinkedHashSet<>(displayableFrontmatterPropertyKeys)
+				: new LinkedHashSet<>();
 	}
 
 	/**

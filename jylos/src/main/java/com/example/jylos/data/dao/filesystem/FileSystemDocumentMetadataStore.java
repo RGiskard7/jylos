@@ -37,11 +37,19 @@ final class FileSystemDocumentMetadataStore {
     }
 
     /**
-     * Parses and reserializes canvas content only for real canvas saves/creates.
-     * Metadata-only updates must not call this with an empty lightweight note body.
+     * Normalizes initial canvas content for file creation. Invalid or blank input falls
+     * back to a valid empty canvas so a new document is never created half-broken.
+     */
+    String createCanvasDocument(String baseContent) {
+        return gson.toJson(parseCanvasRootLenient(baseContent));
+    }
+
+    /**
+     * Parses and reserializes canvas content for real saves. Existing non-empty invalid
+     * JSON must fail explicitly instead of being replaced by an empty canvas.
      */
     String normalizeCanvasDocument(String baseContent) {
-        return gson.toJson(parseCanvasRoot(baseContent));
+        return gson.toJson(parseCanvasRootStrict(baseContent));
     }
 
     void applyDocumentMetadata(String noteId, Note note) {
@@ -150,7 +158,29 @@ final class FileSystemDocumentMetadataStore {
      * Returns a valid Obsidian canvas root while preserving unknown fields when the
      * source is valid JSON.
      */
-    static JsonObject parseCanvasRoot(String content) {
+    static JsonObject parseCanvasRootStrict(String content) {
+        if (content == null || content.isBlank()) {
+            JsonObject root = new JsonObject();
+            root.add("nodes", new JsonArray());
+            root.add("edges", new JsonArray());
+            return root;
+        }
+        try {
+            JsonElement element = JsonParser.parseString(content);
+            JsonObject root = element != null && element.isJsonObject() ? element.getAsJsonObject() : new JsonObject();
+            if (!root.has("nodes")) {
+                root.add("nodes", new JsonArray());
+            }
+            if (!root.has("edges")) {
+                root.add("edges", new JsonArray());
+            }
+            return root;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid canvas JSON", e);
+        }
+    }
+
+    static JsonObject parseCanvasRootLenient(String content) {
         if (content == null || content.isBlank()) {
             JsonObject root = new JsonObject();
             root.add("nodes", new JsonArray());

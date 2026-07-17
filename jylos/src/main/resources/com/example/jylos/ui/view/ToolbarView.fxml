@@ -37,8 +37,8 @@
         </Menu>
 
         <Menu text="%menu.edit">
-            <MenuItem text="%action.undo" onAction="#handleUndo" accelerator="Shortcut+Z"/>
-            <MenuItem text="%action.redo" onAction="#handleRedo" accelerator="Shortcut+Y"/>
+            <MenuItem text="%action.undo" onAction="#handleUndo"/>
+            <MenuItem text="%action.redo" onAction="#handleRedo"/>
             <SeparatorMenuItem/>
             <MenuItem text="%action.cut" onAction="#handleCut" accelerator="Shortcut+X"/>
             <MenuItem text="%action.copy" onAction="#handleCopy" accelerator="Shortcut+C"/>

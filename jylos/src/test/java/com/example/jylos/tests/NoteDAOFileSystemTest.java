@@ -2,6 +2,7 @@ package com.example.jylos.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
 import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
+import com.example.jylos.exceptions.DataAccessException;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -59,6 +61,178 @@ class NoteDAOFileSystemTest {
         assertNotNull(updated, "Updated note should exist");
         assertEquals("New Title", updated.getTitle());
         assertEquals("New Content", updated.getContent());
+    }
+
+    @Test
+    void updateFromLightweightMarkdownNotePreservesFullBody() {
+        StringBuilder body = new StringBuilder();
+        for (int i = 0; i < 300; i++) {
+            body.append("Line ").append(i).append(" with enough content to exceed lightweight preview reads.\n");
+        }
+        Note note = new Note("Long Note", body.toString());
+        String id = noteDAO.createNote(note);
+
+        NoteDAOFileSystem reopened = new NoteDAOFileSystem(tempDir.toString());
+        Note lightweight = reopened.fetchAllNotes().stream()
+                .filter(n -> id.equals(n.getId()))
+                .findFirst()
+                .orElseThrow();
+
+        lightweight.setTitle("Renamed Long Note");
+        reopened.updateNote(lightweight);
+
+        Note renamed = reopened.getNoteById(lightweight.getId());
+        assertNotNull(renamed);
+        assertEquals("Renamed Long Note", renamed.getTitle());
+        assertEquals(body.toString(), renamed.getContent());
+    }
+
+    @Test
+    void updateMissingMarkdownNoteRecreatesOriginalFile() throws Exception {
+        Note note = new Note("Draft", "Initial");
+        String id = noteDAO.createNote(note);
+        Note opened = noteDAO.getNoteById(id);
+        assertNotNull(opened);
+
+        Files.delete(tempDir.resolve(id));
+        opened.setContent("Unsaved edits after external delete");
+        noteDAO.updateNote(opened);
+
+        Note recreated = noteDAO.getNoteById(id);
+        assertNotNull(recreated);
+        assertEquals("Draft", recreated.getTitle());
+        assertEquals("Unsaved edits after external delete", recreated.getContent());
+    }
+
+    @Test
+    void updateMissingMarkdownNoteRecreatesDeletedParentFolder() throws Exception {
+        Files.createDirectories(tempDir.resolve("Folder"));
+        Note note = new Note("Draft", "Initial");
+        note.setId("Folder/Draft.md");
+        String id = noteDAO.createNote(note);
+        Note opened = noteDAO.getNoteById(id);
+        assertNotNull(opened);
+
+        Files.delete(tempDir.resolve(id));
+        Files.delete(tempDir.resolve("Folder"));
+
+        opened.setContent("Recovered after parent folder delete");
+        noteDAO.updateNote(opened);
+
+        Note recreated = noteDAO.getNoteById(id);
+        assertNotNull(recreated);
+        assertEquals("Recovered after parent folder delete", recreated.getContent());
+    }
+
+    @Test
+    void updateMissingCanvasNoteRecreatesOriginalFile() throws Exception {
+        String canvasJson = """
+                {
+                  "nodes": [],
+                  "edges": []
+                }
+                """;
+        Note canvas = new Note("Board.canvas", canvasJson);
+        String id = noteDAO.createNote(canvas);
+        Note opened = noteDAO.getNoteById(id);
+        assertNotNull(opened);
+
+        Files.delete(tempDir.resolve(id));
+        opened.setContent("""
+                {
+                  "nodes": [
+                    { "id": "n1", "type": "text", "text": "kept" }
+                  ],
+                  "edges": []
+                }
+                """);
+        noteDAO.updateNote(opened);
+
+        Path recreatedPath = tempDir.resolve(id);
+        assertTrue(Files.exists(recreatedPath));
+        JsonObject root = JsonParser.parseString(Files.readString(recreatedPath)).getAsJsonObject();
+        assertEquals("kept", root.getAsJsonArray("nodes").get(0).getAsJsonObject().get("text").getAsString());
+    }
+
+    @Test
+    void updateMissingLightweightMarkdownNoteFailsWithoutRecreatingPartialFile() throws Exception {
+        StringBuilder body = new StringBuilder();
+        for (int i = 0; i < 200; i++) {
+            body.append("Line ").append(i).append(" of the real document.\n");
+        }
+        Note note = new Note("Long Draft", body.toString());
+        String id = noteDAO.createNote(note);
+
+        NoteDAOFileSystem reopened = new NoteDAOFileSystem(tempDir.toString());
+        Note lightweight = reopened.fetchAllNotes().stream()
+                .filter(candidate -> id.equals(candidate.getId()))
+                .findFirst()
+                .orElseThrow();
+        assertTrue(!lightweight.isContentComplete(), "list notes must stay lightweight in this scenario");
+
+        Files.delete(tempDir.resolve(id));
+        lightweight.setTitle("Long Draft Renamed");
+
+        assertThrows(DataAccessException.class, () -> reopened.updateNote(lightweight));
+        assertTrue(!Files.exists(tempDir.resolve("Long Draft Renamed.md")),
+                "A lightweight note must not recreate a missing Markdown file from partial state.");
+    }
+
+    @Test
+    void updateMissingBinaryAttachmentDoesNotCreateEmptyFile() throws Exception {
+        Path image = tempDir.resolve("image.png");
+        Files.write(image, new byte[] { 1, 2, 3 });
+        noteDAO.refreshCache();
+        Note opened = noteDAO.getNoteById("image.png");
+        assertNotNull(opened);
+
+        Files.delete(image);
+        opened.setTitle("renamed.png");
+
+        assertThrows(DataAccessException.class, () -> noteDAO.updateNote(opened));
+        assertTrue(!Files.exists(tempDir.resolve("renamed.png")),
+                "Missing binary attachments must not be recreated as empty files.");
+    }
+
+    @Test
+    void updateInvalidCanvasDoesNotOverwriteExistingFile() throws Exception {
+        Note canvas = new Note("Board.canvas", "{\"nodes\":[],\"edges\":[]}");
+        String id = noteDAO.createNote(canvas);
+        Path path = tempDir.resolve(id);
+        String original = Files.readString(path, StandardCharsets.UTF_8);
+
+        Note opened = noteDAO.getNoteById(id);
+        assertNotNull(opened);
+        opened.setContent("{invalid json");
+
+        assertThrows(DataAccessException.class, () -> noteDAO.updateNote(opened));
+        assertEquals(original, Files.readString(path, StandardCharsets.UTF_8),
+                "Invalid canvas JSON must fail without overwriting the existing file.");
+    }
+
+    @Test
+    void fetchAllNotesToleratesInvalidFrontmatterWithoutThrowing() throws Exception {
+        Path broken = tempDir.resolve("Broken.md");
+        Files.writeString(broken, """
+                ---
+                bad:
+                  - ok
+                 broken
+                ---
+
+                body
+                """);
+
+        noteDAO.refreshCache();
+
+        List<Note> notes = noteDAO.fetchAllNotes();
+        Note listed = notes.stream()
+                .filter(candidate -> "Broken.md".equals(candidate.getId()))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals("Broken", listed.getTitle());
+        assertTrue(!listed.isContentComplete(), "Invalid frontmatter must degrade to a safe lightweight fallback.");
     }
 
     @Test

@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -111,11 +112,16 @@ public class EditorController {
     private NoteService noteService;
     private TagService tagService;
     private ResourceBundle bundle;
+    private Consumer<String> statusAction = message -> {
+    };
     private Consumer<Note> noteModifiedAction = note -> {
     };
 
     private Note currentNote;
     private boolean isModified = false;
+    private String persistedTitle = "";
+    private String persistedContent = "";
+    private Map<String, String> persistedCustomProperties = new LinkedHashMap<>();
 
     /** Cancels any in-flight preview render so FX thread is never blocked by markdown parsing. */
     private volatile Task<String> currentPreviewTask;
@@ -231,11 +237,14 @@ public class EditorController {
     }
 
     public void wire(EventBus eventBus, NoteService noteService, TagService tagService, ResourceBundle bundle,
-            Consumer<Note> noteModifiedAction, Supplier<List<String>> autocompleteTitlesSupplier) {
+            Consumer<Note> noteModifiedAction, Consumer<String> statusAction,
+            Supplier<List<String>> autocompleteTitlesSupplier) {
         setNoteService(noteService);
         setTagService(tagService);
         setBundle(bundle);
         this.noteModifiedAction = noteModifiedAction != null ? noteModifiedAction : note -> {
+        };
+        this.statusAction = statusAction != null ? statusAction : message -> {
         };
         this.autocompleteTitlesSupplier = autocompleteTitlesSupplier != null
                 ? autocompleteTitlesSupplier
@@ -307,6 +316,27 @@ public class EditorController {
 
     public Note getCurrentNote() { return currentNote; }
 
+    public void syncCurrentNoteIdentity(Note note) {
+        if (currentNote == null || note == null) {
+            return;
+        }
+        currentNote.setId(note.getId());
+        currentNote.setTitle(note.getTitle());
+        currentNote.setFavorite(note.isFavorite());
+        currentNote.setPinned(note.isPinned());
+        currentNote.setPrivate(note.isPrivate());
+        currentNote.setDeleted(note.isDeleted());
+        currentNote.setDeletedDate(note.getDeletedDate());
+        currentNote.setStatus(note.getStatus());
+        if (noteTitleField != null) {
+            noteTitleField.setText(note.getTitle() != null ? note.getTitle() : "");
+        }
+        updateBreadcrumb(currentNote);
+        if (!isModified) {
+            capturePersistedBaseline(currentNote);
+        }
+    }
+
     /** Live editor content (includes unsaved edits); empty while viewing an attachment. */
     public String getCurrentContent() {
         if (viewingAttachment) {
@@ -321,8 +351,7 @@ public class EditorController {
 
     /** Drops the unsaved-changes flag without persisting (used when discarding on close). */
     public void markClean() {
-        isModified = false;
-        updateSaveIndicator(false);
+        setModifiedState(false);
     }
 
     // FXML node getters (used by MainController for layout delegation)
@@ -441,8 +470,7 @@ public class EditorController {
                 currentNote.getCustomProperties().put(key, val);
                 propertiesExpanded = true;
                 rebuildPropertiesPanel();
-                isModified = true;
-                publishModified();
+                reevaluateModifiedState();
             }
         });
     }
@@ -482,6 +510,7 @@ public class EditorController {
     private void initialize() {
         installEditorScrollPane();
         setNoteOpen(false);
+        installNativeUndoRedoBridge();
         // The read-view heading always mirrors the editable title field.
         if (noteTitleLabel != null && noteTitleField != null) {
             noteTitleLabel.textProperty().bind(noteTitleField.textProperty());
@@ -523,6 +552,39 @@ public class EditorController {
         noteContentArea.multiPlainChanges()
                 .successionEnds(SYNTAX_HIGHLIGHT_DEBOUNCE)
                 .subscribe(ignore -> applyHighlighting());
+    }
+
+    /**
+     * RichTextFX already binds platform-native undo/redo shortcuts. The app menu also
+     * exposes those shortcuts through JavaFX accelerators, so one key press can reach
+     * the editor twice unless we consume it here and route it through a single path.
+     */
+    private void installNativeUndoRedoBridge() {
+        if (noteContentArea == null) {
+            return;
+        }
+        noteContentArea.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+            if (!event.isShortcutDown()) {
+                return;
+            }
+            switch (event.getCode()) {
+                case Z -> {
+                    if (event.isShiftDown()) {
+                        performRedo();
+                    } else {
+                        performUndo();
+                    }
+                    event.consume();
+                }
+                case Y -> {
+                    performRedo();
+                    event.consume();
+                }
+                default -> {
+                    // Keep other shortcuts untouched.
+                }
+            }
+        });
     }
 
     private void applyHighlighting() {
@@ -588,12 +650,13 @@ public class EditorController {
         if (note == null) {
             clearReusableCanvasIfClean();
             currentNote = null;
+            capturePersistedBaseline(null);
             if (noteTitleField  != null) noteTitleField.clear();
             if (noteContentArea != null) noteContentArea.clear();
+            resetEditorUndoHistory();
             clearPropertiesPanel();
             setNoteOpen(false);
-            isModified = false;
-            updateSaveIndicator(false);
+            setModifiedState(false);
             updatePrivateIndicator();
             syncFavoritePinButtons(key -> getString(key, key));
             return;
@@ -613,8 +676,8 @@ public class EditorController {
         }
         if (type.isAttachment()) {
             showAttachment(currentNote, type);
-            isModified = false;
-            updateSaveIndicator(false);
+            capturePersistedBaseline(currentNote);
+            setModifiedState(false);
             updatePrivateIndicator();
             syncFavoritePinButtons(key -> getString(key, key));
             return;
@@ -622,12 +685,13 @@ public class EditorController {
         hideAttachmentViewer();
 
         if (noteContentArea != null) noteContentArea.replaceText(orEmpty(currentNote.getContent()));
+        resetEditorUndoHistory();
 
         setNoteOpen(true);
         updateBreadcrumb(currentNote);
         rebuildPropertiesPanel();
-        isModified = false;
-        updateSaveIndicator(false);
+        capturePersistedBaseline(currentNote);
+        setModifiedState(false);
         updatePrivateIndicator();
         syncFavoritePinButtons(key -> getString(key, key));
         applyHighlighting();
@@ -839,8 +903,7 @@ public class EditorController {
         if (currentNote == null) {
             return;
         }
-        isModified = true;
-        publishModified();
+        reevaluateModifiedState();
     }
 
     /** Writes the (edited) canvas JSON back to its file when no note service is available. */
@@ -849,7 +912,7 @@ public class EditorController {
             Files.writeString(path, json);
             logger.info("Canvas saved: " + path.getFileName());
         } catch (Exception e) {
-            logger.warning("Could not save canvas '" + path + "': " + e.getMessage());
+            throw new IllegalStateException("Could not save canvas '" + path + "'", e);
         }
     }
 
@@ -1061,19 +1124,29 @@ public class EditorController {
         if (currentNote == null) return;
         if (currentAttachmentType == AttachmentType.CANVAS && currentCanvasView != null) {
             if (isModified || currentCanvasView.hasUnsavedChanges()) {
-                persistCurrentCanvas(currentCanvasView.serialize());
-                currentCanvasView.markSaved();
+                try {
+                    persistCurrentCanvas(currentCanvasView.serialize());
+                    currentCanvasView.markSaved();
+                } catch (RuntimeException e) {
+                    reportSaveFailure(e);
+                }
             }
             return;
         }
         if (!isModified || noteService == null) return;
         String previousNoteId = currentNote.getId();
+        String editorTextBeforeSave = noteContentArea != null ? noteContentArea.getText() : currentNote.getContent();
         if (noteTitleField  != null) currentNote.setTitle(noteTitleField.getText());
         if (viewingAttachment) {
-            noteService.updateNote(currentNote);
-            isModified = false;
+            try {
+                noteService.updateNote(currentNote);
+            } catch (RuntimeException e) {
+                reportSaveFailure(e);
+                return;
+            }
+            capturePersistedBaseline(currentNote);
+            setModifiedState(false);
             updateBreadcrumb(currentNote);
-            updateSaveIndicator(false);
             if (eventBus != null) eventBus.publish(new NoteEvents.NoteSavedEvent(currentNote, previousNoteId));
             return;
         }
@@ -1083,23 +1156,43 @@ public class EditorController {
         if (!readOnlyView) {
             currentNote.setCustomProperties(collectPropertiesFromPanel());
         }
+        String contentBeforeHooks = currentNote.getContent();
         // Plugin editor hooks may transform the content before it is persisted.
         if (editorHooks != null && !editorHooks.isEmpty()) {
             String transformed = editorHooks.applyBeforeSave(currentNote, currentNote.getContent());
             if (!transformed.equals(currentNote.getContent())) {
                 currentNote.setContent(transformed);
-                if (noteContentArea != null) {
-                    noteContentArea.replaceText(transformed); // keep the editor in sync
-                }
             }
         }
-        noteService.updateNote(currentNote);
-        isModified = false;
+        try {
+            noteService.updateNote(currentNote);
+        } catch (RuntimeException e) {
+            currentNote.setContent(editorTextBeforeSave != null ? editorTextBeforeSave : contentBeforeHooks);
+            reportSaveFailure(e);
+            return;
+        }
+        if (noteContentArea != null && !java.util.Objects.equals(noteContentArea.getText(), currentNote.getContent())) {
+            noteContentArea.replaceText(currentNote.getContent());
+            resetEditorUndoHistory();
+        }
+        capturePersistedBaseline(currentNote);
+        setModifiedState(false);
         updateBreadcrumb(currentNote);
-        updateSaveIndicator(false);
         if (eventBus != null) eventBus.publish(new NoteEvents.NoteSavedEvent(currentNote, previousNoteId));
         if (editorHooks != null && !editorHooks.isEmpty()) {
             editorHooks.fireAfterSave(currentNote, currentNote.getContent());
+        }
+    }
+
+    private void reportSaveFailure(RuntimeException error) {
+        logger.log(Level.WARNING, "Could not save current note", error);
+        statusAction.accept(safeI18n("status.error_saving"));
+        updateSaveIndicator(true);
+    }
+
+    private void reportStatus(String message) {
+        if (statusAction != null) {
+            statusAction.accept(message);
         }
     }
 
@@ -1169,13 +1262,13 @@ public class EditorController {
             CheckBox cb = new CheckBox();
             cb.setSelected("true".equalsIgnoreCase(value));
             cb.getStyleClass().add("property-value-check");
-            cb.setOnAction(e -> { isModified = true; publishModified(); });
+            cb.setOnAction(e -> reevaluateModifiedState());
             valueControl = cb;
         } else {
             TextField tf = new TextField(value != null ? value : "");
             tf.getStyleClass().add("property-value");
             HBox.setHgrow(tf, Priority.ALWAYS);
-            tf.textProperty().addListener((obs, o, n) -> { isModified = true; publishModified(); });
+            tf.textProperty().addListener((obs, o, n) -> reevaluateModifiedState());
             valueControl = tf;
         }
 
@@ -1185,8 +1278,7 @@ public class EditorController {
         removeBtn.setOnAction(e -> {
             propertiesContent.getChildren().remove(row);
             if (currentNote != null) currentNote.getCustomProperties().remove(key);
-            isModified = true;
-            publishModified();
+            reevaluateModifiedState();
         });
 
         row.getChildren().addAll(keyLabel, valueControl, removeBtn);
@@ -1367,7 +1459,7 @@ public class EditorController {
         noteContentArea.moveTo(linkStart + completed.length());
         noteContentArea.requestFocus();
         hideAutocompletePopup();
-        isModified = true;
+        reevaluateModifiedState();
     }
 
     private void showAutocompletePopupNearCaret() {
@@ -1428,9 +1520,8 @@ public class EditorController {
 
         if (noteContentArea != null) {
             noteContentArea.textProperty().addListener((obs, oldVal, newVal) -> {
-                if (currentNote != null && !newVal.equals(orEmpty(currentNote.getContent()))) {
-                    isModified = true;
-                    publishModified();
+                if (currentNote != null) {
+                    reevaluateModifiedState();
                 }
                 ensureAutocompleteInitialized();
             });
@@ -1438,9 +1529,8 @@ public class EditorController {
 
         if (noteTitleField != null) {
             noteTitleField.textProperty().addListener((obs, oldVal, newVal) -> {
-                if (currentNote != null && !newVal.equals(orEmpty(currentNote.getTitle()))) {
-                    isModified = true;
-                    publishModified();
+                if (currentNote != null) {
+                    reevaluateModifiedState();
                 }
             });
         }
@@ -1468,7 +1558,7 @@ public class EditorController {
             noteContentArea.moveTo(pos + prefix.length());
         }
         noteContentArea.requestFocus();
-        isModified = true;
+        reevaluateModifiedState();
     }
 
     private void insertLinePrefix(String prefix) {
@@ -1484,7 +1574,7 @@ public class EditorController {
             noteContentArea.moveTo(pos + prefix.length() + 1);
         }
         noteContentArea.requestFocus();
-        isModified = true;
+        reevaluateModifiedState();
     }
 
     private void insertTodoList() {
@@ -1501,7 +1591,7 @@ public class EditorController {
             noteContentArea.moveTo(pos + item.length() + 1);
         }
         noteContentArea.requestFocus();
-        isModified = true;
+        reevaluateModifiedState();
     }
 
     private void insertCodeBlock() {
@@ -1530,7 +1620,7 @@ public class EditorController {
                 noteContentArea.moveTo(pos + link.length());
             }
             noteContentArea.requestFocus();
-            isModified = true;
+            reevaluateModifiedState();
         });
     }
 
@@ -1580,7 +1670,7 @@ public class EditorController {
         noteContentArea.replaceText(before + insertion + text.substring(pos));
         noteContentArea.moveTo(pos + insertion.length());
         noteContentArea.requestFocus();
-        isModified = true;
+        reevaluateModifiedState();
     }
 
     private void handleImageDialog() {
@@ -1602,7 +1692,7 @@ public class EditorController {
                 noteContentArea.moveTo(pos + img.length());
             }
             noteContentArea.requestFocus();
-            isModified = true;
+            reevaluateModifiedState();
         });
     }
 
@@ -1611,11 +1701,21 @@ public class EditorController {
     // ============================================================
 
     public void handleUndo(CodeArea ta) {
-        if (ta != null) ta.undo();
+        if (ta != null) {
+            ta.undo();
+            Platform.runLater(this::reevaluateModifiedState);
+        }
     }
 
     public void handleRedo(Function<String, String> i18n, Consumer<String> status) {
-        if (i18n != null && status != null) status.accept(i18n.apply("status.redo_not_available"));
+        if (noteContentArea != null && noteContentArea.getUndoManager().isRedoAvailable()) {
+            noteContentArea.redo();
+            Platform.runLater(this::reevaluateModifiedState);
+            return;
+        }
+        if (i18n != null && status != null) {
+            status.accept(i18n.apply("status.redo_not_available"));
+        }
     }
 
     public void handleCut(CodeArea ta, TextField title) {
@@ -1917,6 +2017,20 @@ public class EditorController {
         handleUndo(noteContentArea);
     }
 
+    public void performRedo() {
+        handleRedo(this::safeI18n, this::reportStatus);
+    }
+
+    @FXML
+    private void handleFormatToolbarUndo(ActionEvent event) {
+        performUndo();
+    }
+
+    @FXML
+    private void handleFormatToolbarRedo(ActionEvent event) {
+        performRedo();
+    }
+
     public void performCut() {
         handleCut(noteContentArea, noteTitleField);
     }
@@ -2035,7 +2149,68 @@ public class EditorController {
         if (currentNote != null) {
             noteModifiedAction.accept(currentNote);
         }
-        updateSaveIndicator(true);
+        updateSaveIndicator(isModified);
+    }
+
+    private void capturePersistedBaseline(Note note) {
+        persistedTitle = note != null ? orEmpty(note.getTitle()) : "";
+        persistedContent = note != null ? orEmpty(note.getContent()) : "";
+        persistedCustomProperties = snapshotCustomProperties(note != null ? note.getCustomProperties() : null);
+    }
+
+    private void resetEditorUndoHistory() {
+        if (noteContentArea == null) {
+            return;
+        }
+        noteContentArea.getUndoManager().forgetHistory();
+        noteContentArea.getUndoManager().mark();
+    }
+
+    private Map<String, String> snapshotCustomProperties(Map<String, String> properties) {
+        Map<String, String> snapshot = new LinkedHashMap<>();
+        if (properties == null) {
+            return snapshot;
+        }
+        for (Map.Entry<String, String> entry : properties.entrySet()) {
+            if (entry.getKey() != null) {
+                snapshot.put(entry.getKey(), entry.getValue() != null ? entry.getValue() : "");
+            }
+        }
+        return snapshot;
+    }
+
+    private Map<String, String> currentPropertySnapshot() {
+        if (readOnlyView || propertiesContent == null || propertiesContent.getChildren().isEmpty()) {
+            return snapshotCustomProperties(currentNote != null ? currentNote.getCustomProperties() : null);
+        }
+        return snapshotCustomProperties(collectPropertiesFromPanel());
+    }
+
+    private void reevaluateModifiedState() {
+        if (currentNote == null) {
+            setModifiedState(false);
+            return;
+        }
+        boolean dirtyTitle = !orEmpty(noteTitleField != null ? noteTitleField.getText() : null).equals(persistedTitle);
+        boolean dirtyContent;
+        if (currentAttachmentType == AttachmentType.CANVAS && currentCanvasView != null) {
+            dirtyContent = currentCanvasView.hasUnsavedChanges();
+        } else if (viewingAttachment) {
+            dirtyContent = false;
+        } else {
+            dirtyContent = !orEmpty(noteContentArea != null ? noteContentArea.getText() : null).equals(persistedContent);
+        }
+        boolean dirtyProperties = !currentPropertySnapshot().equals(persistedCustomProperties);
+        setModifiedState(dirtyTitle || dirtyContent || dirtyProperties);
+    }
+
+    private void setModifiedState(boolean dirty) {
+        boolean changed = isModified != dirty;
+        isModified = dirty;
+        updateSaveIndicator(dirty);
+        if (changed || dirty) {
+            publishModified();
+        }
     }
 
     /**

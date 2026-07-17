@@ -118,12 +118,13 @@ public class FolderService {
      * @param folder  The folder to rename
      * @param newName The new name
      */
-    public void renameFolder(Folder folder, String newName) {
+    public Folder renameFolder(Folder folder, String newName) {
         if (folder == null || newName == null || newName.trim().isEmpty()) {
             throw new IllegalArgumentException("Folder and new name cannot be null or empty");
         }
         folder.setTitle(newName.trim());
         updateFolder(folder);
+        return folder;
     }
 
     /**
@@ -377,6 +378,13 @@ public class FolderService {
             return "/";
         }
         return folder.getPath();
+    }
+
+    public Optional<String> getStoragePath(Folder folder) {
+        if (folder == null || folder.getId() == null) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(folderDAO.getPathFolder(folder.getId()));
     }
 
     /**

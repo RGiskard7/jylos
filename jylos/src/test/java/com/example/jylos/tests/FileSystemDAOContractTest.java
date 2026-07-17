@@ -3,6 +3,7 @@ package com.example.jylos.tests;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
@@ -265,6 +266,49 @@ class FileSystemDAOContractTest {
         List<Note> notes = noteService.getNotesByFolder(docs);
         assertEquals(2, notes.size(),
                 "Restoring a trashed note with name conflict must preserve existing note and restore as renamed copy.");
+    }
+
+    @Test
+    void restoreCanvasWithNameConflictMustKeepCanvasExtension() {
+        String canvasJson = "{\"nodes\":[],\"edges\":[]}";
+        Note canvas = new Note("Board.canvas", canvasJson);
+        String originalId = noteDAO.createNote(canvas);
+
+        noteDAO.deleteNote(originalId);
+        noteDAO.createNote(new Note("Board.canvas", canvasJson));
+
+        String trashedId = noteDAO.fetchTrashNotes().stream()
+                .filter(note -> note.getId().endsWith(".canvas"))
+                .findFirst()
+                .orElseThrow()
+                .getId();
+        noteDAO.restoreNote(trashedId);
+
+        assertEquals(2, noteDAO.fetchAllNotes().stream().filter(note -> note.getId().endsWith(".canvas")).count());
+        assertTrue(noteDAO.fetchAllNotes().stream().anyMatch(note -> note.getId().contains("_restored_")
+                && note.getId().endsWith(".canvas")));
+    }
+
+    @Test
+    void removeAttachmentFromFolderWithRootConflictMustKeepOriginalExtension() throws Exception {
+        Folder folder = new Folder("Assets");
+        folderDAO.createFolder(folder);
+
+        Path folderPdf = tempDir.resolve("Assets").resolve("Manual.pdf");
+        Files.createDirectories(folderPdf.getParent());
+        Files.write(folderPdf, new byte[] { 1, 2, 3 });
+        Files.write(tempDir.resolve("Manual.pdf"), new byte[] { 9, 9, 9 });
+
+        noteDAO.refreshCache();
+        Note attachment = noteDAO.getNoteById("Assets/Manual.pdf");
+        assertNotNull(attachment);
+
+        folderDAO.removeNote(folder, attachment);
+
+        assertTrue(attachment.getId().endsWith(".pdf"),
+                "A conflicting attachment moved to root must keep its original extension.");
+        assertTrue(Files.exists(tempDir.resolve(attachment.getId())),
+                "The moved attachment should still exist at its new root path.");
     }
 
     @Test

@@ -156,6 +156,15 @@
                         <padding>
                             <Insets top="6" right="8" bottom="6" left="8"/>
                         </padding>
+                        <Button fx:id="undoBtn" onAction="#handleFormatToolbarUndo" styleClass="format-btn">
+                            <graphic><FontIcon iconLiteral="fth-rotate-ccw" styleClass="feather-icon"/></graphic>
+                            <tooltip><Tooltip text="%action.undo"/></tooltip>
+                        </Button>
+                        <Button fx:id="redoBtn" onAction="#handleFormatToolbarRedo" styleClass="format-btn">
+                            <graphic><FontIcon iconLiteral="fth-rotate-cw" styleClass="feather-icon"/></graphic>
+                            <tooltip><Tooltip text="%action.redo"/></tooltip>
+                        </Button>
+                        <Separator orientation="VERTICAL" styleClass="format-separator"/>
                         <!-- Headings (Feather has no heading glyph → clean typographic labels) -->
                         <Button fx:id="heading1Btn" text="H1" onAction="#handleHeading1" styleClass="format-btn,format-btn-text">
                             <tooltip><Tooltip text="%tooltip.format.heading1"/></tooltip>

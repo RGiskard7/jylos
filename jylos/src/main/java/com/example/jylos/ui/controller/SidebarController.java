@@ -81,6 +81,7 @@ public class SidebarController {
     private final Map<String, Integer> folderNoteCountCache = new HashMap<>();
     private int allNotesCountCache = 0;
     private boolean folderNoteCountCacheDirty = true;
+    private String activeFolderId;
     /** Guards the selection listener while a tree rebuild restores the prior selection. */
     private boolean restoringFolderSelection = false;
 
@@ -256,8 +257,10 @@ public class SidebarController {
             if (newVal != null && newVal.getValue() != null) {
                 Folder f = newVal.getValue();
                 if ("ALL_NOTES_VIRTUAL".equals(f.getId())) {
+                    activeFolderId = null;
                     folderSelectionAction.accept(f);
                 } else if (!"INVISIBLE_ROOT".equals(f.getTitle())) {
+                    activeFolderId = f.getId();
                     folderSelectionAction.accept(f);
                 }
             }
@@ -381,6 +384,16 @@ public class SidebarController {
             private final ChangeListener<Boolean> expandedListener = (obs, wasExpanded, isExpanded) -> refreshFolderIcon();
             private TreeItem<Folder> observedFolderItem;
             private Label folderIconLabel;
+
+            {
+                addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+                    if (event.getButton() == MouseButton.SECONDARY && !isEmpty()) {
+                        restoringFolderSelection = true;
+                        folderTreeView.getSelectionModel().select(getTreeItem());
+                        Platform.runLater(() -> restoringFolderSelection = false);
+                    }
+                });
+            }
 
             @Override
             protected void updateItem(Folder folder, boolean empty) {
@@ -847,22 +860,28 @@ public class SidebarController {
         String selectedFolderId = previous != null && previous.getValue() != null
                 ? previous.getValue().getId() : null;
 
-        vaultRootItem.getChildren().clear();
-        for (Folder f : buildResult.roots) {
-            TreeItem<Folder> item = new TreeItem<>(f);
-            vaultRootItem.getChildren().add(item);
-            String id = normalizeId(f.getId());
-            if (buildResult.filterActive || buildResult.expandedIds.contains(id)) {
-                item.setExpanded(true);
+        boolean wasRestoringSelection = restoringFolderSelection;
+        restoringFolderSelection = true;
+        try {
+            vaultRootItem.getChildren().clear();
+            for (Folder f : buildResult.roots) {
+                TreeItem<Folder> item = new TreeItem<>(f);
+                vaultRootItem.getChildren().add(item);
+                String id = normalizeId(f.getId());
+                if (buildResult.filterActive || buildResult.expandedIds.contains(id)) {
+                    item.setExpanded(true);
+                }
+                buildFolderTree(item, id, buildResult.childrenByParent, comp, buildResult.expandedIds,
+                        buildResult.filterActive);
             }
-            buildFolderTree(item, id, buildResult.childrenByParent, comp, buildResult.expandedIds,
-                    buildResult.filterActive);
+            if (buildResult.filterActive) {
+                expandCollapseRecursive(vaultRootItem, true);
+            }
+            vaultRootItem.setExpanded(true);
+            restoreFolderSelection(selectedFolderId);
+        } finally {
+            restoringFolderSelection = wasRestoringSelection;
         }
-        if (buildResult.filterActive) {
-            expandCollapseRecursive(vaultRootItem, true);
-        }
-        vaultRootItem.setExpanded(true);
-        restoreFolderSelection(selectedFolderId);
     }
 
     /** Re-selects the folder with {@code folderId} after a tree rebuild, without re-navigating. */
@@ -874,12 +893,13 @@ public class SidebarController {
         if (match == null) {
             return;
         }
+        boolean wasRestoringSelection = restoringFolderSelection;
         restoringFolderSelection = true;
         try {
             folderTreeView.getSelectionModel().select(match);
             folderTreeView.scrollTo(folderTreeView.getRow(match));
         } finally {
-            restoringFolderSelection = false;
+            restoringFolderSelection = wasRestoringSelection;
         }
     }
 
@@ -1353,6 +1373,14 @@ public class SidebarController {
                 handleRenameFolder(f);
             }
         });
+        MenuItem reveal = new MenuItem(getString("action.reveal_in_files"));
+        reveal.setVisible(isFileSystemStorage());
+        reveal.setOnAction(e -> {
+            Folder f = cell != null ? cell.getItem() : null;
+            if (f != null) {
+                revealFolderInFileManager(f);
+            }
+        });
         MenuItem d = new MenuItem(getString("action.delete"));
         d.setOnAction(e -> {
             Folder f = cell != null ? cell.getItem() : null;
@@ -1360,8 +1388,39 @@ public class SidebarController {
                 handleDeleteFolder(f);
             }
         });
-        m.getItems().addAll(newNote, newCanvas, newSubfolder, new SeparatorMenuItem(), r, d);
+        m.getItems().addAll(newNote, newCanvas, newSubfolder, new SeparatorMenuItem(), r, reveal, d);
         return m;
+    }
+
+    private boolean isFileSystemStorage() {
+        Preferences prefs = Preferences.userNodeForPackage(SidebarController.class);
+        return !"sqlite".equals(prefs.get("storage_type", "sqlite"));
+    }
+
+    private void revealFolderInFileManager(Folder folder) {
+        if (folderService == null || folder == null) {
+            return;
+        }
+        Optional<String> pathOpt = folderService.getStoragePath(folder);
+        if (pathOpt.isEmpty()) {
+            publishStatusUpdate(getString("status.reveal_unavailable"));
+            return;
+        }
+        String absolute = pathOpt.get();
+        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+        try {
+            if (os.contains("mac")) {
+                new ProcessBuilder("open", absolute).start();
+            } else if (os.contains("win")) {
+                new ProcessBuilder("explorer.exe", absolute).start();
+            } else {
+                new ProcessBuilder("xdg-open", absolute).start();
+            }
+            publishStatusUpdate(getString("status.revealed"));
+        } catch (Exception ex) {
+            logger.log(Level.WARNING, "Failed to reveal folder in file manager", ex);
+            publishStatusUpdate(getString("status.reveal_error"));
+        }
     }
 
     private void handleCreateNoteInFolder(Folder folder) {
@@ -1397,8 +1456,13 @@ public class SidebarController {
         TextInputDialog d = new TextInputDialog(f.getTitle());
         com.example.jylos.ui.UiDialogs.show(d).ifPresent(name -> {
             try {
-                folderService.renameFolder(f, name);
+                String previousId = f.getId();
+                Folder renamed = folderService.renameFolder(f, name);
                 loadFolders();
+                if (previousId != null && previousId.equals(activeFolderId)) {
+                    activeFolderId = renamed.getId();
+                    folderSelectionAction.accept(renamed);
+                }
             } catch (Exception e) {
                 logger.log(Level.WARNING, "Failed to rename folder " + (f != null ? f.getId() : "null"), e);
                 publishStatusUpdate(getString("status.error_renaming_folder"));

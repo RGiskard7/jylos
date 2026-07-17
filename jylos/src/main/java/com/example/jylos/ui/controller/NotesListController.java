@@ -7,6 +7,7 @@ import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
+import com.example.jylos.exceptions.DataAccessException;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
@@ -25,6 +26,8 @@ import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.ListCell;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
 import java.util.ArrayList;
 import java.util.List;
@@ -369,6 +372,14 @@ public class NotesListController {
                 contextMenu.getItems().addAll(openItem, pinItem, favoriteItem, privateItem, renameItem, revealItem, exportItem,
                         new SeparatorMenuItem(), deleteItem);
 
+                addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+                    if (event.getButton() == MouseButton.SECONDARY && !isEmpty()) {
+                        restoringNotesSelection = true;
+                        notesListView.getSelectionModel().select(getIndex());
+                        Platform.runLater(() -> restoringNotesSelection = false);
+                    }
+                });
+
                 setOnDragDetected(event -> {
                     Note note = getItem();
                     if (note == null || note.getId() == null) {
@@ -632,6 +643,7 @@ public class NotesListController {
             }
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Failed to toggle favorite", e);
+            publishPersistenceFailure(e, "status.note_update_error");
         }
     }
 
@@ -647,6 +659,7 @@ public class NotesListController {
             resortVisibleNotes();
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Failed to toggle pin", e);
+            publishPersistenceFailure(e, "status.note_update_error");
         }
     }
 
@@ -1329,9 +1342,19 @@ public class NotesListController {
                         getString("status.renamed_note"), note.getTitle()));
             } catch (Exception e) {
                 logger.log(Level.WARNING, "Failed to rename note " + note.getId(), e);
-                publishStatusUpdate(getString("status.note_rename_error"));
+                publishPersistenceFailure(e, "status.note_rename_error");
             }
         });
+    }
+
+    private void publishPersistenceFailure(Exception error, String fallbackKey) {
+        if (error instanceof DataAccessException dataAccess
+                && dataAccess.getMessage() != null
+                && dataAccess.getMessage().contains("missing")) {
+            publishStatusUpdate(getString("status.note_missing_on_disk"));
+            return;
+        }
+        publishStatusUpdate(getString(fallbackKey));
     }
 
     private void deleteNote(Note note) {
@@ -1644,10 +1667,16 @@ public class NotesListController {
         card.getChildren().addAll(titleRow, previewLabel, dateLabel);
 
         card.setOnMouseClicked(e -> {
+            if (e.getButton() != MouseButton.PRIMARY) {
+                return;
+            }
             notesListView.getSelectionModel().select(note);
             openNoteAction.accept(note);
         });
         card.setOnContextMenuRequested(event -> {
+            restoringNotesSelection = true;
+            notesListView.getSelectionModel().select(note);
+            Platform.runLater(() -> restoringNotesSelection = false);
             ContextMenu contextMenu = createGridNoteContextMenu(note, () -> {
                 notesListView.getSelectionModel().select(note);
                 openNoteAction.accept(note);

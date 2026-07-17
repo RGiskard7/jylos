@@ -462,9 +462,8 @@ public class FolderDAOFileSystem implements FolderDAO {
 
         Path targetPath = rootPath.resolve(sourcePath.getFileName());
         if (Files.exists(targetPath)) {
-            String filename = sourcePath.getFileName().toString();
-            String name = filename.endsWith(".md") ? filename.substring(0, filename.length() - 3) : filename;
-            targetPath = rootPath.resolve(name + "_" + System.currentTimeMillis() + ".md");
+            targetPath = rootPath.resolve(conflictFilename(sourcePath.getFileName().toString(),
+                    "_" + System.currentTimeMillis()));
         }
 
         try {
@@ -688,6 +687,13 @@ public class FolderDAOFileSystem implements FolderDAO {
             return candidate;
         }
         return null;
+    }
+
+    private String conflictFilename(String filename, String suffix) {
+        int dot = filename.lastIndexOf('.');
+        String base = dot > 0 ? filename.substring(0, dot) : filename;
+        String extension = dot > 0 ? filename.substring(dot) : "";
+        return base + suffix + extension;
     }
 
     private void moveDocumentMetadataIfNeeded(String previousId, String currentId, Path targetPath) {
