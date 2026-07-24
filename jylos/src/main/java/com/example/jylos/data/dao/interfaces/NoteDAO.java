@@ -164,6 +164,18 @@ public interface NoteDAO {
     }
 
     /**
+     * Re-indexes a note after another DAO moved its backing document.
+     * Default implementation does nothing because not all storage backends keep a
+     * path-based note cache.
+     *
+     * @param previousNoteId note id before the move
+     * @param movedNote note instance after the move
+     */
+    default void reindexMovedNote(String previousNoteId, Note movedNote) {
+        // Do nothing by default
+    }
+
+    /**
      * Registers a callback invoked once any <em>deferred</em> background content load
      * finishes (file-based storage that builds its cache lazily). Implementations that
      * load synchronously have nothing to defer, so the default is a no-op.

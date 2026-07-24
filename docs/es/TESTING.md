@@ -26,9 +26,11 @@ Reglas: inputs pequeños, asserts directos, bordes importantes.
 
 ### Integración y contrato
 
-Para persistencia o procesos externos: DAOs SQLite/filesystem, `.canvas`, frontmatter, Git, import/export.
+Para persistencia o procesos externos: DAOs SQLite/filesystem, leer/escribir/renombrar/mover/borrar en vault, `.canvas`, frontmatter, metadata de documentos, Git, import/export.
 
 Reglas: `@TempDir`, no escribir rutas de usuario, verificar estado tras reabrir/recargar.
+
+En filesystem, comprobar que las colisiones conservan la extensión original y que un sidecar corrupto falla sin sobrescribirse. En paridad SQLite/filesystem, comprobar el mismo comportamiento visible aunque la persistencia interna sea distinta.
 
 ### Guardas arquitectónicas
 

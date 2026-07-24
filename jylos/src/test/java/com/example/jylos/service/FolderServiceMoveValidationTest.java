@@ -55,7 +55,14 @@ class FolderServiceMoveValidationTest {
         Folder project = folderService.createFolder("Project");
 
         assertFalse(folderService.canMoveFolder(null, project));
-        assertFalse(folderService.canMoveFolder(project, null));
         assertFalse(folderService.canMoveFolder(new Folder("No id"), project));
+    }
+
+    @Test
+    void folderCanMoveToRoot() {
+        Folder project = folderService.createFolder("Project");
+        Folder docs = folderService.createSubfolder("Docs", project);
+
+        assertTrue(folderService.canMoveFolder(docs, null));
     }
 }

@@ -285,6 +285,15 @@ public class FolderDAOSQLite implements FolderDAO {
 	}
 
 	@Override
+	public void moveNoteToRoot(Note note) {
+		if (note == null || note.getId() == null || note.getId().isEmpty()) {
+			throw new IllegalArgumentException("Note object and note ID can't be null or empty");
+		}
+		addNote("ROOT", note.getId());
+		note.setParent(null);
+	}
+
+	@Override
 	public void addSubFolder(Folder parentFolder, Folder subFolder) {
 		if (parentFolder == null || subFolder == null
 				|| (parentFolder.getId() != null && parentFolder.getId().equals(subFolder.getId()))) {
@@ -306,6 +315,30 @@ public class FolderDAOSQLite implements FolderDAO {
 		removeSubFolder(parent.getId(), subFolder.getId());
 		parent.remove(subFolder);
 		subFolder.setParent(null);
+	}
+
+	@Override
+	public void moveFolderToRoot(Folder folder) {
+		if (folder == null || folder.getId() == null || folder.getId().isEmpty()) {
+			throw new IllegalArgumentException("Folder object and folder ID can't be null or empty");
+		}
+		synchronized (connection) {
+			try (PreparedStatement pstmt = connection.prepareStatement(
+					"UPDATE folders SET parent_id = NULL, modified_date = ? WHERE folder_id = ?")) {
+				pstmt.setString(1, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
+				pstmt.setString(2, folder.getId());
+				pstmt.executeUpdate();
+				connection.commit();
+				folder.setParent(null);
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error moveFolderToRoot(): " + e.getMessage(), e);
+				try {
+					connection.rollback();
+				} catch (SQLException rollbackEx) {
+					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
+				}
+			}
+		}
 	}
 
 	@Override

@@ -88,6 +88,13 @@ public interface FolderDAO {
     public void removeNote(Folder folder, Note note);
 
     /**
+     * Moves a note to the storage root.
+     *
+     * @param note The note to move.
+     */
+    public void moveNoteToRoot(Note note);
+
+    /**
      * Loads all notes associated with a given folder.
      *
      * @param folder The folder whose notes should be loaded.
@@ -114,6 +121,13 @@ public interface FolderDAO {
      * @param subFolder    The subfolder to be removed.
      */
     public void removeSubFolder(Folder parentFolder, Folder subFolder);
+
+    /**
+     * Moves a folder to the storage root.
+     *
+     * @param folder The folder to move.
+     */
+    public void moveFolderToRoot(Folder folder);
 
     /**
      * Loads all subfolders of a given folder.

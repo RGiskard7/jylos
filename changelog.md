@@ -2,6 +2,28 @@
 
 ## [Unrelease]
 
+- La ventana principal arranca maximizada de forma nativa, ocupando el espacio disponible del escritorio sin entrar en modo pantalla completa exclusivo.
+
+- La apertura de la interfaz deja la barra de carpetas y la lista de notas en el mismo estado expandido que producen sus toggles, reutilizando la misma lógica de mostrar panel.
+
+## [2.4.8] - 2026-07-24
+
+- El movimiento de documentos y carpetas pasa por `FolderService` y funciona de forma equivalente en SQLite y vault filesystem: documentos Markdown, canvas, PDFs, imágenes y adjuntos pueden moverse a carpetas, subcarpetas o raíz, preservando extensión, metadata y selección visible cuando corresponde.
+
+- Los menús contextuales de notas/lista/cuadrícula y carpetas añaden `Mover a...`, con validación de raíz, nodos virtuales y movimientos cíclicos para evitar estados inválidos.
+
+- El selector `Mover a...` ahora permite buscar carpetas y muestra rutas jerárquicas para distinguir destinos con el mismo nombre; el movimiento por arrastre refresca también la lista de notas y evita abrir el documento por accidente al iniciar el drag.
+
+- Mover documentos en vault filesystem reindexa la caché de notas de forma dirigida, evitando una recarga completa del vault tras cada cambio de carpeta y manteniendo sincronizadas las pestañas abiertas cuando cambia el identificador del documento.
+
+- Las escrituras principales del vault filesystem para Markdown, canvas y el sidecar de metadata usan escritura atómica con temporal en el mismo directorio y fallback controlado si el sistema de archivos no soporta `ATOMIC_MOVE`.
+
+- El sidecar de metadata de adjuntos deja de tratar JSON corrupto como índice vacío: ahora falla de forma explícita y no destructiva para no sobrescribir metadata real por accidente.
+
+- El guardado de canvas queda cerrado al flujo canónico `NoteService` + DAO; se elimina el fallback de escritura directa desde UI y se añade guarda para impedir que reaparezcan escrituras laterales de documentos del vault.
+
+- La cobertura de integridad añade casos filesystem y SQLite para mover documentos/carpetas a raíz y subcarpetas, preservar metadata de canvas/PDF, rechazar ciclos y proteger sidecars corruptos.
+
 ## [2.4.7] - 2026-07-17
 
 - El refresh global vuelve a emitir el evento interno de notas refrescadas para que sidebar, índices y vistas suscritas invaliden cachés sin cambiar el filtro visible de la lista.

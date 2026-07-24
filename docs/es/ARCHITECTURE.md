@@ -76,6 +76,11 @@ Un tablero es una nota normal con cuerpo Markdown serializado por `KanbanModel`.
 - SQLite por defecto, DAOs en `data.dao.sqlite`.
 - Vault filesystem con Markdown + frontmatter YAML.
 - Cambios externos del vault no se reconcilian continuamente; se usan refresh explícitos y validaciones al reabrir documentos pesados como `.canvas`.
+- El movimiento de documentos y carpetas lo coordina `FolderService`. La UI solo pide destino y refresca estado visible; el DAO activo adapta la operación a su backend.
+- En filesystem, mover un documento es mover el fichero real del vault con `Files.move`; mover una carpeta es mover el directorio completo. Las colisiones conservan la extensión del documento y la metadata de adjuntos binarios se mueve mediante el sidecar privado.
+- En SQLite, mover un documento actualiza la relación nota-carpeta y mover una carpeta actualiza la relación padre-hijo. Mover a raíz limpia la relación según el esquema SQLite, sin simular rutas de filesystem.
+- Las escrituras del vault para Markdown, canvas y sidecar de metadata usan temporal en el mismo directorio y reemplazo atómico cuando la plataforma lo soporta. Si no hay soporte para `ATOMIC_MOVE`, el DAO usa reemplazo controlado y limpia temporales en error.
+- La metadata de adjuntos binarios vive en `.jylos/document-metadata.json`. Si el JSON del sidecar está corrupto, se trata como error explícito de persistencia y nunca como índice vacío para evitar sobrescrituras silenciosas.
 - Cambio filesystem -> filesystem recarga sesión sin reiniciar. Cambio sqlite <-> filesystem requiere reinicio.
 
 ## Notas privadas

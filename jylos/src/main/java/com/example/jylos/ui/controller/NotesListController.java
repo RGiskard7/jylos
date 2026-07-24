@@ -86,8 +86,11 @@ public class NotesListController {
     private String currentFilterType = "all";
     private Folder currentFolder;
     private Tag currentTag;
+    private String currentSearchText = "";
     /** Guards the selection listener while a refresh restores the prior note selection. */
     private boolean restoringNotesSelection = false;
+    /** Guards note opening while a drag gesture is being started from the list/grid. */
+    private boolean noteDragInProgress = false;
     /** Note ID to select after the next async list refresh; consumed once. */
     private volatile String pendingSelectNoteId = null;
     private final ExecutorService notesLoadExecutor = Executors.newSingleThreadExecutor(r -> {
@@ -131,7 +134,13 @@ public class NotesListController {
                 return;
             }
             if (newVal != null) {
-                noteSelectionAction.accept(newVal);
+                Note selectedNote = newVal;
+                Platform.runLater(() -> {
+                    if (!restoringNotesSelection && !noteDragInProgress &&
+                            Objects.equals(notesListView.getSelectionModel().getSelectedItem(), selectedNote)) {
+                        noteSelectionAction.accept(selectedNote);
+                    }
+                });
             }
         });
 
@@ -363,13 +372,21 @@ public class NotesListController {
                         renameNote(note);
                     }
                 });
+                MenuItem moveItem = new MenuItem(getString("action.move_to"));
+                moveItem.setOnAction(e -> {
+                    Note note = getItem();
+                    if (note != null) {
+                        moveNote(note);
+                    }
+                });
                 deleteItem.setOnAction(e -> {
                     Note note = getItem();
                     if (note != null) {
                         deleteNote(note);
                     }
                 });
-                contextMenu.getItems().addAll(openItem, pinItem, favoriteItem, privateItem, renameItem, revealItem, exportItem,
+                contextMenu.getItems().addAll(openItem, pinItem, favoriteItem, privateItem, renameItem, moveItem,
+                        revealItem, exportItem,
                         new SeparatorMenuItem(), deleteItem);
 
                 addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
@@ -385,10 +402,15 @@ public class NotesListController {
                     if (note == null || note.getId() == null) {
                         return;
                     }
+                    noteDragInProgress = true;
                     Dragboard db = startDragAndDrop(TransferMode.MOVE);
                     ClipboardContent content = new ClipboardContent();
                     content.putString("note:" + note.getId());
                     db.setContent(content);
+                    event.consume();
+                });
+                setOnDragDone(event -> {
+                    noteDragInProgress = false;
                     event.consume();
                 });
             }
@@ -719,6 +741,10 @@ public class NotesListController {
         subscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class, event -> markAllNotesSearchCacheDirty()));
         subscriptions.add(eventBus.subscribe(NoteEvents.NoteDeletedEvent.class, event -> markAllNotesSearchCacheDirty()));
         subscriptions.add(eventBus.subscribe(NoteEvents.TrashItemDeletedEvent.class, event -> markAllNotesSearchCacheDirty()));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NotesRefreshRequestedEvent.class, event -> {
+            markAllNotesSearchCacheDirty();
+            javafx.application.Platform.runLater(this::refreshCurrentView);
+        }));
     }
 
     public void teardown() {
@@ -866,6 +892,7 @@ public class NotesListController {
             logger.warning("Cannot perform search: noteService is null");
             return;
         }
+        currentSearchText = searchText != null ? searchText : "";
         if (searchText == null || searchText.trim().isEmpty()) {
             if (currentFolder != null) {
                 loadNotesForFolder(currentFolder);
@@ -1074,6 +1101,7 @@ public class NotesListController {
                 : (selected != null ? selected.getId() : null);
 
         notesListView.getItems().setAll(notes);
+        lastGridSignature = "";
         if (targetId == null) {
             return;
         }
@@ -1345,6 +1373,57 @@ public class NotesListController {
                 publishPersistenceFailure(e, "status.note_rename_error");
             }
         });
+    }
+
+    private void moveNote(Note note) {
+        if (note == null || folderService == null) {
+            return;
+        }
+        Optional<MoveTargetSupport.MoveTarget> target = chooseMoveTarget(null);
+        if (target.isEmpty()) {
+            return;
+        }
+        try {
+            String previousId = note.getId();
+            Folder destination = target.get().folder();
+            folderService.moveNoteToFolder(note, destination);
+            requestSelectAfterRefresh(note.getId());
+            if (eventBus != null) {
+                eventBus.publish(new NoteEvents.NoteSavedEvent(note, previousId));
+                eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
+            } else {
+                refreshCurrentView();
+            }
+            publishStatusUpdate(destination == null || "ROOT".equals(destination.getId())
+                    ? getString("status.note_moved_root")
+                    : java.text.MessageFormat.format(getString("status.note_moved_folder"), destination.getTitle()));
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Failed to move note " + note.getId(), e);
+            publishStatusUpdate(getString("status.note_move_error"));
+        }
+    }
+
+    private Optional<MoveTargetSupport.MoveTarget> chooseMoveTarget(Folder folderToMove) {
+        if (folderService == null) {
+            return Optional.empty();
+        }
+        return MoveTargetSupport.show(
+                folderService.getAllFolders(),
+                folder -> folderToMove == null || folderService.canMoveFolder(folderToMove, folder),
+                folderService::getParentFolder,
+                this::getString);
+    }
+
+    private void refreshCurrentView() {
+        if ("folder".equals(currentFilterType) && currentFolder != null) {
+            loadNotesForFolder(currentFolder);
+        } else if ("tag".equals(currentFilterType) && currentTag != null) {
+            loadNotesForTag(currentTag.getTitle());
+        } else if ("search".equals(currentFilterType)) {
+            performSearch(currentSearchText);
+        } else if ("all".equals(currentFilterType)) {
+            loadAllNotes();
+        }
     }
 
     private void publishPersistenceFailure(Exception error, String fallbackKey) {
@@ -1670,6 +1749,9 @@ public class NotesListController {
             if (e.getButton() != MouseButton.PRIMARY) {
                 return;
             }
+            if (noteDragInProgress) {
+                return;
+            }
             notesListView.getSelectionModel().select(note);
             openNoteAction.accept(note);
         });
@@ -1713,6 +1795,9 @@ public class NotesListController {
         MenuItem renameItem = new MenuItem(getString("action.rename"));
         renameItem.setOnAction(e -> renameNote(note));
 
+        MenuItem moveItem = new MenuItem(getString("action.move_to"));
+        moveItem.setOnAction(e -> moveNote(note));
+
         MenuItem exportItem = new MenuItem(getString("action.export_note"));
         exportItem.setOnAction(e -> noteExportAction.accept(note));
 
@@ -1720,7 +1805,7 @@ public class NotesListController {
         deleteItem.setOnAction(e -> deleteNote(note));
 
         ContextMenu menu = new ContextMenu();
-        menu.getItems().addAll(openItem, pinItem, favoriteItem, privateItem, renameItem);
+        menu.getItems().addAll(openItem, pinItem, favoriteItem, privateItem, renameItem, moveItem);
 
         if (isFileSystemStorage()) {
             MenuItem revealItem = new MenuItem(getString("action.reveal_in_files"));
@@ -1738,6 +1823,7 @@ public class NotesListController {
             Function<String, String> i18n,
             Consumer<String> statusUpdate) {
         card.setOnDragDetected(event -> {
+            noteDragInProgress = true;
             javafx.scene.input.Dragboard db = card.startDragAndDrop(javafx.scene.input.TransferMode.MOVE);
             javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
             content.putString("note:" + note.getId());
@@ -1752,6 +1838,7 @@ public class NotesListController {
         });
 
         card.setOnDragDone(event -> {
+            noteDragInProgress = false;
             if (event.getTransferMode() == javafx.scene.input.TransferMode.MOVE) {
                 statusUpdate.accept(i18n.apply("status.note_moved"));
             }

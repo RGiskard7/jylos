@@ -6,7 +6,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
@@ -113,7 +112,39 @@ public class NoteDAOFileSystem implements NoteDAO {
      * instead.
      */
     public void refreshCache() {
+        metadataStore.clearCache();
         rebuildCache(this::createLightweightNote);
+    }
+
+    @Override
+    public void reindexMovedNote(String previousNoteId, Note movedNote) {
+        if (movedNote == null || movedNote.getId() == null) {
+            return;
+        }
+        FileSystemIoLock.LOCK.lock();
+        try {
+            String previousId = normalizeId(previousNoteId);
+            String currentId = normalizeId(movedNote.getId());
+            Path currentPath = rootPath.resolve(currentId.replace("/", File.separator)).toAbsolutePath().normalize();
+
+            if (!previousId.isBlank() && !previousId.equals(currentId)) {
+                cachedNotes.remove(previousId);
+                idToPathMap.remove(previousId);
+            }
+            removeCacheAliasesForIds(previousId, currentId);
+            metadataStore.clearCache();
+
+            if (Files.exists(currentPath)) {
+                idToPathMap.put(currentId, currentPath);
+                cachedNotes.put(currentId, movedNote);
+            } else {
+                idToPathMap.remove(currentId);
+                cachedNotes.remove(currentId);
+            }
+            notesByFolderIndexDirty = true;
+        } finally {
+            FileSystemIoLock.LOCK.unlock();
+        }
     }
 
     /**
@@ -122,6 +153,7 @@ public class NoteDAOFileSystem implements NoteDAO {
      * not block on reading (and, on iCloud, downloading) every file.
      */
     private void refreshCacheMetadataOnly() {
+        metadataStore.clearCache();
         rebuildCache(this::createMetadataNote);
     }
 
@@ -426,7 +458,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                 } else {
                     fileContent = note.getContent() != null ? note.getContent() : "";
                 }
-                Files.writeString(filePath, fileContent, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                FileSystemAtomicWriter.writeString(filePath, fileContent, StandardCharsets.UTF_8);
                 if (attachment) {
                     metadataStore.persistDocumentMetadata(note);
                 }
@@ -616,16 +648,15 @@ public class NoteDAOFileSystem implements NoteDAO {
                 }
                 if (!attachment) {
                     ensureMarkdownContentComplete(note, path);
-                    Files.writeString(path, FrontmatterHandler.generate(note),
-                            StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                    FileSystemAtomicWriter.writeString(path, FrontmatterHandler.generate(note), StandardCharsets.UTF_8);
                 } else if (isCanvasFile(path.getFileName().toString())) {
                     String content = note.getContent();
                     // Canvas list entries are metadata-only. Do not let a favorite/pinned
                     // toggle rewrite a real .canvas file with an empty lightweight body.
                     if (content != null && !content.isBlank()) {
                         try {
-                            Files.writeString(path, metadataStore.normalizeCanvasDocument(content),
-                                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                            FileSystemAtomicWriter.writeString(path, metadataStore.normalizeCanvasDocument(content),
+                                    StandardCharsets.UTF_8);
                         } catch (IllegalArgumentException e) {
                             throw new DataAccessException("Invalid canvas document: " + note.getId(), e);
                         }

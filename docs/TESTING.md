@@ -45,8 +45,10 @@ Use when behaviour depends on storage or external process semantics.
 Examples:
 
 - SQLite DAO persistence
-- filesystem vault read/write/rename/delete
+- filesystem vault read/write/rename/move/delete
 - Obsidian-compatible `.canvas` and Markdown frontmatter behaviour
+- document metadata integrity for Markdown, canvas and binary attachments
+- folder and document move parity between SQLite and filesystem
 - Git repository state
 - import/export flows
 
@@ -56,6 +58,10 @@ Rules:
 - never write to user data paths
 - assert persisted state after reopening/reloading where relevant
 - prefer storage contracts over implementation details
+- for filesystem documents, assert that name conflicts preserve the original
+  extension and that corrupt sidecar metadata fails without being overwritten
+- for SQLite/filesystem parity, assert the same visible behaviour even when the
+  internal persistence mechanism differs
 
 ### Architecture Guard Tests
 

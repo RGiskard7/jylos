@@ -628,7 +628,12 @@ public class SidebarController {
                 if (noteOpt.isEmpty()) {
                     return false;
                 }
-                folderService.moveNoteToFolder(noteOpt.get(), targetFolder);
+                Note movedNote = noteOpt.get();
+                String previousNoteId = movedNote.getId();
+                folderService.moveNoteToFolder(movedNote, targetFolder);
+                if (eventBus != null) {
+                    eventBus.publish(new NoteEvents.NoteSavedEvent(movedNote, previousNoteId));
+                }
                 publishStatusUpdate(java.text.MessageFormat.format(getString("status.note_moved_folder"), targetFolder.getTitle()));
             } else if (payload.startsWith("folder:")) {
                 String folderId = payload.substring("folder:".length());
@@ -645,6 +650,10 @@ public class SidebarController {
             requestFoldersReload();
             requestRecentFavoritesReload();
             requestTrashReload();
+            if (eventBus != null) {
+                eventBus.publish(new FolderEvents.FoldersRefreshRequestedEvent());
+                eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
+            }
             return true;
         } catch (Exception e) {
             logger.log(Level.WARNING, "Failed to process drag and drop payload: " + payload, e);
@@ -1373,6 +1382,14 @@ public class SidebarController {
                 handleRenameFolder(f);
             }
         });
+        MenuItem move = new MenuItem(getString("action.move_to"));
+        move.setVisible(canShowMoveFolderAction(cell != null ? cell.getItem() : null));
+        move.setOnAction(e -> {
+            Folder f = cell != null ? cell.getItem() : null;
+            if (f != null) {
+                handleMoveFolder(f);
+            }
+        });
         MenuItem reveal = new MenuItem(getString("action.reveal_in_files"));
         reveal.setVisible(isFileSystemStorage());
         reveal.setOnAction(e -> {
@@ -1388,8 +1405,55 @@ public class SidebarController {
                 handleDeleteFolder(f);
             }
         });
-        m.getItems().addAll(newNote, newCanvas, newSubfolder, new SeparatorMenuItem(), r, reveal, d);
+        m.getItems().addAll(newNote, newCanvas, newSubfolder, new SeparatorMenuItem(), r, move, reveal, d);
         return m;
+    }
+
+    private boolean canShowMoveFolderAction(Folder folder) {
+        if (folder == null || folder.getId() == null) {
+            return false;
+        }
+        String id = normalizeId(folder.getId());
+        return !"ROOT".equals(id) && !"ALL_NOTES_VIRTUAL".equals(id) && !"INVISIBLE_ROOT".equals(id);
+    }
+
+    private void handleMoveFolder(Folder folder) {
+        if (!canShowMoveFolderAction(folder) || folderService == null) {
+            return;
+        }
+        Optional<MoveTargetSupport.MoveTarget> target = chooseMoveTarget(folder);
+        if (target.isEmpty()) {
+            return;
+        }
+        try {
+            Folder destination = target.get().folder();
+            folderService.moveFolderToFolder(folder, destination);
+            invalidateFolderNoteCountCache();
+            requestFoldersReload();
+            requestRecentFavoritesReload();
+            requestTrashReload();
+            if (eventBus != null) {
+                eventBus.publish(new FolderEvents.FoldersRefreshRequestedEvent());
+                eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
+            }
+            publishStatusUpdate(destination == null || "ROOT".equals(destination.getId())
+                    ? getString("status.folder_moved_root")
+                    : java.text.MessageFormat.format(getString("status.folder_moved"), destination.getTitle()));
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Failed to move folder " + folder.getId(), e);
+            publishStatusUpdate(getString("status.folder_move_error"));
+        }
+    }
+
+    private Optional<MoveTargetSupport.MoveTarget> chooseMoveTarget(Folder folderToMove) {
+        if (folderService == null) {
+            return Optional.empty();
+        }
+        return MoveTargetSupport.show(
+                folderService.getAllFolders(),
+                folder -> folderService.canMoveFolder(folderToMove, folder),
+                folderService::getParentFolder,
+                this::getString);
     }
 
     private boolean isFileSystemStorage() {
