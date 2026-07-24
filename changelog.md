@@ -1,11 +1,5 @@
 # Changelog
 
-## [Unrelease]
-
-- La ventana principal arranca maximizada de forma nativa, ocupando el espacio disponible del escritorio sin entrar en modo pantalla completa exclusivo.
-
-- La apertura de la interfaz deja la barra de carpetas y la lista de notas en el mismo estado expandido que producen sus toggles, reutilizando la misma lógica de mostrar panel.
-
 ## [2.4.8] - 2026-07-24
 
 - El movimiento de documentos y carpetas pasa por `FolderService` y funciona de forma equivalente en SQLite y vault filesystem: documentos Markdown, canvas, PDFs, imágenes y adjuntos pueden moverse a carpetas, subcarpetas o raíz, preservando extensión, metadata y selección visible cuando corresponde.
@@ -23,6 +17,10 @@
 - El guardado de canvas queda cerrado al flujo canónico `NoteService` + DAO; se elimina el fallback de escritura directa desde UI y se añade guarda para impedir que reaparezcan escrituras laterales de documentos del vault.
 
 - La cobertura de integridad añade casos filesystem y SQLite para mover documentos/carpetas a raíz y subcarpetas, preservar metadata de canvas/PDF, rechazar ciclos y proteger sidecars corruptos.
+
+- La ventana principal arranca maximizada de forma nativa, ocupando el espacio disponible del escritorio sin entrar en modo pantalla completa exclusivo.
+
+- La apertura de la interfaz deja la barra de carpetas y la lista de notas en el mismo estado expandido que producen sus toggles, reutilizando la misma lógica de mostrar panel.
 
 ## [2.4.7] - 2026-07-17
 
