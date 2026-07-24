@@ -57,6 +57,7 @@ public class FolderDAOFileSystem implements FolderDAO {
     public void refreshCache() {
         FileSystemIoLock.LOCK.lock();
         try {
+            metadataStore.clearCache();
             idToPathMap.clear();
             // ID "" (empty string) or "ROOT" maps to rootPath
             idToPathMap.put(ROOT_ID, rootPath);
@@ -407,40 +408,85 @@ public class FolderDAOFileSystem implements FolderDAO {
     public void addNote(Folder folder, Note note) {
         FileSystemIoLock.LOCK.lock();
         try {
-        if (folder == null || note == null)
-            return;
+            if (folder == null || note == null) {
+                return;
+            }
 
-        String normalizedNoteId = normalizeId(note.getId());
-        Path sourcePath = rootPath.resolve(normalizedNoteId.replace("/", File.separator));
-        if (!Files.exists(sourcePath))
-            return;
+            String normalizedNoteId = normalizeId(note.getId());
+            Path sourcePath = rootPath.resolve(normalizedNoteId.replace("/", File.separator));
+            if (!Files.exists(sourcePath)) {
+                return;
+            }
 
-        Path targetDir;
-        if (ROOT_ID.equals(folder.getId())) {
-            targetDir = rootPath;
-        } else {
-            targetDir = resolveFolderPath(folder.getId());
-        }
+            Path targetDir;
+            if (ROOT_ID.equals(folder.getId())) {
+                targetDir = rootPath;
+            } else {
+                targetDir = resolveFolderPath(folder.getId());
+            }
 
-        if (targetDir == null || !Files.exists(targetDir))
-            return;
+            if (targetDir == null || !Files.exists(targetDir)) {
+                return;
+            }
 
-        Path targetPath = targetDir.resolve(sourcePath.getFileName());
+            Path requestedPath = targetDir.resolve(sourcePath.getFileName());
+            if (sourcePath.equals(requestedPath)) {
+                note.setParent(folder);
+                return;
+            }
+            Path targetPath = uniqueDocumentTargetPath(requestedPath);
 
-        try {
-            if (!sourcePath.equals(targetPath)) {
-                Files.move(sourcePath, targetPath);
+            try {
+                if (!sourcePath.equals(targetPath)) {
+                    Files.move(sourcePath, targetPath);
                     moveDocumentMetadataIfNeeded(
                             normalizeId(rootPath.relativize(sourcePath).toString()),
                             normalizeId(rootPath.relativize(targetPath).toString()),
                             targetPath);
-                String newId = normalizeId(rootPath.relativize(targetPath).toString());
-                note.setId(newId);
-                note.setParent(folder);
+                    String newId = normalizeId(rootPath.relativize(targetPath).toString());
+                    note.setId(newId);
+                    note.setParent(folder);
+                }
+            } catch (IOException e) {
+                logger.log(Level.SEVERE, "Failed to move note file to folder: " + folder.getId(), e);
             }
-        } catch (IOException e) {
-            logger.log(Level.SEVERE, "Failed to move note file to folder: " + folder.getId(), e);
+        } finally {
+            FileSystemIoLock.LOCK.unlock();
         }
+    }
+
+    @Override
+    public void moveNoteToRoot(Note note) {
+        FileSystemIoLock.LOCK.lock();
+        try {
+            if (note == null || note.getId() == null) {
+                return;
+            }
+
+            String normalizedNoteId = normalizeId(note.getId());
+            Path sourcePath = rootPath.resolve(normalizedNoteId.replace("/", File.separator));
+            if (!Files.exists(sourcePath)) {
+                return;
+            }
+
+            Path requestedPath = rootPath.resolve(sourcePath.getFileName());
+            if (sourcePath.equals(requestedPath)) {
+                note.setParent(getFolderById(ROOT_ID));
+                return;
+            }
+            Path targetPath = uniqueDocumentTargetPath(requestedPath);
+
+            try {
+                Files.move(sourcePath, targetPath);
+                moveDocumentMetadataIfNeeded(
+                        normalizeId(rootPath.relativize(sourcePath).toString()),
+                        normalizeId(rootPath.relativize(targetPath).toString()),
+                        targetPath);
+                note.setId(normalizeId(rootPath.relativize(targetPath).toString()));
+                note.setParent(getFolderById(ROOT_ID));
+            } catch (IOException e) {
+                logger.log(Level.SEVERE, "Failed to move note file to root: " + note.getId(), e);
+            }
         } finally {
             FileSystemIoLock.LOCK.unlock();
         }
@@ -450,33 +496,34 @@ public class FolderDAOFileSystem implements FolderDAO {
     public void removeNote(Folder folder, Note note) {
         FileSystemIoLock.LOCK.lock();
         try {
-        if (folder == null || note == null || note.getId() == null) {
-            return;
-        }
+            if (folder == null || note == null || note.getId() == null) {
+                return;
+            }
 
-        String normalizedNoteId = normalizeId(note.getId());
-        Path sourcePath = rootPath.resolve(normalizedNoteId.replace("/", File.separator));
-        if (!Files.exists(sourcePath)) {
-            return;
-        }
+            String normalizedNoteId = normalizeId(note.getId());
+            Path sourcePath = rootPath.resolve(normalizedNoteId.replace("/", File.separator));
+            if (!Files.exists(sourcePath)) {
+                return;
+            }
 
-        Path targetPath = rootPath.resolve(sourcePath.getFileName());
-        if (Files.exists(targetPath)) {
-            targetPath = rootPath.resolve(conflictFilename(sourcePath.getFileName().toString(),
-                    "_" + System.currentTimeMillis()));
-        }
+            Path requestedPath = rootPath.resolve(sourcePath.getFileName());
+            if (sourcePath.equals(requestedPath)) {
+                note.setParent(getFolderById(ROOT_ID));
+                return;
+            }
+            Path targetPath = uniqueDocumentTargetPath(requestedPath);
 
-        try {
-            Files.move(sourcePath, targetPath);
-            moveDocumentMetadataIfNeeded(
-                    normalizeId(rootPath.relativize(sourcePath).toString()),
-                    normalizeId(rootPath.relativize(targetPath).toString()),
-                    targetPath);
-            note.setId(normalizeId(rootPath.relativize(targetPath).toString()));
-            note.setParent(getFolderById(ROOT_ID));
-        } catch (IOException e) {
-            logger.log(Level.SEVERE, "Failed to remove note from folder: " + folder.getId(), e);
-        }
+            try {
+                Files.move(sourcePath, targetPath);
+                moveDocumentMetadataIfNeeded(
+                        normalizeId(rootPath.relativize(sourcePath).toString()),
+                        normalizeId(rootPath.relativize(targetPath).toString()),
+                        targetPath);
+                note.setId(normalizeId(rootPath.relativize(targetPath).toString()));
+                note.setParent(getFolderById(ROOT_ID));
+            } catch (IOException e) {
+                logger.log(Level.SEVERE, "Failed to remove note from folder: " + folder.getId(), e);
+            }
         } finally {
             FileSystemIoLock.LOCK.unlock();
         }
@@ -519,39 +566,72 @@ public class FolderDAOFileSystem implements FolderDAO {
     public void addSubFolder(Folder parent, Folder subFolder) {
         FileSystemIoLock.LOCK.lock();
         try {
-        if (parent == null || subFolder == null || subFolder.getId() == null) {
-            return;
-        }
+            if (parent == null || subFolder == null || subFolder.getId() == null) {
+                return;
+            }
 
-        Path parentPath = ROOT_ID.equals(parent.getId()) ? rootPath : resolveFolderPath(parent.getId());
-        Path subPath = resolveFolderPath(subFolder.getId());
-        if (parentPath == null || subPath == null || !Files.exists(subPath)) {
-            return;
-        }
+            Path parentPath = ROOT_ID.equals(parent.getId()) ? rootPath : resolveFolderPath(parent.getId());
+            Path subPath = resolveFolderPath(subFolder.getId());
+            if (parentPath == null || subPath == null || !Files.exists(subPath)) {
+                return;
+            }
 
-        Path targetPath = parentPath.resolve(subPath.getFileName());
-        if (subPath.equals(targetPath)) {
-            subFolder.setParent(parent);
-            return;
-        }
+            Path requestedPath = parentPath.resolve(subPath.getFileName());
+            if (subPath.equals(requestedPath)) {
+                subFolder.setParent(parent);
+                return;
+            }
+            Path targetPath = uniqueDirectoryTargetPath(requestedPath);
 
-        if (Files.exists(targetPath)) {
-            return;
+            try {
+                List<String> metadataDocumentIds = collectMetadataDocumentIds(subPath);
+                Files.move(subPath, targetPath);
+                moveDocumentMetadataEntries(metadataDocumentIds,
+                        normalizeId(rootPath.relativize(subPath).toString()),
+                        normalizeId(rootPath.relativize(targetPath).toString()));
+                refreshCache();
+                String newId = normalizeId(rootPath.relativize(targetPath).toString());
+                subFolder.setId(newId);
+                subFolder.setParent(parent);
+            } catch (IOException e) {
+                logger.warning("Failed to move subfolder under parent: " + e.getMessage());
+            }
+        } finally {
+            FileSystemIoLock.LOCK.unlock();
         }
+    }
 
+    @Override
+    public void moveFolderToRoot(Folder folder) {
+        FileSystemIoLock.LOCK.lock();
         try {
-            List<String> metadataDocumentIds = collectMetadataDocumentIds(subPath);
-            Files.move(subPath, targetPath);
-            moveDocumentMetadataEntries(metadataDocumentIds,
-                    normalizeId(rootPath.relativize(subPath).toString()),
-                    normalizeId(rootPath.relativize(targetPath).toString()));
-            refreshCache();
-            String newId = normalizeId(rootPath.relativize(targetPath).toString());
-            subFolder.setId(newId);
-            subFolder.setParent(parent);
-        } catch (IOException e) {
-            logger.warning("Failed to move subfolder under parent: " + e.getMessage());
-        }
+            if (folder == null || folder.getId() == null || ROOT_ID.equals(folder.getId())) {
+                return;
+            }
+
+            Path sourcePath = resolveFolderPath(folder.getId());
+            if (sourcePath == null || !Files.exists(sourcePath)) {
+                return;
+            }
+            Path requestedPath = rootPath.resolve(sourcePath.getFileName());
+            if (sourcePath.equals(requestedPath)) {
+                folder.setParent(null);
+                return;
+            }
+            Path targetPath = uniqueDirectoryTargetPath(requestedPath);
+
+            try {
+                List<String> metadataDocumentIds = collectMetadataDocumentIds(sourcePath);
+                Files.move(sourcePath, targetPath);
+                moveDocumentMetadataEntries(metadataDocumentIds,
+                        normalizeId(rootPath.relativize(sourcePath).toString()),
+                        normalizeId(rootPath.relativize(targetPath).toString()));
+                refreshCache();
+                folder.setId(normalizeId(rootPath.relativize(targetPath).toString()));
+                folder.setParent(null);
+            } catch (IOException e) {
+                logger.warning("Failed to move folder to root: " + e.getMessage());
+            }
         } finally {
             FileSystemIoLock.LOCK.unlock();
         }
@@ -694,6 +774,36 @@ public class FolderDAOFileSystem implements FolderDAO {
         String base = dot > 0 ? filename.substring(0, dot) : filename;
         String extension = dot > 0 ? filename.substring(dot) : "";
         return base + suffix + extension;
+    }
+
+    private Path uniqueDocumentTargetPath(Path requestedPath) {
+        if (requestedPath == null || !Files.exists(requestedPath)) {
+            return requestedPath;
+        }
+        Path parent = requestedPath.getParent();
+        String filename = requestedPath.getFileName().toString();
+        int counter = 1;
+        Path candidate;
+        do {
+            candidate = parent.resolve(conflictFilename(filename, " (" + counter + ")"));
+            counter++;
+        } while (Files.exists(candidate));
+        return candidate;
+    }
+
+    private Path uniqueDirectoryTargetPath(Path requestedPath) {
+        if (requestedPath == null || !Files.exists(requestedPath)) {
+            return requestedPath;
+        }
+        Path parent = requestedPath.getParent();
+        String folderName = requestedPath.getFileName().toString();
+        int counter = 1;
+        Path candidate;
+        do {
+            candidate = parent.resolve(folderName + " (" + counter + ")");
+            counter++;
+        } while (Files.exists(candidate));
+        return candidate;
     }
 
     private void moveDocumentMetadataIfNeeded(String previousId, String currentId, Path targetPath) {

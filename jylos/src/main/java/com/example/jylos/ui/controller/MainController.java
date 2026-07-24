@@ -1238,6 +1238,14 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                     UiPreferencesStore.DEFAULT_SPLIT_MAIN);
             persistDivider(contentSplitPane, UiPreferencesStore.SPLIT_CONTENT_KEY,
                     UiPreferencesStore.DEFAULT_SPLIT_CONTENT);
+            navigationCommand.showNavigationPanels(
+                    isStackedLayout,
+                    navSplitPane,
+                    sidebarController != null ? sidebarController.getSidebarPane() : null,
+                    mainSplitPane,
+                    notesPanel,
+                    contentSplitPane,
+                    toolbarController);
         });
     }
 

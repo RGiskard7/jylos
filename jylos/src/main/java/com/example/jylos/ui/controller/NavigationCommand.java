@@ -61,12 +61,7 @@ class NavigationCommand {
             }
             boolean isCollapsed = navSplitPane.getMaxWidth() < 10;
             if (isCollapsed) {
-                navSplitPane.setMinWidth(200);
-                navSplitPane.setMaxWidth(Double.MAX_VALUE);
-                navSplitPane.setPrefWidth(300);
-                if (mainSplitPane != null) {
-                    mainSplitPane.setDividerPositions(0.25);
-                }
+                showStackedNavigation(navSplitPane, mainSplitPane);
                 updateStatus.accept(i18n("status.nav_shown"));
                 setSidebarToggle(toolbarController, true);
             } else {
@@ -84,12 +79,7 @@ class NavigationCommand {
         }
         boolean isCollapsed = sidebarPane.getMaxWidth() < 10;
         if (isCollapsed) {
-            sidebarPane.setMinWidth(200);
-            sidebarPane.setMaxWidth(Double.MAX_VALUE);
-            sidebarPane.setPrefWidth(250);
-            if (mainSplitPane != null) {
-                mainSplitPane.setDividerPositions(0.22);
-            }
+            showSidebar(sidebarPane, mainSplitPane);
             updateStatus.accept(i18n("status.sidebar_shown"));
             setSidebarToggle(toolbarController, true);
         } else {
@@ -118,12 +108,7 @@ class NavigationCommand {
 
         boolean isCollapsed = notesPanel.getMaxWidth() < 10;
         if (isCollapsed) {
-            notesPanel.setMinWidth(180);
-            notesPanel.setMaxWidth(Double.MAX_VALUE);
-            notesPanel.setPrefWidth(260);
-            if (contentSplitPane != null) {
-                contentSplitPane.setDividerPositions(0.25);
-            }
+            showNotesPanel(notesPanel, contentSplitPane);
             updateStatus.accept(i18n("status.notes_panel_shown"));
             setNotesToggle(toolbarController, true);
         } else {
@@ -135,6 +120,57 @@ class NavigationCommand {
         }
 
         return true;
+    }
+
+    void showNavigationPanels(boolean isStackedLayout, SplitPane navSplitPane, VBox sidebarPane,
+            SplitPane mainSplitPane, VBox notesPanel, SplitPane contentSplitPane,
+            ToolbarController toolbarController) {
+        if (isStackedLayout) {
+            showStackedNavigation(navSplitPane, mainSplitPane);
+            setSidebarToggle(toolbarController, true);
+            setNotesToggle(toolbarController, true);
+            return;
+        }
+        showSidebar(sidebarPane, mainSplitPane);
+        showNotesPanel(notesPanel, contentSplitPane);
+        setSidebarToggle(toolbarController, true);
+        setNotesToggle(toolbarController, true);
+    }
+
+    private void showStackedNavigation(SplitPane navSplitPane, SplitPane mainSplitPane) {
+        if (navSplitPane == null) {
+            return;
+        }
+        navSplitPane.setMinWidth(200);
+        navSplitPane.setMaxWidth(Double.MAX_VALUE);
+        navSplitPane.setPrefWidth(300);
+        if (mainSplitPane != null) {
+            mainSplitPane.setDividerPositions(0.25);
+        }
+    }
+
+    private void showSidebar(VBox sidebarPane, SplitPane mainSplitPane) {
+        if (sidebarPane == null) {
+            return;
+        }
+        sidebarPane.setMinWidth(200);
+        sidebarPane.setMaxWidth(Double.MAX_VALUE);
+        sidebarPane.setPrefWidth(250);
+        if (mainSplitPane != null) {
+            mainSplitPane.setDividerPositions(0.22);
+        }
+    }
+
+    private void showNotesPanel(VBox notesPanel, SplitPane contentSplitPane) {
+        if (notesPanel == null) {
+            return;
+        }
+        notesPanel.setMinWidth(180);
+        notesPanel.setMaxWidth(Double.MAX_VALUE);
+        notesPanel.setPrefWidth(260);
+        if (contentSplitPane != null) {
+            contentSplitPane.setDividerPositions(0.25);
+        }
     }
 
     double zoomIn(double currentUiFontSize) {

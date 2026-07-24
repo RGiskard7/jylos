@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -80,7 +79,7 @@ final class FileSystemDocumentMetadataStore {
         if (from.isBlank() || to.isBlank() || from.equals(to)) {
             return;
         }
-        Map<String, DocumentMetadata> index = new LinkedHashMap<>(documentIndex());
+        Map<String, DocumentMetadata> index = new LinkedHashMap<>(reloadDocumentIndex());
         DocumentMetadata metadata = index.remove(from);
         if (metadata != null) {
             index.put(to, metadata);
@@ -106,6 +105,15 @@ final class FileSystemDocumentMetadataStore {
         return documentIndexCache;
     }
 
+    private synchronized Map<String, DocumentMetadata> reloadDocumentIndex() {
+        documentIndexCache = loadDocumentIndex();
+        return documentIndexCache;
+    }
+
+    synchronized void clearCache() {
+        documentIndexCache = null;
+    }
+
     private Map<String, DocumentMetadata> loadDocumentIndex() {
         Path path = documentIndexPath();
         if (!Files.exists(path)) {
@@ -115,7 +123,7 @@ final class FileSystemDocumentMetadataStore {
             String json = Files.readString(path, StandardCharsets.UTF_8);
             JsonElement root = JsonParser.parseString(json);
             if (root == null || !root.isJsonObject()) {
-                return new LinkedHashMap<>();
+                throw new IllegalStateException("Document metadata sidecar is not a JSON object: " + path);
             }
             Map<String, DocumentMetadata> index = new LinkedHashMap<>();
             for (Map.Entry<String, JsonElement> entry : root.getAsJsonObject().entrySet()) {
@@ -125,7 +133,7 @@ final class FileSystemDocumentMetadataStore {
             }
             return index;
         } catch (Exception e) {
-            return new LinkedHashMap<>();
+            throw new IllegalStateException("Failed to read document metadata sidecar: " + path, e);
         }
     }
 
@@ -142,8 +150,7 @@ final class FileSystemDocumentMetadataStore {
             for (Map.Entry<String, DocumentMetadata> entry : index.entrySet()) {
                 root.add(entry.getKey(), entry.getValue().toJson());
             }
-            Files.writeString(path, gson.toJson(root), StandardCharsets.UTF_8,
-                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            FileSystemAtomicWriter.writeString(path, gson.toJson(root), StandardCharsets.UTF_8);
             documentIndexCache = new LinkedHashMap<>(index);
         } catch (IOException e) {
             throw new IllegalStateException("Failed to write document metadata sidecar", e);

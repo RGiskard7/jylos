@@ -92,6 +92,11 @@ App icons: `src/main/resources/icons/` — see [icons README](../jylos/src/main/
 - **SQLite** (default) — `SQLiteDB.initDatabase()`; DAOs in `data.dao.sqlite`.
 - **Filesystem vault** — Markdown + YAML frontmatter (`FrontmatterHandler`); lightweight list cache (`parseLightweight`); full body on open/export/graph/backlinks.
 - In filesystem mode, **external edits are not reconciled continuously** while navigating. Global sync with out-of-process changes remains **explicit refresh**; heavyweight viewers that are temporarily reused in the UI (for example `.canvas`) must invalidate themselves against the backing file before being reused.
+- Document and folder moves are owned by `FolderService`. The UI only asks for a target and refreshes visible state; the active DAO adapts the operation to its backend.
+- In filesystem mode, moving a document is a `Files.move` of the real vault file; moving a folder is a directory move. Name conflicts preserve document extensions, and binary attachment metadata is moved with the document through the private sidecar.
+- In SQLite mode, moving a document updates the note-folder relationship and moving a folder updates the parent relationship. Moving to root clears the relationship according to the SQLite schema instead of creating filesystem paths.
+- Vault writes for Markdown, canvas and the binary metadata sidecar use a same-directory temporary file followed by atomic replace where the platform supports it. If atomic move is unavailable, the DAO falls back to a controlled replace and cleans temporary files on error.
+- Binary attachment metadata lives in `.jylos/document-metadata.json`. Corrupt sidecar JSON is treated as an explicit persistence error, never as an empty index, so Jylos does not silently overwrite real metadata.
 
 Notes carry a `status` column (Kanban legacy/free use) and an `is_private` column (SQLite) / `private:` frontmatter (vault). `SQLiteDB.initDatabase()` performs **idempotent `ALTER TABLE` migrations** (checks `PRAGMA table_info` before adding a column); other SQL schema changes still need a documented manual step.
 

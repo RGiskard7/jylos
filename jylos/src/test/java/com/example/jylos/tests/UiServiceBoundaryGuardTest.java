@@ -66,6 +66,8 @@ class UiServiceBoundaryGuardTest {
                 "EditorController should not keep direct NoteDAO usage.");
         assertFalse(source.contains("noteService.getAllNotes()"),
                 "EditorController should not rebuild global note-title caches from NoteService on note open.");
+        assertFalse(source.contains("Files.writeString("),
+                "EditorController must persist vault documents through NoteService/DAO, not direct file writes.");
     }
 
     @Test

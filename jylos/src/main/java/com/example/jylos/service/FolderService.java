@@ -309,44 +309,52 @@ public class FolderService {
         if (note == null) {
             throw new IllegalArgumentException("Note cannot be null");
         }
-
-        // Remove from current folder and add to new one
+        String previousNoteId = note.getId();
         if (newFolder != null) {
             folderDAO.addNote(newFolder, note);
             logger.info("Moved note '" + note.getTitle() + "' to folder: " + newFolder.getTitle());
         } else {
-            // Moving to root - would need a removeNoteFromFolder method in DAO
+            folderDAO.moveNoteToRoot(note);
             logger.info("Moved note '" + note.getTitle() + "' to root");
         }
+        noteDAO.reindexMovedNote(previousNoteId, note);
     }
 
     /**
      * Moves a folder under a new parent folder.
      *
      * @param folder      Folder to move
-     * @param targetParent Destination parent folder
+     * @param targetParent Destination parent folder (null for root)
      */
     public void moveFolderToFolder(Folder folder, Folder targetParent) {
         if (folder == null || folder.getId() == null) {
             throw new IllegalArgumentException("Folder cannot be null");
         }
-        if (targetParent == null || targetParent.getId() == null) {
-            throw new IllegalArgumentException("Target parent cannot be null");
+        if (!canMoveFolder(folder, targetParent)) {
+            throw new IllegalArgumentException("Invalid folder move");
         }
-        if (folder.getId().equals(targetParent.getId())) {
-            throw new IllegalArgumentException("Folder cannot be moved into itself");
+        if (targetParent == null || "ROOT".equals(targetParent.getId())) {
+            folderDAO.moveFolderToRoot(folder);
+            logger.info("Moved folder '" + folder.getTitle() + "' to root");
+        } else {
+            folderDAO.addSubFolder(targetParent, folder);
+            logger.info("Moved folder '" + folder.getTitle() + "' to folder: " + targetParent.getTitle());
         }
-        folderDAO.addSubFolder(targetParent, folder);
         folderDAO.refreshCache();
         noteDAO.refreshCache();
-        logger.info("Moved folder '" + folder.getTitle() + "' to folder: " + targetParent.getTitle());
     }
 
     /**
      * Validates whether a folder can be moved under a target parent.
      */
     public boolean canMoveFolder(Folder folder, Folder targetParent) {
-        if (folder == null || targetParent == null || folder.getId() == null || targetParent.getId() == null) {
+        if (folder == null || folder.getId() == null || "ROOT".equals(folder.getId())) {
+            return false;
+        }
+        if (targetParent == null) {
+            return true;
+        }
+        if (targetParent.getId() == null || "ALL_NOTES_VIRTUAL".equals(targetParent.getId())) {
             return false;
         }
         String folderId = folder.getId();

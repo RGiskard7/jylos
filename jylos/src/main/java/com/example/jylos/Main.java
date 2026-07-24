@@ -68,6 +68,7 @@ public class Main extends Application {
             primaryStage.setScene(scene);
             primaryStage.setMinWidth(800);
             primaryStage.setMinHeight(600);
+            primaryStage.setMaximized(true);
             primaryStage.setOnCloseRequest(event -> {
                 if (mainController != null && !mainController.requestApplicationClose()) {
                     event.consume();

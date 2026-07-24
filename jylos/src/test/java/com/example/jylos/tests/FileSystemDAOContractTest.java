@@ -64,6 +64,77 @@ class FileSystemDAOContractTest {
     }
 
     @Test
+    void folderServiceMovesDocumentsAndFoldersToRootInFilesystemMode() throws Exception {
+        FolderService folderService = new FolderService(folderDAO, noteDAO);
+        NoteService noteService = new NoteService(noteDAO, folderDAO);
+
+        Folder parent = folderService.createFolder("Project");
+        Folder child = folderService.createSubfolder("Docs", parent);
+        Note note = noteService.createNote("Plan", "content");
+
+        folderService.moveNoteToFolder(note, child);
+        assertTrue(note.getId().startsWith("Project/Docs/"));
+        assertNotNull(noteService.getNoteById(note.getId()));
+        assertEquals(1, noteService.getNotesByFolder(child).size());
+
+        folderService.moveNoteToFolder(note, null);
+        assertEquals("Plan.md", note.getId());
+        assertTrue(Files.exists(tempDir.resolve("Plan.md")));
+        assertNotNull(noteService.getNoteById("Plan.md"));
+        assertEquals(0, noteService.getNotesByFolder(child).size());
+
+        folderService.moveFolderToFolder(child, null);
+        assertEquals("Docs", child.getId());
+        assertTrue(Files.exists(tempDir.resolve("Docs")));
+        assertEquals("ROOT", folderService.getParentFolder(child).orElseThrow().getId());
+    }
+
+    @Test
+    void movingCanvasAndPdfPreservesExtensionsAndMetadataInFilesystemMode() throws Exception {
+        FolderService folderService = new FolderService(folderDAO, noteDAO);
+        Folder docs = folderService.createFolder("Docs");
+        Folder assets = folderService.createFolder("Assets");
+
+        Note canvas = new Note("Board.canvas", "{\"nodes\":[],\"edges\":[]}");
+        noteDAO.createNote(canvas);
+        canvas.setFavorite(true);
+        noteDAO.updateNote(canvas);
+        folderService.moveNoteToFolder(canvas, docs);
+        assertTrue(canvas.getId().endsWith(".canvas"));
+        assertTrue(Files.exists(tempDir.resolve(canvas.getId())));
+        assertTrue(noteDAO.getNoteById(canvas.getId()).isFavorite());
+
+        Path pdf = tempDir.resolve("Manual.pdf");
+        Files.write(pdf, new byte[] { 1, 2, 3 });
+        noteDAO.refreshCache();
+        Note attachment = noteDAO.getNoteById("Manual.pdf");
+        assertNotNull(attachment);
+        attachment.setPinned(true);
+        noteDAO.updateNote(attachment);
+        folderService.moveNoteToFolder(attachment, assets);
+        assertTrue(attachment.getId().endsWith(".pdf"));
+        assertTrue(Files.exists(tempDir.resolve(attachment.getId())));
+        assertTrue(noteDAO.getNoteById(attachment.getId()).isPinned());
+    }
+
+    @Test
+    void corruptDocumentMetadataSidecarFailsWithoutBeingOverwritten() throws Exception {
+        Path pdf = tempDir.resolve("Manual.pdf");
+        Files.write(pdf, new byte[] { 1, 2, 3 });
+        noteDAO.refreshCache();
+        Note attachment = noteDAO.getNoteById("Manual.pdf");
+        assertNotNull(attachment);
+        attachment.setFavorite(true);
+        noteDAO.updateNote(attachment);
+
+        Path sidecar = tempDir.resolve(".jylos").resolve("document-metadata.json");
+        Files.writeString(sidecar, "{broken");
+
+        assertThrows(IllegalStateException.class, () -> new NoteDAOFileSystem(tempDir.toString()));
+        assertEquals("{broken", Files.readString(sidecar));
+    }
+
+    @Test
     void addAndRemoveTagsByIdAndRenameTagWorksInFilesystemMode() {
         Note note = new Note("Tagged", "content");
         noteDAO.createNote(note);

@@ -881,12 +881,11 @@ public class EditorController {
             noteTitleField.setText(currentNote.getTitle());
         }
         currentNote.setContent(updatedJson);
-        if (noteService != null) {
-            noteService.updateNote(currentNote, previousStoredContent);
-            currentCanvasPath = noteService.getNoteFilePath(currentNote.getId()).orElse(currentCanvasPath);
-        } else if (currentCanvasPath != null) {
-            writeCanvasFile(currentCanvasPath, updatedJson);
+        if (noteService == null) {
+            throw new IllegalStateException("Cannot save canvas without NoteService");
         }
+        noteService.updateNote(currentNote, previousStoredContent);
+        currentCanvasPath = noteService.getNoteFilePath(currentNote.getId()).orElse(currentCanvasPath);
         currentCanvasFingerprint = fingerprint(currentCanvasPath);
         isModified = false;
         updateBreadcrumb(currentNote);
@@ -904,16 +903,6 @@ public class EditorController {
             return;
         }
         reevaluateModifiedState();
-    }
-
-    /** Writes the (edited) canvas JSON back to its file when no note service is available. */
-    private void writeCanvasFile(java.nio.file.Path path, String json) {
-        try {
-            Files.writeString(path, json);
-            logger.info("Canvas saved: " + path.getFileName());
-        } catch (Exception e) {
-            throw new IllegalStateException("Could not save canvas '" + path + "'", e);
-        }
     }
 
     private DocumentFingerprint fingerprint(Path path) {
