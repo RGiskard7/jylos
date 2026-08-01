@@ -6,7 +6,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
+import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginManager;
 import com.example.jylos.plugin.PluginManager.PluginState;
@@ -14,7 +17,9 @@ import com.example.jylos.ui.UiDialogs;
 
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.ToggleButton;
@@ -23,12 +28,13 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
 /**
- * Plugin manager window — lists installed plugins and lets the user enable or
- * disable each one.
+ * Plugin manager window — lists installed plugins and lets the user enable,
+ * disable, install or remove them.
  *
  * <p>Styling comes entirely from the active theme stylesheet (applied via
  * {@link UiDialogs}); there are no inline colours, so it follows light/dark like
@@ -38,6 +44,8 @@ import javafx.stage.StageStyle;
  * @since 1.2.0
  */
 public class PluginManagerDialog {
+
+    private static final Logger logger = LoggerConfig.getLogger(PluginManagerDialog.class);
 
     private final Stage parentStage;
     private final PluginManager pluginManager;
@@ -116,14 +124,21 @@ public class PluginManagerDialog {
 
         // ── Footer ──────────────────────────────────────────────────────────
         HBox footer = new HBox();
-        footer.setAlignment(Pos.CENTER_RIGHT);
+        footer.setAlignment(Pos.CENTER_LEFT);
         footer.getStyleClass().add("plugin-manager-footer");
 
+        Button installButton = new Button(i18n("dialog.plugin_manager.install"));
+        installButton.getStyleClass().addAll("plugin-manager-action-btn", "plugin-manager-install-btn");
+        installButton.setOnAction(e -> installPluginJar());
+
+        Region footerSpacer = new Region();
+        HBox.setHgrow(footerSpacer, Priority.ALWAYS);
+
         Button closeButton = new Button(i18n("action.close"));
-        closeButton.getStyleClass().add("plugin-manager-close-btn");
+        closeButton.getStyleClass().addAll("plugin-manager-action-btn", "plugin-manager-close-btn");
         closeButton.setDefaultButton(true);
         closeButton.setOnAction(e -> dialogStage.close());
-        footer.getChildren().add(closeButton);
+        footer.getChildren().addAll(installButton, footerSpacer, closeButton);
 
         root.getChildren().addAll(header, scrollPane, footer);
 
@@ -159,7 +174,7 @@ public class PluginManagerDialog {
         VBox card = new VBox(8);
         card.getStyleClass().add("plugin-card");
 
-        // Header row: name + version + toggle
+        // Header row: name + version + remove + toggle
         HBox headerRow = new HBox(10);
         headerRow.setAlignment(Pos.CENTER_LEFT);
 
@@ -172,11 +187,16 @@ public class PluginManagerDialog {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
+        Button removeButton = new Button(i18n("dialog.plugin_manager.remove"));
+        removeButton.getStyleClass().addAll("plugin-manager-card-action-btn", "plugin-manager-remove-btn");
+        removeButton.setDisable(!pluginManager.isPluginRemovable(plugin.getId()));
+        removeButton.setOnAction(e -> removePlugin(plugin));
+
         ToggleButton toggle = createToggleSwitch(isEnabled);
         toggle.setOnAction(e -> togglePlugin(plugin.getId(), toggle.isSelected()));
         toggleButtons.put(plugin.getId(), toggle);
 
-        headerRow.getChildren().addAll(nameLabel, versionLabel, spacer, toggle);
+        headerRow.getChildren().addAll(nameLabel, versionLabel, spacer, removeButton, toggle);
 
         // Description
         Label descLabel = new Label(plugin.getDescription().isEmpty()
@@ -228,5 +248,66 @@ public class PluginManagerDialog {
             pluginManager.disablePlugin(pluginId);
         }
         refreshPluginList();
+    }
+
+    private void installPluginJar() {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle(i18n("dialog.plugin_manager.install_title"));
+        chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter(i18n("dialog.plugin_manager.jar_filter"), "*.jar"));
+        var selected = chooser.showOpenDialog(dialogStage);
+        if (selected == null) {
+            return;
+        }
+        try {
+            Plugin plugin = pluginManager.installPluginJar(selected.toPath());
+            refreshPluginList();
+            showAlert(
+                    Alert.AlertType.INFORMATION,
+                    i18n("dialog.plugin_manager.install_success_title"),
+                    i18n("dialog.plugin_manager.install_success_header", plugin.getName()));
+        } catch (Exception ex) {
+            logger.log(Level.WARNING, "Plugin installation failed", ex);
+            showAlert(
+                    Alert.AlertType.ERROR,
+                    i18n("dialog.plugin_manager.install_error_title"),
+                    ex.getMessage());
+        }
+    }
+
+    private void removePlugin(Plugin plugin) {
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.initOwner(dialogStage);
+        confirm.setTitle(i18n("dialog.plugin_manager.remove_confirm_title"));
+        confirm.setHeaderText(i18n("dialog.plugin_manager.remove_confirm_header", plugin.getName()));
+        confirm.setContentText(i18n("dialog.plugin_manager.remove_confirm_content"));
+
+        if (UiDialogs.show(confirm).orElse(ButtonType.CANCEL) != ButtonType.OK) {
+            return;
+        }
+
+        try {
+            Plugin removedPlugin = pluginManager.uninstallPlugin(plugin.getId());
+            refreshPluginList();
+            showAlert(
+                    Alert.AlertType.INFORMATION,
+                    i18n("dialog.plugin_manager.remove_success_title"),
+                    i18n("dialog.plugin_manager.remove_success_header", removedPlugin.getName()));
+        } catch (Exception ex) {
+            logger.log(Level.WARNING, "Plugin removal failed", ex);
+            showAlert(
+                    Alert.AlertType.ERROR,
+                    i18n("dialog.plugin_manager.remove_error_title"),
+                    ex.getMessage());
+        }
+    }
+
+    private void showAlert(Alert.AlertType type, String title, String content) {
+        Alert alert = new Alert(type);
+        alert.initOwner(dialogStage);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        UiDialogs.show(alert);
     }
 }

@@ -3249,13 +3249,41 @@
     -fx-border-color: -fx-fn-border-color transparent transparent transparent;
     -fx-border-width: 1 0 0 0;
 }
-.plugin-manager-close-btn {
+.plugin-manager-action-btn {
     -fx-font-size: 13px;
     -fx-padding: 8 20 8 20;
     -fx-background-radius: 6;
     -fx-border-radius: 6;
     -fx-border-width: 1;
     -fx-cursor: hand;
+}
+.plugin-manager-card-action-btn {
+    -fx-font-size: 12px;
+    -fx-padding: 5 12 5 12;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-border-width: 1;
+    -fx-cursor: hand;
+}
+.plugin-manager-install-btn {
+    -fx-background-color: -fx-control-bg;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-text-fill: -fx-text-primary;
+}
+.plugin-manager-install-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-border-color: -fx-accent;
+    -fx-text-fill: -fx-text-primary;
+}
+.plugin-manager-remove-btn {
+    -fx-background-color: -fx-button-neutral-bg;
+    -fx-border-color: -fx-danger;
+    -fx-text-fill: -fx-danger;
+}
+.plugin-manager-remove-btn:hover {
+    -fx-background-color: -fx-danger;
+    -fx-border-color: -fx-danger;
+    -fx-text-fill: -fx-accent-contrast;
 }
 /* iOS-style pill toggle: track colour + knob position driven entirely by state */
 .plugin-switch {

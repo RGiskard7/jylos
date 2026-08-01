@@ -22,12 +22,12 @@ import javafx.scene.text.TextAlignment;
  * High-performance, dependency-free Obsidian-style force-directed graph rendered
  * natively on a JavaFX {@link Canvas}.
  *
- * <h3>Why native Canvas (not a WebView)</h3>
+ * <h2>Why native Canvas (not a WebView)</h2>
  * Rendering directly on a JavaFX {@code Canvas} avoids the WebView's
  * software-canvas/requestAnimationFrame overhead and the JS↔Java bridge latency,
  * giving fluid zoom/pan/drag and instant node hit-testing.
  *
- * <h3>Physics</h3>
+ * <h2>Physics</h2>
  * A d3-force-style simulation: many-body repulsion accelerated with a
  * Barnes–Hut quadtree ({@code O(n log n)}), spring attraction along edges, mild
  * centering gravity, and velocity damping with <em>alpha cooling</em>. When the
@@ -35,7 +35,7 @@ import javafx.scene.text.TextAlignment;
  * {@link AnimationTimer} stops, so an idle graph consumes no CPU. Interaction
  * re-heats the simulation only when needed.
  *
- * <h3>Interaction</h3>
+ * <h2>Interaction</h2>
  * Scroll = zoom toward the cursor, drag background = pan, drag node = move it
  * (re-heats), hover = highlight a node and its neighbours, click a note node =
  * open it via {@link #setOnOpenNote(Consumer)}.

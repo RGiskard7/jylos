@@ -54,7 +54,13 @@ public class ImportService {
     private final NoteService noteService;
     private final FolderService folderService;
 
-    /** Outcome summary: imported note count, created folder count, per-note errors. */
+    /**
+     * Outcome summary for an import run.
+     *
+     * @param notesImported number of notes imported successfully
+     * @param foldersCreated number of folders created during the import
+     * @param errors non-fatal per-note errors encountered during the import
+     */
     public record ImportResult(int notesImported, int foldersCreated, List<String> errors) {
     }
 

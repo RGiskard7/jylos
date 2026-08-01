@@ -85,7 +85,7 @@ import javafx.stage.Popup;
 /**
  * FXML controller for the note editor pane.
  *
- * <h3>Features</h3>
+ * <h2>Features</h2>
  * <ul>
  *   <li>Loads/saves notes including YAML custom properties.</li>
  *   <li>Collapsible properties panel — header always visible; clicking expands/collapses.</li>

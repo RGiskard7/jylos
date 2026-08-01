@@ -7,18 +7,21 @@ import java.util.logging.Logger;
 import com.example.jylos.config.VersionConfig;
 
 /**
- * Centralized application configuration.
- * Reads metadata from app.properties file.
- * 
- * This allows easy rebranding by modifying a single properties file.
+ * Centralized application metadata loaded from {@code app.properties}.
+ *
+ * <p>Release builds may override the version through filtered resources; when the
+ * properties file is absent or unresolved, values fall back to safe defaults.</p>
  */
-public class AppConfig {
+public final class AppConfig {
     
     private static final Logger logger = Logger.getLogger(AppConfig.class.getName());
     private static Properties properties = null;
     
     static {
         loadProperties();
+    }
+
+    private AppConfig() {
     }
     
     /**
@@ -67,63 +70,73 @@ public class AppConfig {
         return properties.getProperty(key, defaultValue);
     }
     
-    // Application metadata
+    /** @return display application name */
     public static String getAppName() {
         return getProperty("app.name", "Jylos");
     }
     
+    /** @return release version displayed in UI and packaging metadata */
     public static String getAppVersion() {
         String version = getProperty("app.version", "");
         return VersionConfig.isUnresolved(version) ? VersionConfig.getVersion() : version;
     }
     
+    /** @return application vendor */
     public static String getAppVendor() {
         return getProperty("app.vendor", "Jylos");
     }
     
+    /** @return short product description */
     public static String getAppDescription() {
         return getProperty("app.description", "A free and open-source note-taking application");
     }
     
+    /** @return copyright notice */
     public static String getAppCopyright() {
         return getProperty("app.copyright", "Copyright © 2026 Eduardo Díaz Sánchez");
     }
     
+    /** @return main window title */
     public static String getWindowTitle() {
         return getProperty("app.window.title", "Jylos - Free Note Taking");
     }
     
-    // Window icon path (for JavaFX, relative to resources root, e.g., "com/example/jylos/ui/images/app-icon.png")
+    /** @return JavaFX window icon path, relative to the resources root */
     public static String getWindowIconPath() {
         return getProperty("app.icon.window", "icons/app-icon.png");
     }
     
-    // Packaging icon paths (relative to project root)
+    /** @return Windows packaging icon path, relative to the Maven module root */
     public static String getIconPathWindows() {
         return getProperty("app.icon.windows", "src/main/resources/icons/app-icon.ico");
     }
     
+    /** @return macOS packaging icon path, relative to the Maven module root */
     public static String getIconPathMacOS() {
         return getProperty("app.icon.macos", "src/main/resources/icons/app-icon.icns");
     }
     
+    /** @return Linux packaging icon path, relative to the Maven module root */
     public static String getIconPathLinux() {
         return getProperty("app.icon.linux", "src/main/resources/icons/app-icon.png");
     }
     
-    // Package information
+    /** @return package/application id used by native installers */
     public static String getPackageName() {
         return getProperty("app.package.name", "jylos");
     }
     
+    /** @return Windows installer category */
     public static String getPackageCategoryWindows() {
         return getProperty("app.package.category.windows", "Productivity");
     }
     
+    /** @return macOS package category UTI */
     public static String getPackageCategoryMacOS() {
         return getProperty("app.package.category.macos", "public.app-category.productivity");
     }
     
+    /** @return Linux desktop/menu package category */
     public static String getPackageCategoryLinux() {
         return getProperty("app.package.category.linux", "Office");
     }

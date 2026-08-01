@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  * in Markdown into the rendered content of the target note (or one section), inline,
  * Obsidian-style.
  *
- * <h3>How it integrates with the preview pipeline</h3>
+ * <h2>How it integrates with the preview pipeline</h2>
  * Embeds must be expanded <b>before</b> {@link WikiLinkResolver} because {@code ![[…]]}
  * contains a {@code [[…]]} that the wiki-link resolver would otherwise rewrite. Each
  * embed is rendered to HTML up front and parked behind a private-use placeholder token
@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
  * inlining HTML blocks into Markdown (CommonMark would not re-parse their content, and
  * blank lines would split the block).
  *
- * <h3>Safety</h3>
+ * <h2>Safety</h2>
  * Recursion is bounded by {@link #MAX_DEPTH} and a per-branch visited-set, so an embed
  * cycle ({@code A → B → A}) or a deep chain degrades to a small notice instead of
  * looping. Missing notes and missing sections render a muted placeholder.
@@ -47,7 +47,13 @@ public final class Transclusion {
 
     private static final int MAX_DEPTH = 3;
 
-    /** The Markdown with embeds replaced by tokens, plus the token → HTML map for {@link #restore}. */
+    /**
+     * The Markdown with embeds replaced by tokens, plus the token to HTML map for
+     * {@link #restore}.
+     *
+     * @param markdown host Markdown containing placeholder tokens
+     * @param embeds token to rendered HTML map
+     */
     public record Result(String markdown, Map<String, String> embeds) {
     }
 

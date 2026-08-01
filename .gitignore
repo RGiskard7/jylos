@@ -12,6 +12,12 @@ dependency-reduced-pom.xml
 *.war
 *.ear
 
+# Generated Javadoc
+apidocs/
+javadoc/
+**/target/site/apidocs/
+**/target/reports/apidocs/
+
 # IDE - IntelliJ IDEA
 .idea/
 *.iml
@@ -108,6 +114,9 @@ jylos/backups/
 
 # User CSS snippets (runtime; auto-created, user-provided .css tweaks)
 jylos/snippets/
+
+# Plugin runtime bookkeeping
+**/.bundled-plugins-copied
 
 .claude/
 .tools/

@@ -1,10 +1,34 @@
 # Changelog
 
-## [2.4.9] - 2026-07-24
+## [Unreleased]
+
+## [2.4.9] - 2026-08-01
+
+- La documentación Javadoc queda saneada para el código principal: se corrigen errores de doclint, cabeceras HTML inválidas, tablas sin caption y contratos públicos incompletos en servicios, modelos, utilidades y records.
+
+- `.gitignore` ignora explícitamente salidas de Javadoc (`apidocs/`, `javadoc/` y `target/site/apidocs/`) para evitar publicar documentación generada en el repositorio.
+
+- README inglés y español documentan cómo generar Javadoc con `mvn -f jylos/pom.xml javadoc:javadoc` y dónde queda el resultado.
+
+- El editor Markdown corrige el pegado duplicado de texto desde navegador/web y portapapeles enriquecidos: Jylos normaliza el pegado a una única inserción de texto plano controlada por el editor.
+
+- El editor Markdown añade menú contextual nativo para copiar, cortar, pegar y seleccionar texto sin depender solo de atajos de teclado.
+
+- El resaltado Markdown en vivo del editor queda desactivado temporalmente porque el pipeline anterior de estilos podía romper la edición de bloques de código fenced con triple backtick. Se prioriza estabilidad de escritura y ausencia de crashes hasta migrar o rehacer el resaltado con una implementación más robusta.
+
+- El preview Markdown corrige la renderización de saltos de línea y caracteres de control invisibles que podían aparecer como cuadros en textos pegados desde fuentes externas.
 
 - El arranque deja de preparar SQLite cuando la sesión activa usa vault filesystem; SQLite solo ejecuta backup e inicialización de esquema cuando es el backend seleccionado.
 
 - El tema activo, incluidos snippets, se aplica antes del primer pintado de la ventana para evitar el flash inicial con estilo claro/base.
+
+- El gestor de plugins respeta los plugins desactivados al reiniciar: un plugin marcado como deshabilitado en preferencias ya no se inicializa ni registra botones, menús, hooks o paneles durante el arranque.
+
+- El gestor de plugins permite instalar JAR externos desde la interfaz, copiándolos al directorio de plugins del usuario, cargándolos cuando es posible y mostrando errores controlados si el JAR no es válido o el plugin ya existe.
+
+- El gestor de plugins permite eliminar plugins instalados en el directorio del usuario, apagándolos, retirando sus aportaciones de UI, cerrando su classloader y borrando el JAR con confirmación previa.
+
+- La documentación de plugins en inglés y español explica los nuevos flujos de instalación y eliminación desde el gestor y conserva la instalación manual como alternativa soportada.
 
 ## [2.4.8] - 2026-07-24
 
@@ -128,18 +152,6 @@ Release centrada en **fiabilidad del canvas**, **persistencia segura de metadata
 - **Comentarios de intención revisados** en zonas sensibles: metadata filesystem, protección frente a sobrescritura de canvas y carga lazy de assets del preview.
 - **Pulido final de UI**: botones de cierre en Graph/Kanban neutralizados y alineados con el resto de toolbars, scrollbar vertical real en el editor RichTextFX y scrollbar visible en el visor PDF.
 
-### Commits incluidos y cambios de cierre
-
-- `2026-07-08` — `c14b883` — `feat: Mejora de la funcionalidad del lienzo con soporte para nodos de archivo y etiquetado de bordes`
-- `2026-07-05` — `1c0a9f5` — `feat: Mejora en la gestión de notas y etiquetas, incluyendo optimizaciones en el acceso a datos y nuevas pruebas de rendimiento`
-- Cambios de cierre no comiteados al preparar la release:
-  - persistencia segura de metadata para canvas/adjuntos en filesystem;
-  - protección contra sobrescritura de `.canvas` en toggles de favorito/fijado;
-  - renderizado KaTeX bajo demanda y carga lazy de `highlight.js`;
-  - renderizado PDF bajo demanda con cache pequeña y restauración de posición de scroll;
-  - ajustes finales de toolbar, diálogos, scrollbars y controles Graph/Kanban;
-  - actualización de versión, documentación y catálogo JBang.
-
 ## [2.3.0] - 2026-07-04
 
 Release centrada en el **cierre del saneamiento arquitectónico**, la **normalización del wiring de la UI**, el **endurecimiento de guardas y contratos internos**, y un pulido importante de **temas, snippets CSS, overlays y diálogos** para dejar el proyecto en un estado más coherente de cara a una release pública.
@@ -181,27 +193,6 @@ Release centrada en el **cierre del saneamiento arquitectónico**, la **normaliz
 
 - **Documentación técnica y de usuario actualizada** para reflejar el estado saneado de la arquitectura, el uso de JBang, el empaquetado y el flujo de lanzamiento.
 - **Versión alineada a `2.3.0`** en `pom`, metadatos de app, scripts de packaging, README, docs operativas y catálogo JBang.
-
-### Commits incluidos en esta release (pendientes de push al remoto al cerrar esta versión)
-
-- `2026-07-04` — `61a76d8` — `refactor: Refactorización de estilos de interfaz de usuario y mejora del manejo de diálogos`
-- `2026-07-03` — `b6bee5e` — `refactor: Clarificación de la propiedad de relaciones entre notas y etiquetas`
-- `2026-07-03` — `a7ed3a5` — `refactor: Actualización de la gestión de notas y carpetas para usar la capa de servicio.`
-- `2026-07-02` — `c617892` — `refactor: Consolidación y mejora de la nomenclatura en controladores y clases de soporte`
-- `2026-07-02` — `d1295e9` — `refactor: Eliminación de AppContext y mejora en la gestión de eventos`
-- `2026-07-02` — `af0b616` — `refactor: Extracción de lógica de creación de notas y flujos de trabajo a clases de soporte`
-- `2026-07-02` — `5fd6047` — `refactor: Mejora en la inyección de dependencias y gestión de eventos en BacklinkService`
-- `2026-07-02` — `dde91c9` — `refactor: Transición a funciones de devolución de llamada explícitas para el manejo de eventos en componentes de interfaz de usuario`
-- `2026-07-02` — `c5308fd` — `refactor: Mejora en la gestión de dependencias y eliminación de algunas referencias a AppContext`
-- `2026-07-02` — `b594b97` — `refactor: Reorganización y refactorización de paquetes de ui/controller`
-- `2026-07-01` — `e584084` — `refactor: Encapsulación de métodos de configuración en controladores`
-- `2026-07-01` — `aae2001` — `refactor: Simplificación y mejora en la gestión de servicios en controladores`
-- `2026-07-01` — `d90ab4e` — `docs: Actualización de la documentación para incluir referencias a ARCHITECTURE_GUIDELINES.md`
-- `2026-06-30` — `9284144` — `refactor: Actualización de la versión y mejoras en la documentación y gestión de notas`
-- `2026-06-30` — `9f51362` — `refactor: Mejora en la gestión de nombres de archivos y optimización de consultas en SQLiteDB`
-- `2026-06-30` — `c1cfa6d` — `refactor: Simplificación de la gestión de servicios en NoteService`
-- `2026-06-30` — `9d20c1a` — `refactor: Mejora en la gestión de tareas y suscripciones en EventBus y BacklinksSupport`
-- `2026-06-30` — `575bfd9` — `feat+fix: Sincronización del acceso a la base de datos entre DAOs`
 
 ## [2.2.0] - 2026-06-25
 

@@ -13,7 +13,12 @@ import com.example.jylos.plugin.PreviewEnhancer;
 import com.example.jylos.service.NoteTitleIndex;
 
 /**
- * Builds preview HTML for notes with safe enhancer handling.
+ * Builds the complete HTML document loaded into the JavaFX {@code WebView} preview.
+ *
+ * <p>The pipeline resolves Jylos-specific Markdown extensions first (wiki-links,
+ * transclusion and rich links), delegates CommonMark rendering to
+ * {@link MarkdownProcessor}, then injects preview-only assets such as syntax
+ * highlighting, KaTeX and plugin enhancers.</p>
  */
 public class MarkdownPreview {
     private static final Logger logger = LoggerConfig.getLogger(MarkdownPreview.class);

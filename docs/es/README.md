@@ -32,5 +32,3 @@ Otros documentos:
 | [../../plugins-source/README.md](../../plugins-source/README.md) | Workspace de fuentes de plugins |
 | [../../themes/README.md](../../themes/README.md) | Packs de temas externos |
 | [../../jylos/src/main/resources/icons/README.md](../../jylos/src/main/resources/icons/README.md) | Iconos de app e instaladores |
-
-No forma parte de la app: `replica-grafo/` (experimento separado Typst/grafo).

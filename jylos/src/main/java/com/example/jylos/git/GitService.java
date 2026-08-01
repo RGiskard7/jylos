@@ -19,11 +19,11 @@ import com.example.jylos.config.LoggerConfig;
  * Git-backed vault synchronization, implemented by driving the system {@code git}
  * CLI (the same approach Tolaria uses), so there is no native library to bundle.
  *
- * <h3>Operations</h3>
+ * <h2>Operations</h2>
  * init, status (modified count + ahead/behind vs. upstream), commit, pull, push,
  * a one-shot {@link #sync(Path, String)} (commit → pull → push) and remote setup.
  *
- * <h3>Threading</h3>
+ * <h2>Threading</h2>
  * Every method blocks on the {@code git} process; callers must invoke them off the
  * JavaFX Application Thread (e.g. in a {@code Task}). Output is drained on separate
  * threads to avoid pipe-buffer deadlocks.

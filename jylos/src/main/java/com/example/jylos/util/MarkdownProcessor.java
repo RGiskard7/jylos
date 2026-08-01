@@ -12,8 +12,12 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Utility class for processing Markdown content.
- * Provides conversion from Markdown to HTML for preview functionality.
+ * CommonMark-based Markdown-to-HTML renderer used by the preview pipeline.
+ *
+ * <p>This class owns only Markdown parsing/rendering. Jylos-specific features
+ * such as wiki-links, transclusion, local-image embedding, emoji fallback and
+ * plugin preview enhancers are layered in {@link MarkdownPreview} before or after
+ * this renderer.</p>
  */
 public class MarkdownProcessor {
     
@@ -28,11 +32,9 @@ public class MarkdownProcessor {
         .build();
     
     /*
-     * escapeHtml and sanitizeUrls are intentionally DISABLED:
-     * - This is a local-only desktop application; all content is user-authored.
-     * - WikiLinks inject standard Markdown links with a custom jylos://
-     *   protocol that sanitizeUrls would strip.
-     * - Users may embed raw HTML in their notes (e.g. <details>, <kbd>).
+     * escapeHtml and sanitizeUrls are intentionally disabled for preview parity with
+     * Markdown apps such as Obsidian: users may author raw HTML, and Jylos wiki-links
+     * use a custom jylos:// protocol that URL sanitizing would remove.
      */
     private static final HtmlRenderer RENDERER = HtmlRenderer.builder()
         .extensions(EXTENSIONS)

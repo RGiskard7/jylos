@@ -10,21 +10,21 @@ package com.example.jylos.plugin;
  */
 public interface PreviewEnhancer {
     /**
-     * Hook to inject content into the <head> section of the preview HTML.
+     * Hook to inject content into the {@code <head>} section of the preview HTML.
      * Useful for injecting CSS files or meta tags.
      * 
-     * @return HTML string to inject into <head>, or empty string if none
+     * @return HTML string to inject into {@code <head>}, or empty string if none
      */
     default String getHeadInjections() {
         return "";
     }
 
     /**
-     * Hook to inject content into the end of the <body> section of the preview
+     * Hook to inject content into the end of the {@code <body>} section of the preview
      * HTML.
      * Useful for injecting JavaScript files or initialization scripts.
      * 
-     * @return HTML string to inject into <body>, or empty string if none
+     * @return HTML string to inject into {@code <body>}, or empty string if none
      */
     default String getBodyInjections() {
         return "";

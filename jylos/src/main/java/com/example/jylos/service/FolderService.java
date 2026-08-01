@@ -58,12 +58,6 @@ public class FolderService {
      * @param title The folder title
      * @return The created folder with its generated ID
      */
-    /**
-     * Creates a new folder in the root.
-     * 
-     * @param title The folder title
-     * @return The created folder with its generated ID
-     */
     public Folder createFolder(String title) {
         Folder folder = new Folder(title);
         String folderId = folderDAO.createFolder(folder);

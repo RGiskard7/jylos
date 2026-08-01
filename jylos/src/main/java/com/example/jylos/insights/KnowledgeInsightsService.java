@@ -95,7 +95,14 @@ public final class KnowledgeInsightsService {
         return new Health(score, orphanPenalty, untaggedPenalty, brokenPenalty);
     }
 
-    /** Health score plus the individual penalties, so the UI can explain it. */
+    /**
+     * Health score plus the individual penalties, so the UI can explain it.
+     *
+     * @param score final 0-100 score
+     * @param orphanPenalty points subtracted for orphan notes
+     * @param untaggedPenalty points subtracted for untagged notes
+     * @param brokenPenalty points subtracted for broken links
+     */
     public record Health(int score, int orphanPenalty, int untaggedPenalty, int brokenPenalty) {
     }
 

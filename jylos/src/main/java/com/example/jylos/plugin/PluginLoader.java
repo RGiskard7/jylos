@@ -8,11 +8,14 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.logging.Level;
@@ -48,9 +51,13 @@ public class PluginLoader {
 
     private static final Logger logger = LoggerConfig.getLogger(PluginLoader.class);
     private static final String PLUGINS_DIR = "plugins";
+    private static final String BUNDLED_COPY_MARKER = ".bundled-plugins-copied";
 
     // Keep classloaders open so inner classes remain accessible
     private static final List<URLClassLoader> activeClassLoaders = new ArrayList<>();
+    private static final Map<String, URLClassLoader> activeClassLoadersByPluginId = new ConcurrentHashMap<>();
+    private static final Map<Path, URLClassLoader> activeClassLoadersByJarPath = new ConcurrentHashMap<>();
+    private static final Map<String, Path> pluginJarPathsById = new ConcurrentHashMap<>();
 
     /**
      * Detailed report for plugin loading operations.
@@ -242,6 +249,10 @@ public class PluginLoader {
             if (!Files.exists(appDataPlugins)) {
                 Files.createDirectories(appDataPlugins);
             }
+            Path copyMarker = appDataPlugins.resolve(BUNDLED_COPY_MARKER);
+            if (Files.exists(copyMarker)) {
+                return;
+            }
             long existingCount;
             try (var stream = Files.list(appDataPlugins)) {
                 existingCount = stream
@@ -249,6 +260,7 @@ public class PluginLoader {
                         .count();
             }
             if (existingCount > 0) {
+                Files.writeString(copyMarker, "Bundled plugins already managed by Jylos.\n");
                 return;
             }
             Path appDir = getApplicationDirectory();
@@ -279,6 +291,7 @@ public class PluginLoader {
                     logger.info("Copied bundled plugin to AppData: " + jar.getFileName());
                 }
             }
+            Files.writeString(copyMarker, "Bundled plugins copied by Jylos.\n");
         } catch (IOException e) {
             logger.fine("Could not copy bundled plugins: " + e.getMessage());
         }
@@ -291,9 +304,10 @@ public class PluginLoader {
      * @return The plugin instance, or null if loading failed
      */
     private static Plugin loadPluginFromJar(Path jarPath) {
+        URLClassLoader classLoader = null;
         try {
             URL jarUrl = jarPath.toUri().toURL();
-            URLClassLoader classLoader = new URLClassLoader(
+            classLoader = new URLClassLoader(
                     new URL[] { jarUrl },
                     PluginLoader.class.getClassLoader());
 
@@ -335,6 +349,10 @@ public class PluginLoader {
             // at runtime
             // The classloader will be closed when the application shuts down
             activeClassLoaders.add(classLoader);
+            Path normalizedJar = jarPath.toAbsolutePath().normalize();
+            activeClassLoadersByPluginId.putIfAbsent(plugin.getId(), classLoader);
+            activeClassLoadersByJarPath.put(normalizedJar, classLoader);
+            pluginJarPathsById.putIfAbsent(plugin.getId(), normalizedJar);
             return plugin;
 
         } catch (Throwable t) {
@@ -343,6 +361,7 @@ public class PluginLoader {
             // throw NoClassDefFoundError — both are Errors. One bad jar must never
             // abort plugin loading or crash startup.
             logger.log(Level.WARNING, "Error loading plugin from " + jarPath.getFileName(), t);
+            closeQuietly(classLoader);
             return null;
         }
     }
@@ -418,6 +437,131 @@ public class PluginLoader {
     }
 
     /**
+     * Copies a user-selected plugin JAR into the primary plugins directory.
+     *
+     * <p>The original file is left untouched. If another JAR with the same file name
+     * already exists, a numeric suffix is appended instead of overwriting it.</p>
+     *
+     * @param sourceJar plugin JAR selected by the user
+     * @return copied JAR path inside the primary plugins directory
+     * @throws IOException if the file is not a readable JAR or cannot be copied
+     */
+    public static Path installPluginJar(Path sourceJar) throws IOException {
+        if (sourceJar == null || !Files.isRegularFile(sourceJar)) {
+            throw new IOException("Plugin JAR not found");
+        }
+        String fileName = sourceJar.getFileName().toString();
+        if (!fileName.toLowerCase().endsWith(".jar")) {
+            throw new IOException("Plugin file must be a .jar");
+        }
+
+        Path pluginsDir = getPluginsDirectory();
+        Files.createDirectories(pluginsDir);
+
+        Path source = sourceJar.toAbsolutePath().normalize();
+        if (source.getParent() != null && source.getParent().equals(pluginsDir.toAbsolutePath().normalize())) {
+            return source;
+        }
+        Path target = uniquePluginPath(pluginsDir, fileName);
+
+        Files.copy(source, target, StandardCopyOption.COPY_ATTRIBUTES);
+        logger.info("Installed plugin JAR: " + target);
+        return target;
+    }
+
+    /**
+     * Loads a plugin from an explicit JAR path.
+     *
+     * @param jarPath JAR file to load
+     * @return plugin instance, or {@code null} if the JAR is not a valid plugin
+     */
+    public static Plugin loadPluginJar(Path jarPath) {
+        return loadPluginFromJar(jarPath);
+    }
+
+    /**
+     * Removes the loaded plugin JAR from the primary user plugins directory.
+     *
+     * <p>The caller must shut the plugin down first. This method refuses to delete
+     * JARs outside the user plugins directory so packaged application files are not
+     * modified by the plugin manager.</p>
+     *
+     * @param pluginId plugin identifier
+     * @return deleted JAR path
+     * @throws IOException if the plugin file is unknown, outside the user plugins
+     *                     directory, or cannot be deleted
+     */
+    public static Path deletePluginJar(String pluginId) throws IOException {
+        Path jarPath = pluginJarPathsById.get(pluginId);
+        if (jarPath == null) {
+            throw new IOException("Plugin JAR location is not known: " + pluginId);
+        }
+
+        Path pluginsDir = getPluginsDirectory().toAbsolutePath().normalize();
+        Path normalizedJar = jarPath.toAbsolutePath().normalize();
+        if (!normalizedJar.startsWith(pluginsDir)) {
+            throw new IOException("Plugin is not installed in the user plugins directory: " + pluginId);
+        }
+
+        closePluginClassLoaderForJar(normalizedJar);
+        activeClassLoadersByPluginId.remove(pluginId);
+        Files.deleteIfExists(normalizedJar);
+        pluginJarPathsById.remove(pluginId);
+        logger.info("Deleted plugin JAR: " + normalizedJar);
+        return normalizedJar;
+    }
+
+    /**
+     * Releases a plugin JAR that was loaded but then rejected by the manager.
+     *
+     * @param jarPath plugin JAR path
+     */
+    public static void releasePluginJar(Path jarPath) {
+        if (jarPath == null) {
+            return;
+        }
+        Path normalizedJar = jarPath.toAbsolutePath().normalize();
+        URLClassLoader classLoader = activeClassLoadersByJarPath.get(normalizedJar);
+        closePluginClassLoaderForJar(normalizedJar);
+        pluginJarPathsById.entrySet().removeIf(entry -> entry.getValue().equals(normalizedJar));
+        if (classLoader != null) {
+            activeClassLoadersByPluginId.entrySet().removeIf(entry -> entry.getValue() == classLoader);
+        }
+    }
+
+    /**
+     * Returns whether the plugin is backed by a JAR in the primary plugins
+     * directory and can therefore be removed by the plugin manager.
+     *
+     * @param pluginId plugin identifier
+     * @return {@code true} when the manager may delete the plugin JAR
+     */
+    public static boolean isPluginRemovable(String pluginId) {
+        Path jarPath = pluginJarPathsById.get(pluginId);
+        if (jarPath == null) {
+            return false;
+        }
+        Path pluginsDir = getPluginsDirectory().toAbsolutePath().normalize();
+        return jarPath.toAbsolutePath().normalize().startsWith(pluginsDir);
+    }
+
+    private static Path uniquePluginPath(Path pluginsDir, String fileName) {
+        Path candidate = pluginsDir.resolve(fileName);
+        if (!Files.exists(candidate)) {
+            return candidate;
+        }
+        int dot = fileName.lastIndexOf('.');
+        String base = dot > 0 ? fileName.substring(0, dot) : fileName;
+        String ext = dot > 0 ? fileName.substring(dot) : "";
+        int suffix = 1;
+        do {
+            candidate = pluginsDir.resolve(base + "-" + suffix + ext);
+            suffix++;
+        } while (Files.exists(candidate));
+        return candidate;
+    }
+
+    /**
      * Closes all active classloaders.
      * Should be called when the application shuts down.
      */
@@ -430,5 +574,28 @@ public class PluginLoader {
             }
         }
         activeClassLoaders.clear();
+        activeClassLoadersByPluginId.clear();
+        activeClassLoadersByJarPath.clear();
+        pluginJarPathsById.clear();
+    }
+
+    private static void closePluginClassLoaderForJar(Path jarPath) {
+        URLClassLoader classLoader = activeClassLoadersByJarPath.remove(jarPath);
+        if (classLoader == null) {
+            return;
+        }
+        closeQuietly(classLoader);
+        activeClassLoaders.remove(classLoader);
+    }
+
+    private static void closeQuietly(URLClassLoader classLoader) {
+        if (classLoader == null) {
+            return;
+        }
+        try {
+            classLoader.close();
+        } catch (IOException e) {
+            logger.fine("Could not close plugin classloader: " + e.getMessage());
+        }
     }
 }

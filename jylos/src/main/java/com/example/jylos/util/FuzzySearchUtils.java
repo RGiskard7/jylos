@@ -8,7 +8,7 @@ package com.example.jylos.util;
  * algorithm with scoring, similar to how editors like VS Code or Sublime Text
  * rank search results.  It avoids heavyweight NLP dependencies.</p>
  *
- * <h3>Scoring heuristics</h3>
+ * <h2>Scoring heuristics</h2>
  * <ul>
  *   <li>Consecutive character matches add a bonus.</li>
  *   <li>Matches at the start of the string or after separator characters

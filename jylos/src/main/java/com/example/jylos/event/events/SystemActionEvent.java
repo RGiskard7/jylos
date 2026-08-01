@@ -13,6 +13,7 @@ import com.example.jylos.event.AppEvent;
  *   handler.
  */
 public class SystemActionEvent extends AppEvent {
+    /** Application-level action requested by menus, toolbar buttons or shortcuts. */
     public enum ActionType {
         NEW_NOTE,
         NEW_CANVAS,

@@ -25,9 +25,22 @@ public final class ThemeCommand {
     private static final String LIGHT_STYLESHEET = "/com/example/jylos/ui/css/modern-theme.css";
     private static final String DARK_STYLESHEET = "/com/example/jylos/ui/css/dark-theme.css";
 
+    /**
+     * Result of selecting the system theme mode.
+     *
+     * @param currentTheme persisted menu theme value
+     * @param detectedTheme concrete light/dark variant detected from the OS
+     */
     public record SystemThemeResult(String currentTheme, String detectedTheme) {
     }
 
+    /**
+     * Result of applying a theme to the UI.
+     *
+     * @param requestedTheme theme id requested by the user
+     * @param appliedVariant concrete light/dark stylesheet variant applied
+     * @param externalApplied true when an external theme stylesheet was applied
+     */
     public record ThemeApplicationResult(String requestedTheme, String appliedVariant, boolean externalApplied) {
     }
 

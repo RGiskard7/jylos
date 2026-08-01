@@ -43,12 +43,12 @@ import javafx.scene.layout.VBox;
  * message field, an activity log, and the full set of safe operations — refresh, stage
  * all, unstage all, commit, pull, push and one-shot sync.
  *
- * <h3>Philosophy</h3>
+ * <h2>Philosophy</h2>
  * <em>Your notes, your repository, your control.</em> Every action is explicit: nothing
  * destructive runs automatically, there is no force push, and conflicts are surfaced for
  * manual resolution rather than auto-merged.
  *
- * <h3>Threading</h3>
+ * <h2>Threading</h2>
  * All Git work runs off the JavaFX Application Thread on short-lived daemon {@code Task}s;
  * while one runs the action buttons are disabled and an indeterminate progress bar shows.
  * This is a pure view over {@link GitService}; it holds no Git logic of its own.

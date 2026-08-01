@@ -15,13 +15,20 @@ public final class AppIconLoader {
     private AppIconLoader() {
     }
 
-    /** Natural-size icon (e.g. stage / dialog chrome). */
+    /**
+     * Loads the natural-size icon for stages and dialog chrome.
+     *
+     * @return application icon when the resource exists
+     */
     public static Optional<Image> load() {
         return load(0);
     }
 
     /**
+     * Loads the application icon, optionally scaled for compact UI use.
+     *
      * @param displaySize max width and height in pixels; {@code 0} keeps natural size
+     * @return application icon when the resource exists
      */
     public static Optional<Image> load(double displaySize) {
         String path = AppConfig.getWindowIconPath();

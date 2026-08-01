@@ -8,6 +8,18 @@ External plugins are JAR files loaded at startup. The core app does not import c
 
 Search paths include `plugins/` under the application base directory (`AppDataDirectory.getBaseDirectory()`), plus paths used when the app is packaged (see `PluginLoader.java`).
 
+## Installing plugins
+
+Use **Tools → Manage plugins → Install plugin...** and select a `.jar` file. Jylos copies the JAR into the primary user plugin directory and loads it immediately when possible.
+
+Manual installation is still supported: place the JAR in the primary plugins directory shown by `PluginLoader.getPluginsDirectoryFile()` (normally `<appData>/plugins`) and restart Jylos.
+
+## Removing plugins
+
+Use **Tools → Manage plugins → Remove** on a plugin card to uninstall a plugin from the primary user plugin directory. Jylos shuts the plugin down, removes its registered UI contributions, closes its classloader, deletes the JAR and clears its disabled preference.
+
+Plugins loaded from protected application bundle locations are not deleted by the manager; copy them to the user plugin directory first if you want the manager to own their lifecycle.
+
 ## Build sample plugins
 
 From repository root:
@@ -72,5 +84,6 @@ requests explicit while preserving the public plugin API.
 ## Notes
 
 - A failing or incompatible JAR should log a warning and be skipped — it must not prevent other plugins or app startup (`PluginLoader` catches `Throwable` on load).
+- Plugins disabled in the manager are persisted as disabled and are not initialized on the next startup; this prevents disabled plugins from registering UI contributions before the manager applies their state.
 - Shut down plugins and close classloaders on exit to avoid leaks.
 - Re-enable after disable re-runs initialization (see plugin manager UI).

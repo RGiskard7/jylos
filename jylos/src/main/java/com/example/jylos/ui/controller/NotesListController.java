@@ -1486,6 +1486,7 @@ public class NotesListController {
 
     // Grid view (from NotesGridWorkflow)
 
+    /** Visual presentation mode for the notes panel. */
     public enum NotesViewMode {
         LIST, GRID
     }
