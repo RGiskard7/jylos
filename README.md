@@ -103,7 +103,7 @@ In concrete terms:
 
 Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like workflows:
 
-- Markdown editor with **live syntax highlighting** (RichTextFX) and a side-by-side preview (GFM, KaTeX math, emoji)
+- Native Markdown editor (RichTextFX `CodeArea`) and a side-by-side WebView preview (GFM, KaTeX math, emoji)
 - **Tabs** for multiple open notes, with an inline saved/unsaved indicator
 - Folder hierarchy + tags + favorites + recent + trash
 - **Obsidian-compatible internal links** (`[[wiki-links]]`, `[label](note.md)`) with click-to-open in preview
@@ -130,7 +130,7 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 
 ### Editor & Preview
 
-- Markdown editor with **live syntax highlighting** (RichTextFX `CodeArea`: headings, bold/italic, code, `[[wiki-links]]`, lists, quotes, links)
+- Markdown editor built on RichTextFX `CodeArea`, with native text editing, selection, undo/redo, clipboard actions, context menu, and `[[` autocomplete
 - **Tabs** for multiple open notes; **inline save indicator** (amber = unsaved, green = saved)
 - **`[[` autocomplete** for note titles; formatting toolbar (bold, lists, links, …)
 - Side-by-side preview with split / editor-only / preview-only modes
@@ -224,8 +224,8 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 - JavaFX 23
 - Maven 3.9+
 - SQLite JDBC
-- CommonMark (Markdown preview)
-- RichTextFX (editor syntax highlighting)
+- RichTextFX `CodeArea` (native Markdown text editor)
+- JavaFX WebView + CommonMark (rendered Markdown preview; highlight.js and KaTeX assets are bundled offline)
 - Ikonli (Feather icons + Bootstrap Icons)
 - PDFBox + OpenHTMLToPDF (PDF export / viewer)
 - JUnit 5 + H2 (tests)

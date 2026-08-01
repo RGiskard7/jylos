@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.MessageFormat;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -38,7 +37,6 @@ import com.example.jylos.service.RichLinkService;
 import com.example.jylos.service.TagService;
 import com.example.jylos.ui.components.CanvasView;
 import com.example.jylos.util.AttachmentType;
-import com.example.jylos.util.MarkdownHighlighter;
 import com.example.jylos.util.MarkdownPreview;
 import com.example.jylos.util.RichLinks;
 import com.example.jylos.util.SystemBrowser;
@@ -55,18 +53,22 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Control;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
+import javafx.scene.input.Clipboard;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.FlowPane;
@@ -98,8 +100,6 @@ import javafx.stage.Popup;
 public class EditorController {
 
     private static final Logger logger = LoggerConfig.getLogger(EditorController.class);
-    private static final Duration SYNTAX_HIGHLIGHT_DEBOUNCE = Duration.ofMillis(300);
-
     /** Matches an open [[query before the text-area caret. */
     private static final Pattern WIKI_TRIGGER = Pattern.compile("\\[\\[([^\\]\\[\\n]*)$");
 
@@ -234,6 +234,7 @@ public class EditorController {
 
     private void setBundle(ResourceBundle bundle) {
         this.bundle = bundle;
+        installEditorContextMenu();
     }
 
     public void wire(EventBus eventBus, NoteService noteService, TagService tagService, ResourceBundle bundle,
@@ -511,11 +512,11 @@ public class EditorController {
         installEditorScrollPane();
         setNoteOpen(false);
         installNativeUndoRedoBridge();
+        installEditorContextMenu();
         // The read-view heading always mirrors the editable title field.
         if (noteTitleLabel != null && noteTitleField != null) {
             noteTitleLabel.textProperty().bind(noteTitleField.textProperty());
         }
-        setupSyntaxHighlighting();
     }
 
     /** Wraps RichTextFX's CodeArea in its standard scroll container so the editor exposes a real vertical scrollbar. */
@@ -538,20 +539,6 @@ public class EditorController {
             VBox.setVgrow(formatToolbarContainer, Priority.NEVER);
             editorPane.getChildren().add(formatToolbarContainer);
         }
-    }
-
-    /**
-     * Re-applies Markdown syntax highlighting to the editor, debounced so large notes
-     * don't recompute spans on every keystroke. Setting style spans does not change the
-     * text, so this does not feed back into the change stream.
-     */
-    private void setupSyntaxHighlighting() {
-        if (noteContentArea == null) {
-            return;
-        }
-        noteContentArea.multiPlainChanges()
-                .successionEnds(SYNTAX_HIGHLIGHT_DEBOUNCE)
-                .subscribe(ignore -> applyHighlighting());
     }
 
     /**
@@ -587,15 +574,37 @@ public class EditorController {
         });
     }
 
-    private void applyHighlighting() {
+    private void installEditorContextMenu() {
         if (noteContentArea == null) {
             return;
         }
-        String text = noteContentArea.getText();
-        if (text == null || text.isEmpty()) {
-            return;
-        }
-        noteContentArea.setStyleSpans(0, MarkdownHighlighter.computeHighlighting(text));
+
+        MenuItem undo = new MenuItem(getString("action.undo", "Undo"));
+        undo.setOnAction(event -> performUndo());
+        MenuItem redo = new MenuItem(getString("action.redo", "Redo"));
+        redo.setOnAction(event -> performRedo());
+        MenuItem cut = new MenuItem(getString("action.cut", "Cut"));
+        cut.setOnAction(event -> noteContentArea.cut());
+        MenuItem copy = new MenuItem(getString("action.copy", "Copy"));
+        copy.setOnAction(event -> noteContentArea.copy());
+        MenuItem paste = new MenuItem(getString("action.paste", "Paste"));
+        paste.setOnAction(event -> noteContentArea.paste());
+        MenuItem selectAll = new MenuItem(getString("action.select_all", "Select All"));
+        selectAll.setOnAction(event -> noteContentArea.selectAll());
+
+        ContextMenu menu = new ContextMenu(undo, redo, new SeparatorMenuItem(), cut, copy, paste,
+                new SeparatorMenuItem(), selectAll);
+        menu.setOnShowing(event -> {
+            boolean editable = currentNote != null && !readOnlyView && !viewingAttachment;
+            boolean hasSelection = !noteContentArea.getSelectedText().isEmpty();
+            undo.setDisable(!editable || !noteContentArea.getUndoManager().isUndoAvailable());
+            redo.setDisable(!editable || !noteContentArea.getUndoManager().isRedoAvailable());
+            cut.setDisable(!editable || !hasSelection);
+            copy.setDisable(!hasSelection);
+            paste.setDisable(!editable || !Clipboard.getSystemClipboard().hasString());
+            selectAll.setDisable(noteContentArea.getLength() == 0);
+        });
+        noteContentArea.setContextMenu(menu);
     }
 
     /**
@@ -694,7 +703,6 @@ public class EditorController {
         setModifiedState(false);
         updatePrivateIndicator();
         syncFavoritePinButtons(key -> getString(key, key));
-        applyHighlighting();
     }
 
     /**

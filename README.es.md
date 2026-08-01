@@ -103,7 +103,7 @@ En concreto:
 
 Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
-- Editor Markdown con **resaltado de sintaxis en vivo** (RichTextFX) y vista previa lado a lado (GFM, matemáticas KaTeX, emoji)
+- Editor Markdown nativo (RichTextFX `CodeArea`) y vista previa WebView lado a lado (GFM, matemáticas KaTeX, emoji)
 - **Pestañas** para varias notas abiertas, con indicador de guardado en línea
 - Jerarquía de carpetas + etiquetas + favoritos + recientes + papelera
 - **Enlaces internos compatibles con Obsidian** (`[[wiki-links]]`, `[texto](nota.md)`) con clic en la vista previa
@@ -130,7 +130,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 ### Editor y vista previa
 
-- Editor Markdown con **resaltado de sintaxis en vivo** (RichTextFX `CodeArea`: encabezados, negrita/cursiva, código, `[[wiki-links]]`, listas, citas, enlaces)
+- Editor Markdown basado en RichTextFX `CodeArea`, con edición de texto nativa, selección, deshacer/rehacer, portapapeles, menú contextual y autocompletado `[[`
 - **Pestañas** para varias notas abiertas; **indicador de guardado en línea** (ámbar = sin guardar, verde = guardado)
 - **Autocompletado de `[[`** para títulos de nota; barra de formato (negrita, listas, enlaces, …)
 - Vista previa lado a lado con modos dividido / solo editor / solo preview
@@ -224,8 +224,8 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 - JavaFX 23
 - Maven 3.9+
 - SQLite JDBC
-- CommonMark (vista previa Markdown)
-- RichTextFX (resaltado de sintaxis del editor)
+- RichTextFX `CodeArea` (editor de texto Markdown nativo)
+- JavaFX WebView + CommonMark (vista previa Markdown renderizada; assets offline de highlight.js y KaTeX)
 - Ikonli (iconos Feather + Bootstrap Icons)
 - PDFBox + OpenHTMLToPDF (exportar/visor PDF)
 - JUnit 5 + H2 (tests)

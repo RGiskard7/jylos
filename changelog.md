@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.4.9] - 2026-07-24
+
+- El arranque deja de preparar SQLite cuando la sesión activa usa vault filesystem; SQLite solo ejecuta backup e inicialización de esquema cuando es el backend seleccionado.
+
+- El tema activo, incluidos snippets, se aplica antes del primer pintado de la ventana para evitar el flash inicial con estilo claro/base.
+
 ## [2.4.8] - 2026-07-24
 
 - El movimiento de documentos y carpetas pasa por `FolderService` y funciona de forma equivalente en SQLite y vault filesystem: documentos Markdown, canvas, PDFs, imágenes y adjuntos pueden moverse a carpetas, subcarpetas o raíz, preservando extensión, metadata y selección visible cuando corresponde.

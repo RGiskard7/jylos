@@ -36,6 +36,10 @@ public class MarkdownProcessor {
      */
     private static final HtmlRenderer RENDERER = HtmlRenderer.builder()
         .extensions(EXTENSIONS)
+        // JavaFX WebView 23 renders raw soft-break characters inside paragraph text as
+        // replacement boxes. Emit semantic HTML line breaks instead of relying on its
+        // whitespace handling.
+        .softbreak("<br>")
         .build();
     
     /**

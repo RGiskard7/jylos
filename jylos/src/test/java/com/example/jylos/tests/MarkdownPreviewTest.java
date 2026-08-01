@@ -49,4 +49,12 @@ class MarkdownPreviewTest {
         String html = MarkdownPreview.buildPreviewHtml("nothing special here", false, null);
         assertFalse(html.contains("class=\"emoji\""), "no emoji image for plain text");
     }
+
+    @Test
+    void rendersSoftBreaksAsHtmlBreaksForJavaFxWebView() {
+        String html = MarkdownPreview.buildPreviewHtml("ubuntu\n    descripcion: Equipo", false, null);
+
+        assertTrue(html.contains("ubuntu<br>descripcion: Equipo"),
+                "Preview must not leave raw soft-break characters inside paragraph text.");
+    }
 }

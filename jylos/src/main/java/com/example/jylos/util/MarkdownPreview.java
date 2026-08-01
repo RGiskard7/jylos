@@ -60,7 +60,7 @@ public class MarkdownPreview {
     public static String buildPreviewHtml(String markdownContent, boolean isDarkTheme,
             Collection<PreviewEnhancer> enhancers, java.nio.file.Path baseDir,
             Function<String, String> embeddedContentResolver) {
-        String raw = markdownContent != null ? markdownContent : "";
+        String raw = markdownContent == null ? "" : markdownContent;
 
         // Resolve [[WikiLinks]] in the raw Markdown source FIRST, then pass
         // through CommonMark.  Because escapeHtml is enabled in
