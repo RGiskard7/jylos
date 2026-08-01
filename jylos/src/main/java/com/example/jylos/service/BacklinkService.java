@@ -24,7 +24,7 @@ import com.example.jylos.util.WikiLinkResolver;
  * {@code WikiLinkResolver} semantics as the Markdown preview and the graph). The
  * index therefore performs <em>no</em> file I/O of its own.</p>
  *
- * <h3>Index (perf P2)</h3>
+ * <h2>Index (perf P2)</h2>
  * <p>The service keeps two warm maps:</p>
  * <ul>
  *   <li><b>forward</b> — {@code noteId → outgoing link targets} (cached per note,
@@ -38,7 +38,7 @@ import com.example.jylos.util.WikiLinkResolver;
  * thread-safe operation); re-indexing then reuses the targets carried by the
  * refreshed {@link Note}.</p>
  *
- * <h3>Coverage on large vaults</h3>
+ * <h2>Coverage on large vaults</h2>
  * <p>For notes loaded via the list (lightweight read), targets cover the indexed
  * content head (~16&nbsp;KB) rather than the entire file; a note opened or saved
  * (full read) carries whole-body targets. This trades exhaustive link discovery in
@@ -63,6 +63,12 @@ public class BacklinkService {
     private record CachedLinks(String modified, Set<String> targets) {
     }
 
+    /**
+     * Creates a backlink index bound to a note service and invalidated by note events.
+     *
+     * @param noteService service used to load the vault snapshot and resolve note ids
+     * @param eventBus event bus used to invalidate stale index entries
+     */
     public BacklinkService(NoteService noteService, EventBus eventBus) {
         this.noteService = Objects.requireNonNull(noteService, "noteService");
         subscribeToInvalidationEvents(eventBus);
@@ -71,6 +77,9 @@ public class BacklinkService {
     /**
      * Returns the notes that link to {@code target}, sorted by title. Excludes the
      * note itself. Safe to call off the JavaFX thread (reads files).
+     *
+     * @param target note whose incoming links should be resolved
+     * @return notes that link to {@code target}, sorted by title
      */
     public List<Note> backlinksFor(Note target) {
         if (noteService == null || target == null

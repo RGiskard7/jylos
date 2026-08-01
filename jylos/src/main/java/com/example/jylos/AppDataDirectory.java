@@ -3,26 +3,26 @@ package com.example.jylos;
 import java.io.File;
 
 /**
- * Utility class to determine the application data directory.
- * 
- * Strategy:
- * 1. First, try to use relative paths (data/, logs/) - works for development
- * and portable apps
- * 2. If that fails (read-only directory), use platform-specific user data
- * directory
- * 
- * Standard directories by platform (fallback):
- * - Windows: %APPDATA%\Jylos
- * - macOS: ~/Library/Application Support/Jylos
- * - Linux: ~/.config/Jylos
+ * Resolves the writable runtime directory for the application.
+ *
+ * <p>Development and portable builds prefer the current working directory when it
+ * is writable. Packaged installs fall back to the platform's standard app-data
+ * location: {@code %APPDATA%\Jylos} on Windows,
+ * {@code ~/Library/Application Support/Jylos} on macOS, and
+ * {@code ~/.config/Jylos} on Linux.</p>
  */
-public class AppDataDirectory {
+public final class AppDataDirectory {
 
     private static String baseDir = null;
+
+    private AppDataDirectory() {
+    }
 
     /**
      * Gets the base directory for application data.
      * First tries relative path, falls back to platform-specific directory.
+     *
+     * @return absolute base directory used for runtime data
      */
     public static String getBaseDirectory() {
         if (baseDir != null) {
@@ -100,6 +100,8 @@ public class AppDataDirectory {
 
     /**
      * Gets the data directory path (baseDir/data).
+     *
+     * @return absolute path to the data directory
      */
     public static String getDataDirectory() {
         return new File(getBaseDirectory(), "data").getAbsolutePath();
@@ -107,6 +109,8 @@ public class AppDataDirectory {
 
     /**
      * Gets the logs directory path (baseDir/logs).
+     *
+     * @return absolute path to the logs directory
      */
     public static String getLogsDirectory() {
         return new File(getBaseDirectory(), "logs").getAbsolutePath();
@@ -114,12 +118,18 @@ public class AppDataDirectory {
 
     /**
      * Gets the backups directory path (baseDir/backups).
+     *
+     * @return absolute path to the backups directory
      */
     public static String getBackupsDirectory() {
         return new File(getBaseDirectory(), "backups").getAbsolutePath();
     }
 
-    /** Gets the CSS snippets directory path (baseDir/snippets). */
+    /**
+     * Gets the CSS snippets directory path (baseDir/snippets).
+     *
+     * @return absolute path to the snippets directory
+     */
     public static String getSnippetsDirectory() {
         return new File(getBaseDirectory(), "snippets").getAbsolutePath();
     }
@@ -127,6 +137,8 @@ public class AppDataDirectory {
     /**
      * Ensures runtime directories exist: data, logs, backups, plugins, themes, snippets.
      * Invoked from {@link Main} static initializer and at startup.
+     *
+     * @return true when required runtime directories exist and are writable
      */
     public static boolean ensureDirectoriesExist() {
         try {

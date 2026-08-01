@@ -66,6 +66,7 @@ Prebuilt packages for all major platforms are available on the [Releases page](.
   - [Scripts and Commands (All OS)](#scripts-and-commands-all-os)
     - [Build / Run Matrix](#build--run-matrix)
     - [Tests and Quality Gates](#tests-and-quality-gates)
+    - [Javadoc](#javadoc)
     - [Plugins (external JARs)](#plugins-external-jars)
     - [Themes (external)](#themes-external)
     - [Packaging (native installers)](#packaging-native-installers)
@@ -83,8 +84,8 @@ Prebuilt packages for all major platforms are available on the [Releases page](.
     - [JAR not found](#jar-not-found)
     - [Maven/Java Missing](#mavenjava-missing)
     - [JavaFX Parent-POM Warnings](#javafx-parent-pom-warnings)
-  - [Roadmap](#roadmap)
   - [Contributing](#contributing)
+    - [Changelog convention](#changelog-convention)
   - [License](#license)
 
 ## Why Jylos
@@ -103,7 +104,7 @@ In concrete terms:
 
 Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like workflows:
 
-- Markdown editor with **live syntax highlighting** (RichTextFX) and a side-by-side preview (GFM, KaTeX math, emoji)
+- Native Markdown editor (RichTextFX `CodeArea`) and a side-by-side WebView preview (GFM, KaTeX math, emoji)
 - **Tabs** for multiple open notes, with an inline saved/unsaved indicator
 - Folder hierarchy + tags + favorites + recent + trash
 - **Obsidian-compatible internal links** (`[[wiki-links]]`, `[label](note.md)`) with click-to-open in preview
@@ -130,7 +131,7 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 
 ### Editor & Preview
 
-- Markdown editor with **live syntax highlighting** (RichTextFX `CodeArea`: headings, bold/italic, code, `[[wiki-links]]`, lists, quotes, links)
+- Markdown editor built on RichTextFX `CodeArea`, with native text editing, selection, undo/redo, clipboard actions, context menu, and `[[` autocomplete
 - **Tabs** for multiple open notes; **inline save indicator** (amber = unsaved, green = saved)
 - **`[[` autocomplete** for note titles; formatting toolbar (bold, lists, links, …)
 - Side-by-side preview with split / editor-only / preview-only modes
@@ -224,8 +225,8 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 - JavaFX 23
 - Maven 3.9+
 - SQLite JDBC
-- CommonMark (Markdown preview)
-- RichTextFX (editor syntax highlighting)
+- RichTextFX `CodeArea` (native Markdown text editor)
+- JavaFX WebView + CommonMark (rendered Markdown preview; highlight.js and KaTeX assets are bundled offline)
 - Ikonli (Feather icons + Bootstrap Icons)
 - PDFBox + OpenHTMLToPDF (PDF export / viewer)
 - JUnit 5 + H2 (tests)
@@ -321,6 +322,16 @@ mvn -f jylos/pom.xml clean test
 .\scripts\smoke-phase-gate.ps1
 .\scripts\hardening-storage-matrix.ps1
 ```
+
+### Javadoc
+
+Generate API documentation with Maven:
+
+```bash
+mvn -f jylos/pom.xml javadoc:javadoc
+```
+
+The generated site is written under `jylos/target/reports/apidocs/` and is intentionally ignored by Git.
 
 ### Plugins (external JARs)
 
@@ -440,8 +451,6 @@ Repository root (contains the Maven module `jylos/` and `scripts/`):
 └── README.es.md
 ```
 
-Not part of the app: `replica-grafo/` (optional Typst/graph experiment; see [docs/README.md](docs/README.md)).
-
 ## Configuration
 
 ### Storage
@@ -472,7 +481,7 @@ Drop plain `.css` files into the `snippets/` folder to tweak the interface on to
 ### Plugins
 
 - Build: `./scripts/build-plugins.sh` → `jylos/plugins/*.jar` (compile target **Java 21**)
-- Enable/disable in **Tools → Manage plugins**
+- Install, remove, enable and disable external JAR plugins in **Tools → Manage plugins**
 
 ## Documentation
 
@@ -519,22 +528,20 @@ mvn -version
 
 Warnings such as `Failed to build parent project for org.openjfx:javafx-*` are known and non-blocking.
 
-## Roadmap
-
-The items below reflect areas of genuine interest for future development. This is not a delivery commitment — it is an open direction, and contributions are welcome.
-
-- **Local HTTP API**: a read/write REST interface bound to `localhost` with Bearer token auth, enabling scripting integrations (Alfred, Raycast, shell pipelines) while keeping private notes protected
-- **Automated CI/CD**: GitHub Actions workflow to run tests on every PR and publish platform builds automatically on version tags
-- **Plugin API depth**: richer lifecycle hooks and better documentation to make third-party plugin development more ergonomic
-- **Platform integration**: system tray support and more polished OS-level packaging per platform
-- **Community feedback**: features and fixes driven by real usage reports and pull requests
-
 ## Contributing
 
 - Keep changes focused and incremental.
 - Run tests before opening PR.
 - Preserve SQLite/FileSystem and plugin compatibility.
 - Update documentation when behavior changes.
+
+### Changelog convention
+
+- Keep `## [Unreleased]` at the top without a date; use it only for changes not assigned to a release yet.
+- When preparing a release, move the relevant bullets into `## [x.y.z] - YYYY-MM-DD`, using the release publication date, not necessarily the date each change was made.
+- One release section may include work done across multiple days. Do not create duplicate sections for the same version.
+- Write bullets from the user's point of view: fixes, behavior changes, compatibility notes, migration notes and documentation updates.
+- If a PR fixes a GitHub issue, put `Fixes #123` in the PR description so GitHub closes it when the PR is merged.
 
 ## License
 

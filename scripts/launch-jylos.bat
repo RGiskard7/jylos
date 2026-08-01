@@ -63,20 +63,16 @@ if not exist "%JAVAFX_BASE%" (
     exit /b !ERRORLEVEL!
 )
 
-REM Find JavaFX version (21.x.x) - check javafx-controls as reference
+REM Use the JavaFX version declared by Maven. Do not select the newest local
+REM cache entry: it may require a newer JDK than the project uses.
 set "JAVAFX_VERSION="
-set "CONTROLS_DIR=%JAVAFX_BASE%\javafx-controls"
-if exist "%CONTROLS_DIR%" (
-    REM /o-n lists newest version first so we pin the highest installed JavaFX version.
-    for /f "delims=" %%d in ('dir /b /ad /o-n "%CONTROLS_DIR%\*" 2^>nul') do (
-        set "JAVAFX_VERSION=%%d"
-        goto :found_version
-    )
+for /f "tokens=2 delims=>" %%d in ('findstr /r /c:"<javafx.version>.*</javafx.version>" "%JYLOS_DIR%\pom.xml"') do (
+    for /f "tokens=1 delims=<" %%e in ("%%d") do set "JAVAFX_VERSION=%%e"
 )
 :found_version
 
 if "!JAVAFX_VERSION!"=="" (
-    echo Warning: JavaFX 21 not found in Maven repository
+    echo Warning: Could not determine the JavaFX version from pom.xml
     echo.
     echo Attempting to launch without module-path...
     echo.

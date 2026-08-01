@@ -32,5 +32,3 @@ Other repo docs:
 | [../plugins-source/README.md](../plugins-source/README.md) | Plugin source workspace |
 | [../themes/README.md](../themes/README.md) | External theme packs |
 | [../jylos/src/main/resources/icons/README.md](../jylos/src/main/resources/icons/README.md) | App vs installer icons |
-
-Not part of the Jylos app: `replica-grafo/` (separate Typst/graph experiment).

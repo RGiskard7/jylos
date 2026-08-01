@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.example.jylos.tests.FxTestSupport;
 import com.example.jylos.util.AttachmentType;
 
 import javafx.application.Platform;
@@ -39,16 +40,8 @@ class FileViewerTest {
     private static boolean fxRuntimeAvailable;
 
     @BeforeAll
-    static void initFxRuntime() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
-        try {
-            Platform.startup(latch::countDown);
-            fxRuntimeAvailable = latch.await(2, TimeUnit.SECONDS);
-        } catch (IllegalStateException e) {
-            fxRuntimeAvailable = true;
-        } catch (Exception e) {
-            fxRuntimeAvailable = false;
-        }
+    static void initFxRuntime() {
+        fxRuntimeAvailable = FxTestSupport.isFxRuntimeAvailable();
     }
 
     @Test

@@ -64,20 +64,16 @@ if (-not (Test-Path $JAVAFX_BASE)) {
     exit $LASTEXITCODE
 }
 
-# Find JavaFX version (21.x.x)
+# Use the exact JavaFX version declared by Maven instead of the newest entry
+# in the local Maven cache, which may require a newer JDK.
 $JAVAFX_VERSION = $null
-$controlsPath = Join-Path $JAVAFX_BASE "javafx-controls"
-if (Test-Path $controlsPath) {
-    $versionDirs = Get-ChildItem -Path $controlsPath -Directory -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -match '^[0-9]' } |
-        Sort-Object { [version]($_.Name) } -Descending
-    if ($versionDirs) {
-        $JAVAFX_VERSION = $versionDirs[0].Name
-    }
+$pomContent = Get-Content -Raw (Join-Path $JYLOS_DIR "pom.xml")
+if ($pomContent -match '<javafx.version>([^<]+)</javafx.version>') {
+    $JAVAFX_VERSION = $Matches[1]
 }
 
 if (-not $JAVAFX_VERSION) {
-    Write-Host "Warning: JavaFX 21 not found in Maven repository" -ForegroundColor Yellow
+    Write-Host "Warning: Could not determine the JavaFX version from pom.xml" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Attempting to launch without module-path..."
     Write-Host ""
@@ -146,4 +142,3 @@ if ($EXIT_CODE -ne 0) {
 }
 
 exit $EXIT_CODE
-

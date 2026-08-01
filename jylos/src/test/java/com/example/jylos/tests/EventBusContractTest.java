@@ -47,17 +47,8 @@ class EventBusContractTest {
     }
 
     @BeforeAll
-    @Timeout(5)
     static void initFxRuntime() {
-        CountDownLatch latch = new CountDownLatch(1);
-        try {
-            Platform.startup(latch::countDown);
-            fxRuntimeAvailable = latch.await(2, TimeUnit.SECONDS);
-        } catch (IllegalStateException e) {
-            fxRuntimeAvailable = true;
-        } catch (Exception e) {
-            fxRuntimeAvailable = false;
-        }
+        fxRuntimeAvailable = FxTestSupport.isFxRuntimeAvailable();
     }
 
     @AfterEach

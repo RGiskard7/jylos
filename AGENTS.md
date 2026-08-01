@@ -58,6 +58,10 @@ Uber-JAR: `jylos/target/jylos-<version>-uber.jar`. Use `launch-*` scripts for Ja
 - `LoggerConfig.getLogger(Class)` — no `System.out` for app logs
 - Persistence via services/DAOs only
 - Commits: `feat:`, `fix:`, `chore:`, `refactor:`
+- Changelog: keep `## [Unreleased]` undated at the top. When preparing a release,
+  move bullets into one `## [x.y.z] - YYYY-MM-DD` section using the release date;
+  do not create duplicate sections for the same version. Put `Fixes #123` in PR
+  descriptions, not ordinary changelog bullets.
 
 ## UI feature pattern (keep `MainController` thin)
 

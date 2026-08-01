@@ -43,8 +43,7 @@ public class Main extends Application {
     public void start(Stage primaryStage) {
         try {
             ensureDirectoriesExist();
-            DatabaseBackupService.createStartupBackupIfNeeded();
-            initializeDatabase();
+            prepareSqliteInfrastructureIfNeeded();
 
             Preferences prefs = Preferences.userNodeForPackage(MainController.class);
             String lang = prefs.get("language", Locale.getDefault().getLanguage());
@@ -69,6 +68,7 @@ public class Main extends Application {
             primaryStage.setMinWidth(800);
             primaryStage.setMinHeight(600);
             primaryStage.setMaximized(true);
+            mainController.applyInitialThemeBeforeShow();
             primaryStage.setOnCloseRequest(event -> {
                 if (mainController != null && !mainController.requestApplicationClose()) {
                     event.consume();
@@ -92,17 +92,25 @@ public class Main extends Application {
         }
     }
 
-    private void initializeDatabase() {
+    private void prepareSqliteInfrastructureIfNeeded() {
+        Preferences prefs = Preferences.userNodeForPackage(MainController.class);
+        String storageType = prefs.get("storage_type", System.getProperty("jylos.storage", "sqlite"));
+        if (!"sqlite".equalsIgnoreCase(storageType)) {
+            logger.info("Skipping SQLite startup preparation for storage mode: " + storageType);
+            return;
+        }
+
         try {
+            DatabaseBackupService.createStartupBackupIfNeeded();
             String dbPath = new File(AppDataDirectory.getDataDirectory(), "database.db").getAbsolutePath();
 
             SQLiteDB.configure(dbPath);
             SQLiteDB.getInstance().initDatabase();
 
-            logger.info("Database initialized at: " + dbPath);
+            logger.info("SQLite storage prepared at: " + dbPath);
         } catch (Exception e) {
-            logger.severe("Failed to initialize database: " + e.getMessage());
-            throw new RuntimeException("Database initialization failed", e);
+            logger.severe("Failed to prepare SQLite storage: " + e.getMessage());
+            throw new RuntimeException("SQLite storage preparation failed", e);
         }
     }
 

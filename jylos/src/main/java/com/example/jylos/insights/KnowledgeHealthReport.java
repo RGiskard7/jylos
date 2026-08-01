@@ -46,11 +46,21 @@ public record KnowledgeHealthReport(
         List<NoteRef> notesWithoutTags,
         List<TagUsage> tagUsage) {
 
-    /** A minimal clickable reference to a note (id + title). */
+    /**
+     * A minimal clickable reference to a note.
+     *
+     * @param noteId note id
+     * @param title note title
+     */
     public record NoteRef(String noteId, String title) {
     }
 
-    /** A tag and how many notes carry it. */
+    /**
+     * A tag and how many notes carry it.
+     *
+     * @param tag tag title
+     * @param count number of notes using the tag
+     */
     public record TagUsage(String tag, int count) {
     }
 }

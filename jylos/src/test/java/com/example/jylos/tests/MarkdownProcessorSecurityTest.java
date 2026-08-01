@@ -40,4 +40,11 @@ class MarkdownProcessorSecurityTest {
         assertTrue(html.contains("<h1>Hello</h1>"));
         assertTrue(html.contains("<p>World</p>"));
     }
+
+    @Test
+    void markdownToHtmlRendersSoftBreaksAsHtmlBreaks() {
+        String html = MarkdownProcessor.markdownToHtml("first\nsecond");
+
+        assertTrue(html.contains("<p>first<br>second</p>"));
+    }
 }

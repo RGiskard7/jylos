@@ -12,8 +12,9 @@ import java.util.regex.Pattern;
 /**
  * Resolves Obsidian-style internal links in Markdown before HTML rendering.
  *
- * <h3>Supported link formats</h3>
+ * <h2>Supported link formats</h2>
  * <table>
+ *   <caption>Internal link syntaxes supported by the preview renderer</caption>
  *   <tr><th>Syntax</th><th>Description</th></tr>
  *   <tr><td>{@code [[Note Title]]}</td><td>basic wiki-link</td></tr>
  *   <tr><td>{@code [[Note Title.md]]}</td><td>.md extension stripped automatically</td></tr>
@@ -25,7 +26,7 @@ import java.util.regex.Pattern;
  *   <tr><td>{@code [label](Note%20Title)}</td><td>URL-encoded Markdown link</td></tr>
  * </table>
  *
- * <h3>Resolution rules</h3>
+ * <h2>Resolution rules</h2>
  * <ul>
  *   <li>Links to existing notes render as {@code <a class="wikilink">}.</li>
  *   <li>Links to non-existent notes add the {@code wikilink-new} class so the

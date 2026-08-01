@@ -26,7 +26,12 @@ public final class CanvasModel {
     private CanvasModel() {
     }
 
-    /** A whole canvas: its nodes and the edges between them. */
+    /**
+     * A whole canvas.
+     *
+     * @param nodes canvas nodes
+     * @param edges connections between nodes
+     */
     public record CanvasDoc(List<CanvasNode> nodes, List<CanvasEdge> edges) {
         public boolean isEmpty() {
             return nodes.isEmpty() && edges.isEmpty();
@@ -37,12 +42,34 @@ public final class CanvasModel {
      * A canvas node. {@code type} is one of {@code text}, {@code file}, {@code link} or
      * {@code group}; the payload field used depends on it ({@link #text}/{@link #file}/
      * {@link #url}). Coordinates and sizes are in canvas (world) units.
+     *
+     * @param id unique canvas node id
+     * @param type node type
+     * @param x left coordinate in canvas units
+     * @param y top coordinate in canvas units
+     * @param width node width in canvas units
+     * @param height node height in canvas units
+     * @param text text-node Markdown content
+     * @param file file reference for file/image nodes
+     * @param url URL for link nodes
+     * @param label optional display label
+     * @param color optional Obsidian color token
      */
     public record CanvasNode(String id, String type, double x, double y, double width, double height,
             String text, String file, String url, String label, String color) {
     }
 
-    /** A connection between two nodes, optionally anchored to a side and labelled. */
+    /**
+     * A connection between two nodes, optionally anchored to a side and labelled.
+     *
+     * @param id unique edge id
+     * @param fromNode source node id
+     * @param toNode target node id
+     * @param fromSide optional source side
+     * @param toSide optional target side
+     * @param label optional edge label
+     * @param color optional Obsidian color token
+     */
     public record CanvasEdge(String id, String fromNode, String toNode,
             String fromSide, String toSide, String label, String color) {
     }

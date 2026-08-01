@@ -17,7 +17,7 @@ import com.example.jylos.search.SearchFilter.Field;
  * (bad date, non-boolean, unknown {@code has:}/{@code is:} target) are dropped with a
  * warning so the rest of the query still runs.</p>
  *
- * <h3>Examples</h3>
+ * <h2>Examples</h2>
  * <pre>
  *   java tag:spring                  → TEXT[java] AND TAG[spring]
  *   "design patterns" -tag:archive   → TEXT[design patterns] AND NOT TAG[archive]

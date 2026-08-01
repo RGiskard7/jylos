@@ -33,6 +33,17 @@ public final class UiPreferencesStore {
     public static final int MIN_UI_FONT_SIZE = 10;
     public static final int MAX_UI_FONT_SIZE = 22;
 
+    /**
+     * Snapshot of persisted UI preferences used to populate the Preferences dialog.
+     *
+     * @param autosaveEnabled whether autosave is enabled
+     * @param autosaveIdleMs debounce delay before autosave runs
+     * @param themeSource built-in or external theme source
+     * @param externalThemeId selected external theme id, if any
+     * @param notesPreviewLines number of preview lines shown in the notes list
+     * @param uiFontSize base UI font size
+     * @param accentColor optional custom accent color
+     */
     public record UiPreferencesData(
             boolean autosaveEnabled,
             int autosaveIdleMs,

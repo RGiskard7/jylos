@@ -66,6 +66,7 @@ Los paquetes precompilados para las principales plataformas están disponibles e
   - [Scripts y Comandos (Todos los SO)](#scripts-y-comandos-todos-los-so)
     - [Matriz Build / Run](#matriz-build--run)
     - [Tests y Gates de Calidad](#tests-y-gates-de-calidad)
+    - [Javadoc](#javadoc)
     - [Plugins (JAR externos)](#plugins-jar-externos)
     - [Temas (externos)](#temas-externos)
     - [Empaquetado (instaladores nativos)](#empaquetado-instaladores-nativos)
@@ -83,8 +84,8 @@ Los paquetes precompilados para las principales plataformas están disponibles e
     - [JAR no encontrado](#jar-no-encontrado)
     - [Java o Maven no encontrados](#java-o-maven-no-encontrados)
     - [Warnings de parent-POM JavaFX](#warnings-de-parent-pom-javafx)
-  - [Hoja de Ruta](#hoja-de-ruta)
   - [Contribución](#contribución)
+    - [Convenio del changelog](#convenio-del-changelog)
   - [Licencia](#licencia)
 
 ## Por qué Jylos
@@ -103,7 +104,7 @@ En concreto:
 
 Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
-- Editor Markdown con **resaltado de sintaxis en vivo** (RichTextFX) y vista previa lado a lado (GFM, matemáticas KaTeX, emoji)
+- Editor Markdown nativo (RichTextFX `CodeArea`) y vista previa WebView lado a lado (GFM, matemáticas KaTeX, emoji)
 - **Pestañas** para varias notas abiertas, con indicador de guardado en línea
 - Jerarquía de carpetas + etiquetas + favoritos + recientes + papelera
 - **Enlaces internos compatibles con Obsidian** (`[[wiki-links]]`, `[texto](nota.md)`) con clic en la vista previa
@@ -130,7 +131,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 ### Editor y vista previa
 
-- Editor Markdown con **resaltado de sintaxis en vivo** (RichTextFX `CodeArea`: encabezados, negrita/cursiva, código, `[[wiki-links]]`, listas, citas, enlaces)
+- Editor Markdown basado en RichTextFX `CodeArea`, con edición de texto nativa, selección, deshacer/rehacer, portapapeles, menú contextual y autocompletado `[[`
 - **Pestañas** para varias notas abiertas; **indicador de guardado en línea** (ámbar = sin guardar, verde = guardado)
 - **Autocompletado de `[[`** para títulos de nota; barra de formato (negrita, listas, enlaces, …)
 - Vista previa lado a lado con modos dividido / solo editor / solo preview
@@ -224,8 +225,8 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 - JavaFX 23
 - Maven 3.9+
 - SQLite JDBC
-- CommonMark (vista previa Markdown)
-- RichTextFX (resaltado de sintaxis del editor)
+- RichTextFX `CodeArea` (editor de texto Markdown nativo)
+- JavaFX WebView + CommonMark (vista previa Markdown renderizada; assets offline de highlight.js y KaTeX)
 - Ikonli (iconos Feather + Bootstrap Icons)
 - PDFBox + OpenHTMLToPDF (exportar/visor PDF)
 - JUnit 5 + H2 (tests)
@@ -321,6 +322,16 @@ mvn -f jylos/pom.xml clean test
 .\scripts\smoke-phase-gate.ps1
 .\scripts\hardening-storage-matrix.ps1
 ```
+
+### Javadoc
+
+Genera la documentación de API con Maven:
+
+```bash
+mvn -f jylos/pom.xml javadoc:javadoc
+```
+
+El sitio generado queda en `jylos/target/reports/apidocs/` y está ignorado por Git de forma intencionada.
 
 ### Plugins (JAR externos)
 
@@ -440,8 +451,6 @@ Raíz del repositorio (contiene el módulo Maven `jylos/` y `scripts/`):
 └── README.es.md
 ```
 
-No forma parte de la app: `replica-grafo/` (experimento Typst/grafo opcional; ver [docs/README.md](docs/README.md)).
-
 ## Configuración
 
 ### Almacenamiento
@@ -472,7 +481,7 @@ Coloca ficheros `.css` en la carpeta `snippets/` para retocar la interfaz sobre 
 ### Plugins
 
 - Compilar: `./scripts/build-plugins.sh` → `jylos/plugins/*.jar` (objetivo **Java 21**)
-- Activar/desactivar en **Herramientas → Gestionar plugins**
+- Instalar, eliminar, activar y desactivar plugins JAR externos en **Herramientas → Gestionar plugins**
 
 ## Documentación
 
@@ -519,22 +528,20 @@ mvn -version
 
 Warnings del tipo `Failed to build parent project for org.openjfx:javafx-*` son conocidos y no bloqueantes.
 
-## Hoja de Ruta
-
-Las siguientes áreas reflejan intereses reales para el desarrollo futuro del proyecto. No es una lista de compromisos — es una dirección abierta, y las contribuciones son bienvenidas.
-
-- **API HTTP local**: interfaz REST de lectura/escritura enlazada a `localhost` con autenticación Bearer, para integraciones con scripts (Alfred, Raycast, pipelines de shell) respetando las notas privadas
-- **CI/CD automatizado**: workflow de GitHub Actions para ejecutar los tests en cada PR y publicar builds por plataforma automáticamente al etiquetar una versión
-- **Profundidad de la API de plugins**: hooks de ciclo de vida más ricos y mejor documentación para facilitar el desarrollo de plugins de terceros
-- **Integración con el SO**: soporte de bandeja del sistema y empaquetado nativo más pulido por plataforma
-- **Feedback de la comunidad**: funcionalidades y correcciones derivadas del uso real y de pull requests
-
 ## Contribución
 
 - Cambios pequeños e incrementales.
 - Ejecutar tests antes de PR.
 - Mantener compatibilidad SQLite/FileSystem y plugins.
 - Actualizar documentación cuando cambie comportamiento.
+
+### Convenio del changelog
+
+- Mantén `## [Unreleased]` arriba sin fecha; úsalo solo para cambios todavía no asignados a una release.
+- Al preparar una release, mueve los puntos correspondientes a `## [x.y.z] - YYYY-MM-DD`, usando la fecha de publicación de la release, no necesariamente la fecha en la que se hizo cada cambio.
+- Una misma sección de release puede incluir trabajo hecho durante varios días. No crees secciones duplicadas para la misma versión.
+- Escribe los puntos desde el punto de vista del usuario: fixes, cambios de comportamiento, compatibilidad, migraciones y documentación.
+- Si un PR corrige un issue de GitHub, pon `Fixes #123` en la descripción del PR para que GitHub lo cierre al hacer merge.
 
 ## Licencia
 

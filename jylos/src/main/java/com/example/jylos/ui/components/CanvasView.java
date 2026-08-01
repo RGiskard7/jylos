@@ -68,10 +68,9 @@ import javafx.scene.transform.Translate;
  * draws the edges between them; node content is rendered with native JavaFX controls
  * (lightweight Markdown for text/file nodes, the image for image nodes).
  *
- * <p>Phase 2 adds editing: drag a node to <b>move</b> it; <b>create</b>/<b>edit</b>/<b>delete</b>
- * text nodes; <b>connect</b> nodes with edges (connect mode) and delete a selected edge; plus a
- * toolbar to zoom/fit and <b>save</b>. Saving round-trips through {@link CanvasModel.Document}
- * so unknown fields are preserved.</p>
+ * <p>Editing supports moving, resizing, creating and deleting nodes, adding edges
+ * in connect mode, zoom/fit and undo/redo. Saving round-trips through
+ * {@link CanvasModel.Document} so unknown Obsidian fields are preserved.</p>
  *
  * @author Edu Díaz (RGiskard7)
  * @since 2.2.0

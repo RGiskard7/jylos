@@ -361,7 +361,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             navSplitPane = new SplitPane();
             navSplitPane.setOrientation(javafx.geometry.Orientation.VERTICAL);
 
-            initializeDatabase();
+            initializeBackendSession();
             appSettings.wire(this::getString);
             pluginUi.wire(this::getString, this::updateStatus, this::getPluginManager);
             uiInitialization.wire(this::getString, new UiInitialization.OverflowActions(
@@ -425,8 +425,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             updateStatus(java.text.MessageFormat.format(getString("status.error_details"), e.getMessage()));
         }
     }
-    /** Selects and opens the configured storage backend (SQLite or filesystem), then builds all DAOs and services. */
-    private void initializeDatabase() {
+    /** Selects the configured storage backend, opens the active session, then builds all DAOs and services. */
+    private void initializeBackendSession() {
         try {
 
             String storageType = prefs.get("storage_type", System.getProperty("jylos.storage", "sqlite"));
@@ -467,10 +467,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             titleIndex.wire(noteService, eventBus);
             noteService.setNoteTitleIndex(titleIndex);
 
-            logger.info("Database connections and services initialized");
+            logger.info("Backend session initialized");
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "Failed to initialize database", e);
-            throw new RuntimeException("Database initialization failed", e);
+            logger.log(Level.SEVERE, "Failed to initialize backend session", e);
+            throw new RuntimeException("Backend session initialization failed", e);
         }
     }
 
@@ -743,7 +743,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             prefs.put("filesystem_path", newVaultPath);
             resetUiForBackendReload();
             disposeCurrentBackendSession();
-            initializeDatabase();
+            initializeBackendSession();
             bindBackendSession();
             reloadPluginSystemForBackendSession();
             refreshBackendSessionViews(true);
@@ -760,7 +760,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 long rollbackGeneration = beginBackendSessionGeneration();
                 resetUiForBackendReload();
                 disposeCurrentBackendSession();
-                initializeDatabase();
+                initializeBackendSession();
                 bindBackendSession();
                 reloadPluginSystemForBackendSession();
                 refreshBackendSessionViews(true);
@@ -2959,6 +2959,15 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         // Make modals/alerts follow the active theme (JavaFX dialogs don't inherit
         // the scene's stylesheets on their own).
         com.example.jylos.ui.UiDialogs.syncFromScene(scene);
+    }
+
+    /**
+     * Applies the persisted theme after the scene is attached but before the first
+     * window paint, avoiding a visible flash from the default stylesheet.
+     */
+    public void applyInitialThemeBeforeShow() {
+        applyTheme();
+        syncSystemThemeMonitoring();
     }
 
     /** Applies the theme, refreshes all theme-dependent UI elements, and updates the system-theme monitor state. */

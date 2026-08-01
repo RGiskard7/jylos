@@ -6,16 +6,25 @@ import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.VBox;
 
 /**
- * Encapsulates editor/preview layout modes and right-panel visibility logic.
+ * Encapsulates editor/preview layout modes and side-panel visibility changes.
+ *
+ * <p>The shell controller owns the FXML nodes; this helper owns only the repeated
+ * layout mechanics so panel toggles stay consistent across startup and toolbar
+ * commands.</p>
  */
 class UiLayout {
 
+    /** Editor surface mode selected by the toolbar. */
     public enum ViewMode {
         EDITOR_ONLY,
         SPLIT,
         PREVIEW_ONLY
     }
 
+    /**
+     * Applies one of the three editor surface modes and keeps the toggle buttons in
+     * sync with the visible panes.
+     */
     public void applyViewMode(
             ViewMode mode,
             SplitPane editorPreviewSplitPane,
@@ -83,6 +92,10 @@ class UiLayout {
         }
     }
 
+    /**
+     * Opens or collapses the right panel without recreating it, preserving plugin
+     * panels and backlinks state between toggles.
+     */
     public void toggleRightPanel(SplitPane editorRightSplitPane, VBox rightPanel, ToggleButton toggleButton, Note currentNote,
             Runnable updateNoteInfoPanelAction) {
         if (rightPanel == null) {

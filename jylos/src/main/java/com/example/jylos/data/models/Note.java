@@ -12,16 +12,16 @@ import java.util.Set;
 import com.example.jylos.data.models.abstractLayers.LeafModel;
 
 /**
- * Represents a note in the application.
- * A note has a title, content, optional metadata such as location, author, and
- * source information,
- * and can be associated with multiple tags.
+ * Domain model for an editable Jylos document.
+ *
+ * <p>Markdown notes, canvas files and viewable attachments share this model at
+ * service/UI level: title, body/content when available, tags, workflow status,
+ * privacy and document metadata such as favorite/pinned. Storage-specific details
+ * live in the DAO implementations.</p>
  */
 public class Note extends LeafModel implements Serializable {
 	private static final long serialVersionUID = 1L;
 	private String content;
-	// private List<Tag> tags = new ArrayList<>();
-
 	private Set<Tag> tags = new HashSet<>();
 
 	private Double latitude = 0.0;
@@ -70,6 +70,11 @@ public class Note extends LeafModel implements Serializable {
 	 * read it covers the whole body. {@code null} means "not indexed yet".</p>
 	 */
 	private transient List<String> linkTargets = null;
+	/**
+	 * False for lightweight list/cache reads that intentionally keep only a content
+	 * preview. Persistence code uses this flag to reject unsafe rewrites of missing
+	 * vault files from partial data.
+	 */
 	private transient boolean contentComplete = true;
 
 	public Note(String title, String content) {
@@ -133,16 +138,6 @@ public class Note extends LeafModel implements Serializable {
 	public void setContentComplete(boolean contentComplete) {
 		this.contentComplete = contentComplete;
 	}
-
-	/*
-	 * public List<Tag> getTags() {
-	 * return tags;
-	 * }
-	 * 
-	 * public void setTags(List<Tag> tags) {
-	 * this.tags = tags;
-	 * }
-	 */
 
 	public void addTag(Tag tag) {
 		if (tag != null) {
@@ -252,30 +247,56 @@ public class Note extends LeafModel implements Serializable {
 		this.deletedDate = deletedDate;
 	}
 
-	/** Workflow status for the Kanban board ({@code null}/blank = no status). */
+	/**
+	 * Workflow status for the Kanban board ({@code null}/blank = no status).
+	 *
+	 * @return workflow status, or {@code null} when unset
+	 */
 	public String getStatus() {
 		return status;
 	}
 
+	/**
+	 * Sets the workflow status used by Kanban and status filters.
+	 *
+	 * @param status workflow status, or {@code null}/blank to clear it
+	 */
 	public void setStatus(String status) {
 		this.status = status;
 	}
 
-	/** Whether this note's body is encrypted at rest. */
+	/**
+	 * Whether this note's body is encrypted at rest.
+	 *
+	 * @return true when the note content is stored encrypted
+	 */
 	public boolean isPrivate() {
 		return isPrivate;
 	}
 
+	/**
+	 * Sets whether this note should be treated as encrypted/private.
+	 *
+	 * @param isPrivate true when the note content is encrypted at rest
+	 */
 	public void setPrivate(boolean isPrivate) {
 		this.isPrivate = isPrivate;
 	}
 
-	/** Returns a live, mutable view of the custom YAML properties. */
+	/**
+	 * Returns a live, mutable view of the custom YAML properties.
+	 *
+	 * @return custom frontmatter properties represented as displayable key/value pairs
+	 */
 	public Map<String, String> getCustomProperties() {
 		return customProperties;
 	}
 
-	/** Replaces all custom YAML properties; preserves insertion order. */
+	/**
+	 * Replaces all custom YAML properties; preserves insertion order.
+	 *
+	 * @param customProperties custom frontmatter key/value pairs, or {@code null} to clear
+	 */
 	public void setCustomProperties(Map<String, String> customProperties) {
 		this.customProperties = customProperties != null
 				? new LinkedHashMap<>(customProperties)
@@ -285,11 +306,19 @@ public class Note extends LeafModel implements Serializable {
 	/**
 	 * Structured non-system frontmatter values preserved for round-tripping values that
 	 * do not fit the flat key/value UI model (nested maps, rich lists, typed scalars).
+	 *
+	 * @return structured frontmatter values preserved for non-destructive saves
 	 */
 	public Map<String, Object> getStructuredFrontmatterProperties() {
 		return structuredFrontmatterProperties;
 	}
 
+	/**
+	 * Replaces structured frontmatter properties preserved for round-tripping.
+	 *
+	 * @param structuredFrontmatterProperties structured frontmatter values, or
+	 *                                        {@code null} to clear
+	 */
 	public void setStructuredFrontmatterProperties(Map<String, Object> structuredFrontmatterProperties) {
 		this.structuredFrontmatterProperties = structuredFrontmatterProperties != null
 				? new LinkedHashMap<>(structuredFrontmatterProperties)
@@ -299,11 +328,19 @@ public class Note extends LeafModel implements Serializable {
 	/**
 	 * Keys mirrored into {@link #customProperties} so a later save can distinguish an
 	 * intentional UI deletion from a hidden structured value that should remain preserved.
+	 *
+	 * @return displayable frontmatter keys mirrored into {@link #customProperties}
 	 */
 	public Set<String> getDisplayableFrontmatterPropertyKeys() {
 		return displayableFrontmatterPropertyKeys;
 	}
 
+	/**
+	 * Replaces the set of frontmatter keys exposed through the flat metadata UI.
+	 *
+	 * @param displayableFrontmatterPropertyKeys displayable keys, or {@code null} to
+	 *                                           clear
+	 */
 	public void setDisplayableFrontmatterPropertyKeys(Set<String> displayableFrontmatterPropertyKeys) {
 		this.displayableFrontmatterPropertyKeys = displayableFrontmatterPropertyKeys != null
 				? new LinkedHashSet<>(displayableFrontmatterPropertyKeys)
@@ -313,12 +350,18 @@ public class Note extends LeafModel implements Serializable {
 	/**
 	 * Cached outgoing internal-link targets for this note, or {@code null} if the
 	 * note has not been indexed yet. See {@link #linkTargets}.
+	 *
+	 * @return cached outgoing internal-link targets, or {@code null} when unknown
 	 */
 	public List<String> getLinkTargets() {
 		return linkTargets;
 	}
 
-	/** Sets the cached outgoing internal-link targets (see {@link #linkTargets}). */
+	/**
+	 * Sets the cached outgoing internal-link targets (see {@link #linkTargets}).
+	 *
+	 * @param linkTargets outgoing internal-link targets, or {@code null} when unknown
+	 */
 	public void setLinkTargets(List<String> linkTargets) {
 		this.linkTargets = linkTargets;
 	}

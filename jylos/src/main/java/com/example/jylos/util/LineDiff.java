@@ -20,9 +20,15 @@ public final class LineDiff {
     /** Above this many lines per side, fall back to prefix/suffix diffing. */
     static final int MAX_LINES = 3000;
 
+    /** Classification assigned to a diff output line. */
     public enum Type { SAME, ADDED, REMOVED }
 
-    /** One diff output line. */
+    /**
+     * One diff output line.
+     *
+     * @param type line classification
+     * @param text line text without trailing newline
+     */
     public record Line(Type type, String text) {
     }
 

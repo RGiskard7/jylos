@@ -35,7 +35,7 @@ ui/ (FXML, controllers, components, GraphCanvas)
 | `data.models` | `Note`, `Folder`, `Tag`, `ToDoNote` |
 | `event` | `EventBus` y eventos tipados |
 | `plugin` | Loader, manager y API de plugins |
-| `util` | Markdown, wiki-links, preview, highlighter, exportación, Kanban |
+| `util` | Markdown, wiki-links, preview, exportación y Kanban |
 | `workspace` | Captura y restauración de workspaces |
 | `config` | Logging |
 
@@ -48,9 +48,13 @@ ui/ (FXML, controllers, components, GraphCanvas)
 - `MainView.fxml`: toolbar, centro con split principal, overlays de grafo/Kanban, panel derecho y status bar.
 - Split central: sidebar, lista de notas, editor/preview.
 - Overlays: grafo (`GraphView.fxml`) y Kanban (`KanbanBoard`) se gestionan por `OverlaySupport`.
-- Editor: `EditorTabs`, `CodeArea` de RichTextFX, `WebView` para preview y autocompletado `[[`.
+- Editor: `EditorTabs`, `CodeArea` de RichTextFX para edición nativa de Markdown, `WebView` para preview y autocompletado `[[`.
 - Panel derecho: metadata, backlinks y paneles de plugins.
 - Focus mode: oculta chrome de UI y deja solo editor.
+
+### Edición Markdown y vista previa
+
+`CodeArea` es dueño de la entrada de texto nativa, selección, portapapeles y deshacer/rehacer. Jylos no aplica spans de estilo a todo el documento mientras se edita: así no se desestabilizan la composición nativa ni el caret de RichTextFX en macOS. `MarkdownPreview` renderiza el texto del editor fuera del hilo FX con CommonMark y carga el HTML resultante en el `WebView` de JavaFX; el resaltado de bloques de código y KaTeX de la vista previa usan assets offline incluidos. Los separadores no imprimibles de contenido externo se normalizan solo para el preview para evitar que WebView dibuje cajas de reemplazo; el Markdown en memoria y persistido no cambia.
 
 ## Grafo y backlinks
 

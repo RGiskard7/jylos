@@ -20,6 +20,9 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.Menu;
+import javafx.scene.control.MenuBar;
 import javafx.scene.control.ScrollBar;
 import javafx.scene.layout.Pane;
 
@@ -31,15 +34,7 @@ class UiPresentationFxmlGuardTest {
 
     @BeforeAll
     static void initFxRuntime() {
-        CountDownLatch latch = new CountDownLatch(1);
-        try {
-            Platform.startup(latch::countDown);
-            fxRuntimeAvailable = latch.await(2, TimeUnit.SECONDS);
-        } catch (IllegalStateException e) {
-            fxRuntimeAvailable = true;
-        } catch (Exception e) {
-            fxRuntimeAvailable = false;
-        }
+        fxRuntimeAvailable = FxTestSupport.isFxRuntimeAvailable();
     }
 
     @Test
@@ -79,13 +74,86 @@ class UiPresentationFxmlGuardTest {
     }
 
     @Test
-    void editorUsesCodeAreaForSyntaxHighlighting() throws Exception {
+    void editorUsesCodeAreaForRichTextEditing() throws Exception {
         Assumptions.assumeTrue(fxRuntimeAvailable);
 
         Map<String, Object> nodes = loadNamespace("/com/example/jylos/ui/view/EditorView.fxml");
 
         assertTrue(nodes.get("noteContentArea") instanceof org.fxmisc.richtext.CodeArea,
-                "Note content editor should be a CodeArea (syntax-highlighting editor).");
+                "Note content editor should be a CodeArea.");
+    }
+
+    @Test
+    void editorProvidesAStandardTextContextMenu() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+
+        CountDownLatch latch = new CountDownLatch(1);
+        AssertionError[] failure = new AssertionError[1];
+        Platform.runLater(() -> {
+            try {
+                ResourceBundle bundle = ResourceBundle.getBundle("com.example.jylos.i18n.messages", Locale.ENGLISH);
+                FXMLLoader loader = new FXMLLoader(
+                        getClass().getResource("/com/example/jylos/ui/view/EditorView.fxml"), bundle);
+                loader.load();
+                EditorController controller = loader.getController();
+                ContextMenu menu = controller.getNoteContentArea().getContextMenu();
+
+                assertTrue(menu != null, "CodeArea should expose a context menu.");
+                assertTrue(menu.getItems().stream().anyMatch(item -> "Undo".equals(item.getText())));
+                assertTrue(menu.getItems().stream().anyMatch(item -> "Redo".equals(item.getText())));
+                assertTrue(menu.getItems().stream().anyMatch(item -> "Cut".equals(item.getText())));
+                assertTrue(menu.getItems().stream().anyMatch(item -> "Copy".equals(item.getText())));
+                assertTrue(menu.getItems().stream().anyMatch(item -> "Paste".equals(item.getText())));
+                assertTrue(menu.getItems().stream().anyMatch(item -> "Select All".equals(item.getText())));
+            } catch (AssertionError e) {
+                failure[0] = e;
+            } catch (Exception e) {
+                failure[0] = new AssertionError(e);
+            } finally {
+                latch.countDown();
+            }
+        });
+
+        assertTrue(latch.await(FX_OPERATION_TIMEOUT_SECONDS, TimeUnit.SECONDS), "Context menu check timed out.");
+        if (failure[0] != null) {
+            throw failure[0];
+        }
+    }
+
+    @Test
+    void textCommandsDoNotRegisterGlobalAccelerators() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+
+        CountDownLatch latch = new CountDownLatch(1);
+        AssertionError[] failure = new AssertionError[1];
+        Platform.runLater(() -> {
+            try {
+                ResourceBundle bundle = ResourceBundle.getBundle("com.example.jylos.i18n.messages", Locale.ENGLISH);
+                FXMLLoader loader = new FXMLLoader(
+                        getClass().getResource("/com/example/jylos/ui/view/ToolbarView.fxml"), bundle);
+                loader.load();
+                MenuBar menuBar = (MenuBar) loader.getNamespace().get("menuBar");
+                Menu editMenu = menuBar.getMenus().get(1);
+
+                assertTrue(editMenu.getItems().get(3).getAccelerator() == null,
+                        "Cut must use the focused text control's native shortcut.");
+                assertTrue(editMenu.getItems().get(4).getAccelerator() == null,
+                        "Copy must use the focused text control's native shortcut.");
+                assertTrue(editMenu.getItems().get(5).getAccelerator() == null,
+                        "Paste must use the focused text control's native shortcut.");
+            } catch (AssertionError e) {
+                failure[0] = e;
+            } catch (Exception e) {
+                failure[0] = new AssertionError(e);
+            } finally {
+                latch.countDown();
+            }
+        });
+
+        assertTrue(latch.await(FX_OPERATION_TIMEOUT_SECONDS, TimeUnit.SECONDS), "Accelerator check timed out.");
+        if (failure[0] != null) {
+            throw failure[0];
+        }
     }
 
     @Test

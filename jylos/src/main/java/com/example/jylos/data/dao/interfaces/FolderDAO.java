@@ -68,7 +68,6 @@ public interface FolderDAO {
     public Folder fetchAllFoldersAsTree();
 
     // Note Management
-    // public void addNote(String folderId, String noteId);
     /**
      * Adds a note to a folder.
      *
@@ -76,8 +75,6 @@ public interface FolderDAO {
      * @param note   The note to be added.
      */
     public void addNote(Folder folder, Note note);
-
-    // public void removeNote(String folderId, String noteId);
 
     /**
      * Removes a note from a folder.
@@ -101,8 +98,6 @@ public interface FolderDAO {
      */
     public void loadNotes(Folder folder);
 
-    // public void addSubFolder(String parentId, String subFolderId);
-
     // Folder Hierarchy Management
     /**
      * Adds a subfolder to a parent folder.
@@ -111,8 +106,6 @@ public interface FolderDAO {
      * @param subFolder The subfolder to be added.
      */
     public void addSubFolder(Folder parent, Folder subFolder);
-
-    // public void removeSubFolder(String parentId, String subFolderId);
 
     /**
      * Removes a subfolder from a parent folder.

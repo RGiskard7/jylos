@@ -111,17 +111,13 @@ if [ ! -d "$JAVAFX_BASE" ]; then
     exit $?
 fi
 
-# Find JavaFX version (21.x.x). Pick the HIGHEST 21.x present so the runtime
-# modules match the version the app was built against (and include CoreText
-# font crash fixes on macOS). A plain glob would stop at "21" (lexically first).
-JAVAFX_VERSION=""
-if [ -d "$JAVAFX_BASE/javafx-controls" ]; then
-    JAVAFX_VERSION=$(ls -1 "$JAVAFX_BASE/javafx-controls" 2>/dev/null \
-        | grep -E '^[0-9]+(\.[0-9]+)*$' | sort -V | tail -1)
-fi
+# Use the exact JavaFX version declared by Maven. Selecting the highest version
+# in the local Maven cache can load modules incompatible with the installed JDK.
+JAVAFX_VERSION=$(sed -n 's#.*<javafx.version>\([^<]*\)</javafx.version>.*#\1#p' \
+    "$JYLOS_DIR/pom.xml" | head -n1)
 
 if [ -z "$JAVAFX_VERSION" ]; then
-    print_color "$YELLOW" "Warning: JavaFX 21 not found in Maven repository"
+    print_color "$YELLOW" "Warning: Could not determine the JavaFX version from pom.xml"
     echo ""
     echo "Attempting to launch without module-path..."
     echo ""

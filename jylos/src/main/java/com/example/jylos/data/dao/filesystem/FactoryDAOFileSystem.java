@@ -5,6 +5,13 @@ import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.dao.interfaces.TagDAO;
 
+/**
+ * DAO factory for filesystem-backed vaults.
+ *
+ * <p>The factory creates one shared note DAO instance and wires folder/tag DAOs
+ * against it so path caches, metadata sidecars and tag extraction stay consistent
+ * within the active vault session.</p>
+ */
 public class FactoryDAOFileSystem extends FactoryDAO {
 
     private NoteDAOFileSystem noteDAO;
@@ -12,9 +19,7 @@ public class FactoryDAOFileSystem extends FactoryDAO {
     private TagDAOFileSystem tagDAO;
 
     public FactoryDAOFileSystem(String rootDirectory) {
-        // Ideally we should cache instances to share caches.
-        // deferContentLoad=true: startup builds a fast metadata-only cache and loads
-        // note contents in the background, so opening a large/iCloud vault is instant.
+        // Deferred loading keeps large or cloud-backed vaults responsive at startup.
         this.noteDAO = new NoteDAOFileSystem(rootDirectory, true);
         this.folderDAO = new FolderDAOFileSystem(rootDirectory);
         this.tagDAO = new TagDAOFileSystem(this.noteDAO);

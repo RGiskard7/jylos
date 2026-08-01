@@ -18,12 +18,28 @@ import com.google.gson.JsonParser;
 
 /**
  * Checks GitHub Releases for a newer public Jylos version.
+ *
+ * <p>The checker is deliberately UI-agnostic: it fetches release metadata,
+ * compares semantic versions numerically and returns a small result object. The
+ * controller decides how and when to notify the user.</p>
  */
 public final class UpdateChecker {
 
+    /**
+     * Metadata for the latest GitHub release.
+     *
+     * @param tagName release tag, usually prefixed with {@code v}
+     * @param htmlUrl browser URL for the GitHub release page
+     */
     public record ReleaseInfo(String tagName, String htmlUrl) {
     }
 
+    /**
+     * Result of an update check.
+     *
+     * @param release available newer release, or empty when already current
+     * @param failed true when the check could not be completed
+     */
     public record CheckResult(Optional<ReleaseInfo> release, boolean failed) {
         static CheckResult available(ReleaseInfo release) {
             return new CheckResult(Optional.of(release), false);

@@ -21,6 +21,12 @@ public final class CssSnippetCatalog {
 
     private static final Logger logger = LoggerConfig.getLogger(CssSnippetCatalog.class);
 
+    /**
+     * CSS snippet available for optional layering over the active theme.
+     *
+     * @param name snippet file name shown to the user
+     * @param cssUri stylesheet URI loaded into JavaFX scenes
+     */
     public record SnippetDescriptor(String name, String cssUri) {
     }
 

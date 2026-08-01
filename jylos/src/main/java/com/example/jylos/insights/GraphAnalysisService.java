@@ -23,7 +23,7 @@ import com.example.jylos.service.TagService;
  * graph and the preview do. The pure {@link #analyze(GraphData)} overload makes the
  * logic unit-testable without any services.</p>
  *
- * <h3>Definitions</h3>
+ * <h2>Definitions</h2>
  * <ul>
  *   <li><b>Resolved link</b>: a {@code LINK} edge whose source and target are both
  *       existing notes. Connectivity counts only these.</li>

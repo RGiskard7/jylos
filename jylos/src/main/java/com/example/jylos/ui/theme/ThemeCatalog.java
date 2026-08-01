@@ -22,6 +22,16 @@ public final class ThemeCatalog {
 
     private static final Logger logger = Logger.getLogger(ThemeCatalog.class.getName());
 
+    /**
+     * Theme descriptor discovered from built-in resources or an external theme folder.
+     *
+     * @param id stable theme id
+     * @param name display name
+     * @param source source type, such as {@code builtin} or {@code external}
+     * @param cssPath stylesheet path or URI
+     * @param darkLike whether the theme should be treated as dark by default
+     * @param base preferred base variant ({@code light}, {@code dark} or {@code system})
+     */
     public record ThemeDescriptor(String id, String name, String source, String cssPath, boolean darkLike,
             String base) {
 

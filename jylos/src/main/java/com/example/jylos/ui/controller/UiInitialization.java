@@ -16,7 +16,10 @@ import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 
 /**
- * Encapsulates lightweight UI initialization blocks for MainController.
+ * One-time UI wiring extracted from {@link MainController}.
+ *
+ * <p>This class initializes controls that do not own business state: sort choices,
+ * toolbar overflow behavior, collapsible sections and startup toggle groups.</p>
  */
 class UiInitialization {
 

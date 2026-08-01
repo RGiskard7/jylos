@@ -15,7 +15,7 @@ import org.jsoup.nodes.Document;
  * is deliberately free of any network I/O so it stays pure and unit-testable —
  * fetching the page is {@link com.example.jylos.service.RichLinkService}'s job.</p>
  *
- * <h3>Stored format</h3>
+ * <h2>Stored format</h2>
  * <pre>
  * ::: rich-link
  * url: https://example.com/article
@@ -37,7 +37,15 @@ public final class RichLinks {
     private RichLinks() {
     }
 
-    /** Metadata backing a rich-link card. Only {@link #url} is guaranteed non-blank. */
+    /**
+     * Metadata backing a rich-link card. Only {@link #url} is guaranteed non-blank.
+     *
+     * @param url destination URL
+     * @param title optional page title
+     * @param description optional one-line description
+     * @param image optional preview image URL
+     * @param siteName optional site/provider name
+     */
     public record RichLink(String url, String title, String description, String image, String siteName) {
     }
 

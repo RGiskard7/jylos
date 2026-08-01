@@ -35,7 +35,7 @@ ui/ (FXML, controllers, components, GraphCanvas)
 | `data.models` | `Note` (incl. `status`, `isPrivate`), `Folder`, `Tag`, `ToDoNote` |
 | `event` | `EventBus`, typed events under `event.events` (including `SystemActionEvent`) |
 | `plugin` | `PluginLoader`, `PluginManager`, `AbstractPlugin`, `PluginIds`; built-in Mermaid under `plugin/mermaid/` |
-| `util` | `WikiLinkResolver`, `MarkdownProcessor`, `MarkdownPreview` (CommonMark + KaTeX + emoji), `MarkdownHighlighter` (editor syntax highlighting), `KanbanModel`, `NoteExporter` |
+| `util` | `WikiLinkResolver`, `MarkdownProcessor`, `MarkdownPreview` (CommonMark + KaTeX + emoji), `KanbanModel`, `NoteExporter` |
 | `workspace` | Workspace capture/persistence (`Workspace`, `WorkspaceRepository`, `WorkspaceService`) |
 | `config` | `LoggerConfig` |
 
@@ -48,9 +48,13 @@ ui/ (FXML, controllers, components, GraphCanvas)
 - **Overlays** — graph (`GraphView.fxml` + `GraphController` + `GraphCanvas`) and Kanban (`KanbanBoard`) share the center `StackPane` and are mutually exclusive; both managed by `OverlaySupport`. Toggled via `SystemActionEvent.GRAPH_VIEW` (`Ctrl/Cmd+G`) and `KANBAN_VIEW` (`Ctrl/Cmd+K`).
 - Sidebar — icon nav bar + `TabPane` (folders, tags, recent, favorites, trash).
 - Notes list — custom `ListCell` (title, preview lines, dates, pin/favorite icons).
-- Editor — `EditorTabs` strip (one tab per open note) above a **RichTextFX `CodeArea`** (live Markdown highlighting via `MarkdownHighlighter`) + `WebView` preview (`MarkdownPreview`, wiki-link clicks via `jylos://` protocol). Inline save indicator; `[[` autocomplete.
+- Editor — `EditorTabs` strip (one tab per open note) above a **RichTextFX `CodeArea`** used for native Markdown text editing + `WebView` preview (`MarkdownPreview`, wiki-link clicks via `jylos://` protocol). Inline save indicator; `[[` autocomplete.
 - Right panel — note metadata, **backlinks** (`BacklinksSupport` + `BacklinkService`), plugin side panels.
 - **Focus / writing mode** (`FocusModeSupport`, `Ctrl/Cmd+Shift+F`) — removes sidebar, notes list, right panel, toolbar and status bar, leaving only the editor; restores the prior layout on exit.
+
+### Markdown editing and preview
+
+`CodeArea` owns native text input, selection, clipboard and undo/redo. Jylos deliberately does not apply document-wide style spans while the user edits: that avoids destabilising RichTextFX's native composition and caret state on macOS. `MarkdownPreview` renders the editor text off the FX thread with CommonMark, then loads the generated HTML in JavaFX `WebView`; preview-only code highlighting and KaTeX use bundled offline assets. Non-printable separators from external content are normalized only in the preview input so WebView does not draw replacement boxes; the in-memory and persisted Markdown remain unchanged.
 
 ## Knowledge graph
 

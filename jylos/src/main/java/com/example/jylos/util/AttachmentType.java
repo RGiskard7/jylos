@@ -43,7 +43,12 @@ public enum AttachmentType {
         return Set.copyOf(all);
     }
 
-    /** Returns the lowercase extension (without dot) of a filename/path/id, or "". */
+    /**
+     * Returns the lowercase extension of a filename/path/id.
+     *
+     * @param name filename, path or note id
+     * @return extension without the leading dot, or an empty string
+     */
     public static String extensionOf(String name) {
         if (name == null) {
             return "";
@@ -54,7 +59,12 @@ public enum AttachmentType {
         return dot > slash && dot >= 0 ? lower.substring(dot + 1) : "";
     }
 
-    /** Classifies a filename/path/id. Unknown or text extensions map to {@link #MARKDOWN}. */
+    /**
+     * Classifies a filename/path/id.
+     *
+     * @param name filename, path or note id
+     * @return detected type; unknown or text extensions map to {@link #MARKDOWN}
+     */
     public static AttachmentType fromName(String name) {
         String ext = extensionOf(name);
         if (ext.equals("pdf")) {
@@ -69,17 +79,28 @@ public enum AttachmentType {
         return MARKDOWN;
     }
 
-    /** True if {@code name} is a viewable attachment (image or PDF), not a text note. */
+    /**
+     * Checks whether a name points to a non-Markdown attachment.
+     *
+     * @param name filename, path or note id
+     * @return true for image, PDF or canvas files
+     */
     public static boolean isAttachment(String name) {
         return fromName(name) != MARKDOWN;
     }
 
-    /** True for files the vault should list (Markdown/text notes or known attachments). */
+    /**
+     * Checks whether a file should appear in the vault document list.
+     *
+     * @param name filename, path or note id
+     * @return true for Markdown/text notes or known attachments
+     */
     public static boolean isSupportedVaultFile(String name) {
         String ext = extensionOf(name);
         return TEXT_EXTENSIONS.contains(ext) || ATTACHMENT_EXTENSIONS.contains(ext);
     }
 
+    /** @return true when this type is not {@link #MARKDOWN} */
     public boolean isAttachment() {
         return this != MARKDOWN;
     }

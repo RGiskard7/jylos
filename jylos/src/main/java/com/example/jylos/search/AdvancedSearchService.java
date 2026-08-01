@@ -46,12 +46,26 @@ public final class AdvancedSearchService {
     private final NoteService noteService;
     private final TagService tagService;
 
+    /**
+     * Creates an advanced search service backed by note and tag lookups.
+     *
+     * @param noteService service used for graph-derived metadata
+     * @param tagService service used for tag filters
+     */
     public AdvancedSearchService(NoteService noteService, TagService tagService) {
         this.noteService = noteService;
         this.tagService = tagService;
     }
 
-    /** Parses {@code rawQuery} and filters {@code source}. */
+    /**
+     * Parses {@code rawQuery} and filters {@code source}.
+     *
+     * @param rawQuery user-entered query text
+     * @param source notes to search
+     * @param contentProvider provider for full note content, or {@code null} to use
+     *                        content already present on each note
+     * @return matching search results
+     */
     public List<SearchResult> search(String rawQuery, List<Note> source, Function<Note, String> contentProvider) {
         return search(SearchQueryParser.parse(rawQuery), source, contentProvider);
     }
@@ -59,8 +73,11 @@ public final class AdvancedSearchService {
     /**
      * Filters {@code source} by {@code query}.
      *
+     * @param query parsed query to evaluate
+     * @param source notes to search
      * @param contentProvider returns a note's full, lowercased content (reuses the
      *                        caller's cache); may be null to read from the note directly
+     * @return matching search results
      */
     public List<SearchResult> search(SearchQuery query, List<Note> source, Function<Note, String> contentProvider) {
         if (source == null) {
@@ -80,7 +97,15 @@ public final class AdvancedSearchService {
         return results;
     }
 
-    /** Convenience: parse + filter, returning just the matching notes. */
+    /**
+     * Convenience method that parses and filters, returning only the matching notes.
+     *
+     * @param rawQuery user-entered query text
+     * @param source notes to search
+     * @param contentProvider provider for full note content, or {@code null} to use
+     *                        content already present on each note
+     * @return matching notes
+     */
     public List<Note> searchNotes(String rawQuery, List<Note> source, Function<Note, String> contentProvider) {
         return search(rawQuery, source, contentProvider).stream().map(SearchResult::note).toList();
     }

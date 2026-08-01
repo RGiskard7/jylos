@@ -44,10 +44,19 @@ public class NoteHistoryService {
     private static final Logger logger = LoggerConfig.getLogger(NoteHistoryService.class);
     private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS");
 
-    /** A single snapshot: when it was taken and where it lives. */
+    /**
+     * A single persisted history snapshot.
+     *
+     * @param timestamp instant when the snapshot was created
+     * @param file path to the snapshot file on disk
+     */
     public record Snapshot(Instant timestamp, Path file) {
 
-        /** Human-readable local timestamp for UI lists. */
+        /**
+         * Formats the timestamp in the user's local time zone for UI lists.
+         *
+         * @return human-readable local timestamp
+         */
         public String displayTime() {
             return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
                     .format(LocalDateTime.ofInstant(timestamp, ZoneId.systemDefault()));

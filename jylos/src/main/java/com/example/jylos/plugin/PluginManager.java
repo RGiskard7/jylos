@@ -1,5 +1,8 @@
 package com.example.jylos.plugin;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -187,6 +190,12 @@ public class PluginManager {
             return false;
         }
 
+        if (isDisabledInPreferences(pluginId)) {
+            pluginStates.put(pluginId, PluginState.DISABLED);
+            logger.info("Plugin disabled by preferences, skipping initialization: " + pluginId);
+            return true;
+        }
+
         PluginState currentState = pluginStates.get(pluginId);
         if (currentState == PluginState.INITIALIZED || currentState == PluginState.ENABLED) {
             logger.fine("Plugin already initialized: " + pluginId);
@@ -315,8 +324,7 @@ public class PluginManager {
         PluginContext context = pluginContexts.get(pluginId);
         if (context == null
                 && state != PluginState.INITIALIZED
-                && state != PluginState.ENABLED
-                && state != PluginState.DISABLED) {
+                && state != PluginState.ENABLED) {
             return;
         }
 
@@ -358,6 +366,7 @@ public class PluginManager {
             return true;
         }
 
+        setDisabledInPreferences(pluginId, false);
         if (currentState == PluginState.REGISTERED || currentState == PluginState.DISABLED) {
             if (!initializePlugin(pluginId)) {
                 return false;
@@ -365,7 +374,6 @@ public class PluginManager {
         }
 
         pluginStates.put(pluginId, PluginState.ENABLED);
-        setDisabledInPreferences(pluginId, false);
         logger.info("Enabled plugin: " + pluginId);
         return true;
     }
@@ -396,6 +404,91 @@ public class PluginManager {
         return true;
     }
 
+    /**
+     * Installs a plugin JAR into the user plugins directory and activates it.
+     *
+     * @param sourceJar JAR selected by the user
+     * @return installed plugin
+     * @throws IOException if the JAR cannot be copied or loaded
+     */
+    public Plugin installPluginJar(Path sourceJar) throws IOException {
+        Path installedJar = PluginLoader.installPluginJar(sourceJar);
+        Plugin plugin = PluginLoader.loadPluginJar(installedJar);
+        if (plugin == null) {
+            deleteInstalledCopyIfNeeded(sourceJar, installedJar);
+            throw new IOException("The selected JAR does not contain a valid Jylos plugin");
+        }
+        if (plugins.containsKey(plugin.getId())) {
+            PluginLoader.releasePluginJar(installedJar);
+            deleteInstalledCopyIfNeeded(sourceJar, installedJar);
+            throw new IOException("Plugin already installed: " + plugin.getId());
+        }
+        setDisabledInPreferences(plugin.getId(), false);
+        if (!registerPlugin(plugin) || !initializePlugin(plugin.getId())) {
+            plugins.remove(plugin.getId());
+            pluginStates.remove(plugin.getId());
+            pluginContexts.remove(plugin.getId());
+            PluginLoader.releasePluginJar(installedJar);
+            deleteInstalledCopyIfNeeded(sourceJar, installedJar);
+            throw new IOException("Could not initialize plugin: " + plugin.getId());
+        }
+        return plugin;
+    }
+
+    /**
+     * Uninstalls a plugin by shutting it down and deleting its JAR from the user
+     * plugins directory.
+     *
+     * <p>Only plugins backed by a JAR in the primary user plugin directory are
+     * removable. Bundled application files and unknown locations are deliberately
+     * protected.</p>
+     *
+     * @param pluginId plugin identifier
+     * @return removed plugin
+     * @throws IOException if the plugin cannot be removed from disk
+     */
+    public Plugin uninstallPlugin(String pluginId) throws IOException {
+        Plugin plugin = plugins.get(pluginId);
+        if (plugin == null) {
+            throw new IOException("Plugin not found: " + pluginId);
+        }
+        if (!PluginLoader.isPluginRemovable(pluginId)) {
+            throw new IOException("Plugin cannot be removed from the user plugins directory: " + pluginId);
+        }
+
+        shutdownPlugin(pluginId);
+        PluginLoader.deletePluginJar(pluginId);
+
+        plugins.remove(pluginId);
+        pluginStates.remove(pluginId);
+        pluginContexts.remove(pluginId);
+        clearDisabledPreference(pluginId);
+
+        logger.info("Uninstalled plugin: " + pluginId);
+        return plugin;
+    }
+
+    /**
+     * Checks whether a plugin can be removed by the plugin manager.
+     *
+     * @param pluginId plugin identifier
+     * @return {@code true} when its JAR is in the user plugins directory
+     */
+    public boolean isPluginRemovable(String pluginId) {
+        return PluginLoader.isPluginRemovable(pluginId);
+    }
+
+    private void deleteInstalledCopyIfNeeded(Path sourceJar, Path installedJar) throws IOException {
+        if (sourceJar == null || installedJar == null) {
+            return;
+        }
+        Path source = sourceJar.toAbsolutePath().normalize();
+        Path installed = installedJar.toAbsolutePath().normalize();
+        if (!source.equals(installed)) {
+            Files.deleteIfExists(installed);
+        }
+    }
+
     private void cleanupPluginRuntime(String pluginId) {
         if (menuRegistry != null) {
             menuRegistry.removePluginMenuItems(pluginId);
@@ -424,6 +517,10 @@ public class PluginManager {
 
     private void setDisabledInPreferences(String pluginId, boolean disabled) {
         pluginPreferences.putBoolean(PREFS_DISABLED_PREFIX + pluginId, disabled);
+    }
+
+    private void clearDisabledPreference(String pluginId) {
+        pluginPreferences.remove(PREFS_DISABLED_PREFIX + pluginId);
     }
 
     /**
