@@ -1,6 +1,18 @@
 # Changelog
 
-## [Unreleased]
+## [2.4.10] - 2026-08-02
+
+- La integración Git de vault se alinea con el flujo de Git estándar: los commits respetan el staging explícito por archivo, `Sync` ya no hace `git add -A` implícito y el primer `Push` configura el upstream de la rama actual.
+- El panel Git valida y consulta el remoto de forma explícita, muestra la ausencia de upstream, limita estado/staging/historial a la ruta de la bóveda y refresca la bóveda tras un `Pull` correcto.
+- Jylos deja de eliminar automáticamente `.git/index.lock`; si otro cliente Git mantiene el bloqueo, la operación falla de forma controlada sin tocar el repositorio.
+- Las pruebas de Git cubren staging selectivo, repositorios padre con bóveda anidada, protección de `index.lock` y configuración de upstream contra un remoto temporal real.
+- El espacio Git se rediseña como flujo de trabajo visible: cambios con acciones explícitas de preparar/quitar, estado y progreso de operaciones, registro de actividad redimensionable e instrucciones para conectar remoto, confirmar y hacer el primer push. Su carga inicial es local y estable; la consulta de red queda en `Actualizar`.
+- Los vaults que son raíz de su repositorio pueden crear y cambiar ramas locales desde el panel Git; Jylos exige un árbol limpio y bloquea la acción para vaults anidados, evitando afectar repositorios padre.
+- El panel Git distingue de forma explícita cambios preparados y sin preparar, incluso cuando un mismo archivo se modifica de nuevo después de prepararlo.
+- Las acciones de preparar y quitar por archivo resuelven ahora las rutas respecto a la bóveda, también cuando esta vive dentro de un repositorio Git padre; el estado preparado se actualiza correctamente antes de confirmar o sincronizar.
+- Los repositorios Git anidados registrados como submódulos se detectan de forma explícita: Jylos ya no informa falsamente de que sus cambios internos se han preparado. El panel los marca como bloqueantes hasta que se confirmen desde su propio repositorio.
+- El `Push` a GitHub detecta antes de transferir blobs superiores a 100 MiB presentes en el historial, evitando fallos HTTP poco claros.
+- Las transferencias Git remotas ya no se cancelan por un límite fijo de tiempo: el panel muestra el progreso nativo más reciente de Git y permite cancelar de forma explícita, terminando también los procesos auxiliares de la transferencia.
 
 ## [2.4.9] - 2026-08-01
 
@@ -314,7 +326,7 @@ Al guardar (sobre todo en cada autoguardado mientras editabas), la lista central
 
 ### Feat: rich links (tarjetas de enlace)
 
-Convierte una URL en una **tarjeta visual** (título, descripción, miniatura y dominio) en lugar de un enlace plano, al estilo de Glyphary/Obsidian.
+Convierte una URL en una **tarjeta visual** (título, descripción, miniatura y dominio) en lugar de un enlace plano.
 
 - **Cómo se usa**: botón en la barra de formato del editor (icono marcador), comando **Insert Rich Link** en la paleta (`Ctrl+P`) o acción de menú. Pega una URL → se descarga su metadata en segundo plano (nunca bloquea la UI) → se inserta un bloque que se renderiza como tarjeta en la vista previa.
 - **Formato en disco**: bloque de texto plano `::: rich-link` con `url/title/description/image/siteName`, legible y portable; solo `url` es obligatorio. Degrada a texto legible en cualquier otro editor.
@@ -752,9 +764,9 @@ Versión **major** por dos rupturas de compatibilidad: el requisito mínimo de J
 - **Colores oscuro/claro en los modales:** los diálogos de JavaFX no heredan el stylesheet de la escena, por lo que aparecían con aspecto claro (p. ej. `TextArea` blanco sobre fondo oscuro). Nuevo `ui/UiDialogs` registra los stylesheets del tema activo y los aplica a cada diálogo/alerta; reglas `.dialog-pane`/`.text-area` añadidas a ambos temas. Todos los `showAndWait()` de `DialogSupport`, `EditorController` y `MainController` (incluido el de remoto y carpeta nueva) pasan por el temado.
 - **Coherencia SQLite:** *Mostrar en el explorador de archivos* se oculta en modo SQLite (no aplica sin ficheros). Nueva opción **Exportar nota…** en el menú contextual de la lista para ambos modos (evento `NoteExportRequestEvent` → `MainController.exportNote`).
 
-### Barra Git completa estilo Tolaria (2026-06-02)
+### Barra Git completa (2026-06-02)
 
-**Resumen:** La barra de estado pasa de un indicador único a **cinco segmentos** equivalentes a los de Tolaria, cada uno con su icono y acción.
+**Resumen:** La barra de estado pasa de un indicador único a **cinco segmentos**, cada uno con su icono y acción.
 
 - **Remoto** (`⎇ Sin remoto` / `Remoto configurado`) → modal para fijar la URL del remoto sobre el git local ya iniciado.
 - **N cambios** → diálogo con la lista de notas modificadas (título, fichero, `+añadidas −borradas`) y **preparado por fichero** (botón `+`/`−` → `git add`/`reset`).
@@ -767,7 +779,7 @@ Versión **major** por dos rupturas de compatibilidad: el requisito mínimo de J
 
 ### Sincronización con Git (2026-06-02)
 
-**Resumen:** Sincronización de la bóveda mediante Git, inspirada en Tolaria (que también maneja git a través del CLI del sistema). Implementado en Java con `ProcessBuilder` — sin librerías nativas.
+**Resumen:** Sincronización de la bóveda mediante Git, implementada en Java con `ProcessBuilder` y sin librerías nativas.
 
 - **`git/GitService.java`** (+ `GitStatus`, `GitResult`): `init` (con autor local, `.gitignore` y commit inicial), `status` (nº de cambios + ahead/behind vs upstream con `fetch`), `commit` (reintenta sin firma GPG si falla), `pull --no-rebase`, `push` (clasifica rechazos/auth/red y autoconfigura upstream), `sync` (commit → pull → push) y `setRemote`. Streams drenados en hilos aparte; timeouts.
 - **UI:** indicador Git en la barra de estado (rama, `●` cambios, `↑`/`↓` ahead/behind, `✓` limpio) **clicable para sincronizar**; submenú **Herramientas → Git** (Sincronizar / Commit & push / Pull / Inicializar / Añadir remoto); comandos en la paleta (`Ctrl+Shift+S` para sincronizar).

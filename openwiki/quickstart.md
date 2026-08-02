@@ -51,8 +51,9 @@ The repository already has detailed canonical docs under `docs/` and `README.md`
 ## Change guidance
 
 - For UI changes, start with `MainController` and the relevant `ui/controller/*Support` or `*Controller` class instead of growing `MainController` with feature logic.
-- For storage changes, check both DAO families: `data/dao/sqlite/` and `data/dao/filesystem/`.
+- For storage changes, check both DAO families: `data/dao/sqlite/` and `data/dao/filesystem/`. The new `FileSystemAtomicWriter` handles safe file writes in vault mode.
 - For plugin-related changes, inspect `plugin/`, `ui/components/PluginManagerDialog.java`, and the plugin docs before editing behavior.
+- For Git vault changes, start with `GitService` (command execution), `GitSyncPanel` (UI), and `GitController` (wiring). The panel supports explicit staging, branch operations, and cancellable remote transfers. See docs/GIT.md for the full contract.
 - For workflows that affect search, workspaces, Git integration, graph, or packaging, follow the links above and verify the corresponding tests in `jylos/src/test/java`.
 
 ## Source map
@@ -61,5 +62,9 @@ The repository already has detailed canonical docs under `docs/` and `README.md`
 - UI shell: `jylos/src/main/java/com/example/jylos/ui/controller/MainController.java`
 - Storage: `jylos/src/main/java/com/example/jylos/data/database/SQLiteDB.java`
 - Filesystem vaults: `jylos/src/main/java/com/example/jylos/data/dao/filesystem/NoteDAOFileSystem.java`
+- Safe vault writes: `jylos/src/main/java/com/example/jylos/data/dao/filesystem/FileSystemAtomicWriter.java`
+- Git vault service: `jylos/src/main/java/com/example/jylos/git/GitService.java`
+- Git vault UI: `jylos/src/main/java/com/example/jylos/ui/components/GitSyncPanel.java`
+- Git controller: `jylos/src/main/java/com/example/jylos/ui/controller/GitController.java`
 - Workspace persistence: `jylos/src/main/java/com/example/jylos/workspace/WorkspaceService.java`
 - Update checks: `jylos/src/main/java/com/example/jylos/service/UpdateChecker.java`

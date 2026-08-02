@@ -5,6 +5,8 @@ package com.example.jylos.git;
  *
  * @param repository whether the vault directory is a Git repository
  * @param hasRemote  whether an {@code origin}/remote is configured
+ * @param hasUpstream whether the current branch tracks a remote branch
+ * @param upstream    configured upstream name (empty when none / detached)
  * @param branch     current branch name (empty if unknown / detached)
  * @param modified   number of uncommitted changes ({@code git status --porcelain})
  * @param ahead      commits the local branch is ahead of its upstream
@@ -16,6 +18,8 @@ package com.example.jylos.git;
 public record GitStatus(
         boolean repository,
         boolean hasRemote,
+        boolean hasUpstream,
+        String upstream,
         String branch,
         int modified,
         int ahead,
@@ -23,7 +27,7 @@ public record GitStatus(
 
     /** A non-repository / unavailable state. */
     public static GitStatus none() {
-        return new GitStatus(false, false, "", 0, 0, 0);
+        return new GitStatus(false, false, false, "", "", 0, 0, 0);
     }
 
     /** True when there are local uncommitted changes. */

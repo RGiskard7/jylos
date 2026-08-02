@@ -50,6 +50,7 @@ What it does:
 - Supports deferred/background content loading so large or cloud-backed vaults do not block startup.
 - Treats attachments as vault items when they are viewable file types.
 - Uses a separate metadata store to preserve additional document metadata.
+- Uses `FileSystemAtomicWriter` for safe writes: writes to a same-directory temp file before replacing the target, preventing truncate-first corruption.
 
 This mode is sensitive to I/O behavior and path handling. The code uses locks and cache invalidation to avoid concurrent corruption during refreshes and background loading.
 

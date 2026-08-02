@@ -104,7 +104,7 @@
                 <tooltip><Tooltip text="%tooltip.switch_storage"/></tooltip>
             </Label>
             <Separator fx:id="gitSeparator" orientation="VERTICAL" styleClass="status-separator" visible="false" managed="false"/>
-            <!-- Git bar (vault storage only): remote · changes · commit · sync · history -->
+            <!-- Git bar (vault storage only): remote · changes · commit · branch · history -->
             <HBox fx:id="gitBar" alignment="CENTER_LEFT" spacing="8" minWidth="-Infinity" visible="false" managed="false">
                 <Label fx:id="gitInitLabel" styleClass="status-git" onMouseClicked="#handleGitInitClick"
                        contentDisplay="LEFT" graphicTextGap="5" visible="false" managed="false">

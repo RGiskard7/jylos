@@ -40,9 +40,11 @@ Plugins can contribute menu items, side panels, preview enhancements, editor hoo
 - `jylos/src/main/java/com/example/jylos/ui/controller/MainController.java`
 - `jylos/src/main/java/com/example/jylos/data/database/SQLiteDB.java`
 - `jylos/src/main/java/com/example/jylos/workspace/WorkspaceService.java`
+- `jylos/src/main/java/com/example/jylos/git/GitService.java`
+- `jylos/src/main/java/com/example/jylos/ui/components/GitSyncPanel.java`
 - `jylos/src/main/java/com/example/jylos/plugin/PluginManager.java`
 - `jylos/src/main/java/com/example/jylos/service/UpdateChecker.java`
 
 ## What changed recently
 
-Recent commits emphasize packaging stability, CI workflows, UI refinements, update checking, workspace management, graph/canvas features, and filesystem vault performance. When modifying behavior, prefer the most recent source and tests over older doc patterns.
+Recent commits emphasize the Git vault integration overhaul (scoped staging, branch operations, cancellable remote transfers), packaging stability, CI workflows, UI refinements, update checking, workspace management, graph/canvas features, and filesystem vault performance. When modifying behavior, prefer the most recent source and tests over older doc patterns.

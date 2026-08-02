@@ -8,8 +8,8 @@ import org.jsoup.nodes.Document;
 
 /**
  * Rich links: paste a URL and store it as a small visual "card" (title, site,
- * description, thumbnail) instead of a bare link. Inspired by Glyphary's
- * {@code ::: rich-link} container.
+ * description, thumbnail) instead of a bare link, using a {@code ::: rich-link}
+ * container.
  *
  * <p>This class owns the on-disk Markdown format and the preview rendering, and
  * is deliberately free of any network I/O so it stays pure and unit-testable —

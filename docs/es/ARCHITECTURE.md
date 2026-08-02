@@ -28,7 +28,7 @@ ui/ (FXML, controllers, components, GraphCanvas)
 | `ui.components` | Paleta, quick switcher, diálogos, visores, canvas, tabs, Kanban |
 | `graph` | Construcción del grafo desde notas, wiki-links y tags |
 | `insights` | Métricas y DTOs de salud del grafo |
-| `git` | `GitService`, integración con repos Git de vault |
+| `git` | `GitService`, integración Git acotada a la bóveda |
 | `search` | Parser/modelo y servicio de búsqueda avanzada |
 | `service` | Reglas de aplicación: notas, carpetas, tags, backlinks, títulos, cifrado, backups |
 | `data.dao` | Implementaciones SQLite y filesystem |
@@ -96,6 +96,18 @@ Un tablero es una nota normal con cuerpo Markdown serializado por `KanbanModel`.
 Core no importa clases concretas de plugins. `PluginLoader` escanea `plugins/`. `PluginContext.requestOpenNote(...)` usa callback directo del shell.
 
 `EventBus` queda para fan-out, dominio y extensibilidad. Flujos UI uno-a-uno usan callbacks.
+
+## Git (filesystem vault)
+
+Cuando una bóveda está dentro de un repositorio Git, `GitService` es dueño de ejecutar
+el Git del sistema y `GitSyncPanel` de su presentación asíncrona: estado, staging,
+commits, historial, pull/push y ramas se limitan a la ruta de la bóveda. Esto evita que
+una bóveda anidada incluya trabajo ajeno de un repositorio padre. Crear o cambiar rama
+solo se habilita cuando la bóveda es raíz del repositorio, porque una rama del
+repositorio padre afectaría archivos ajenos. Las operaciones remotas muestran progreso
+nativo coalescido y se pueden cancelar explícitamente. Tras un `pull` correcto, el
+shell usa su flujo canónico de refresco explícito de bóveda para actualizar las vistas
+visibles.
 
 ## Convenciones
 
