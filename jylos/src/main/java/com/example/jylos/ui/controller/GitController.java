@@ -28,7 +28,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Separator;
-import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -65,12 +64,13 @@ public final class GitController {
     private Function<String, String> i18n;
     private Consumer<String> status;
     private Supplier<Scene> sceneSupplier;
+    private Runnable refreshVaultAfterRemoteUpdate;
 
     /** Wires the status-bar nodes and host callbacks. Call once after FXML load. */
     public void wire(Separator gitSeparator, HBox gitBar, Label gitInitLabel, Label gitRemoteLabel,
             Label gitChangesLabel, Label gitCommitLabel, Label gitSyncLabel, Label gitHistoryLabel,
             Preferences prefs, Function<String, String> i18n, Consumer<String> status,
-            Supplier<Scene> sceneSupplier) {
+            Supplier<Scene> sceneSupplier, Runnable refreshVaultAfterRemoteUpdate) {
         this.gitSeparator = gitSeparator;
         this.gitBar = gitBar;
         this.gitInitLabel = gitInitLabel;
@@ -83,50 +83,40 @@ public final class GitController {
         this.i18n = i18n;
         this.status = status;
         this.sceneSupplier = sceneSupplier;
+        this.refreshVaultAfterRemoteUpdate = refreshVaultAfterRemoteUpdate;
     }
 
     // ------------------------------------------------------------------
     // Public actions (called from MainController's FXML/menu handlers)
     // ------------------------------------------------------------------
 
-    /** Runs a full vault sync (stage all → commit → pull → push) asynchronously and updates the status bar on completion. */
+    /** Runs a full vault sync for already staged changes asynchronously. */
     public void sync() {
-        runGitAsync(vault -> gitService.sync(vault, gitCommitMessage()), getString("status.git_syncing"));
+        runGitAsync(vault -> gitService.sync(vault, gitCommitMessage()), getString("status.git_syncing"), true);
     }
 
-    /** Commits all staged changes with a timestamp message and, if successful, immediately pushes to the remote. */
+    /** Commits staged vault changes with a timestamp message, then pushes when successful. */
     public void commitPush() {
         final String message = gitCommitMessage();
         runGitAsync(vault -> {
             GitResult commit = gitService.commit(vault, message);
             return commit.ok() ? gitService.push(vault) : commit;
-        }, getString("status.git_syncing"));
+        }, getString("status.git_syncing"), false);
     }
 
     /** Pulls changes from the remote into the vault asynchronously. */
     public void pull() {
-        runGitAsync(gitService::pull, getString("status.git_pulling"));
+        runGitAsync(gitService::pull, getString("status.git_pulling"), true);
     }
 
     /** Initializes a Git repository in the vault directory ({@code git init}) asynchronously. */
     public void init() {
-        runGitAsync(gitService::init, getString("status.git_initializing"));
+        runGitAsync(gitService::init, getString("status.git_initializing"), false);
     }
 
-    /** Prompts the user for a remote URL and sets it on the vault's Git repository asynchronously. */
+    /** Opens the consolidated workspace at its remote setup action. */
     public void addRemote() {
-        Path vault = gitVaultPath();
-        if (vault == null) {
-            updateStatus(getString("status.git_no_vault"));
-            return;
-        }
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle(getString("dialog.git_remote.title"));
-        dialog.setHeaderText(getString("dialog.git_remote.header"));
-        dialog.setContentText(getString("dialog.git_remote.content"));
-        styleDialog(dialog);
-        dialog.showAndWait().filter(url -> !url.isBlank()).ifPresent(url ->
-                runGitAsync(v -> gitService.setRemote(v, url.trim()), getString("status.git_syncing")));
+        showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget.REMOTE);
     }
 
     /**
@@ -134,13 +124,19 @@ public final class GitController {
      * an activity log) for the current vault. No-op outside vault mode.
      */
     public void showSyncPanel() {
+        showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget.OVERVIEW);
+    }
+
+    /** Opens the unified Git workspace focused on a concrete status-bar task. */
+    public void showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget focusTarget) {
         Path vault = gitVaultPath();
         if (vault == null) {
             updateStatus(getString("status.git_no_vault"));
             return;
         }
         Scene scene = sceneSupplier != null ? sceneSupplier.get() : null;
-        new com.example.jylos.ui.components.GitSyncPanel(gitService, vault, this::getString, scene).show();
+        new com.example.jylos.ui.components.GitSyncPanel(gitService, vault, this::getString, scene,
+                this::refreshVaultAfterRemoteUpdate).show(focusTarget);
         refreshStatus();
     }
 
@@ -193,7 +189,7 @@ public final class GitController {
     }
 
     /** Runs a Git operation off the FX thread, then reports it and refreshes status. */
-    private void runGitAsync(Function<Path, GitResult> op, String runningMessage) {
+    private void runGitAsync(Function<Path, GitResult> op, String runningMessage, boolean refreshVaultOnSuccess) {
         Path vault = gitVaultPath();
         if (vault == null) {
             updateStatus(getString("status.git_no_vault"));
@@ -207,11 +203,21 @@ public final class GitController {
             }
         };
         task.setOnSucceeded(e -> {
-            updateStatus(describeGitResult(task.getValue()));
+            GitResult result = task.getValue();
+            updateStatus(describeGitResult(result));
+            if (refreshVaultOnSuccess && result != null && result.status() == GitResult.Status.OK) {
+                refreshVaultAfterRemoteUpdate();
+            }
             refreshStatus();
         });
         task.setOnFailed(e -> updateStatus(getString("status.git_error")));
         runDaemon(task, "git-op");
+    }
+
+    private void refreshVaultAfterRemoteUpdate() {
+        if (refreshVaultAfterRemoteUpdate != null) {
+            refreshVaultAfterRemoteUpdate.run();
+        }
     }
 
     /** Maps a {@link GitResult} to an i18n status label, appending the raw Git message on failure (truncated at 160 chars). */
@@ -223,6 +229,12 @@ public final class GitController {
             case OK -> "status.git_ok";
             case NOTHING_TO_DO -> "status.git_nothing";
             case NO_REMOTE -> "status.git_no_remote";
+            case NO_UPSTREAM -> "status.git_no_upstream";
+            case DIRTY_WORKTREE -> "status.git_dirty_worktree";
+            case BRANCH_SCOPE_UNSUPPORTED -> "status.git_branch_scope_unsupported";
+            case INDEX_LOCKED -> "status.git_index_locked";
+            case OUTSIDE_VAULT_STAGED -> "status.git_outside_vault_staged";
+            case INCOMPATIBLE_HISTORY -> "status.git_incompatible_history";
             case REJECTED -> "status.git_rejected";
             case AUTH_ERROR -> "status.git_auth";
             case NETWORK_ERROR -> "status.git_network";
@@ -299,7 +311,7 @@ public final class GitController {
         UiDialogs.apply(dialog);
     }
 
-    /** History dialog: recent commits across all branches. */
+    /** History dialog: recent commits affecting the current vault. */
     public void showHistoryDialog() {
         Path vault = gitVaultPath();
         if (vault == null) {

@@ -5,7 +5,8 @@ package com.example.jylos.git;
  *
  * @param relativePath path relative to the vault root (forward slashes)
  * @param fileName     display file name (last path segment)
- * @param status       short human label: "modified", "added", "deleted", "renamed", "untracked"
+ * @param status       short human label: "modified", "added", "deleted", "renamed", "untracked",
+ *                     "conflicted", or "nested_repository_dirty"
  * @param added        added line count (best-effort; -1 if unknown/binary)
  * @param deleted      deleted line count (best-effort; -1 if unknown/binary)
  * @param staged       whether the change is staged in the index
