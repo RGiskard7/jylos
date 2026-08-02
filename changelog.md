@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.4.11] - 2026-08-02
+
+- Se corrige una regresión de rendimiento en el panel Git de vaults grandes: el refresco ya no ejecuta consultas Git ni lecturas de contenido por cada archivo cambiado. La resolución de rutas y submódulos se realiza una vez por refresco, y los archivos sin seguimiento no se abren para calcular estadísticas opcionales.
+
 ## [2.4.10] - 2026-08-02
 
 - La integración Git de vault se alinea con el flujo de Git estándar: los commits respetan el staging explícito por archivo, `Sync` ya no hace `git add -A` implícito y el primer `Push` configura el upstream de la rama actual.

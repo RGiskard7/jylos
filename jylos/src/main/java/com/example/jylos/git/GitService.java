@@ -16,7 +16,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Stream;
 
 import com.example.jylos.config.LoggerConfig;
 
@@ -58,6 +57,10 @@ public final class GitService {
             String e = err != null ? err.trim() : "";
             return e.isEmpty() ? (out != null ? out.trim() : "") : e;
         }
+    }
+
+    /** Resolved once per operation to translate repository paths into vault paths. */
+    private record RepositoryLayout(Path root, Path vault) {
     }
 
     private final Object activeProcessLock = new Object();
@@ -481,17 +484,26 @@ public final class GitService {
 
     // ── Changes, staging & history ────────────────────────────────────────────
 
-    /** Lists every uncommitted change beneath the vault, with best-effort line statistics. */
+    /**
+     * Lists every uncommitted change beneath the vault, with best-effort line statistics.
+     * Untracked files intentionally omit line counts so a large vault can be listed
+     * without opening every file during a UI refresh.
+     */
     public List<GitChange> listChanges(Path dir) {
         List<GitChange> changes = new ArrayList<>();
         if (!isRepository(dir)) {
+            return changes;
+        }
+        RepositoryLayout layout = repositoryLayout(dir);
+        if (layout == null) {
             return changes;
         }
         Proc status = run(dir, "status", "--porcelain=v1", "-z", "--untracked-files=all", "--", ".");
         if (!status.success()) {
             return changes;
         }
-        java.util.Map<String, int[]> stats = numstat(dir);
+        java.util.Map<String, int[]> stats = numstat(dir, layout);
+        Set<String> gitlinks = gitlinkPaths(dir);
         String[] entries = status.out().split("\u0000", -1);
         for (int index = 0; index < entries.length; index++) {
             String entry = entries[index];
@@ -506,7 +518,7 @@ public final class GitService {
                     break;
                 }
             }
-            String path = vaultRelativePath(dir, repositoryPath);
+            String path = vaultRelativePath(layout, repositoryPath);
             if (path == null) {
                 logger.fine("Ignoring Git status path outside vault: " + repositoryPath);
                 continue;
@@ -514,8 +526,9 @@ public final class GitService {
             int added;
             int deleted;
             if (code.equals("??")) {
-                added = countFileLines(dir.resolve(path));
-                deleted = 0;
+                // Do not read every untracked file just to show optional line statistics.
+                added = -1;
+                deleted = -1;
             } else {
                 int[] s = stats.get(path);
                 added = s != null ? s[0] : -1;
@@ -523,7 +536,7 @@ public final class GitService {
             }
             String fileName = path.contains("/") ? path.substring(path.lastIndexOf('/') + 1) : path;
             boolean nestedRepositoryDirty = code.length() == 2 && code.charAt(1) != ' '
-                    && isDirtyNestedRepository(dir, path);
+                    && gitlinks.contains(path) && isDirtyNestedRepository(dir, path, gitlinks);
             addChangesForPorcelainEntry(changes, code, path, fileName, added, deleted, nestedRepositoryDirty);
         }
         return changes;
@@ -646,7 +659,7 @@ public final class GitService {
         return null;
     }
 
-    private java.util.Map<String, int[]> numstat(Path dir) {
+    private java.util.Map<String, int[]> numstat(Path dir, RepositoryLayout layout) {
         java.util.Map<String, int[]> map = new java.util.HashMap<>();
         Proc head = run(dir, "rev-parse", "--verify", "HEAD");
         if (!head.success()) {
@@ -661,21 +674,13 @@ public final class GitService {
             if (parts.length >= 3) {
                 int added = "-".equals(parts[0]) ? -1 : parseInt(parts[0]);
                 int deleted = "-".equals(parts[1]) ? -1 : parseInt(parts[1]);
-                String path = vaultRelativePath(dir, parts[2]);
+                String path = vaultRelativePath(layout, parts[2]);
                 if (path != null) {
                     map.put(path, new int[] { added, deleted });
                 }
             }
         }
         return map;
-    }
-
-    private static int countFileLines(Path file) {
-        try (Stream<String> lines = Files.lines(file, StandardCharsets.UTF_8)) {
-            return (int) lines.count();
-        } catch (Exception e) {
-            return -1;
-        }
     }
 
     /**
@@ -931,6 +936,14 @@ public final class GitService {
 
     private List<String> dirtyNestedRepositoryPaths(Path dir) {
         List<String> paths = new ArrayList<>();
+        RepositoryLayout layout = repositoryLayout(dir);
+        if (layout == null) {
+            return paths;
+        }
+        Set<String> gitlinks = gitlinkPaths(dir);
+        if (gitlinks.isEmpty()) {
+            return paths;
+        }
         Proc status = run(dir, "status", "--porcelain=v1", "-z", "--untracked-files=all", "--", ".");
         if (!status.success()) {
             return paths;
@@ -947,8 +960,8 @@ public final class GitService {
                 logger.warning("Ignoring incomplete Git nested-repository status entry");
                 break;
             }
-            String path = vaultRelativePath(dir, repositoryPath);
-            if (path != null && isDirtyNestedRepository(dir, path)) {
+            String path = vaultRelativePath(layout, repositoryPath);
+            if (path != null && gitlinks.contains(path) && isDirtyNestedRepository(dir, path, gitlinks)) {
                 paths.add(path);
             }
         }
@@ -957,10 +970,14 @@ public final class GitService {
 
     private boolean isDirtyNestedRepository(Path dir, String relativePath) {
         String path = validVaultRelativePath(relativePath);
-        if (path == null || !isGitlink(dir, path)) {
+        return path != null && isDirtyNestedRepository(dir, path, gitlinkPaths(dir));
+    }
+
+    private boolean isDirtyNestedRepository(Path dir, String relativePath, Set<String> gitlinks) {
+        if (!gitlinks.contains(relativePath)) {
             return false;
         }
-        Path nested = dir.resolve(path);
+        Path nested = dir.resolve(relativePath);
         if (!isRepository(nested)) {
             return false;
         }
@@ -968,33 +985,54 @@ public final class GitService {
         return status.success() && !status.out().isBlank();
     }
 
-    private boolean isGitlink(Path dir, String relativePath) {
-        Proc entry = run(dir, "ls-files", "--stage", "--", relativePath);
-        return entry.success() && entry.out().lines().anyMatch(line -> line.startsWith("160000 "));
+    /** Returns tracked submodule paths with one index read instead of probing each changed path. */
+    private Set<String> gitlinkPaths(Path dir) {
+        Proc entries = run(dir, "ls-files", "--stage", "-z", "--");
+        if (!entries.success()) {
+            return Set.of();
+        }
+        Set<String> paths = new HashSet<>();
+        for (String entry : entries.out().split("\u0000", -1)) {
+            int separator = entry.indexOf('\t');
+            if (separator > 0 && entry.startsWith("160000 ")) {
+                String path = validVaultRelativePath(entry.substring(separator + 1));
+                if (path != null) {
+                    paths.add(path);
+                }
+            }
+        }
+        return paths;
     }
 
-    /**
-     * Converts a porcelain path, which Git defines relative to the repository root,
-     * into the vault-relative form accepted by operations run from {@code dir}.
-     *
-     * <p>This matters when a vault is a directory within a larger repository: Git
-     * reports {@code vault/note.md}, whereas {@code git add} executed in the vault
-     * must receive {@code note.md}.</p>
-     */
-    private String vaultRelativePath(Path dir, String repositoryPath) {
+    /** Resolves the repository root and vault path once for a Git operation. */
+    private RepositoryLayout repositoryLayout(Path dir) {
         Path root = repositoryRoot(dir);
-        if (root == null || repositoryPath == null || repositoryPath.isBlank()) {
+        if (root == null || dir == null) {
             return null;
         }
         try {
-            Path vault = dir.toRealPath();
-            Path document = root.toRealPath().resolve(repositoryPath).normalize();
-            if (!document.startsWith(vault)) {
+            return new RepositoryLayout(root.toRealPath(), dir.toRealPath());
+        } catch (IOException | RuntimeException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Converts a repository-relative porcelain path into the vault-relative path
+     * accepted by operations executed from the vault.
+     */
+    private static String vaultRelativePath(RepositoryLayout layout, String repositoryPath) {
+        if (layout == null || repositoryPath == null || repositoryPath.isBlank()) {
+            return null;
+        }
+        try {
+            Path document = layout.root().resolve(repositoryPath).normalize();
+            if (!document.startsWith(layout.vault())) {
                 return null;
             }
-            String relative = vault.relativize(document).toString().replace('\\', '/');
+            String relative = layout.vault().relativize(document).toString().replace('\\', '/');
             return validVaultRelativePath(relative);
-        } catch (IOException | RuntimeException e) {
+        } catch (RuntimeException e) {
             return null;
         }
     }
