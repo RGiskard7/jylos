@@ -568,7 +568,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 () -> mainSplitPane != null ? mainSplitPane.getScene() : null;
         gitController.wire(gitSeparator, gitBar, gitInitLabel, gitRemoteLabel, gitChangesLabel,
                 gitCommitLabel, gitSyncLabel, gitHistoryLabel, prefs, this::getString, this::updateStatus,
-                sceneSupplier);
+                sceneSupplier, () -> handleRefresh(null));
         privacySupport.wire(this::getString, this::updateStatus, sceneSupplier);
         backlinksSupport.wire(backlinksContent, backlinkService, noteService, this::getString,
                 this::loadNoteInEditor,
@@ -2049,13 +2049,17 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     // FXML-bound status-bar click handlers, which simply delegate.
     // ------------------------------------------------------------------
 
-    @FXML private void handleGitStatusClick(javafx.scene.input.MouseEvent event)  { gitController.sync(); }
+    @FXML private void handleGitStatusClick(javafx.scene.input.MouseEvent event)  {
+        gitController.showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget.BRANCH);
+    }
     @FXML private void handleGitInitClick(javafx.scene.input.MouseEvent event)    { gitController.init(); }
     @FXML private void handleGitRemoteClick(javafx.scene.input.MouseEvent event)  { gitController.addRemote(); }
-    // Changes and commit both open the consolidated Git Sync panel (status + changes +
-    // commit + pull/push/sync + log), which superseded the standalone changes/commit dialogs.
-    @FXML private void handleGitCommitClick(javafx.scene.input.MouseEvent event)  { gitController.showSyncPanel(); }
-    @FXML private void handleGitChangesClick(javafx.scene.input.MouseEvent event) { gitController.showSyncPanel(); }
+    @FXML private void handleGitCommitClick(javafx.scene.input.MouseEvent event)  {
+        gitController.showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget.COMMIT);
+    }
+    @FXML private void handleGitChangesClick(javafx.scene.input.MouseEvent event) {
+        gitController.showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget.CHANGES);
+    }
     @FXML private void handleGitHistoryClick(javafx.scene.input.MouseEvent event) { gitController.showHistoryDialog(); }
 
     /** Applies the active theme stylesheet to a dialog and sets its owner window. */

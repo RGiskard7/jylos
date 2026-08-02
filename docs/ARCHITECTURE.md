@@ -28,7 +28,7 @@ ui/ (FXML, controllers, components, GraphCanvas)
 | `ui.components` | `CommandPalette`, `QuickSwitcher`, `PluginManagerDialog`, `GitSyncPanel`, `KnowledgeInsightsPanel`, `FileViewer`, `CanvasView`, `EditorTabs` (open-note tab strip), `KanbanBoard` (Kanban overlay) |
 | `graph` | `GraphBuilder`, `GraphData` — vault graph from notes, wiki-links, tags |
 | `insights` | `KnowledgeInsightsService`, `GraphAnalysisService`, immutable graph-health DTOs |
-| `git` | `GitService` — status, stage, commit, sync when vault is a Git repo |
+| `git` | `GitService` — vault-scoped status, stage, commit and sync when a vault is a Git repo |
 | `search` | Search query parser/model plus `AdvancedSearchService` |
 | `service` | Business rules (`NoteService`, `FolderService`, `TagService` for note-tag relationships, `BacklinkService`, `NoteTitleIndex`, `EncryptionService`, `DatabaseBackupService`, …) |
 | `data.dao` | SQLite and filesystem implementations |
@@ -115,7 +115,7 @@ session generation). Switching between `sqlite` and `filesystem` still requires 
 
 ## Git (filesystem vault)
 
-When the vault directory is inside a Git repository, `GitService` drives the status-bar Git UI and changes dialog (stage/unstage, commit, pull/push). Attachments (PDF, images) appear in change lists alongside `.md` notes.
+When the vault directory is inside a Git repository, `GitService` owns system-Git execution and `GitSyncPanel` owns asynchronous presentation (stage/unstage, commit, pull/push, local branch creation and switching). Every operation is scoped to the vault path, which prevents a nested vault from staging or committing unrelated files in a parent repository. Branch changes are available only when the vault is the repository root, because switching a parent repository from a nested vault would affect unrelated files. Remote work reports coalesced native Git progress, is explicitly cancellable, and triggers the shell's existing explicit vault-refresh flow after a successful pull. Attachments (PDF, images) and vault support files appear in change lists alongside `.md` notes.
 
 ## Plugins
 

@@ -2766,14 +2766,18 @@
 .git-change-title  { -fx-font-size: 13px; -fx-font-weight: 600; -fx-text-fill: -fx-text-main; }
 .git-change-path   { -fx-font-size: 11px; -fx-text-fill: -fx-text-faint; }
 .git-change-stats  { -fx-font-size: 11px; -fx-text-fill: -fx-success; }
+.git-change-state  { -fx-font-size: 10px; -fx-text-fill: -fx-text-faint; }
+.git-change-state-staged { -fx-text-fill: -fx-success; }
 .git-stage-btn {
     -fx-background-color: transparent;
     -fx-border-color: -fx-fn-border-color;
     -fx-border-radius: 4;
     -fx-background-radius: 4;
     -fx-text-fill: -fx-accent;
-    -fx-font-size: 14px;
-    -fx-min-width: 28px;
+    -fx-font-size: 11px;
+    -fx-min-width: 72px;
+    -fx-min-height: 30px;
+    -fx-padding: 5 10;
     -fx-cursor: hand;
 }
 .git-stage-btn:hover { -fx-background-color: -fx-hover-bg; }
@@ -2822,6 +2826,29 @@
     -fx-font-size: 11px;
     -fx-text-fill: -fx-text-muted;
 }
+
+/* Git workspace: clear operation state and compact, readable controls. */
+.git-operation-status {
+    -fx-font-size: 12px;
+    -fx-font-weight: 600;
+    -fx-text-fill: -fx-text-muted;
+}
+.git-operation-status:error { -fx-text-fill: -fx-danger; }
+.git-workflow-hint {
+    -fx-font-size: 12px;
+    -fx-text-fill: -fx-text-muted;
+    -fx-padding: 6 8 6 8;
+    -fx-background-color: -fx-hover-bg;
+    -fx-background-radius: 5;
+}
+.git-branch-menu {
+    -fx-font-size: 13px;
+    -fx-font-weight: 700;
+    -fx-text-fill: -fx-text-main;
+    -fx-background-color: transparent;
+    -fx-padding: 2 6 2 6;
+}
+.git-branch-menu:hover { -fx-background-color: -fx-hover-bg; -fx-background-radius: 4; }
 
 /* ── Overlay windows (Command Palette / Quick Switcher) ─────────────────── */
 .overlay-backdrop {
@@ -4022,13 +4049,6 @@
     -fx-padding: 6 16;
 }
 
-.dialog-pane .git-stage-btn {
-    -fx-min-width: 34px;
-    -fx-pref-width: 34px;
-    -fx-max-width: 34px;
-    -fx-padding: 0;
-}
-
 .dialog-pane .text-field,
 .dialog-pane .password-field,
 .dialog-pane .text-area,
@@ -4073,6 +4093,23 @@
 
 .dialog-pane .git-change-badge {
     -fx-font-weight: 600;
+}
+
+/* Git Sync keeps the normal dialog palette. */
+.git-sync-dialog > .content,
+.git-sync-dialog .git-sync-root {
+    -fx-background-color: -fx-base-bg;
+}
+.git-sync-dialog .git-sync-repository {
+    -fx-spacing: 6;
+}
+.git-sync-dialog .git-sync-activity {
+    -fx-padding: 8 0 0 0;
+    -fx-border-color: -fx-fn-border-color transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+.git-sync-dialog .git-sync-changes {
+    -fx-background-color: -fx-base-bg;
 }
 
 /* Graph and Kanban top bars use graph-toolbar, not the main app toolbar. */

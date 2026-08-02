@@ -118,6 +118,11 @@ public final class UiDialogs {
         if (root == null) {
             return;
         }
+        // Snippets use the conventional .root.theme-* selector. DialogPane is a
+        // separate scene root, so give it the same semantic root marker as the app.
+        if (!root.getStyleClass().contains("root")) {
+            root.getStyleClass().add("root");
+        }
         root.getStyleClass().removeIf(styleClass -> styleClass.startsWith("theme-"));
         for (String styleClass : rootThemeClasses) {
             if (!root.getStyleClass().contains(styleClass)) {
