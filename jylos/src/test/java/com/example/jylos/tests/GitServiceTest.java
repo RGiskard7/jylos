@@ -140,6 +140,9 @@ class GitServiceTest {
         assertTrue(changes.stream().anyMatch(c -> c.fileName().equals("note.md")), "note listed");
         assertTrue(changes.stream().anyMatch(c -> c.fileName().equals("image.png")), "attachment listed");
         assertTrue(changes.stream().noneMatch(com.example.jylos.git.GitChange::staged), "all unstaged initially");
+        assertTrue(changes.stream().filter(c -> c.fileName().equals("note.md"))
+                .allMatch(c -> c.added() == -1 && c.deleted() == -1),
+                "untracked files must not be read merely to calculate optional line statistics");
 
         // Stage only the note → it becomes staged, the image stays unstaged.
         assertTrue(git.stage(vault, "note.md").ok());
@@ -213,6 +216,39 @@ class GitServiceTest {
         assertEquals(GitResult.Status.NESTED_REPOSITORY_DIRTY, git.stageAll(vault).status());
         assertEquals(GitResult.Status.NESTED_REPOSITORY_DIRTY, git.sync(vault, "sync").status());
         assertTrue(runGitOutput(vault, "status", "--porcelain").contains(" M nested"));
+    }
+
+    @Test
+    void nestedVaultRecognizesDirtySubmodulesUsingVaultRelativePaths(@TempDir Path temp) throws Exception {
+        Path repository = temp.resolve("repository");
+        Path vault = repository.resolve("vault");
+        Path nestedSource = temp.resolve("nested-source");
+        Files.createDirectories(vault);
+        Files.createDirectories(nestedSource);
+        runGit(repository.getParent(), "init", repository.getFileName().toString());
+        runGit(repository, "config", "user.name", "Test User");
+        runGit(repository, "config", "user.email", "test@example.com");
+        Files.writeString(vault.resolve("note.md"), "base\n", StandardCharsets.UTF_8);
+        runGit(repository, "add", ".");
+        runGit(repository, "commit", "-m", "base");
+
+        runGit(nestedSource, "init");
+        runGit(nestedSource, "config", "user.name", "Test User");
+        runGit(nestedSource, "config", "user.email", "test@example.com");
+        Files.writeString(nestedSource.resolve("base.md"), "base\n", StandardCharsets.UTF_8);
+        runGit(nestedSource, "add", "base.md");
+        runGit(nestedSource, "commit", "-m", "base");
+
+        runGit(repository, "-c", "protocol.file.allow=always", "submodule", "add",
+                nestedSource.toUri().toString(), "vault/nested");
+        runGit(repository, "add", ".");
+        runGit(repository, "commit", "-m", "add nested repository");
+        Files.writeString(vault.resolve("nested").resolve("draft.md"), "draft\n", StandardCharsets.UTF_8);
+
+        GitChange nested = git.listChanges(vault).stream().findFirst().orElseThrow();
+        assertEquals("nested", nested.relativePath());
+        assertEquals("nested_repository_dirty", nested.status());
+        assertEquals(GitResult.Status.NESTED_REPOSITORY_DIRTY, git.stage(vault, "nested").status());
     }
 
     @Test

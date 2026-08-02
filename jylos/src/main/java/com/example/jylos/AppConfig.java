@@ -40,7 +40,7 @@ public final class AppConfig {
                 properties.setProperty("app.vendor", "Jylos");
                 properties.setProperty("app.description", "A free and open-source note-taking application");
                 properties.setProperty("app.copyright", "Copyright © 2026 Eduardo Díaz Sánchez");
-                properties.setProperty("app.window.title", "Jylos - Free Note Taking");
+                properties.setProperty("app.window.title", "Jylos - Local-first Knowledge Management");
                 return;
             }
             
@@ -59,7 +59,7 @@ public final class AppConfig {
             properties.setProperty("app.vendor", "Jylos");
             properties.setProperty("app.description", "A free and open-source note-taking application");
             properties.setProperty("app.copyright", "Copyright © 2026 Eduardo Díaz Sánchez");
-            properties.setProperty("app.window.title", "Jylos - Free Note Taking");
+            properties.setProperty("app.window.title", "Jylos - Local-first Knowledge Management");
         }
     }
     
@@ -98,7 +98,7 @@ public final class AppConfig {
     
     /** @return main window title */
     public static String getWindowTitle() {
-        return getProperty("app.window.title", "Jylos - Free Note Taking");
+        return getProperty("app.window.title", "Jylos - Local-first Knowledge Management");
     }
     
     /** @return JavaFX window icon path, relative to the resources root */
