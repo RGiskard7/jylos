@@ -90,6 +90,7 @@ Examples:
 
 - FXML loads
 - required `fx:id` nodes exist
+- the embedded CodeMirror bridge loads and preserves document/undo semantics, platform clipboard and context-menu behavior, read-only protections, link routing, fenced-language highlighting and source/Live Preview switching without mutating text
 - critical toolbar/panel remains visible after loading a note
 - attachment viewers expose essential controls such as PDF page navigation
 

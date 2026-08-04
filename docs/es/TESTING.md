@@ -41,6 +41,7 @@ No usar guardas para estilo trivial, logs, comentarios o nombres privados.
 ### Smoke UI
 
 Para wiring FXML barato: carga de vistas, `fx:id` críticos, toolbars/paneles visibles, controles esenciales de visores.
+El puente CodeMirror se prueba cargando el WebView real y verificando documento, edición, deshacer/rehacer, portapapeles y menú contextual de plataforma, protección de solo lectura, navegación de enlaces, resaltado de lenguajes fenced y cambio entre fuente/vista previa en vivo sin mutar texto.
 
 No intentar automatizar QA visual complejo con unit tests.
 

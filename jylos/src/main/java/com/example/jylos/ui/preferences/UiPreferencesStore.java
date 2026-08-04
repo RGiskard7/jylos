@@ -19,6 +19,7 @@ public final class UiPreferencesStore {
     public static final String UI_FONT_SIZE_KEY = "ui.font.size";
     public static final String SNIPPETS_ENABLED_KEY = "ui.snippets.enabled";
     public static final String UI_ACCENT_KEY = "ui.accent.color";
+    public static final String MARKDOWN_LIVE_PREVIEW_KEY = "ui.editor.live_preview";
     public static final String SPLIT_MAIN_KEY = "ui.split.main";
     public static final String SPLIT_CONTENT_KEY = "ui.split.content";
     public static final double DEFAULT_SPLIT_MAIN = 0.22;
@@ -43,6 +44,7 @@ public final class UiPreferencesStore {
      * @param notesPreviewLines number of preview lines shown in the notes list
      * @param uiFontSize base UI font size
      * @param accentColor optional custom accent color
+     * @param livePreviewEnabled whether editing uses Live Preview instead of source mode
      */
     public record UiPreferencesData(
             boolean autosaveEnabled,
@@ -51,7 +53,8 @@ public final class UiPreferencesStore {
             String externalThemeId,
             int notesPreviewLines,
             int uiFontSize,
-            String accentColor) {
+            String accentColor,
+            boolean livePreviewEnabled) {
     }
 
     public UiPreferencesData load(Preferences prefs) {
@@ -73,7 +76,7 @@ public final class UiPreferencesStore {
                 prefs != null ? prefs.getInt(UI_FONT_SIZE_KEY, DEFAULT_UI_FONT_SIZE) : DEFAULT_UI_FONT_SIZE);
         String accent = sanitizeAccent(prefs != null ? prefs.get(UI_ACCENT_KEY, "") : "");
         return new UiPreferencesData(autosaveEnabled, autosaveIdleMs, source, externalId, previewLines, fontSize,
-                accent);
+                accent, loadLivePreviewEnabled(prefs));
     }
 
     public void save(Preferences prefs, UiPreferencesData value) {
@@ -85,6 +88,7 @@ public final class UiPreferencesStore {
         prefs.putInt(NOTES_PREVIEW_LINES_KEY, clampPreviewLines(value.notesPreviewLines()));
         prefs.putInt(UI_FONT_SIZE_KEY, clampFontSize(value.uiFontSize()));
         prefs.put(UI_ACCENT_KEY, sanitizeAccent(value.accentColor()));
+        prefs.putBoolean(MARKDOWN_LIVE_PREVIEW_KEY, value.livePreviewEnabled());
 
         String source = THEME_SOURCE_EXTERNAL.equals(value.themeSource()) ? THEME_SOURCE_EXTERNAL : THEME_SOURCE_BUILTIN;
         prefs.put(THEME_SOURCE_KEY, source);
@@ -124,6 +128,18 @@ public final class UiPreferencesStore {
             }
         }
         prefs.put(SNIPPETS_ENABLED_KEY, sb.toString());
+    }
+
+    /** Returns whether Markdown editing should use source-backed Live Preview. */
+    public boolean loadLivePreviewEnabled(Preferences prefs) {
+        return prefs == null || prefs.getBoolean(MARKDOWN_LIVE_PREVIEW_KEY, true);
+    }
+
+    /** Persists the Markdown presentation independently from editing/reading layout. */
+    public void saveLivePreviewEnabled(Preferences prefs, boolean enabled) {
+        if (prefs != null) {
+            prefs.putBoolean(MARKDOWN_LIVE_PREVIEW_KEY, enabled);
+        }
     }
 
     public static String sanitizeAccent(String value) {

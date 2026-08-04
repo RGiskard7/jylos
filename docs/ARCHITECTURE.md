@@ -48,13 +48,17 @@ ui/ (FXML, controllers, components, GraphCanvas)
 - **Overlays** — graph (`GraphView.fxml` + `GraphController` + `GraphCanvas`) and Kanban (`KanbanBoard`) share the center `StackPane` and are mutually exclusive; both managed by `OverlaySupport`. Toggled via `SystemActionEvent.GRAPH_VIEW` (`Ctrl/Cmd+G`) and `KANBAN_VIEW` (`Ctrl/Cmd+K`).
 - Sidebar — icon nav bar + `TabPane` (folders, tags, recent, favorites, trash).
 - Notes list — custom `ListCell` (title, preview lines, dates, pin/favorite icons).
-- Editor — `EditorTabs` strip (one tab per open note) above a **RichTextFX `CodeArea`** used for native Markdown text editing + `WebView` preview (`MarkdownPreview`, wiki-link clicks via `jylos://` protocol). Inline save indicator; `[[` autocomplete.
+- Editor — `EditorTabs` strip (one tab per open note) above `MarkdownEditorView`, the JavaFX boundary for an offline **CodeMirror 6** source/Live Preview editor, plus a separate reading `WebView` (`MarkdownPreview`, wiki-link clicks via `jylos://` protocol). Inline save indicator; `[[` autocomplete.
 - Right panel — note metadata, **backlinks** (`BacklinksSupport` + `BacklinkService`), plugin side panels.
 - **Focus / writing mode** (`FocusModeSupport`, `Ctrl/Cmd+Shift+F`) — removes sidebar, notes list, right panel, toolbar and status bar, leaving only the editor; restores the prior layout on exit.
 
 ### Markdown editing and preview
 
-`CodeArea` owns native text input, selection, clipboard and undo/redo. Jylos deliberately does not apply document-wide style spans while the user edits: that avoids destabilising RichTextFX's native composition and caret state on macOS. `MarkdownPreview` renders the editor text off the FX thread with CommonMark, then loads the generated HTML in JavaFX `WebView`; preview-only code highlighting and KaTeX use bundled offline assets. Non-printable separators from external content are normalized only in the preview input so WebView does not draw replacement boxes; the in-memory and persisted Markdown remain unchanged.
+`MarkdownEditorView` is the only Java-to-JavaScript boundary. CodeMirror owns document transactions, selection, syntax highlighting, Live Preview decorations, history, platform shortcuts, search/replace and autocomplete; `EditorController` owns note state, save/preview orchestration and plugin hooks. Source and Live Preview are two presentations of the same `EditorState`: Live Preview derives viewport decorations from the Lezer syntax tree, reveals Markdown for the active block and never rewrites the document. A fresh state is installed when switching documents so undo history never crosses tabs.
+
+The shell exposes two semantic states through one book/pencil action: editing (Live Preview by default, or source according to the UI preference) and reading. The linked side-by-side reading view is an independent layout action available from View and the command palette. Internally, `UiLayout.ViewMode` preserves these arrangements for workspace persistence; it does not create another document or editor state.
+
+The pinned npm dependencies are bundled with esbuild and committed as a local resource, so editing never requires network access. `MarkdownPreview` remains a separate CommonMark reading pipeline rendered off the FX thread and loaded in JavaFX `WebView`; it is the full-render owner for recursive transclusion, highlight.js, KaTeX and preview plugin enhancers. It is deliberately not editable, avoiding HTML-to-Markdown round trips and duplicate document state.
 
 ## Knowledge graph
 

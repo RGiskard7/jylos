@@ -260,6 +260,21 @@ public class ToolbarController {
     }
 
     @FXML
+    private void handleToggleReadingMode(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.TOGGLE_READING_MODE);
+    }
+
+    @FXML
+    private void handleSplitViewMode(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.SPLIT_VIEW_MODE);
+    }
+
+    @FXML
+    private void handleToggleSourceMode(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.TOGGLE_SOURCE_MODE);
+    }
+
+    @FXML
     private void handleGraphView(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.GRAPH_VIEW);
     }

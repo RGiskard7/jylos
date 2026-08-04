@@ -50,7 +50,9 @@ Compila `plugins-source/` con `javac --release 21` y escribe JARs en `jylos/plug
 
 ## Hooks de editor
 
-- `onBeforeTextInsert` transforma snippets programáticos.
+- `onBeforeTextInsert` transforma inserciones programáticas (diálogos de
+  enlace/imagen, autocompletado `[[` y plantilla de tarea), no pulsaciones ni
+  pegado; devolver `null` conserva el valor original.
 - `onBeforeSave` transforma contenido antes de persistir.
 - `onAfterSave` observa guardado correcto.
 

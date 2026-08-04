@@ -42,7 +42,7 @@ This structure is important for maintainability: changes should usually land in 
 
 ### Editing and preview
 
-The app uses JavaFX, RichTextFX, Markdown rendering utilities, and a preview panel to support live editing. Notes can be opened in tabs, edited, previewed, and linked to other notes through wiki-style links.
+The app uses JavaFX with an offline CodeMirror 6 editor, Markdown rendering utilities, and a separate reading preview. Notes can be opened in tabs, edited in source or Live Preview presentation, rendered for reading, and linked through wiki-style links.
 
 ### Graph, backlinks, and link navigation
 

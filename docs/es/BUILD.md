@@ -69,6 +69,23 @@ Windows:
 .\scripts\build-themes.ps1
 ```
 
+## Bundle del editor CodeMirror
+
+Los builds Maven normales usan el bundle offline generado e incluido en
+`jylos/src/main/resources`; no hace falta Node.js para compilar o ejecutar Jylos. Después
+de modificar cualquier fichero de `jylos/editor-web/src/` o sus dependencias npm fijadas, regenera
+el asset desde la raíz del repositorio:
+
+```bash
+./scripts/build-editor-web.sh
+```
+
+```powershell
+.\scripts\build-editor-web.ps1
+```
+
+Los scripts usan `npm ci` y `package-lock.json`, y empaquetan CodeMirror con esbuild.
+
 ## Empaquetado
 
 Ver [PACKAGING.md](PACKAGING.md).

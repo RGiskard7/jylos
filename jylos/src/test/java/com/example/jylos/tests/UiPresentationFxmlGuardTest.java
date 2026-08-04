@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import com.example.jylos.data.models.Note;
+import com.example.jylos.ui.components.MarkdownEditorView;
 import com.example.jylos.ui.controller.EditorController;
 
 import javafx.application.Platform;
@@ -20,7 +21,6 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.ScrollBar;
@@ -51,73 +51,32 @@ class UiPresentationFxmlGuardTest {
     }
 
     @Test
-    void editorViewShouldStartWithCollapsedTagsAndViewModeIconsAvailable() throws Exception {
+    void editorViewShouldStartWithCollapsedTagsAndReadingControlAvailable() throws Exception {
         Assumptions.assumeTrue(fxRuntimeAvailable);
 
         Map<String, Object> nodes = loadNamespace("/com/example/jylos/ui/view/EditorView.fxml");
         Node toggleTagsBtn = node(nodes, "toggleTagsBtn");
         Node tagsContainer = node(nodes, "tagsContainer");
-        Node editorOnlyButton = node(nodes, "editorOnlyButton");
-        Node splitViewButton = node(nodes, "splitViewButton");
-        Node previewOnlyButton = node(nodes, "previewOnlyButton");
+        Node readingModeButton = node(nodes, "readingModeButton");
 
         assertTrue(!((javafx.scene.control.ToggleButton) toggleTagsBtn).isSelected(),
                 "Tags toggle should start collapsed by default.");
         assertTrue(!tagsContainer.isVisible() && !tagsContainer.isManaged(),
                 "Tags container should be hidden and unmanaged on startup.");
-        assertTrue(((javafx.scene.control.ButtonBase) editorOnlyButton).getGraphic() != null,
-                "Editor-only button should support icon rendering.");
-        assertTrue(((javafx.scene.control.ButtonBase) splitViewButton).getGraphic() != null,
-                "Split-view button should support icon rendering.");
-        assertTrue(((javafx.scene.control.ButtonBase) previewOnlyButton).getGraphic() != null,
-                "Preview-only button should support icon rendering.");
+        assertTrue(readingModeButton instanceof javafx.scene.control.Button,
+                "Editing/reading must use an action button rather than a persistent toggle.");
+        assertTrue(((javafx.scene.control.ButtonBase) readingModeButton).getGraphic() != null,
+                "Editing/reading button should support icon rendering.");
     }
 
     @Test
-    void editorUsesCodeAreaForRichTextEditing() throws Exception {
+    void editorUsesCodeMirrorHostForMarkdownEditing() throws Exception {
         Assumptions.assumeTrue(fxRuntimeAvailable);
 
         Map<String, Object> nodes = loadNamespace("/com/example/jylos/ui/view/EditorView.fxml");
 
-        assertTrue(nodes.get("noteContentArea") instanceof org.fxmisc.richtext.CodeArea,
-                "Note content editor should be a CodeArea.");
-    }
-
-    @Test
-    void editorProvidesAStandardTextContextMenu() throws Exception {
-        Assumptions.assumeTrue(fxRuntimeAvailable);
-
-        CountDownLatch latch = new CountDownLatch(1);
-        AssertionError[] failure = new AssertionError[1];
-        Platform.runLater(() -> {
-            try {
-                ResourceBundle bundle = ResourceBundle.getBundle("com.example.jylos.i18n.messages", Locale.ENGLISH);
-                FXMLLoader loader = new FXMLLoader(
-                        getClass().getResource("/com/example/jylos/ui/view/EditorView.fxml"), bundle);
-                loader.load();
-                EditorController controller = loader.getController();
-                ContextMenu menu = controller.getNoteContentArea().getContextMenu();
-
-                assertTrue(menu != null, "CodeArea should expose a context menu.");
-                assertTrue(menu.getItems().stream().anyMatch(item -> "Undo".equals(item.getText())));
-                assertTrue(menu.getItems().stream().anyMatch(item -> "Redo".equals(item.getText())));
-                assertTrue(menu.getItems().stream().anyMatch(item -> "Cut".equals(item.getText())));
-                assertTrue(menu.getItems().stream().anyMatch(item -> "Copy".equals(item.getText())));
-                assertTrue(menu.getItems().stream().anyMatch(item -> "Paste".equals(item.getText())));
-                assertTrue(menu.getItems().stream().anyMatch(item -> "Select All".equals(item.getText())));
-            } catch (AssertionError e) {
-                failure[0] = e;
-            } catch (Exception e) {
-                failure[0] = new AssertionError(e);
-            } finally {
-                latch.countDown();
-            }
-        });
-
-        assertTrue(latch.await(FX_OPERATION_TIMEOUT_SECONDS, TimeUnit.SECONDS), "Context menu check timed out.");
-        if (failure[0] != null) {
-            throw failure[0];
-        }
+        assertTrue(nodes.get("noteContentArea") instanceof MarkdownEditorView,
+                "Note content editor should use the CodeMirror host component.");
     }
 
     @Test

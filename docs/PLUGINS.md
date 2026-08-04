@@ -59,8 +59,9 @@ Compiles sources under `plugins-source/` with **`javac --release 21`** and write
 `EditorHook` has three default methods — override what you need:
 
 - `String onBeforeTextInsert(Note note, String text)` — fires for **programmatic
-  snippet insertions** (link/image dialogs, `[[` autocompletion, to-do/code
-  templates), *not* per keystroke. Return the (transformed) snippet; `null` keeps it.
+  snippet insertions** (link/image dialogs, `[[` autocompletion and the to-do
+  template), *not* per keystroke or paste. Return the transformed snippet;
+  `null` keeps the original value.
 - `String onBeforeSave(Note note, String content)` — transform the content right
   before it is persisted (the editor view is kept in sync).
 - `void onAfterSave(Note note, String content)` — observation after a successful save.

@@ -19,8 +19,6 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.fxmisc.richtext.CodeArea;
-import org.fxmisc.flowless.VirtualizedScrollPane;
 import org.kordamp.ikonli.javafx.FontIcon;
 
 import com.example.jylos.config.LoggerConfig;
@@ -36,6 +34,7 @@ import com.example.jylos.service.NoteService;
 import com.example.jylos.service.RichLinkService;
 import com.example.jylos.service.TagService;
 import com.example.jylos.ui.components.CanvasView;
+import com.example.jylos.ui.components.MarkdownEditorView;
 import com.example.jylos.util.AttachmentType;
 import com.example.jylos.util.MarkdownPreview;
 import com.example.jylos.util.RichLinks;
@@ -51,25 +50,20 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonBase;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
-import javafx.scene.control.ContextMenu;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Control;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
-import javafx.scene.control.ListView;
-import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
-import javafx.scene.input.Clipboard;
-import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
@@ -80,7 +74,6 @@ import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 import javafx.scene.web.WebView;
-import javafx.stage.Popup;
 
 /**
  * FXML controller for the note editor pane.
@@ -89,7 +82,7 @@ import javafx.stage.Popup;
  * <ul>
  *   <li>Loads/saves notes including YAML custom properties.</li>
  *   <li>Collapsible properties panel — header always visible; clicking expands/collapses.</li>
- *   <li>Wiki-link autocomplete popup when the user types {@code [[}.</li>
+ *   <li>CodeMirror-backed Markdown editing and wiki-link autocomplete.</li>
  *   <li>Property values containing {@code [[wiki-links]]} show a clickable link button.</li>
  *   <li>Back/forward navigation arrow buttons for traversing note history.</li>
  * </ul>
@@ -100,9 +93,6 @@ import javafx.stage.Popup;
 public class EditorController {
 
     private static final Logger logger = LoggerConfig.getLogger(EditorController.class);
-    /** Matches an open [[query before the text-area caret. */
-    private static final Pattern WIKI_TRIGGER = Pattern.compile("\\[\\[([^\\]\\[\\n]*)$");
-
     /** Matches a single wiki-link as the entire property value (full or partial). */
     private static final Pattern WIKI_VALUE = Pattern.compile(
             "\\[\\[([^\\[\\]|#\\n]+?)(?:#[^\\[\\]|\\n]+?)?(?:\\|[^\\[\\]\\n]+?)?\\]\\]");
@@ -115,6 +105,8 @@ public class EditorController {
     private Consumer<String> statusAction = message -> {
     };
     private Consumer<Note> noteModifiedAction = note -> {
+    };
+    private Consumer<Boolean> livePreviewPreferenceAction = enabled -> {
     };
 
     private Note currentNote;
@@ -178,9 +170,9 @@ public class EditorController {
     @FXML private Tooltip privateIndicatorTip;
     @FXML private HBox noteOnlyControls;
     @FXML private ToggleButton toggleTagsBtn;
-    @FXML private ToggleButton editorOnlyButton;
-    @FXML private ToggleButton splitViewButton;
-    @FXML private ToggleButton previewOnlyButton;
+    @FXML private Button readingModeButton;
+    @FXML private FontIcon readingModeIcon;
+    @FXML private Tooltip readingModeTooltip;
     @FXML private ToggleButton pinButton;
     @FXML private ToggleButton favoriteButton;
 
@@ -199,7 +191,7 @@ public class EditorController {
     // ── FXML — editor / preview ─────────────────────────────────────────────
     @FXML private SplitPane editorPreviewSplitPane;
     @FXML private VBox      editorPane;
-    @FXML private CodeArea  noteContentArea;
+    @FXML private MarkdownEditorView noteContentArea;
     @FXML private HBox      formatToolbarContainer;
     @FXML private Button    heading1Btn, heading2Btn, heading3Btn;
     @FXML private Button    boldBtn, italicBtn, strikeBtn, underlineBtn;
@@ -208,10 +200,6 @@ public class EditorController {
     @FXML private Button    quoteBtn, codeBtn;
     @FXML private VBox      previewPane;
     @FXML private WebView previewWebView;
-
-    // ── Wiki-link autocomplete ───────────────────────────────────────────────
-    private Popup autocompletePopup;
-    private ListView<String> autocompleteList;
 
     // ============================================================
     // Setters
@@ -234,12 +222,39 @@ public class EditorController {
 
     private void setBundle(ResourceBundle bundle) {
         this.bundle = bundle;
-        installEditorContextMenu();
+        if (noteContentArea != null) {
+            noteContentArea.setEditorLabels(Map.ofEntries(
+                    Map.entry("undo", getString("action.undo", "Undo")),
+                    Map.entry("redo", getString("action.redo", "Redo")),
+                    Map.entry("cut", getString("action.cut", "Cut")),
+                    Map.entry("copy", getString("action.copy", "Copy")),
+                    Map.entry("paste", getString("action.paste", "Paste")),
+                    Map.entry("selectAll", getString("action.select_all", "Select All")),
+                    Map.entry("Find", getString("editor.search.find", "Find")),
+                    Map.entry("Replace", getString("editor.search.replace", "Replace")),
+                    Map.entry("next", getString("editor.search.next", "next")),
+                    Map.entry("previous", getString("editor.search.previous", "previous")),
+                    Map.entry("all", getString("editor.search.all", "all")),
+                    Map.entry("match case", getString("editor.search.match_case", "match case")),
+                    Map.entry("regexp", getString("editor.search.regexp", "regular expression")),
+                    Map.entry("by word", getString("editor.search.by_word", "whole word")),
+                    Map.entry("replace", getString("editor.search.replace_action", "replace")),
+                    Map.entry("replace all", getString("editor.search.replace_all", "replace all")),
+                    Map.entry("close", getString("action.close", "Close")),
+                    Map.entry("Go to line", getString("editor.search.go_to_line", "Go to line")),
+                    Map.entry("go", getString("editor.search.go", "go")),
+                    Map.entry("current match", getString("editor.search.current_match", "current match")),
+                    Map.entry("on line", getString("editor.search.on_line", "on line")),
+                    Map.entry("replaced $ matches", getString("editor.search.replaced_matches", "replaced $ matches")),
+                    Map.entry("replaced match on line $", getString("editor.search.replaced_match_on_line",
+                            "replaced match on line $"))));
+        }
     }
 
     public void wire(EventBus eventBus, NoteService noteService, TagService tagService, ResourceBundle bundle,
             Consumer<Note> noteModifiedAction, Consumer<String> statusAction,
-            Supplier<List<String>> autocompleteTitlesSupplier) {
+            Supplier<List<String>> autocompleteTitlesSupplier, boolean livePreviewEnabled,
+            Consumer<Boolean> livePreviewPreferenceAction) {
         setNoteService(noteService);
         setTagService(tagService);
         setBundle(bundle);
@@ -250,6 +265,11 @@ public class EditorController {
         this.autocompleteTitlesSupplier = autocompleteTitlesSupplier != null
                 ? autocompleteTitlesSupplier
                 : () -> NoteTitleIndex.getInstance().titlesSorted();
+        this.livePreviewPreferenceAction = livePreviewPreferenceAction != null
+                ? livePreviewPreferenceAction : enabled -> {
+                };
+        setLivePreviewEnabled(livePreviewEnabled, false);
+        refreshAutocompleteTitles();
         setEventBus(eventBus);
     }
 
@@ -273,23 +293,20 @@ public class EditorController {
     }
 
     // ============================================================
-    // View-mode button presentation
+    // Header control presentation
     // ============================================================
 
     /**
-     * Renders the editor view-mode buttons (Edit / Split / Read) as icon-only
-     * with their FXML tooltips. Called once the buttons are available.
+     * Renders the compact editor-header controls as icon-only buttons.
      */
-    public void applyViewModeButtonsPresentation() {
+    public void applyHeaderControlsPresentation() {
         applyIconOnly(toggleTagsBtn);
-        applyIconOnly(editorOnlyButton);
-        applyIconOnly(splitViewButton);
-        applyIconOnly(previewOnlyButton);
+        applyIconOnly(readingModeButton);
         applyIconOnly(pinButton);
         applyIconOnly(favoriteButton);
     }
 
-    private void applyIconOnly(ToggleButton btn) {
+    private void applyIconOnly(ButtonBase btn) {
         if (btn == null) return;
         btn.setText("");
         btn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
@@ -361,9 +378,7 @@ public class EditorController {
     public javafx.scene.control.ScrollPane getEditorTabScroll() { return editorTabScroll; }
     public TextField       getNoteTitleField()         { return noteTitleField; }
     public ToggleButton    getToggleTagsBtn()           { return toggleTagsBtn; }
-    public ToggleButton    getEditorOnlyButton()        { return editorOnlyButton; }
-    public ToggleButton    getSplitViewButton()         { return splitViewButton; }
-    public ToggleButton    getPreviewOnlyButton()       { return previewOnlyButton; }
+    public Button          getReadingModeButton()       { return readingModeButton; }
     public ToggleButton    getPinButton()               { return pinButton; }
     public ToggleButton    getFavoriteButton()          { return favoriteButton; }
     public VBox            getTagsContainer()           { return tagsContainer; }
@@ -371,7 +386,7 @@ public class EditorController {
     public Label           getModifiedDateLabel()       { return modifiedDateLabel; }
     public SplitPane       getEditorPreviewSplitPane()  { return editorPreviewSplitPane; }
     public VBox            getEditorPane()              { return editorPane; }
-    public CodeArea        getNoteContentArea()         { return noteContentArea; }
+    public MarkdownEditorView getNoteContentArea()      { return noteContentArea; }
     public VBox            getPreviewPane()             { return previewPane; }
     public javafx.scene.web.WebView getPreviewWebView() { return previewWebView; }
 
@@ -380,9 +395,7 @@ public class EditorController {
     // ============================================================
 
     @FXML private void handleToggleTags(ActionEvent e)        { publish(SystemActionEvent.ActionType.TOGGLE_TAGS); }
-    @FXML private void handleEditorOnlyMode(ActionEvent e)    { publish(SystemActionEvent.ActionType.EDITOR_ONLY_MODE); }
-    @FXML private void handleSplitViewMode(ActionEvent e)     { publish(SystemActionEvent.ActionType.SPLIT_VIEW_MODE); }
-    @FXML private void handlePreviewOnlyMode(ActionEvent e)   { publish(SystemActionEvent.ActionType.PREVIEW_ONLY_MODE); }
+    @FXML private void handleToggleReadingMode(ActionEvent e) { publish(SystemActionEvent.ActionType.TOGGLE_READING_MODE); }
     @FXML private void handleTogglePin(ActionEvent e)         { publish(SystemActionEvent.ActionType.TOGGLE_PIN); }
     @FXML private void handleToggleFavorite(ActionEvent e)    { publish(SystemActionEvent.ActionType.TOGGLE_FAVORITE); }
     @FXML private void handleToggleRightPanel(ActionEvent e)  { publish(SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL); }
@@ -493,6 +506,7 @@ public class EditorController {
             currentNote.setCustomProperties(collectPropertiesFromPanel());
         }
         this.readOnlyView = readOnly;
+        updateEditorEditableState();
         // In the read (preview-only) view, swap the editable title input for a plain
         // heading Label so the title reads as a title, not an input field.
         if (noteTitleField != null && noteTitleLabel != null) {
@@ -509,102 +523,58 @@ public class EditorController {
     /** FXML lifecycle hook: start in the empty state (no note open). */
     @FXML
     private void initialize() {
-        installEditorScrollPane();
         setNoteOpen(false);
-        installNativeUndoRedoBridge();
-        installEditorContextMenu();
+        if (noteContentArea != null) {
+            noteContentArea.setInsertionTransformer(this::applyInsertHooks);
+            noteContentArea.setLinkHandlers(title -> {
+                if (wikiLinkHandler != null) {
+                    wikiLinkHandler.openNoteByTitle(title);
+                }
+            }, SystemBrowser::open);
+            noteContentArea.setImageSourceResolver(
+                    source -> MarkdownPreview.resolveImageSource(source, previewBaseDir()));
+            noteContentArea.setTextChangeListener(content -> {
+                if (currentNote != null) {
+                    reevaluateModifiedState();
+                }
+            });
+        }
         // The read-view heading always mirrors the editable title field.
         if (noteTitleLabel != null && noteTitleField != null) {
             noteTitleLabel.textProperty().bind(noteTitleField.textProperty());
         }
     }
 
-    /** Wraps RichTextFX's CodeArea in its standard scroll container so the editor exposes a real vertical scrollbar. */
-    private void installEditorScrollPane() {
-        if (editorPane == null || noteContentArea == null || noteContentArea.getParent() != editorPane) {
-            return;
+    /** Toggles between Markdown source and source-backed Live Preview. */
+    public void toggleLivePreview() {
+        boolean enabled = noteContentArea == null || !noteContentArea.isLivePreviewEnabled();
+        setLivePreviewEnabled(enabled, true);
+    }
+
+    /** Applies the persisted default editing mode without writing the preference again. */
+    public void applyLivePreviewPreference(boolean enabled) {
+        setLivePreviewEnabled(enabled, false);
+    }
+
+    private void setLivePreviewEnabled(boolean enabled, boolean persist) {
+        if (noteContentArea != null) {
+            noteContentArea.setLivePreviewEnabled(enabled);
         }
-        int index = editorPane.getChildren().indexOf(noteContentArea);
-        if (index < 0) {
-            return;
-        }
-        VirtualizedScrollPane<CodeArea> scrollPane = new VirtualizedScrollPane<>(
-                noteContentArea,
-                ScrollPane.ScrollBarPolicy.NEVER,
-                ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        scrollPane.getStyleClass().add("editor-scroll-pane");
-        VBox.setVgrow(scrollPane, Priority.ALWAYS);
-        editorPane.getChildren().set(index, scrollPane);
-        if (formatToolbarContainer != null && !editorPane.getChildren().contains(formatToolbarContainer)) {
-            VBox.setVgrow(formatToolbarContainer, Priority.NEVER);
-            editorPane.getChildren().add(formatToolbarContainer);
+        if (persist) {
+            livePreviewPreferenceAction.accept(enabled);
+            reportStatus(safeI18n(enabled ? "status.live_preview_enabled" : "status.source_mode_enabled"));
         }
     }
 
-    /**
-     * RichTextFX already binds platform-native undo/redo shortcuts. The app menu also
-     * exposes those shortcuts through JavaFX accelerators, so one key press can reach
-     * the editor twice unless we consume it here and route it through a single path.
-     */
-    private void installNativeUndoRedoBridge() {
-        if (noteContentArea == null) {
-            return;
+    /** Updates the single book/pencil action to reflect the visible editor layout. */
+    public void updateReadingModeControl(boolean editingOnly) {
+        if (readingModeIcon != null) {
+            readingModeIcon.setIconLiteral(editingOnly ? "fth-book-open" : "fth-edit-3");
         }
-        noteContentArea.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
-            if (!event.isShortcutDown()) {
-                return;
-            }
-            switch (event.getCode()) {
-                case Z -> {
-                    if (event.isShiftDown()) {
-                        performRedo();
-                    } else {
-                        performUndo();
-                    }
-                    event.consume();
-                }
-                case Y -> {
-                    performRedo();
-                    event.consume();
-                }
-                default -> {
-                    // Keep other shortcuts untouched.
-                }
-            }
-        });
-    }
-
-    private void installEditorContextMenu() {
-        if (noteContentArea == null) {
-            return;
+        if (readingModeTooltip != null) {
+            readingModeTooltip.setText(safeI18n(
+                    editingOnly ? "tooltip.switch_to_reading" : "tooltip.switch_to_editing"));
         }
-
-        MenuItem undo = new MenuItem(getString("action.undo", "Undo"));
-        undo.setOnAction(event -> performUndo());
-        MenuItem redo = new MenuItem(getString("action.redo", "Redo"));
-        redo.setOnAction(event -> performRedo());
-        MenuItem cut = new MenuItem(getString("action.cut", "Cut"));
-        cut.setOnAction(event -> noteContentArea.cut());
-        MenuItem copy = new MenuItem(getString("action.copy", "Copy"));
-        copy.setOnAction(event -> noteContentArea.copy());
-        MenuItem paste = new MenuItem(getString("action.paste", "Paste"));
-        paste.setOnAction(event -> noteContentArea.paste());
-        MenuItem selectAll = new MenuItem(getString("action.select_all", "Select All"));
-        selectAll.setOnAction(event -> noteContentArea.selectAll());
-
-        ContextMenu menu = new ContextMenu(undo, redo, new SeparatorMenuItem(), cut, copy, paste,
-                new SeparatorMenuItem(), selectAll);
-        menu.setOnShowing(event -> {
-            boolean editable = currentNote != null && !readOnlyView && !viewingAttachment;
-            boolean hasSelection = !noteContentArea.getSelectedText().isEmpty();
-            undo.setDisable(!editable || !noteContentArea.getUndoManager().isUndoAvailable());
-            redo.setDisable(!editable || !noteContentArea.getUndoManager().isRedoAvailable());
-            cut.setDisable(!editable || !hasSelection);
-            copy.setDisable(!hasSelection);
-            paste.setDisable(!editable || !Clipboard.getSystemClipboard().hasString());
-            selectAll.setDisable(noteContentArea.getLength() == 0);
-        });
-        noteContentArea.setContextMenu(menu);
     }
 
     /**
@@ -622,6 +592,13 @@ public class EditorController {
             setNodeVisible(propertiesSection, false);
         }
         setNodeVisible(emptyState, !open);
+        updateEditorEditableState();
+    }
+
+    private void updateEditorEditableState() {
+        if (noteContentArea != null) {
+            noteContentArea.setEditable(currentNote != null && !readOnlyView && !viewingAttachment);
+        }
     }
 
     /** Builds the {@code folder/sub/note.md} breadcrumb for the path bar. */
@@ -654,8 +631,6 @@ public class EditorController {
     }
 
     public void loadNote(Note note) {
-        hideAutocompletePopup();
-
         if (note == null) {
             clearReusableCanvasIfClean();
             currentNote = null;
@@ -693,8 +668,10 @@ public class EditorController {
         }
         hideAttachmentViewer();
 
-        if (noteContentArea != null) noteContentArea.replaceText(orEmpty(currentNote.getContent()));
-        resetEditorUndoHistory();
+        if (noteContentArea != null) {
+            noteContentArea.setText(orEmpty(currentNote.getContent()));
+            refreshAutocompleteTitles();
+        }
 
         setNoteOpen(true);
         updateBreadcrumb(currentNote);
@@ -754,6 +731,7 @@ public class EditorController {
     /** Shows {@code note} (a PDF/image) in a native viewer, hiding the editor chrome. */
     private void showAttachment(Note note, AttachmentType type) {
         viewingAttachment = true;
+        updateEditorEditableState();
         currentAttachmentType = type;
         ensureAttachmentViewer();
 
@@ -1169,8 +1147,7 @@ public class EditorController {
             return;
         }
         if (noteContentArea != null && !java.util.Objects.equals(noteContentArea.getText(), currentNote.getContent())) {
-            noteContentArea.replaceText(currentNote.getContent());
-            resetEditorUndoHistory();
+            noteContentArea.replaceDocument(currentNote.getContent());
         }
         if (noteTitleField != null && !java.util.Objects.equals(noteTitleField.getText(), currentNote.getTitle())) {
             noteTitleField.setText(currentNote.getTitle());
@@ -1369,124 +1346,12 @@ public class EditorController {
         wikiLinkHandler.openNoteByTitle(title);
     }
 
-    // ============================================================
-    // Wiki-link autocomplete
-    // ============================================================
-
-    private void ensureAutocompleteInitialized() {
-        if (autocompletePopup != null || noteContentArea == null) return;
-
-        autocompleteList = new ListView<>();
-        autocompleteList.setPrefWidth(320);
-        autocompleteList.setPrefHeight(180);
-        autocompleteList.getStyleClass().add("autocomplete-list");
-
-        autocompletePopup = new Popup();
-        autocompletePopup.setAutoHide(true);
-        autocompletePopup.setConsumeAutoHidingEvents(false);
-        autocompletePopup.getContent().add(autocompleteList);
-
-        autocompleteList.setOnMouseClicked(e -> {
-            String sel = autocompleteList.getSelectionModel().getSelectedItem();
-            if (sel != null) completeWikiLink(sel);
-        });
-
-        noteContentArea.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
-            if (!isAutocompleteVisible()) return;
-            switch (event.getCode()) {
-                case DOWN -> {
-                    autocompleteList.getSelectionModel().selectNext();
-                    autocompleteList.scrollTo(autocompleteList.getSelectionModel().getSelectedIndex());
-                    event.consume();
-                }
-                case UP -> {
-                    autocompleteList.getSelectionModel().selectPrevious();
-                    autocompleteList.scrollTo(autocompleteList.getSelectionModel().getSelectedIndex());
-                    event.consume();
-                }
-                case ENTER, TAB -> {
-                    String sel = autocompleteList.getSelectionModel().getSelectedItem();
-                    if (sel != null) { completeWikiLink(sel); event.consume(); }
-                }
-                case ESCAPE -> { hideAutocompletePopup(); event.consume(); }
-                default -> { /* pass through */ }
-            }
-        });
-
-        noteContentArea.textProperty().addListener((obs, oldText, newText) ->
-                checkAndShowAutocomplete(newText));
-    }
-
-    private void checkAndShowAutocomplete(String fullText) {
-        if (noteContentArea == null || fullText == null) return;
-        int caret = noteContentArea.getCaretPosition();
-        if (caret <= 0) { hideAutocompletePopup(); return; }
-
-        Matcher m = WIKI_TRIGGER.matcher(fullText.substring(0, Math.min(caret, fullText.length())));
-        if (!m.find()) { hideAutocompletePopup(); return; }
-
-        List<String> matches = filterTitles(m.group(1));
-        if (matches.isEmpty()) { hideAutocompletePopup(); return; }
-
-        autocompleteList.getItems().setAll(matches);
-        autocompleteList.getSelectionModel().selectFirst();
-
-        if (!isAutocompleteVisible()) showAutocompletePopupNearCaret();
-    }
-
-    private List<String> filterTitles(String query) {
-        String q = query.toLowerCase();
-        List<String> cachedNoteTitles = autocompleteTitlesSupplier != null
+    private void refreshAutocompleteTitles() {
+        if (noteContentArea == null) return;
+        List<String> titles = autocompleteTitlesSupplier != null
                 ? autocompleteTitlesSupplier.get()
                 : List.of();
-        List<String> result = new ArrayList<>();
-        for (String t : cachedNoteTitles) {
-            if (q.isBlank() || t.toLowerCase().contains(q)) result.add(t);
-            if (result.size() >= 20) break;
-        }
-        return result;
-    }
-
-    private void completeWikiLink(String title) {
-        if (noteContentArea == null || title == null) return;
-        String text = noteContentArea.getText();
-        int caret = noteContentArea.getCaretPosition();
-        Matcher m = WIKI_TRIGGER.matcher(text.substring(0, Math.min(caret, text.length())));
-        if (!m.find()) return;
-
-        int linkStart = caret - m.group(0).length();
-        String completed = applyInsertHooks("[[" + title + "]]");
-        noteContentArea.replaceText(text.substring(0, linkStart) + completed + text.substring(caret));
-        noteContentArea.moveTo(linkStart + completed.length());
-        noteContentArea.requestFocus();
-        hideAutocompletePopup();
-        reevaluateModifiedState();
-    }
-
-    private void showAutocompletePopupNearCaret() {
-        if (noteContentArea == null || noteContentArea.getScene() == null) return;
-        Platform.runLater(() -> {
-            if (autocompletePopup == null || noteContentArea.getScene() == null) return;
-            // CodeArea exposes the caret bounds directly in screen coordinates.
-            java.util.Optional<javafx.geometry.Bounds> caretBounds = noteContentArea.getCaretBounds();
-            if (caretBounds.isPresent()) {
-                javafx.geometry.Bounds b = caretBounds.get();
-                autocompletePopup.show(noteContentArea.getScene().getWindow(),
-                        b.getMinX(), b.getMaxY() + 4);
-                return;
-            }
-            javafx.geometry.Bounds ab = noteContentArea.localToScreen(noteContentArea.getBoundsInLocal());
-            if (ab != null) autocompletePopup.show(noteContentArea.getScene().getWindow(),
-                    ab.getMinX() + 30, ab.getMinY() + 30);
-        });
-    }
-
-    private boolean isAutocompleteVisible() {
-        return autocompletePopup != null && autocompletePopup.isShowing();
-    }
-
-    private void hideAutocompletePopup() {
-        if (isAutocompleteVisible()) autocompletePopup.hide();
+        noteContentArea.setAutocompleteTitles(titles != null ? titles : List.of());
     }
 
     // ============================================================
@@ -1519,14 +1384,16 @@ public class EditorController {
             }
         })));
 
-        if (noteContentArea != null) {
-            noteContentArea.textProperty().addListener((obs, oldVal, newVal) -> {
-                if (currentNote != null) {
-                    reevaluateModifiedState();
-                }
-                ensureAutocompleteInitialized();
-            });
-        }
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteCreatedEvent.class,
+                event -> Platform.runLater(this::refreshAutocompleteTitles)));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class,
+                event -> Platform.runLater(this::refreshAutocompleteTitles)));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteUpdatedEvent.class,
+                event -> Platform.runLater(this::refreshAutocompleteTitles)));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteDeletedEvent.class,
+                event -> Platform.runLater(this::refreshAutocompleteTitles)));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NotesRefreshRequestedEvent.class,
+                event -> Platform.runLater(this::refreshAutocompleteTitles)));
 
         if (noteTitleField != null) {
             noteTitleField.textProperty().addListener((obs, oldVal, newVal) -> {
@@ -1553,10 +1420,7 @@ public class EditorController {
         if (sel != null && !sel.isEmpty()) {
             noteContentArea.replaceSelection(prefix + sel + suffix);
         } else {
-            int pos = noteContentArea.getCaretPosition();
-            String t = orEmpty(noteContentArea.getText());
-            noteContentArea.replaceText(t.substring(0, pos) + prefix + suffix + t.substring(pos));
-            noteContentArea.moveTo(pos + prefix.length());
+            noteContentArea.replaceSelection(prefix + suffix, prefix.length());
         }
         noteContentArea.requestFocus();
         reevaluateModifiedState();
@@ -1568,11 +1432,10 @@ public class EditorController {
         String t = orEmpty(noteContentArea.getText());
         int lineStart = t.lastIndexOf('\n', pos - 1) + 1;
         if (t.substring(lineStart, pos).trim().isEmpty() && lineStart == pos) {
-            noteContentArea.replaceText(t.substring(0, pos) + prefix + t.substring(pos));
-            noteContentArea.moveTo(pos + prefix.length());
+            noteContentArea.replaceRange(pos, pos, prefix, pos + prefix.length());
         } else {
-            noteContentArea.replaceText(t.substring(0, pos) + "\n" + prefix + t.substring(pos));
-            noteContentArea.moveTo(pos + prefix.length() + 1);
+            String insertion = "\n" + prefix;
+            noteContentArea.replaceRange(pos, pos, insertion, pos + insertion.length());
         }
         noteContentArea.requestFocus();
         reevaluateModifiedState();
@@ -1585,11 +1448,10 @@ public class EditorController {
         String item = applyInsertHooks("- [ ] ");
         int lineStart = t.lastIndexOf('\n', pos - 1) + 1;
         if (t.substring(lineStart, pos).trim().isEmpty()) {
-            noteContentArea.replaceText(t.substring(0, pos) + item + t.substring(pos));
-            noteContentArea.moveTo(pos + item.length());
+            noteContentArea.replaceRange(pos, pos, item, pos + item.length());
         } else {
-            noteContentArea.replaceText(t.substring(0, pos) + "\n" + item + t.substring(pos));
-            noteContentArea.moveTo(pos + item.length() + 1);
+            String insertion = "\n" + item;
+            noteContentArea.replaceRange(pos, pos, insertion, pos + insertion.length());
         }
         noteContentArea.requestFocus();
         reevaluateModifiedState();
@@ -1598,8 +1460,16 @@ public class EditorController {
     private void insertCodeBlock() {
         if (noteContentArea == null) return;
         String sel = noteContentArea.getSelectedText();
-        if (sel != null && sel.contains("\n")) insertMarkdownFormat("```\n", "\n```");
-        else insertMarkdownFormat("`", "`");
+        if (sel != null && sel.contains("\n")) {
+            noteContentArea.replaceSelection("```\n" + sel + "\n```");
+        } else {
+            String content = sel != null ? sel : "";
+            String insertion = "`" + content + "`";
+            int caretOffset = sel == null || sel.isEmpty() ? 1 : insertion.length();
+            noteContentArea.replaceSelection(insertion, caretOffset);
+        }
+        noteContentArea.requestFocus();
+        reevaluateModifiedState();
     }
 
     private void handleLinkDialog() {
@@ -1616,9 +1486,7 @@ public class EditorController {
             if (sel != null && !sel.isEmpty()) noteContentArea.replaceSelection(link);
             else {
                 int pos = noteContentArea.getCaretPosition();
-                String t = orEmpty(noteContentArea.getText());
-                noteContentArea.replaceText(t.substring(0, pos) + link + t.substring(pos));
-                noteContentArea.moveTo(pos + link.length());
+                noteContentArea.replaceRange(pos, pos, link, pos + link.length());
             }
             noteContentArea.requestFocus();
             reevaluateModifiedState();
@@ -1668,8 +1536,7 @@ public class EditorController {
         // Keep the block as its own paragraph (CommonMark needs a blank line around it).
         String lead = before.isEmpty() || before.endsWith("\n\n") ? "" : before.endsWith("\n") ? "\n" : "\n\n";
         String insertion = lead + block + "\n";
-        noteContentArea.replaceText(before + insertion + text.substring(pos));
-        noteContentArea.moveTo(pos + insertion.length());
+        noteContentArea.replaceRange(pos, pos, insertion, pos + insertion.length());
         noteContentArea.requestFocus();
         reevaluateModifiedState();
     }
@@ -1688,9 +1555,7 @@ public class EditorController {
             if (sel != null && !sel.isEmpty()) noteContentArea.replaceSelection(img);
             else {
                 int pos = noteContentArea.getCaretPosition();
-                String t = orEmpty(noteContentArea.getText());
-                noteContentArea.replaceText(t.substring(0, pos) + img + t.substring(pos));
-                noteContentArea.moveTo(pos + img.length());
+                noteContentArea.replaceRange(pos, pos, img, pos + img.length());
             }
             noteContentArea.requestFocus();
             reevaluateModifiedState();
@@ -1700,93 +1565,6 @@ public class EditorController {
     // ============================================================
     // Editor commands (called from other controllers)
     // ============================================================
-
-    public void handleUndo(CodeArea ta) {
-        if (ta != null) {
-            ta.undo();
-            Platform.runLater(this::reevaluateModifiedState);
-        }
-    }
-
-    public void handleRedo(Function<String, String> i18n, Consumer<String> status) {
-        if (noteContentArea != null && noteContentArea.getUndoManager().isRedoAvailable()) {
-            noteContentArea.redo();
-            Platform.runLater(this::reevaluateModifiedState);
-            return;
-        }
-        if (i18n != null && status != null) {
-            status.accept(i18n.apply("status.redo_not_available"));
-        }
-    }
-
-    public void handleCut(CodeArea ta, TextField title) {
-        if (ta    != null && ta.getSelectedText()    != null) ta.cut();
-        else if (title != null && title.getSelectedText() != null) title.cut();
-    }
-
-    public void handleCopy(CodeArea ta, TextField title) {
-        if (ta    != null && ta.getSelectedText()    != null) ta.copy();
-        else if (title != null && title.getSelectedText() != null) title.copy();
-    }
-
-    public void handlePaste(CodeArea ta, TextField title) {
-        if (ta    != null && ta.isFocused())    ta.paste();
-        else if (title != null && title.isFocused()) title.paste();
-    }
-
-    public void handleFind(CodeArea ta, Function<String, String> i18n, Consumer<String> status) {
-        if (ta == null) return;
-        TextInputDialog d = new TextInputDialog();
-        d.setTitle(i18n.apply("dialog.find.title"));
-        d.setHeaderText(i18n.apply("dialog.find.header"));
-        d.setContentText(i18n.apply("dialog.find.content"));
-        com.example.jylos.ui.UiDialogs.show(d).filter(s -> !s.trim().isEmpty()).ifPresent(query -> {
-            int idx = ta.getText().indexOf(query);
-            if (idx >= 0) {
-                ta.selectRange(idx, idx + query.length());
-                ta.requestFocus();
-                status.accept(MessageFormat.format(i18n.apply("status.found_text"), query));
-            } else {
-                status.accept(MessageFormat.format(i18n.apply("status.text_not_found"), query));
-            }
-        });
-    }
-
-    public void handleReplace(CodeArea ta, Function<String, String> i18n, Consumer<String> status) {
-        if (ta == null) { if (status != null) status.accept(i18n.apply("status.no_note_open")); return; }
-        Dialog<String> dialog = new Dialog<>();
-        dialog.setTitle(i18n.apply("dialog.replace.title"));
-        dialog.setHeaderText(i18n.apply("dialog.replace.header"));
-        ButtonType replBtn    = new ButtonType(i18n.apply("action.replace_one"),  ButtonBar.ButtonData.OK_DONE);
-        ButtonType replAllBtn = new ButtonType(i18n.apply("action.replace_all"),  ButtonBar.ButtonData.APPLY);
-        dialog.getDialogPane().getButtonTypes().addAll(replBtn, replAllBtn, ButtonType.CANCEL);
-        VBox content = new VBox(10); content.setPadding(new Insets(20));
-        TextField findF = new TextField(); findF.setPromptText(i18n.apply("dialog.replace.find_prompt"));
-        TextField replF = new TextField(); replF.setPromptText(i18n.apply("dialog.replace.with_prompt"));
-        content.getChildren().addAll(
-                new Label(i18n.apply("dialog.replace.find_label")),  findF,
-                new Label(i18n.apply("dialog.replace.with_label")),  replF);
-        dialog.getDialogPane().setContent(content);
-        dialog.setResultConverter(btn ->
-                (btn == replBtn || btn == replAllBtn)
-                        ? findF.getText() + "|" + replF.getText() + "|" + (btn == replAllBtn ? "all" : "one")
-                        : null);
-        com.example.jylos.ui.UiDialogs.show(dialog).ifPresent(res -> {
-            String[] parts = res.split("\\|");
-            if (parts.length != 3) return;
-            String find = parts[0]; String repl = parts[1]; boolean all = "all".equals(parts[2]);
-            String text = ta.getText();
-            if (all) { ta.replaceText(text.replace(find, repl)); status.accept(i18n.apply("status.replaced_all")); return; }
-            int idx = text.indexOf(find);
-            if (idx >= 0) {
-                ta.replaceText(text.substring(0, idx) + repl + text.substring(idx + find.length()));
-                ta.selectRange(idx, idx + repl.length());
-                status.accept(i18n.apply("status.replaced_first"));
-            } else {
-                status.accept(i18n.apply("status.text_not_found_general"));
-            }
-        });
-    }
 
     // ============================================================
     // Tag management & metadata (called from MainController)
@@ -1993,10 +1771,17 @@ public class EditorController {
 
     public void applyEditorZoom(double editorFontSize) {
         if (noteContentArea != null) {
-            noteContentArea.setStyle("-fx-font-size: " + editorFontSize + "px;");
+            noteContentArea.setEditorFontSize(editorFontSize);
         }
         if (noteTitleField != null) {
             noteTitleField.setStyle("-fx-font-size: " + (editorFontSize + 2) + "px;");
+        }
+    }
+
+    /** Applies the active JavaFX theme values inside the embedded editor page. */
+    public void applyEditorTheme(boolean darkTheme, String accentColor) {
+        if (noteContentArea != null) {
+            noteContentArea.setEditorTheme(darkTheme, accentColor);
         }
     }
 
@@ -2015,11 +1800,17 @@ public class EditorController {
     }
 
     public void performUndo() {
-        handleUndo(noteContentArea);
+        if (noteContentArea != null && noteContentArea.undo()) {
+            Platform.runLater(this::reevaluateModifiedState);
+        }
     }
 
     public void performRedo() {
-        handleRedo(this::safeI18n, this::reportStatus);
+        if (noteContentArea != null && noteContentArea.redo()) {
+            Platform.runLater(this::reevaluateModifiedState);
+        } else {
+            reportStatus(safeI18n("status.redo_not_available"));
+        }
     }
 
     @FXML
@@ -2033,23 +1824,39 @@ public class EditorController {
     }
 
     public void performCut() {
-        handleCut(noteContentArea, noteTitleField);
+        if (noteTitleField != null && noteTitleField.isFocused()) {
+            noteTitleField.cut();
+        } else if (noteContentArea != null) {
+            noteContentArea.cut();
+        }
     }
 
     public void performCopy() {
-        handleCopy(noteContentArea, noteTitleField);
+        if (noteTitleField != null && noteTitleField.isFocused()) {
+            noteTitleField.copy();
+        } else if (noteContentArea != null) {
+            noteContentArea.copy();
+        }
     }
 
     public void performPaste() {
-        handlePaste(noteContentArea, noteTitleField);
+        if (noteTitleField != null && noteTitleField.isFocused()) {
+            noteTitleField.paste();
+        } else if (noteContentArea != null) {
+            noteContentArea.paste();
+        }
     }
 
     public void performFind(Function<String, String> i18n, Consumer<String> status) {
-        handleFind(noteContentArea, i18n, status);
+        if (noteContentArea != null) {
+            noteContentArea.openSearch();
+        }
     }
 
     public void performReplace(Function<String, String> i18n, Consumer<String> status) {
-        handleReplace(noteContentArea, i18n, status);
+        if (noteContentArea != null) {
+            noteContentArea.openReplace();
+        }
     }
 
     private String liveEditorContent(Note note) {
@@ -2163,8 +1970,7 @@ public class EditorController {
         if (noteContentArea == null) {
             return;
         }
-        noteContentArea.getUndoManager().forgetHistory();
-        noteContentArea.getUndoManager().mark();
+        noteContentArea.resetUndoHistory();
     }
 
     private Map<String, String> snapshotCustomProperties(Map<String, String> properties) {

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- El editor Markdown migra completamente de RichTextFX a CodeMirror 6 mediante un bundle offline y reproducible: recupera resaltado estable y adaptado al tema para Markdown/GFM y bloques fenced, historial aislado entre documentos, atajos nativos de plataforma, búsqueda/reemplazo localizada, menú contextual, modo de solo lectura efectivo y autocompletado de wiki-links sin mantener rutas legacy de edición.
+
+- Se añade una vista previa en vivo editable inspirada en el flujo de Obsidian: oculta la sintaxis fuera del bloque activo y presenta encabezados, énfasis, enlaces, wiki-links, tareas, imágenes y tablas mediante decoraciones reversibles de CodeMirror, sin convertir HTML a Markdown ni duplicar el documento o su historial. La edición usa Live Preview por defecto, una única acción libro/lápiz alterna con la vista de lectura, el modo fuente se configura en Preferencias o la paleta y la vista de lectura enlazada se abre como layout independiente.
+
+- La integración del editor queda encapsulada en `MarkdownEditorView`; CodeMirror gestiona texto, selección e historial, mientras `EditorController` conserva la coordinación de notas, guardado, preview y hooks de plugins.
+
 - El frontmatter Markdown del vault filesystem usa ahora parseo YAML real para reconocer y conservar propiedades avanzadas de Obsidian y campos personalizados, evitando reescrituras destructivas al guardar, renombrar o actualizar metadata.
 
 - Al pegar una cabecera YAML al inicio del cuerpo de una nota, Jylos la importa como propiedades del documento y limpia el contenido visible para mantener un único frontmatter canónico.

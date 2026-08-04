@@ -418,6 +418,46 @@ public class MarkdownPreview {
     private static final long MAX_INLINE_IMAGE_BYTES = 12L * 1024 * 1024;
 
     /**
+     * Resolves an image reference for an embedded WebView editor.
+     *
+     * <p>Remote and data URIs are returned unchanged. Relative vault paths are
+     * resolved against {@code baseDir} and converted to a data URI because pages
+     * loaded with {@link javafx.scene.web.WebEngine#loadContent(String)} cannot
+     * reliably fetch local files. Invalid, missing or oversized files return an
+     * empty string so callers can display a non-destructive fallback.</p>
+     *
+     * @param source raw Markdown image source
+     * @param baseDir directory of the note containing the reference
+     * @return a WebView-safe URI, or an empty string when it cannot be resolved
+     */
+    public static String resolveImageSource(String source, java.nio.file.Path baseDir) {
+        String value = source != null ? source.trim() : "";
+        if (value.isEmpty()) {
+            return "";
+        }
+        if (value.startsWith("data:") || value.startsWith("http://") || value.startsWith("https://")) {
+            return value;
+        }
+        if (baseDir == null || value.startsWith("file:")) {
+            return "";
+        }
+        try {
+            String decoded = java.net.URLDecoder.decode(value, StandardCharsets.UTF_8);
+            java.nio.file.Path imagePath = baseDir.resolve(decoded).normalize();
+            if (!java.nio.file.Files.isRegularFile(imagePath)
+                    || java.nio.file.Files.size(imagePath) > MAX_INLINE_IMAGE_BYTES) {
+                return "";
+            }
+            byte[] bytes = java.nio.file.Files.readAllBytes(imagePath);
+            return "data:" + guessImageMime(imagePath.getFileName().toString()) + ";base64,"
+                    + java.util.Base64.getEncoder().encodeToString(bytes);
+        } catch (Exception e) {
+            logger.fine("Could not resolve image '" + value + "': " + e.getMessage());
+            return "";
+        }
+    }
+
+    /**
      * Rewrites local {@code <img src="relative">} references to base64 {@code data:}
      * URIs resolved against {@code baseDir}. Remote ({@code http(s)}), {@code data:}
      * and {@code file:} sources are left untouched.
@@ -436,16 +476,11 @@ public class MarkdownPreview {
                     continue;
                 }
                 try {
-                    String decoded = java.net.URLDecoder.decode(src, StandardCharsets.UTF_8);
-                    java.nio.file.Path imgPath = baseDir.resolve(decoded).normalize();
-                    if (!java.nio.file.Files.isRegularFile(imgPath)
-                            || java.nio.file.Files.size(imgPath) > MAX_INLINE_IMAGE_BYTES) {
+                    String resolved = resolveImageSource(src, baseDir);
+                    if (resolved.isEmpty()) {
                         continue;
                     }
-                    byte[] bytes = java.nio.file.Files.readAllBytes(imgPath);
-                    String mime = guessImageMime(imgPath.getFileName().toString());
-                    img.attr("src", "data:" + mime + ";base64,"
-                            + java.util.Base64.getEncoder().encodeToString(bytes));
+                    img.attr("src", resolved);
                     changed = true;
                 } catch (Exception perImage) {
                     logger.fine("Could not inline image '" + src + "': " + perImage.getMessage());
