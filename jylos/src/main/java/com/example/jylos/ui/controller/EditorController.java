@@ -1172,6 +1172,10 @@ public class EditorController {
             noteContentArea.replaceText(currentNote.getContent());
             resetEditorUndoHistory();
         }
+        if (noteTitleField != null && !java.util.Objects.equals(noteTitleField.getText(), currentNote.getTitle())) {
+            noteTitleField.setText(currentNote.getTitle());
+        }
+        rebuildPropertiesPanel();
         capturePersistedBaseline(currentNote);
         setModifiedState(false);
         updateBreadcrumb(currentNote);

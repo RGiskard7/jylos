@@ -602,6 +602,16 @@ public class NoteDAOFileSystem implements NoteDAO {
                 throw new DataAccessException("Cannot recreate missing Markdown note from incomplete state: "
                         + note.getId(), null);
             }
+            if (!attachment) {
+                try {
+                    ensureMarkdownContentComplete(note, path);
+                    FrontmatterHandler.importLeadingFrontmatter(note);
+                } catch (IOException e) {
+                    throw new DataAccessException("Failed to load Markdown note before updating: " + note.getId(), e);
+                } catch (IllegalArgumentException e) {
+                    throw new DataAccessException("Invalid YAML frontmatter in note: " + note.getId(), e);
+                }
+            }
             String currentFilename = path.getFileName().toString();
             String expectedFilename = attachment
                     ? expectedAttachmentFilename(currentFilename, note.getTitle())
@@ -647,7 +657,6 @@ public class NoteDAOFileSystem implements NoteDAO {
                     Files.createDirectories(path.getParent());
                 }
                 if (!attachment) {
-                    ensureMarkdownContentComplete(note, path);
                     FileSystemAtomicWriter.writeString(path, FrontmatterHandler.generate(note), StandardCharsets.UTF_8);
                 } else if (isCanvasFile(path.getFileName().toString())) {
                     String content = note.getContent();

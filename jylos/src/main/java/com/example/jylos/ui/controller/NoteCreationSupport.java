@@ -29,6 +29,8 @@ import javafx.stage.Window;
  */
 final class NoteCreationSupport {
 
+    private static final String EMPTY_CANVAS_JSON = "{\n\t\"nodes\":[],\n\t\"edges\":[]\n}";
+
     private NoteService noteService;
     private NoteOperations noteOperations;
     private BooleanSupplier fileSystemStorage;
@@ -62,17 +64,26 @@ final class NoteCreationSupport {
     }
 
     void createNewNote() {
-        if (noteOperations == null) {
-            updateStatus(getString("status.error_creating_note"));
+        createAndOpenNote(getString("action.new_note"), "", currentFolder(), "status.note_created");
+    }
+
+    /** Creates a regular note in the explicit folder chosen by a contextual action. */
+    void createNewNoteInFolder(Folder folder) {
+        createAndOpenNote(getString("action.new_note"), "", folder, "status.note_created");
+    }
+
+    void createNewCanvas() {
+        createNewCanvasInFolder(currentFolder());
+    }
+
+    /** Creates an empty Obsidian-compatible canvas in the supplied destination folder. */
+    void createNewCanvasInFolder(Folder folder) {
+        if (!isFileSystem()) {
+            updateStatus(getString("status.canvas_requires_vault"));
             return;
         }
-        NoteOperations.NoteCreationResult creation = noteOperations.createNewNote(
-                getString("action.new_note"), currentFolder(), isFileSystem());
-        if (!creation.success() || creation.note() == null) {
-            updateStatus(getString("status.error_creating_note"));
-            return;
-        }
-        handleCreatedNote(creation.note());
+        createAndOpenNote(getString("canvas.new_filename") + ".canvas", EMPTY_CANVAS_JSON,
+                folder, "status.canvas_created");
     }
 
     void openDailyNote() {
@@ -90,7 +101,7 @@ final class NoteCreationSupport {
         String content = template != null
                 ? com.example.jylos.util.NoteTemplates.applyPlaceholders(template, title)
                 : "# " + title + "\n\n";
-        createAndOpenNote(title, content);
+        createAndOpenNote(title, content, currentFolder(), "status.note_created");
     }
 
     void createFromTemplate() {
@@ -123,25 +134,25 @@ final class NoteCreationSupport {
             Note full = noteService.getNoteById(template.getId()).orElse(template);
             String content = com.example.jylos.util.NoteTemplates.applyPlaceholders(
                     full.getContent() != null ? full.getContent() : "", choice);
-            createAndOpenNote(choice, content);
+            createAndOpenNote(choice, content, currentFolder(), "status.note_created");
         });
     }
 
-    private void createAndOpenNote(String title, String content) {
+    private void createAndOpenNote(String title, String content, Folder folder, String successStatusKey) {
         if (noteOperations == null) {
             updateStatus(getString("status.error_creating_note"));
             return;
         }
         NoteOperations.NoteCreationResult creation =
-                noteOperations.createNewNote(title, content, currentFolder(), isFileSystem());
+                noteOperations.createNewNote(title, content, folder, isFileSystem());
         if (!creation.success() || creation.note() == null) {
             updateStatus(getString("status.error_creating_note"));
             return;
         }
-        handleCreatedNote(creation.note());
+        handleCreatedNote(creation.note(), successStatusKey);
     }
 
-    private void handleCreatedNote(Note note) {
+    private void handleCreatedNote(Note note, String successStatusKey) {
         publishOpen(note);
         if (publishCreatedNote != null) {
             publishCreatedNote.accept(note);
@@ -155,7 +166,7 @@ final class NoteCreationSupport {
         if (refreshSidebar != null) {
             refreshSidebar.run();
         }
-        updateStatus(getString("status.note_created"));
+        updateStatus(getString(successStatusKey));
     }
 
     private List<Note> listTemplates() {

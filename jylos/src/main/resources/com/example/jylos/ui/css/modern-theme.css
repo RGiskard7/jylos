@@ -613,6 +613,15 @@
     background-color: -fx-text-muted;
 }
 
+.sidebar-tree .tree-cell:leaf>.tree-disclosure-node {
+    -fx-padding: 4 6 4 8;
+}
+
+.sidebar-tree .tree-cell:leaf>.tree-disclosure-node>.arrow {
+    -fx-background-color: transparent;
+    background-color: transparent;
+}
+
 .tree-cell:selected>.tree-disclosure-node>.arrow {
     -fx-background-color: -fx-accent-contrast;
     background-color: -fx-accent-contrast;

@@ -60,6 +60,10 @@ class EventBusUsageGuardTest {
                 "NotesListController should request privacy toggle via wiring callback, not EventBus.");
         assertFalse(notesListController.contains("new NoteEvents.NotesLoadedEvent("),
                 "NotesListController should report notes-loaded updates via wiring callback, not EventBus.");
+        assertFalse(notesListController.contains("ActionType.NEW_NOTE"),
+                "NotesListController must not own a second note-creation workflow.");
+        assertFalse(notesListController.contains("ActionType.NEW_CANVAS"),
+                "NotesListController must not own a second canvas-creation workflow.");
         assertTrue(notesListController.contains("Consumer<String> statusUpdateAction"),
                 "NotesListController should expose an explicit status callback for one-to-one shell updates.");
 
@@ -71,8 +75,16 @@ class EventBusUsageGuardTest {
                 "SidebarController should notify trash selection via wiring callback, not EventBus.");
         assertFalse(sidebarController.contains("NoteOpenRequestEvent"),
                 "SidebarController should open recent/favorite notes via direct owner callback, not EventBus.");
+        assertFalse(sidebarController.contains("ActionType.NEW_NOTE"),
+                "SidebarController should request contextual note creation through its wired callback.");
+        assertFalse(sidebarController.contains("ActionType.NEW_CANVAS"),
+                "SidebarController should request contextual canvas creation through its wired callback.");
         assertTrue(sidebarController.contains("Consumer<Note> openNoteAction"),
                 "SidebarController should keep direct note-open callback wiring for recent/favorites.");
+        assertTrue(sidebarController.contains("Consumer<Folder> createNoteInFolderAction"),
+                "SidebarController should expose a direct contextual-note creation callback.");
+        assertTrue(sidebarController.contains("Consumer<Folder> createCanvasInFolderAction"),
+                "SidebarController should expose a direct contextual-canvas creation callback.");
         assertTrue(sidebarController.contains("Consumer<String> statusUpdateAction"),
                 "SidebarController should keep direct status callback wiring.");
 

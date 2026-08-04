@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+- El frontmatter Markdown del vault filesystem usa ahora parseo YAML real para reconocer y conservar propiedades avanzadas de Obsidian y campos personalizados, evitando reescrituras destructivas al guardar, renombrar o actualizar metadata.
+
+- Al pegar una cabecera YAML al inicio del cuerpo de una nota, Jylos la importa como propiedades del documento y limpia el contenido visible para mantener un único frontmatter canónico.
+
+- La creación de notas y canvas desde el menú contextual de carpetas reutiliza el flujo canónico de creación de la aplicación, por lo que refresca la lista de notas, actualiza el sidebar y abre el documento nuevo igual que el botón principal.
+
+- La lista de notas deja de tener un segundo flujo interno de creación, reduciendo duplicidad entre controladores y manteniendo `MainController` como coordinador de la acción.
+
+- El árbol de carpetas mantiene alineadas las filas con y sin subcarpetas reservando el mismo espacio visual para el control de expansión en los temas claro y oscuro.
+
 ## [2.4.11] - 2026-08-02
 
 - Se corrige una regresión de rendimiento en el panel Git de vaults grandes: el refresco ya no ejecuta consultas Git ni lecturas de contenido por cada archivo cambiado. La resolución de rutas y submódulos se realiza una vez por refresco, y los archivos sin seguimiento no se abren para calcular estadísticas opcionales.

@@ -523,7 +523,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (sidebarController != null) {
             sidebarController.wire(eventBus, noteService, tagService, folderService, resources,
                     this::handleUiFolderSelected, this::handleUiTagSelected, this::handleUiTrashItemSelected,
-                    this::handleUiNoteOpenRequest, this::updateStatus);
+                    this::handleUiNoteOpenRequest,
+                    noteCreationSupport::createNewNoteInFolder,
+                    noteCreationSupport::createNewCanvasInFolder,
+                    this::updateStatus);
         }
         if (notesListController != null) {
             notesListController.wire(eventBus, noteService, tagService, folderService, resources,
@@ -1651,6 +1654,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
 
         systemActionHandlers.put(SystemActionEvent.ActionType.NEW_FOLDER, () -> handleNewFolder(null));
+        systemActionHandlers.put(SystemActionEvent.ActionType.NEW_NOTE, () -> handleNewNote(null));
+        systemActionHandlers.put(SystemActionEvent.ActionType.NEW_CANVAS, () -> handleNewCanvas(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.NEW_TAG, () -> handleNewTag(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.SAVE_ALL, () -> handleSaveAll(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.IMPORT, () -> handleImport(null));
@@ -2445,13 +2450,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
     }
 
-    /**
-     * Requests creating a new canvas. The actual creation lives in {@code NotesListController}
-     * (it knows the selected folder); this just publishes the system action.
-     */
     void handleNewCanvas(ActionEvent event) {
-        if (eventBus != null) {
-            eventBus.publish(new SystemActionEvent(SystemActionEvent.ActionType.NEW_CANVAS));
+        try {
+            noteCreationSupport.createNewCanvas();
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Failed to create new canvas", e);
+            updateStatus(getString("status.error_creating_note"));
         }
     }
 

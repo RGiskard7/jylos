@@ -11,6 +11,8 @@ import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
+import org.yaml.snakeyaml.representer.Representer;
+import org.yaml.snakeyaml.resolver.Resolver;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
@@ -42,18 +44,44 @@ public final class FrontmatterHandler {
         if (fileContent == null || fileContent.isEmpty()) {
             return new Note("", "");
         }
-        if (!fileContent.startsWith(SEPARATOR)) {
+        FrontmatterBlock block = extractLeadingFrontmatter(fileContent);
+        if (block == null) {
             return parseWithoutFrontmatter(fileContent);
         }
+        return buildNote(parseYaml(block.yaml()), block.body());
+    }
 
-        int secondSep = fileContent.indexOf('\n' + SEPARATOR, SEPARATOR.length());
-        if (secondSep < 0) {
-            return parseWithoutFrontmatter(fileContent);
+    /**
+     * Imports a YAML frontmatter block typed or pasted at the beginning of a note body.
+     *
+     * <p>The editor normally exposes metadata through the properties panel, so its text
+     * content does not include the persisted YAML header. This method supports importing a
+     * complete Markdown document without persisting a second header inside the body. Fields
+     * present in the imported header replace their corresponding values; unrelated existing
+     * metadata remains intact.</p>
+     *
+     * @param note note whose content may begin with YAML frontmatter
+     * @return {@code true} when a leading frontmatter block was imported
+     * @throws IllegalArgumentException if a leading frontmatter block contains invalid YAML
+     */
+    public static boolean importLeadingFrontmatter(Note note) {
+        if (note == null || note.getContent() == null || note.getContent().isEmpty()) {
+            return false;
         }
 
-        String yamlBlock = fileContent.substring(SEPARATOR.length(), secondSep);
-        String body = fileContent.substring(secondSep + 1 + SEPARATOR.length()).stripLeading();
-        return buildNote(parseYaml(yamlBlock), body);
+        FrontmatterBlock block = extractLeadingFrontmatter(note.getContent());
+        if (block == null) {
+            return false;
+        }
+
+        Map<String, Object> values;
+        try {
+            values = parseYaml(block.yaml());
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException("Invalid YAML frontmatter", e);
+        }
+        applyImportedFrontmatter(note, values, block.body());
+        return true;
     }
 
     public static String generate(Note note) {
@@ -136,35 +164,24 @@ public final class FrontmatterHandler {
             return new Note("", "");
         }
         int limit = Math.max(0, maxBodyChars);
-        if (!fileContent.startsWith(SEPARATOR)) {
+        FrontmatterBlock block = extractLeadingFrontmatter(fileContent);
+        if (block == null) {
             String body = limit > 0 && fileContent.length() > limit
                     ? fileContent.substring(0, limit)
                     : fileContent;
             return parseWithoutFrontmatter(body);
         }
-
-        int secondSep = fileContent.indexOf('\n' + SEPARATOR, SEPARATOR.length());
-        if (secondSep < 0) {
-            String body = limit > 0 && fileContent.length() > limit
-                    ? fileContent.substring(0, limit)
-                    : fileContent;
-            return parseWithoutFrontmatter(body);
-        }
-
-        String yamlBlock = fileContent.substring(SEPARATOR.length(), secondSep);
-        String bodyRaw = fileContent.substring(secondSep + 1 + SEPARATOR.length()).stripLeading();
+        String bodyRaw = block.body();
         String body = limit > 0 && bodyRaw.length() > limit
                 ? bodyRaw.substring(0, limit)
                 : bodyRaw;
-        return buildNote(parseYaml(yamlBlock), body);
+        return buildNote(parseYaml(block.yaml()), body);
     }
 
     public static String stripFrontmatter(String fileContent) {
         if (fileContent == null) return "";
-        if (!fileContent.startsWith(SEPARATOR)) return fileContent;
-        int secondSep = fileContent.indexOf('\n' + SEPARATOR, SEPARATOR.length());
-        if (secondSep < 0) return fileContent;
-        return fileContent.substring(secondSep + 1 + SEPARATOR.length()).stripLeading();
+        FrontmatterBlock block = extractLeadingFrontmatter(fileContent);
+        return block != null ? block.body() : fileContent;
     }
 
     static List<String> splitList(String raw) {
@@ -231,6 +248,48 @@ public final class FrontmatterHandler {
         return note;
     }
 
+    private static void applyImportedFrontmatter(Note target, Map<String, Object> values, String body) {
+        Note imported = buildNote(values, body);
+        target.setContent(body);
+        target.setContentComplete(true);
+
+        if (values.containsKey("title")) target.setTitle(imported.getTitle());
+        if (values.containsKey("created")) target.setCreatedDate(imported.getCreatedDate());
+        if (values.containsKey("modified")) target.setModifiedDate(imported.getModifiedDate());
+        if (values.containsKey("favorite")) target.setFavorite(imported.isFavorite());
+        if (values.containsKey("pinned")) target.setPinned(imported.isPinned());
+        if (values.containsKey("deleted")) target.setDeleted(imported.isDeleted());
+        if (values.containsKey("deleted_date")) target.setDeletedDate(imported.getDeletedDate());
+        if (values.containsKey("status")) target.setStatus(imported.getStatus());
+        if (values.containsKey("private")) target.setPrivate(imported.isPrivate());
+        if (values.containsKey("author")) target.setAuthor(imported.getAuthor());
+        if (values.containsKey("source_url")) target.setSourceUrl(imported.getSourceUrl());
+        if (values.containsKey("tags")) target.setTags(imported.getTags());
+
+        Map<String, String> custom = new LinkedHashMap<>(target.getCustomProperties());
+        Map<String, Object> structured = new LinkedHashMap<>(target.getStructuredFrontmatterProperties());
+        Set<String> displayable = new LinkedHashSet<>(target.getDisplayableFrontmatterPropertyKeys());
+        for (Map.Entry<String, Object> entry : values.entrySet()) {
+            String key = entry.getKey();
+            if (key == null || SYSTEM_KEYS.contains(key)) {
+                continue;
+            }
+            Object value = deepCopyYamlValue(entry.getValue());
+            structured.put(key, value);
+            String displayValue = toDisplayableCustomValue(value);
+            if (displayValue == null) {
+                custom.remove(key);
+                displayable.remove(key);
+            } else {
+                custom.put(key, displayValue);
+                displayable.add(key);
+            }
+        }
+        target.setCustomProperties(custom);
+        target.setStructuredFrontmatterProperties(structured);
+        target.setDisplayableFrontmatterPropertyKeys(displayable);
+    }
+
     private static Map<String, Object> parseYaml(String yaml) {
         if (yaml == null || yaml.isBlank()) {
             return new LinkedHashMap<>();
@@ -249,7 +308,10 @@ public final class FrontmatterHandler {
     }
 
     private static Yaml newYamlParser() {
-        return new Yaml(new SafeConstructor(new LoaderOptions()));
+        LoaderOptions loaderOptions = new LoaderOptions();
+        DumperOptions dumperOptions = createDumperOptions();
+        return new Yaml(new SafeConstructor(loaderOptions), new Representer(dumperOptions), dumperOptions,
+                loaderOptions, new FrontmatterResolver());
     }
 
     private static Yaml newYamlDumper() {
@@ -337,7 +399,73 @@ public final class FrontmatterHandler {
         if (value == null) {
             return null;
         }
+        if (value instanceof List<?> list && list.size() == 1) {
+            return stringValue(list.getFirst());
+        }
         return String.valueOf(value);
+    }
+
+    private static FrontmatterBlock extractLeadingFrontmatter(String content) {
+        if (content == null || content.isEmpty()) {
+            return null;
+        }
+
+        int firstLineEnd = findLineEnd(content, 0);
+        if (!SEPARATOR.equals(content.substring(0, firstLineEnd))) {
+            return null;
+        }
+
+        int yamlStart = skipLineBreak(content, firstLineEnd);
+        int lineStart = yamlStart;
+        while (lineStart <= content.length()) {
+            int lineEnd = findLineEnd(content, lineStart);
+            if (SEPARATOR.equals(content.substring(lineStart, lineEnd))) {
+                int bodyStart = skipLineBreak(content, lineEnd);
+                return new FrontmatterBlock(content.substring(yamlStart, lineStart),
+                        content.substring(bodyStart).stripLeading());
+            }
+            if (lineEnd >= content.length()) {
+                return null;
+            }
+            lineStart = skipLineBreak(content, lineEnd);
+        }
+        return null;
+    }
+
+    private static int findLineEnd(String value, int start) {
+        int lineFeed = value.indexOf('\n', start);
+        int carriageReturn = value.indexOf('\r', start);
+        if (lineFeed < 0) return carriageReturn < 0 ? value.length() : carriageReturn;
+        if (carriageReturn < 0) return lineFeed;
+        return Math.min(lineFeed, carriageReturn);
+    }
+
+    private static int skipLineBreak(String value, int index) {
+        int cursor = index;
+        if (cursor < value.length() && value.charAt(cursor) == '\r') cursor++;
+        if (cursor < value.length() && value.charAt(cursor) == '\n') cursor++;
+        return cursor;
+    }
+
+    private record FrontmatterBlock(String yaml, String body) {
+    }
+
+    /**
+     * Keeps ISO-like YAML dates as strings. Frontmatter is document metadata, not a
+     * Java date-serialization format; coercing it to {@code Date} changes the value
+     * and breaks round-trips with external Markdown tools.
+     */
+    private static final class FrontmatterResolver extends Resolver {
+        @Override
+        protected void addImplicitResolvers() {
+            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.BOOL, BOOL, "yYnNtTfFoO", 10);
+            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.INT, INT, "-+0123456789");
+            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.FLOAT, FLOAT, "-+0123456789.");
+            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.MERGE, MERGE, "<", 10);
+            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.NULL, NULL, "~nN\0", 10);
+            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.NULL, EMPTY, null, 10);
+            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.YAML, YAML, "!&*", 10);
+        }
     }
 
     private static boolean booleanValue(Object value) {
