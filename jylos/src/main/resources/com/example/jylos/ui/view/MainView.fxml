@@ -49,10 +49,10 @@
 
                         <VBox fx:id="noteInfoSection" styleClass="panel-section">
                             <HBox fx:id="noteInfoHeader" alignment="CENTER_LEFT" styleClass="section-header">
-                                <Label text="▼" fx:id="noteInfoCollapseIcon" styleClass="collapse-icon"/>
+                                <Label text="▶" fx:id="noteInfoCollapseIcon" styleClass="collapse-icon"/>
                                 <Label text="%section.note_info" styleClass="section-title"/>
                             </HBox>
-                            <VBox fx:id="noteInfoContent" spacing="12" styleClass="section-content">
+                            <VBox fx:id="noteInfoContent" spacing="12" styleClass="section-content" visible="false" managed="false">
                                 <padding>
                                     <Insets top="8" left="8"/>
                                 </padding>
@@ -64,25 +64,15 @@
                                     <Label text="%info.modified" styleClass="info-label"/>
                                     <Label fx:id="infoModifiedLabel" text="-" styleClass="info-value"/>
                                 </VBox>
-                                <VBox spacing="2">
-                                    <Label text="%info.location" styleClass="info-label"/>
-                                    <Label fx:id="infoLatitudeLabel" text="Lat: -" styleClass="info-value-small"/>
-                                    <Label fx:id="infoLongitudeLabel" text="Lon: -" styleClass="info-value-small"/>
-                                </VBox>
-                                <VBox spacing="2">
-                                    <Label text="%info.metadata" styleClass="info-label"/>
-                                    <Label fx:id="infoAuthorLabel" text="Author: -" styleClass="info-value-small"/>
-                                    <Label fx:id="infoSourceUrlLabel" text="URL: -" styleClass="info-value-small" wrapText="true"/>
-                                </VBox>
                             </VBox>
                         </VBox>
 
                         <VBox fx:id="backlinksSection" styleClass="panel-section">
                             <HBox fx:id="backlinksHeader" alignment="CENTER_LEFT" styleClass="section-header">
-                                <Label text="▼" fx:id="backlinksCollapseIcon" styleClass="collapse-icon"/>
+                                <Label text="▶" fx:id="backlinksCollapseIcon" styleClass="collapse-icon"/>
                                 <Label text="%section.backlinks" styleClass="section-title"/>
                             </HBox>
-                            <VBox fx:id="backlinksContent" spacing="2" styleClass="section-content">
+                            <VBox fx:id="backlinksContent" spacing="2" styleClass="section-content" visible="false" managed="false">
                                 <padding>
                                     <Insets top="8" left="8"/>
                                 </padding>

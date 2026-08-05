@@ -189,16 +189,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private Label infoCreatedLabel;
     @FXML
     private Label infoModifiedLabel;
-    @FXML
-    private Label infoLatitudeLabel;
-    @FXML
-    private Label infoLongitudeLabel;
 
     private ToggleGroup themeToggleGroup;
-    @FXML
-    private Label infoAuthorLabel;
-    @FXML
-    private Label infoSourceUrlLabel;
 
     @FXML
     private Label statusLabel;
@@ -2271,12 +2263,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 note,
                 editorController.getModifiedDateLabel(),
                 infoCreatedLabel,
-                infoModifiedLabel,
-                infoLatitudeLabel,
-                infoLongitudeLabel,
-                infoAuthorLabel,
-                infoSourceUrlLabel,
-                this::getString);
+                infoModifiedLabel);
     }
 
     /** Recomputes (off the FX thread) and renders the backlinks for {@code note}. */

@@ -3,7 +3,6 @@ package com.example.jylos.ui.controller;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -1597,25 +1596,14 @@ public class EditorController {
         }
     }
 
-    public void updateNoteMetadata(Note note, Label modLabel,
-            Label created, Label modified,
-            Label lat, Label lon, Label author, Label source,
-            Function<String, String> i18n) {
+    public void updateNoteMetadata(Note note, Label modLabel, Label created, Label modified) {
         if (note == null) {
             setLabelSafe(modLabel, ""); setLabelSafe(created, "-"); setLabelSafe(modified, "-");
-            if (lat    != null) lat.setText(MessageFormat.format(i18n.apply("info.lat"),    "-"));
-            if (lon    != null) lon.setText(MessageFormat.format(i18n.apply("info.lon"),    "-"));
-            if (author != null) author.setText(MessageFormat.format(i18n.apply("info.author"), "-"));
-            if (source != null) source.setText(MessageFormat.format(i18n.apply("info.source"), "-"));
             return;
         }
         setLabelSafe(modLabel, note.getModifiedDate() != null ? "Modified " + note.getModifiedDate() : "");
         setLabelSafe(created,  orDash(note.getCreatedDate()));
         setLabelSafe(modified, orDash(note.getModifiedDate()));
-        if (lat    != null) lat.setText(MessageFormat.format(i18n.apply("info.lat"), note.getLatitude()  != 0 ? String.valueOf(note.getLatitude())  : "-"));
-        if (lon    != null) lon.setText(MessageFormat.format(i18n.apply("info.lon"), note.getLongitude() != 0 ? String.valueOf(note.getLongitude()) : "-"));
-        if (author != null) author.setText(MessageFormat.format(i18n.apply("info.author"), orDash(note.getAuthor())));
-        if (source != null) source.setText(MessageFormat.format(i18n.apply("info.source"), orDash(note.getSourceUrl())));
     }
 
     // ============================================================
