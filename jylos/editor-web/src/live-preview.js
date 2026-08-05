@@ -466,14 +466,27 @@ const livePreviewPlugin = ViewPlugin.fromClass(class {
   }
 }, { decorations: value => value.decorations });
 
+// Matches modern-theme.css's .root font-family exactly. Live Preview's rendered
+// prose (paragraphs, headings, revealed widgets) should read like the rest of the
+// app — a document, not a code editor — while raw/source text and actual code stay
+// monospace via the more specific rules below. Source mode (Live Preview off) never
+// loads this theme at all, so it keeps the plain monospace editing font untouched.
+const UI_FONT_FAMILY = '"Segoe UI", "SF Pro Text", "Helvetica Neue", -apple-system, sans-serif';
+const MONOSPACE_FONT_FAMILY = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+
 const livePreviewTheme = EditorView.baseTheme({
+  // Direct rule on .cm-content, not "&": editorTheme() only sets fontFamily on
+  // .cm-scroller (an ancestor), so a rule on the root would just inherit that
+  // monospace value straight through — a direct rule on .cm-content itself is
+  // needed to actually win, regardless of which theme layer has priority.
+  ".cm-content": { fontFamily: UI_FONT_FAMILY },
   ".cm-live-heading": { lineHeight: "1.35", paddingTop: ".18em" },
   ".cm-live-atxheading1": { fontSize: "1.6em", fontWeight: "750" },
   ".cm-live-atxheading2": { fontSize: "1.4em", fontWeight: "725" },
   ".cm-live-atxheading3": { fontSize: "1.22em", fontWeight: "700" },
   ".cm-live-atxheading4, .cm-live-atxheading5, .cm-live-atxheading6": { fontWeight: "700" },
   ".cm-live-blockquote": { borderLeft: "3px solid var(--jylos-accent)", paddingLeft: "12px", color: "var(--jylos-muted)" },
-  ".cm-live-codeblock": { backgroundColor: "var(--jylos-code-bg)" },
+  ".cm-live-codeblock": { backgroundColor: "var(--jylos-code-bg)", fontFamily: MONOSPACE_FONT_FAMILY },
   ".cm-live-wikilink, .cm-live-link": { color: "var(--jylos-accent)", textDecoration: "underline", cursor: "pointer" },
   ".cm-live-embed": { display: "inline-block", color: "var(--jylos-accent)", background: "var(--jylos-panel)", border: "1px solid var(--jylos-border)", borderRadius: "6px", padding: "1px 6px", cursor: "pointer" },
   ".cm-live-list-marker": { display: "inline-block", width: "1em", color: "var(--jylos-accent)", fontWeight: "700" },
