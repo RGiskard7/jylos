@@ -81,9 +81,12 @@ class UiLayout {
 
     /**
      * Opens or collapses the right panel without recreating it, preserving plugin
-     * panels and backlinks state between toggles.
+     * panels and backlinks state between toggles. {@code panelSplitPane} is the
+     * SplitPane the panel is a direct child of — a sibling of the center content
+     * (editor/graph/Kanban), not nested inside any one of them, so the panel stays
+     * reachable no matter which center view is active.
      */
-    public void toggleRightPanel(SplitPane editorRightSplitPane, VBox rightPanel, ToggleButton toggleButton, Note currentNote,
+    public void toggleRightPanel(SplitPane panelSplitPane, VBox rightPanel, ToggleButton toggleButton, Note currentNote,
             Runnable updateNoteInfoPanelAction) {
         if (rightPanel == null) {
             return;
@@ -96,8 +99,8 @@ class UiLayout {
             rightPanel.setMinWidth(240);
             rightPanel.setMaxWidth(Double.MAX_VALUE);
             rightPanel.setPrefWidth(300);
-            if (editorRightSplitPane != null) {
-                editorRightSplitPane.setDividerPositions(0.78);
+            if (panelSplitPane != null) {
+                panelSplitPane.setDividerPositions(0.8);
             }
         } else {
             rightPanel.setMinWidth(0);

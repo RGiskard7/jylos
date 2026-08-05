@@ -31,6 +31,7 @@ import com.example.jylos.data.models.Tag;
 import com.example.jylos.data.models.interfaces.Component;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.FolderEvents;
+import com.example.jylos.graph.GraphData;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.plugin.PluginManager;
@@ -143,7 +144,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private final Map<SystemActionEvent.ActionType, Runnable> systemActionHandlers = new EnumMap<>(
             SystemActionEvent.ActionType.class);
     @FXML
-    private SplitPane editorRightSplitPane;
+    private SplitPane centerRightSplitPane;
+    @FXML
+    private VBox editor;
     @FXML
     private VBox rightPanel;
     @FXML
@@ -171,6 +174,16 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private Label backlinksCollapseIcon;
     @FXML
     private VBox backlinksContent;
+
+    /** Right-panel baseline content shown while the graph overlay is active instead
+     *  of note-info/backlinks — see {@link #updateRightPanelContext()}. Kanban has no
+     *  baseline section: the panel is simply empty (still reachable) while it's open. */
+    @FXML
+    private VBox graphInfoSection;
+    @FXML
+    private Label graphNodeCountLabel;
+    @FXML
+    private Label graphEdgeCountLabel;
 
     @FXML
     private Label infoCreatedLabel;
@@ -560,11 +573,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
         overlaySupport.wire(centerStack, graphView, graphViewController, noteService,
                 this::isDarkThemeActive, this::getString, this::updateStatus, this::handleUiNoteOpenRequest,
-                this::publishNoteCreated, this::publishNoteUpdated);
+                this::publishNoteCreated, this::publishNoteUpdated, this::updateRightPanelContext);
         if (graphViewController != null) {
             graphViewController.wire(eventBus, noteService, tagService, resources,
                     overlaySupport::openNoteFromGraph, overlaySupport::hideGraph,
-                    () -> getCurrentNote() != null ? getCurrentNote().getId() : null);
+                    () -> getCurrentNote() != null ? getCurrentNote().getId() : null,
+                    this::updateGraphInfoSection);
         }
 
         statusBarSupport.wire(storageLabel, wordCountLabel, charCountLabel, statsSeparator,
@@ -1920,7 +1934,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     @FXML
     private void handleToggleRightPanel(ActionEvent event) {
-        uiLayout.toggleRightPanel(editorRightSplitPane, rightPanel,
+        uiLayout.toggleRightPanel(centerRightSplitPane, rightPanel,
                 toolbarController != null ? toolbarController.getRightPanelToggleBtn() : null,
                 getCurrentNote(),
                 () -> updateNoteMetadata(getCurrentNote()));
@@ -1940,6 +1954,41 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 });
     }
 
+    /**
+     * Switches the right panel's baseline section for whichever center view is
+     * active: note-info/backlinks for the editor, a stats summary for the graph.
+     * Kanban has no baseline section — the panel stays reachable but empty.
+     * Called after every graph/Kanban show or hide ({@link OverlaySupport}'s
+     * {@code onVisibilityChanged} callback) so the panel never shows stale content
+     * for an overlay it can no longer reach.
+     */
+    private void updateRightPanelContext() {
+        boolean graph = overlaySupport.isGraphVisible();
+        boolean editorContext = !graph && !overlaySupport.isKanbanVisible();
+        setSectionShown(noteInfoSection, editorContext);
+        setSectionShown(backlinksSection, editorContext);
+        setSectionShown(graphInfoSection, graph);
+    }
+
+    private static void setSectionShown(VBox section, boolean shown) {
+        if (section != null) {
+            section.setVisible(shown);
+            section.setManaged(shown);
+        }
+    }
+
+    /** Refreshes the graph baseline section's node/edge counts (graph rebuild callback). */
+    private void updateGraphInfoSection(GraphData data) {
+        if (graphNodeCountLabel != null) {
+            graphNodeCountLabel.setText(java.text.MessageFormat.format(
+                    getString("info.graph_nodes"), data != null ? data.nodes().size() : 0));
+        }
+        if (graphEdgeCountLabel != null) {
+            graphEdgeCountLabel.setText(java.text.MessageFormat.format(
+                    getString("info.graph_edges"), data != null ? data.edges().size() : 0));
+        }
+    }
+
     private void initializeRightPanelVisibility() {
         if (rightPanel != null) {
             rightPanel.setVisible(true);
@@ -1951,6 +2000,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (toolbarController != null && toolbarController.getRightPanelToggleBtn() != null) {
             toolbarController.getRightPanelToggleBtn().setSelected(false);
         }
+        updateRightPanelContext();
     }
 
     /** Resets the filter state and asks {@link NotesListController} to display every note. */
@@ -2894,7 +2944,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 navSplitPane,
                 sidebarController.getSidebarPane(),
                 notesPanel,
-                editorRightSplitPane,
+                editor,
                 toolbarController);
     }
 

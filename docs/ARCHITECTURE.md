@@ -44,13 +44,13 @@ ui/ (FXML, controllers, components, GraphCanvas)
 
 ## UI composition
 
-- `MainView.fxml` — `BorderPane`: toolbar | center `StackPane` (main `SplitPane` + **graph and Kanban overlays**) | collapsible right panel | status bar (optional **Git** strip in vault mode).
-- Center split — sidebar | (notes list | editor/preview).
-- **Overlays** — graph (`GraphView.fxml` + `GraphController` + `GraphCanvas`) and Kanban (`KanbanBoard`) share the center `StackPane` and are mutually exclusive; both managed by `OverlaySupport`. Toggled via `SystemActionEvent.GRAPH_VIEW` (`Ctrl/Cmd+G`) and `KANBAN_VIEW` (`Ctrl/Cmd+K`).
+- `MainView.fxml` — `BorderPane`: toolbar | center content | status bar (optional **Git** strip in vault mode).
+- Center content — `centerRightSplitPane` (`SplitPane`): the mutually-exclusive main content (`centerStack`) on the left, the right panel on the right. The panel is a sibling of `centerStack`, not nested inside the editor's own layout, so it stays reachable — same toggle, same width — no matter which center view is active (editor, graph, or Kanban); this is also the seam a future plugin-hosted panel (e.g. an AI chat) would use.
+- `centerStack` — main `SplitPane` (sidebar | notes list | editor) plus the **graph and Kanban overlays**, mutually exclusive, both managed by `OverlaySupport`. Toggled via `SystemActionEvent.GRAPH_VIEW` (`Ctrl/Cmd+G`) and `KANBAN_VIEW` (`Ctrl/Cmd+K`).
 - Sidebar — icon nav bar + `TabPane` (folders, tags, recent, favorites, trash).
 - Notes list — custom `ListCell` (title, preview lines, dates, pin/favorite icons).
 - Editor — `EditorTabs` strip (one tab per open note) above `MarkdownEditorView`, the JavaFX boundary for an offline **CodeMirror 6** source/Live Preview editor, plus a separate reading `WebView` (`MarkdownPreview`, wiki-link clicks via `jylos://` protocol). Inline save indicator; `[[` autocomplete.
-- Right panel — note metadata, **backlinks** (`BacklinksSupport` + `BacklinkService`), plugin side panels.
+- Right panel — baseline section swapped per active center view (`MainController.updateRightPanelContext()`, driven by `OverlaySupport`'s visibility callback): note metadata + **backlinks** (`BacklinksSupport` + `BacklinkService`) for the editor, a live node/connection count for the graph (fed by `GraphController`'s `onDataBuilt` callback), nothing yet for Kanban. Plus plugin side panels (`pluginPanelsContainer`).
 - **Focus / writing mode** (`FocusModeSupport`, `Ctrl/Cmd+Shift+F`) — removes sidebar, notes list, right panel, toolbar and status bar, leaving only the editor; restores the prior layout on exit.
 
 ### Markdown editing and preview

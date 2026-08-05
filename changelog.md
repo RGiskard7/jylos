@@ -40,6 +40,14 @@
 
 - Guardar y cerrar sesión de un workspace de forma simultánea (autoguardado y guardado manual) ya no puede perder una de las dos escrituras.
 
+- Al pasar el ratón sobre un nodo del grafo de conocimiento, solo se muestra la etiqueta de ese nodo; antes se mostraban también las etiquetas de todos sus nodos conectados, dificultando la lectura en grafos densos.
+
+- Las etiquetas del grafo se revelan de forma progresiva según el nivel de zoom, con aparición gradual de opacidad y priorizando los nodos más conectados; una etiqueta que colisionaría con otra ya visible se omite, en vez del criterio anterior de todo-o-nada según el número de nodos.
+
+- Se corrige un problema de rendimiento real en el grafo: el orden de prioridad de las etiquetas se recalculaba en cada frame de renderizado (cada tick de scroll, cada píxel de arrastre), pese a ser constante mientras el grafo no cambia. Ahora se calcula una única vez al construir el modelo, y las etiquetas fuera de la zona visible se descartan antes de calcular colisiones.
+
+- El panel derecho es ahora alcanzable con su botón de alternar también en las vistas de grafo y kanban, no solo en el editor; en el grafo muestra un resumen en vivo de notas y conexiones, y ya no quedan separadores verticales duplicados en el mecanismo de apertura.
+
 ## [2.4.11] - 2026-08-02
 
 - Se corrige una regresión de rendimiento en el panel Git de vaults grandes: el refresco ya no ejecuta consultas Git ni lecturas de contenido por cada archivo cambiado. La resolución de rutas y submódulos se realiza una vez por refresco, y los archivos sin seguimiento no se abren para calcular estadísticas opcionales.
