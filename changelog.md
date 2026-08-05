@@ -18,6 +18,28 @@
 
 - El árbol de carpetas mantiene alineadas las filas con y sin subcarpetas reservando el mismo espacio visual para el control de expansión en los temas claro y oscuro.
 
+- Corrige un fallo donde un error al guardar en la base de datos SQLite podía pasar desapercibido: la creación o actualización de notas, carpetas y etiquetas ahora informa el fallo real en vez de continuar como si hubiera tenido éxito.
+
+- El renderizado de diagramas Mermaid usa ahora un nivel de seguridad estricto, evitando que HTML o script embebido en el contenido de una nota se ejecute en la vista previa.
+
+- La selección de texto en el editor usa ahora el mecanismo nativo del navegador en vez de un overlay propio de CodeMirror, corrigiendo un comportamiento errático al seleccionar palabra a palabra y reduciendo el coste de renderizado durante el scroll.
+
+- El resaltado (`==texto==`) y el subrayado (`<u>texto</u>`) ya se muestran correctamente tanto en modo fuente como en Live Preview.
+
+- El botón Buscar/reemplazar de la barra de formato abre ahora el panel con el campo de reemplazo enfocado en vez de reutilizar la búsqueda simple.
+
+- El botón de bloque de código de la barra de formato inserta siempre un bloque delimitado por ``` en vez de caer a código en línea cuando no hay selección o esta es de una sola línea.
+
+- Pegar con atajo de teclado justo después de cambiar de nota es ahora fiable, al depender del foco real de la ventana en vez de un estado interno del editor que podía ir con retraso.
+
+- Se optimiza el recálculo de decoraciones de Live Preview durante el scroll, reduciendo trabajo redundante en cada desplazamiento del viewport.
+
+- La barra de la nota reordena el botón de vista de lectura junto a fijar y favorito, y elimina separadores verticales innecesarios entre esos controles.
+
+- Los plugins declaran ahora la versión de API del host que soportan; un plugin incompatible se rechaza con un mensaje claro en vez de un fallo genérico.
+
+- Guardar y cerrar sesión de un workspace de forma simultánea (autoguardado y guardado manual) ya no puede perder una de las dos escrituras.
+
 ## [2.4.11] - 2026-08-02
 
 - Se corrige una regresión de rendimiento en el panel Git de vaults grandes: el refresco ya no ejecuta consultas Git ni lecturas de contenido por cada archivo cambiado. La resolución de rutas y submódulos se realiza una vez por refresco, y los archivos sin seguimiento no se abren para calcular estadísticas opcionales.

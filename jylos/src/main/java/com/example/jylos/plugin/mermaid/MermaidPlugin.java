@@ -144,7 +144,10 @@ public class MermaidPlugin implements Plugin {
                     "      mermaid.initialize({\n" +
                     "          startOnLoad: false, \n" +
                     "          theme: 'default',\n" +
-                    "          securityLevel: 'loose',\n" +
+                    // 'strict' sanitizes label HTML instead of executing it verbatim,
+                    // since diagram source comes from note content that may be untrusted
+                    // (e.g. a shared vault). Diagrams and htmlLabels still render normally.
+                    "          securityLevel: 'strict',\n" +
                     // Lift Mermaid's default caps (50k chars / 500 edges) so a diagram
                     // is never refused for size — notes must render whatever their length.
                     "          maxTextSize: 5000000,\n" +

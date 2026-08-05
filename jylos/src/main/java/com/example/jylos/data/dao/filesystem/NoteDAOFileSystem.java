@@ -468,7 +468,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                 return relativePath;
             } catch (IOException e) {
                 logger.log(Level.SEVERE, "Failed to write note file: " + filePath, e);
-                return null;
+                throw new DataAccessException("Failed to create note: " + note.getTitle(), e);
             }
         } finally {
             FileSystemIoLock.LOCK.unlock();

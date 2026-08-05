@@ -78,13 +78,17 @@ requests explicit while preserving the public plugin API.
 ## Lifecycle
 
 1. Discover JARs in plugin directories.
-2. Load with dedicated classloaders (per-plugin isolation).
+2. Load with a dedicated `URLClassLoader` per plugin, so plugin dependency
+   JARs don't collide with each other. This is namespace isolation, **not** a
+   security sandbox: each classloader's parent is the app's own classloader,
+   so plugin code can reflectively reach any internal Jylos class. Plugins run
+   with the full privileges of the JVM process.
 3. Register metadata, menu entries, preview enhancers, side panels; initialize enabled plugins.
 4. Disable: unregister UI hooks and commands; shut down classloaders on app exit.
 
 ## Notes
 
-- A failing or incompatible JAR should log a warning and be skipped — it must not prevent other plugins or app startup (`PluginLoader` catches `Throwable` on load).
+- A failing or incompatible JAR should log a warning and be skipped — it must not prevent other plugins or app startup (`PluginLoader` catches `Throwable` on load). A plugin declaring `Plugin.getHostApiVersion()` (default `"1"`) that doesn't match the host's supported version is rejected the same way, with a message naming the mismatch instead of a generic failure.
 - Plugins disabled in the manager are persisted as disabled and are not initialized on the next startup; this prevents disabled plugins from registering UI contributions before the manager applies their state.
 - Shut down plugins and close classloaders on exit to avoid leaks.
 - Re-enable after disable re-runs initialization (see plugin manager UI).

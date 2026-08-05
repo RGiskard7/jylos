@@ -13,6 +13,7 @@ import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
+import com.example.jylos.exceptions.NoteException;
 import com.example.jylos.util.AttachmentType;
 
 /**
@@ -120,6 +121,9 @@ public class NoteService {
             if (encrypted) {
                 note.setContent(plain); // keep the in-memory note as plaintext
             }
+        }
+        if (noteId == null || noteId.isEmpty()) {
+            throw new NoteException("Failed to create note: " + note.getTitle());
         }
         note.setId(noteId);
         logger.info("Created note: " + note.getTitle() + " (ID: " + noteId + ")");

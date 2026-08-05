@@ -120,7 +120,7 @@ public class FolderDAOSQLite implements FolderDAO {
 				} catch (SQLException rollbackEx) {
 					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
 				}
-				return null;
+				throw new DataAccessException("Failed to create folder: " + folder.getTitle(), e);
 			}
 		}
 
@@ -169,6 +169,7 @@ public class FolderDAOSQLite implements FolderDAO {
 				} catch (SQLException rollbackEx) {
 					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
 				}
+				throw new DataAccessException("Failed to update folder: " + folder.getId(), e);
 			}
 		}
 	}
@@ -191,6 +192,7 @@ public class FolderDAOSQLite implements FolderDAO {
 				} catch (SQLException rollbackEx) {
 					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
 				}
+				throw new DataAccessException("Failed to delete folder: " + id, e);
 			}
 		}
 	}

@@ -1457,16 +1457,18 @@ public class EditorController {
         reevaluateModifiedState();
     }
 
+    // Always inserts a fenced code block, matching the toolbar tooltip
+    // ("Code block") — inline code has its own affordance via backticks typed
+    // directly, so this button no longer silently falls back to inline code
+    // for a single-line or empty selection.
     private void insertCodeBlock() {
         if (noteContentArea == null) return;
         String sel = noteContentArea.getSelectedText();
-        if (sel != null && sel.contains("\n")) {
+        if (sel != null && !sel.isEmpty()) {
             noteContentArea.replaceSelection("```\n" + sel + "\n```");
         } else {
-            String content = sel != null ? sel : "";
-            String insertion = "`" + content + "`";
-            int caretOffset = sel == null || sel.isEmpty() ? 1 : insertion.length();
-            noteContentArea.replaceSelection(insertion, caretOffset);
+            String insertion = "```\n\n```";
+            noteContentArea.replaceSelection(insertion, 4);
         }
         noteContentArea.requestFocus();
         reevaluateModifiedState();

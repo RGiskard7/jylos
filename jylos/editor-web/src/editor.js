@@ -7,18 +7,50 @@ import { highlightSelectionMatches, openSearchPanel, search, searchKeymap } from
 import { Compartment, EditorSelection, EditorState } from "@codemirror/state";
 import {
   Decoration,
-  drawSelection,
   dropCursor,
   EditorView,
   highlightActiveLine,
   keymap,
   MatchDecorator,
-  rectangularSelection,
   ViewPlugin
 } from "@codemirror/view";
-import { tags } from "@lezer/highlight";
+import { Tag, tags } from "@lezer/highlight";
 import { GFM } from "@lezer/markdown";
 import { livePreview } from "./live-preview.js";
+
+// `==mark==` highlight syntax is a common CommonMark extension (Obsidian,
+// Typora) but isn't part of GFM, so @lezer/markdown has no built-in node for
+// it. This inline parser mirrors @lezer/markdown's own Strikethrough
+// extension (same delimiter-pair mechanism, `==` instead of `~~`).
+const markContentTag = Tag.define();
+const markPunctuation = /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~\xA1‐-‧]/;
+const markDelimiter = { resolve: "Mark", mark: "MarkMark" };
+const markExtension = {
+  defineNodes: [
+    { name: "Mark", style: { "Mark/...": markContentTag } },
+    { name: "MarkMark", style: tags.processingInstruction }
+  ],
+  parseInline: [{
+    name: "Mark",
+    parse(cx, next, pos) {
+      if (next !== 61 /* '=' */ || cx.char(pos + 1) !== 61 || cx.char(pos + 2) === 61) return -1;
+      const before = cx.slice(pos - 1, pos);
+      const after = cx.slice(pos + 2, pos + 3);
+      const spaceBefore = /\s|^$/.test(before);
+      const spaceAfter = /\s|^$/.test(after);
+      const punctuationBefore = markPunctuation.test(before);
+      const punctuationAfter = markPunctuation.test(after);
+      return cx.addDelimiter(
+        markDelimiter,
+        pos,
+        pos + 2,
+        !spaceAfter && (!punctuationAfter || spaceBefore || punctuationBefore),
+        !spaceBefore && (!punctuationBefore || spaceAfter || punctuationAfter)
+      );
+    },
+    after: "Emphasis"
+  }]
+};
 
 let view;
 let autocompleteTitles = [];
@@ -48,6 +80,7 @@ function editorHighlight(config) {
     { tag: tags.strong, color: foreground, fontWeight: "750" },
     { tag: tags.emphasis, fontStyle: "italic" },
     { tag: tags.strikethrough, textDecoration: "line-through" },
+    { tag: markContentTag, backgroundColor: dark ? "#5a4a1f" : "#fff3b0", color: foreground },
     { tag: [tags.link, tags.url], color: accent, textDecoration: "underline" },
     { tag: tags.monospace, color: code, fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" },
     { tag: tags.meta, color: muted },
@@ -127,8 +160,8 @@ function editorTheme(config) {
     },
     ".cm-content": { minHeight: "100%", padding: "16px 18px", caretColor: foreground },
     ".cm-line": { padding: "0" },
-    ".cm-cursor, .cm-dropCursor": { borderLeftColor: foreground },
-    ".cm-selectionBackground, &.cm-focused .cm-selectionBackground, ::selection": { backgroundColor: `${selection} !important` },
+    ".cm-dropCursor": { borderLeftColor: foreground },
+    "::selection": { backgroundColor: selection },
     ".cm-activeLine": { backgroundColor: dark ? "#242424" : "#f7f9fc" },
     ".cm-panels": { color: foreground, backgroundColor: panel, borderColor: border },
     ".cm-panels.cm-panels-top": { borderBottom: `1px solid ${border}` },
@@ -238,16 +271,27 @@ function createState(doc, config) {
     doc: doc || "",
     extensions: [
     history({ newGroupDelay: 500 }),
-    drawSelection(),
+    // Deliberately NOT using drawSelection(): it replaces native text
+    // selection with a JS-measured overlay that (a) fights our own
+    // `::selection` theme rule — CodeMirror injects a Prec.highest
+    // `::selection { background: transparent }` override that our CSS was
+    // conflicting with, producing double/mismatched selection rendering —
+    // and (b) recomputes overlay rectangles via layout measurement on every
+    // scroll tick, which is expensive inside a WebView. Native selection
+    // (the browser's own ::selection rendering) is what "select like any
+    // other editor" means in practice: double-click word, drag, triple-click
+    // line, all handled by WebKit itself with no per-frame JS cost.
     dropCursor(),
-    rectangularSelection(),
+    // Alt-drag rectangular selection is a code-editor feature with little
+    // value in a note-taking app, and JavaFX WebView has a known modifier-key
+    // desync with WebKit that made it a suspect for broken plain drag-select.
     indentOnInput(),
     bracketMatching(),
     closeBrackets(),
     search({ top: true }),
     highlightSelectionMatches(),
     highlightActiveLine(),
-    markdown({ extensions: [GFM], codeLanguages: languages }),
+    markdown({ extensions: [GFM, markExtension], codeLanguages: languages }),
     syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
     highlightCompartment.of(syntaxHighlighting(editorHighlight(config))),
     presentationCompartment.of(config?.livePreview ? livePreview() : []),
@@ -334,7 +378,16 @@ window.JylosEditor = {
   hasSelection: () => Boolean(view && !selectedRange().empty),
   hasEditorFocus: () => Boolean(view?.hasFocus),
   openSearch: () => Boolean(view && openSearchPanel(view)),
-  openReplace: () => Boolean(view && openSearchPanel(view)),
+  openReplace: () => {
+    if (!view) return false;
+    openSearchPanel(view);
+    const replaceInput = view.dom.querySelector('.cm-search input[name="replace"]');
+    if (replaceInput) {
+      replaceInput.focus();
+      replaceInput.select();
+    }
+    return true;
+  },
   setTheme(config) {
     window.__jylosEditorConfig = { ...window.__jylosEditorConfig, ...config };
     view?.dispatch({ effects: [
@@ -364,3 +417,8 @@ window.JylosEditor = {
   },
   isLivePreviewEnabled: () => Boolean(window.__jylosEditorConfig?.livePreview)
 };
+
+// Exported for tests only, so the `==mark==` parser extension can be
+// exercised directly against @codemirror/lang-markdown without going through
+// the WebView bridge.
+export { markExtension };

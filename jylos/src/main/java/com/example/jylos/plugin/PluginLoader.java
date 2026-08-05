@@ -53,6 +53,9 @@ public class PluginLoader {
     private static final String PLUGINS_DIR = "plugins";
     private static final String BUNDLED_COPY_MARKER = ".bundled-plugins-copied";
 
+    /** Major version of the {@link PluginContext}/{@link Plugin} API this build exposes. */
+    private static final String SUPPORTED_HOST_API_VERSION = "1";
+
     // Keep classloaders open so inner classes remain accessible
     private static final List<URLClassLoader> activeClassLoaders = new ArrayList<>();
     private static final Map<String, URLClassLoader> activeClassLoadersByPluginId = new ConcurrentHashMap<>();
@@ -298,8 +301,19 @@ public class PluginLoader {
     }
 
     /**
+     * Checks whether a plugin's declared host API version matches what this
+     * build supports.
+     *
+     * @param pluginApiVersion the value returned by {@link Plugin#getHostApiVersion()}
+     * @return true if the plugin can be loaded against this build's plugin API
+     */
+    public static boolean isHostApiCompatible(String pluginApiVersion) {
+        return SUPPORTED_HOST_API_VERSION.equals(pluginApiVersion);
+    }
+
+    /**
      * Loads a plugin from a JAR file.
-     * 
+     *
      * @param jarPath The path to the JAR file
      * @return The plugin instance, or null if loading failed
      */
@@ -345,6 +359,16 @@ public class PluginLoader {
             }
 
             Plugin plugin = (Plugin) pluginClass.getDeclaredConstructor().newInstance();
+
+            String pluginApiVersion = plugin.getHostApiVersion();
+            if (!isHostApiCompatible(pluginApiVersion)) {
+                logger.warning(String.format(
+                        "Plugin '%s' (%s) targets host API version %s, but this build supports version %s — skipping.",
+                        plugin.getId(), jarPath.getFileName(), pluginApiVersion, SUPPORTED_HOST_API_VERSION));
+                closeQuietly(classLoader);
+                return null;
+            }
+
             // Keep classloader open - don't close it, or inner classes won't be accessible
             // at runtime
             // The classloader will be closed when the application shuts down
@@ -360,7 +384,13 @@ public class PluginLoader {
             // JVM throws UnsupportedClassVersionError, and missing transitive classes
             // throw NoClassDefFoundError — both are Errors. One bad jar must never
             // abort plugin loading or crash startup.
-            logger.log(Level.WARNING, "Error loading plugin from " + jarPath.getFileName(), t);
+            if (t instanceof NoSuchMethodError || t instanceof AbstractMethodError || t instanceof NoClassDefFoundError) {
+                logger.log(Level.WARNING, "Plugin " + jarPath.getFileName()
+                        + " looks incompatible with this Jylos version (likely built against an older/newer "
+                        + "PluginContext API) — skipping. Cause: " + t, t);
+            } else {
+                logger.log(Level.WARNING, "Error loading plugin from " + jarPath.getFileName(), t);
+            }
             closeQuietly(classLoader);
             return null;
         }

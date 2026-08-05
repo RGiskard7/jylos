@@ -1252,24 +1252,23 @@ public class NotesListController {
         if (target.isEmpty()) {
             return;
         }
-        try {
-            String previousId = note.getId();
-            Folder destination = target.get().folder();
-            folderService.moveNoteToFolder(note, destination);
-            requestSelectAfterRefresh(note.getId());
-            if (eventBus != null) {
-                eventBus.publish(new NoteEvents.NoteSavedEvent(note, previousId));
-                eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
-            } else {
-                refreshCurrentView();
-            }
-            publishStatusUpdate(destination == null || "ROOT".equals(destination.getId())
-                    ? getString("status.note_moved_root")
-                    : java.text.MessageFormat.format(getString("status.note_moved_folder"), destination.getTitle()));
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "Failed to move note " + note.getId(), e);
+        Folder destination = target.get().folder();
+        NoteOperations.NoteMoveResult result =
+                new NoteOperations(noteService, folderService).moveToFolder(note, destination);
+        if (!result.success()) {
             publishStatusUpdate(getString("status.note_move_error"));
+            return;
         }
+        requestSelectAfterRefresh(note.getId());
+        if (eventBus != null) {
+            eventBus.publish(new NoteEvents.NoteSavedEvent(note, result.previousId()));
+            eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
+        } else {
+            refreshCurrentView();
+        }
+        publishStatusUpdate(destination == null || "ROOT".equals(destination.getId())
+                ? getString("status.note_moved_root")
+                : java.text.MessageFormat.format(getString("status.note_moved_folder"), destination.getTitle()));
     }
 
     private Optional<MoveTargetSupport.MoveTarget> chooseMoveTarget(Folder folderToMove) {
@@ -1328,22 +1327,21 @@ public class NotesListController {
 
         Optional<ButtonType> result = com.example.jylos.ui.UiDialogs.show(alert);
         if (result.isPresent() && result.get() == ButtonType.OK) {
-            try {
-                noteService.moveToTrash(note.getId());
-
-                // Selection clearing is important
-                notesListView.getSelectionModel().clearSelection();
-
-                // Publish event so Sidebar can refresh counts, Main can refresh etc.
-                if (eventBus != null) {
-                    eventBus.publish(new NoteEvents.NoteDeletedEvent(note.getId(), note.getTitle()));
-                }
-
-                publishStatusUpdate(getString("status.note_moved_trash"));
-            } catch (Exception e) {
-                logger.log(Level.SEVERE, "Failed to delete note", e);
+            NoteTrashOperations.TrashResult trashed = new NoteTrashOperations(noteService).moveToTrash(note);
+            if (!trashed.success()) {
                 publishStatusUpdate(getString("status.note_delete_error"));
+                return;
             }
+
+            // Selection clearing is important
+            notesListView.getSelectionModel().clearSelection();
+
+            // Publish event so Sidebar can refresh counts, Main can refresh etc.
+            if (eventBus != null) {
+                eventBus.publish(new NoteEvents.NoteDeletedEvent(note.getId(), note.getTitle()));
+            }
+
+            publishStatusUpdate(getString("status.note_moved_trash"));
         }
     }
 

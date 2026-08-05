@@ -67,20 +67,17 @@
         <HBox fx:id="noteOnlyControls" alignment="CENTER_LEFT" spacing="8">
             <Separator orientation="VERTICAL" styleClass="header-separator"/>
 
-            <!-- Tags toggle -->
-            <ToggleButton fx:id="toggleTagsBtn" onAction="#handleToggleTags" styleClass="modern-toggle-btn" selected="false">
-                <tooltip><Tooltip text="%tooltip.toggle_tags"/></tooltip>
-                <graphic><FontIcon iconLiteral="fth-hash" styleClass="feather-icon"/></graphic>
-            </ToggleButton>
-
-            <Separator orientation="VERTICAL" styleClass="header-separator"/>
-
             <!-- Obsidian-style view switch: book opens reading view, pencil returns to editing. -->
             <Button fx:id="readingModeButton" onAction="#handleToggleReadingMode" styleClass="modern-toggle-btn">
                 <tooltip><Tooltip fx:id="readingModeTooltip" text="%tooltip.switch_to_reading"/></tooltip>
                 <graphic><FontIcon fx:id="readingModeIcon" iconLiteral="fth-book-open" styleClass="feather-icon"/></graphic>
             </Button>
-            <Separator orientation="VERTICAL" styleClass="header-separator"/>
+
+            <!-- Tags toggle -->
+            <ToggleButton fx:id="toggleTagsBtn" onAction="#handleToggleTags" styleClass="modern-toggle-btn" selected="false">
+                <tooltip><Tooltip text="%tooltip.toggle_tags"/></tooltip>
+                <graphic><FontIcon iconLiteral="fth-hash" styleClass="feather-icon"/></graphic>
+            </ToggleButton>
         </HBox>
 
         <ToggleButton fx:id="pinButton" onAction="#handleTogglePin" styleClass="modern-toggle-btn">

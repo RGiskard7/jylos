@@ -37,7 +37,8 @@ ui/ (FXML, controllers, components, GraphCanvas)
 | `plugin` | `PluginLoader`, `PluginManager`, `AbstractPlugin`, `PluginIds`; built-in Mermaid under `plugin/mermaid/` |
 | `util` | `WikiLinkResolver`, `MarkdownProcessor`, `MarkdownPreview` (CommonMark + KaTeX + emoji), `KanbanModel`, `NoteExporter` |
 | `workspace` | Workspace capture/persistence (`Workspace`, `WorkspaceRepository`, `WorkspaceService`) |
-| `config` | `LoggerConfig` |
+| `config` | `LoggerConfig`, `VersionConfig` |
+| `exceptions` | `DataAccessException`, `InvalidParameterException`, `NoteException`, `NoteNotFoundException` — all unchecked, thrown by the DAO/service layers instead of returning a sentinel `null`/`false` on failure |
 
 > **MainController pattern.** `MainController` is the FXML shell coordinator and must stay thin: each self-contained feature lives in its own `ui/controller/*Controller`/`*Support` class with a `wire(...)` method (FXML nodes + small callbacks). `MainController` remains the owner of shell wiring, note-open flows, and cross-feature callbacks. New features follow this — no feature bodies inside `MainController`. See `AGENTS.md`.
 

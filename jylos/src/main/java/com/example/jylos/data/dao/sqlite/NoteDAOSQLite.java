@@ -20,6 +20,7 @@ import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.data.models.ToDoNote;
+import com.example.jylos.exceptions.DataAccessException;
 import com.example.jylos.exceptions.InvalidParameterException;
 
 /**
@@ -137,7 +138,7 @@ public class NoteDAOSQLite implements NoteDAO {
 				} catch (SQLException rollbackEx) {
 					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
 				}
-				return null;
+				throw new DataAccessException("Failed to create note: " + note.getTitle(), e);
 			}
 		}
 
@@ -193,6 +194,7 @@ public class NoteDAOSQLite implements NoteDAO {
 				} catch (SQLException rollbackEx) {
 					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
 				}
+				throw new DataAccessException("Failed to update note: " + note.getId(), e);
 			}
 		}
 	}
@@ -210,6 +212,7 @@ public class NoteDAOSQLite implements NoteDAO {
 			} catch (SQLException e) {
 				logger.log(Level.SEVERE, "Error deleteNote() (Soft Delete): " + e.getMessage(), e);
 				rollbackQuietly();
+				throw new DataAccessException("Failed to move note to trash: " + id, e);
 			}
 		}
 	}
@@ -257,6 +260,7 @@ public class NoteDAOSQLite implements NoteDAO {
 				} catch (SQLException rollbackEx) {
 					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
 				}
+				throw new DataAccessException("Failed to permanently delete note: " + id, e);
 			}
 		}
 	}
@@ -279,6 +283,7 @@ public class NoteDAOSQLite implements NoteDAO {
 				} catch (SQLException rollbackEx) {
 					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
 				}
+				throw new DataAccessException("Failed to restore note: " + id, e);
 			}
 		}
 	}
@@ -381,6 +386,7 @@ public class NoteDAOSQLite implements NoteDAO {
 				} catch (SQLException rollbackEx) {
 					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
 				}
+				throw new DataAccessException("Failed to add tag " + tagId + " to note " + noteId, e);
 			}
 		}
 	}
@@ -412,6 +418,7 @@ public class NoteDAOSQLite implements NoteDAO {
 				} catch (SQLException rollbackEx) {
 					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
 				}
+				throw new DataAccessException("Failed to remove tag " + tagId + " from note " + noteId, e);
 			}
 		}
 	}

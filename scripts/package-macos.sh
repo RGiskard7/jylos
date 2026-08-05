@@ -56,7 +56,7 @@ echo ""
 
 # Check if Java is installed
 if ! command -v java &> /dev/null; then
-    echo "Error: Java not found. Please install JDK 17 or higher."
+    echo "Error: Java not found. Please install JDK 21 or higher."
     echo "Download from: https://adoptium.net/"
     exit 1
 fi
@@ -132,27 +132,29 @@ trap cleanup EXIT
 echo "Packaging application (this may take several minutes)..."
 echo ""
 
-# Build jpackage command
-JPACKAGE_CMD="jpackage \
-    --input \"$TEMP_INPUT_DIR\" \
-    --name \"$APP_NAME\" \
-    --main-jar \"$JAR_NAME\" \
-    --main-class com.example.jylos.Launcher \
-    --type dmg \
-    --dest \"$OUTPUT_DIR\" \
-    --app-version \"$APP_VERSION\" \
-    --vendor \"$APP_VENDOR\" \
-    --description \"$APP_DESCRIPTION\" \
-    --copyright \"$APP_COPYRIGHT\" \
-    --mac-package-name \"$APP_NAME\" \
-    --mac-app-category \"$APP_CATEGORY\" \
-    --java-options \"-Dfile.encoding=UTF-8\" \
-    --java-options \"-Dapple.awt.application.appearance=system\""
+# Build jpackage arguments as an array, not a string, so no argument (paths with
+# spaces, in particular) needs a second round of shell quoting/eval to survive.
+JPACKAGE_ARGS=(
+    --input "$TEMP_INPUT_DIR"
+    --name "$APP_NAME"
+    --main-jar "$JAR_NAME"
+    --main-class com.example.jylos.Launcher
+    --type dmg
+    --dest "$OUTPUT_DIR"
+    --app-version "$APP_VERSION"
+    --vendor "$APP_VENDOR"
+    --description "$APP_DESCRIPTION"
+    --copyright "$APP_COPYRIGHT"
+    --mac-package-name "$APP_NAME"
+    --mac-app-category "$APP_CATEGORY"
+    --java-options "-Dfile.encoding=UTF-8"
+    --java-options "-Dapple.awt.application.appearance=system"
+)
 
 # Add icon if it exists
 ICON_PATH="$JYLOS_DIR/$APP_ICON"
 if [ -f "$ICON_PATH" ]; then
-    JPACKAGE_CMD="$JPACKAGE_CMD --icon \"$ICON_PATH\""
+    JPACKAGE_ARGS+=(--icon "$ICON_PATH")
     echo "Using icon: $ICON_PATH"
 else
     echo "Icon not found at $ICON_PATH, skipping icon..."
@@ -164,7 +166,7 @@ if [ -d "$SOURCE_PLUGINS_DIR" ]; then
     if [ -n "$PLUGIN_JARS" ]; then
         JPACKAGE_HELP=$(jpackage --help 2>&1 || true)
         if echo "$JPACKAGE_HELP" | grep -q "app-content"; then
-            JPACKAGE_CMD="$JPACKAGE_CMD --app-content \"$SOURCE_PLUGINS_DIR\""
+            JPACKAGE_ARGS+=(--app-content "$SOURCE_PLUGINS_DIR")
             PLUGINS_INCLUDED=true
             PLUGIN_COUNT=$(echo "$PLUGIN_JARS" | wc -l | tr -d ' ')
             echo "Including plugins via --app-content ($PLUGIN_COUNT JAR(s))"
@@ -178,14 +180,14 @@ fi
 # Without it the DMG is unsigned (Gatekeeper will warn on other Macs).
 if [ -n "${JYLOS_MAC_SIGN_IDENTITY:-}" ]; then
     echo "Code signing enabled (identity: $JYLOS_MAC_SIGN_IDENTITY)"
-    JPACKAGE_CMD="$JPACKAGE_CMD --mac-sign --mac-signing-key-user-name \"$JYLOS_MAC_SIGN_IDENTITY\""
+    JPACKAGE_ARGS+=(--mac-sign --mac-signing-key-user-name "$JYLOS_MAC_SIGN_IDENTITY")
 else
     echo "Code signing disabled (set JYLOS_MAC_SIGN_IDENTITY to enable). See docs/PACKAGING.md."
 fi
 
 # Use jpackage to create DMG installer
 # Note: The uber-jar already includes JavaFX classes, so we don't need --module-path
-eval $JPACKAGE_CMD
+jpackage "${JPACKAGE_ARGS[@]}"
 
 if [ $? -eq 0 ]; then
     echo ""

@@ -341,8 +341,12 @@ public final class MarkdownEditorView extends StackPane {
     }
 
     private void handleDesktopShortcut(KeyEvent event) {
-        if (!ready || !event.isShortcutDown() || event.isAltDown()
-                || !booleanResult("window.JylosEditor.hasEditorFocus()", false)) {
+        // JavaFX-side focus is authoritative here: CodeMirror's own internal
+        // `document.activeElement` state (queried via the JS bridge) can lag a
+        // tick behind after switching notes/panels, silently dropping the
+        // shortcut since JavaFX WebView has no native clipboard paste to fall
+        // back on for a contentEditable element.
+        if (!ready || !event.isShortcutDown() || event.isAltDown() || !webView.isFocused()) {
             return;
         }
 

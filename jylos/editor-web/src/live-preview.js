@@ -258,10 +258,34 @@ function linkParts(state, node, image) {
   };
 }
 
-function buildDecorations(view) {
+const OPEN_UNDERLINE_TAG = /^<u(\s[^>]*)?>$/i;
+const CLOSE_UNDERLINE_TAG = /^<\/u\s*>$/i;
+
+// Raw inline HTML (unlike Strikethrough/EmphasisMark) has no paired AST node
+// covering "<u>...</u>" as a unit — @lezer/markdown emits two flat, unrelated
+// HTMLTag leaves for the open and close tags. Pairing them by a simple stack
+// scan is the only way to know which span of text between two tags an
+// "underline" decoration should cover. Tags are collected during the main
+// tree walk in buildDecorations (not a separate pass over the syntax tree —
+// this runs on every scroll-triggered rebuild, so a second full traversal
+// of the visible range is avoided).
+function pairUnderlineTags(tags) {
+  const pairs = [];
+  const stack = [];
+  for (const tag of tags) {
+    if (tag.open) {
+      stack.push(tag);
+    } else if (stack.length) {
+      pairs.push({ open: stack.pop(), close: tag });
+    }
+  }
+  return pairs;
+}
+
+function buildDecorations(view, blocks) {
   const decorations = [];
   const replacements = [];
-  const blocks = activeBlocks(view);
+  const htmlTags = [];
 
   for (const visible of view.visibleRanges) {
     const firstLine = view.state.doc.lineAt(visible.from).number;
@@ -295,6 +319,12 @@ function buildDecorations(view) {
           decorations.push(lineDecoration(view, node.from, "cm-live-blockquote"));
         } else if (node.name === "FencedCode") {
           decorations.push(lineDecoration(view, node.from, "cm-live-codeblock"));
+        } else if (node.name === "HTMLTag") {
+          if (OPEN_UNDERLINE_TAG.test(source)) {
+            htmlTags.push({ from: node.from, to: node.to, open: true });
+          } else if (CLOSE_UNDERLINE_TAG.test(source)) {
+            htmlTags.push({ from: node.from, to: node.to, open: false });
+          }
         }
 
         if (active) return;
@@ -372,7 +402,7 @@ function buildDecorations(view) {
           return false;
         }
 
-        if (["HeaderMark", "EmphasisMark", "StrikethroughMark", "QuoteMark", "CodeMark", "CodeInfo"]
+        if (["HeaderMark", "EmphasisMark", "StrikethroughMark", "MarkMark", "QuoteMark", "CodeMark", "CodeInfo"]
           .includes(node.name)) {
           decorations.push(Decoration.replace({}).range(node.from, node.to));
           replacements.push({ from: node.from, to: node.to });
@@ -381,17 +411,57 @@ function buildDecorations(view) {
     });
   }
 
+  for (const pair of pairUnderlineTags(htmlTags)) {
+    if (pair.open.to < pair.close.from) {
+      decorations.push(Decoration.mark({ class: "cm-live-underline" }).range(pair.open.to, pair.close.from));
+    }
+    if (!intersectsActive(blocks, pair.open.from, pair.close.to)) {
+      decorations.push(Decoration.replace({}).range(pair.open.from, pair.open.to));
+      decorations.push(Decoration.replace({}).range(pair.close.from, pair.close.to));
+    }
+  }
+
   return Decoration.set(decorations, true);
 }
 
+function blockKey(blocks) {
+  return blocks.map(block => `${block.from}-${block.to}`).join(",");
+}
+
+// Native `selectionchange` fires continuously while the user drags a text
+// selection, and each tick reaches this plugin as a selection-only update.
+// Rebuilding decorations on every one of those ticks replaces/restores
+// syntax-mark widgets under the pointer mid-drag, which resets the browser's
+// native selection anchor. Reveal/hide of raw syntax only needs to run when
+// the covering block actually changes, so selection-only updates are keyed
+// against the last computed active-block range and skipped when unchanged.
+//
+// `activeBlocks(view)` is computed once per update and threaded through to
+// both buildDecorations() and the key comparison below — scroll triggers a
+// viewportChanged update on every viewport shift, so computing it twice per
+// tick (once inside the old buildDecorations, once for the key) was real,
+// avoidable per-scroll-frame cost inside the WebView.
 const livePreviewPlugin = ViewPlugin.fromClass(class {
   constructor(view) {
-    this.decorations = buildDecorations(view);
+    const blocks = activeBlocks(view);
+    this.decorations = buildDecorations(view, blocks);
+    this.activeKey = blockKey(blocks);
   }
 
   update(update) {
-    if (update.docChanged || update.selectionSet || update.viewportChanged) {
-      this.decorations = buildDecorations(update.view);
+    if (update.docChanged || update.viewportChanged) {
+      const blocks = activeBlocks(update.view);
+      this.decorations = buildDecorations(update.view, blocks);
+      this.activeKey = blockKey(blocks);
+      return;
+    }
+    if (update.selectionSet) {
+      const blocks = activeBlocks(update.view);
+      const key = blockKey(blocks);
+      if (key !== this.activeKey) {
+        this.decorations = buildDecorations(update.view, blocks);
+        this.activeKey = key;
+      }
     }
   }
 }, { decorations: value => value.decorations });
@@ -407,6 +477,7 @@ const livePreviewTheme = EditorView.baseTheme({
   ".cm-live-wikilink, .cm-live-link": { color: "var(--jylos-accent)", textDecoration: "underline", cursor: "pointer" },
   ".cm-live-embed": { display: "inline-block", color: "var(--jylos-accent)", background: "var(--jylos-panel)", border: "1px solid var(--jylos-border)", borderRadius: "6px", padding: "1px 6px", cursor: "pointer" },
   ".cm-live-list-marker": { display: "inline-block", width: "1em", color: "var(--jylos-accent)", fontWeight: "700" },
+  ".cm-live-underline": { textDecoration: "underline" },
   ".cm-live-task": { margin: "0 .45em 0 0", accentColor: "var(--jylos-accent)", verticalAlign: "middle" },
   ".cm-live-horizontal-rule": { display: "block", width: "100%", height: "1px", margin: ".8em 0", background: "var(--jylos-border)" },
   ".cm-live-image": { display: "block", maxWidth: "min(100%, 720px)", margin: ".65em 0", padding: "0" },
@@ -421,3 +492,7 @@ const livePreviewTheme = EditorView.baseTheme({
 export function livePreview() {
   return [livePreviewPlugin, livePreviewTheme];
 }
+
+// Exported for tests only, so they can look up the plugin instance via
+// `view.plugin(livePreviewPlugin)` and assert on decoration rebuild behavior.
+export { livePreviewPlugin };

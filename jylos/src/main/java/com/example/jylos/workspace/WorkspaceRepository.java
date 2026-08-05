@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.UnaryOperator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -28,6 +29,8 @@ public final class WorkspaceRepository {
     private static final String FILE_NAME = "workspaces.dat";
 
     private final Path file;
+    /** Serializes reads and writes of {@value #FILE_NAME} so autosave and manual save cannot race. */
+    private final Object fileLock = new Object();
 
     /** Default location: {@code <appData>/data/workspaces.dat}. */
     public WorkspaceRepository() {
@@ -41,41 +44,61 @@ public final class WorkspaceRepository {
 
     /** Loads all stored workspaces, skipping any corrupt lines. Never throws. */
     public List<Workspace> loadAll() {
-        List<Workspace> result = new ArrayList<>();
-        if (file == null || !Files.exists(file)) {
+        synchronized (fileLock) {
+            List<Workspace> result = new ArrayList<>();
+            if (file == null || !Files.exists(file)) {
+                return result;
+            }
+            try {
+                for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
+                    Workspace ws = Workspace.parse(line);
+                    if (ws != null) {
+                        result.add(ws);
+                    } else if (!line.isBlank()) {
+                        logger.warning("Skipping corrupt workspace entry");
+                    }
+                }
+            } catch (IOException e) {
+                logger.log(Level.WARNING, "Could not read workspaces file", e);
+            }
             return result;
         }
-        try {
-            for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
-                Workspace ws = Workspace.parse(line);
-                if (ws != null) {
-                    result.add(ws);
-                } else if (!line.isBlank()) {
-                    logger.warning("Skipping corrupt workspace entry");
-                }
-            }
-        } catch (IOException e) {
-            logger.log(Level.WARNING, "Could not read workspaces file", e);
-        }
-        return result;
     }
 
     /** Persists the full list, replacing the file contents. Never throws. */
     public void saveAll(List<Workspace> workspaces) {
-        if (file == null) {
-            return;
-        }
-        StringBuilder sb = new StringBuilder();
-        for (Workspace ws : workspaces) {
-            sb.append(ws.serialize()).append('\n');
-        }
-        try {
-            if (file.getParent() != null) {
-                Files.createDirectories(file.getParent());
+        synchronized (fileLock) {
+            if (file == null) {
+                return;
             }
-            Files.writeString(file, sb.toString(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            logger.log(Level.WARNING, "Could not write workspaces file", e);
+            StringBuilder sb = new StringBuilder();
+            for (Workspace ws : workspaces) {
+                sb.append(ws.serialize()).append('\n');
+            }
+            try {
+                if (file.getParent() != null) {
+                    Files.createDirectories(file.getParent());
+                }
+                Files.writeString(file, sb.toString(), StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                logger.log(Level.WARNING, "Could not write workspaces file", e);
+            }
+        }
+    }
+
+    /**
+     * Atomically loads the current list, applies {@code mutator}, and persists the
+     * result — closing the read-modify-write gap that separate {@link #loadAll()} and
+     * {@link #saveAll(List)} calls leave open between two racing callers (e.g. autosave
+     * and a manual save).
+     *
+     * @return the persisted list (the mutator's return value)
+     */
+    public List<Workspace> update(UnaryOperator<List<Workspace>> mutator) {
+        synchronized (fileLock) {
+            List<Workspace> mutated = mutator.apply(loadAll());
+            saveAll(mutated);
+            return mutated;
         }
     }
 }
