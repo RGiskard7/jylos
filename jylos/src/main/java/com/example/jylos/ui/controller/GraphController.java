@@ -96,6 +96,9 @@ public class GraphController {
     private Consumer<String> onOpenNote;
     private Runnable onClose;
     private Supplier<String> currentNoteIdSupplier = () -> null;
+    /** Notified with the freshly built model after every rebuild, so the right panel's
+     *  baseline graph-info section can show live node/edge counts without polling. */
+    private Consumer<GraphData> onDataBuilt = data -> { };
 
     /** True while the graph overlay is on screen (drives live refresh on edits). */
     private boolean graphVisible = false;
@@ -177,12 +180,14 @@ public class GraphController {
     // ------------------------------------------------------------------
 
     public void wire(EventBus eventBus, NoteService noteService, TagService tagService, ResourceBundle bundle,
-            Consumer<String> onOpenNote, Runnable onClose, Supplier<String> currentNoteIdSupplier) {
+            Consumer<String> onOpenNote, Runnable onClose, Supplier<String> currentNoteIdSupplier,
+            Consumer<GraphData> onDataBuilt) {
         setServices(noteService, tagService);
         setBundle(bundle);
         setOnOpenNote(onOpenNote);
         setOnClose(onClose);
         setCurrentNoteIdSupplier(currentNoteIdSupplier);
+        this.onDataBuilt = onDataBuilt != null ? onDataBuilt : data -> { };
         setEventBus(eventBus);
     }
 
@@ -389,6 +394,7 @@ public class GraphController {
             lastBuilt = task.getValue();
             refreshFilterChoices(lastBuilt);
             applyView();
+            onDataBuilt.accept(lastBuilt);
         });
         task.setOnFailed(e -> logger.log(Level.WARNING, "Graph build failed", task.getException()));
         Thread thread = new Thread(task, "graph-build");

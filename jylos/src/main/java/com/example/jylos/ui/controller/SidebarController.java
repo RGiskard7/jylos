@@ -136,6 +136,10 @@ public class SidebarController {
     };
     private Consumer<Note> openNoteAction = note -> {
     };
+    private Consumer<Folder> createNoteInFolderAction = folder -> {
+    };
+    private Consumer<Folder> createCanvasInFolderAction = folder -> {
+    };
     private Consumer<String> statusUpdateAction = message -> {
     };
     private final List<EventBus.Subscription> eventSubscriptions = new ArrayList<>();
@@ -190,6 +194,7 @@ public class SidebarController {
             FolderService folderService, ResourceBundle bundle,
             Consumer<Folder> folderSelectionAction, Consumer<Tag> tagSelectionAction,
             Consumer<Component> trashSelectionAction, Consumer<Note> openNoteAction,
+            Consumer<Folder> createNoteInFolderAction, Consumer<Folder> createCanvasInFolderAction,
             Consumer<String> statusUpdateAction) {
         setNoteService(noteService);
         setTagService(tagService);
@@ -202,6 +207,10 @@ public class SidebarController {
         this.trashSelectionAction = trashSelectionAction != null ? trashSelectionAction : component -> {
         };
         this.openNoteAction = openNoteAction != null ? openNoteAction : note -> {
+        };
+        this.createNoteInFolderAction = createNoteInFolderAction != null ? createNoteInFolderAction : folder -> {
+        };
+        this.createCanvasInFolderAction = createCanvasInFolderAction != null ? createCanvasInFolderAction : folder -> {
         };
         this.statusUpdateAction = statusUpdateAction != null ? statusUpdateAction : message -> {
         };
@@ -1488,19 +1497,19 @@ public class SidebarController {
     }
 
     private void handleCreateNoteInFolder(Folder folder) {
-        if (eventBus == null || folder == null) {
+        if (folder == null) {
             return;
         }
         folderSelectionAction.accept(folder);
-        eventBus.publish(new SystemActionEvent(SystemActionEvent.ActionType.NEW_NOTE));
+        createNoteInFolderAction.accept(folder);
     }
 
     private void handleCreateCanvasInFolder(Folder folder) {
-        if (eventBus == null || folder == null) {
+        if (folder == null) {
             return;
         }
         folderSelectionAction.accept(folder);
-        eventBus.publish(new SystemActionEvent(SystemActionEvent.ActionType.NEW_CANVAS));
+        createCanvasInFolderAction.accept(folder);
     }
 
     private void handleCreateSubfolderInFolder(Folder folder) {

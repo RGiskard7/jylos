@@ -83,6 +83,7 @@ class DialogSupport {
             int notesPreviewLines,
             int uiFontSize,
             String accentColor,
+            boolean livePreviewEnabled,
             Set<String> enabledSnippets) {
     }
 
@@ -127,6 +128,13 @@ class DialogSupport {
         }
         notesPreviewLinesCombo.getSelectionModel()
                 .select(Integer.valueOf(UiPreferencesStore.clampPreviewLines(current.notesPreviewLines())));
+
+        Label editingModeLabel = new Label(i18n("dialog.preferences.default_editing_mode"));
+        ComboBox<String> editingModeCombo = new ComboBox<>();
+        editingModeCombo.getItems().addAll(
+                i18n("editing_mode.live_preview"),
+                i18n("editing_mode.source"));
+        editingModeCombo.getSelectionModel().select(current.livePreviewEnabled() ? 0 : 1);
 
         Label fontSizeLabel = new Label(i18n("dialog.preferences.font_size"));
         ComboBox<Integer> fontSizeCombo = new ComboBox<>();
@@ -231,6 +239,7 @@ class DialogSupport {
                 autosaveEnabledCheck,
                 new HBox(8, autosaveIntervalLabel, autosaveIntervalCombo),
                 new Separator(),
+                editingModeLabel, editingModeCombo,
                 notesPreviewLinesLabel, notesPreviewLinesCombo,
                 fontSizeLabel, fontSizeCombo,
                 new Separator(),
@@ -296,6 +305,7 @@ class DialogSupport {
                     previewLines != null ? previewLines : UiPreferencesStore.DEFAULT_NOTES_PREVIEW_LINES,
                     fontSize != null ? fontSize : UiPreferencesStore.DEFAULT_UI_FONT_SIZE,
                     accent,
+                    editingModeCombo.getSelectionModel().getSelectedIndex() != 1,
                     new LinkedHashSet<>(selectedSnippets));
         });
         return com.example.jylos.ui.UiDialogs.show(dialog);

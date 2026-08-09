@@ -65,8 +65,11 @@ public final class KnowledgeInsightsPanel {
     /** Builds, themes and shows the dialog, computing the report asynchronously. */
     public void show() {
         dialog.setTitle(str("insights.title"));
+        dialog.setResizable(true);
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+        dialog.getDialogPane().getStyleClass().add("insights-dialog");
         dialog.getDialogPane().setPrefSize(680, 600);
+        dialog.getDialogPane().setMinSize(520, 420);
         dialog.getDialogPane().setContent(content);
         if (owner != null) {
             dialog.initOwner(owner.getWindow());
@@ -132,7 +135,7 @@ public final class KnowledgeInsightsPanel {
         explanation.getStyleClass().add("insights-explanation");
 
         VBox box = new VBox(20, grid, scoreBox, explanation);
-        box.setPadding(new Insets(18));
+        box.setPadding(new Insets(16));
         return box;
     }
 
@@ -192,7 +195,7 @@ public final class KnowledgeInsightsPanel {
         });
         VBox box = new VBox(8, hint(), list);
         VBox.setVgrow(list, Priority.ALWAYS);
-        box.setPadding(new Insets(10));
+        box.setPadding(new Insets(16));
         return box;
     }
 
@@ -226,7 +229,7 @@ public final class KnowledgeInsightsPanel {
     private VBox wrapTable(TableView<?> table) {
         VBox box = new VBox(8, hint(), table);
         VBox.setVgrow(table, Priority.ALWAYS);
-        box.setPadding(new Insets(10));
+        box.setPadding(new Insets(16));
         return box;
     }
 

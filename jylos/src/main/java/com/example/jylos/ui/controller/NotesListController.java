@@ -11,8 +11,6 @@ import com.example.jylos.exceptions.DataAccessException;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
-import java.util.prefs.Preferences;
-import java.io.File;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
@@ -42,6 +40,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.prefs.Preferences;
 import javafx.scene.Parent;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.control.ScrollPane;
@@ -79,9 +78,6 @@ public class NotesListController {
     };
     private Consumer<String> statusUpdateAction = message -> {
     };
-
-    /** Initial content of a freshly created {@code .canvas} file (empty JSON Canvas). */
-    private static final String EMPTY_CANVAS_JSON = "{\n\t\"nodes\":[],\n\t\"edges\":[]\n}";
 
     private String currentFilterType = "all";
     private Folder currentFolder;
@@ -728,11 +724,7 @@ public class NotesListController {
 
         subscriptions.add(eventBus.subscribe(SystemActionEvent.class, event -> {
             javafx.application.Platform.runLater(() -> {
-                if (event.getActionType() == SystemActionEvent.ActionType.NEW_NOTE) {
-                    handleNewNote(null);
-                } else if (event.getActionType() == SystemActionEvent.ActionType.NEW_CANVAS) {
-                    handleNewCanvas(null);
-                } else if (event.getActionType() == SystemActionEvent.ActionType.DELETE) {
+                if (event.getActionType() == SystemActionEvent.ActionType.DELETE) {
                     handleDelete(null);
                 }
             });
@@ -1154,129 +1146,6 @@ public class NotesListController {
         publishEvent(SystemActionEvent.ActionType.REFRESH_NOTES);
     }
 
-    @FXML
-    private void handleNewNote(ActionEvent event) {
-        if (noteService == null) {
-            logger.warning("Cannot create note: noteService is null");
-            publishStatusUpdate(getString("status.error_creating_note"));
-            return;
-        }
-        try {
-            Note newNote = new Note(getString("app.untitled"), "");
-
-            // Set parent folder
-            if (currentFolder != null && currentFolder.getId() != null &&
-                    !"ROOT".equals(currentFolder.getId()) &&
-                    !isAllNotesVirtualFolder(currentFolder)) {
-                newNote.setParent(currentFolder);
-            }
-
-            // Fix: If a folder is selected, prepare the ID with the folder path for
-            // FileSystem storage
-            Preferences prefs = Preferences.userNodeForPackage(NotesListController.class);
-            boolean isFileSystem = !"sqlite".equals(prefs.get("storage_type", "sqlite"));
-
-            if (isFileSystem && currentFolder != null && currentFolder.getId() != null &&
-                    !"ROOT".equals(currentFolder.getId()) &&
-                    !isAllNotesVirtualFolder(currentFolder)) {
-
-                String pathSeparator = File.separator;
-                String folderPath = currentFolder.getId();
-                String safeTitle = newNote.getTitle().replaceAll("[^a-zA-Z0-9\\.\\-_ ]", "_");
-
-                newNote.setId(folderPath + pathSeparator + safeTitle);
-            }
-
-            Note createdNote = noteService.createNote(newNote);
-            String noteId = createdNote.getId();
-            if (noteId == null) {
-                publishStatusUpdate(getString("status.error_creating_note"));
-                return;
-            }
-            newNote.setId(noteId);
-
-            if (currentFolder != null && currentFolder.getId() != null &&
-                    !"ROOT".equals(currentFolder.getId()) &&
-                    !isAllNotesVirtualFolder(currentFolder)) {
-                if (folderService != null) {
-                    folderService.addNoteToFolder(currentFolder, newNote);
-                } else {
-                    logger.warning("Skipped addNoteToFolder: folderService is null");
-                }
-            }
-
-            notesListView.getItems().add(0, newNote);
-            notesListView.getSelectionModel().select(newNote);
-
-            // Fire event for plugins and other controllers
-            if (eventBus != null) {
-                eventBus.publish(new NoteEvents.NoteCreatedEvent(newNote));
-            }
-
-            publishStatusUpdate(getString("status.note_created"));
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Failed to create new note", e);
-            publishStatusUpdate(getString("status.error_creating_note"));
-        }
-    }
-
-    /**
-     * Creates an empty Obsidian-compatible {@code .canvas} file in the current folder and opens it.
-     * A canvas is a vault file, so this is only available in filesystem (vault) storage mode.
-     */
-    private void handleNewCanvas(ActionEvent event) {
-        if (noteService == null) {
-            logger.warning("Cannot create canvas: noteService is null");
-            publishStatusUpdate(getString("status.error_creating_note"));
-            return;
-        }
-
-        Preferences prefs = Preferences.userNodeForPackage(NotesListController.class);
-        boolean isFileSystem = !"sqlite".equals(prefs.get("storage_type", "sqlite"));
-        if (!isFileSystem) {
-            publishStatusUpdate(getString("status.canvas_requires_vault"));
-            return;
-        }
-
-        try {
-            // The title carries the ".canvas" extension; the DAO writes the raw JSON below
-            // as an attachment (no frontmatter, keeps the extension).
-            Note newNote = new Note(getString("canvas.new_filename") + ".canvas", EMPTY_CANVAS_JSON);
-
-            boolean concreteFolder = currentFolder != null && currentFolder.getId() != null &&
-                    !"ROOT".equals(currentFolder.getId()) && !isAllNotesVirtualFolder(currentFolder);
-            if (concreteFolder) {
-                newNote.setParent(currentFolder);
-                String safeTitle = newNote.getTitle().replaceAll("[^a-zA-Z0-9\\.\\-_ ]", "_");
-                newNote.setId(currentFolder.getId() + File.separator + safeTitle);
-            }
-
-            Note createdNote = noteService.createNote(newNote);
-            String noteId = createdNote != null ? createdNote.getId() : null;
-            if (noteId == null) {
-                publishStatusUpdate(getString("status.error_creating_note"));
-                return;
-            }
-            newNote.setId(noteId);
-
-            if (concreteFolder && folderService != null) {
-                folderService.addNoteToFolder(currentFolder, newNote);
-            }
-
-            notesListView.getItems().add(0, newNote);
-            notesListView.getSelectionModel().select(newNote);
-
-            if (eventBus != null) {
-                eventBus.publish(new NoteEvents.NoteCreatedEvent(newNote));
-            }
-
-            publishStatusUpdate(getString("status.canvas_created"));
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Failed to create new canvas", e);
-            publishStatusUpdate(getString("status.error_creating_note"));
-        }
-    }
-
     private void publishStatusUpdate(String message) {
         if (message != null && !message.isBlank()) {
             statusUpdateAction.accept(message);
@@ -1383,24 +1252,23 @@ public class NotesListController {
         if (target.isEmpty()) {
             return;
         }
-        try {
-            String previousId = note.getId();
-            Folder destination = target.get().folder();
-            folderService.moveNoteToFolder(note, destination);
-            requestSelectAfterRefresh(note.getId());
-            if (eventBus != null) {
-                eventBus.publish(new NoteEvents.NoteSavedEvent(note, previousId));
-                eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
-            } else {
-                refreshCurrentView();
-            }
-            publishStatusUpdate(destination == null || "ROOT".equals(destination.getId())
-                    ? getString("status.note_moved_root")
-                    : java.text.MessageFormat.format(getString("status.note_moved_folder"), destination.getTitle()));
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "Failed to move note " + note.getId(), e);
+        Folder destination = target.get().folder();
+        NoteOperations.NoteMoveResult result =
+                new NoteOperations(noteService, folderService).moveToFolder(note, destination);
+        if (!result.success()) {
             publishStatusUpdate(getString("status.note_move_error"));
+            return;
         }
+        requestSelectAfterRefresh(note.getId());
+        if (eventBus != null) {
+            eventBus.publish(new NoteEvents.NoteSavedEvent(note, result.previousId()));
+            eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
+        } else {
+            refreshCurrentView();
+        }
+        publishStatusUpdate(destination == null || "ROOT".equals(destination.getId())
+                ? getString("status.note_moved_root")
+                : java.text.MessageFormat.format(getString("status.note_moved_folder"), destination.getTitle()));
     }
 
     private Optional<MoveTargetSupport.MoveTarget> chooseMoveTarget(Folder folderToMove) {
@@ -1459,22 +1327,21 @@ public class NotesListController {
 
         Optional<ButtonType> result = com.example.jylos.ui.UiDialogs.show(alert);
         if (result.isPresent() && result.get() == ButtonType.OK) {
-            try {
-                noteService.moveToTrash(note.getId());
-
-                // Selection clearing is important
-                notesListView.getSelectionModel().clearSelection();
-
-                // Publish event so Sidebar can refresh counts, Main can refresh etc.
-                if (eventBus != null) {
-                    eventBus.publish(new NoteEvents.NoteDeletedEvent(note.getId(), note.getTitle()));
-                }
-
-                publishStatusUpdate(getString("status.note_moved_trash"));
-            } catch (Exception e) {
-                logger.log(Level.SEVERE, "Failed to delete note", e);
+            NoteTrashOperations.TrashResult trashed = new NoteTrashOperations(noteService).moveToTrash(note);
+            if (!trashed.success()) {
                 publishStatusUpdate(getString("status.note_delete_error"));
+                return;
             }
+
+            // Selection clearing is important
+            notesListView.getSelectionModel().clearSelection();
+
+            // Publish event so Sidebar can refresh counts, Main can refresh etc.
+            if (eventBus != null) {
+                eventBus.publish(new NoteEvents.NoteDeletedEvent(note.getId(), note.getTitle()));
+            }
+
+            publishStatusUpdate(getString("status.note_moved_trash"));
         }
     }
 

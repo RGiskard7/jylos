@@ -62,7 +62,6 @@ public final class GraphCanvas extends Region {
     private static final double MIN_SCALE = 0.02;
     private static final double MAX_SCALE = 8.0;
     private static final double CLICK_SLOP = 4.0;          // px movement still counts as a click
-    private static final int    LABEL_NODE_LIMIT = 260;    // above this, labels only near hover
     private static final double MIN_NODE_PX = 2.0;         // floor on on-screen node radius (Obsidian-like dots)
 
     private final Canvas canvas = new Canvas();
@@ -93,6 +92,10 @@ public final class GraphCanvas extends Region {
     private String[] labels = new String[0];
     private String[] group = new String[0];   // folder/tag group, for color-by-folder
     private int[][] neighbors = new int[0][];
+    /** Node indices sorted by descending radius, computed once per model build (radius
+     *  never changes afterward) so the label pass doesn't re-sort on every frame. */
+    private int[] labelOrder = new int[0];
+    private final List<double[]> placedLabelBoxes = new ArrayList<>();
 
     private static final int KIND_NOTE = 0;
     private static final int KIND_TAG = 1;
@@ -391,6 +394,19 @@ public final class GraphCanvas extends Region {
             neighbors[i] = arr;
         }
 
+        // Sorted once here (radius is fixed for the model's lifetime) instead of on
+        // every draw() — the label pass used to re-sort all n nodes on every frame,
+        // including every intermediate event of a zoom/pan gesture.
+        Integer[] boxed = new Integer[n];
+        for (int i = 0; i < n; i++) {
+            boxed[i] = i;
+        }
+        java.util.Arrays.sort(boxed, (a, b) -> Double.compare(radius[b], radius[a]));
+        labelOrder = new int[n];
+        for (int i = 0; i < n; i++) {
+            labelOrder[i] = boxed[i];
+        }
+
         hoverIndex = -1;
         dragIndex = -1;
     }
@@ -660,7 +676,6 @@ public final class GraphCanvas extends Region {
         }
 
         // Nodes
-        boolean drawAllLabels = n <= LABEL_NODE_LIMIT && scale >= labelThreshold;
         for (int i = 0; i < n; i++) {
             double r = screenRadius(i);
             double px = sx(x[i]);
@@ -695,24 +710,85 @@ public final class GraphCanvas extends Region {
         }
         g.setGlobalAlpha(1.0);
 
-        // Labels (kept cheap: all when zoomed-in on small graphs; otherwise near hover)
+        // Labels. Hovering always shows just the hovered node's own label — never
+        // its neighbours, matching Obsidian. Otherwise labels fade in gradually as
+        // zoom crosses labelThreshold (near-invisible, then ramping to fully
+        // opaque), and higher-degree nodes claim their label first — any label
+        // that would overlap an already-placed one is skipped, so density
+        // self-limits instead of an all-or-nothing cutoff by raw node count.
+        //
+        // Width for the overlap check is a cheap chars-times-average-glyph-width
+        // estimate, not real font metrics: measuring via a JavaFX Text node's
+        // getLayoutBounds() per node per frame (the first version of this) forces
+        // a real font/layout pass in the toolkit on every call — cheap once, very
+        // expensive when it's the inner loop of a 60fps animation. The estimate
+        // only needs to be close enough to avoid gross overlaps, not exact.
+        Font font = Font.font(Math.max(9, Math.min(15, 11 * Math.max(0.8, scale))));
         g.setTextAlign(TextAlignment.CENTER);
-        g.setFont(Font.font(Math.max(9, Math.min(15, 11 * Math.max(0.8, scale)))));
+        g.setFont(font);
         g.setFill(palette.text);
-        for (int i = 0; i < n; i++) {
-            boolean near = !hovering || active[i];
-            boolean show = drawAllLabels ? (!hovering || active[i]) : (hovering && near);
-            if (i == hoverIndex) {
-                show = true;
+        if (hovering) {
+            if (!labels[hoverIndex].isEmpty()) {
+                double r = radius[hoverIndex] * scale;
+                g.fillText(labels[hoverIndex], sx(x[hoverIndex]), sy(y[hoverIndex]) + r + 12);
             }
-            if (!show || labels[i].isEmpty()) {
+            return;
+        }
+        double fadeIn = clamp((scale - labelThreshold) / (labelThreshold * 0.75), 0.0, 1.0);
+        if (fadeIn <= 0.0) {
+            return;
+        }
+        g.setGlobalAlpha(fadeIn);
+        drawDeclutteredLabels(font);
+        g.setGlobalAlpha(1.0);
+    }
+
+    /**
+     * Draws as many labels as fit without overlapping, prioritizing higher-degree
+     * (larger) nodes. Off-screen candidates are skipped before any box math so a
+     * zoomed-in view over a small area of a large graph doesn't pay for the rest of
+     * it. {@code O(k^2)} in the number of on-screen labels actually placed, which
+     * self-bounds: a crowded viewport places few labels regardless of {@code n}.
+     *
+     * <p>Uses {@link #labelOrder} (sorted once per model build, not here — this used
+     * to re-sort all {@code n} nodes on every single frame, including every
+     * intermediate event of a zoom or pan gesture) and the reused
+     * {@link #placedLabelBoxes} list (avoids an allocation per frame).</p>
+     */
+    private void drawDeclutteredLabels(Font font) {
+        double avgCharWidth = font.getSize() * 0.56; // typical proportional sans-serif average
+        double labelHeight = font.getSize() + 2;
+        double w = width();
+        double h = height();
+
+        placedLabelBoxes.clear();
+        for (int idx : labelOrder) {
+            if (labels[idx].isEmpty()) {
                 continue;
             }
-            double r = radius[i] * scale;
-            g.setGlobalAlpha(hovering && !active[i] ? 0.0 : 1.0);
-            g.fillText(labels[i], sx(x[i]), sy(y[i]) + r + 12);
+            double r = radius[idx] * scale;
+            double cx = sx(x[idx]);
+            double cy = sy(y[idx]) + r + 12;
+            double halfW = labels[idx].length() * avgCharWidth / 2.0 + 2;
+            double minX = cx - halfW, maxX = cx + halfW;
+            double minY = cy - labelHeight / 2.0, maxY = cy + labelHeight / 2.0;
+            if (maxX < 0 || minX > w || maxY < 0 || minY > h) {
+                continue; // fully off-screen — cheap reject before any collision math
+            }
+
+            boolean overlaps = false;
+            for (double[] box : placedLabelBoxes) {
+                if (minX < box[2] && maxX > box[0] && minY < box[3] && maxY > box[1]) {
+                    overlaps = true;
+                    break;
+                }
+            }
+            if (overlaps) {
+                continue;
+            }
+            placedLabelBoxes.add(new double[] { minX, minY, maxX, maxY });
+            g.fillText(labels[idx], cx, cy);
         }
-        g.setGlobalAlpha(1.0);
     }
 
     // ── Interaction ────────────────────────────────────────────────────────────

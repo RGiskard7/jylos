@@ -4,7 +4,7 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.web.WebView?>
-<?import org.fxmisc.richtext.CodeArea?>
+<?import com.example.jylos.ui.components.MarkdownEditorView?>
 <?import org.kordamp.ikonli.javafx.FontIcon?>
 
 <VBox fx:id="editorContainer" styleClass="editor-container" HBox.hgrow="ALWAYS"
@@ -67,28 +67,17 @@
         <HBox fx:id="noteOnlyControls" alignment="CENTER_LEFT" spacing="8">
             <Separator orientation="VERTICAL" styleClass="header-separator"/>
 
+            <!-- Obsidian-style view switch: book opens reading view, pencil returns to editing. -->
+            <Button fx:id="readingModeButton" onAction="#handleToggleReadingMode" styleClass="modern-toggle-btn">
+                <tooltip><Tooltip fx:id="readingModeTooltip" text="%tooltip.switch_to_reading"/></tooltip>
+                <graphic><FontIcon fx:id="readingModeIcon" iconLiteral="fth-book-open" styleClass="feather-icon"/></graphic>
+            </Button>
+
             <!-- Tags toggle -->
             <ToggleButton fx:id="toggleTagsBtn" onAction="#handleToggleTags" styleClass="modern-toggle-btn" selected="false">
                 <tooltip><Tooltip text="%tooltip.toggle_tags"/></tooltip>
                 <graphic><FontIcon iconLiteral="fth-hash" styleClass="feather-icon"/></graphic>
             </ToggleButton>
-
-            <Separator orientation="VERTICAL" styleClass="header-separator"/>
-
-            <!-- View mode -->
-            <ToggleButton fx:id="editorOnlyButton" onAction="#handleEditorOnlyMode" styleClass="modern-toggle-btn">
-                <tooltip><Tooltip text="%tooltip.editor_only"/></tooltip>
-                <graphic><FontIcon iconLiteral="fth-edit-3" styleClass="feather-icon"/></graphic>
-            </ToggleButton>
-            <ToggleButton fx:id="splitViewButton" onAction="#handleSplitViewMode" styleClass="modern-toggle-btn">
-                <tooltip><Tooltip text="%tooltip.split_view"/></tooltip>
-                <graphic><FontIcon iconLiteral="fth-columns" styleClass="feather-icon"/></graphic>
-            </ToggleButton>
-            <ToggleButton fx:id="previewOnlyButton" onAction="#handlePreviewOnlyMode" styleClass="modern-toggle-btn">
-                <tooltip><Tooltip text="%tooltip.preview_only"/></tooltip>
-                <graphic><FontIcon iconLiteral="fth-book-open" styleClass="feather-icon"/></graphic>
-            </ToggleButton>
-            <Separator orientation="VERTICAL" styleClass="header-separator"/>
         </HBox>
 
         <ToggleButton fx:id="pinButton" onAction="#handleTogglePin" styleClass="modern-toggle-btn">
@@ -146,7 +135,7 @@
 
         <!-- Editor Pane -->
         <VBox fx:id="editorPane" VBox.vgrow="ALWAYS" styleClass="editor-pane">
-            <CodeArea fx:id="noteContentArea" wrapText="true" VBox.vgrow="ALWAYS" styleClass="editor-area"/>
+            <MarkdownEditorView fx:id="noteContentArea" VBox.vgrow="ALWAYS" styleClass="editor-area"/>
 
             <!-- Format Toolbar -->
             <HBox fx:id="formatToolbarContainer" styleClass="format-toolbar-container">

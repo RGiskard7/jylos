@@ -1,5 +1,61 @@
 # Changelog
 
+## [Unreleased]
+
+## [2.5.0] - 2026-08-09
+
+- El editor Markdown migra completamente de RichTextFX a CodeMirror 6 mediante un bundle offline y reproducible: recupera resaltado estable y adaptado al tema para Markdown/GFM y bloques fenced, historial aislado entre documentos, atajos nativos de plataforma, búsqueda/reemplazo localizada, menú contextual, modo de solo lectura efectivo y autocompletado de wiki-links sin mantener rutas legacy de edición.
+
+- Se añade una vista previa en vivo editable inspirada en el flujo de Obsidian: oculta la sintaxis fuera del bloque activo y presenta encabezados, énfasis, enlaces, wiki-links, tareas, imágenes y tablas mediante decoraciones reversibles de CodeMirror, sin convertir HTML a Markdown ni duplicar el documento o su historial. La edición usa Live Preview por defecto, una única acción libro/lápiz alterna con la vista de lectura, el modo fuente se configura en Preferencias o la paleta y la vista de lectura enlazada se abre como layout independiente.
+
+- La integración del editor queda encapsulada en `MarkdownEditorView`; CodeMirror gestiona texto, selección e historial, mientras `EditorController` conserva la coordinación de notas, guardado, preview y hooks de plugins.
+
+- El frontmatter Markdown del vault filesystem usa ahora parseo YAML real para reconocer y conservar propiedades avanzadas de Obsidian y campos personalizados, evitando reescrituras destructivas al guardar, renombrar o actualizar metadata.
+
+- Al pegar una cabecera YAML al inicio del cuerpo de una nota, Jylos la importa como propiedades del documento y limpia el contenido visible para mantener un único frontmatter canónico.
+
+- La creación de notas y canvas desde el menú contextual de carpetas reutiliza el flujo canónico de creación de la aplicación, por lo que refresca la lista de notas, actualiza el sidebar y abre el documento nuevo igual que el botón principal.
+
+- La lista de notas deja de tener un segundo flujo interno de creación, reduciendo duplicidad entre controladores y manteniendo `MainController` como coordinador de la acción.
+
+- El árbol de carpetas mantiene alineadas las filas con y sin subcarpetas reservando el mismo espacio visual para el control de expansión en los temas claro y oscuro.
+
+- Corrige un fallo donde un error al guardar en la base de datos SQLite podía pasar desapercibido: la creación o actualización de notas, carpetas y etiquetas ahora informa el fallo real en vez de continuar como si hubiera tenido éxito.
+
+- El renderizado de diagramas Mermaid usa ahora un nivel de seguridad estricto, evitando que HTML o script embebido en el contenido de una nota se ejecute en la vista previa.
+
+- La selección de texto en el editor usa ahora el mecanismo nativo del navegador en vez de un overlay propio de CodeMirror, corrigiendo un comportamiento errático al seleccionar palabra a palabra y reduciendo el coste de renderizado durante el scroll.
+
+- El resaltado (`==texto==`) y el subrayado (`<u>texto</u>`) ya se muestran correctamente tanto en modo fuente como en Live Preview.
+
+- El botón Buscar/reemplazar de la barra de formato abre ahora el panel con el campo de reemplazo enfocado en vez de reutilizar la búsqueda simple.
+
+- El botón de bloque de código de la barra de formato inserta siempre un bloque delimitado por ``` en vez de caer a código en línea cuando no hay selección o esta es de una sola línea.
+
+- Pegar con atajo de teclado justo después de cambiar de nota es ahora fiable, al depender del foco real de la ventana en vez de un estado interno del editor que podía ir con retraso.
+
+- Se optimiza el recálculo de decoraciones de Live Preview durante el scroll, reduciendo trabajo redundante en cada desplazamiento del viewport.
+
+- La barra de la nota reordena el botón de vista de lectura junto a fijar y favorito, y elimina separadores verticales innecesarios entre esos controles.
+
+- Los plugins declaran ahora la versión de API del host que soportan; un plugin incompatible se rechaza con un mensaje claro en vez de un fallo genérico.
+
+- Guardar y cerrar sesión de un workspace de forma simultánea (autoguardado y guardado manual) ya no puede perder una de las dos escrituras.
+
+- Al pasar el ratón sobre un nodo del grafo de conocimiento, solo se muestra la etiqueta de ese nodo; antes se mostraban también las etiquetas de todos sus nodos conectados, dificultando la lectura en grafos densos.
+
+- Las etiquetas del grafo se revelan de forma progresiva según el nivel de zoom, con aparición gradual de opacidad y priorizando los nodos más conectados; una etiqueta que colisionaría con otra ya visible se omite, en vez del criterio anterior de todo-o-nada según el número de nodos.
+
+- Se corrige un problema de rendimiento real en el grafo: el orden de prioridad de las etiquetas se recalculaba en cada frame de renderizado (cada tick de scroll, cada píxel de arrastre), pese a ser constante mientras el grafo no cambia. Ahora se calcula una única vez al construir el modelo, y las etiquetas fuera de la zona visible se descartan antes de calcular colisiones.
+
+- El panel derecho es ahora alcanzable con su botón de alternar también en las vistas de grafo y kanban, no solo en el editor; en el grafo muestra un resumen en vivo de notas y conexiones, y ya no quedan separadores verticales duplicados en el mecanismo de apertura.
+
+- El modal de Knowledge Insights es ahora redimensionable y consistente en estilo y espaciado con el resto de modales de la aplicación.
+
+- El texto renderizado de Live Preview (párrafos, encabezados, contenido revelado) usa ahora la misma fuente proporcional que el resto de la interfaz en vez de la fuente monoespaciada del editor; el texto fuente y el código siguen en monoespaciada.
+
+- Las secciones de información de nota y backlinks del panel derecho empiezan ahora colapsadas por defecto en vez de expandidas. Se elimina además el bloque de ubicación/autor/URL de origen del panel: ninguna funcionalidad de la aplicación llega a escribir esos campos (solo se rellenaban editando el frontmatter YAML a mano), por lo que mostraban "-" permanentemente en la práctica totalidad de las notas.
+
 ## [2.4.11] - 2026-08-02
 
 - Se corrige una regresión de rendimiento en el panel Git de vaults grandes: el refresco ya no ejecuta consultas Git ni lecturas de contenido por cada archivo cambiado. La resolución de rutas y submódulos se realiza una vez por refresco, y los archivos sin seguimiento no se abren para calcular estadísticas opcionales.

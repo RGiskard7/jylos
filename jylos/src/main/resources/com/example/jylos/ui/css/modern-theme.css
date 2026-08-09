@@ -613,6 +613,15 @@
     background-color: -fx-text-muted;
 }
 
+.sidebar-tree .tree-cell:leaf>.tree-disclosure-node {
+    -fx-padding: 4 6 4 8;
+}
+
+.sidebar-tree .tree-cell:leaf>.tree-disclosure-node>.arrow {
+    -fx-background-color: transparent;
+    background-color: transparent;
+}
+
 .tree-cell:selected>.tree-disclosure-node>.arrow {
     -fx-background-color: -fx-accent-contrast;
     background-color: -fx-accent-contrast;
@@ -1439,48 +1448,14 @@
 .editor-area {
     -fx-background-color: -fx-base-bg;
     background-color: -fx-base-bg;
-    -fx-text-fill: -fx-text-main;
-    color: -fx-text-main;
-    -fx-font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
-    font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
-    -fx-font-size: 14px;
-    font-size: 14px;
-    -fx-padding: 16;
-    padding: 16px;
+    -fx-padding: 0;
+    padding: 0;
 }
 
-.editor-area .content {
+.markdown-editor-webview {
     -fx-background-color: -fx-base-bg;
     background-color: -fx-base-bg;
 }
-
-.editor-area:focused {
-    -fx-background-color: -fx-base-bg;
-    background-color: -fx-base-bg;
-}
-
-/* RichTextFX CodeArea: text, caret and selection colours. */
-.editor-area .text {
-    -fx-fill: -fx-text-main;
-}
-.editor-area .caret {
-    -fx-stroke: -fx-text-main;
-}
-.editor-area .selection {
-    -fx-fill: derive(-fx-accent, 60%);
-}
-
-/* Markdown syntax-highlighting spans (applied to .text segments). */
-.editor-area .md-heading   { -fx-fill: -fx-accent; -fx-font-weight: bold; }
-.editor-area .md-bold      { -fx-font-weight: bold; }
-.editor-area .md-italic    { -fx-font-style: italic; }
-.editor-area .md-strike    { -fx-fill: -fx-text-muted; -fx-strikethrough: true; }
-.editor-area .md-code      { -fx-fill: -fx-danger; }
-.editor-area .md-codeblock { -fx-fill: -fx-danger; }
-.editor-area .md-wikilink  { -fx-fill: -fx-accent; -fx-font-weight: bold; }
-.editor-area .md-link      { -fx-fill: -fx-accent; -fx-underline: true; }
-.editor-area .md-quote     { -fx-fill: -fx-text-muted; -fx-font-style: italic; }
-.editor-area .md-list      { -fx-fill: -fx-accent; -fx-font-weight: bold; }
 
 /* Format toolbar container with scroll support */
 .format-toolbar-container {
@@ -4333,31 +4308,6 @@
     -fx-icon-color: -fx-text-main;
     -fx-fill: -fx-text-main;
     fill: -fx-text-main;
-}
-
-.editor-scroll-pane {
-    -fx-background-color: -fx-base-bg;
-}
-
-.editor-scroll-pane .scroll-bar:vertical {
-    -fx-opacity: 1;
-    -fx-pref-width: 8px;
-    -fx-min-width: 8px;
-    -fx-max-width: 8px;
-}
-
-.editor-scroll-pane .scroll-bar:vertical .track {
-    -fx-background-color: transparent;
-}
-
-.editor-scroll-pane .scroll-bar:vertical .thumb {
-    -fx-background-color: -fx-fn-border-color;
-    -fx-background-radius: 10;
-    -fx-min-height: 32px;
-}
-
-.editor-scroll-pane .scroll-bar:vertical .thumb:hover {
-    -fx-background-color: -fx-text-muted;
 }
 
 /* Update notification */

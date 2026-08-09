@@ -79,6 +79,23 @@ Optional integration smoke (storage backends):
 CSS snippets are plain `.css` files placed directly in `<appData>/snippets`; they do
 not need a build script.
 
+## CodeMirror editor bundle
+
+Normal Maven builds use the generated offline bundle committed under
+`jylos/src/main/resources`; Node.js is not required to build or run Jylos. After changing
+files under `jylos/editor-web/src/` or its pinned npm dependencies, rebuild that asset
+from the repository root:
+
+```bash
+./scripts/build-editor-web.sh
+```
+
+```powershell
+.\scripts\build-editor-web.ps1
+```
+
+The scripts use `npm ci` and `package-lock.json`, then bundle CodeMirror with esbuild.
+
 ## Packaging
 
 [PACKAGING.md](PACKAGING.md)

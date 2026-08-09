@@ -57,7 +57,7 @@ fi
 if ! command -v java > /dev/null 2>&1; then
     print_color "$RED" "Error: Java not found in PATH"
     echo ""
-    echo "Please install Java 17 or higher from:"
+    echo "Please install Java 21 or higher from:"
     echo "  https://adoptium.net/"
     echo ""
     echo "And make sure it's added to your PATH."

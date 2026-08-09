@@ -54,6 +54,7 @@ bin/
 out/
 classes/
 .gradle/
+node_modules/
 *.class
 
 # Logs

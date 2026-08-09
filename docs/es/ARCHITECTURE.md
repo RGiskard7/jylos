@@ -48,13 +48,17 @@ ui/ (FXML, controllers, components, GraphCanvas)
 - `MainView.fxml`: toolbar, centro con split principal, overlays de grafo/Kanban, panel derecho y status bar.
 - Split central: sidebar, lista de notas, editor/preview.
 - Overlays: grafo (`GraphView.fxml`) y Kanban (`KanbanBoard`) se gestionan por `OverlaySupport`.
-- Editor: `EditorTabs`, `CodeArea` de RichTextFX para edición nativa de Markdown, `WebView` para preview y autocompletado `[[`.
+- Editor: `EditorTabs`, `MarkdownEditorView` como frontera JavaFX para CodeMirror 6 offline en modo fuente/vista previa en vivo, `WebView` de lectura separado y autocompletado `[[`.
 - Panel derecho: metadata, backlinks y paneles de plugins.
 - Focus mode: oculta chrome de UI y deja solo editor.
 
 ### Edición Markdown y vista previa
 
-`CodeArea` es dueño de la entrada de texto nativa, selección, portapapeles y deshacer/rehacer. Jylos no aplica spans de estilo a todo el documento mientras se edita: así no se desestabilizan la composición nativa ni el caret de RichTextFX en macOS. `MarkdownPreview` renderiza el texto del editor fuera del hilo FX con CommonMark y carga el HTML resultante en el `WebView` de JavaFX; el resaltado de bloques de código y KaTeX de la vista previa usan assets offline incluidos. Los separadores no imprimibles de contenido externo se normalizan solo para el preview para evitar que WebView dibuje cajas de reemplazo; el Markdown en memoria y persistido no cambia.
+`MarkdownEditorView` es la única frontera entre Java y JavaScript. CodeMirror gestiona transacciones, selección, resaltado, decoraciones de vista previa en vivo, historial, atajos, búsqueda/reemplazo y autocompletado; `EditorController` conserva el estado de nota, la coordinación de guardado/preview y los hooks de plugins. Fuente y vista previa en vivo son dos presentaciones del mismo `EditorState`: las decoraciones se derivan del árbol Lezer solo para el viewport, muestran el Markdown del bloque activo y nunca reescriben el documento. Al cambiar de nota se instala un estado nuevo para aislar el historial.
+
+El shell expone dos estados semánticos mediante una única acción libro/lápiz: edición (vista previa en vivo por defecto, o fuente según la preferencia de UI) y lectura. La vista de lectura enlazada lado a lado es una acción de layout independiente disponible en Ver y en la paleta de comandos. Internamente, `UiLayout.ViewMode` conserva estas disposiciones en los workspaces; no crea otro documento ni otro estado de editor.
+
+Las dependencias npm están fijadas, se empaquetan con esbuild y el bundle se incluye como recurso local, por lo que el editor no necesita red. `MarkdownPreview` sigue siendo el pipeline CommonMark de lectura separado y renderizado fuera del hilo FX; conserva la responsabilidad del render completo de transclusiones recursivas, highlight.js, KaTeX y enhancers de plugins. No es editable deliberadamente, evitando conversiones HTML-a-Markdown y estados de documento duplicados.
 
 ## Grafo y backlinks
 

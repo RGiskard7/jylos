@@ -17,6 +17,7 @@ import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.dao.interfaces.TagDAO;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.data.models.Note;
+import com.example.jylos.exceptions.DataAccessException;
 import com.example.jylos.exceptions.InvalidParameterException;
 
 /**
@@ -91,7 +92,7 @@ public class TagDAOSQLite implements TagDAO {
 				} catch (SQLException rollbackEx) {
 					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
 				}
-				return null;
+				throw new DataAccessException("Failed to create tag: " + tag.getTitle(), e);
 			}
 		}
 

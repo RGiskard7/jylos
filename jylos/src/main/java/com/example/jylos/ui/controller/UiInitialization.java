@@ -10,7 +10,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.ToggleButton;
-import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
@@ -68,32 +67,6 @@ class UiInitialization {
                 sorter.accept(newValue);
             }
         });
-    }
-
-    public void initializeViewModeButtons(
-            ToggleButton editorOnlyButton,
-            ToggleButton splitViewButton,
-            ToggleButton previewOnlyButton,
-            Runnable initializeGridView,
-            Runnable applyViewMode) {
-        ToggleGroup viewModeGroup = new ToggleGroup();
-        if (editorOnlyButton != null) {
-            editorOnlyButton.setToggleGroup(viewModeGroup);
-        }
-        if (splitViewButton != null) {
-            splitViewButton.setToggleGroup(viewModeGroup);
-            splitViewButton.setSelected(true);
-        }
-        if (previewOnlyButton != null) {
-            previewOnlyButton.setToggleGroup(viewModeGroup);
-        }
-
-        if (initializeGridView != null) {
-            initializeGridView.run();
-        }
-        if (applyViewMode != null) {
-            applyViewMode.run();
-        }
     }
 
     public void initializeRightPanelSections(HBox noteInfoHeader, VBox noteInfoContent, Label noteInfoCollapseIcon,

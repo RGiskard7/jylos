@@ -264,10 +264,12 @@ public class CommandPalette {
                 "Set the vault's remote URL", null, "\u2197", "Git", null));
         commands.add(new Command("cmd.toggle_info_panel", "Toggle Info Panel", "Show/hide info panel",
                 "Ctrl+Shift+I", "i", "View", null));
-        commands.add(new Command("cmd.editor_mode", "Editor Mode", "Show only editor", null, "E", "View", null));
-        commands.add(new Command("cmd.preview_mode", "Preview Mode", "Show only preview", null, "P", "View", null));
-        commands.add(
-                new Command("cmd.split_mode", "Split Mode", "Show editor and preview", null, "||", "View", null));
+        commands.add(new Command("cmd.toggle_reading_view", "Toggle Editing/Reading View",
+                "Switch the active note between editing and reading", null, "E", "View", null));
+        commands.add(new Command("cmd.toggle_source_mode", "Toggle Source Mode",
+                "Switch the editor between Live Preview and Markdown source", null, "M", "View", null));
+        commands.add(new Command("cmd.split_mode", "Open Linked Reading View",
+                "Show the editor and reading view side by side", null, "||", "View", null));
         commands.add(new Command("cmd.zoom_in", "Zoom In", "Increase text size", "Ctrl++", "+", "View", null));
         commands.add(new Command("cmd.zoom_out", "Zoom Out", "Decrease text size", "Ctrl+-", "-", "View", null));
         commands.add(

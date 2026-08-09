@@ -12,6 +12,7 @@ import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.interfaces.Component;
+import com.example.jylos.exceptions.DataAccessException;
 
 /**
  * Service layer for folder-related business logic.
@@ -61,6 +62,9 @@ public class FolderService {
     public Folder createFolder(String title) {
         Folder folder = new Folder(title);
         String folderId = folderDAO.createFolder(folder);
+        if (folderId == null || folderId.isEmpty()) {
+            throw new DataAccessException("Failed to create folder: " + title, null);
+        }
         folder.setId(folderId);
         logger.info("Created folder: " + title + " (ID: " + folderId + ")");
         return folder;

@@ -37,24 +37,29 @@ ui/ (FXML, controllers, components, GraphCanvas)
 | `plugin` | `PluginLoader`, `PluginManager`, `AbstractPlugin`, `PluginIds`; built-in Mermaid under `plugin/mermaid/` |
 | `util` | `WikiLinkResolver`, `MarkdownProcessor`, `MarkdownPreview` (CommonMark + KaTeX + emoji), `KanbanModel`, `NoteExporter` |
 | `workspace` | Workspace capture/persistence (`Workspace`, `WorkspaceRepository`, `WorkspaceService`) |
-| `config` | `LoggerConfig` |
+| `config` | `LoggerConfig`, `VersionConfig` |
+| `exceptions` | `DataAccessException`, `InvalidParameterException`, `NoteException`, `NoteNotFoundException` — all unchecked, thrown by the DAO/service layers instead of returning a sentinel `null`/`false` on failure |
 
 > **MainController pattern.** `MainController` is the FXML shell coordinator and must stay thin: each self-contained feature lives in its own `ui/controller/*Controller`/`*Support` class with a `wire(...)` method (FXML nodes + small callbacks). `MainController` remains the owner of shell wiring, note-open flows, and cross-feature callbacks. New features follow this — no feature bodies inside `MainController`. See `AGENTS.md`.
 
 ## UI composition
 
-- `MainView.fxml` — `BorderPane`: toolbar | center `StackPane` (main `SplitPane` + **graph and Kanban overlays**) | collapsible right panel | status bar (optional **Git** strip in vault mode).
-- Center split — sidebar | (notes list | editor/preview).
-- **Overlays** — graph (`GraphView.fxml` + `GraphController` + `GraphCanvas`) and Kanban (`KanbanBoard`) share the center `StackPane` and are mutually exclusive; both managed by `OverlaySupport`. Toggled via `SystemActionEvent.GRAPH_VIEW` (`Ctrl/Cmd+G`) and `KANBAN_VIEW` (`Ctrl/Cmd+K`).
+- `MainView.fxml` — `BorderPane`: toolbar | center content | status bar (optional **Git** strip in vault mode).
+- Center content — `centerRightSplitPane` (`SplitPane`): the mutually-exclusive main content (`centerStack`) on the left, the right panel on the right. The panel is a sibling of `centerStack`, not nested inside the editor's own layout, so it stays reachable — same toggle, same width — no matter which center view is active (editor, graph, or Kanban); this is also the seam a future plugin-hosted panel (e.g. an AI chat) would use.
+- `centerStack` — main `SplitPane` (sidebar | notes list | editor) plus the **graph and Kanban overlays**, mutually exclusive, both managed by `OverlaySupport`. Toggled via `SystemActionEvent.GRAPH_VIEW` (`Ctrl/Cmd+G`) and `KANBAN_VIEW` (`Ctrl/Cmd+K`).
 - Sidebar — icon nav bar + `TabPane` (folders, tags, recent, favorites, trash).
 - Notes list — custom `ListCell` (title, preview lines, dates, pin/favorite icons).
-- Editor — `EditorTabs` strip (one tab per open note) above a **RichTextFX `CodeArea`** used for native Markdown text editing + `WebView` preview (`MarkdownPreview`, wiki-link clicks via `jylos://` protocol). Inline save indicator; `[[` autocomplete.
-- Right panel — note metadata, **backlinks** (`BacklinksSupport` + `BacklinkService`), plugin side panels.
+- Editor — `EditorTabs` strip (one tab per open note) above `MarkdownEditorView`, the JavaFX boundary for an offline **CodeMirror 6** source/Live Preview editor, plus a separate reading `WebView` (`MarkdownPreview`, wiki-link clicks via `jylos://` protocol). Inline save indicator; `[[` autocomplete.
+- Right panel — baseline section swapped per active center view (`MainController.updateRightPanelContext()`, driven by `OverlaySupport`'s visibility callback): note metadata + **backlinks** (`BacklinksSupport` + `BacklinkService`) for the editor, a live node/connection count for the graph (fed by `GraphController`'s `onDataBuilt` callback), nothing yet for Kanban. Plus plugin side panels (`pluginPanelsContainer`).
 - **Focus / writing mode** (`FocusModeSupport`, `Ctrl/Cmd+Shift+F`) — removes sidebar, notes list, right panel, toolbar and status bar, leaving only the editor; restores the prior layout on exit.
 
 ### Markdown editing and preview
 
-`CodeArea` owns native text input, selection, clipboard and undo/redo. Jylos deliberately does not apply document-wide style spans while the user edits: that avoids destabilising RichTextFX's native composition and caret state on macOS. `MarkdownPreview` renders the editor text off the FX thread with CommonMark, then loads the generated HTML in JavaFX `WebView`; preview-only code highlighting and KaTeX use bundled offline assets. Non-printable separators from external content are normalized only in the preview input so WebView does not draw replacement boxes; the in-memory and persisted Markdown remain unchanged.
+`MarkdownEditorView` is the only Java-to-JavaScript boundary. CodeMirror owns document transactions, selection, syntax highlighting, Live Preview decorations, history, platform shortcuts, search/replace and autocomplete; `EditorController` owns note state, save/preview orchestration and plugin hooks. Source and Live Preview are two presentations of the same `EditorState`: Live Preview derives viewport decorations from the Lezer syntax tree, reveals Markdown for the active block and never rewrites the document. A fresh state is installed when switching documents so undo history never crosses tabs.
+
+The shell exposes two semantic states through one book/pencil action: editing (Live Preview by default, or source according to the UI preference) and reading. The linked side-by-side reading view is an independent layout action available from View and the command palette. Internally, `UiLayout.ViewMode` preserves these arrangements for workspace persistence; it does not create another document or editor state.
+
+The pinned npm dependencies are bundled with esbuild and committed as a local resource, so editing never requires network access. `MarkdownPreview` remains a separate CommonMark reading pipeline rendered off the FX thread and loaded in JavaFX `WebView`; it is the full-render owner for recursive transclusion, highlight.js, KaTeX and preview plugin enhancers. It is deliberately not editable, avoiding HTML-to-Markdown round trips and duplicate document state.
 
 ## Knowledge graph
 

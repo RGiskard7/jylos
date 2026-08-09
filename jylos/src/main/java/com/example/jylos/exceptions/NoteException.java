@@ -2,15 +2,15 @@ package com.example.jylos.exceptions;
 
 /**
  * Custom exception for handling note-related errors.
- * 
+ *
  * This exception is thrown when an error occurs related to note operations,
  * such as invalid note data, missing notes, or failed note manipulations.
- * 
- * It extends {@link Exception}, making it a checked exception that must be
- * either caught or declared in method signatures.
- * 
+ *
+ * It extends {@link RuntimeException}, consistent with the other exceptions in
+ * this package, so callers are not forced to catch or declare it.
+ *
  */
-public class NoteException extends Exception {
+public class NoteException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
     /**

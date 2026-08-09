@@ -12,7 +12,7 @@
 <div align="center">
 
 [![Licencia: MIT](https://img.shields.io/badge/Licencia-MIT-yellow.svg)](LICENSE)
-[![Versión](https://img.shields.io/badge/versión-2.4.4-success.svg)](changelog.md)
+[![Versión](https://img.shields.io/badge/versión-2.4.11-success.svg)](changelog.md)
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/)
 [![JavaFX](https://img.shields.io/badge/JavaFX-23-blue.svg)](https://openjfx.io/)
 [![SQLite](https://img.shields.io/badge/SQLite-3-lightgrey.svg)](https://www.sqlite.org/)
@@ -104,7 +104,7 @@ En concreto:
 
 Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
-- Editor Markdown nativo (RichTextFX `CodeArea`) y vista previa WebView lado a lado (GFM, matemáticas KaTeX, emoji)
+- Editor Markdown CodeMirror 6 con vista previa en vivo por defecto, vista de lectura dedicada, modo fuente opcional y vista de lectura enlazada lado a lado (GFM, matemáticas KaTeX, emoji)
 - **Pestañas** para varias notas abiertas, con indicador de guardado en línea
 - Jerarquía de carpetas + etiquetas + favoritos + recientes + papelera
 - **Enlaces internos compatibles con Obsidian** (`[[wiki-links]]`, `[texto](nota.md)`) con clic en la vista previa
@@ -131,10 +131,12 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 ### Editor y vista previa
 
-- Editor Markdown basado en RichTextFX `CodeArea`, con edición de texto nativa, selección, deshacer/rehacer, portapapeles, menú contextual y autocompletado `[[`
+- Editor Markdown basado en un bundle offline de CodeMirror 6, con resaltado de sintaxis adaptado al tema, presentación fuente/vista previa en vivo, selección, deshacer/rehacer, búsqueda/reemplazo, portapapeles, menú contextual y autocompletado `[[`
 - **Pestañas** para varias notas abiertas; **indicador de guardado en línea** (ámbar = sin guardar, verde = guardado)
 - **Autocompletado de `[[`** para títulos de nota; barra de formato (negrita, listas, enlaces, …)
-- Vista previa lado a lado con modos dividido / solo editor / solo preview
+- La **vista previa en vivo** oculta la puntuación Markdown fuera del bloque activo manteniendo un único documento editable y un único historial de deshacer
+- Una única acción libro/lápiz alterna entre edición y lectura; el modo fuente se configura en Preferencias y la vista de lectura enlazada lado a lado es un comando independiente de Ver
+- La vista de lectura separada sigue siendo el render completo canónico para transclusiones, KaTeX y plugins de preview
 - Markdown con tablas GFM, autolinks y tachado; resaltado de bloques de código en la vista previa (highlight.js)
 - **KaTeX** para `$…$`, `$$…$$` y delimitadores LaTeX (assets offline en el JAR)
 - Emoji en preview mediante glifos rasterizados (fiables en el WebView de JavaFX)
@@ -225,7 +227,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 - JavaFX 23
 - Maven 3.9+
 - SQLite JDBC
-- RichTextFX `CodeArea` (editor de texto Markdown nativo)
+- CodeMirror 6 integrado en JavaFX WebView (editor Markdown offline con fuente y vista previa en vivo)
 - JavaFX WebView + CommonMark (vista previa Markdown renderizada; assets offline de highlight.js y KaTeX)
 - Ikonli (iconos Feather + Bootstrap Icons)
 - PDFBox + OpenHTMLToPDF (exportar/visor PDF)

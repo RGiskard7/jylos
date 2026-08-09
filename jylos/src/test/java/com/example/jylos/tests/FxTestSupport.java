@@ -42,9 +42,20 @@ public final class FxTestSupport {
 
         Thread startupThread = new Thread(() -> {
             try {
-                Platform.startup(latch::countDown);
+                Platform.startup(() -> {
+                    Platform.setImplicitExit(false);
+                    latch.countDown();
+                });
             } catch (IllegalStateException alreadyStarted) {
-                latch.countDown();
+                try {
+                    Platform.runLater(() -> {
+                        Platform.setImplicitExit(false);
+                        latch.countDown();
+                    });
+                } catch (RuntimeException stoppedToolkit) {
+                    startupFailed.set(true);
+                    latch.countDown();
+                }
             } catch (RuntimeException error) {
                 startupFailed.set(true);
                 latch.countDown();

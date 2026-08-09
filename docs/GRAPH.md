@@ -68,6 +68,24 @@ Structural toggles (orphans / unresolved / tags / local scope) rebuild the model
 only re-read notes that actually changed (cached link extraction). Text/tag/folder
 filters operate purely on the already-built model.
 
+### Node labels
+
+Labels reveal progressively as zoom crosses the **label threshold** slider — fading
+in rather than snapping on — and higher-degree nodes claim their spot first; any
+label that would overlap an already-placed one is skipped, so a dense area simply
+shows fewer labels instead of an unreadable pile of overlapping text. Hovering a
+node always shows only that node's own label, never its neighbours', matching
+Obsidian.
+
+Label priority order is computed once per model build (`GraphCanvas.buildModel`),
+not per frame — node radius, which the order is based on, never changes after the
+model is built, so re-sorting on every render (every scroll tick, every drag pixel)
+was pure waste. Width used for the overlap check is a cheap chars-times-average-
+glyph-width estimate rather than real font metrics — measuring via a JavaFX `Text`
+node's `getLayoutBounds()` forces a real font/layout pass in the toolkit per call,
+too expensive for a 60fps render loop; the estimate only needs to avoid gross
+overlaps, not be pixel-exact.
+
 ## Architecture
 
 Analytical logic lives in services, never in the JavaFX controllers, and reuses the

@@ -38,6 +38,9 @@ final class OverlaySupport {
     private Consumer<Note> openNote;
     private Consumer<Note> noteCreated;
     private Consumer<Note> noteUpdated;
+    /** Notified after every graph/Kanban show or hide, so the shell can keep the
+     *  right panel's baseline content in sync with whichever overlay is active. */
+    private Runnable onVisibilityChanged = () -> { };
 
     /** Lazy-created Kanban board overlay, added to {@link #centerStack} on first use. */
     private KanbanBoard kanbanBoard;
@@ -45,7 +48,7 @@ final class OverlaySupport {
     void wire(StackPane centerStack, VBox graphView, GraphController graphViewController,
             NoteService noteService, Supplier<Boolean> darkTheme, Function<String, String> i18n,
             Consumer<String> status, Consumer<Note> openNote,
-            Consumer<Note> noteCreated, Consumer<Note> noteUpdated) {
+            Consumer<Note> noteCreated, Consumer<Note> noteUpdated, Runnable onVisibilityChanged) {
         this.centerStack = centerStack;
         this.graphView = graphView;
         this.graphViewController = graphViewController;
@@ -56,7 +59,18 @@ final class OverlaySupport {
         this.openNote = openNote;
         this.noteCreated = noteCreated;
         this.noteUpdated = noteUpdated;
+        this.onVisibilityChanged = onVisibilityChanged != null ? onVisibilityChanged : () -> { };
         setGraphVisible(false);
+    }
+
+    /** True while the graph overlay is shown. */
+    boolean isGraphVisible() {
+        return graphView != null && graphView.isVisible();
+    }
+
+    /** True while the Kanban overlay is shown. */
+    boolean isKanbanVisible() {
+        return kanbanBoard != null && kanbanBoard.isVisible();
     }
 
     // ------------------------------------------------------------------
@@ -73,6 +87,7 @@ final class OverlaySupport {
             setGraphVisible(true);
             graphViewController.show(isDark());
             updateStatus(getString("status.graph_opened"));
+            onVisibilityChanged.run();
         }
     }
 
@@ -82,6 +97,7 @@ final class OverlaySupport {
         if (graphViewController != null) {
             graphViewController.pause();
         }
+        onVisibilityChanged.run();
     }
 
     /** Re-applies the theme to the graph when it is on screen. */
@@ -130,11 +146,13 @@ final class OverlaySupport {
             kanbanBoard.toFront();
             kanbanBoard.requestFocus(); // so Escape closes the board
             updateStatus(getString("status.kanban_opened"));
+            onVisibilityChanged.run();
         }
     }
 
     void hideKanban() {
         setShown(kanbanBoard, false);
+        onVisibilityChanged.run();
     }
 
     private void ensureKanban() {

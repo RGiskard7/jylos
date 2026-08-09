@@ -14,7 +14,7 @@ import javafx.scene.layout.VBox;
  */
 class UiLayout {
 
-    /** Editor surface mode selected by the toolbar. */
+    /** Editor surface arrangement selected by the shell. */
     public enum ViewMode {
         EDITOR_ONLY,
         SPLIT,
@@ -22,17 +22,13 @@ class UiLayout {
     }
 
     /**
-     * Applies one of the three editor surface modes and keeps the toggle buttons in
-     * sync with the visible panes.
+     * Applies one of the three editor surface arrangements.
      */
     public void applyViewMode(
             ViewMode mode,
             SplitPane editorPreviewSplitPane,
             VBox editorPane,
             VBox previewPane,
-            ToggleButton editorOnlyButton,
-            ToggleButton splitViewButton,
-            ToggleButton previewOnlyButton,
             Runnable updatePreviewAction) {
         if (editorPreviewSplitPane == null || editorPane == null || previewPane == null || mode == null) {
             return;
@@ -81,22 +77,16 @@ class UiLayout {
                 break;
         }
 
-        if (editorOnlyButton != null) {
-            editorOnlyButton.setSelected(mode == ViewMode.EDITOR_ONLY);
-        }
-        if (splitViewButton != null) {
-            splitViewButton.setSelected(mode == ViewMode.SPLIT);
-        }
-        if (previewOnlyButton != null) {
-            previewOnlyButton.setSelected(mode == ViewMode.PREVIEW_ONLY);
-        }
     }
 
     /**
      * Opens or collapses the right panel without recreating it, preserving plugin
-     * panels and backlinks state between toggles.
+     * panels and backlinks state between toggles. {@code panelSplitPane} is the
+     * SplitPane the panel is a direct child of — a sibling of the center content
+     * (editor/graph/Kanban), not nested inside any one of them, so the panel stays
+     * reachable no matter which center view is active.
      */
-    public void toggleRightPanel(SplitPane editorRightSplitPane, VBox rightPanel, ToggleButton toggleButton, Note currentNote,
+    public void toggleRightPanel(SplitPane panelSplitPane, VBox rightPanel, ToggleButton toggleButton, Note currentNote,
             Runnable updateNoteInfoPanelAction) {
         if (rightPanel == null) {
             return;
@@ -109,8 +99,8 @@ class UiLayout {
             rightPanel.setMinWidth(240);
             rightPanel.setMaxWidth(Double.MAX_VALUE);
             rightPanel.setPrefWidth(300);
-            if (editorRightSplitPane != null) {
-                editorRightSplitPane.setDividerPositions(0.78);
+            if (panelSplitPane != null) {
+                panelSplitPane.setDividerPositions(0.8);
             }
         } else {
             rightPanel.setMinWidth(0);

@@ -75,6 +75,24 @@ class NoteOperations {
         }
     }
 
+    record NoteMoveResult(boolean success, String previousId, Folder destination) {
+    }
+
+    /** Moves {@code note} to {@code destination} (null/ROOT means the vault root). */
+    NoteMoveResult moveToFolder(Note note, Folder destination) {
+        if (note == null || folderService == null) {
+            return new NoteMoveResult(false, note != null ? note.getId() : null, destination);
+        }
+        String previousId = note.getId();
+        try {
+            folderService.moveNoteToFolder(note, destination);
+            return new NoteMoveResult(true, previousId, destination);
+        } catch (Exception e) {
+            logger.warning("Failed to move note " + previousId + ": " + e.getMessage());
+            return new NoteMoveResult(false, previousId, destination);
+        }
+    }
+
     private boolean isConcreteFolder(Folder folder) {
         return folder != null
                 && folder.getId() != null

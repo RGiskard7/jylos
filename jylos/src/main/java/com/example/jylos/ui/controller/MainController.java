@@ -31,6 +31,7 @@ import com.example.jylos.data.models.Tag;
 import com.example.jylos.data.models.interfaces.Component;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.FolderEvents;
+import com.example.jylos.graph.GraphData;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.plugin.PluginManager;
@@ -143,7 +144,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private final Map<SystemActionEvent.ActionType, Runnable> systemActionHandlers = new EnumMap<>(
             SystemActionEvent.ActionType.class);
     @FXML
-    private SplitPane editorRightSplitPane;
+    private SplitPane centerRightSplitPane;
+    @FXML
+    private VBox editor;
     @FXML
     private VBox rightPanel;
     @FXML
@@ -172,20 +175,22 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     @FXML
     private VBox backlinksContent;
 
+    /** Right-panel baseline content shown while the graph overlay is active instead
+     *  of note-info/backlinks — see {@link #updateRightPanelContext()}. Kanban has no
+     *  baseline section: the panel is simply empty (still reachable) while it's open. */
+    @FXML
+    private VBox graphInfoSection;
+    @FXML
+    private Label graphNodeCountLabel;
+    @FXML
+    private Label graphEdgeCountLabel;
+
     @FXML
     private Label infoCreatedLabel;
     @FXML
     private Label infoModifiedLabel;
-    @FXML
-    private Label infoLatitudeLabel;
-    @FXML
-    private Label infoLongitudeLabel;
 
     private ToggleGroup themeToggleGroup;
-    @FXML
-    private Label infoAuthorLabel;
-    @FXML
-    private Label infoSourceUrlLabel;
 
     @FXML
     private Label statusLabel;
@@ -246,7 +251,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private final Map<String, javafx.scene.Node> pluginStatusBarItems = new HashMap<>();
     private final Map<String, List<String>> pluginStatusBarItemIds = new HashMap<>();
 
-    private UiLayout.ViewMode currentViewMode = UiLayout.ViewMode.SPLIT;
+    private UiLayout.ViewMode currentViewMode = UiLayout.ViewMode.EDITOR_ONLY;
 
 
     private CommandPalette commandPalette;
@@ -396,7 +401,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             bindToolbarSearchFieldDebounced();
 
             initializeSortOptions();
-            initializeViewModeButtons();
+            initializeEditorPresentation();
             initializeRightPanelSections();
             initializeRightPanelVisibility();
             setupToolbarResponsiveness();
@@ -523,7 +528,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (sidebarController != null) {
             sidebarController.wire(eventBus, noteService, tagService, folderService, resources,
                     this::handleUiFolderSelected, this::handleUiTagSelected, this::handleUiTrashItemSelected,
-                    this::handleUiNoteOpenRequest, this::updateStatus);
+                    this::handleUiNoteOpenRequest,
+                    noteCreationSupport::createNewNoteInFolder,
+                    noteCreationSupport::createNewCanvasInFolder,
+                    this::updateStatus);
         }
         if (notesListController != null) {
             notesListController.wire(eventBus, noteService, tagService, folderService, resources,
@@ -536,7 +544,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (editorController != null) {
             editorController.wire(eventBus, noteService, tagService, resources,
                     this::handleUiNoteModified, this::updateStatus,
-                    com.example.jylos.service.NoteTitleIndex.getInstance()::titlesSorted);
+                    com.example.jylos.service.NoteTitleIndex.getInstance()::titlesSorted,
+                    uiPreferences.loadLivePreviewEnabled(prefs),
+                    enabled -> uiPreferences.saveLivePreviewEnabled(prefs, enabled));
             editorController.setWikiLinkHandler(title -> noteService.findNoteByTitle(title).ifPresentOrElse(
                     this::handleUiNoteOpenRequest,
                     () -> updateStatus("Note not found: " + title)));
@@ -555,11 +565,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
         overlaySupport.wire(centerStack, graphView, graphViewController, noteService,
                 this::isDarkThemeActive, this::getString, this::updateStatus, this::handleUiNoteOpenRequest,
-                this::publishNoteCreated, this::publishNoteUpdated);
+                this::publishNoteCreated, this::publishNoteUpdated, this::updateRightPanelContext);
         if (graphViewController != null) {
             graphViewController.wire(eventBus, noteService, tagService, resources,
                     overlaySupport::openNoteFromGraph, overlaySupport::hideGraph,
-                    () -> getCurrentNote() != null ? getCurrentNote().getId() : null);
+                    () -> getCurrentNote() != null ? getCurrentNote().getId() : null,
+                    this::updateGraphInfoSection);
         }
 
         statusBarSupport.wire(storageLabel, wordCountLabel, charCountLabel, statsSeparator,
@@ -1196,7 +1207,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         });
     }
 
-    /** Loads persisted UI preferences (autosave, theme, font size, accent, preview lines) and applies them to the running UI. */
+    /** Loads persisted UI preferences and applies them to the running shell and editor. */
     private void applyUiPreferencesFromStore() {
         UiPreferencesStore.UiPreferencesData uiPrefs = uiPreferences.load(prefs);
         autosaveEnabled = uiPrefs.autosaveEnabled();
@@ -1215,7 +1226,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (notesListController != null) {
             notesListController.setPreviewLines(notesListPreviewLines);
         }
-        applyEditorButtonsPresentation();
+        if (editorController != null) {
+            editorController.applyLivePreviewPreference(uiPrefs.livePreviewEnabled());
+        }
+        applyEditorControlsPresentation();
         applyUiZoom();
         Platform.runLater(this::applyThemeAndRefreshDependents);
     }
@@ -1553,10 +1567,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 return () -> handleToggleSidebar(null);
             case "cmd.toggle_info_panel":
                 return () -> handleToggleRightPanel(null);
-            case "cmd.editor_mode":
-                return () -> handleEditorOnlyMode(null);
-            case "cmd.preview_mode":
-                return () -> handlePreviewOnlyMode(null);
+            case "cmd.toggle_reading_view":
+                return () -> handleToggleReadingMode(null);
+            case "cmd.toggle_source_mode":
+                return this::handleToggleSourceMode;
             case "cmd.split_mode":
                 return () -> handleSplitViewMode(null);
             case "cmd.zoom_in":
@@ -1651,6 +1665,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
 
         systemActionHandlers.put(SystemActionEvent.ActionType.NEW_FOLDER, () -> handleNewFolder(null));
+        systemActionHandlers.put(SystemActionEvent.ActionType.NEW_NOTE, () -> handleNewNote(null));
+        systemActionHandlers.put(SystemActionEvent.ActionType.NEW_CANVAS, () -> handleNewCanvas(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.NEW_TAG, () -> handleNewTag(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.SAVE_ALL, () -> handleSaveAll(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.IMPORT, () -> handleImport(null));
@@ -1693,9 +1709,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         systemActionHandlers.put(SystemActionEvent.ActionType.EMPTY_TRASH, () -> sidebarController.handleEmptyTrash(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.REFRESH_NOTES, () -> handleRefresh(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_TAGS, () -> handleToggleTags(null));
-        systemActionHandlers.put(SystemActionEvent.ActionType.EDITOR_ONLY_MODE, () -> handleEditorOnlyMode(null));
+        systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_READING_MODE, () -> handleToggleReadingMode(null));
+        systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_SOURCE_MODE, this::handleToggleSourceMode);
         systemActionHandlers.put(SystemActionEvent.ActionType.SPLIT_VIEW_MODE, () -> handleSplitViewMode(null));
-        systemActionHandlers.put(SystemActionEvent.ActionType.PREVIEW_ONLY_MODE, () -> handlePreviewOnlyMode(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_PIN, () -> handleTogglePin(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_FAVORITE, () -> handleToggleFavorite(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL, () -> handleToggleRightPanel(null));
@@ -1812,17 +1828,13 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         uiInitialization.initializeSortOptions(sortComboBox, this::sortNotes);
     }
 
-    private void initializeViewModeButtons() {
+    private void initializeEditorPresentation() {
         if (editorController == null || notesListController == null) {
             return;
         }
-        uiInitialization.initializeViewModeButtons(
-                editorController.getEditorOnlyButton(),
-                editorController.getSplitViewButton(),
-                editorController.getPreviewOnlyButton(),
-                notesListController::initializeNotesGrid,
-                this::applyViewMode);
-        applyEditorButtonsPresentation();
+        notesListController.initializeNotesGrid();
+        applyViewMode();
+        applyEditorControlsPresentation();
     }
 
     @FXML
@@ -1855,7 +1867,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         uiInitialization.setupToolbarResponsiveness(toolbarController, this::updateToolbarOverflow);
         if (editorController != null && editorController.getEditorContainer() != null) {
             editorController.getEditorContainer().widthProperty()
-                    .addListener((obs, oldVal, newVal) -> applyEditorButtonsPresentation());
+                    .addListener((obs, oldVal, newVal) -> applyEditorControlsPresentation());
         }
     }
 
@@ -1869,29 +1881,31 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 editorController.getEditorPreviewSplitPane(),
                 editorController.getEditorPane(),
                 editorController.getPreviewPane(),
-                editorController.getEditorOnlyButton(),
-                editorController.getSplitViewButton(),
-                editorController.getPreviewOnlyButton(),
                 this::refreshEditorPreview);
         // "Read" mode (preview-only) makes the properties panel read-only with
         // clickable internal links; editor/split modes keep it editable.
         if (editorController != null) {
             editorController.setReadOnlyView(currentViewMode == UiLayout.ViewMode.PREVIEW_ONLY);
+            editorController.updateReadingModeControl(currentViewMode == UiLayout.ViewMode.EDITOR_ONLY);
         }
     }
 
-    private void applyEditorButtonsPresentation() {
+    private void applyEditorControlsPresentation() {
         if (editorController == null) {
             return;
         }
-        editorController.applyViewModeButtonsPresentation();
+        editorController.applyHeaderControlsPresentation();
     }
 
     @FXML
-    private void handleEditorOnlyMode(ActionEvent event) {
-        currentViewMode = UiLayout.ViewMode.EDITOR_ONLY;
+    private void handleToggleReadingMode(ActionEvent event) {
+        currentViewMode = currentViewMode == UiLayout.ViewMode.EDITOR_ONLY
+                ? UiLayout.ViewMode.PREVIEW_ONLY
+                : UiLayout.ViewMode.EDITOR_ONLY;
         applyViewMode();
-        updateStatus(getString("status.mode_editor"));
+        updateStatus(getString(currentViewMode == UiLayout.ViewMode.EDITOR_ONLY
+                ? "status.mode_editor"
+                : "status.mode_preview"));
     }
 
     @FXML
@@ -1901,17 +1915,18 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         updateStatus(getString("status.mode_split"));
     }
 
-    @FXML
-    private void handlePreviewOnlyMode(ActionEvent event) {
-        currentViewMode = UiLayout.ViewMode.PREVIEW_ONLY;
-        applyViewMode();
-        updateStatus(getString("status.mode_preview"));
+    /** Makes source-mode changes visible when invoked from the reading-only surface. */
+    private void handleToggleSourceMode() {
+        if (currentViewMode == UiLayout.ViewMode.PREVIEW_ONLY) {
+            currentViewMode = UiLayout.ViewMode.EDITOR_ONLY;
+            applyViewMode();
+        }
+        editorController.toggleLivePreview();
     }
-
 
     @FXML
     private void handleToggleRightPanel(ActionEvent event) {
-        uiLayout.toggleRightPanel(editorRightSplitPane, rightPanel,
+        uiLayout.toggleRightPanel(centerRightSplitPane, rightPanel,
                 toolbarController != null ? toolbarController.getRightPanelToggleBtn() : null,
                 getCurrentNote(),
                 () -> updateNoteMetadata(getCurrentNote()));
@@ -1931,6 +1946,41 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 });
     }
 
+    /**
+     * Switches the right panel's baseline section for whichever center view is
+     * active: note-info/backlinks for the editor, a stats summary for the graph.
+     * Kanban has no baseline section — the panel stays reachable but empty.
+     * Called after every graph/Kanban show or hide ({@link OverlaySupport}'s
+     * {@code onVisibilityChanged} callback) so the panel never shows stale content
+     * for an overlay it can no longer reach.
+     */
+    private void updateRightPanelContext() {
+        boolean graph = overlaySupport.isGraphVisible();
+        boolean editorContext = !graph && !overlaySupport.isKanbanVisible();
+        setSectionShown(noteInfoSection, editorContext);
+        setSectionShown(backlinksSection, editorContext);
+        setSectionShown(graphInfoSection, graph);
+    }
+
+    private static void setSectionShown(VBox section, boolean shown) {
+        if (section != null) {
+            section.setVisible(shown);
+            section.setManaged(shown);
+        }
+    }
+
+    /** Refreshes the graph baseline section's node/edge counts (graph rebuild callback). */
+    private void updateGraphInfoSection(GraphData data) {
+        if (graphNodeCountLabel != null) {
+            graphNodeCountLabel.setText(java.text.MessageFormat.format(
+                    getString("info.graph_nodes"), data != null ? data.nodes().size() : 0));
+        }
+        if (graphEdgeCountLabel != null) {
+            graphEdgeCountLabel.setText(java.text.MessageFormat.format(
+                    getString("info.graph_edges"), data != null ? data.edges().size() : 0));
+        }
+    }
+
     private void initializeRightPanelVisibility() {
         if (rightPanel != null) {
             rightPanel.setVisible(true);
@@ -1942,6 +1992,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (toolbarController != null && toolbarController.getRightPanelToggleBtn() != null) {
             toolbarController.getRightPanelToggleBtn().setSelected(false);
         }
+        updateRightPanelContext();
     }
 
     /** Resets the filter state and asks {@link NotesListController} to display every note. */
@@ -2212,12 +2263,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 note,
                 editorController.getModifiedDateLabel(),
                 infoCreatedLabel,
-                infoModifiedLabel,
-                infoLatitudeLabel,
-                infoLongitudeLabel,
-                infoAuthorLabel,
-                infoSourceUrlLabel,
-                this::getString);
+                infoModifiedLabel);
     }
 
     /** Recomputes (off the FX thread) and renders the backlinks for {@code note}. */
@@ -2445,13 +2491,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
     }
 
-    /**
-     * Requests creating a new canvas. The actual creation lives in {@code NotesListController}
-     * (it knows the selected folder); this just publishes the system action.
-     */
     void handleNewCanvas(ActionEvent event) {
-        if (eventBus != null) {
-            eventBus.publish(new SystemActionEvent(SystemActionEvent.ActionType.NEW_CANVAS));
+        try {
+            noteCreationSupport.createNewCanvas();
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Failed to create new canvas", e);
+            updateStatus(getString("status.error_creating_note"));
         }
     }
 
@@ -2657,7 +2702,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     @FXML
     private void handleRedo(ActionEvent event) {
-        editorController.handleRedo(this::getString, this::updateStatus);
+        editorController.performRedo();
     }
 
     @FXML
@@ -2886,7 +2931,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 navSplitPane,
                 sidebarController.getSidebarPane(),
                 notesPanel,
-                editorRightSplitPane,
+                editor,
                 toolbarController);
     }
 
@@ -2971,6 +3016,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
      */
     public void applyInitialThemeBeforeShow() {
         applyTheme();
+        if (editorController != null) {
+            editorController.applyEditorTheme(isDarkThemeActive(), uiAccentColor);
+        }
         syncSystemThemeMonitoring();
     }
 
@@ -3011,6 +3059,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     /** Refreshes theme-sensitive UI sub-systems: editor preview, notes grid and the graph overlay. */
     private void refreshUiThemeDependents() {
         if (editorController != null) {
+            editorController.applyEditorTheme(isDarkThemeActive(), uiAccentColor);
             editorController.refreshPreview(isDarkThemeActive());
         }
         refreshNotesGridIfActive();
@@ -3170,7 +3219,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 externalThemeId,
                 notesListPreviewLines,
                 (int) Math.round(uiFontSize),
-                uiAccentColor);
+                uiAccentColor,
+                uiPreferences.loadLivePreviewEnabled(prefs));
         List<ThemeCatalog.ThemeDescriptor> themes = themeCatalog.getAvailableThemes();
         Optional<DialogSupport.PreferencesDialogResult> result = dialogSupport.showPreferences(
                 currentUiPrefs,
@@ -3188,7 +3238,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 values.externalThemeId(),
                 values.notesPreviewLines(),
                 values.uiFontSize(),
-                values.accentColor());
+                values.accentColor(),
+                values.livePreviewEnabled());
         uiPreferences.save(prefs, newPrefs);
         uiPreferences.saveEnabledSnippets(prefs, values.enabledSnippets());
         applyUiPreferencesFromStore();

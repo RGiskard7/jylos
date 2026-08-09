@@ -66,20 +66,25 @@ public final class WorkspaceService {
     public Workspace save(String name, Workspace liveState) {
         String clean = sanitize(name);
         String now = now();
-        List<Workspace> all = repository.loadAll();
-        Workspace existing = all.stream().filter(w -> clean.equalsIgnoreCase(w.name())).findFirst().orElse(null);
+        Workspace[] savedHolder = new Workspace[1];
 
-        String id = existing != null ? existing.id() : UUID.randomUUID().toString();
-        String createdAt = existing != null ? existing.createdAt() : now;
-        Workspace saved = new Workspace(id, clean, createdAt, now,
-                liveState.openNoteIds(), liveState.activeNoteId(), liveState.viewMode(),
-                liveState.sidebarVisible(), liveState.focusMode(),
-                liveState.splitMain(), liveState.splitContent(), liveState.storageMode());
+        repository.update(all -> {
+            Workspace existing = all.stream().filter(w -> clean.equalsIgnoreCase(w.name())).findFirst().orElse(null);
 
-        all.removeIf(w -> w.id().equals(id));
-        all.add(saved);
-        repository.saveAll(all);
-        return saved;
+            String id = existing != null ? existing.id() : UUID.randomUUID().toString();
+            String createdAt = existing != null ? existing.createdAt() : now;
+            Workspace saved = new Workspace(id, clean, createdAt, now,
+                    liveState.openNoteIds(), liveState.activeNoteId(), liveState.viewMode(),
+                    liveState.sidebarVisible(), liveState.focusMode(),
+                    liveState.splitMain(), liveState.splitContent(), liveState.storageMode());
+            savedHolder[0] = saved;
+
+            all.removeIf(w -> w.id().equals(id));
+            all.add(saved);
+            return all;
+        });
+
+        return savedHolder[0];
     }
 
     /**
@@ -98,10 +103,10 @@ public final class WorkspaceService {
         if (id == null) {
             return;
         }
-        List<Workspace> all = repository.loadAll();
-        if (all.removeIf(w -> id.equals(w.id()))) {
-            repository.saveAll(all);
-        }
+        repository.update(all -> {
+            all.removeIf(w -> id.equals(w.id()));
+            return all;
+        });
     }
 
     /** Builds a "live state" workspace (no identity yet) to hand to {@link #save}/{@link #update}. */

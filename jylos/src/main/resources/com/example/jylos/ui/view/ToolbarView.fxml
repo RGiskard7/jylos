@@ -41,7 +41,7 @@
             <MenuItem text="%action.redo" onAction="#handleRedo"/>
             <SeparatorMenuItem/>
             <!-- Text controls own platform-native cut/copy/paste shortcuts. Keeping
-                 menu accelerators here would invoke CodeArea's native action twice. -->
+                 menu accelerators here would invoke the embedded editor action twice. -->
             <MenuItem text="%action.cut" onAction="#handleCut"/>
             <MenuItem text="%action.copy" onAction="#handleCopy"/>
             <MenuItem text="%action.paste" onAction="#handlePaste"/>
@@ -53,6 +53,10 @@
         <Menu text="%menu.view">
             <MenuItem fx:id="toggleSidebarMenuItem" text="%action.toggle_sidebar" onAction="#handleToggleSidebar" accelerator="F9"/>
             <MenuItem fx:id="toggleNotesListMenuItem" text="%action.toggle_notes_list" onAction="#handleToggleNotesPanel" accelerator="F8"/>
+            <SeparatorMenuItem/>
+            <MenuItem text="%action.toggle_reading_view" onAction="#handleToggleReadingMode"/>
+            <MenuItem text="%action.open_linked_view" onAction="#handleSplitViewMode"/>
+            <MenuItem text="%action.toggle_source_mode" onAction="#handleToggleSourceMode"/>
             <SeparatorMenuItem/>
             <MenuItem fx:id="graphViewMenuItem" text="%action.graph_view" onAction="#handleGraphView" accelerator="Shortcut+G"/>
             <MenuItem fx:id="kanbanViewMenuItem" text="%action.kanban_view" onAction="#handleKanbanView" accelerator="Shortcut+K"/>

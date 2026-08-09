@@ -11,6 +11,7 @@ import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.dao.interfaces.TagDAO;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
+import com.example.jylos.exceptions.DataAccessException;
 
 /**
  * Service layer for tag-related business logic.
@@ -71,6 +72,9 @@ public class TagService {
 
         Tag tag = new Tag(trimmedTitle);
         String tagId = tagDAO.createTag(tag);
+        if (tagId == null || tagId.isEmpty()) {
+            throw new DataAccessException("Failed to create tag: " + trimmedTitle, null);
+        }
         tag.setId(tagId);
         logger.info("Created tag: " + trimmedTitle + " (ID: " + tagId + ")");
         return tag;

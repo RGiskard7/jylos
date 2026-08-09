@@ -94,10 +94,26 @@ public interface Plugin {
     
     /**
      * Gets the list of plugin IDs that this plugin depends on.
-     * 
+     *
      * @return Array of plugin IDs, or empty array if no dependencies
      */
     default String[] getDependencies() {
         return new String[0];
+    }
+
+    /**
+     * Gets the host plugin API version this plugin was built against, as a
+     * major version string (e.g. "1"). Used by {@code PluginLoader} to reject
+     * plugins built against an incompatible {@link PluginContext} API with a
+     * clear message instead of a generic load failure.
+     *
+     * <p>Plugins that predate this method inherit the default and are treated
+     * as compatible with API version "1" — the version in effect when this
+     * check was introduced.</p>
+     *
+     * @return The host API major version this plugin targets
+     */
+    default String getHostApiVersion() {
+        return "1";
     }
 }

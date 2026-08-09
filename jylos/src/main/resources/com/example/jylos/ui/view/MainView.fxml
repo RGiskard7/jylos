@@ -17,82 +17,89 @@
     
     <!-- Main Content Area -->
     <center>
-        <StackPane fx:id="centerStack">
-            <SplitPane fx:id="mainSplitPane" dividerPositions="0.22" styleClass="main-split"
-                       maxWidth="Infinity" maxHeight="Infinity">
-                <!-- Left Sidebar -->
-                <fx:include source="SidebarView.fxml" fx:id="sidebar"/>            
-                <!-- Right Content Area -->
-                <SplitPane fx:id="contentSplitPane" dividerPositions="0.25" styleClass="content-split">
-                    <!-- Notes List Panel -->
-                    <fx:include source="NotesListView.fxml" fx:id="notesList"/>
-                    
-                    <!-- Editor + right extensible panel -->
-                    <SplitPane fx:id="editorRightSplitPane" dividerPositions="0.78" styleClass="editor-right-split">
+        <!-- Center content (editor / graph / kanban, mutually exclusive) on the left,
+             the extensible right panel on the right. The panel is a sibling of the
+             switching content, not nested inside the editor's own layout, so it stays
+             addressable — same toggle, same width — no matter which center view is
+             active (needed for plugin surfaces like a future AI chat panel). -->
+        <SplitPane fx:id="centerRightSplitPane" dividerPositions="0.8" styleClass="editor-right-split">
+            <StackPane fx:id="centerStack">
+                <SplitPane fx:id="mainSplitPane" dividerPositions="0.22" styleClass="main-split"
+                           maxWidth="Infinity" maxHeight="Infinity">
+                    <!-- Left Sidebar -->
+                    <fx:include source="SidebarView.fxml" fx:id="sidebar"/>
+                    <!-- Right Content Area -->
+                    <SplitPane fx:id="contentSplitPane" dividerPositions="0.25" styleClass="content-split">
+                        <!-- Notes List Panel -->
+                        <fx:include source="NotesListView.fxml" fx:id="notesList"/>
                         <fx:include source="EditorView.fxml" fx:id="editor"/>
-
-                        <VBox fx:id="rightPanel" styleClass="right-panel" minWidth="0" prefWidth="0" maxWidth="0">
-                            <ScrollPane fitToWidth="true" hbarPolicy="NEVER" VBox.vgrow="ALWAYS" styleClass="panel-scroll">
-                                <VBox fx:id="rightPanelContent" spacing="0" styleClass="panel-content">
-                                    <padding>
-                                        <Insets top="8" right="12" bottom="16" left="12"/>
-                                    </padding>
-
-                                    <VBox fx:id="noteInfoSection" styleClass="panel-section">
-                                        <HBox fx:id="noteInfoHeader" alignment="CENTER_LEFT" styleClass="section-header">
-                                            <Label text="▼" fx:id="noteInfoCollapseIcon" styleClass="collapse-icon"/>
-                                            <Label text="%section.note_info" styleClass="section-title"/>
-                                        </HBox>
-                                        <VBox fx:id="noteInfoContent" spacing="12" styleClass="section-content">
-                                            <padding>
-                                                <Insets top="8" left="8"/>
-                                            </padding>
-                                            <VBox spacing="2">
-                                                <Label text="%info.created" styleClass="info-label"/>
-                                                <Label fx:id="infoCreatedLabel" text="-" styleClass="info-value"/>
-                                            </VBox>
-                                            <VBox spacing="2">
-                                                <Label text="%info.modified" styleClass="info-label"/>
-                                                <Label fx:id="infoModifiedLabel" text="-" styleClass="info-value"/>
-                                            </VBox>
-                                            <VBox spacing="2">
-                                                <Label text="%info.location" styleClass="info-label"/>
-                                                <Label fx:id="infoLatitudeLabel" text="Lat: -" styleClass="info-value-small"/>
-                                                <Label fx:id="infoLongitudeLabel" text="Lon: -" styleClass="info-value-small"/>
-                                            </VBox>
-                                            <VBox spacing="2">
-                                                <Label text="%info.metadata" styleClass="info-label"/>
-                                                <Label fx:id="infoAuthorLabel" text="Author: -" styleClass="info-value-small"/>
-                                                <Label fx:id="infoSourceUrlLabel" text="URL: -" styleClass="info-value-small" wrapText="true"/>
-                                            </VBox>
-                                        </VBox>
-                                    </VBox>
-
-                                    <VBox fx:id="backlinksSection" styleClass="panel-section">
-                                        <HBox fx:id="backlinksHeader" alignment="CENTER_LEFT" styleClass="section-header">
-                                            <Label text="▼" fx:id="backlinksCollapseIcon" styleClass="collapse-icon"/>
-                                            <Label text="%section.backlinks" styleClass="section-title"/>
-                                        </HBox>
-                                        <VBox fx:id="backlinksContent" spacing="2" styleClass="section-content">
-                                            <padding>
-                                                <Insets top="8" left="8"/>
-                                            </padding>
-                                        </VBox>
-                                    </VBox>
-
-                                    <VBox fx:id="pluginPanelsContainer" spacing="0"/>
-                                </VBox>
-                            </ScrollPane>
-                        </VBox>
                     </SplitPane>
                 </SplitPane>
-            </SplitPane>
 
-            <!-- Graph overlay (hidden until toggled) -->
-            <fx:include source="GraphView.fxml" fx:id="graphView"/>
-        </StackPane>
+                <!-- Graph overlay (hidden until toggled) -->
+                <fx:include source="GraphView.fxml" fx:id="graphView"/>
+            </StackPane>
+
+            <VBox fx:id="rightPanel" styleClass="right-panel" minWidth="0" prefWidth="0" maxWidth="0">
+                <ScrollPane fitToWidth="true" hbarPolicy="NEVER" VBox.vgrow="ALWAYS" styleClass="panel-scroll">
+                    <VBox fx:id="rightPanelContent" spacing="0" styleClass="panel-content">
+                        <padding>
+                            <Insets top="8" right="12" bottom="16" left="12"/>
+                        </padding>
+
+                        <VBox fx:id="noteInfoSection" styleClass="panel-section">
+                            <HBox fx:id="noteInfoHeader" alignment="CENTER_LEFT" styleClass="section-header">
+                                <Label text="▶" fx:id="noteInfoCollapseIcon" styleClass="collapse-icon"/>
+                                <Label text="%section.note_info" styleClass="section-title"/>
+                            </HBox>
+                            <VBox fx:id="noteInfoContent" spacing="12" styleClass="section-content" visible="false" managed="false">
+                                <padding>
+                                    <Insets top="8" left="8"/>
+                                </padding>
+                                <VBox spacing="2">
+                                    <Label text="%info.created" styleClass="info-label"/>
+                                    <Label fx:id="infoCreatedLabel" text="-" styleClass="info-value"/>
+                                </VBox>
+                                <VBox spacing="2">
+                                    <Label text="%info.modified" styleClass="info-label"/>
+                                    <Label fx:id="infoModifiedLabel" text="-" styleClass="info-value"/>
+                                </VBox>
+                            </VBox>
+                        </VBox>
+
+                        <VBox fx:id="backlinksSection" styleClass="panel-section">
+                            <HBox fx:id="backlinksHeader" alignment="CENTER_LEFT" styleClass="section-header">
+                                <Label text="▶" fx:id="backlinksCollapseIcon" styleClass="collapse-icon"/>
+                                <Label text="%section.backlinks" styleClass="section-title"/>
+                            </HBox>
+                            <VBox fx:id="backlinksContent" spacing="2" styleClass="section-content" visible="false" managed="false">
+                                <padding>
+                                    <Insets top="8" left="8"/>
+                                </padding>
+                            </VBox>
+                        </VBox>
+
+                        <!-- Shown instead of note-info/backlinks while the graph overlay is active. -->
+                        <VBox fx:id="graphInfoSection" styleClass="panel-section" visible="false" managed="false">
+                            <HBox alignment="CENTER_LEFT" styleClass="section-header">
+                                <Label text="%section.graph_info" styleClass="section-title"/>
+                            </HBox>
+                            <VBox spacing="2" styleClass="section-content">
+                                <padding>
+                                    <Insets top="8" left="8"/>
+                                </padding>
+                                <Label fx:id="graphNodeCountLabel" text="-" styleClass="info-value"/>
+                                <Label fx:id="graphEdgeCountLabel" text="-" styleClass="info-value"/>
+                            </VBox>
+                        </VBox>
+
+                        <VBox fx:id="pluginPanelsContainer" spacing="0"/>
+                    </VBox>
+                </ScrollPane>
+            </VBox>
+        </SplitPane>
     </center>
-    
+
     <!-- Bottom Status Bar -->
     <bottom>
         <HBox fx:id="statusBar" alignment="CENTER_LEFT" spacing="10" styleClass="status-bar">
