@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-08-09
+
 - El editor Markdown migra completamente de RichTextFX a CodeMirror 6 mediante un bundle offline y reproducible: recupera resaltado estable y adaptado al tema para Markdown/GFM y bloques fenced, historial aislado entre documentos, atajos nativos de plataforma, búsqueda/reemplazo localizada, menú contextual, modo de solo lectura efectivo y autocompletado de wiki-links sin mantener rutas legacy de edición.
 
 - Se añade una vista previa en vivo editable inspirada en el flujo de Obsidian: oculta la sintaxis fuera del bloque activo y presenta encabezados, énfasis, enlaces, wiki-links, tareas, imágenes y tablas mediante decoraciones reversibles de CodeMirror, sin convertir HTML a Markdown ni duplicar el documento o su historial. La edición usa Live Preview por defecto, una única acción libro/lápiz alterna con la vista de lectura, el modo fuente se configura en Preferencias o la paleta y la vista de lectura enlazada se abre como layout independiente.
@@ -47,6 +49,12 @@
 - Se corrige un problema de rendimiento real en el grafo: el orden de prioridad de las etiquetas se recalculaba en cada frame de renderizado (cada tick de scroll, cada píxel de arrastre), pese a ser constante mientras el grafo no cambia. Ahora se calcula una única vez al construir el modelo, y las etiquetas fuera de la zona visible se descartan antes de calcular colisiones.
 
 - El panel derecho es ahora alcanzable con su botón de alternar también en las vistas de grafo y kanban, no solo en el editor; en el grafo muestra un resumen en vivo de notas y conexiones, y ya no quedan separadores verticales duplicados en el mecanismo de apertura.
+
+- El modal de Knowledge Insights es ahora redimensionable y consistente en estilo y espaciado con el resto de modales de la aplicación.
+
+- El texto renderizado de Live Preview (párrafos, encabezados, contenido revelado) usa ahora la misma fuente proporcional que el resto de la interfaz en vez de la fuente monoespaciada del editor; el texto fuente y el código siguen en monoespaciada.
+
+- Las secciones de información de nota y backlinks del panel derecho empiezan ahora colapsadas por defecto en vez de expandidas. Se elimina además el bloque de ubicación/autor/URL de origen del panel: ninguna funcionalidad de la aplicación llega a escribir esos campos (solo se rellenaban editando el frontmatter YAML a mano), por lo que mostraban "-" permanentemente en la práctica totalidad de las notas.
 
 ## [2.4.11] - 2026-08-02
 
