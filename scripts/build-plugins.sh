@@ -169,24 +169,90 @@ fi
 echo -e "${GRAY}Classpath configured${NC}"
 echo ""
 
-# Get all plugin source files
-PLUGIN_FILES=$(find "$PLUGINS_SOURCE" -name "*.java" -not -name "package-info.java")
+# Multi-file plugins: a directory holding a plugin.properties descriptor is one plugin
+# built from every .java below it, instead of the default "one source file = one JAR".
+# Needed by plugins too large for a single file (parser + evaluator + renderer), which
+# would otherwise fail to compile because their siblings are not on the source path.
+BUNDLE_DESCRIPTORS=$(find "$PLUGINS_SOURCE" -name "plugin.properties")
+BUNDLE_DIRS=""
+for descriptor in $BUNDLE_DESCRIPTORS; do
+    BUNDLE_DIRS="$BUNDLE_DIRS $(dirname "$descriptor")"
+done
 
-if [ -z "$PLUGIN_FILES" ]; then
+# Single-file plugins are every remaining source outside a bundle directory.
+PLUGIN_FILES=$(find "$PLUGINS_SOURCE" -name "*.java" -not -name "package-info.java")
+for bundle_dir in $BUNDLE_DIRS; do
+    PLUGIN_FILES=$(echo "$PLUGIN_FILES" | grep -v "^$bundle_dir/" || true)
+done
+
+if [ -z "$PLUGIN_FILES" ] && [ -z "$BUNDLE_DIRS" ]; then
     echo -e "${YELLOW}WARNING: No plugin source files found in $PLUGINS_SOURCE${NC}"
     exit 0
 fi
 
-PLUGIN_COUNT=$(echo "$PLUGIN_FILES" | wc -l | tr -d ' ')
-echo -e "${CYAN}Found $PLUGIN_COUNT plugin file(s)${NC}"
+PLUGIN_COUNT=$(echo "$PLUGIN_FILES" | grep -c . || true)
+echo -e "${CYAN}Found $PLUGIN_COUNT single-file plugin(s)${NC}"
 echo ""
 
 # Compile each plugin
 COMPILED_PLUGINS=()
 
+# --- Multi-file plugin bundles -------------------------------------------------
+for bundle_dir in $BUNDLE_DIRS; do
+    bundle_name=$(basename "$bundle_dir")
+    echo -e "${CYAN}Building plugin bundle: $bundle_name...${NC}"
+
+    # plugin.class is required: with several classes implementing Plugin in one
+    # bundle, auto-detection would pick an arbitrary one.
+    BUNDLE_CLASS=$(grep '^plugin.class=' "$bundle_dir/plugin.properties" | head -n 1 | cut -d'=' -f2- | tr -d '\r' | xargs)
+    BUNDLE_JAR_NAME=$(grep '^plugin.jar=' "$bundle_dir/plugin.properties" | head -n 1 | cut -d'=' -f2- | tr -d '\r' | xargs)
+    if [ -z "$BUNDLE_JAR_NAME" ]; then
+        BUNDLE_JAR_NAME="$bundle_name"
+    fi
+    if [ -z "$BUNDLE_CLASS" ]; then
+        echo -e "${RED}  ERROR: $bundle_dir/plugin.properties has no plugin.class entry${NC}"
+        continue
+    fi
+
+    TEMP_DIR=$(mktemp -d -t jylos-bundle-XXXXXX)
+    BUNDLE_SOURCES=$(find "$bundle_dir" -name "*.java")
+
+    echo -e "${GRAY}  Compiling $(echo "$BUNDLE_SOURCES" | grep -c .) source file(s)...${NC}"
+    if ! "$JAVAC" --release 21 -encoding UTF-8 -cp "$CLASSPATH" -d "$TEMP_DIR" $BUNDLE_SOURCES; then
+        echo -e "${RED}  ERROR: Failed to compile bundle $bundle_name${NC}"
+        rm -rf "$TEMP_DIR"
+        continue
+    fi
+
+    echo -e "${GRAY}  Plugin class: $BUNDLE_CLASS${NC}"
+    MANIFEST_FILE="$TEMP_DIR/MANIFEST.MF"
+    cat > "$MANIFEST_FILE" << EOF
+Manifest-Version: 1.0
+Plugin-Class: $BUNDLE_CLASS
+Created-By: Jylos Plugin Builder
+
+EOF
+
+    JAR_PATH="$PLUGINS_OUTPUT/$BUNDLE_JAR_NAME.jar"
+    cd "$TEMP_DIR"
+    if "$JAR" cfm "$JAR_PATH" "$MANIFEST_FILE" com 2>/dev/null && [ -f "$JAR_PATH" ]; then
+        echo -e "${GREEN}  [OK] Created: $BUNDLE_JAR_NAME.jar${NC}"
+        COMPILED_PLUGINS+=("$BUNDLE_JAR_NAME")
+    else
+        echo -e "${RED}  ERROR: Failed to create JAR for $bundle_name${NC}"
+    fi
+    cd "$PROJECT_ROOT"
+    rm -rf "$TEMP_DIR"
+done
+
+
 while IFS= read -r plugin_file; do
+    # A here-string over an empty list still yields one empty line.
+    if [ -z "$plugin_file" ]; then
+        continue
+    fi
     plugin_name=$(basename "$plugin_file" .java)
-    
+
     # Skip package-info.java
     if [ "$plugin_name" = "package-info" ]; then
         continue

@@ -54,6 +54,12 @@
 
 - El texto renderizado de Live Preview (párrafos, encabezados, contenido revelado) usa ahora la misma fuente proporcional que el resto de la interfaz en vez de la fuente monoespaciada del editor; el texto fuente y el código siguen en monoespaciada.
 
+- Nuevo plugin **Dataview**: escribe un bloque ```dataview` en una nota y la vista previa lo sustituye por el resultado de consultar los metadatos de la bóveda. Soporta consultas `TABLE`/`LIST`/`TASK` con `FROM` (etiquetas, carpetas, enlaces entrantes y salientes), `WHERE`, `SORT`, `GROUP BY`, `FLATTEN` y `LIMIT`; metadatos desde frontmatter YAML, campos inline `clave:: valor`, etiquetas y atributos implícitos `file.*`; una librería de más de cuarenta funciones; y expresiones inline con `` `= expresión` ``. Los resultados se renderizan en modo lectura; los bloques `dataviewjs` no están soportados y se avisa de ello explícitamente. Las notas privadas quedan fuera del índice para que una consulta no pueda exponer su contenido.
+
+- Los plugins pueden ahora post-procesar el HTML renderizado de una nota concreta (`PreviewEnhancer.transformHtml`), no solo inyectar recursos estáticos en la vista previa. Antes un plugin no tenía forma de saber qué nota se estaba renderizando, así que no podía generar contenido por nota sin adivinarlo siguiendo eventos de selección.
+
+- El compilador de plugins admite plugins repartidos en varios ficheros: un directorio con un descriptor `plugin.properties` se compila entero en un único JAR, en vez de la regla anterior de un fichero por plugin. Se añade `scripts/test-plugins.sh` para ejecutar las pruebas de comportamiento de los plugins, que quedan fuera de la suite de Maven porque las fuentes se compilan contra la aplicación como cualquier plugin de terceros.
+
 - Las secciones de información de nota y backlinks del panel derecho empiezan ahora colapsadas por defecto en vez de expandidas. Se elimina además el bloque de ubicación/autor/URL de origen del panel: ninguna funcionalidad de la aplicación llega a escribir esos campos (solo se rellenaban editando el frontmatter YAML a mano), por lo que mostraban "-" permanentemente en la práctica totalidad de las notas.
 
 ## [2.4.11] - 2026-08-02

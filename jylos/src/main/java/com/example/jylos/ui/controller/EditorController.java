@@ -1646,13 +1646,17 @@ public class EditorController {
         java.util.Collection<PreviewEnhancer> enhancers =
                 new java.util.ArrayList<>(previewEnhancers.values());
         java.nio.file.Path baseDir = previewBaseDir();
+        // Captured on the FX thread so an enhancer post-processing this render always
+        // sees the note this HTML came from, even if the user switches note mid-render.
+        com.example.jylos.plugin.PreviewContext previewContext =
+                new com.example.jylos.plugin.PreviewContext(currentNote, darkTheme);
 
         Task<String> task = new Task<>() {
             @Override
             protected String call() {
                 if (content != null && !content.trim().isEmpty()) {
                     return MarkdownPreview.buildPreviewHtml(content, darkTheme, enhancers, baseDir,
-                            EditorController.this::resolveEmbedContentByTitle);
+                            EditorController.this::resolveEmbedContentByTitle, previewContext);
                 }
                 return MarkdownPreview.buildEmptyHtml(darkTheme);
             }

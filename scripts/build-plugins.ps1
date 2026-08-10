@@ -157,18 +157,88 @@ try {
 
 Write-Host "Classpath configured" -ForegroundColor Gray
 
-# Get all plugin source files
-$PluginFiles = Get-ChildItem -Path $PluginsSource -Filter "*.java" -Recurse
+# Multi-file plugins: a directory holding a plugin.properties descriptor is one plugin
+# built from every .java below it, instead of the default "one source file = one JAR".
+# Needed by plugins too large for a single file (parser + evaluator + renderer), which
+# would otherwise fail to compile because their siblings are not on the source path.
+$BundleDescriptors = @(Get-ChildItem -Path $PluginsSource -Filter "plugin.properties" -Recurse)
+$BundleDirs = @($BundleDescriptors | ForEach-Object { $_.DirectoryName })
 
-if ($PluginFiles.Count -eq 0) {
+# Single-file plugins are every remaining source outside a bundle directory.
+$PluginFiles = @(Get-ChildItem -Path $PluginsSource -Filter "*.java" -Recurse | Where-Object {
+    $file = $_
+    -not ($BundleDirs | Where-Object { $file.FullName.StartsWith($_ + [IO.Path]::DirectorySeparatorChar) })
+})
+
+if ($PluginFiles.Count -eq 0 -and $BundleDirs.Count -eq 0) {
     Write-Host "WARNING: No plugin source files found in $PluginsSource" -ForegroundColor Yellow
     exit 0
 }
 
-Write-Host "`nFound $($PluginFiles.Count) plugin file(s)" -ForegroundColor Cyan
+Write-Host "`nFound $($PluginFiles.Count) single-file plugin(s)" -ForegroundColor Cyan
 
 # Compile each plugin
 $CompiledPlugins = @()
+
+# --- Multi-file plugin bundles -------------------------------------------------
+foreach ($bundleDir in $BundleDirs) {
+    $bundleName = Split-Path $bundleDir -Leaf
+    Write-Host "`nBuilding plugin bundle: $bundleName..." -ForegroundColor Cyan
+
+    $descriptor = Get-Content (Join-Path $bundleDir "plugin.properties")
+    # plugin.class is required: with several classes implementing Plugin in one
+    # bundle, auto-detection would pick an arbitrary one.
+    $BundleClass = ($descriptor | Where-Object { $_ -match '^plugin\.class=' } |
+        Select-Object -First 1) -replace '^plugin\.class=', ''
+    $BundleJarName = ($descriptor | Where-Object { $_ -match '^plugin\.jar=' } |
+        Select-Object -First 1) -replace '^plugin\.jar=', ''
+    if ([string]::IsNullOrWhiteSpace($BundleJarName)) { $BundleJarName = $bundleName }
+    if ([string]::IsNullOrWhiteSpace($BundleClass)) {
+        Write-Host "  ERROR: $bundleDir\plugin.properties has no plugin.class entry" -ForegroundColor Red
+        continue
+    }
+    $BundleClass = $BundleClass.Trim()
+    $BundleJarName = $BundleJarName.Trim()
+
+    $TempDir = Join-Path $env:TEMP "jylos-bundle-$bundleName"
+    if (Test-Path $TempDir) { Remove-Item -Path $TempDir -Recurse -Force }
+    New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
+
+    $BundleSources = @(Get-ChildItem -Path $bundleDir -Filter "*.java" -Recurse |
+        ForEach-Object { $_.FullName })
+    Write-Host "  Compiling $($BundleSources.Count) source file(s)..." -ForegroundColor Gray
+
+    & $Javac --release 21 -encoding UTF-8 -cp $Classpath -d $TempDir $BundleSources 2>&1 |
+        ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  ERROR: Failed to compile bundle $bundleName" -ForegroundColor Red
+        Remove-Item -Path $TempDir -Recurse -Force
+        continue
+    }
+
+    Write-Host "  Plugin class: $BundleClass" -ForegroundColor Gray
+    $ManifestFile = Join-Path $TempDir "MANIFEST.MF"
+    @(
+        "Manifest-Version: 1.0",
+        "Plugin-Class: $BundleClass",
+        "Created-By: Jylos Plugin Builder",
+        ""
+    ) | Set-Content -Path $ManifestFile -Encoding UTF8
+
+    $JarPath = Join-Path $PluginsOutput "$BundleJarName.jar"
+    Push-Location $TempDir
+    & $Jar cfm $JarPath $ManifestFile com 2>&1 | Out-Null
+    Pop-Location
+
+    if (Test-Path $JarPath) {
+        Write-Host "  [OK] Created: $BundleJarName.jar" -ForegroundColor Green
+        $CompiledPlugins += $BundleJarName
+    } else {
+        Write-Host "  ERROR: Failed to create JAR for $bundleName" -ForegroundColor Red
+    }
+    Remove-Item -Path $TempDir -Recurse -Force
+}
 
 foreach ($pluginFile in $PluginFiles) {
     $pluginName = $pluginFile.BaseName
