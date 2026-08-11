@@ -215,11 +215,73 @@ for bundle_dir in $BUNDLE_DIRS; do
     fi
 
     TEMP_DIR=$(mktemp -d -t jylos-bundle-XXXXXX)
+    CLASSES_DIR="$TEMP_DIR/classes"
+    mkdir -p "$CLASSES_DIR"
     BUNDLE_SOURCES=$(find "$bundle_dir" -name "*.java")
 
+    # Third-party dependencies: any JAR under the bundle's lib/ directory. They join
+    # the compile classpath and are packed into the plugin JAR itself (below), because
+    # a plugin is installed and removed as a single file — the manager's file chooser
+    # and deletePluginJar() both assume exactly one JAR — so a sidecar lib/ directory
+    # next to the installed plugin could never travel with it.
+    LIB_JARS=""
+    if [ -d "$bundle_dir/lib" ]; then
+        LIB_JARS=$(find "$bundle_dir/lib" -name "*.jar" | sort)
+    fi
+    BUNDLE_CLASSPATH="$CLASSPATH"
+    for lib in $LIB_JARS; do
+        BUNDLE_CLASSPATH="$BUNDLE_CLASSPATH:$lib"
+    done
+    LIB_COUNT=$(echo "$LIB_JARS" | grep -c . || true)
+    if [ "$LIB_COUNT" -gt 0 ]; then
+        echo -e "${GRAY}  Bundling $LIB_COUNT dependency JAR(s) from lib/${NC}"
+    fi
+
     echo -e "${GRAY}  Compiling $(echo "$BUNDLE_SOURCES" | grep -c .) source file(s)...${NC}"
-    if ! "$JAVAC" --release 21 -encoding UTF-8 -cp "$CLASSPATH" -d "$TEMP_DIR" $BUNDLE_SOURCES; then
+    if ! "$JAVAC" --release 21 -encoding UTF-8 -cp "$BUNDLE_CLASSPATH" -d "$CLASSES_DIR" $BUNDLE_SOURCES; then
         echo -e "${RED}  ERROR: Failed to compile bundle $bundle_name${NC}"
+        rm -rf "$TEMP_DIR"
+        continue
+    fi
+
+    # Merge each dependency's contents into the staging directory.
+    LIB_FAILED=0
+    for lib in $LIB_JARS; do
+        UNPACK_DIR="$TEMP_DIR/unpack"
+        rm -rf "$UNPACK_DIR"
+        mkdir -p "$UNPACK_DIR"
+        if ! (cd "$UNPACK_DIR" && "$JAR" xf "$lib"); then
+            echo -e "${RED}  ERROR: Could not unpack $(basename "$lib")${NC}"
+            LIB_FAILED=1
+            break
+        fi
+        if [ -d "$UNPACK_DIR/META-INF" ]; then
+            # A signed dependency keeps digests that no longer match once its classes
+            # live in a different archive; leaving them in makes the JVM reject the whole
+            # plugin JAR with "Invalid signature file digest" at load time.
+            find "$UNPACK_DIR/META-INF" -maxdepth 1 -type f \
+                \( -name '*.SF' -o -name '*.DSA' -o -name '*.RSA' -o -name '*.EC' \
+                   -o -name 'INDEX.LIST' -o -name 'MANIFEST.MF' \) -delete
+            # ServiceLoader registrations from different dependencies share file names,
+            # so they are appended rather than overwritten — a plain copy would leave
+            # only the last dependency's providers discoverable.
+            if [ -d "$UNPACK_DIR/META-INF/services" ]; then
+                mkdir -p "$CLASSES_DIR/META-INF/services"
+                for service_file in "$UNPACK_DIR/META-INF/services"/*; do
+                    [ -f "$service_file" ] || continue
+                    cat "$service_file" >> "$CLASSES_DIR/META-INF/services/$(basename "$service_file")"
+                    echo "" >> "$CLASSES_DIR/META-INF/services/$(basename "$service_file")"
+                done
+                rm -rf "$UNPACK_DIR/META-INF/services"
+            fi
+        fi
+        # A dependency's module descriptor is meaningless on the classpath and would
+        # collide with another dependency's.
+        rm -f "$UNPACK_DIR/module-info.class"
+        cp -R "$UNPACK_DIR/." "$CLASSES_DIR/"
+        rm -rf "$UNPACK_DIR"
+    done
+    if [ "$LIB_FAILED" -eq 1 ]; then
         rm -rf "$TEMP_DIR"
         continue
     fi
@@ -234,14 +296,14 @@ Created-By: Jylos Plugin Builder
 EOF
 
     JAR_PATH="$PLUGINS_OUTPUT/$BUNDLE_JAR_NAME.jar"
-    cd "$TEMP_DIR"
-    if "$JAR" cfm "$JAR_PATH" "$MANIFEST_FILE" com 2>/dev/null && [ -f "$JAR_PATH" ]; then
+    # Packs the whole staging directory, not just com/: a dependency's packages
+    # (org/, io/, …) must end up in the JAR too.
+    if "$JAR" cfm "$JAR_PATH" "$MANIFEST_FILE" -C "$CLASSES_DIR" . 2>/dev/null && [ -f "$JAR_PATH" ]; then
         echo -e "${GREEN}  [OK] Created: $BUNDLE_JAR_NAME.jar${NC}"
         COMPILED_PLUGINS+=("$BUNDLE_JAR_NAME")
     else
         echo -e "${RED}  ERROR: Failed to create JAR for $bundle_name${NC}"
     fi
-    cd "$PROJECT_ROOT"
     rm -rf "$TEMP_DIR"
 done
 

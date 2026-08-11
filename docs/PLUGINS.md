@@ -51,6 +51,45 @@ plugin.jar=DataviewPlugin
 auto-detection would pick an arbitrary one. `plugin.jar` is optional and defaults to the
 directory name.
 
+### Third-party dependencies
+
+A bundle may ship libraries the core does not provide. Drop their JARs into a `lib/`
+directory inside the bundle:
+
+```
+plugins-source/com/example/jylos/plugin/builtin/mcp/
+├── plugin.properties
+├── McpServerPlugin.java
+└── lib/
+    └── some-sdk-1.2.0.jar
+```
+
+They are added to the bundle's compile classpath and **packed into the plugin JAR
+itself**. This is deliberate: a plugin is installed and removed as a single file — the
+manager's file chooser accepts one `*.jar`, and `PluginLoader.deletePluginJar` removes one
+file — so a `lib/` directory sitting next to an installed plugin could never travel with
+it. Packing keeps a plugin a self-contained, installable artifact and needs no change to
+how `PluginLoader` builds its classloader.
+
+The build handles the parts of merging that silently break otherwise:
+
+- **Signature files** (`*.SF`, `*.DSA`, `*.RSA`, `*.EC`) are dropped. A signed dependency's
+  digests no longer match once its classes live in another archive, and the JVM would
+  reject the whole plugin JAR with `Invalid signature file digest` at load time.
+- **`META-INF/services/*`** entries are appended, not overwritten, so `ServiceLoader` still
+  finds every provider when two dependencies register for the same service.
+- **`module-info.class`** from dependencies is dropped: meaningless on the classpath, and
+  two dependencies would collide on it.
+
+Two caveats worth knowing:
+
+- **The app's own classes win.** A plugin's classloader has the app's as its parent and
+  Java delegates to the parent first, so bundling a *different version* of something the
+  core already ships (Gson, SnakeYAML, …) does not override it — the core's version is
+  what loads. Bundle libraries the core does not already have.
+- **No sharing between plugins.** Two plugins bundling the same library each carry their
+  own copy, in their own classloader. That is the price of self-contained installs.
+
 ## Test plugins
 
 ```bash

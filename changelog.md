@@ -98,6 +98,8 @@
 
 - Las secciones de información de nota y backlinks del panel derecho empiezan ahora colapsadas por defecto en vez de expandidas. Se elimina además el bloque de ubicación/autor/URL de origen del panel: ninguna funcionalidad de la aplicación llega a escribir esos campos (solo se rellenaban editando el frontmatter YAML a mano), por lo que mostraban "-" permanentemente en la práctica totalidad de las notas.
 
+- Un plugin puede ahora incluir librerías de terceros que el core no proporciona: los JAR colocados en un directorio `lib/` dentro del bundle entran en su classpath de compilación y se empaquetan dentro del propio JAR del plugin, que sigue siendo un único fichero instalable y eliminable desde el gestor. El empaquetado descarta los ficheros de firma de las dependencias (que si no harían que la JVM rechazara el JAR entero al cargarlo), concatena los registros `META-INF/services` en vez de sobrescribirlos, y descarta los `module-info.class`.
+
 ## [2.4.11] - 2026-08-02
 
 - Se corrige una regresión de rendimiento en el panel Git de vaults grandes: el refresco ya no ejecuta consultas Git ni lecturas de contenido por cada archivo cambiado. La resolución de rutas y submódulos se realiza una vez por refresco, y los archivos sin seguimiento no se abren para calcular estadísticas opcionales.

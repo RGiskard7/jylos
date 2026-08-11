@@ -45,6 +45,47 @@ plugin.jar=DataviewPlugin
 autodetección elegiría una arbitraria. `plugin.jar` es opcional y por defecto usa el nombre
 del directorio.
 
+### Dependencias de terceros
+
+Un bundle puede incluir librerías que el core no proporciona. Coloca sus JAR en un
+directorio `lib/` dentro del bundle:
+
+```
+plugins-source/com/example/jylos/plugin/builtin/mcp/
+├── plugin.properties
+├── McpServerPlugin.java
+└── lib/
+    └── some-sdk-1.2.0.jar
+```
+
+Se añaden al classpath de compilación del bundle y **se empaquetan dentro del propio JAR
+del plugin**. Es deliberado: un plugin se instala y se elimina como un único fichero — el
+selector del gestor acepta un solo `*.jar` y `PluginLoader.deletePluginJar` borra un solo
+fichero — así que un directorio `lib/` junto al plugin instalado nunca podría viajar con
+él. Empaquetarlo mantiene el plugin como artefacto autocontenido e instalable, y no exige
+ningún cambio en cómo `PluginLoader` construye su classloader.
+
+El build resuelve las partes del mezclado que si no fallarían en silencio:
+
+- Se descartan los **ficheros de firma** (`*.SF`, `*.DSA`, `*.RSA`, `*.EC`). Los digests de
+  una dependencia firmada dejan de cuadrar en cuanto sus clases viven en otro archivo, y la
+  JVM rechazaría el JAR entero con `Invalid signature file digest` al cargarlo.
+- Las entradas **`META-INF/services/*`** se concatenan en vez de sobrescribirse, para que
+  `ServiceLoader` siga encontrando todos los proveedores cuando dos dependencias registran
+  el mismo servicio.
+- Se descarta el **`module-info.class`** de las dependencias: no significa nada en el
+  classpath y dos dependencias colisionarían en él.
+
+Dos advertencias a tener presentes:
+
+- **Ganan las clases de la aplicación.** El classloader de un plugin tiene el de la
+  aplicación como padre y Java delega primero en el padre, así que incluir una *versión
+  distinta* de algo que el core ya trae (Gson, SnakeYAML, …) no lo sustituye: se carga la
+  del core. Incluye librerías que el core no tenga ya.
+- **No se comparten entre plugins.** Dos plugins que incluyan la misma librería llevan cada
+  uno su copia, en su propio classloader. Es el precio de que la instalación sea
+  autocontenida.
+
 ## Pruebas de plugins
 
 ```bash
