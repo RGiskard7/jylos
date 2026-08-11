@@ -95,6 +95,7 @@ plugin out of the JAR mechanism (no independent enable/disable-by-file, no
 | `registerPreviewEnhancer(...)` | CSS/JS injected into the Markdown preview, plus per-note HTML post-processing (below) |
 | `registerToolbarButton(buttonId, tooltip, iconLiteral, action)` | A button in the main toolbar (Feather icon literal like `fth-clock`, or text); removed automatically on disable |
 | `registerEditorHook(EditorHook)` | Editor lifecycle hooks (below) |
+| `registerEditorBlockRenderer(language, renderer)` | Renders a fenced block inline in the editor's Live Preview |
 | `requestOpenNote(note)` | Ask the shell owner to open a note directly in the editor UI |
 | `requestRefreshNotes()` | Ask the shell to fan out a notes refresh event |
 | `subscribe(...)` / `publish(...)` | Typed `EventBus` access |
@@ -117,6 +118,24 @@ returns `null` leaves the HTML untouched rather than blanking the note. They run
 the pipeline decides whether to ship syntax-highlighting assets, so a plugin that removes
 the note's only code block does not leave highlight.js behind. Example: `DataviewPlugin`
 (see [DATAVIEW.md](DATAVIEW.md)).
+
+### Editor block renderers
+
+`registerEditorBlockRenderer(String language, EditorBlockRenderer renderer)` displays a
+fenced <code>```language</code> block as generated HTML **inside the editor**, reverting to
+its source while the cursor is in it. Together with a `PreviewEnhancer`, a plugin can make
+the same block render identically in reading mode and while editing.
+
+Results are **pushed, not pulled**: the host extracts claimed blocks, calls the renderer on
+a background thread and hands the finished markup to the editor as a lookup table. JavaScript
+in a `WebView` runs on the JavaFX Application Thread, so letting the editor call back into
+Java while building decorations would put plugin work — and any I/O it does — on the UI
+thread during scrolling. Renders are coalesced while typing and recomputed when the note or
+any other note changes, since a block may summarise the whole vault.
+
+The returned HTML is inserted as-is, so a renderer must escape anything derived from note
+content. Returning `null` leaves the block showing its source. Renderers are removed
+automatically when the plugin is disabled.
 
 ### Editor hooks
 

@@ -697,18 +697,27 @@ public class SidebarController {
             invalidateFolderNoteCountCache();
             requestTrashReload();
             requestRecentFavoritesReload();
+            // The deleted note may have been the last one carrying a given tag; for
+            // filesystem storage a tag has no existence of its own beyond the notes that
+            // currently declare it, so the sidebar list must be recomputed too.
+            requestTagsReload();
         }));
         eventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteCreatedEvent.class, event -> {
             invalidateFolderNoteCountCache();
             requestFoldersReload();
             requestRecentFavoritesReload();
+            requestTagsReload();
         }));
         eventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class, event -> {
             // A content save does not change the folder structure or note counts, so the
             // folder tree is NOT rebuilt here (rebuilding re-selected the folder and fired
-            // a second, racing notes-list load that could blank the panel). Only the
-            // recents/favorites lists, whose ordering may change, are refreshed.
+            // a second, racing notes-list load that could blank the panel). The
+            // recents/favorites lists, whose ordering may change, are refreshed — and so
+            // are tags, since an edit may have added or removed an inline #tag. Both
+            // reloads are debounced, so rapid autosave ticks while typing collapse into
+            // a single reload instead of one per tick.
             requestRecentFavoritesReload();
+            requestTagsReload();
         }));
         eventSubscriptions.add(eventBus.subscribe(FolderEvents.FolderDeletedEvent.class, event -> {
             invalidateFolderNoteCountCache();

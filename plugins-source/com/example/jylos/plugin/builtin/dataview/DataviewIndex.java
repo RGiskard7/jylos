@@ -118,14 +118,21 @@ final class DataviewIndex implements PageSource {
             }
 
             // The listed note carries a truncated body; the full read is what makes
-            // fields and tasks below the head visible to queries.
-            Note full = noteService.getNoteById(id).orElse(listed);
-            if (!isIndexable(full)) {
+            // fields and tasks below the head visible to queries. One note with content
+            // the host cannot parse (e.g. frontmatter YAML that predates stricter parsing,
+            // or was hand-edited into an invalid shape) must not blank out every query in
+            // the vault — it is excluded, and the other 3000+ notes stay queryable.
+            try {
+                Note full = noteService.getNoteById(id).orElse(listed);
+                if (!isIndexable(full)) {
+                    continue;
+                }
+                Page page = PageParser.parse(full, foldersByNoteId.getOrDefault(id, ""), pathOf(full));
+                cache.put(id, new CachedPage(modified, page));
+                built.add(page);
+            } catch (RuntimeException e) {
                 continue;
             }
-            Page page = PageParser.parse(full, foldersByNoteId.getOrDefault(id, ""), pathOf(full));
-            cache.put(id, new CachedPage(modified, page));
-            built.add(page);
         }
 
         linkInlinks(built);

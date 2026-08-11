@@ -57,6 +57,14 @@ ui/ (FXML, controllers, components, GraphCanvas)
 
 `MarkdownEditorView` is the only Java-to-JavaScript boundary. CodeMirror owns document transactions, selection, syntax highlighting, Live Preview decorations, history, platform shortcuts, search/replace and autocomplete; `EditorController` owns note state, save/preview orchestration and plugin hooks. Source and Live Preview are two presentations of the same `EditorState`: Live Preview derives viewport decorations from the Lezer syntax tree, reveals Markdown for the active block and never rewrites the document. A fresh state is installed when switching documents so undo history never crosses tabs.
 
+Plugins can claim a fenced-block language (`EditorBlockRenderer`) and have it shown as
+generated HTML inside Live Preview. Results are computed on a background thread by
+`EditorBlockRenderSupport` and pushed to the editor as a lookup table — never fetched by
+it — because `WebView` JavaScript runs on the JavaFX Application Thread. The replacement
+comes from a CodeMirror `StateField`, not the Live Preview `ViewPlugin`: block-level
+decorations, and any replacement spanning a line break, are rejected when they come from a
+plugin (the same constraint is why Markdown tables are replaced row by row).
+
 The shell exposes two semantic states through one book/pencil action: editing (Live Preview by default, or source according to the UI preference) and reading. The linked side-by-side reading view is an independent layout action available from View and the command palette. Internally, `UiLayout.ViewMode` preserves these arrangements for workspace persistence; it does not create another document or editor state.
 
 The pinned npm dependencies are bundled with esbuild and committed as a local resource, so editing never requires network access. `MarkdownPreview` remains a separate CommonMark reading pipeline rendered off the FX thread and loaded in JavaFX `WebView`; it is the full-render owner for recursive transclusion, highlight.js, KaTeX and preview plugin enhancers. It is deliberately not editable, avoiding HTML-to-Markdown round trips and duplicate document state.

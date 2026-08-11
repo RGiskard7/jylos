@@ -16,7 +16,7 @@ import {
 } from "@codemirror/view";
 import { Tag, tags } from "@lezer/highlight";
 import { GFM } from "@lezer/markdown";
-import { livePreview } from "./live-preview.js";
+import { blockRenderField, livePreview, setBlockRenders } from "./live-preview.js";
 
 // `==mark==` highlight syntax is a common CommonMark extension (Obsidian,
 // Typora) but isn't part of GFM, so @lezer/markdown has no built-in node for
@@ -294,6 +294,7 @@ function createState(doc, config) {
     markdown({ extensions: [GFM, markExtension], codeLanguages: languages }),
     syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
     highlightCompartment.of(syntaxHighlighting(editorHighlight(config))),
+    blockRenderField,
     presentationCompartment.of(config?.livePreview ? livePreview() : []),
     editableCompartment.of(editableExtensions(editable)),
     wikiLinkDecorations,
@@ -405,6 +406,9 @@ window.JylosEditor = {
   setLabels(labels) {
     window.__jylosEditorConfig.labels = labels || {};
     view?.dispatch({ effects: phraseCompartment.reconfigure(EditorState.phrases.of(labels || {})) });
+  },
+  setBlockRenders(renders) {
+    view?.dispatch({ effects: setBlockRenders.of(renders || {}) });
   },
   setLivePreviewEnabled(enabled) {
     window.__jylosEditorConfig.livePreview = Boolean(enabled);

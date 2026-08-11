@@ -90,6 +90,7 @@ fichero independiente, sin `isPluginRemovable`) a cambio de disponibilidad incon
 | `registerPreviewEnhancer(...)` | CSS/JS en preview Markdown, más post-procesado de HTML por nota (abajo) |
 | `registerToolbarButton(...)` | Botón de toolbar |
 | `registerEditorHook(EditorHook)` | Hooks del editor |
+| `registerEditorBlockRenderer(language, renderer)` | Renderiza un bloque cercado dentro del Live Preview del editor |
 | `requestOpenNote(note)` | Pedir al shell abrir nota |
 | `requestRefreshNotes()` | Pedir refresh fan-out |
 | `subscribe(...)` / `publish(...)` | Eventos tipados |
@@ -112,6 +113,25 @@ que lance excepción o devuelva `null` deja el HTML intacto en vez de vaciar la 
 ejecutan *antes* de decidir si se inyectan los recursos de resaltado de sintaxis, de modo
 que un plugin que elimina el único bloque de código de la nota no deja highlight.js
 cargado. Ejemplo: `DataviewPlugin` (ver [DATAVIEW.md](DATAVIEW.md)).
+
+## Renderizadores de bloque del editor
+
+`registerEditorBlockRenderer(String language, EditorBlockRenderer renderer)` muestra un
+bloque cercado <code>```language</code> como HTML generado **dentro del editor**, volviendo a
+su código fuente mientras el cursor está dentro. Junto con un `PreviewEnhancer`, un plugin
+puede hacer que el mismo bloque se renderice igual en modo lectura y mientras se edita.
+
+Los resultados se **empujan, no se piden**: la aplicación extrae los bloques reclamados,
+llama al renderizador en un hilo de fondo y entrega el marcado terminado al editor como una
+tabla de consulta. El JavaScript de un `WebView` se ejecuta en el hilo de JavaFX, así que
+dejar que el editor llamara de vuelta a Java mientras construye decoraciones pondría el
+trabajo del plugin — y su E/S — en el hilo de la interfaz durante el scroll. Los renders se
+agrupan al escribir y se recalculan cuando cambia la nota o cualquier otra, ya que un bloque
+puede resumir toda la bóveda.
+
+El HTML devuelto se inserta tal cual, así que el renderizador debe escapar todo lo que venga
+del contenido de las notas. Devolver `null` deja el bloque mostrando su código fuente. Los
+renderizadores se eliminan automáticamente al deshabilitar el plugin.
 
 ## Hooks de editor
 

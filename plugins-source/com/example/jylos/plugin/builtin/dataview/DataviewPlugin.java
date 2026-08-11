@@ -39,9 +39,8 @@ import com.example.jylos.plugin.PluginContext;
  * <ul>
  *   <li><b>{@code dataviewjs}</b> — arbitrary JavaScript queries would need a scripting
  *       surface the host does not expose; such blocks render an explanatory notice.</li>
- *   <li><b>Live Preview</b> — results appear in the reading-mode preview. Editing a note
- *       shows the query source, because the editor renders through CodeMirror and the
- *       plugin API reaches the preview only.</li>
+ *   <li><b>Rendering inside a block</b> — a query result is a table, list or task list;
+ *       arbitrary Markdown inside a result cell is rendered as inline formatting only.</li>
  * </ul>
  *
  * @author Edu Díaz (RGiskard7)
@@ -84,7 +83,9 @@ public class DataviewPlugin implements Plugin {
         this.context = context;
         this.index = new DataviewIndex(context.getNoteService(), context.getFolderService());
 
-        context.registerPreviewEnhancer(new DataviewEnhancer(index));
+        DataviewRunner runner = new DataviewRunner(index);
+        context.registerPreviewEnhancer(new DataviewEnhancer(index, runner));
+        context.registerEditorBlockRenderer("dataview", new DataviewBlockRenderer(runner));
         subscribeToInvalidationEvents(context);
 
         context.registerCommand("Dataview: Rebuild index",
@@ -102,6 +103,17 @@ public class DataviewPlugin implements Plugin {
         context.registerMenuItem("Dataview", "Query reference",
                 () -> context.showInfo("Dataview", "Query syntax", REFERENCE));
 
+        context.registerMenuItem("Dataview", "Insert Dataview Template", () -> {
+            context.showInfo("Dataview Template", "Copy this to your note:",
+                    "```dataview\n" +
+                            "TABLE rating AS \"Score\", file.mtime AS \"Updated\"\n" +
+                            "FROM #tag\n" +
+                            "WHERE rating >= 4\n" +
+                            "SORT rating DESC\n" +
+                            "LIMIT 10\n" +
+                            "```");
+        });
+
         context.log("Dataview plugin initialized");
     }
 
@@ -114,6 +126,7 @@ public class DataviewPlugin implements Plugin {
         }
         if (context != null) {
             context.unregisterPreviewEnhancer();
+            context.unregisterEditorBlockRenderers();
             context.unregisterAllCommands();
         }
     }
@@ -190,8 +203,11 @@ public class DataviewPlugin implements Plugin {
               Write `= expression` in text to show a computed value,
               for example `= this.file.name`.
 
+            WHERE RESULTS APPEAR
+              Both the reading-mode preview and the editor's Live Preview.
+              While the cursor is inside a block it shows its source.
+
             NOT SUPPORTED
-              dataviewjs blocks, and rendering inside the editor's Live
-              Preview (results show in the reading-mode preview).
+              dataviewjs blocks (JavaScript queries).
             """;
 }

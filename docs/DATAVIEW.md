@@ -20,14 +20,16 @@ The plugin ships in `plugins-source/com/example/jylos/plugin/builtin/dataview/` 
 
 ## Where results appear
 
-Results render in the **reading-mode preview**. While editing, the query stays visible as
-source: the editor renders through CodeMirror, and the plugin API reaches the preview
-pipeline only (`PreviewEnhancer.transformHtml`). This is the main behavioural difference
-from Obsidian's Dataview, which also renders inside Live Preview.
+Results render in **both** the reading-mode preview and the editor's Live Preview. While
+the cursor is inside a block it reverts to its source so the query can be edited — the
+same reveal-on-edit rule Live Preview applies to tables and images.
+
+The two surfaces run the same parser, engine and renderer (`DataviewRunner`), so a query
+cannot produce a different table depending on whether the note is being read or edited.
 
 `dataviewjs` blocks are **not** supported — arbitrary JavaScript queries would need a
-scripting surface the host does not expose. Such a block renders an explanatory notice
-rather than failing silently.
+scripting surface the host does not expose, and would mean executing code out of note
+content. Such a block renders an explanatory notice rather than failing silently.
 
 ## Metadata sources
 
@@ -164,5 +166,9 @@ problem and echoing the query. The rest of the note still renders.
 
 Compiles `plugins-source/` together with `plugins-test/` and runs the behavioural checks in
 `plugins-test/com/example/jylos/plugin/builtin/dataview/DataviewPluginTest.java` (metadata
-extraction, every clause, functions, HTML escaping and the end-to-end preview transform).
-The host-side hook is covered by `PreviewEnhancerTransformTest` in the Maven test suite.
+extraction, every clause, functions, HTML escaping, the end-to-end preview transform, and
+that the editor and preview surfaces agree on the same query).
+
+The host-side hooks are covered by `PreviewEnhancerTransformTest` and
+`EditorBlockRenderSupportTest` in the Maven suite, and the editor's side of the block
+contract by `editor-web/src/__tests__/block-render.test.js`.

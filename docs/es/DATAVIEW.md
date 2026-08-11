@@ -20,14 +20,17 @@ lo compila a `jylos/plugins/DataviewPlugin.jar`.
 
 ## Dónde aparecen los resultados
 
-Los resultados se renderizan en la **vista previa (modo lectura)**. Al editar, la consulta
-sigue viéndose como código fuente: el editor renderiza con CodeMirror y la API de plugins
-solo alcanza la tubería de la vista previa (`PreviewEnhancer.transformHtml`). Es la
-diferencia principal respecto al Dataview de Obsidian, que además renderiza en Live Preview.
+Los resultados se renderizan **tanto** en la vista previa (modo lectura) **como** en el
+Live Preview del editor. Mientras el cursor está dentro de un bloque, este vuelve a
+mostrar su código fuente para poder editar la consulta — la misma regla de
+revelar-al-editar que Live Preview aplica a tablas e imágenes.
+
+Ambas superficies usan el mismo parser, motor y renderizador (`DataviewRunner`), así que
+una consulta no puede dar una tabla distinta según se esté leyendo o editando la nota.
 
 Los bloques `dataviewjs` **no** están soportados: requerirían una superficie de scripting
-que la aplicación no expone. Un bloque así muestra un aviso explicativo en vez de fallar
-en silencio.
+que la aplicación no expone, y supondría ejecutar código procedente del contenido de las
+notas. Un bloque así muestra un aviso explicativo en vez de fallar en silencio.
 
 ## Fuentes de metadatos
 
@@ -166,7 +169,10 @@ con el problema y la consulta. El resto de la nota se sigue renderizando.
 ```
 
 Compila `plugins-source/` junto a `plugins-test/` y ejecuta las comprobaciones de
-`plugins-test/com/example/jylos/plugin/builtin/dataview/DataviewPluginTest.java` (extracción de
-metadatos, todas las cláusulas, funciones, escapado HTML y la transformación end-to-end de
-la vista previa). El hook del lado de la aplicación lo cubre `PreviewEnhancerTransformTest`
-en la suite de Maven.
+`plugins-test/com/example/jylos/plugin/builtin/dataview/DataviewPluginTest.java` (extracción
+de metadatos, todas las cláusulas, funciones, escapado HTML, la transformación end-to-end de
+la vista previa y que las superficies de editor y vista previa coincidan en la misma consulta).
+
+Los hooks del lado de la aplicación los cubren `PreviewEnhancerTransformTest` y
+`EditorBlockRenderSupportTest` en la suite de Maven, y el lado del editor
+`editor-web/src/__tests__/block-render.test.js`.

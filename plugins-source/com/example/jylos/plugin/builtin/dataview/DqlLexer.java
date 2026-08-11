@@ -83,8 +83,8 @@ final class DqlLexer {
         int start = position;
         char c = source.charAt(position);
 
-        if (c == '"' || c == '\'') {
-            return new Token(Type.STRING, readQuoted(c), start);
+        if (c == '"' || c == '\'' || c == '“' || c == '‘') {
+            return new Token(Type.STRING, readQuoted(closingQuoteFor(c)), start);
         }
         if (c == '[' && peekIs(position + 1, '[')) {
             return new Token(Type.LINK, readLink(), start);
@@ -112,10 +112,25 @@ final class DqlLexer {
         return at < source.length() && source.charAt(at) == expected;
     }
 
-    private String readQuoted(char quote) {
+    /**
+     * Typographic quotes are not symmetric like {@code "} and {@code '} — a curly-quote
+     * string must be closed by its own partner, not the character that opened it. Systems
+     * that substitute straight quotes as you type (macOS "Smart Quotes" affects text
+     * input broadly, including a query typed straight into the editor) make this a real
+     * input a user hits without ever intending anything but an ordinary string literal.
+     */
+    private static char closingQuoteFor(char open) {
+        return switch (open) {
+            case '“' -> '”';
+            case '‘' -> '’';
+            default -> open;
+        };
+    }
+
+    private String readQuoted(char closing) {
         position++;
         StringBuilder text = new StringBuilder();
-        while (position < source.length() && source.charAt(position) != quote) {
+        while (position < source.length() && source.charAt(position) != closing) {
             char c = source.charAt(position);
             if (c == '\\' && position + 1 < source.length()) {
                 position++;

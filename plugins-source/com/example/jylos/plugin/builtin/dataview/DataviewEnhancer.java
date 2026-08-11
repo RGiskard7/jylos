@@ -3,7 +3,6 @@ package com.example.jylos.plugin.builtin.dataview;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.PreviewContext;
 import com.example.jylos.plugin.PreviewEnhancer;
 
@@ -30,11 +29,11 @@ final class DataviewEnhancer implements PreviewEnhancer {
             "<code>\\s*=\\s*([^<]+?)\\s*</code>");
 
     private final PageSource index;
-    private final QueryEngine engine;
+    private final DataviewRunner runner;
 
-    DataviewEnhancer(PageSource index) {
+    DataviewEnhancer(PageSource index, DataviewRunner runner) {
         this.index = index;
-        this.engine = new QueryEngine(index);
+        this.runner = runner;
     }
 
     @Override
@@ -55,7 +54,7 @@ final class DataviewEnhancer implements PreviewEnhancer {
             return html;
         }
 
-        Page currentPage = resolveCurrentPage(context);
+        Page currentPage = runner.resolvePage(context == null ? null : context.note());
         String result = html;
         boolean rendered = false;
 
@@ -73,27 +72,6 @@ final class DataviewEnhancer implements PreviewEnhancer {
         return rendered ? DataviewRenderer.styles(context != null && context.darkTheme()) + result : result;
     }
 
-    /**
-     * Resolves {@code this} for the note being previewed. Falls back to parsing the note
-     * directly when it is not in the index (a brand-new note the index has not seen, or
-     * one excluded from indexing), so {@code this.file.name} still resolves.
-     */
-    private Page resolveCurrentPage(PreviewContext context) {
-        Note note = context == null ? null : context.note();
-        if (note == null) {
-            return null;
-        }
-        Page indexed = index.pageByTitle(note.getTitle());
-        if (indexed != null) {
-            return indexed;
-        }
-        try {
-            return PageParser.parse(note, "", note.getId());
-        } catch (RuntimeException e) {
-            return null;
-        }
-    }
-
     private String replaceBlocks(String html, Page currentPage) {
         Matcher matcher = BLOCK.matcher(html);
         StringBuilder out = new StringBuilder();
@@ -104,28 +82,11 @@ final class DataviewEnhancer implements PreviewEnhancer {
                     ? DataviewRenderer.renderError(
                             "JavaScript queries (dataviewjs) are not supported — use a "
                                     + "dataview query block instead.", query)
-                    : runQuery(query, currentPage);
+                    : runner.render(query, currentPage);
             matcher.appendReplacement(out, Matcher.quoteReplacement(replacement));
         }
         matcher.appendTail(out);
         return out.toString();
-    }
-
-    private String runQuery(String query, Page currentPage) {
-        if (query.isEmpty()) {
-            return DataviewRenderer.renderError("Empty query.", query);
-        }
-        try {
-            Ast.Query parsed = DqlParser.parse(query);
-            return DataviewRenderer.render(engine.run(parsed, currentPage));
-        } catch (DqlException e) {
-            return DataviewRenderer.renderError(e.getMessage(), query);
-        } catch (RuntimeException e) {
-            // A malformed vault (unparseable frontmatter, a field of an unexpected shape)
-            // must degrade to a visible message, never take the whole preview down.
-            return DataviewRenderer.renderError(
-                    "Query failed: " + (e.getMessage() == null ? e.toString() : e.getMessage()), query);
-        }
     }
 
     private String replaceInline(String html, Page currentPage) {

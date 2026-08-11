@@ -1,10 +1,18 @@
 package com.example.jylos.plugin.builtin.dataview;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.example.jylos.data.dao.filesystem.FolderDAOFileSystem;
+import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.PreviewContext;
+import com.example.jylos.service.FolderService;
+import com.example.jylos.service.NoteService;
 
 /**
  * Behavioural checks for the Dataview plugin, run by scripts/test-plugins.sh.
@@ -220,7 +228,8 @@ public final class DataviewPluginTest {
                 escaped);
 
         System.out.println("\n-- enhancer end-to-end --");
-        DataviewEnhancer enhancer = new DataviewEnhancer(source);
+        DataviewRunner runner = new DataviewRunner(source);
+        DataviewEnhancer enhancer = new DataviewEnhancer(source, runner);
         Note current = new Note("books/dune.md", "Dune", "");
         PreviewContext context = new PreviewContext(current, false);
 
@@ -249,11 +258,117 @@ public final class DataviewPluginTest {
         check("note without queries unchanged",
                 noQuery.equals(enhancer.transformHtml(context, noQuery)), "");
 
+        System.out.println("\n-- editor block renderer (Live Preview) --");
+        DataviewBlockRenderer blockRenderer = new DataviewBlockRenderer(runner);
+        // The editor hands over the raw block body: nothing has HTML-escaped it here.
+        String editorHtml = blockRenderer.render(current, "TABLE rating\nFROM #book\nWHERE rating >= 4");
+        check("renders a table for the editor", editorHtml.contains("<table") && editorHtml.contains("Dune"),
+                editorHtml);
+        check("editor styles are theme-agnostic (CSS vars, no baked colours)",
+                editorHtml.contains("var(--jylos-") && !editorHtml.contains("#f5f6f8"), editorHtml);
+        check("raw operators need no unescaping in the editor",
+                !stripStyles(editorHtml).contains("dataview-error"), editorHtml);
+        check("both surfaces agree on the same query",
+                stripStyles(editorHtml).equals(stripStyles(
+                        enhancer.transformHtml(context,
+                                "<pre><code class=\"language-dataview\">TABLE rating\nFROM #book\n"
+                                        + "WHERE rating &gt;= 4</code></pre>"))),
+                "preview and editor output diverged");
+        check("this resolves to the edited note",
+                blockRenderer.render(current, "LIST WHERE file.name = this.file.name").contains("Dune"), "");
+        String editorError = blockRenderer.render(current, "TABEL nope");
+        check("bad query renders an error box, not an exception",
+                stripStyles(editorError).contains("dataview-error"), editorError);
+
+        System.out.println("\n-- typographic (smart) quotes --");
+        // macOS "Smart Quotes" substitutes straight quotes broadly in text input,
+        // including a query typed straight into the editor — a curly-quote string is a
+        // routine input, not a crafted edge case.
+        check("curly double quotes work as string literals",
+                eval(source, dune, "upper(“hello”)").equals("HELLO"), "");
+        check("curly single quotes work as string literals",
+                eval(source, dune, "upper(‘hello’)").equals("HELLO"), "");
+        String curlyQuery = run(source, "TABLE rating AS “Score” FROM #book WHERE rating >= 4", dune);
+        check("a full query with curly quotes renders normally, not an error",
+                !stripStyles(curlyQuery).contains("dataview-error") && curlyQuery.contains("Score"), curlyQuery);
+
+        System.out.println("\n-- insert-template menu item --");
+        // Mirrors MermaidPlugin's "Insert Mermaid Template": the menu shows this string
+        // verbatim in an info dialog for the user to copy. It must actually be a valid,
+        // runnable query, not just plausible-looking text.
+        String template = "TABLE rating AS \"Score\", file.mtime AS \"Updated\"\n"
+                + "FROM #tag\n"
+                + "WHERE rating >= 4\n"
+                + "SORT rating DESC\n"
+                + "LIMIT 10";
+        String templateResult = run(source, template, dune);
+        check("the insert-template query is valid and runs without an error box",
+                !stripStyles(templateResult).contains("dataview-error"), templateResult);
+
+        System.out.println("\n-- DataviewIndex resilience to unparseable notes --");
+        checkIndexSkipsUnparseableNotesWithoutFailingTheWholeVault();
+
         System.out.println("\n========================================");
         System.out.println("passed: " + passed + "   failed: " + failed);
         System.out.println("========================================");
         if (failed > 0) {
             System.exit(1);
+        }
+    }
+
+    /** Drops style blocks so the two surfaces can be compared on their markup alone. */
+    private static String stripStyles(String html) {
+        return html.replaceAll("(?s)<style>.*?</style>", "").trim();
+    }
+
+    /**
+     * Regression check for a real crash: {@code DataviewIndex.build()} used to let one
+     * note's unparseable content (bad frontmatter YAML) throw out of the whole indexing
+     * loop, blanking every query in the vault instead of excluding just that note. Uses
+     * the real filesystem DAO — not {@link FakeSource} — because the bug lived in the
+     * {@code getNoteById} call {@link DataviewIndex} makes, which {@code FakeSource}
+     * bypasses entirely.
+     */
+    private static void checkIndexSkipsUnparseableNotesWithoutFailingTheWholeVault() {
+        try {
+            Path vault = Files.createTempDirectory("dataview-index-resilience-");
+            Files.writeString(vault.resolve("Good.md"), """
+                    ---
+                    rating: 5
+                    ---
+                    A perfectly normal note.
+                    """, StandardCharsets.UTF_8);
+            // Mirrors the real failure: a YAML folded scalar ('>') followed by a line that
+            // is not valid folded-scalar continuation syntax. Written directly to disk,
+            // bypassing the app's own writer, exactly like a hand-edited or externally
+            // synced vault file would arrive.
+            Files.writeString(vault.resolve("Broken.md"), """
+                    ---
+                    Body: > this
+                      is not: valid, folded > scalar syntax
+                    ---
+                    Content that Jylos itself would never have written this way.
+                    """, StandardCharsets.UTF_8);
+
+            NoteDAOFileSystem noteDAO = new NoteDAOFileSystem(vault.toString());
+            FolderDAOFileSystem folderDAO = new FolderDAOFileSystem(vault.toString());
+            NoteService noteService = new NoteService(noteDAO, folderDAO);
+            FolderService folderService = new FolderService(folderDAO, noteDAO);
+
+            DataviewIndex index = new DataviewIndex(noteService, folderService);
+            List<Page> pages = index.pages();
+
+            check("build() does not throw when a note has unparseable frontmatter", true, "");
+            check("the well-formed note is still indexed",
+                    pages.stream().anyMatch(page -> "Good".equals(page.title())),
+                    pages.stream().map(Page::title).toList().toString());
+            check("the unparseable note is excluded, not silently given empty metadata",
+                    pages.stream().noneMatch(page -> "Broken".equals(page.title())),
+                    pages.stream().map(Page::title).toList().toString());
+        } catch (IOException e) {
+            check("DataviewIndex resilience test setup", false, e.toString());
+        } catch (RuntimeException e) {
+            check("build() does not throw when a note has unparseable frontmatter", false, e.toString());
         }
     }
 

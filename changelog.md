@@ -2,6 +2,48 @@
 
 ## [Unreleased]
 
+## [2.5.1] - 2026-08-11
+
+- Nuevo punto de extensión `PluginContext.registerEditorBlockRenderer(...)`: un plugin puede reclamar un lenguaje de bloque cercado y mostrarlo como HTML generado dentro del editor. Los resultados se calculan en un hilo de fondo y se empujan al editor en vez de que este los pida, porque el JavaScript de un `WebView` se ejecuta en el hilo de la interfaz y una llamada de vuelta durante el scroll pondría ahí el trabajo del plugin.
+
+- Los plugins pueden ahora post-procesar el HTML renderizado de una nota concreta (`PreviewEnhancer.transformHtml`), no solo inyectar recursos estáticos en la vista previa. Antes un plugin no tenía forma de saber qué nota se estaba renderizando, así que no podía generar contenido por nota sin adivinarlo siguiendo eventos de selección.
+
+- El compilador de plugins admite plugins repartidos en varios ficheros: un directorio con un descriptor `plugin.properties` se compila entero en un único JAR, en vez de la regla anterior de un fichero por plugin. Se añade `scripts/test-plugins.sh` para ejecutar las pruebas de comportamiento de los plugins, que quedan fuera de la suite de Maven porque las fuentes se compilan contra la aplicación como cualquier plugin de terceros.
+
+- Nuevo plugin **Dataview**: escribe un bloque ```dataview` en una nota y la vista previa lo sustituye por el resultado de consultar los metadatos de la bóveda. Soporta consultas `TABLE`/`LIST`/`TASK` con `FROM` (etiquetas, carpetas, enlaces entrantes y salientes), `WHERE`, `SORT`, `GROUP BY`, `FLATTEN` y `LIMIT`; metadatos desde frontmatter YAML, campos inline `clave:: valor`, etiquetas y atributos implícitos `file.*`; una librería de más de cuarenta funciones; y expresiones inline con `` `= expresión` ``. Los resultados se renderizan en modo lectura; los bloques `dataviewjs` no están soportados y se avisa de ello explícitamente. Las notas privadas quedan fuera del índice para que una consulta no pueda exponer su contenido.
+
+- Corrige un fallo real en Dataview: una sola nota con frontmatter YAML que el parser no podía leer (por ejemplo tras una edición manual o sincronización externa) hacía fallar la indexación completa, dejando sin resultado todas las consultas de la bóveda. Ahora esa nota se excluye del índice y el resto de la bóveda sigue siendo consultable con normalidad.
+
+- Dataview acepta ahora comillas tipográficas («, », ‘, ’) en literales de texto de las consultas, además de las rectas. La sustitución automática de comillas de macOS las introduce con frecuencia al escribir directamente en el editor.
+
+- Corrige el resaltado de bloques de código y citas de varias líneas en Live Preview: solo la primera línea recibía el estilo correcto (fuente monoespaciada y fondo), y el resto de líneas del bloque quedaban con el formato base en vez del propio del bloque.
+
+- Las consultas Dataview se renderizan ahora también dentro del editor, en Live Preview, no solo en modo lectura. Mientras el cursor está dentro de un bloque este vuelve a mostrar su código fuente para poder editarlo, igual que ya ocurría con tablas e imágenes. Ambas superficies comparten parser, motor y renderizador, así que una consulta no puede dar resultados distintos según se esté leyendo o editando la nota.
+
+- El plugin Dataview añade "Insert Dataview Template" al menú de Plugins, igual que ya hace Mermaid con su plantilla de diagrama: inserta un ejemplo de consulta `TABLE` completo (filtro, orden y límite) para copiar y adaptar.
+
+- Corrige un fallo real de extracción de etiquetas inline: cualquier `#etiqueta` dentro de un bloque de código (una consulta Dataview, un comentario de shell, un selector CSS de ejemplo) se interpretaba como una etiqueta real de la nota que lo contenía. Ahora, igual que ya hacía el índice de Dataview, el escaneo se salta los bloques de código.
+
+- Corrige que las notas sin frontmatter YAML (habitual en una bóveda que Jylos no creó, como una bóveda de Obsidian existente) nunca extrajeran sus etiquetas inline hasta la primera vez que Jylos las guardaba.
+
+- Corrige que una etiqueta escrita al vuelo en el contenido no apareciera de inmediato en ningún sitio: al guardar, la nota mantenía en memoria el conjunto de etiquetas de antes del cambio hasta reabrirla. Ahora la nota se resincroniza con el mismo recorrido de guardado/lectura que ya se hacía correctamente al reabrir, así que el efecto es inmediato.
+
+- Corrige que quitar una etiqueta desde el panel de la nota (botón "×" en la barra de etiquetas) no tuviera ningún efecto visible: el ajuste anterior de esta misma lista reextraía las etiquetas del texto justo escrito tras cada guardado, y como quitar una etiqueta no borra la palabra `#etiqueta` del cuerpo, la resucitaba en el acto. Añadir y quitar etiquetas desde la UI ya no pasan por esa reextracción.
+
+- Corrige el bug real detrás de "no puedo quitar una etiqueta": cualquier etiqueta escrita directamente en el contenido (`#etiqueta`) no tiene id persistente en modo bóveda de ficheros — solo existe como texto. El botón "×" comprobaba justo ese id antes de nada, así que rechazaba silenciosamente cada etiqueta inline sin siquiera abrir el diálogo de confirmación. Ahora usa el mismo criterio de id-o-título que ya usaba el filtrado por etiqueta.
+
+- Corrige que el nombre de la etiqueta apareciera como `{0}` literal en los diálogos de "Quitar etiqueta" y "Eliminar etiqueta", y que las comillas alrededor de "Todas las Notas" desaparecieran en el diálogo de nueva carpeta: las comillas simples sin escapar de la plantilla se interpretan como sintaxis de cita literal en `MessageFormat`, no como texto, y suprimen la sustitución de cualquier marcador de posición que quede dentro.
+
+- Los chips de la barra de etiquetas de la nota ahora se refrescan al guardar: antes se construían una sola vez al abrir la nota y nunca volvían a leer su lista de etiquetas, así que una `#etiqueta` recién escrita no aparecía hasta cerrar la nota y volver a abrirla.
+
+- Corrige que el botón de alternar la barra de etiquetas pudiera quedar visualmente presionado con el panel ya cerrado: cerrar una nota o abrir un adjunto (PDF/imagen) ocultaba el contenedor de etiquetas directamente sin restablecer el estado del botón. Ahora la barra de etiquetas empieza siempre colapsada en cada cambio de nota, sea cual sea el estado con el que se dejó la nota anterior.
+
+- El panel de notas ya no requiere cerrar y reabrir la nota para reflejar que su conjunto de etiquetas cambió: si estás filtrando por una etiqueta, guardar recalcula la lista con la nota añadida o quitada según corresponda.
+
+- El panel lateral de etiquetas se actualiza ahora al crear, guardar o borrar una nota; antes no existía ningún disparador que lo recalculara y solo cambiaba reiniciando la aplicación.
+
+- Filtrar notas por etiqueta ya no distingue mayúsculas de minúsculas: `#Proyecto` y `#proyecto` escritos en notas distintas se tratan como la misma etiqueta, en vez de dos etiquetas separadas silenciosamente.
+
 ## [2.5.0] - 2026-08-09
 
 - El editor Markdown migra completamente de RichTextFX a CodeMirror 6 mediante un bundle offline y reproducible: recupera resaltado estable y adaptado al tema para Markdown/GFM y bloques fenced, historial aislado entre documentos, atajos nativos de plataforma, búsqueda/reemplazo localizada, menú contextual, modo de solo lectura efectivo y autocompletado de wiki-links sin mantener rutas legacy de edición.
@@ -53,12 +95,6 @@
 - El modal de Knowledge Insights es ahora redimensionable y consistente en estilo y espaciado con el resto de modales de la aplicación.
 
 - El texto renderizado de Live Preview (párrafos, encabezados, contenido revelado) usa ahora la misma fuente proporcional que el resto de la interfaz en vez de la fuente monoespaciada del editor; el texto fuente y el código siguen en monoespaciada.
-
-- Nuevo plugin **Dataview**: escribe un bloque ```dataview` en una nota y la vista previa lo sustituye por el resultado de consultar los metadatos de la bóveda. Soporta consultas `TABLE`/`LIST`/`TASK` con `FROM` (etiquetas, carpetas, enlaces entrantes y salientes), `WHERE`, `SORT`, `GROUP BY`, `FLATTEN` y `LIMIT`; metadatos desde frontmatter YAML, campos inline `clave:: valor`, etiquetas y atributos implícitos `file.*`; una librería de más de cuarenta funciones; y expresiones inline con `` `= expresión` ``. Los resultados se renderizan en modo lectura; los bloques `dataviewjs` no están soportados y se avisa de ello explícitamente. Las notas privadas quedan fuera del índice para que una consulta no pueda exponer su contenido.
-
-- Los plugins pueden ahora post-procesar el HTML renderizado de una nota concreta (`PreviewEnhancer.transformHtml`), no solo inyectar recursos estáticos en la vista previa. Antes un plugin no tenía forma de saber qué nota se estaba renderizando, así que no podía generar contenido por nota sin adivinarlo siguiendo eventos de selección.
-
-- El compilador de plugins admite plugins repartidos en varios ficheros: un directorio con un descriptor `plugin.properties` se compila entero en un único JAR, en vez de la regla anterior de un fichero por plugin. Se añade `scripts/test-plugins.sh` para ejecutar las pruebas de comportamiento de los plugins, que quedan fuera de la suite de Maven porque las fuentes se compilan contra la aplicación como cualquier plugin de terceros.
 
 - Las secciones de información de nota y backlinks del panel derecho empiezan ahora colapsadas por defecto en vez de expandidas. Se elimina además el bloque de ubicación/autor/URL de origen del panel: ninguna funcionalidad de la aplicación llega a escribir esos campos (solo se rellenaban editando el frontmatter YAML a mano), por lo que mostraban "-" permanentemente en la práctica totalidad de las notas.
 

@@ -40,7 +40,7 @@ public final class AppConfig {
                 properties.setProperty("app.vendor", "Jylos");
                 properties.setProperty("app.description", "A free and open-source note-taking application");
                 properties.setProperty("app.copyright", "Copyright © 2026 Eduardo Díaz Sánchez");
-                properties.setProperty("app.window.title", "Jylos - Local-first Knowledge Management");
+                properties.setProperty("app.window.title", "Jylos - Knowledge Management");
                 return;
             }
             

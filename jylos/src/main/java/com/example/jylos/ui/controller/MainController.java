@@ -90,7 +90,7 @@ import javafx.util.Duration;
  * where possible; this class focuses on UI state and command routing.
  */
 public class MainController implements PluginMenuRegistry, SidePanelRegistry, PreviewEnhancerRegistry,
-        com.example.jylos.plugin.ToolbarRegistry {
+        com.example.jylos.plugin.ToolbarRegistry, com.example.jylos.plugin.EditorBlockRendererRegistry {
 
     private static final Logger logger = LoggerConfig.getLogger(MainController.class);
 
@@ -891,7 +891,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             }
 
             pluginManager = new PluginManager(noteService, folderService, tagService, eventBus, commandPalette, this,
-                    this, this, editorHooks, this, this::handleUiNoteOpenRequest);
+                    this, this, editorHooks, this, this, this::handleUiNoteOpenRequest);
 
             PluginLifecycle.LoadResult pluginLoadResult = pluginLifecycle
                     .registerCoreAndExternalPlugins(pluginManager);
@@ -970,6 +970,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                     editorController.syncCurrentNoteIdentity(saved);
                     updateNoteMetadata(getCurrentNote());
                     editorController.syncFavoritePinButtons(this::getString);
+                    // The save may have picked up a newly typed inline #tag (or dropped one
+                    // the frontmatter round-trip no longer carries); the tags-bar chips are
+                    // built once when the note opens and otherwise never re-read the note's
+                    // current tag list on their own.
+                    editorController.loadNoteTagsForNote(getCurrentNote(),
+                            this::handleAddTagToNote, this::removeTagFromNote);
                 }
                 pendingModifiedNoteId = saved.getId();
             }
@@ -2324,6 +2330,21 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     public void unregisterPreviewEnhancer(String pluginId) {
         if (editorController != null) {
             editorController.unregisterPreviewEnhancer(pluginId);
+        }
+    }
+
+    @Override
+    public void registerEditorBlockRenderer(String pluginId, String language,
+            com.example.jylos.plugin.EditorBlockRenderer renderer) {
+        if (editorController != null) {
+            editorController.registerEditorBlockRenderer(pluginId, language, renderer);
+        }
+    }
+
+    @Override
+    public void unregisterEditorBlockRenderers(String pluginId) {
+        if (editorController != null) {
+            editorController.unregisterEditorBlockRenderers(pluginId);
         }
     }
 

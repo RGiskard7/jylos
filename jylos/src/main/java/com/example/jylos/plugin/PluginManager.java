@@ -68,6 +68,7 @@ public class PluginManager {
     private final PreviewEnhancerRegistry previewEnhancerRegistry;
     private final EditorHookRegistry editorHookRegistry;
     private final ToolbarRegistry toolbarRegistry;
+    private final EditorBlockRendererRegistry editorBlockRendererRegistry;
     private final Consumer<Note> noteOpenAction;
 
     // Plugin storage
@@ -89,6 +90,7 @@ public class PluginManager {
      * @param previewEnhancerRegistry The preview enhancer registry
      * @param editorHookRegistry The editor hook registry (nullable)
      * @param toolbarRegistry    The toolbar button registry (nullable)
+     * @param editorBlockRendererRegistry The editor fenced-block renderer registry (nullable)
      * @param noteOpenAction     Owner callback for plugin note-open requests
      */
     public PluginManager(
@@ -102,6 +104,7 @@ public class PluginManager {
             PreviewEnhancerRegistry previewEnhancerRegistry,
             EditorHookRegistry editorHookRegistry,
             ToolbarRegistry toolbarRegistry,
+            EditorBlockRendererRegistry editorBlockRendererRegistry,
             Consumer<Note> noteOpenAction) {
         this.noteService = noteService;
         this.folderService = folderService;
@@ -113,6 +116,7 @@ public class PluginManager {
         this.previewEnhancerRegistry = previewEnhancerRegistry;
         this.editorHookRegistry = editorHookRegistry;
         this.toolbarRegistry = toolbarRegistry;
+        this.editorBlockRendererRegistry = editorBlockRendererRegistry;
         this.noteOpenAction = noteOpenAction;
     }
 
@@ -231,6 +235,7 @@ public class PluginManager {
                     previewEnhancerRegistry,
                     editorHookRegistry,
                     toolbarRegistry,
+                    editorBlockRendererRegistry,
                     noteOpenAction);
             pluginContexts.put(pluginId, context);
 
@@ -504,6 +509,9 @@ public class PluginManager {
         }
         if (toolbarRegistry != null) {
             toolbarRegistry.removeToolbarButtons(pluginId);
+        }
+        if (editorBlockRendererRegistry != null) {
+            editorBlockRendererRegistry.unregisterEditorBlockRenderers(pluginId);
         }
         PluginContext context = pluginContexts.get(pluginId);
         if (context != null) {

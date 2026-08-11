@@ -131,6 +131,38 @@ final class DataviewRenderer {
         return size + (size == 1 ? " result" : " results");
     }
 
+    /**
+     * Styles for the editor's Live Preview, where the theme is not known at render time.
+     *
+     * <p>Colours come from the CSS custom properties the editor theme already publishes,
+     * so the same markup follows the light/dark switch without the renderer being told
+     * which is active. Tables, lists and links are left to the editor's own baseline
+     * styling for rendered blocks; only Dataview's own classes are defined here.</p>
+     */
+    static String editorStyles() {
+        return """
+                <style>
+                .dataview-group-header {
+                    margin: .9em 0 .3em; font-weight: 650;
+                    display: flex; align-items: baseline; gap: .6em; }
+                .dataview-group-header:first-child { margin-top: 0; }
+                .dataview-group-count { font-size: .8em; font-weight: 400; color: var(--jylos-muted); }
+                ul.dataview-tasks { list-style: none; padding-left: .2em; }
+                li.dataview-task { display: flex; align-items: flex-start; gap: .5em; margin: .25em 0; }
+                li.dataview-task input { margin-top: .28em; flex: none; }
+                li.dataview-task.is-done .dataview-task-text { text-decoration: line-through; opacity: .65; }
+                .dataview-task-status {
+                    font-size: .75em; border: 1px solid var(--jylos-border); border-radius: 4px;
+                    padding: 0 5px; margin-left: .35em; color: var(--jylos-muted); }
+                .dataview-empty { color: var(--jylos-muted); font-style: italic; }
+                .dataview-error-title { color: #d1584f; font-weight: 600; margin-bottom: 4px; }
+                .dataview-error-query {
+                    margin: 0; background: transparent; border: none; padding: 0;
+                    font-size: .85em; color: var(--jylos-muted); white-space: pre-wrap; }
+                </style>
+                """;
+    }
+
     /** Styles for every element the renderer emits, injected once per preview. */
     static String styles(boolean dark) {
         String border = dark ? "#3a3a3a" : "#e2e5ea";

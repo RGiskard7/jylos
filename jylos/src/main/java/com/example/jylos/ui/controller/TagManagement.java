@@ -130,7 +130,12 @@ class TagManagement {
             updateStatus.accept(i18n("status.no_note_selected"));
             return;
         }
-        if (tag == null || tag.getId() == null) {
+        // A filesystem-vault tag typed inline (#project) has no persistent id — it lives
+        // only as a frontmatter/body string (see TagService.getNotesWithTag's own id-else-
+        // title fallback) — so requiring an id here rejected every inline tag before the
+        // confirmation dialog even opened. The title is what identifies it either way.
+        if (tag == null || ((tag.getId() == null || tag.getId().isBlank())
+                && (tag.getTitle() == null || tag.getTitle().isBlank()))) {
             updateStatus.accept(i18n("status.invalid_tag"));
             return;
         }
