@@ -157,18 +157,160 @@ try {
 
 Write-Host "Classpath configured" -ForegroundColor Gray
 
-# Get all plugin source files
-$PluginFiles = Get-ChildItem -Path $PluginsSource -Filter "*.java" -Recurse
+# Multi-file plugins: a directory holding a plugin.properties descriptor is one plugin
+# built from every .java below it, instead of the default "one source file = one JAR".
+# Needed by plugins too large for a single file (parser + evaluator + renderer), which
+# would otherwise fail to compile because their siblings are not on the source path.
+$BundleDescriptors = @(Get-ChildItem -Path $PluginsSource -Filter "plugin.properties" -Recurse)
+$BundleDirs = @($BundleDescriptors | ForEach-Object { $_.DirectoryName })
 
-if ($PluginFiles.Count -eq 0) {
+# Single-file plugins are every remaining source outside a bundle directory.
+$PluginFiles = @(Get-ChildItem -Path $PluginsSource -Filter "*.java" -Recurse | Where-Object {
+    $file = $_
+    -not ($BundleDirs | Where-Object { $file.FullName.StartsWith($_ + [IO.Path]::DirectorySeparatorChar) })
+})
+
+if ($PluginFiles.Count -eq 0 -and $BundleDirs.Count -eq 0) {
     Write-Host "WARNING: No plugin source files found in $PluginsSource" -ForegroundColor Yellow
     exit 0
 }
 
-Write-Host "`nFound $($PluginFiles.Count) plugin file(s)" -ForegroundColor Cyan
+Write-Host "`nFound $($PluginFiles.Count) single-file plugin(s)" -ForegroundColor Cyan
 
 # Compile each plugin
 $CompiledPlugins = @()
+
+# --- Multi-file plugin bundles -------------------------------------------------
+foreach ($bundleDir in $BundleDirs) {
+    $bundleName = Split-Path $bundleDir -Leaf
+    Write-Host "`nBuilding plugin bundle: $bundleName..." -ForegroundColor Cyan
+
+    $descriptor = Get-Content (Join-Path $bundleDir "plugin.properties")
+    # plugin.class is required: with several classes implementing Plugin in one
+    # bundle, auto-detection would pick an arbitrary one.
+    $BundleClass = ($descriptor | Where-Object { $_ -match '^plugin\.class=' } |
+        Select-Object -First 1) -replace '^plugin\.class=', ''
+    $BundleJarName = ($descriptor | Where-Object { $_ -match '^plugin\.jar=' } |
+        Select-Object -First 1) -replace '^plugin\.jar=', ''
+    if ([string]::IsNullOrWhiteSpace($BundleJarName)) { $BundleJarName = $bundleName }
+    if ([string]::IsNullOrWhiteSpace($BundleClass)) {
+        Write-Host "  ERROR: $bundleDir\plugin.properties has no plugin.class entry" -ForegroundColor Red
+        continue
+    }
+    $BundleClass = $BundleClass.Trim()
+    $BundleJarName = $BundleJarName.Trim()
+
+    $TempDir = Join-Path $env:TEMP "jylos-bundle-$bundleName"
+    if (Test-Path $TempDir) { Remove-Item -Path $TempDir -Recurse -Force }
+    New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
+    $ClassesDir = Join-Path $TempDir "classes"
+    New-Item -ItemType Directory -Path $ClassesDir -Force | Out-Null
+
+    # Third-party dependencies: any JAR under the bundle's lib/ directory. They join
+    # the compile classpath and are packed into the plugin JAR itself (below), because
+    # a plugin is installed and removed as a single file — the manager's file chooser
+    # and deletePluginJar() both assume exactly one JAR — so a sidecar lib/ directory
+    # next to the installed plugin could never travel with it.
+    $LibDir = Join-Path $bundleDir "lib"
+    $LibJars = @()
+    if (Test-Path $LibDir) {
+        $LibJars = @(Get-ChildItem -Path $LibDir -Filter "*.jar" -Recurse |
+            Sort-Object FullName | ForEach-Object { $_.FullName })
+    }
+    $BundleClasspath = $Classpath
+    foreach ($lib in $LibJars) { $BundleClasspath = "$BundleClasspath;$lib" }
+    if ($LibJars.Count -gt 0) {
+        Write-Host "  Bundling $($LibJars.Count) dependency JAR(s) from lib/" -ForegroundColor Gray
+    }
+
+    $BundleSources = @(Get-ChildItem -Path $bundleDir -Filter "*.java" -Recurse |
+        ForEach-Object { $_.FullName })
+    Write-Host "  Compiling $($BundleSources.Count) source file(s)..." -ForegroundColor Gray
+
+    & $Javac --release 21 -encoding UTF-8 -cp $BundleClasspath -d $ClassesDir $BundleSources 2>&1 |
+        ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  ERROR: Failed to compile bundle $bundleName" -ForegroundColor Red
+        Remove-Item -Path $TempDir -Recurse -Force
+        continue
+    }
+
+    # Merge each dependency's contents into the staging directory.
+    $LibFailed = $false
+    foreach ($lib in $LibJars) {
+        $UnpackDir = Join-Path $TempDir "unpack"
+        if (Test-Path $UnpackDir) { Remove-Item -Path $UnpackDir -Recurse -Force }
+        New-Item -ItemType Directory -Path $UnpackDir -Force | Out-Null
+
+        Push-Location $UnpackDir
+        & $Jar xf $lib 2>&1 | Out-Null
+        $unpackExit = $LASTEXITCODE
+        Pop-Location
+        if ($unpackExit -ne 0) {
+            Write-Host "  ERROR: Could not unpack $(Split-Path $lib -Leaf)" -ForegroundColor Red
+            $LibFailed = $true
+            break
+        }
+
+        $UnpackMetaInf = Join-Path $UnpackDir "META-INF"
+        if (Test-Path $UnpackMetaInf) {
+            # A signed dependency keeps digests that no longer match once its classes
+            # live in a different archive; leaving them in makes the JVM reject the whole
+            # plugin JAR with "Invalid signature file digest" at load time.
+            Get-ChildItem -Path $UnpackMetaInf -File | Where-Object {
+                $_.Name -match '\.(SF|DSA|RSA|EC)$' -or $_.Name -in @('INDEX.LIST', 'MANIFEST.MF')
+            } | Remove-Item -Force
+
+            # ServiceLoader registrations from different dependencies share file names,
+            # so they are appended rather than overwritten — a plain copy would leave
+            # only the last dependency's providers discoverable.
+            $UnpackServices = Join-Path $UnpackMetaInf "services"
+            if (Test-Path $UnpackServices) {
+                $TargetServices = Join-Path $ClassesDir "META-INF\services"
+                New-Item -ItemType Directory -Path $TargetServices -Force | Out-Null
+                foreach ($serviceFile in Get-ChildItem -Path $UnpackServices -File) {
+                    $target = Join-Path $TargetServices $serviceFile.Name
+                    Add-Content -Path $target -Value (Get-Content $serviceFile.FullName)
+                }
+                Remove-Item -Path $UnpackServices -Recurse -Force
+            }
+        }
+        # A dependency's module descriptor is meaningless on the classpath and would
+        # collide with another dependency's.
+        $ModuleInfo = Join-Path $UnpackDir "module-info.class"
+        if (Test-Path $ModuleInfo) { Remove-Item -Path $ModuleInfo -Force }
+
+        Copy-Item -Path (Join-Path $UnpackDir "*") -Destination $ClassesDir -Recurse -Force
+        Remove-Item -Path $UnpackDir -Recurse -Force
+    }
+    if ($LibFailed) {
+        Remove-Item -Path $TempDir -Recurse -Force
+        continue
+    }
+
+    Write-Host "  Plugin class: $BundleClass" -ForegroundColor Gray
+    $ManifestFile = Join-Path $TempDir "MANIFEST.MF"
+    @(
+        "Manifest-Version: 1.0",
+        "Plugin-Class: $BundleClass",
+        "Created-By: Jylos Plugin Builder",
+        ""
+    ) | Set-Content -Path $ManifestFile -Encoding UTF8
+
+    $JarPath = Join-Path $PluginsOutput "$BundleJarName.jar"
+    # Packs the whole staging directory, not just com/: a dependency's packages
+    # (org/, io/, …) must end up in the JAR too.
+    & $Jar cfm $JarPath $ManifestFile -C $ClassesDir . 2>&1 | Out-Null
+
+    if (Test-Path $JarPath) {
+        Write-Host "  [OK] Created: $BundleJarName.jar" -ForegroundColor Green
+        $CompiledPlugins += $BundleJarName
+    } else {
+        Write-Host "  ERROR: Failed to create JAR for $bundleName" -ForegroundColor Red
+    }
+    Remove-Item -Path $TempDir -Recurse -Force
+}
 
 foreach ($pluginFile in $PluginFiles) {
     $pluginName = $pluginFile.BaseName

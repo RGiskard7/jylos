@@ -79,6 +79,8 @@ public final class MarkdownEditorView extends StackPane {
     private double fontSize = 14;
     private boolean livePreviewEnabled = true;
     private boolean editable;
+    /** Plugin-rendered fenced blocks for the current document; see {@link #setBlockRenders}. */
+    private Map<String, String> blockRenders = Map.of();
     private Map<String, String> labels = Map.of(
             "undo", "Undo",
             "redo", "Redo",
@@ -140,8 +142,28 @@ public final class MarkdownEditorView extends StackPane {
     public void setText(String value) {
         text = value != null ? value : "";
         if (ready) {
+            // setDocument() builds a fresh CodeMirror state, which discards the block
+            // renders held in it. They belong to the previous document anyway; the owning
+            // controller pushes the new note's renders right after loading it.
+            blockRenders = Map.of();
             execute("window.JylosEditor.setDocument(" + GSON.toJson(text) + ")");
         }
+    }
+
+    /**
+     * Supplies the HTML the Live Preview shows in place of plugin-claimed fenced blocks,
+     * keyed as {@code language + "\n" + trimmed body}.
+     *
+     * <p>Pushed from the owning controller rather than fetched by the editor: JavaScript
+     * in a {@code WebView} runs on the JavaFX Application Thread, so letting the editor
+     * call back into Java while building decorations would run plugin code — and its I/O —
+     * on the UI thread during scrolling.</p>
+     *
+     * @param renders block key to HTML; an empty map clears any previous results
+     */
+    public void setBlockRenders(Map<String, String> renders) {
+        blockRenders = renders != null ? Map.copyOf(renders) : Map.of();
+        whenReady(() -> execute("window.JylosEditor.setBlockRenders(" + GSON.toJson(blockRenders) + ")"));
     }
 
     /** Returns the latest editor snapshot without crossing the JavaScript bridge. */

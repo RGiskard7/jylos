@@ -71,6 +71,7 @@ class EventBusContractTest {
                 null,
                 null,
                 null,
+                null,
                 note -> {
                 });
 

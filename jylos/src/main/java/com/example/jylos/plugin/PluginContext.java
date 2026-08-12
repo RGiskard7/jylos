@@ -41,6 +41,7 @@ public class PluginContext {
     private final PreviewEnhancerRegistry previewEnhancerRegistry;
     private final EditorHookRegistry editorHookRegistry;
     private final ToolbarRegistry toolbarRegistry;
+    private final EditorBlockRendererRegistry editorBlockRendererRegistry;
     private final Consumer<Note> noteOpenAction;
     private final List<String> registeredCommandIds = new ArrayList<>();
 
@@ -58,6 +59,7 @@ public class PluginContext {
      * @param previewEnhancerRegistry The preview enhancer registry
      * @param editorHookRegistry The editor hook registry (may be null in tests)
      * @param toolbarRegistry    The toolbar button registry (may be null in tests)
+     * @param editorBlockRendererRegistry The editor fenced-block renderer registry (may be null in tests)
      * @param noteOpenAction     Owner callback for opening a note from plugin code
      */
     public PluginContext(
@@ -72,6 +74,7 @@ public class PluginContext {
             PreviewEnhancerRegistry previewEnhancerRegistry,
             EditorHookRegistry editorHookRegistry,
             ToolbarRegistry toolbarRegistry,
+            EditorBlockRendererRegistry editorBlockRendererRegistry,
             Consumer<Note> noteOpenAction) {
         this.pluginId = pluginId;
         this.noteService = noteService;
@@ -84,6 +87,7 @@ public class PluginContext {
         this.previewEnhancerRegistry = previewEnhancerRegistry;
         this.editorHookRegistry = editorHookRegistry;
         this.toolbarRegistry = toolbarRegistry;
+        this.editorBlockRendererRegistry = editorBlockRendererRegistry;
         this.noteOpenAction = noteOpenAction;
     }
 
@@ -469,6 +473,27 @@ public class PluginContext {
     public void removeToolbarButtons() {
         if (toolbarRegistry != null) {
             toolbarRegistry.removeToolbarButtons(pluginId);
+        }
+    }
+
+    /**
+     * Registers an {@link EditorBlockRenderer}: displays fenced blocks of the given
+     * language as rendered HTML inside the editor's Live Preview, reverting to source
+     * while the cursor is inside the block.
+     *
+     * @param language the fenced-block info string to match (e.g. {@code "dataview"})
+     * @param renderer the renderer implementation
+     */
+    public void registerEditorBlockRenderer(String language, EditorBlockRenderer renderer) {
+        if (editorBlockRendererRegistry != null) {
+            editorBlockRendererRegistry.registerEditorBlockRenderer(pluginId, language, renderer);
+        }
+    }
+
+    /** Removes every editor block renderer registered by this plugin (safe from {@code shutdown()}). */
+    public void unregisterEditorBlockRenderers() {
+        if (editorBlockRendererRegistry != null) {
+            editorBlockRendererRegistry.unregisterEditorBlockRenderers(pluginId);
         }
     }
 }

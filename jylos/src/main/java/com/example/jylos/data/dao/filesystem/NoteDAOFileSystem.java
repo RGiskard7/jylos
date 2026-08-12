@@ -570,6 +570,19 @@ public class NoteDAOFileSystem implements NoteDAO {
     /** Persists changes to an existing note file; renames the file when the title has changed. */
     @Override
     public void updateNote(Note note) {
+        updateNote(note, true);
+    }
+
+    /**
+     * @param resyncInlineTags whether to re-derive tags from the body just written and
+     *                         merge them into {@code note}'s tag list (see below). Must be
+     *                         {@code false} from {@link #addTag} / {@link #removeTag}: those
+     *                         calls are the user explicitly changing the tag list, and an
+     *                         inline {@code #tag} occurrence left in the body — removing a
+     *                         tag chip does not edit body text — would otherwise resurrect
+     *                         the very tag the user just removed on this same call.
+     */
+    private void updateNote(Note note, boolean resyncInlineTags) {
         FileSystemIoLock.LOCK.lock();
         try {
             if (note == null || note.getId() == null)
@@ -657,7 +670,17 @@ public class NoteDAOFileSystem implements NoteDAO {
                     Files.createDirectories(path.getParent());
                 }
                 if (!attachment) {
-                    FileSystemAtomicWriter.writeString(path, FrontmatterHandler.generate(note), StandardCharsets.UTF_8);
+                    String serialized = FrontmatterHandler.generate(note);
+                    FileSystemAtomicWriter.writeString(path, serialized, StandardCharsets.UTF_8);
+                    if (resyncInlineTags) {
+                        // The caller may have just typed a new inline #tag; note.getTags() at
+                        // this point still holds whatever was in memory before this edit, since
+                        // tag extraction only happens while parsing. Re-deriving from the very
+                        // text just written — the same round-trip a fresh read would do — keeps
+                        // the cached note (and whatever this call returns to the caller) in sync
+                        // immediately, instead of only after the note is reopened.
+                        note.setTags(FrontmatterHandler.parse(serialized).getTags());
+                    }
                 } else if (isCanvasFile(path.getFileName().toString())) {
                     String content = note.getContent();
                     // Canvas list entries are metadata-only. Do not let a favorite/pinned
@@ -1048,7 +1071,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         FileSystemIoLock.LOCK.lock();
         try {
             note.addTag(tag);
-            updateNote(note);
+            updateNote(note, false);
         } finally {
             FileSystemIoLock.LOCK.unlock();
         }
@@ -1076,7 +1099,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         FileSystemIoLock.LOCK.lock();
         try {
             note.removeTag(tag);
-            updateNote(note);
+            updateNote(note, false);
         } finally {
             FileSystemIoLock.LOCK.unlock();
         }
@@ -1115,7 +1138,9 @@ public class NoteDAOFileSystem implements NoteDAO {
         List<Note> all = new ArrayList<>();
         for (Note n : cachedNotes.values()) {
             for (Tag t : n.getTags()) {
-                if (t.getTitle().equals(tagId)) {
+                // Case-insensitive: an inline #tag keeps whatever case the author typed,
+                // so "#Project" and "#project" in different notes must match the same tag.
+                if (t.getTitle() != null && t.getTitle().equalsIgnoreCase(tagId)) {
                     all.add(n);
                     break;
                 }

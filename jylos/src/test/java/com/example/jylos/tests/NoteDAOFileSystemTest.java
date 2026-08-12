@@ -500,4 +500,74 @@ class NoteDAOFileSystemTest {
             assertTrue(!json.contains("manual.pdf"), "Deleted binary metadata must be removed from sidecar.");
         }
     }
+
+    @Test
+    void updateNoteImmediatelyPicksUpANewlyTypedInlineTag() {
+        // Tag extraction only happens while parsing, so note.getTags() at save time still
+        // holds whatever the note had before this edit. Without re-deriving from the text
+        // just written, a newly typed #tag would not show up anywhere in the UI (the notes
+        // list, the tags sidebar) until the note was closed and reopened.
+        Note note = new Note("Tagging", "No tags yet.");
+        String id = noteDAO.createNote(note);
+        Note loaded = noteDAO.getNoteById(id);
+
+        loaded.setContent("Now with a #brandnew tag in the body.");
+        noteDAO.updateNote(loaded);
+
+        assertTrue(loaded.getTags().stream().anyMatch(tag -> "brandnew".equals(tag.getTitle())),
+                "The note instance returned to the caller should already carry the new tag");
+
+        Note rereadFromDisk = new NoteDAOFileSystem(tempDir.toString()).getNoteById(id);
+        assertTrue(rereadFromDisk.getTags().stream().anyMatch(tag -> "brandnew".equals(tag.getTitle())),
+                "The tag must also be persisted, not just patched onto the in-memory object");
+    }
+
+    @Test
+    void updateNoteKeepsAnExplicitlyAddedTagNotMentionedInline() {
+        Note note = new Note("Explicit Tag", "Body with no hashtags.");
+        String id = noteDAO.createNote(note);
+        Note loaded = noteDAO.getNoteById(id);
+
+        loaded.addTag(new Tag("manual"));
+        noteDAO.updateNote(loaded);
+
+        assertTrue(loaded.getTags().stream().anyMatch(tag -> "manual".equals(tag.getTitle())),
+                "A tag added through the UI, not typed inline, must survive the save");
+    }
+
+    @Test
+    void removeTagStaysRemovedEvenWhenTheWordIsStillInTheBody() {
+        // Removing a tag chip in the UI does not edit the note's body text. If the tag was
+        // typed inline (#project), the word is still sitting right there in the content —
+        // a naive "re-derive tags from what was just written" after this call would
+        // immediately resurrect the very tag the user just removed.
+        Note note = new Note("Sticky Tag", "Some notes about #project work.");
+        String id = noteDAO.createNote(note);
+        Note loaded = noteDAO.getNoteById(id);
+        assertTrue(loaded.getTags().stream().anyMatch(tag -> "project".equals(tag.getTitle())),
+                "Sanity check: the inline tag should have been picked up on creation");
+
+        noteDAO.removeTag(loaded, new Tag("project"));
+
+        assertTrue(loaded.getTags().stream().noneMatch(tag -> "project".equals(tag.getTitle())),
+                "The tag must stay removed on the object returned by removeTag()");
+
+        Note rereadFromDisk = new NoteDAOFileSystem(tempDir.toString()).getNoteById(id);
+        assertTrue(rereadFromDisk.getTags().stream().anyMatch(tag -> "project".equals(tag.getTitle())),
+                "On the NEXT read the tag legitimately reappears, because the #project text "
+                        + "is still in the body — this is the existing, unrelated read-time "
+                        + "merge behaviour, not something this fix changes");
+    }
+
+    @Test
+    void addTagPersistsImmediatelyOnTheReturnedNote() {
+        Note note = new Note("Manual Tag", "Plain content.");
+        String id = noteDAO.createNote(note);
+        Note loaded = noteDAO.getNoteById(id);
+
+        noteDAO.addTag(loaded, new Tag("manual"));
+
+        assertTrue(loaded.getTags().stream().anyMatch(tag -> "manual".equals(tag.getTitle())),
+                "addTag() must not be affected by disabling the inline-tag resync");
+    }
 }

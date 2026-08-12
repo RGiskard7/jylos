@@ -9,6 +9,7 @@ import java.util.function.Function;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.plugin.PreviewContext;
 import com.example.jylos.plugin.PreviewEnhancer;
 import com.example.jylos.service.NoteTitleIndex;
 
@@ -65,6 +66,20 @@ public class MarkdownPreview {
     public static String buildPreviewHtml(String markdownContent, boolean isDarkTheme,
             Collection<PreviewEnhancer> enhancers, java.nio.file.Path baseDir,
             Function<String, String> embeddedContentResolver) {
+        return buildPreviewHtml(markdownContent, isDarkTheme, enhancers, baseDir, embeddedContentResolver, null);
+    }
+
+    /**
+     * Builds preview HTML, additionally letting plugin enhancers post-process the
+     * rendered body for a specific note via
+     * {@link PreviewEnhancer#transformHtml(PreviewContext, String)}.
+     *
+     * @param context the note/theme this render belongs to, or {@code null} to skip
+     *                per-note post-processing
+     */
+    public static String buildPreviewHtml(String markdownContent, boolean isDarkTheme,
+            Collection<PreviewEnhancer> enhancers, java.nio.file.Path baseDir,
+            Function<String, String> embeddedContentResolver, PreviewContext context) {
         String raw = markdownContent == null ? "" : markdownContent;
 
         // Resolve [[WikiLinks]] in the raw Markdown source FIRST, then pass
@@ -94,6 +109,11 @@ public class MarkdownPreview {
         html = Transclusion.restore(html, embeds.embeds());
         html = embedLocalImages(html, baseDir);
         html = emojifyToImages(html, isDarkTheme);
+        // Per-note post-processing runs before code-block detection below: an enhancer
+        // that replaces a fenced block with generated markup (e.g. a query result table)
+        // must be able to remove the only <pre><code> in the document, so highlight.js
+        // is not shipped for a preview that no longer has code in it.
+        html = applyHtmlTransforms(html, enhancers, context);
         Injections injections = MarkdownPreview.collectInjections(enhancers);
         boolean codeBlocks = containsCodeBlocks(html);
         String highlightCss = codeBlocks
@@ -193,6 +213,34 @@ public class MarkdownPreview {
                 <body></body>
                 </html>
                 """.formatted(fg, bg, bg, isDarkTheme ? "#505050" : "#CBD5E0");
+    }
+
+    /**
+     * Chains every enhancer's {@link PreviewEnhancer#transformHtml} over the rendered
+     * body, in registration order, so each sees the previous one's output. A throwing
+     * or {@code null}-returning enhancer leaves the HTML as it was rather than losing
+     * the note's content.
+     */
+    private static String applyHtmlTransforms(String html, Collection<PreviewEnhancer> enhancers,
+            PreviewContext context) {
+        if (context == null || enhancers == null || enhancers.isEmpty()) {
+            return html;
+        }
+        String current = html;
+        for (PreviewEnhancer enhancer : enhancers) {
+            if (enhancer == null) {
+                continue;
+            }
+            try {
+                String transformed = enhancer.transformHtml(context, current);
+                if (transformed != null) {
+                    current = transformed;
+                }
+            } catch (Exception e) {
+                logger.warning("Preview enhancer HTML transform failed: " + e.getMessage());
+            }
+        }
+        return current;
     }
 
     private static Injections collectInjections(Collection<PreviewEnhancer> enhancers) {

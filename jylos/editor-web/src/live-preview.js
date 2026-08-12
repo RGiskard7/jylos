@@ -1,4 +1,5 @@
 import { syntaxTree } from "@codemirror/language";
+import { StateEffect, StateField } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, WidgetType } from "@codemirror/view";
 
 // Live Preview is derived only from the visible syntax tree. Decorations never
@@ -164,6 +165,146 @@ class TableRowWidget extends WidgetType {
 
 }
 
+// Plugin-rendered fenced blocks. The host computes the HTML on a background thread and
+// pushes it in; the editor never calls back into Java while building decorations, because
+// WebView JavaScript runs on the JavaFX Application Thread and a synchronous bridge call
+// would put plugin work — and its I/O — on the UI thread during scrolling.
+export const setBlockRenders = StateEffect.define();
+
+export const blockRenderField = StateField.define({
+  create: () => ({}),
+  update(value, transaction) {
+    for (const effect of transaction.effects) {
+      if (effect.is(setBlockRenders)) return effect.value;
+    }
+    return value;
+  }
+});
+
+const FENCE_CLOSE = /^[ \t]{0,3}(`{3,}|~{3,})[ \t]*$/;
+const FENCE_OPEN = /^[ \t]{0,3}(`{3,}|~{3,})[ \t]*([A-Za-z0-9_+-]+)[ \t]*$/;
+
+// Fenced blocks are found by scanning lines rather than walking the syntax tree, so the
+// editor applies exactly the rules the Java side used to extract and render them: same
+// fence pairing (the closing fence must repeat the opening one), same info string, same
+// trimmed body. It also keeps this independent of how much of the document Lezer has
+// parsed, since these decorations are computed over the whole document, not the viewport.
+function scanFencedBlocks(doc) {
+  const blocks = [];
+  let open = null;
+  for (let number = 1; number <= doc.lines; number++) {
+    const line = doc.line(number);
+    if (open) {
+      const close = line.text.match(FENCE_CLOSE);
+      if (close && close[1] === open.marker) {
+        blocks.push({
+          from: open.from,
+          to: line.to,
+          key: `${open.language.toLowerCase()}\n${open.body.join("\n").trim()}`
+        });
+        open = null;
+      } else {
+        open.body.push(line.text);
+      }
+      continue;
+    }
+    const match = line.text.match(FENCE_OPEN);
+    if (match) open = { from: line.from, marker: match[1], language: match[2], body: [] };
+  }
+  return blocks;
+}
+
+/** True when the cursor or a selection touches the block, which reveals its source. */
+function selectionTouches(state, from, to) {
+  return state.selection.ranges.some(range => range.to >= from && range.from <= to);
+}
+
+/** Blocks currently displayed as rendered HTML, keyed by document range. */
+function renderedBlocks(state) {
+  const renders = state.field(blockRenderField, false);
+  if (!renders) return [];
+  const rendered = [];
+  for (const block of scanFencedBlocks(state.doc)) {
+    const html = renders[block.key];
+    if (html && !selectionTouches(state, block.from, block.to)) {
+      rendered.push({ ...block, html });
+    }
+  }
+  return rendered;
+}
+
+class RenderedBlockWidget extends WidgetType {
+  constructor(html, from) {
+    super();
+    this.html = html;
+    this.from = from;
+  }
+
+  eq(other) {
+    return this.html === other.html && this.from === other.from;
+  }
+
+  toDOM(view) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "cm-live-block-render";
+    // The markup comes from an installed plugin, the same trust boundary as the
+    // preview's own enhancer injections; escaping note-derived content is the
+    // renderer's responsibility.
+    wrapper.innerHTML = this.html;
+
+    wrapper.addEventListener("mousedown", event => {
+      // Anchors keep their own behaviour (handled on click); anywhere else puts the
+      // cursor into the block so it reverts to source and can be edited.
+      if (event.target.closest("a")) return;
+      event.preventDefault();
+      view.dispatch({ selection: { anchor: this.from }, scrollIntoView: true });
+      view.focus();
+    });
+
+    wrapper.addEventListener("click", event => {
+      const anchor = event.target.closest("a");
+      if (!anchor) return;
+      event.preventDefault();
+      const href = anchor.getAttribute("href") || "";
+      if (href.startsWith("jylos://open-note/")) {
+        const target = anchor.getAttribute("data-target")
+          || decodeURIComponent(href.slice("jylos://open-note/".length));
+        window.javaEditor?.openNote(target);
+      } else if (/^https?:/i.test(href)) {
+        window.javaEditor?.openExternal(href);
+      }
+    });
+
+    return wrapper;
+  }
+
+  ignoreEvent() {
+    return false;
+  }
+}
+
+function computeBlockDecorations(state) {
+  const decorations = renderedBlocks(state).map(block => Decoration.replace({
+    widget: new RenderedBlockWidget(block.html, block.from),
+    block: true
+  }).range(block.from, block.to));
+  return Decoration.set(decorations, true);
+}
+
+// A StateField, not the Live Preview ViewPlugin: CodeMirror rejects block decorations —
+// and any replacement spanning a line break — coming from a plugin, because it cannot
+// reconcile them with the height map it computes before plugins run. This is also why
+// tables are replaced row by row rather than as one widget.
+export const blockRenderDecorations = StateField.define({
+  create: computeBlockDecorations,
+  update(value, transaction) {
+    const rendersChanged = transaction.effects.some(effect => effect.is(setBlockRenders));
+    if (!transaction.docChanged && !transaction.selection && !rendersChanged) return value;
+    return computeBlockDecorations(transaction.state);
+  },
+  provide: field => EditorView.decorations.from(field)
+});
+
 function splitTableRow(line) {
   const value = line.trim().replace(/^\|/, "").replace(/\|$/, "");
   const cells = [];
@@ -218,6 +359,23 @@ function coveredBy(ranges, from, to) {
 
 function lineDecoration(view, from, className) {
   return Decoration.line({ class: className }).range(view.state.doc.lineAt(from).from);
+}
+
+/**
+ * One line decoration per line spanned by [from, to). A single `Decoration.line()` only
+ * ever styles the one line containing its position, so a node spanning several lines —
+ * a fenced code block, a blockquote — needs one of these per line or every line after
+ * the first silently falls back to Live Preview's base (proportional) styling instead
+ * of the block's own.
+ */
+function lineDecorationsForRange(view, from, to, className) {
+  const decorations = [];
+  const firstLine = view.state.doc.lineAt(from).number;
+  const lastLine = view.state.doc.lineAt(to).number;
+  for (let number = firstLine; number <= lastLine; number++) {
+    decorations.push(Decoration.line({ class: className }).range(view.state.doc.line(number).from));
+  }
+  return decorations;
 }
 
 function wikiReplacement(match, from) {
@@ -286,6 +444,7 @@ function buildDecorations(view, blocks) {
   const decorations = [];
   const replacements = [];
   const htmlTags = [];
+  const renderedRanges = renderedBlocks(view.state);
 
   for (const visible of view.visibleRanges) {
     const firstLine = view.state.doc.lineAt(visible.from).number;
@@ -316,9 +475,13 @@ function buildDecorations(view, blocks) {
         if (/^ATXHeading[1-6]$/.test(node.name)) {
           decorations.push(lineDecoration(view, node.from, `cm-live-heading cm-live-${node.name.toLowerCase()}`));
         } else if (node.name === "Blockquote") {
-          decorations.push(lineDecoration(view, node.from, "cm-live-blockquote"));
+          decorations.push(...lineDecorationsForRange(view, node.from, node.to, "cm-live-blockquote"));
         } else if (node.name === "FencedCode") {
-          decorations.push(lineDecoration(view, node.from, "cm-live-codeblock"));
+          // Skip the code-block background for a block that blockRenderDecorations is
+          // replacing with a widget, so the widget's own frame is the only one drawn.
+          if (!coveredBy(renderedRanges, node.from, node.to)) {
+            decorations.push(...lineDecorationsForRange(view, node.from, node.to, "cm-live-codeblock"));
+          }
         } else if (node.name === "HTMLTag") {
           if (OPEN_UNDERLINE_TAG.test(source)) {
             htmlTags.push({ from: node.from, to: node.to, open: true });
@@ -449,7 +612,10 @@ const livePreviewPlugin = ViewPlugin.fromClass(class {
   }
 
   update(update) {
-    if (update.docChanged || update.viewportChanged) {
+    // Newly delivered block renders must reach the view even when nothing else changed.
+    const rendersChanged = update.startState.field(blockRenderField, false)
+      !== update.state.field(blockRenderField, false);
+    if (update.docChanged || update.viewportChanged || rendersChanged) {
       const blocks = activeBlocks(update.view);
       this.decorations = buildDecorations(update.view, blocks);
       this.activeKey = blockKey(blocks);
@@ -499,11 +665,38 @@ const livePreviewTheme = EditorView.baseTheme({
   ".cm-live-table-row": { display: "inline-grid", width: "100%", color: "inherit", verticalAlign: "top" },
   ".cm-live-table-cell": { minWidth: "0", padding: "6px 9px", border: "1px solid var(--jylos-border)", overflowWrap: "anywhere" },
   ".cm-live-table-header .cm-live-table-cell": { background: "var(--jylos-panel)", fontWeight: "700" },
-  ".cm-live-table-delimiter-line": { height: "0", lineHeight: "0", overflow: "hidden" }
+  ".cm-live-table-delimiter-line": { height: "0", lineHeight: "0", overflow: "hidden" },
+  // Baseline styling for whatever markup a plugin block renderer returns. These target
+  // the extension point, not any particular plugin: a renderer that emits plain semantic
+  // HTML already reads correctly, and one with its own classes styles them itself.
+  ".cm-live-block-render": {
+    display: "block",
+    margin: ".5em 0",
+    padding: "10px 12px",
+    border: "1px solid var(--jylos-border)",
+    borderRadius: "8px",
+    background: "var(--jylos-panel)",
+    fontFamily: UI_FONT_FAMILY,
+    cursor: "default"
+  },
+  ".cm-live-block-render table": { borderCollapse: "collapse", width: "100%" },
+  ".cm-live-block-render th, .cm-live-block-render td": {
+    border: "1px solid var(--jylos-border)",
+    padding: "6px 9px",
+    textAlign: "left",
+    verticalAlign: "top"
+  },
+  ".cm-live-block-render ul": { margin: ".3em 0", paddingLeft: "1.3em" },
+  ".cm-live-block-render a": { color: "var(--jylos-accent)", cursor: "pointer" },
+  ".cm-live-block-render > :first-child": { marginTop: "0" },
+  ".cm-live-block-render > :last-child": { marginBottom: "0" }
 });
 
 export function livePreview() {
-  return [livePreviewPlugin, livePreviewTheme];
+  // blockRenderDecorations is presentation, so it belongs here rather than in the base
+  // state: source mode must still show a plugin-claimed block as its raw text. The data
+  // it reads (blockRenderField) stays in the base state so toggling modes keeps it.
+  return [livePreviewPlugin, blockRenderDecorations, livePreviewTheme];
 }
 
 // Exported for tests only, so they can look up the plugin instance via

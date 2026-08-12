@@ -169,24 +169,152 @@ fi
 echo -e "${GRAY}Classpath configured${NC}"
 echo ""
 
-# Get all plugin source files
-PLUGIN_FILES=$(find "$PLUGINS_SOURCE" -name "*.java" -not -name "package-info.java")
+# Multi-file plugins: a directory holding a plugin.properties descriptor is one plugin
+# built from every .java below it, instead of the default "one source file = one JAR".
+# Needed by plugins too large for a single file (parser + evaluator + renderer), which
+# would otherwise fail to compile because their siblings are not on the source path.
+BUNDLE_DESCRIPTORS=$(find "$PLUGINS_SOURCE" -name "plugin.properties")
+BUNDLE_DIRS=""
+for descriptor in $BUNDLE_DESCRIPTORS; do
+    BUNDLE_DIRS="$BUNDLE_DIRS $(dirname "$descriptor")"
+done
 
-if [ -z "$PLUGIN_FILES" ]; then
+# Single-file plugins are every remaining source outside a bundle directory.
+PLUGIN_FILES=$(find "$PLUGINS_SOURCE" -name "*.java" -not -name "package-info.java")
+for bundle_dir in $BUNDLE_DIRS; do
+    PLUGIN_FILES=$(echo "$PLUGIN_FILES" | grep -v "^$bundle_dir/" || true)
+done
+
+if [ -z "$PLUGIN_FILES" ] && [ -z "$BUNDLE_DIRS" ]; then
     echo -e "${YELLOW}WARNING: No plugin source files found in $PLUGINS_SOURCE${NC}"
     exit 0
 fi
 
-PLUGIN_COUNT=$(echo "$PLUGIN_FILES" | wc -l | tr -d ' ')
-echo -e "${CYAN}Found $PLUGIN_COUNT plugin file(s)${NC}"
+PLUGIN_COUNT=$(echo "$PLUGIN_FILES" | grep -c . || true)
+echo -e "${CYAN}Found $PLUGIN_COUNT single-file plugin(s)${NC}"
 echo ""
 
 # Compile each plugin
 COMPILED_PLUGINS=()
 
+# --- Multi-file plugin bundles -------------------------------------------------
+for bundle_dir in $BUNDLE_DIRS; do
+    bundle_name=$(basename "$bundle_dir")
+    echo -e "${CYAN}Building plugin bundle: $bundle_name...${NC}"
+
+    # plugin.class is required: with several classes implementing Plugin in one
+    # bundle, auto-detection would pick an arbitrary one.
+    BUNDLE_CLASS=$(grep '^plugin.class=' "$bundle_dir/plugin.properties" | head -n 1 | cut -d'=' -f2- | tr -d '\r' | xargs)
+    BUNDLE_JAR_NAME=$(grep '^plugin.jar=' "$bundle_dir/plugin.properties" | head -n 1 | cut -d'=' -f2- | tr -d '\r' | xargs)
+    if [ -z "$BUNDLE_JAR_NAME" ]; then
+        BUNDLE_JAR_NAME="$bundle_name"
+    fi
+    if [ -z "$BUNDLE_CLASS" ]; then
+        echo -e "${RED}  ERROR: $bundle_dir/plugin.properties has no plugin.class entry${NC}"
+        continue
+    fi
+
+    TEMP_DIR=$(mktemp -d -t jylos-bundle-XXXXXX)
+    CLASSES_DIR="$TEMP_DIR/classes"
+    mkdir -p "$CLASSES_DIR"
+    BUNDLE_SOURCES=$(find "$bundle_dir" -name "*.java")
+
+    # Third-party dependencies: any JAR under the bundle's lib/ directory. They join
+    # the compile classpath and are packed into the plugin JAR itself (below), because
+    # a plugin is installed and removed as a single file — the manager's file chooser
+    # and deletePluginJar() both assume exactly one JAR — so a sidecar lib/ directory
+    # next to the installed plugin could never travel with it.
+    LIB_JARS=""
+    if [ -d "$bundle_dir/lib" ]; then
+        LIB_JARS=$(find "$bundle_dir/lib" -name "*.jar" | sort)
+    fi
+    BUNDLE_CLASSPATH="$CLASSPATH"
+    for lib in $LIB_JARS; do
+        BUNDLE_CLASSPATH="$BUNDLE_CLASSPATH:$lib"
+    done
+    LIB_COUNT=$(echo "$LIB_JARS" | grep -c . || true)
+    if [ "$LIB_COUNT" -gt 0 ]; then
+        echo -e "${GRAY}  Bundling $LIB_COUNT dependency JAR(s) from lib/${NC}"
+    fi
+
+    echo -e "${GRAY}  Compiling $(echo "$BUNDLE_SOURCES" | grep -c .) source file(s)...${NC}"
+    if ! "$JAVAC" --release 21 -encoding UTF-8 -cp "$BUNDLE_CLASSPATH" -d "$CLASSES_DIR" $BUNDLE_SOURCES; then
+        echo -e "${RED}  ERROR: Failed to compile bundle $bundle_name${NC}"
+        rm -rf "$TEMP_DIR"
+        continue
+    fi
+
+    # Merge each dependency's contents into the staging directory.
+    LIB_FAILED=0
+    for lib in $LIB_JARS; do
+        UNPACK_DIR="$TEMP_DIR/unpack"
+        rm -rf "$UNPACK_DIR"
+        mkdir -p "$UNPACK_DIR"
+        if ! (cd "$UNPACK_DIR" && "$JAR" xf "$lib"); then
+            echo -e "${RED}  ERROR: Could not unpack $(basename "$lib")${NC}"
+            LIB_FAILED=1
+            break
+        fi
+        if [ -d "$UNPACK_DIR/META-INF" ]; then
+            # A signed dependency keeps digests that no longer match once its classes
+            # live in a different archive; leaving them in makes the JVM reject the whole
+            # plugin JAR with "Invalid signature file digest" at load time.
+            find "$UNPACK_DIR/META-INF" -maxdepth 1 -type f \
+                \( -name '*.SF' -o -name '*.DSA' -o -name '*.RSA' -o -name '*.EC' \
+                   -o -name 'INDEX.LIST' -o -name 'MANIFEST.MF' \) -delete
+            # ServiceLoader registrations from different dependencies share file names,
+            # so they are appended rather than overwritten — a plain copy would leave
+            # only the last dependency's providers discoverable.
+            if [ -d "$UNPACK_DIR/META-INF/services" ]; then
+                mkdir -p "$CLASSES_DIR/META-INF/services"
+                for service_file in "$UNPACK_DIR/META-INF/services"/*; do
+                    [ -f "$service_file" ] || continue
+                    cat "$service_file" >> "$CLASSES_DIR/META-INF/services/$(basename "$service_file")"
+                    echo "" >> "$CLASSES_DIR/META-INF/services/$(basename "$service_file")"
+                done
+                rm -rf "$UNPACK_DIR/META-INF/services"
+            fi
+        fi
+        # A dependency's module descriptor is meaningless on the classpath and would
+        # collide with another dependency's.
+        rm -f "$UNPACK_DIR/module-info.class"
+        cp -R "$UNPACK_DIR/." "$CLASSES_DIR/"
+        rm -rf "$UNPACK_DIR"
+    done
+    if [ "$LIB_FAILED" -eq 1 ]; then
+        rm -rf "$TEMP_DIR"
+        continue
+    fi
+
+    echo -e "${GRAY}  Plugin class: $BUNDLE_CLASS${NC}"
+    MANIFEST_FILE="$TEMP_DIR/MANIFEST.MF"
+    cat > "$MANIFEST_FILE" << EOF
+Manifest-Version: 1.0
+Plugin-Class: $BUNDLE_CLASS
+Created-By: Jylos Plugin Builder
+
+EOF
+
+    JAR_PATH="$PLUGINS_OUTPUT/$BUNDLE_JAR_NAME.jar"
+    # Packs the whole staging directory, not just com/: a dependency's packages
+    # (org/, io/, …) must end up in the JAR too.
+    if "$JAR" cfm "$JAR_PATH" "$MANIFEST_FILE" -C "$CLASSES_DIR" . 2>/dev/null && [ -f "$JAR_PATH" ]; then
+        echo -e "${GREEN}  [OK] Created: $BUNDLE_JAR_NAME.jar${NC}"
+        COMPILED_PLUGINS+=("$BUNDLE_JAR_NAME")
+    else
+        echo -e "${RED}  ERROR: Failed to create JAR for $bundle_name${NC}"
+    fi
+    rm -rf "$TEMP_DIR"
+done
+
+
 while IFS= read -r plugin_file; do
+    # A here-string over an empty list still yields one empty line.
+    if [ -z "$plugin_file" ]; then
+        continue
+    fi
     plugin_name=$(basename "$plugin_file" .java)
-    
+
     # Skip package-info.java
     if [ "$plugin_name" = "package-info" ]; then
         continue

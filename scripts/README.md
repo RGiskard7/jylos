@@ -16,7 +16,8 @@ All paths are relative to the **repository root** unless noted.
 
 | Script | Purpose |
 |--------|---------|
-| `build-plugins.sh` / `.ps1` | Compile `plugins-source/` → `jylos/plugins/*.jar` (Java 21 bytecode) |
+| `build-plugins.sh` / `.ps1` | Compile `plugins-source/` → `jylos/plugins/*.jar` (Java 21 bytecode). A directory with a `plugin.properties` descriptor builds as one multi-file plugin; its optional `lib/*.jar` dependencies are packed into that plugin's JAR |
+| `test-plugins.sh` | Compile `plugins-source/` + `plugins-test/` and run each plugin test class' `main()` |
 | `build-themes.sh` / `.ps1` | Install `themes/*` → `jylos/themes/` (optional `--appdata`) |
 
 ## Quality (optional)

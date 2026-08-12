@@ -131,12 +131,16 @@ public class TagDAOFileSystem implements TagDAO {
         }
         // Tag ID is title for now? Or UUID. Note objects store Tags.
         // We iterate all notes and check if they contain the tag.
+        // Title match is case-insensitive, matching existsByTitle() below: an inline
+        // #tag keeps whatever case the author typed it in, so "#Project" and "#project"
+        // in different notes must resolve to the same tag rather than silently splitting
+        // into two.
         List<Note> result = new ArrayList<>();
         List<Note> allNotes = noteDAO.fetchAllNotes();
         for (Note note : allNotes) {
             for (Tag t : note.getTags()) {
                 if ((t.getId() != null && t.getId().equals(tagId))
-                        || (t.getTitle() != null && t.getTitle().equals(tagId))) {
+                        || (t.getTitle() != null && t.getTitle().equalsIgnoreCase(tagId))) {
                     result.add(note);
                     break;
                 }

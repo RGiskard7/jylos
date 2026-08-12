@@ -128,6 +128,7 @@ public class EditorController {
     private Supplier<List<String>> autocompleteTitlesSupplier = () -> NoteTitleIndex.getInstance().titlesSorted();
 
     private final Map<String, PreviewEnhancer> previewEnhancers = new HashMap<>();
+    private final EditorBlockRenderSupport blockRenderSupport = new EditorBlockRenderSupport();
     private boolean wikiLinkListenerInstalled;
     private Double pendingPreviewScrollY;
     private String pendingPreviewNoteId;
@@ -536,6 +537,7 @@ public class EditorController {
                 if (currentNote != null) {
                     reevaluateModifiedState();
                 }
+                refreshEditorBlockRenders(false);
             });
         }
         // The read-view heading always mirrors the editable title field.
@@ -630,6 +632,12 @@ public class EditorController {
     }
 
     public void loadNote(Note note) {
+        // The tags bar is per-note UI state, not a sticky global preference: it must
+        // start collapsed on every load. Without this, closing a note (setNoteOpen(false)
+        // hides the container) or opening an attachment (showAttachment() does the same)
+        // left the toggle button's own selected state untouched, so it could end up
+        // visibly pressed while the bar it controls was already hidden.
+        initializeTagsBarCollapsed();
         if (note == null) {
             clearReusableCanvasIfClean();
             currentNote = null;
@@ -670,6 +678,9 @@ public class EditorController {
         if (noteContentArea != null) {
             noteContentArea.setText(orEmpty(currentNote.getContent()));
             refreshAutocompleteTitles();
+            // Without the typing pause: a freshly opened note should not show its
+            // rendered blocks as raw source for a moment first.
+            refreshEditorBlockRenders(true);
         }
 
         setNoteOpen(true);
@@ -1394,6 +1405,16 @@ public class EditorController {
         subscriptions.add(eventBus.subscribe(NoteEvents.NotesRefreshRequestedEvent.class,
                 event -> Platform.runLater(this::refreshAutocompleteTitles)));
 
+        // A rendered block can summarise the whole vault, so its result goes stale when
+        // any note changes — not only when the note holding the block is edited.
+        for (Class<? extends com.example.jylos.event.AppEvent> vaultEvent : java.util.List.of(
+                NoteEvents.NoteCreatedEvent.class, NoteEvents.NoteSavedEvent.class,
+                NoteEvents.NoteUpdatedEvent.class, NoteEvents.NoteDeletedEvent.class,
+                NoteEvents.NotesRefreshRequestedEvent.class)) {
+            subscriptions.add(eventBus.subscribe(vaultEvent,
+                    event -> Platform.runLater(() -> refreshEditorBlockRenders(false))));
+        }
+
         if (noteTitleField != null) {
             noteTitleField.textProperty().addListener((obs, oldVal, newVal) -> {
                 if (currentNote != null) {
@@ -1405,6 +1426,7 @@ public class EditorController {
     }
 
     public void teardown() {
+        blockRenderSupport.shutdown();
         subscriptions.forEach(EventBus.Subscription::cancel);
         subscriptions.clear();
     }
@@ -1614,6 +1636,36 @@ public class EditorController {
         this.wikiLinkHandler = handler;
     }
 
+    public void registerEditorBlockRenderer(String pluginId, String language,
+            com.example.jylos.plugin.EditorBlockRenderer renderer) {
+        blockRenderSupport.registerRenderer(pluginId, language, renderer);
+        Platform.runLater(() -> refreshEditorBlockRenders(true));
+    }
+
+    public void unregisterEditorBlockRenderers(String pluginId) {
+        blockRenderSupport.unregisterRenderers(pluginId);
+        Platform.runLater(() -> refreshEditorBlockRenders(true));
+    }
+
+    /**
+     * Recomputes the HTML shown in place of plugin-claimed fenced blocks and hands it to
+     * the editor.
+     *
+     * @param immediate skip the typing pause — used when the note, or the set of
+     *                  registered renderers, changed rather than the text
+     */
+    private void refreshEditorBlockRenders(boolean immediate) {
+        if (noteContentArea == null) {
+            return;
+        }
+        if (blockRenderSupport.isEmpty()) {
+            noteContentArea.setBlockRenders(java.util.Map.of());
+            return;
+        }
+        blockRenderSupport.requestRender(currentNote, noteContentArea.getText(), immediate,
+                rendered -> Platform.runLater(() -> noteContentArea.setBlockRenders(rendered)));
+    }
+
     public void registerPreviewEnhancer(String pluginId, PreviewEnhancer enhancer) {
         if (pluginId != null && enhancer != null) {
             previewEnhancers.put(pluginId, enhancer);
@@ -1646,13 +1698,17 @@ public class EditorController {
         java.util.Collection<PreviewEnhancer> enhancers =
                 new java.util.ArrayList<>(previewEnhancers.values());
         java.nio.file.Path baseDir = previewBaseDir();
+        // Captured on the FX thread so an enhancer post-processing this render always
+        // sees the note this HTML came from, even if the user switches note mid-render.
+        com.example.jylos.plugin.PreviewContext previewContext =
+                new com.example.jylos.plugin.PreviewContext(currentNote, darkTheme);
 
         Task<String> task = new Task<>() {
             @Override
             protected String call() {
                 if (content != null && !content.trim().isEmpty()) {
                     return MarkdownPreview.buildPreviewHtml(content, darkTheme, enhancers, baseDir,
-                            EditorController.this::resolveEmbedContentByTitle);
+                            EditorController.this::resolveEmbedContentByTitle, previewContext);
                 }
                 return MarkdownPreview.buildEmptyHtml(darkTheme);
             }

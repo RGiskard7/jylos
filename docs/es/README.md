@@ -18,6 +18,7 @@ Documentación técnica de Jylos. Vista general de usuario: [README.es.md](../..
 | [EVENT_BUS_CONTRACT.md](EVENT_BUS_CONTRACT.md) | Reglas de uso del bus de eventos |
 | [GIT.md](GIT.md) | Integración Git en modo vault |
 | [GRAPH.md](GRAPH.md) | Grafo de conocimiento y Knowledge Insights |
+| [DATAVIEW.md](DATAVIEW.md) | Plugin Dataview: lenguaje de consulta, metadatos, indexado |
 | [SEARCH.md](SEARCH.md) | Sintaxis y arquitectura de búsqueda avanzada |
 | [WORKSPACES.md](WORKSPACES.md) | Workspaces guardados y persistencia |
 

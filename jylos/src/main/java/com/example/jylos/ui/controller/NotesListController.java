@@ -1055,6 +1055,14 @@ public class NotesListController {
         if (saved == null || notesListView == null) {
             return;
         }
+        // A row swap only ever updates a note already shown; it can neither add a note
+        // that just gained the active tag filter's tag nor drop one that just lost it.
+        // Tag-filtered results are a small subset of the vault, so a full (but scoped)
+        // reload here is cheap and the only way to keep membership correct as you type.
+        if ("tag".equals(currentFilterType) && currentTag != null) {
+            javafx.application.Platform.runLater(this::refreshCurrentView);
+            return;
+        }
         List<Note> items = notesListView.getItems();
         for (int i = 0; i < items.size(); i++) {
             Note item = items.get(i);

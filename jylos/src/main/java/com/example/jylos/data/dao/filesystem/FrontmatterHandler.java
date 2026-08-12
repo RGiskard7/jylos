@@ -524,7 +524,13 @@ public final class FrontmatterHandler {
             title = lines[0].substring(2).trim();
             body = lines.length > 1 ? lines[1] : "";
         }
-        return new Note(title, body);
+        Note note = new Note(title, body);
+        // A note with no YAML frontmatter at all is common for a vault Jylos did not
+        // create (an existing Obsidian vault, a plain synced folder): it has not gone
+        // through buildNote() even once, so without this call its inline #tags would
+        // never be picked up until Jylos itself wrote the note once.
+        extractInlineTags(body, note);
+        return note;
     }
 
     private static void putIfNotBlank(Map<String, Object> root, String key, String value) {
@@ -533,15 +539,32 @@ public final class FrontmatterHandler {
         }
     }
 
+    /**
+     * Scans line by line rather than the whole content at once, so a fenced code block —
+     * a shell comment ({@code # note}), a CSS id selector, a Dataview query referencing
+     * {@code FROM #tag} — is skipped instead of being read as a real tag on the note that
+     * merely contains the example.
+     */
     private static void extractInlineTags(String content, Note note) {
         if (content == null || content.isBlank() || note == null) {
             return;
         }
-        for (String word : content.split("\\s+")) {
-            if (word.startsWith("#") && word.length() > 1) {
-                String tag = word.substring(1).replaceAll("[^\\p{L}\\p{N}_/-]", "");
-                if (!tag.isBlank()) {
-                    note.addTag(new Tag(tag));
+        boolean inFence = false;
+        for (String line : content.split("\r?\n", -1)) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("```") || trimmed.startsWith("~~~")) {
+                inFence = !inFence;
+                continue;
+            }
+            if (inFence) {
+                continue;
+            }
+            for (String word : line.split("\\s+")) {
+                if (word.startsWith("#") && word.length() > 1) {
+                    String tag = word.substring(1).replaceAll("[^\\p{L}\\p{N}_/-]", "");
+                    if (!tag.isBlank()) {
+                        note.addTag(new Tag(tag));
+                    }
                 }
             }
         }
