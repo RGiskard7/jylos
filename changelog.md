@@ -2,10 +2,6 @@
 
 ## [Unreleased]
 
-- Nuevo plugin **MCP Server**: expone la bóveda a clientes MCP (Claude Desktop, Claude Code y cualquier otro cliente compatible con Streamable HTTP) mediante un servidor HTTP local mientras Jylos está en ejecución. Ofrece herramientas de solo-lectura-mayormente sobre notas, búsqueda de texto completo y etiquetas (`list_notes`, `search_notes`, `read_note`, `create_note`, `update_note`, `list_tags`); deliberadamente no expone borrar ni papelera. Escucha en `127.0.0.1:8843` por defecto (configurable con `-Djylos.mcp.port`), nunca en la dirección comodín. Usa el SDK Java oficial del protocolo sobre un Jetty embebido mínimo, aprovechando el mecanismo de dependencias de terceros por plugin ya existente.
-
-- `scripts/test-plugins.sh` construye ahora los JAR de los plugins antes de compilar sus fuentes para probarlas, y excluye de esa compilación en plano a cualquier bundle con dependencias propias en `lib/` — esos se prueban solo a través de su JAR real, cargado con su propio `URLClassLoader`, para no enmascarar bugs de aislamiento de classloader que sí ocurrirían en una instalación real.
-
 ## [2.5.1] - 2026-08-11
 
 - Nuevo punto de extensión `PluginContext.registerEditorBlockRenderer(...)`: un plugin puede reclamar un lenguaje de bloque cercado y mostrarlo como HTML generado dentro del editor. Los resultados se calculan en un hilo de fondo y se empujan al editor en vez de que este los pida, porque el JavaScript de un `WebView` se ejecuta en el hilo de la interfaz y una llamada de vuelta durante el scroll pondría ahí el trabajo del plugin.
@@ -47,6 +43,12 @@
 - El panel lateral de etiquetas se actualiza ahora al crear, guardar o borrar una nota; antes no existía ningún disparador que lo recalculara y solo cambiaba reiniciando la aplicación.
 
 - Filtrar notas por etiqueta ya no distingue mayúsculas de minúsculas: `#Proyecto` y `#proyecto` escritos en notas distintas se tratan como la misma etiqueta, en vez de dos etiquetas separadas silenciosamente.
+
+- Nuevo plugin **MCP Server**: expone la bóveda a clientes MCP (Claude Desktop, Claude Code y cualquier otro cliente compatible con Streamable HTTP) mediante un servidor HTTP local mientras Jylos está en ejecución. Ofrece herramientas de solo-lectura-mayormente sobre notas, búsqueda de texto completo y etiquetas (`list_notes`, `search_notes`, `read_note`, `create_note`, `update_note`, `list_tags`); deliberadamente no expone borrar ni papelera. Escucha en `127.0.0.1:8843` por defecto (configurable con `-Djylos.mcp.port`), nunca en la dirección comodín. Usa el SDK Java oficial del protocolo sobre un Jetty embebido mínimo, aprovechando el mecanismo de dependencias de terceros por plugin ya existente.
+
+- `scripts/test-plugins.sh` construye ahora los JAR de los plugins antes de compilar sus fuentes para probarlas, y excluye de esa compilación en plano a cualquier bundle con dependencias propias en `lib/` — esos se prueban solo a través de su JAR real, cargado con su propio `URLClassLoader`, para no enmascarar bugs de aislamiento de classloader que sí ocurrirían en una instalación real.
+
+- Nueva política de marca (`TRADEMARKS.md`/`TRADEMARKS.es.md`): el código sigue MIT, pero el nombre Jylos, logo, iconos y branding quedan fuera de esa licencia y se rigen aparte. No cambia los términos ya concedidos a versiones publicadas. README/README.es enlazan el documento; la sección de contribución deja explícito que las contribuciones se licencian bajo la misma MIT del proyecto salvo acuerdo distinto.
 
 ## [2.5.0] - 2026-08-09
 

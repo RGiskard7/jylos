@@ -536,6 +536,7 @@ Warnings del tipo `Failed to build parent project for org.openjfx:javafx-*` son 
 - Ejecutar tests antes de PR.
 - Mantener compatibilidad SQLite/FileSystem y plugins.
 - Actualizar documentación cuando cambie comportamiento.
+- Al enviar una contribución, aceptas que queda licenciada bajo la [Licencia MIT](LICENSE) de este proyecto (los mismos términos que el resto del código), salvo acuerdo distinto por escrito.
 
 ### Convenio del changelog
 
@@ -545,8 +546,10 @@ Warnings del tipo `Failed to build parent project for org.openjfx:javafx-*` son 
 - Escribe los puntos desde el punto de vista del usuario: fixes, cambios de comportamiento, compatibilidad, migraciones y documentación.
 - Si un PR corrige un issue de GitHub, pon `Fixes #123` en la descripción del PR para que GitHub lo cierre al hacer merge.
 
-## Licencia
+## Licencia y marcas
 
 [Licencia MIT](LICENSE) — Copyright © 2025–2026 **Eduardo Díaz Sánchez**.
 
 Puedes usar, modificar y distribuir este software bajo los términos de la MIT; conserva el aviso de copyright y el texto de la licencia en copias o porciones sustanciales. Contacto: ed.dzsn@protonmail.com
+
+El nombre Jylos, el logo, los iconos y el branding no están cubiertos por la Licencia MIT — ver [TRADEMARKS.es.md](TRADEMARKS.es.md).
