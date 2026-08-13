@@ -536,6 +536,7 @@ Warnings such as `Failed to build parent project for org.openjfx:javafx-*` are k
 - Run tests before opening PR.
 - Preserve SQLite/FileSystem and plugin compatibility.
 - Update documentation when behavior changes.
+- By submitting a contribution, you agree it is licensed under this project's [MIT License](LICENSE) (the same terms as the rest of the codebase), unless otherwise agreed in writing.
 
 ### Changelog convention
 
@@ -545,8 +546,10 @@ Warnings such as `Failed to build parent project for org.openjfx:javafx-*` are k
 - Write bullets from the user's point of view: fixes, behavior changes, compatibility notes, migration notes and documentation updates.
 - If a PR fixes a GitHub issue, put `Fixes #123` in the PR description so GitHub closes it when the PR is merged.
 
-## License
+## License and trademarks
 
 [MIT License](LICENSE) — Copyright © 2025–2026 **Eduardo Díaz Sánchez**.
 
 You may use, modify, and distribute this software under the MIT terms; keep the copyright and license notice in copies or substantial portions. Contact: ed.dzsn@protonmail.com
+
+The Jylos name, logo, icons, and branding are not covered by the MIT License — see [TRADEMARKS.md](TRADEMARKS.md).

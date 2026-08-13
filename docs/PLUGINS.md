@@ -97,8 +97,16 @@ Two caveats worth knowing:
 ```
 
 Plugin sources are compiled against the app like any third-party plugin, so `mvn test` does
-not see them. This script compiles `plugins-source/` together with `plugins-test/` and runs
-the `main()` of every `*Test` class found there, failing on a non-zero exit.
+not see them. This script builds the plugin JARs first (`build-plugins.sh`), then compiles
+`plugins-source/` together with `plugins-test/` and runs the `main()` of every `*Test`
+class found there, failing on a non-zero exit.
+
+A bundle that ships its own `lib/` dependencies is excluded from that flat compile and
+tested only through its built JAR, loaded via its own `URLClassLoader` — the same
+isolation `PluginLoader` gives it at runtime. Compiling such a bundle's sources flat
+alongside the test would put its bundled libraries on the same classpath as everything
+else, which can mask classloading bugs a real install would actually hit (see
+[MCP.md](MCP.md#tests) for a concrete one this caught).
 
 ## Authoring
 

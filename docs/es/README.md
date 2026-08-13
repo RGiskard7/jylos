@@ -19,6 +19,7 @@ Documentación técnica de Jylos. Vista general de usuario: [README.es.md](../..
 | [GIT.md](GIT.md) | Integración Git en modo vault |
 | [GRAPH.md](GRAPH.md) | Grafo de conocimiento y Knowledge Insights |
 | [DATAVIEW.md](DATAVIEW.md) | Plugin Dataview: lenguaje de consulta, metadatos, indexado |
+| [MCP.md](MCP.md) | Plugin servidor MCP: herramientas expuestas, transporte, dependencias empaquetadas |
 | [SEARCH.md](SEARCH.md) | Sintaxis y arquitectura de búsqueda avanzada |
 | [WORKSPACES.md](WORKSPACES.md) | Workspaces guardados y persistencia |
 
