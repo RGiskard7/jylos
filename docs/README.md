@@ -19,6 +19,7 @@ Technical docs for Jylos. User-facing overview: [README.md](../README.md).
 | [GIT.md](GIT.md) | Vault Git integration and sync panel |
 | [GRAPH.md](GRAPH.md) | Knowledge graph and Knowledge Insights |
 | [DATAVIEW.md](DATAVIEW.md) | Dataview plugin: query language, metadata sources, indexing |
+| [MCP.md](MCP.md) | MCP server plugin: exposed tools, transport, dependency bundling |
 | [SEARCH.md](SEARCH.md) | Advanced search syntax and architecture |
 | [WORKSPACES.md](WORKSPACES.md) | Saved workspace behaviour and persistence |
 

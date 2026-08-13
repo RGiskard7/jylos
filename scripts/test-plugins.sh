@@ -37,6 +37,9 @@ echo -e "${CYAN}Compiling application classes...${NC}"
 cd "$JYLOS_DIR"
 mvn compile -q
 
+echo -e "${GRAY}Building plugin JARs (some tests load the packaged artifact, not sources)...${NC}"
+"$SCRIPT_DIR/build-plugins.sh" > /dev/null
+
 echo -e "${GRAY}Resolving classpath...${NC}"
 CP_FILE="$JYLOS_DIR/target/plugin-test-classpath.txt"
 mvn dependency:build-classpath -Dmdep.outputFile="$CP_FILE" -q > /dev/null
@@ -46,7 +49,18 @@ rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 
 echo -e "${CYAN}Compiling plugin sources and tests...${NC}"
+# A bundle that ships its own lib/ dependencies is excluded from this flat, shared-
+# classpath compile: its classes belong on their own isolated classloader (the one
+# PluginLoader gives them at runtime, and the one the JAR-loading test below recreates),
+# and compiling them flat alongside everything else would let the JVM resolve them from
+# here instead — silently hiding classloader-isolation bugs a real install would hit.
+# Its own plugin.properties/*.java stay out; its test (which loads the built JAR instead)
+# and its lib/ jars are unaffected by this exclusion.
+JAR_ONLY_BUNDLES=$(find "$PLUGINS_SOURCE" -type d -name lib | sed 's|/lib$||')
 SOURCES=$(find "$PLUGINS_SOURCE" "$PLUGINS_TEST" -name "*.java" -not -name "package-info.java")
+for bundle_dir in $JAR_ONLY_BUNDLES; do
+    SOURCES=$(echo "$SOURCES" | grep -v "^$bundle_dir/" || true)
+done
 "$JAVAC" --release 21 -encoding UTF-8 -cp "$CLASSPATH" -d "$BUILD_DIR" $SOURCES
 
 FAILURES=0

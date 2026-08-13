@@ -93,8 +93,17 @@ Dos advertencias a tener presentes:
 ```
 
 Las fuentes de plugins se compilan contra la aplicación como cualquier plugin de terceros,
-así que `mvn test` no las ve. Este script compila `plugins-source/` junto a `plugins-test/`
-y ejecuta el `main()` de cada clase `*Test`, fallando si alguna devuelve código distinto de cero.
+así que `mvn test` no las ve. Este script primero construye los JAR de plugins
+(`build-plugins.sh`), luego compila `plugins-source/` junto a `plugins-test/` y ejecuta el
+`main()` de cada clase `*Test`, fallando si alguna devuelve código distinto de cero.
+
+Un bundle que trae sus propias dependencias en `lib/` se excluye de esa compilación plana
+y se prueba solo a través de su JAR ya construido, cargado con su propio `URLClassLoader`
+— el mismo aislamiento que `PluginLoader` le da en tiempo de ejecución. Compilar las
+fuentes de ese bundle en plano junto a la prueba pondría sus librerías empaquetadas en el
+mismo classpath que todo lo demás, lo cual puede ocultar bugs de carga de clases que una
+instalación real sí sufriría (ver [MCP.md](MCP.md#pruebas) para uno concreto que esto
+detectó).
 
 ## Autoría
 
