@@ -516,6 +516,7 @@ public class PluginManager {
         PluginContext context = pluginContexts.get(pluginId);
         if (context != null) {
             context.unregisterAllCommands();
+            context.unsubscribeAll();
         }
     }
 

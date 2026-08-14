@@ -2,6 +2,7 @@ package com.example.jylos.plugin;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 
@@ -44,6 +45,10 @@ public class PluginContext {
     private final EditorBlockRendererRegistry editorBlockRendererRegistry;
     private final Consumer<Note> noteOpenAction;
     private final List<String> registeredCommandIds = new ArrayList<>();
+    // Copy-on-write, unlike registeredCommandIds: a plugin may subscribe from a background
+    // thread (the MCP server plugin serves requests off its own HTTP threads), and this
+    // list is walked during teardown while that could still be happening.
+    private final List<EventBus.Subscription> registeredSubscriptions = new CopyOnWriteArrayList<>();
 
     /**
      * Creates a new PluginContext.
@@ -300,17 +305,51 @@ public class PluginContext {
 
     /**
      * Subscribes to an event type.
-     * 
+     *
+     * <p>The subscription is tracked and cancelled for you when the plugin is disabled,
+     * like every other contribution registered through this context. Cancelling the
+     * returned handle yourself in {@code shutdown()} is still good practice and costs
+     * nothing — {@code cancel()} is idempotent — but is no longer what stands between a
+     * disabled plugin and a handler that keeps firing.</p>
+     *
+     * <p>Note the bus dispatches on the event's exact class: subscribing to a supertype
+     * does not receive its subclasses.</p>
+     *
      * @param <T>       The event type
      * @param eventType The event class
      * @param handler   The event handler
-     * @return The subscription (can be used to unsubscribe)
+     * @return The subscription (can be used to unsubscribe early)
      */
     public <T extends AppEvent> EventBus.Subscription subscribe(Class<T> eventType, Consumer<T> handler) {
         if (eventBus != null) {
-            return eventBus.subscribe(eventType, handler);
+            EventBus.Subscription subscription = eventBus.subscribe(eventType, handler);
+            registeredSubscriptions.add(subscription);
+            return subscription;
         }
         return EventBus.Subscription.NO_OP;
+    }
+
+    /**
+     * Cancels every event subscription this plugin registered (safe to call from
+     * {@link Plugin#shutdown()}).
+     *
+     * <p>This is the safety net the other contribution types already had. A plugin whose
+     * {@code shutdown()} throws before reaching its own cancellation code used to leave
+     * live handlers behind for the rest of the session — still running code from a
+     * disabled plugin, and pinning its classloader so it could never be collected.
+     * Cancelling twice is harmless, so a plugin that does clean up after itself is
+     * unaffected.</p>
+     */
+    public void unsubscribeAll() {
+        for (EventBus.Subscription subscription : new ArrayList<>(registeredSubscriptions)) {
+            try {
+                subscription.cancel();
+            } catch (RuntimeException e) {
+                // One uncooperative subscription must not strand the others.
+                logger.warning("Failed to cancel a subscription for plugin " + pluginId + ": " + e.getMessage());
+            }
+        }
+        registeredSubscriptions.clear();
     }
 
     /**
