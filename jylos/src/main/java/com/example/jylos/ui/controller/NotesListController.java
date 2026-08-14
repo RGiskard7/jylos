@@ -43,9 +43,7 @@ import java.util.function.Supplier;
 import java.util.prefs.Preferences;
 import javafx.scene.Parent;
 import javafx.scene.SnapshotParameters;
-import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.Priority;
-import javafx.scene.layout.TilePane;
 import javafx.scene.paint.Color;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -729,10 +727,17 @@ public class NotesListController {
                 }
             });
         }));
-        subscriptions.add(eventBus.subscribe(NoteEvents.NoteCreatedEvent.class, event -> markAllNotesSearchCacheDirty()));
-        subscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class, event -> markAllNotesSearchCacheDirty()));
-        subscriptions.add(eventBus.subscribe(NoteEvents.NoteDeletedEvent.class, event -> markAllNotesSearchCacheDirty()));
-        subscriptions.add(eventBus.subscribe(NoteEvents.TrashItemDeletedEvent.class, event -> markAllNotesSearchCacheDirty()));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteCreatedEvent.class,
+                event -> markNotesListStale(event.getNote() != null ? event.getNote().getId() : null)));
+        // Both ids: a save that renames or moves the note changes its id (ids are vault
+        // paths), so the entry cached under the old one would otherwise linger for good.
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class,
+                event -> markNotesListStale(event.getNote() != null ? event.getNote().getId() : null,
+                        event.getPreviousNoteId())));
+        subscriptions.add(eventBus.subscribe(NoteEvents.NoteDeletedEvent.class,
+                event -> markNotesListStale(event.getNoteId())));
+        subscriptions.add(eventBus.subscribe(NoteEvents.TrashItemDeletedEvent.class,
+                event -> markNotesListStale(componentId(event.getComponent()))));
         subscriptions.add(eventBus.subscribe(NoteEvents.NotesRefreshRequestedEvent.class, event -> {
             markAllNotesSearchCacheDirty();
             javafx.application.Platform.runLater(this::refreshCurrentView);
@@ -936,9 +941,36 @@ public class NotesListController {
                 "Failed to perform search");
     }
 
+    /**
+     * Marks the note <em>list</em> stale and drops the cached body of the notes named by
+     * {@code changedIds}.
+     *
+     * <p>Two different caches with two different lifetimes. Which notes exist can change
+     * for reasons the event does not spell out, so the list flag stays global. A note's
+     * body, though, only changes for the note the event is about — dropping every cached
+     * body on each save meant the next search re-read the entire vault from disk, which on
+     * a large vault is thousands of file reads to reflect one edit.</p>
+     *
+     * @param changedIds ids whose body is no longer trustworthy; blanks and nulls ignored
+     */
+    private void markNotesListStale(String... changedIds) {
+        allNotesSearchCacheDirty = true;
+        for (String id : changedIds) {
+            if (id != null && !id.isBlank()) {
+                fullContentCache.remove(id);
+            }
+        }
+    }
+
+    /** Marks the list stale and forgets every cached body — for changes of unknown scope. */
     private void markAllNotesSearchCacheDirty() {
         allNotesSearchCacheDirty = true;
         fullContentCache.clear();
+    }
+
+    /** The id of a component from a trash event, or {@code null} when it has none. */
+    private static String componentId(com.example.jylos.data.models.interfaces.Component component) {
+        return component != null ? component.getId() : null;
     }
 
     /** Full, lowercased content of a note (read once via the service, then cached). */
@@ -1367,35 +1399,110 @@ public class NotesListController {
     }
 
     private NotesViewMode notesViewMode = NotesViewMode.LIST;
-    private TilePane notesGridPane;
-    private ScrollPane gridScrollPane;
+    /**
+     * The grid, as a virtualized list of rows: each item is one row of cards.
+     *
+     * <p>It used to be a {@code TilePane} of every card inside a {@code ScrollPane}, which
+     * builds one card — six-odd nodes each — for every note in the vault and keeps them
+     * all in the scene graph. A few thousand notes is tens of thousands of live nodes.
+     * A {@code ListView} only materialises the rows on screen, and the card itself is
+     * unchanged: {@link #createNoteCard} still produces it.</p>
+     */
+    private ListView<List<Note>> notesGridView;
     private VBox notesPanelContainer;
     private String lastGridSignature = "";
+    /** Notes currently shown in the grid, kept so a width change can re-chunk them. */
+    private List<Note> gridNotes = List.of();
+    private int gridColumns = 0;
+
+    /** Card width and gap from {@link #createNoteCard}; used to work out how many fit. */
+    private static final double GRID_CARD_WIDTH = 180;
+    private static final double GRID_GAP = 12;
+    private static final double GRID_ROW_HEIGHT = 152; // card prefHeight (140) + gap
 
     public boolean isGridViewActive() {
         return notesViewMode == NotesViewMode.GRID;
     }
 
     public void initializeNotesGrid() {
-        if (notesGridPane != null) {
+        if (notesGridView != null) {
             return;
         }
-        notesGridPane = new TilePane();
-        notesGridPane.setPrefColumns(3);
-        notesGridPane.setHgap(12);
-        notesGridPane.setVgap(12);
-        notesGridPane.setPadding(new javafx.geometry.Insets(12));
-        notesGridPane.setStyle("-fx-background-color: transparent;");
+        notesGridView = new ListView<>();
+        notesGridView.getStyleClass().add("notes-grid-scroll");
+        notesGridView.setStyle("-fx-background-color: transparent;");
+        notesGridView.setFixedCellSize(GRID_ROW_HEIGHT);
+        notesGridView.setFocusTraversable(false);
+        notesGridView.setSelectionModel(null); // rows are layout, not something to select
+        notesGridView.setCellFactory(view -> new GridRowCell());
 
-        gridScrollPane = new ScrollPane(notesGridPane);
-        gridScrollPane.setFitToWidth(true);
-        gridScrollPane.setStyle("-fx-background-color: transparent; -fx-border-color: transparent;");
-        gridScrollPane.getStyleClass().add("notes-grid-scroll");
+        // The TilePane reflowed its columns as the panel resized; keep that. Re-chunking
+        // only when the column count actually changes means a drag resize does not rebuild
+        // rows on every pixel.
+        notesGridView.widthProperty().addListener((obs, previous, width) -> {
+            if (columnsFor(width.doubleValue()) != gridColumns) {
+                rebuildGridRows();
+            }
+        });
 
         if (notesListView != null && notesListView.getParent() instanceof VBox parent) {
             notesPanelContainer = parent;
         }
     }
+
+    /** How many cards fit across {@code width}, at least one. */
+    private static int columnsFor(double width) {
+        double usable = width - GRID_GAP; // outer padding
+        if (usable <= 0) {
+            return 1;
+        }
+        return Math.max(1, (int) ((usable + GRID_GAP) / (GRID_CARD_WIDTH + GRID_GAP)));
+    }
+
+    /** Re-chunks {@link #gridNotes} into rows for the current width. */
+    private void rebuildGridRows() {
+        if (notesGridView == null) {
+            return;
+        }
+        gridColumns = columnsFor(notesGridView.getWidth());
+        List<List<Note>> rows = new ArrayList<>();
+        for (int start = 0; start < gridNotes.size(); start += gridColumns) {
+            rows.add(List.copyOf(gridNotes.subList(start, Math.min(start + gridColumns, gridNotes.size()))));
+        }
+        notesGridView.getItems().setAll(rows);
+    }
+
+    /** Renders one row of note cards. Cells are reused, so the row is rebuilt on update. */
+    private final class GridRowCell extends ListCell<List<Note>> {
+        private final HBox row = new HBox(GRID_GAP);
+
+        private GridRowCell() {
+            row.setPadding(new javafx.geometry.Insets(GRID_GAP / 2, GRID_GAP, GRID_GAP / 2, GRID_GAP));
+            getStyleClass().add("notes-grid-row");
+            setStyle("-fx-background-color: transparent; -fx-padding: 0;");
+        }
+
+        @Override
+        protected void updateItem(List<Note> notes, boolean empty) {
+            super.updateItem(notes, empty);
+            if (empty || notes == null || gridCardFactory == null) {
+                setGraphic(null);
+                return;
+            }
+            row.getChildren().clear();
+            for (Note note : notes) {
+                row.getChildren().add(gridCardFactory.apply(note));
+            }
+            setGraphic(row);
+        }
+    }
+
+    /**
+     * Builds a card for one note, capturing the theme/i18n/callbacks the last refresh was
+     * given. Cells are created lazily as the user scrolls, long after
+     * {@link #refreshGridView} returned, so those arguments have to be reachable from here.
+     */
+    private Function<Note, VBox> gridCardFactory;
 
     public boolean showListView(Runnable gridRefreshAction, Consumer<String> warningLogger) {
         if (notesViewMode == NotesViewMode.LIST) {
@@ -1447,7 +1554,7 @@ public class NotesListController {
         notesPanelContainer = applyNotesViewMode(
                 isGridViewActive(),
                 notesListView,
-                gridScrollPane,
+                notesGridView,
                 notesPanelContainer,
                 gridRefreshAction,
                 warningLogger);
@@ -1462,17 +1569,17 @@ public class NotesListController {
             return;
         }
         initializeNotesGrid();
-        refreshGridView(notesGridPane, notesListView, isDarkTheme, i18n, openNoteAction, statusUpdate);
+        refreshGridView(notesListView, isDarkTheme, i18n, openNoteAction, statusUpdate);
     }
 
     public VBox applyNotesViewMode(
             boolean isGridMode,
             ListView<Note> notesListView,
-            ScrollPane gridScrollPane,
+            javafx.scene.Node gridNode,
             VBox currentNotesPanelContainer,
             Runnable refreshGridViewAction,
             Consumer<String> warningLogger) {
-        if (notesListView == null || gridScrollPane == null) {
+        if (notesListView == null || gridNode == null) {
             return currentNotesPanelContainer;
         }
 
@@ -1482,7 +1589,7 @@ public class NotesListController {
             if (parent instanceof VBox) {
                 notesPanelContainer = (VBox) parent;
             } else {
-                parent = gridScrollPane.getParent();
+                parent = gridNode.getParent();
                 if (parent instanceof VBox) {
                     notesPanelContainer = (VBox) parent;
                 }
@@ -1502,16 +1609,16 @@ public class NotesListController {
                 if (resolvedContainer.getChildren().contains(notesListView)) {
                     resolvedContainer.getChildren().remove(notesListView);
                 }
-                if (!resolvedContainer.getChildren().contains(gridScrollPane)) {
-                    resolvedContainer.getChildren().add(gridScrollPane);
-                    VBox.setVgrow(gridScrollPane, Priority.ALWAYS);
+                if (!resolvedContainer.getChildren().contains(gridNode)) {
+                    resolvedContainer.getChildren().add(gridNode);
+                    VBox.setVgrow(gridNode, Priority.ALWAYS);
                 }
                 if (refreshGridViewAction != null) {
                     refreshGridViewAction.run();
                 }
             } else {
-                if (resolvedContainer.getChildren().contains(gridScrollPane)) {
-                    resolvedContainer.getChildren().remove(gridScrollPane);
+                if (resolvedContainer.getChildren().contains(gridNode)) {
+                    resolvedContainer.getChildren().remove(gridNode);
                 }
                 if (!resolvedContainer.getChildren().contains(notesListView)) {
                     resolvedContainer.getChildren().add(notesListView);
@@ -1530,13 +1637,12 @@ public class NotesListController {
     }
 
     public void refreshGridView(
-            TilePane notesGridPane,
             ListView<Note> notesListView,
             boolean isDarkTheme,
             Function<String, String> i18n,
             Consumer<Note> openNoteAction,
             Consumer<String> statusUpdate) {
-        if (notesGridPane == null || notesListView == null || i18n == null || openNoteAction == null
+        if (notesGridView == null || notesListView == null || i18n == null || openNoteAction == null
                 || statusUpdate == null) {
             return;
         }
@@ -1551,15 +1657,16 @@ public class NotesListController {
                     .append(note.isFavorite() ? '1' : '0').append(';');
         }
         String signature = signatureBuilder.toString();
-        if (signature.equals(lastGridSignature) && notesGridPane.getChildren().size() == notes.size()) {
+        if (signature.equals(lastGridSignature) && gridNotes.size() == notes.size()) {
             return;
         }
 
-        notesGridPane.getChildren().clear();
-        for (Note note : notes) {
-            VBox card = createNoteCard(note, notesListView, isDarkTheme, i18n, openNoteAction, statusUpdate);
-            notesGridPane.getChildren().add(card);
-        }
+        // Cards are built on demand by the cell factory as rows scroll into view, so what
+        // is stored here is how to build one — not thousands of already-built cards.
+        gridCardFactory = note -> createNoteCard(note, notesListView, isDarkTheme, i18n, openNoteAction,
+                statusUpdate);
+        gridNotes = notes;
+        rebuildGridRows();
         lastGridSignature = signature;
     }
 

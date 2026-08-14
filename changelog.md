@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- La vista de cuadrícula de notas ya no construye una tarjeta por nota de la bóveda: pasa a virtualizarse, creando solo las filas visibles. Antes eran seis nodos por nota vivos en el escenario a la vez, tuvieran o no que dibujarse — con unos pocos miles de notas, decenas de miles de nodos que construir y maquetar. Las columnas siguen recalculándose al redimensionar el panel, igual que antes.
+
+- Editar una nota ya no invalida el contenido cacheado de todas las demás para la búsqueda de texto completo. Los eventos de guardado, creación y borrado saben de qué nota hablan, así que ahora solo se descarta esa; antes, cambiar una nota obligaba a la siguiente búsqueda a releer la bóveda entera de disco. Un guardado que renombra o mueve la nota descarta también la entrada de su id anterior, porque el id de una nota es su ruta.
+
+- El render de la vista previa reutiliza un único hilo en vez de crear uno nuevo en cada refresco.
+
 - Las suscripciones a eventos de un plugin se cancelan ahora automáticamente al desactivarlo, como ya ocurría con el resto de sus aportaciones (menús, paneles, preview enhancers, hooks de editor, botones de toolbar, renderizadores de bloque y comandos). Eran la única excepción: un plugin cuyo `shutdown()` fallara antes de llegar a su propio código de cancelación dejaba handlers vivos el resto de la sesión, ejecutando código de un plugin ya desactivado e impidiendo que su classloader se recolectara nunca. Los plugins que ya cancelaban a mano no se ven afectados: cancelar dos veces no hace nada.
 
 ## [2.5.2] - 2026-08-14

@@ -117,6 +117,19 @@ public class EditorController {
     /** Cancels any in-flight preview render so FX thread is never blocked by markdown parsing. */
     private volatile Task<String> currentPreviewTask;
 
+    /**
+     * Runs preview renders off the FX thread. A single thread, reused: renders are already
+     * debounced and only the newest one matters, so there is nothing to gain from running
+     * two at once — and spawning a fresh thread per render, as this used to, meant paying
+     * for thread creation on every pause in typing.
+     */
+    private final java.util.concurrent.ExecutorService previewRenderExecutor =
+            java.util.concurrent.Executors.newSingleThreadExecutor(runnable -> {
+                Thread thread = new Thread(runnable, "preview-render");
+                thread.setDaemon(true);
+                return thread;
+            });
+
     private final List<EventBus.Subscription> subscriptions = new ArrayList<>();
 
     /** True when the editor is in "read" (preview-only) view: properties become read-only. */
@@ -1427,6 +1440,7 @@ public class EditorController {
 
     public void teardown() {
         blockRenderSupport.shutdown();
+        previewRenderExecutor.shutdownNow();
         subscriptions.forEach(EventBus.Subscription::cancel);
         subscriptions.clear();
     }
@@ -1734,9 +1748,7 @@ public class EditorController {
             logger.warning("Preview render failed: " + task.getException());
         });
         currentPreviewTask = task;
-        Thread thread = new Thread(task, "preview-render");
-        thread.setDaemon(true);
-        thread.start();
+        previewRenderExecutor.execute(task);
     }
 
     private double currentPreviewScrollY() {
