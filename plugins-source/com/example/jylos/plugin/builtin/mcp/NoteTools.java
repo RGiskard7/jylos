@@ -1,54 +1,71 @@
 package com.example.jylos.plugin.builtin.mcp;
 
+import static com.example.jylos.plugin.builtin.mcp.McpSupport.displayTitle;
+import static com.example.jylos.plugin.builtin.mcp.McpSupport.errorResult;
+import static com.example.jylos.plugin.builtin.mcp.McpSupport.intArgument;
+import static com.example.jylos.plugin.builtin.mcp.McpSupport.noteSummary;
+import static com.example.jylos.plugin.builtin.mcp.McpSupport.objectSchema;
+import static com.example.jylos.plugin.builtin.mcp.McpSupport.readOnly;
+import static com.example.jylos.plugin.builtin.mcp.McpSupport.refusePrivate;
+import static com.example.jylos.plugin.builtin.mcp.McpSupport.requiredArgument;
+import static com.example.jylos.plugin.builtin.mcp.McpSupport.safe;
+import static com.example.jylos.plugin.builtin.mcp.McpSupport.stringArgument;
+import static com.example.jylos.plugin.builtin.mcp.McpSupport.stringProperty;
+import static com.example.jylos.plugin.builtin.mcp.McpSupport.writes;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
-import com.example.jylos.data.models.Tag;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
-import com.example.jylos.service.TagService;
 
 import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
 
 /**
- * The MCP tools this server exposes: read-mostly access to the vault, plus two
- * deliberately narrow writes (create a note, replace a note's content).
+ * The note tools: read, search, create, edit, rename, move, delete and restore.
  *
- * <h2>Scope, on purpose</h2>
- * <p>No delete, no trash, no permanent removal — an external MCP client is a genuinely
- * different trust boundary from the desktop UI's own confirmation dialogs, and a first
- * version handing an AI agent the ability to destroy vault content is not a risk worth
- * taking before there is any track record for what "professional AI layer" usage of this
- * server actually looks like. Widening the tool set later is a much smaller step than
- * walking back a destructive tool that shipped too early.</p>
+ * <h2>Deleting means the trash</h2>
+ * <p>{@code delete_note} moves a note to the trash, the same thing Obsidian's own delete
+ * does by default, and {@code restore_note} brings it back. Permanent deletion and
+ * emptying the trash are deliberately <em>not</em> exposed: an MCP client is a different
+ * trust boundary from the desktop UI's confirmation dialogs, and every destructive thing
+ * reachable from here has to be undoable from the app.</p>
+ *
+ * <h2>Ids move</h2>
+ * <p>A note's id is its path inside the vault, so renaming or moving a note changes it.
+ * Both tools return the new id and say so in their description, otherwise an agent's next
+ * call would use an id that no longer resolves.</p>
  *
  * <h2>Why no Dataview query tool</h2>
  * <p>Plugins cannot call into one another — each only receives the {@code PluginContext}
  * the host gives it, with no registry of other plugins' capabilities. Exposing "run this
  * Dataview query" over MCP would need a host-level extension point that does not exist
- * today, so this first version sticks to what {@link NoteService}, {@link FolderService}
- * and {@link TagService} already provide directly.</p>
+ * today.</p>
  */
 final class NoteTools {
 
     private NoteTools() {
     }
 
-    static List<SyncToolSpecification> build(NoteService noteService, FolderService folderService,
-            TagService tagService) {
+    static List<SyncToolSpecification> build(NoteService noteService, FolderService folderService) {
         List<SyncToolSpecification> tools = new ArrayList<>();
         tools.add(listNotes(noteService));
         tools.add(searchNotes(noteService));
         tools.add(readNote(noteService));
         tools.add(createNote(noteService));
         tools.add(updateNote(noteService));
-        tools.add(listTags(tagService));
+        tools.add(renameNote(noteService));
+        tools.add(moveNote(noteService, folderService));
+        tools.add(deleteNote(noteService));
+        tools.add(restoreNote(noteService));
+        tools.add(listTrash(noteService));
         return tools;
     }
 
@@ -56,11 +73,12 @@ final class NoteTools {
 
     private static SyncToolSpecification listNotes(NoteService noteService) {
         Map<String, Object> schema = objectSchema(Map.of(
-                "limit", integerProperty("Maximum number of notes to return (default 50).")));
+                "limit", McpSupport.integerProperty("Maximum number of notes to return (default 50).")));
         Tool tool = Tool.builder("list_notes", schema)
                 .description("Lists notes in the vault, most recently modified first. "
                         + "Returns id, title, tags and modified date for each note; use "
                         + "read_note to get a note's full content.")
+                .annotations(readOnly())
                 .build();
 
         return SyncToolSpecification.builder()
@@ -93,26 +111,28 @@ final class NoteTools {
     private static SyncToolSpecification searchNotes(NoteService noteService) {
         Map<String, Object> schema = objectSchema(Map.of(
                 "query", stringProperty("Search text."),
-                "limit", integerProperty("Maximum number of results to return (default 20).")));
+                "limit", McpSupport.integerProperty("Maximum number of results to return (default 20).")),
+                "query");
         Tool tool = Tool.builder("search_notes", schema)
                 .description("Full-text search over note titles and content.")
+                .annotations(readOnly())
                 .build();
 
         return SyncToolSpecification.builder()
                 .tool(tool)
                 .callHandler((exchange, request) -> {
-                    String query = stringArgument(request.arguments(), "query");
-                    if (query == null || query.isBlank()) {
+                    String query = requiredArgument(request.arguments(), "query");
+                    if (query == null) {
                         return errorResult("The 'query' argument is required.");
                     }
                     int limit = intArgument(request.arguments(), "limit", 20);
-                    List<Note> results = noteService.searchNotes(query);
-                    List<Note> page = results.subList(0, Math.min(limit, results.size()));
+                    List<Note> matches = noteService.searchNotes(query);
+                    List<Note> page = matches.subList(0, Math.min(limit, matches.size()));
 
                     List<Object> summaries = new ArrayList<>(page.size());
                     StringBuilder text = new StringBuilder();
-                    text.append(page.size()).append(" of ").append(results.size())
-                            .append(" match(es) for \"").append(query).append("\":\n");
+                    text.append(page.size()).append(" of ").append(matches.size())
+                            .append(" match(es) for '").append(query).append("':\n");
                     for (Note note : page) {
                         summaries.add(noteSummary(note));
                         text.append("- ").append(displayTitle(note)).append(" (id: ").append(note.getId())
@@ -120,7 +140,7 @@ final class NoteTools {
                     }
                     return CallToolResult.builder()
                             .addTextContent(text.toString())
-                            .structuredContent(Map.of("notes", summaries, "total", results.size()))
+                            .structuredContent(Map.of("notes", summaries, "total", matches.size()))
                             .build();
                 })
                 .build();
@@ -133,6 +153,7 @@ final class NoteTools {
                 "id", stringProperty("Note id, as returned by list_notes or search_notes."),
                 "title", stringProperty("Exact note title (used if id is not given).")));
         Tool tool = Tool.builder("read_note", schema)
+                .annotations(readOnly())
                 .description("Reads a note's full content and metadata by id or exact title. "
                         + "A private note's content is not returned even if it is currently unlocked "
                         + "in the desktop app.")
@@ -151,9 +172,9 @@ final class NoteTools {
                                 + (id != null ? "id '" + id + "'" : "title '" + title + "'") + ".");
                     }
                     Note note = found.get();
-                    if (note.isPrivate()) {
-                        return errorResult("'" + displayTitle(note) + "' is private; its content is not exposed "
-                                + "over MCP.");
+                    CallToolResult refusal = refusePrivate(note, "read");
+                    if (refusal != null) {
+                        return refusal;
                     }
                     Map<String, Object> full = new LinkedHashMap<>(noteSummary(note));
                     full.put("content", note.getContent() != null ? note.getContent() : "");
@@ -174,13 +195,14 @@ final class NoteTools {
                 "title");
         Tool tool = Tool.builder("create_note", schema)
                 .description("Creates a new note at the vault root.")
+                .annotations(writes(false, false))
                 .build();
 
         return SyncToolSpecification.builder()
                 .tool(tool)
                 .callHandler((exchange, request) -> {
-                    String title = stringArgument(request.arguments(), "title");
-                    if (title == null || title.isBlank()) {
+                    String title = requiredArgument(request.arguments(), "title");
+                    if (title == null) {
                         return errorResult("The 'title' argument is required.");
                     }
                     String content = stringArgument(request.arguments(), "content");
@@ -207,14 +229,15 @@ final class NoteTools {
                 "id", "content");
         Tool tool = Tool.builder("update_note", schema)
                 .description("Replaces a note's content. The title and metadata are left unchanged.")
+                .annotations(writes(false, true))
                 .build();
 
         return SyncToolSpecification.builder()
                 .tool(tool)
                 .callHandler((exchange, request) -> {
-                    String id = stringArgument(request.arguments(), "id");
+                    String id = requiredArgument(request.arguments(), "id");
                     String content = stringArgument(request.arguments(), "content");
-                    if (id == null || id.isBlank() || content == null) {
+                    if (id == null || content == null) {
                         return errorResult("Both 'id' and 'content' are required.");
                     }
                     Optional<Note> found = noteService.getNoteById(id);
@@ -222,8 +245,9 @@ final class NoteTools {
                         return errorResult("No note found for id '" + id + "'.");
                     }
                     Note note = found.get();
-                    if (note.isPrivate()) {
-                        return errorResult("'" + displayTitle(note) + "' is private and cannot be edited over MCP.");
+                    CallToolResult refusal = refusePrivate(note, "edited");
+                    if (refusal != null) {
+                        return refusal;
                     }
                     note.setContent(content);
                     try {
@@ -239,103 +263,219 @@ final class NoteTools {
                 .build();
     }
 
-    // ── list_tags ────────────────────────────────────────────────────────────
+    // ── rename_note ──────────────────────────────────────────────────────────
 
-    private static SyncToolSpecification listTags(TagService tagService) {
-        Tool tool = Tool.builder("list_tags", objectSchema(Map.of()))
-                .description("Lists every tag in the vault with its note count, most used first.")
+    private static SyncToolSpecification renameNote(NoteService noteService) {
+        Map<String, Object> schema = objectSchema(Map.of(
+                "id", stringProperty("Note id, as returned by list_notes or search_notes."),
+                "title", stringProperty("New title.")),
+                "id", "title");
+        Tool tool = Tool.builder("rename_note", schema)
+                .description("Renames a note. The id changes with the title, because a note's id is "
+                        + "its path in the vault — use the id returned here for any further calls.")
+                .annotations(writes(false, false))
                 .build();
 
         return SyncToolSpecification.builder()
                 .tool(tool)
                 .callHandler((exchange, request) -> {
-                    List<Tag> tags = tagService.getTagsByUsage();
-                    List<Object> summaries = new ArrayList<>(tags.size());
-                    StringBuilder text = new StringBuilder();
-                    text.append(tags.size()).append(" tag(s):\n");
-                    for (Tag tag : tags) {
-                        int count = tagService.getNoteCountForTag(tag);
-                        summaries.add(Map.of("title", tag.getTitle(), "noteCount", count));
-                        text.append("- #").append(tag.getTitle()).append(" (").append(count).append(")\n");
+                    String id = requiredArgument(request.arguments(), "id");
+                    String title = requiredArgument(request.arguments(), "title");
+                    if (id == null || title == null) {
+                        return errorResult("Both 'id' and 'title' are required.");
+                    }
+                    Optional<Note> found = noteService.getNoteById(id);
+                    if (found.isEmpty()) {
+                        return errorResult("No note found for id '" + id + "'.");
+                    }
+                    Note note = found.get();
+                    CallToolResult refusal = refusePrivate(note, "renamed");
+                    if (refusal != null) {
+                        return refusal;
+                    }
+                    // Same path the desktop UI takes: set the title and save. The DAO renames
+                    // the file and the note comes back carrying its new id.
+                    note.setTitle(title);
+                    try {
+                        noteService.updateNote(note);
+                    } catch (RuntimeException e) {
+                        return errorResult("Could not rename the note: " + e.getMessage());
                     }
                     return CallToolResult.builder()
-                            .addTextContent(text.toString())
-                            .structuredContent(Map.of("tags", summaries))
+                            .addTextContent("Renamed to '" + displayTitle(note) + "' (new id: " + note.getId() + ")")
+                            .structuredContent(noteSummary(note))
                             .build();
                 })
                 .build();
     }
 
-    // ── Shared helpers ───────────────────────────────────────────────────────
+    // ── move_note ────────────────────────────────────────────────────────────
 
-    private static Map<String, Object> noteSummary(Note note) {
-        Map<String, Object> summary = new LinkedHashMap<>();
-        summary.put("id", note.getId());
-        summary.put("title", displayTitle(note));
-        summary.put("tags", note.getTags().stream().map(Tag::getTitle).toList());
-        summary.put("favorite", note.isFavorite());
-        summary.put("pinned", note.isPinned());
-        summary.put("created", note.getCreatedDate());
-        summary.put("modified", note.getModifiedDate());
-        return summary;
+    private static SyncToolSpecification moveNote(NoteService noteService, FolderService folderService) {
+        Map<String, Object> schema = objectSchema(Map.of(
+                "id", stringProperty("Note id, as returned by list_notes or search_notes."),
+                "folderId", stringProperty("Destination folder id from list_folders. "
+                        + "Omit it, or pass an empty string, to move the note to the vault root.")),
+                "id");
+        Tool tool = Tool.builder("move_note", schema)
+                .description("Moves a note into a folder, or to the vault root. The id changes with the "
+                        + "location, because a note's id is its path in the vault — use the id returned "
+                        + "here for any further calls.")
+                .annotations(writes(false, true))
+                .build();
+
+        return SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> {
+                    String id = requiredArgument(request.arguments(), "id");
+                    if (id == null) {
+                        return errorResult("The 'id' argument is required.");
+                    }
+                    Optional<Note> found = noteService.getNoteById(id);
+                    if (found.isEmpty()) {
+                        return errorResult("No note found for id '" + id + "'.");
+                    }
+                    Note note = found.get();
+                    CallToolResult refusal = refusePrivate(note, "moved");
+                    if (refusal != null) {
+                        return refusal;
+                    }
+
+                    // An absent or blank folderId means the vault root, which the service
+                    // expresses as a null destination.
+                    String folderId = requiredArgument(request.arguments(), "folderId");
+                    Folder destination = null;
+                    if (folderId != null) {
+                        Optional<Folder> target = folderService.getFolderById(folderId);
+                        if (target.isEmpty()) {
+                            return errorResult("No folder found for id '" + folderId + "'.");
+                        }
+                        destination = target.get();
+                    }
+                    try {
+                        folderService.moveNoteToFolder(note, destination);
+                    } catch (RuntimeException e) {
+                        return errorResult("Could not move the note: " + e.getMessage());
+                    }
+                    String where = destination != null ? "'" + destination.getTitle() + "'" : "the vault root";
+                    return CallToolResult.builder()
+                            .addTextContent("Moved '" + displayTitle(note) + "' to " + where
+                                    + " (new id: " + note.getId() + ")")
+                            .structuredContent(noteSummary(note))
+                            .build();
+                })
+                .build();
     }
 
-    private static String displayTitle(Note note) {
-        String title = note.getTitle();
-        return title != null && !title.isBlank() ? title : "Untitled";
+    // ── delete_note ──────────────────────────────────────────────────────────
+
+    private static SyncToolSpecification deleteNote(NoteService noteService) {
+        Map<String, Object> schema = objectSchema(Map.of(
+                "id", stringProperty("Note id, as returned by list_notes or search_notes.")),
+                "id");
+        Tool tool = Tool.builder("delete_note", schema)
+                .description("Moves a note to the trash. It is recoverable: list_trash shows it and "
+                        + "restore_note brings it back. Permanent deletion is not available over MCP.")
+                .annotations(writes(true, true))
+                .build();
+
+        return SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> {
+                    String id = requiredArgument(request.arguments(), "id");
+                    if (id == null) {
+                        return errorResult("The 'id' argument is required.");
+                    }
+                    Optional<Note> found = noteService.getNoteById(id);
+                    if (found.isEmpty()) {
+                        return errorResult("No note found for id '" + id + "'.");
+                    }
+                    Note note = found.get();
+                    CallToolResult refusal = refusePrivate(note, "deleted");
+                    if (refusal != null) {
+                        return refusal;
+                    }
+                    try {
+                        noteService.moveToTrash(id);
+                    } catch (RuntimeException e) {
+                        return errorResult("Could not delete the note: " + e.getMessage());
+                    }
+                    return CallToolResult.builder()
+                            .addTextContent("Moved '" + displayTitle(note) + "' to the trash. "
+                                    + "Use restore_note with id '" + id + "' to undo this.")
+                            .structuredContent(Map.of("id", id, "title", displayTitle(note), "trashed", true))
+                            .build();
+                })
+                .build();
     }
 
-    private static String safe(String value) {
-        return value != null ? value : "";
+    // ── restore_note ─────────────────────────────────────────────────────────
+
+    private static SyncToolSpecification restoreNote(NoteService noteService) {
+        Map<String, Object> schema = objectSchema(Map.of(
+                "id", stringProperty("Note id, as returned by list_trash.")),
+                "id");
+        Tool tool = Tool.builder("restore_note", schema)
+                .description("Restores a note from the trash back into the vault.")
+                .annotations(writes(false, true))
+                .build();
+
+        return SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> {
+                    String id = requiredArgument(request.arguments(), "id");
+                    if (id == null) {
+                        return errorResult("The 'id' argument is required.");
+                    }
+                    // The service restores by id and simply does nothing when it does not
+                    // match anything in the trash, so without this check the tool would
+                    // cheerfully report a restore that never happened. A trashed note's id
+                    // is its path under .trash, not the path it had before deletion.
+                    Optional<Note> trashed = noteService.getTrashNotes().stream()
+                            .filter(note -> id.equals(note.getId()))
+                            .findFirst();
+                    if (trashed.isEmpty()) {
+                        return errorResult("No note with id '" + id + "' is in the trash. "
+                                + "Use list_trash to get the id to restore.");
+                    }
+                    try {
+                        noteService.restoreNote(id);
+                    } catch (RuntimeException e) {
+                        return errorResult("Could not restore the note: " + e.getMessage());
+                    }
+                    return CallToolResult.builder()
+                            .addTextContent("Restored '" + displayTitle(trashed.get()) + "' from the trash.")
+                            .structuredContent(Map.of("id", id, "restored", true))
+                            .build();
+                })
+                .build();
     }
 
-    private static CallToolResult errorResult(String message) {
-        return CallToolResult.builder().isError(true).addTextContent(message).build();
-    }
+    // ── list_trash ───────────────────────────────────────────────────────────
 
-    private static String stringArgument(Map<String, Object> arguments, String key) {
-        if (arguments == null) {
-            return null;
-        }
-        Object value = arguments.get(key);
-        return value != null ? value.toString() : null;
-    }
+    private static SyncToolSpecification listTrash(NoteService noteService) {
+        Tool tool = Tool.builder("list_trash", objectSchema(Map.of()))
+                .description("Lists the notes currently in the trash, each restorable with restore_note.")
+                .annotations(readOnly())
+                .build();
 
-    private static int intArgument(Map<String, Object> arguments, String key, int fallback) {
-        if (arguments == null) {
-            return fallback;
-        }
-        Object value = arguments.get(key);
-        if (value instanceof Number number) {
-            return number.intValue();
-        }
-        if (value instanceof String text) {
-            try {
-                return Integer.parseInt(text.trim());
-            } catch (NumberFormatException ignored) {
-                return fallback;
-            }
-        }
-        return fallback;
-    }
-
-    // ── JSON Schema builders ─────────────────────────────────────────────────
-
-    private static Map<String, Object> stringProperty(String description) {
-        return Map.of("type", "string", "description", description);
-    }
-
-    private static Map<String, Object> integerProperty(String description) {
-        return Map.of("type", "integer", "description", description);
-    }
-
-    private static Map<String, Object> objectSchema(Map<String, Object> properties, String... required) {
-        Map<String, Object> schema = new LinkedHashMap<>();
-        schema.put("type", "object");
-        schema.put("properties", properties);
-        if (required.length > 0) {
-            schema.put("required", List.of(required));
-        }
-        return schema;
+        return SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> {
+                    List<Note> trashed = noteService.getTrashNotes();
+                    List<Object> summaries = new ArrayList<>(trashed.size());
+                    StringBuilder text = new StringBuilder();
+                    text.append(trashed.size()).append(" note(s) in the trash:\n");
+                    for (Note note : trashed) {
+                        summaries.add(noteSummary(note));
+                        text.append("- ").append(displayTitle(note)).append(" (id: ").append(note.getId())
+                                .append(")\n");
+                    }
+                    return CallToolResult.builder()
+                            .addTextContent(text.toString())
+                            .structuredContent(Map.of("notes", summaries, "total", trashed.size()))
+                            .build();
+                })
+                .build();
     }
 }

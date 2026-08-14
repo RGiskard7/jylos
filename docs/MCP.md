@@ -52,11 +52,68 @@ server is plain loopback HTTP, not HTTPS:
 macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`. Windows:
 `%APPDATA%\Claude\claude_desktop_config.json`. Restart Claude Desktop after editing.
 
+### opencode
+
+`opencode.json`, `"remote"` type, straight to the URL — no bridge:
+
+```json
+{
+  "mcp": {
+    "jylos": {
+      "type": "remote",
+      "url": "http://127.0.0.1:8843/mcp",
+      "enabled": true
+    }
+  }
+}
+```
+
+### Codex CLI
+
+`config.toml`, `url` field under `[mcp_servers.jylos]` — no bridge:
+
+```toml
+[mcp_servers.jylos]
+url = "http://127.0.0.1:8843/mcp"
+```
+
+### Cursor
+
+`.cursor/mcp.json`, `url` field — no bridge:
+
+```json
+{
+  "mcpServers": {
+    "jylos": {
+      "url": "http://127.0.0.1:8843/mcp"
+    }
+  }
+}
+```
+
+### VS Code
+
+`.vscode/mcp.json`, top-level key is `servers` (not `mcpServers`), `"type": "http"` — no
+bridge:
+
+```json
+{
+  "servers": {
+    "jylos": {
+      "type": "http",
+      "url": "http://127.0.0.1:8843/mcp"
+    }
+  }
+}
+```
+
 ### Other Streamable-HTTP clients
 
 Any client with native Streamable HTTP support (not stdio-only) can be pointed directly
-at the URL, the same way Claude Code is — check that client's own docs for its exact
-config field name.
+at the URL, the same way the clients above are — check that client's own docs for its
+exact config field name. There is no standard client-side config format across MCP
+clients; only the wire protocol is standardized, so each vendor invented its own file and
+field names. A stdio-only client needs the `mcp-remote` bridge shown for Claude Desktop.
 
 ## Why a plugin, and why HTTP
 
@@ -73,13 +130,36 @@ writing HTTP/SSE session handling by hand. See `plugins-source/.../mcp/lib/` and
 [PLUGINS.md](PLUGINS.md#third-party-dependencies) for how a plugin bundles a real SDK
 instead of reimplementing an external, evolving protocol from scratch.
 
-## Binding
+## Binding and request validation
 
 Loopback only (`127.0.0.1`), never the wildcard address. This is a local integration
 point for tools running on the same machine, not a service meant to be reachable from
 the network.
 
+Loopback binding alone is **not** enough, and the spec says so — it makes `Origin`
+validation a MUST. A web page the user is merely visiting can reach a local server
+through DNS rebinding: the browser then treats `127.0.0.1` as same-origin with the
+attacker's site, so there is no preflight and the response is readable. The server
+therefore also:
+
+- **Rejects any request carrying an `Origin` header** with `403`. A browser always sends
+  one on a cross-origin request; native clients (Claude Desktop, Claude Code,
+  `mcp-remote`) send none, so they are unaffected.
+- **Pins the `Host` header** to the loopback names it is actually reachable at, so a
+  rebound `Host: attacker.example` gets `421`.
+
+Both are handled by the SDK's own `DefaultServerTransportSecurityValidator` rather than a
+hand-written check. One consequence: `-Djylos.mcp.port=0` ("any free port") is refused and
+falls back to the default, because the allowed-`Host` list has to be built before the
+connector binds.
+
 ## Tools
+
+Every tool carries the protocol's `readOnlyHint` / `destructiveHint` / `idempotentHint`
+annotations, so a client can tell what a tool does — and ask for confirmation — before
+calling it.
+
+**Notes**
 
 | Tool | Does |
 |------|------|
@@ -88,18 +168,48 @@ the network.
 | `read_note` | Full content and metadata by id or exact title |
 | `create_note` | Creates a note at the vault root |
 | `update_note` | Replaces a note's content (title and metadata untouched) |
+| `rename_note` | Renames a note — **returns a new id** |
+| `move_note` | Moves a note into a folder, or to the root — **returns a new id** |
+| `delete_note` | Moves a note to the trash (recoverable) |
+| `restore_note` | Restores a note from the trash, by its `list_trash` id |
+| `list_trash` | Lists trashed notes, each restorable |
+
+**Folders**
+
+| Tool | Does |
+|------|------|
+| `list_folders` | Every folder with its id, name and note count |
+| `create_folder` | Creates a folder, at the root or inside another |
+| `delete_folder` | Deletes a folder; its notes move to the root rather than being deleted |
+
+**Tags**
+
+| Tool | Does |
+|------|------|
 | `list_tags` | Every tag with its note count, most used first |
+| `add_tag` | Adds a tag to a note, creating the tag if new |
+| `remove_tag` | Removes a tag from one note |
+| `rename_tag` | Renames a tag across the whole vault |
+
+A note's id is its path inside the vault, so `rename_note` and `move_note` change it.
+Both return the new id — use it for any further call, or the next one will not resolve.
 
 A private note's content is never returned or editable over MCP, even if it happens to
-be unlocked in the desktop app's current session.
+be unlocked in the desktop app's current session. That covers every route: reading,
+searching, editing, renaming, moving, tagging and deleting all refuse it.
 
 ### Deliberately not exposed
 
-**No delete, no trash.** An MCP client is a different trust boundary from the desktop
-UI's own confirmation dialogs — handing an external AI agent the ability to destroy vault
-content is not a risk worth taking before this server has any real track record. Widening
-the tool set later is a much smaller step than walking back a destructive tool that
-shipped too early.
+**Nothing irreversible.** Deleting is available, but only the recoverable kind: a deleted
+note goes to the trash and comes back with `restore_note`, and a deleted folder keeps its
+notes by moving them to the root. `permanently_delete_note`, `empty_trash` and
+`permanently_delete_folder` have no tools. An MCP client is a different trust boundary
+from the desktop UI's confirmation dialogs, so every destructive call an agent can make
+here is one the user can undo from the app.
+
+**No folder rename or move, no tag delete.** Each reshapes the vault around notes the
+agent was not asked about. A note can already be relocated one at a time with
+`move_note`, and a tag taken off one note with `remove_tag`.
 
 **No Dataview query tool.** Plugins cannot call into one another — each only receives the
 `PluginContext` the host gives it, with no registry of other plugins' capabilities.
