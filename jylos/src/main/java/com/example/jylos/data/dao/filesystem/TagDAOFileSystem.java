@@ -44,7 +44,19 @@ public class TagDAOFileSystem implements TagDAO {
         Set<Tag> tags = new HashSet<>();
         List<Note> notes = noteDAO.fetchAllNotes();
         for (Note note : notes) {
-            tags.addAll(note.getTags());
+            for (Tag tag : note.getTags()) {
+                // A tag parsed off a note (frontmatter or an inline #tag) carries no id —
+                // `new Tag(title)` leaves it null. In this vault the id *is* the title, as
+                // createTag and getTagById above both already assume, so fill it in here
+                // too. Without it, everything keyed on the id silently fails on a tag that
+                // was only ever typed into a note: updateTag returns early (making rename a
+                // no-op) and TagService.updateTag rejects it outright.
+                if (tag.getId() == null || tag.getId().isBlank()) {
+                    tags.add(new Tag(tag.getTitle(), tag.getTitle()));
+                } else {
+                    tags.add(tag);
+                }
+            }
         }
         return new ArrayList<>(tags);
     }

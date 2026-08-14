@@ -53,11 +53,69 @@ Hace falta un puente con [`mcp-remote`](https://github.com/geelen/mcp-remote), p
 macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`. Windows:
 `%APPDATA%\Claude\claude_desktop_config.json`. Reinicia Claude Desktop tras editar.
 
+### opencode
+
+`opencode.json`, tipo `"remote"`, directo a la URL — sin puente:
+
+```json
+{
+  "mcp": {
+    "jylos": {
+      "type": "remote",
+      "url": "http://127.0.0.1:8843/mcp",
+      "enabled": true
+    }
+  }
+}
+```
+
+### Codex CLI
+
+`config.toml`, campo `url` bajo `[mcp_servers.jylos]` — sin puente:
+
+```toml
+[mcp_servers.jylos]
+url = "http://127.0.0.1:8843/mcp"
+```
+
+### Cursor
+
+`.cursor/mcp.json`, campo `url` — sin puente:
+
+```json
+{
+  "mcpServers": {
+    "jylos": {
+      "url": "http://127.0.0.1:8843/mcp"
+    }
+  }
+}
+```
+
+### VS Code
+
+`.vscode/mcp.json`, la clave de nivel superior es `servers` (no `mcpServers`),
+`"type": "http"` — sin puente:
+
+```json
+{
+  "servers": {
+    "jylos": {
+      "type": "http",
+      "url": "http://127.0.0.1:8843/mcp"
+    }
+  }
+}
+```
+
 ### Otros clientes Streamable HTTP
 
 Cualquier cliente con soporte nativo de Streamable HTTP (no solo stdio) puede apuntarse
-directo a la URL, igual que Claude Code — revisa la documentación de ese cliente para el
-nombre exacto de su campo de configuración.
+directo a la URL, igual que los de arriba — revisa la documentación de ese cliente para
+el nombre exacto de su campo de configuración. No existe un formato estándar de
+configuración de cliente entre clientes MCP; solo el protocolo de cable está
+estandarizado, así que cada fabricante inventó su propio fichero y nombres de campo. Un
+cliente solo-stdio necesita el puente `mcp-remote` que se muestra para Claude Desktop.
 
 ## Por qué plugin, y por qué HTTP
 
@@ -75,13 +133,36 @@ de sesiones HTTP/SSE. Ver `plugins-source/.../mcp/lib/` y
 [PLUGINS.md](PLUGINS.md#dependencias-de-terceros) para cómo un plugin empaqueta un SDK
 real en vez de reimplementar desde cero un protocolo externo y en evolución.
 
-## Vinculación
+## Vinculación y validación de peticiones
 
 Solo loopback (`127.0.0.1`), nunca la dirección comodín. Es un punto de integración
 local para herramientas que corren en la misma máquina, no un servicio pensado para ser
 alcanzable desde la red.
 
+Escuchar solo en loopback **no** basta, y la especificación lo dice: marca la validación
+de `Origin` como MUST. Una página web que el usuario simplemente esté visitando puede
+alcanzar un servidor local mediante DNS rebinding — el navegador pasa a tratar
+`127.0.0.1` como mismo origen que el sitio atacante, así que no hay preflight y la
+respuesta es legible. Por eso el servidor además:
+
+- **Rechaza con `403` cualquier petición que lleve cabecera `Origin`.** Un navegador
+  siempre la envía en una petición cross-origin; los clientes nativos (Claude Desktop,
+  Claude Code, `mcp-remote`) no envían ninguna, así que no les afecta.
+- **Fija la cabecera `Host`** a las direcciones de loopback por las que realmente se le
+  puede alcanzar, de modo que un `Host: attacker.example` reescrito recibe `421`.
+
+De ambas cosas se encarga el propio `DefaultServerTransportSecurityValidator` del SDK, no
+una comprobación escrita a mano. Una consecuencia: `-Djylos.mcp.port=0` ("cualquier puerto
+libre") se rechaza y cae al puerto por defecto, porque la lista de `Host` permitidos debe
+construirse antes de que el conector abra el puerto.
+
 ## Herramientas
+
+Cada herramienta lleva las anotaciones del protocolo (`readOnlyHint`, `destructiveHint`,
+`idempotentHint`), así que un cliente sabe qué hace —y puede pedir confirmación— antes de
+llamarla.
+
+**Notas**
 
 | Herramienta | Hace |
 |-------------|------|
@@ -90,19 +171,50 @@ alcanzable desde la red.
 | `read_note` | Contenido completo y metadatos por id o título exacto |
 | `create_note` | Crea una nota en la raíz de la bóveda |
 | `update_note` | Reemplaza el contenido de una nota (título y metadatos intactos) |
+| `rename_note` | Renombra una nota — **devuelve un id nuevo** |
+| `move_note` | Mueve una nota a una carpeta, o a la raíz — **devuelve un id nuevo** |
+| `delete_note` | Manda una nota a la papelera (recuperable) |
+| `restore_note` | Restaura una nota de la papelera, por su id de `list_trash` |
+| `list_trash` | Lista las notas en la papelera, todas restaurables |
+
+**Carpetas**
+
+| Herramienta | Hace |
+|-------------|------|
+| `list_folders` | Todas las carpetas con su id, nombre y número de notas |
+| `create_folder` | Crea una carpeta, en la raíz o dentro de otra |
+| `delete_folder` | Borra una carpeta; sus notas pasan a la raíz en vez de borrarse |
+
+**Etiquetas**
+
+| Herramienta | Hace |
+|-------------|------|
 | `list_tags` | Todas las etiquetas con su número de notas, más usadas primero |
+| `add_tag` | Añade una etiqueta a una nota, creándola si no existía |
+| `remove_tag` | Quita una etiqueta de una nota |
+| `rename_tag` | Renombra una etiqueta en toda la bóveda |
+
+El id de una nota es su ruta dentro de la bóveda, así que `rename_note` y `move_note` lo
+cambian. Ambas devuelven el id nuevo — úsalo en las llamadas siguientes o dejarán de
+resolver.
 
 El contenido de una nota privada nunca se devuelve ni es editable vía MCP, aunque esté
-desbloqueada en la sesión actual de la app de escritorio.
+desbloqueada en la sesión actual de la app de escritorio. Eso cubre todas las vías: leer,
+buscar, editar, renombrar, mover, etiquetar y borrar la rechazan por igual.
 
 ### Deliberadamente no expuesto
 
-**Sin borrar, sin papelera.** Un cliente MCP es una frontera de confianza distinta de
-los diálogos de confirmación de la propia UI de escritorio — dar a un agente de IA
-externo la capacidad de destruir contenido de la bóveda no es un riesgo que merezca la
-pena antes de que este servidor tenga algún historial real de uso. Ampliar el conjunto
-de herramientas después es un paso mucho más pequeño que dar marcha atrás en una
-herramienta destructiva que salió demasiado pronto.
+**Nada irreversible.** Borrar sí está disponible, pero solo del tipo recuperable: una nota
+borrada va a la papelera y vuelve con `restore_note`, y una carpeta borrada conserva sus
+notas moviéndolas a la raíz. `permanently_delete_note`, `empty_trash` y
+`permanently_delete_folder` no tienen herramienta. Un cliente MCP es una frontera de
+confianza distinta de los diálogos de confirmación de la UI de escritorio, así que toda
+llamada destructiva que un agente pueda hacer aquí es una que el usuario puede deshacer
+desde la aplicación.
+
+**Sin renombrar ni mover carpetas, sin borrar etiquetas.** Cada una reordena la bóveda
+alrededor de notas por las que no se preguntó al agente. Una nota ya se puede reubicar de
+una en una con `move_note`, y una etiqueta quitarse de una nota con `remove_tag`.
 
 **Sin herramienta de consulta Dataview.** Los plugins no pueden llamarse entre sí — cada
 uno solo recibe el `PluginContext` que le da la aplicación, sin ningún registro de las

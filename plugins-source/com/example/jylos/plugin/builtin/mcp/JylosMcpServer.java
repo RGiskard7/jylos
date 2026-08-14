@@ -1,5 +1,7 @@
 package com.example.jylos.plugin.builtin.mcp;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -13,7 +15,9 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 
 import io.modelcontextprotocol.server.McpServer;
+import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
 import io.modelcontextprotocol.server.McpSyncServer;
+import io.modelcontextprotocol.server.transport.DefaultServerTransportSecurityValidator;
 import io.modelcontextprotocol.server.transport.HttpServletStreamableServerTransportProvider;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpStreamableServerTransportProvider;
@@ -83,14 +87,17 @@ final class JylosMcpServer {
             McpStreamableServerTransportProvider transportProvider = HttpServletStreamableServerTransportProvider
                     .builder()
                     .mcpEndpoint(MCP_ENDPOINT)
+                    .securityValidator(localhostSecurityValidator(port))
                     .build();
 
             mcpServer = McpServer.sync(transportProvider)
                     .serverInfo("jylos", pluginVersion())
-                    .instructions("Local Jylos vault: notes, full-text search and tags. "
-                            + "Destructive operations (delete, trash) are intentionally not exposed.")
+                    .instructions("Local Jylos vault: notes, folders, tags and full-text search. "
+                            + "Deleting a note or a folder moves it to the trash and is undoable "
+                            + "(list_trash, restore_note); nothing here removes content permanently. "
+                            + "Private (encrypted) notes are never readable or editable through these tools.")
                     .capabilities(McpSchema.ServerCapabilities.builder().tools(true).build())
-                    .tools(NoteTools.build(noteService, folderService, tagService))
+                    .tools(allTools())
                     .build();
 
             Server server = new Server();
@@ -155,11 +162,60 @@ final class JylosMcpServer {
         return isRunning() ? "http://127.0.0.1:" + boundPort + MCP_ENDPOINT : null;
     }
 
+    /** Every tool this server exposes, grouped by the part of the vault it works on. */
+    private List<SyncToolSpecification> allTools() {
+        List<SyncToolSpecification> tools = new ArrayList<>();
+        tools.addAll(NoteTools.build(noteService, folderService));
+        tools.addAll(FolderTools.build(folderService));
+        tools.addAll(TagTools.build(noteService, tagService));
+        return tools;
+    }
+
+    /**
+     * Rejects requests that a browser could originate, which loopback binding alone does
+     * not stop. The MCP Streamable HTTP spec makes this a MUST: without it, a page the
+     * user is merely visiting can reach this server through DNS rebinding — the browser
+     * then treats {@code 127.0.0.1} as same-origin with the attacker's site, so there is
+     * no preflight and the response is readable.
+     *
+     * <p>The SDK's own validator is used rather than a hand-written check. Its semantics
+     * are exactly what a local server wants:</p>
+     * <ul>
+     *   <li><b>Origin</b>: a request without the header passes untouched (native clients
+     *       like Claude Code and {@code mcp-remote} send none), while any request that
+     *       <em>does</em> carry one is rejected with 403, because the allowed-origins list
+     *       is left empty. A browser always sends {@code Origin} cross-origin, so this is
+     *       precisely the boundary we want — leaving the list empty is the configuration,
+     *       not an omission.</li>
+     *   <li><b>Host</b>: pinned to the loopback names this server is actually reachable
+     *       at, so a rebound {@code Host: attacker.example} is rejected with 421.</li>
+     * </ul>
+     */
+    private static DefaultServerTransportSecurityValidator localhostSecurityValidator(int port) {
+        return DefaultServerTransportSecurityValidator.builder()
+                .allowedHost("127.0.0.1:" + port)
+                .allowedHost("localhost:" + port)
+                .allowedHost("[::1]:" + port)
+                .build();
+    }
+
+    /**
+     * Resolves the listening port. Port 0 ("pick any free port") is deliberately refused:
+     * the Host allow-list above has to be built before the connector binds, so an
+     * unpredictable port would produce a server that rejects every request to itself.
+     */
     private static int resolvePort() {
         String configured = System.getProperty(PORT_PROPERTY);
         if (configured != null && !configured.isBlank()) {
             try {
-                return Integer.parseInt(configured.trim());
+                int parsed = Integer.parseInt(configured.trim());
+                if (parsed <= 0) {
+                    logger.warning("-D" + PORT_PROPERTY + "=" + parsed
+                            + " is not supported (the port must be known before binding so the Host"
+                            + " allow-list can be built); using default " + DEFAULT_PORT);
+                    return DEFAULT_PORT;
+                }
+                return parsed;
             } catch (NumberFormatException ignored) {
                 logger.warning("Invalid -D" + PORT_PROPERTY + "='" + configured + "', using default " + DEFAULT_PORT);
             }

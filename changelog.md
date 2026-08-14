@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [2.5.2] - 2026-08-14
+
+- El servidor MCP expone ahora el conjunto completo de operaciones sobre la bóveda, no solo lectura y dos escrituras: renombrar y mover notas, borrarlas y restaurarlas, listar la papelera, crear y borrar carpetas, y añadir, quitar y renombrar etiquetas. Borrar siempre significa la papelera, igual que el borrado por defecto de Obsidian: nada de lo que un cliente MCP puede hacer es irreversible, y `permanently_delete_note`, `empty_trash` y `permanently_delete_folder` siguen sin herramienta. Las notas privadas se rechazan por todas las vías, no solo al leerlas y editarlas.
+
+- Corrige que renombrar una etiqueta fuera imposible en una bóveda de ficheros. Una etiqueta que solo existía dentro de las notas volvía del catálogo sin id, porque el lector de frontmatter las construye solo con el título; como toda la escritura va indexada por ese id, el renombrado no hacía nada o fallaba con "Tag or tag ID cannot be null". En una bóveda el id de una etiqueta *es* su título, que es lo que ya asumían `createTag` y `getTagById` en ese mismo DAO — solo `fetchAllTags` no lo hacía.
+
+- El servidor MCP valida ahora la cabecera `Origin` de cada petición, como exige la especificación de Streamable HTTP, y fija además el `Host` a las direcciones de loopback por las que realmente se le puede alcanzar. Escuchar solo en loopback no bastaba: mediante DNS rebinding, una página web que el usuario simplemente estuviera visitando podía llegar al servidor local y usar sus herramientas —incluida la escritura de notas— porque el navegador trataba `127.0.0.1` como mismo origen que el sitio atacante. Un cliente normal (Claude Desktop, Claude Code, cualquier cliente nativo) no envía `Origin`, así que ninguno se ve afectado.
+
+- Las herramientas del servidor MCP declaran ahora sus anotaciones de protocolo (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), de modo que un cliente sabe qué hace cada herramienta antes de llamarla y puede, por ejemplo, pedir confirmación para las que modifican la bóveda.
+
+- `-Djylos.mcp.port=0` deja de aceptarse y cae al puerto por defecto avisando en el log: la lista de `Host` permitidos se construye antes de abrir el puerto, así que un puerto elegido al azar producía un servidor que se rechazaba a sí mismo todas las peticiones.
+
 ## [2.5.1] - 2026-08-11
 
 - Nuevo punto de extensión `PluginContext.registerEditorBlockRenderer(...)`: un plugin puede reclamar un lenguaje de bloque cercado y mostrarlo como HTML generado dentro del editor. Los resultados se calculan en un hilo de fondo y se empujan al editor en vez de que este los pida, porque el JavaScript de un `WebView` se ejecuta en el hilo de la interfaz y una llamada de vuelta durante el scroll pondría ahí el trabajo del plugin.
