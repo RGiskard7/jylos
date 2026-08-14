@@ -45,9 +45,10 @@ public class PluginContext {
     private final EditorBlockRendererRegistry editorBlockRendererRegistry;
     private final Consumer<Note> noteOpenAction;
     private final List<String> registeredCommandIds = new ArrayList<>();
-    // Copy-on-write, unlike registeredCommandIds: a plugin may subscribe from a background
-    // thread (the MCP server plugin serves requests off its own HTTP threads), and this
-    // list is walked during teardown while that could still be happening.
+    // Copy-on-write, unlike registeredCommandIds. Plugins today subscribe from initialize()
+    // on the FX thread, but nothing in the API says they must, and a plugin that owns
+    // background threads (the MCP server plugin runs an HTTP server on its own) could
+    // subscribe from one while teardown is walking this list.
     private final List<EventBus.Subscription> registeredSubscriptions = new CopyOnWriteArrayList<>();
 
     /**

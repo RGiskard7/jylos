@@ -202,6 +202,19 @@ public class NoteService {
             logger.warning("Skipping save of private note while locked: " + note.getTitle());
             return;
         }
+        // The lock placeholder is a display value, never a body. A note taken from a list
+        // carries it instead of its real content (see scrubEncryptedForList), and saving
+        // that note — favouriting it from the notes list is enough — would write the
+        // placeholder over the body. With the session unlocked the guard above does not
+        // catch it, because the placeholder does get encrypted, so the real text is simply
+        // lost. Restore the stored body and let the caller's metadata change go through.
+        // Narrowed to private notes: the placeholder only ever stands in for an encrypted
+        // body, so a public note whose text happens to be just that emoji still saves as
+        // the user typed it.
+        if (note.isPrivate() && LOCKED_PLACEHOLDER.equals(note.getContent()) && !restoreStoredBody(note)) {
+            logger.warning("Skipping save: could not recover the stored body of " + note.getId());
+            return;
+        }
         // Version history: capture the previously *stored* content (raw from the DAO,
         // i.e. ciphertext for private notes — history must never leak plaintext).
         if (snapshotHistory && historyService != null && shouldSnapshotHistory(note)) {
@@ -228,6 +241,28 @@ public class NoteService {
             }
         }
         logger.info("Updated note: " + note.getTitle());
+    }
+
+    /**
+     * Puts the persisted body back on a note that is carrying the lock placeholder, so a
+     * metadata-only change (favourite, pinned, folder) can be saved without touching the
+     * content.
+     *
+     * @return {@code false} when the stored body cannot be read, in which case the caller
+     *         must not save at all rather than risk writing the placeholder
+     */
+    private boolean restoreStoredBody(Note note) {
+        try {
+            Note stored = noteDAO.getNoteById(note.getId());
+            if (stored == null || stored.getContent() == null) {
+                return false;
+            }
+            note.setContent(stored.getContent());
+            return true;
+        } catch (RuntimeException e) {
+            logger.warning("Could not reload the stored body of " + note.getId() + ": " + e.getMessage());
+            return false;
+        }
     }
 
     private boolean shouldSnapshotHistory(Note note) {
@@ -385,8 +420,15 @@ public class NoteService {
 
     /**
      * Replaces encrypted bodies with the lock placeholder for any list of notes, so list
-     * previews (all-notes, folder, tag, search) never expose ciphertext. These are fresh
-     * list copies from the DAO, so the change is display-only and never persisted.
+     * previews (all-notes, folder, tag, search) never expose ciphertext.
+     *
+     * <p><b>This mutates the notes, not copies of them.</b> The list is a fresh list, but
+     * a filesystem vault hands out its own cached {@link Note} instances, so the
+     * placeholder lands in the DAO cache and every later reader sees it. That is harmless
+     * for display and is in fact what we want — nothing should be showing ciphertext — but
+     * it means a note taken from a list is not safe to save as-is. {@code persistNote}
+     * is where that is enforced: it refuses to write the placeholder and reloads the
+     * stored body first.</p>
      */
     private List<Note> scrubEncryptedForList(List<Note> notes) {
         if (notes == null) {

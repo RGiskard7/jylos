@@ -88,6 +88,11 @@ class NotesGridVirtualizationTest {
         // The real assertion: cells are materialised lazily, so the number of card
         // subtrees alive is bounded by what fits on screen, not by the vault size.
         cardsBuilt.set(countCards(grid));
+        // Both bounds matter. Without the lower one this passes on a grid that draws
+        // nothing at all, which is the failure mode a "count stayed small" assertion is
+        // least able to notice.
+        assertTrue(cardsBuilt.get() > 0,
+                "the grid must actually draw cards, not just chunk rows");
         assertTrue(cardsBuilt.get() < NOTE_COUNT / 2,
                 "the grid should not build a card per note; built " + cardsBuilt.get() + " of " + NOTE_COUNT);
     }

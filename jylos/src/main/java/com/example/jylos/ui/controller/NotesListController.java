@@ -1433,7 +1433,10 @@ public class NotesListController {
         notesGridView.setStyle("-fx-background-color: transparent;");
         notesGridView.setFixedCellSize(GRID_ROW_HEIGHT);
         notesGridView.setFocusTraversable(false);
-        notesGridView.setSelectionModel(null); // rows are layout, not something to select
+        // The selection model is left alone on purpose: nulling it is a documented source
+        // of NPEs inside JavaFX's own list behaviour, and it buys nothing here — the row
+        // cell paints a transparent background inline, which already wins over the
+        // selected-row highlight.
         notesGridView.setCellFactory(view -> new GridRowCell());
 
         // The TilePane reflowed its columns as the panel resized; keep that. Re-chunking
@@ -1450,12 +1453,18 @@ public class NotesListController {
         }
     }
 
-    /** How many cards fit across {@code width}, at least one. */
+    /**
+     * How many cards fit across {@code width}, at least one. Subtracts the row's own left
+     * and right padding first: counting on the full width overfills the row at just over
+     * a multiple of the card pitch (768px gave four cards needing 780px) and clips the
+     * last card.
+     */
     private static int columnsFor(double width) {
-        double usable = width - GRID_GAP; // outer padding
+        double usable = width - (2 * GRID_GAP);
         if (usable <= 0) {
             return 1;
         }
+        // +GRID_GAP because n cards need only n-1 gaps between them.
         return Math.max(1, (int) ((usable + GRID_GAP) / (GRID_CARD_WIDTH + GRID_GAP)));
     }
 

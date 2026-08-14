@@ -44,6 +44,20 @@ class SearchCacheInvalidationGuardTest {
     }
 
     @Test
+    void theEvictionMethodActuallyEvicts() throws IOException {
+        String source = Files.readString(CONTROLLER, StandardCharsets.UTF_8);
+
+        int at = source.indexOf("private void markNotesListStale(");
+        assertTrue(at >= 0, "markNotesListStale should still exist");
+        String body = source.substring(at, Math.min(source.length(), at + 400));
+        // Checking the call sites alone is not enough: they would still name this method
+        // if its body stopped evicting, and the wiring assertions above would stay green
+        // while nothing was actually dropped from the cache.
+        assertTrue(body.contains("fullContentCache.remove"),
+                "markNotesListStale must drop the named notes from the content cache");
+    }
+
+    @Test
     void savingANoteAlsoForgetsTheBodyCachedUnderItsPreviousId() throws IOException {
         String source = Files.readString(CONTROLLER, StandardCharsets.UTF_8);
 

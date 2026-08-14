@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Corrige una pérdida de datos en notas privadas. Al listar notas, el cuerpo cifrado se sustituye por el candado para que ninguna vista muestre texto cifrado, pero en una bóveda de ficheros esa sustitución cae sobre la propia instancia cacheada, no sobre una copia. Bastaba con marcar como favorita una nota privada desde el panel de notas, con la sesión desbloqueada, para que se guardara el candado cifrado encima del contenido real y este se perdiera sin aviso. Ahora el guardado recupera el cuerpo almacenado antes de escribir, así que el cambio de metadatos se aplica y el contenido queda intacto; si no puede recuperarlo, no guarda nada.
+
 - La vista de cuadrícula de notas ya no construye una tarjeta por nota de la bóveda: pasa a virtualizarse, creando solo las filas visibles. Antes eran seis nodos por nota vivos en el escenario a la vez, tuvieran o no que dibujarse — con unos pocos miles de notas, decenas de miles de nodos que construir y maquetar. Las columnas siguen recalculándose al redimensionar el panel, igual que antes.
 
 - Editar una nota ya no invalida el contenido cacheado de todas las demás para la búsqueda de texto completo. Los eventos de guardado, creación y borrado saben de qué nota hablan, así que ahora solo se descarta esa; antes, cambiar una nota obligaba a la siguiente búsqueda a releer la bóveda entera de disco. Un guardado que renombra o mueve la nota descarta también la entrada de su id anterior, porque el id de una nota es su ruta.
