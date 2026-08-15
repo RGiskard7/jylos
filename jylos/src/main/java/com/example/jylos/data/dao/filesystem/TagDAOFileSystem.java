@@ -112,19 +112,19 @@ public class TagDAOFileSystem implements TagDAO {
         // Remove tag from all notes
         List<Note> notes = noteDAO.fetchAllNotes();
         for (Note note : notes) {
+            // note.getTags() is a snapshot copy, not the note's live tag set — removing
+            // from the note here does not shrink `tags`. A previous index-based loop with
+            // `i--` assumed it did, which left `i` stuck at the same index forever (size()
+            // never dropped): an infinite loop on any tag matched by title instead of id,
+            // which is the common case for a filesystem vault (inline #tags have no id).
             List<Tag> tags = note.getTags();
             boolean changed = false;
-            // Remove by ID or Title?
-            // Assuming ID matches for now
-            for (int i = 0; i < tags.size(); i++) {
-                if (tags.get(i).getId() != null && tags.get(i).getId().equals(id)) {
-                    note.removeTag(tags.get(i));
+            for (Tag tag : tags) {
+                boolean sameById = tag.getId() != null && tag.getId().equals(id);
+                boolean sameByTitle = tag.getTitle() != null && tag.getTitle().equals(id);
+                if (sameById || sameByTitle) {
+                    note.removeTag(tag);
                     changed = true;
-                    i--;
-                } else if (tags.get(i).getTitle() != null && tags.get(i).getTitle().equals(id)) { // Fallback if ID is title
-                    note.removeTag(tags.get(i));
-                    changed = true;
-                    i--;
                 }
             }
             if (changed) {

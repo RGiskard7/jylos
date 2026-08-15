@@ -2,6 +2,8 @@
 
 Guide for contributors and automated agents. Human overview: [README.md](README.md).
 
+<!-- OPENWIKI:START -->
+
 ## OpenWiki
 
 This repository has documentation located in the /openwiki directory.
@@ -12,6 +14,8 @@ Start here:
 OpenWiki includes repository overview, architecture notes, workflows, domain concepts, operations, integrations, testing guidance, and source maps.
 
 When working in this repository, read the OpenWiki quickstart first, then follow its links to the relevant architecture, workflow, domain, operation, and testing notes.
+
+<!-- OPENWIKI:END -->
 
 ## Project
 
@@ -103,3 +107,26 @@ Spanish counterpart in `docs/es/` in the same change, and keep language cross-li
 the top of both files. `README.md` must link English docs; `README.es.md` must link
 Spanish docs. Exception: `openwiki/`, `AGENTS.md`, and `CLAUDE.md` are managed by the
 OpenWiki workflow and do not need manual translation mirroring in `docs/es/`.
+
+## Tests
+
+- **Un test no vale hasta haberlo visto fallar.** Código nuevo: falla porque no existe la
+  implementación. Código existente: rompe el código a propósito, comprueba el rojo,
+  restaura. Al informar, incluye el mensaje de fallo real. Sin ese rojo, no afirmes que un
+  test protege nada.
+- **Nunca afirmes solo una cota superior.** `assertTrue(n < 300)` pasa con `n == 0`, es
+  decir, con la funcionalidad completamente rota. Acota por los dos lados y pregúntate qué
+  valores degenerados (0, vacío, null) satisfacen la aserción.
+- **Comprueba efectos observables, no llamadas.** Que se invocara un método no demuestra
+  que hiciera algo. Verifica el resultado: el fichero en disco, el valor devuelto, el
+  estado final.
+- **Los tests que leen el código fuente como texto no son cobertura.** Sirven para vigilar
+  invariantes de arquitectura, no para demostrar comportamiento. No los presentes como red
+  de seguridad.
+- **"Suite en verde" no es una garantía.** Al reportar, di qué has verificado y cómo. Si no
+  has roto el código para comprobarlo, dilo explícitamente.
+- **TDD solo para código nuevo.** Sobre código existente se hace caracterización: los tests
+  pasan en verde desde el primer run y el anti-fraude es el sabotaje posterior.
+
+Procedimiento y protocolo de sabotaje detallados: `docs/TESTING.md`.
+

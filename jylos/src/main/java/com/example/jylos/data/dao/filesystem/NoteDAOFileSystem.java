@@ -1028,6 +1028,11 @@ public class NoteDAOFileSystem implements NoteDAO {
         if (cachedNotes.isEmpty()) {
             refreshCache();
         }
+        // pruneStaleCacheEntriesIfNeeded existed but was never wired into any call site —
+        // the cache never self-healed when a file was deleted/moved outside the app (an
+        // external sync tool, another process). Rate-limited to once per PRUNE_INTERVAL_MS
+        // by design, so it is cheap to call on every read.
+        pruneStaleCacheEntriesIfNeeded();
         return new ArrayList<>(cachedNotes.values());
     }
 

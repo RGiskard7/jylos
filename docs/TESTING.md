@@ -18,6 +18,45 @@ Compile only:
 mvn -f jylos/pom.xml -DskipTests compile
 ```
 
+## Methodology: New vs Existing Code
+
+New code and existing (legacy) code call for different discipline.
+
+### New Code: TDD
+
+Write the test before the implementation. The initial failure is what proves
+the test can fail: write the test, run it, confirm it fails for the right
+reason (missing implementation, not a typo), then write the minimum code to
+make it pass.
+
+### Existing Code: Characterization
+
+Existing code doesn't get red-green-refactor — it gets characterized: pin down
+its current behaviour as a safety net before refactoring, without judging
+whether that behaviour is correct.
+
+1. Write the test. It should pass on the first run, because it describes
+   behaviour that already exists.
+2. Break the production code on purpose — the exact thing the test claims to
+   protect.
+3. Confirm the test fails, and that it fails with the expected message, not
+   just any failure.
+4. Restore the code.
+5. Confirm the test passes again.
+
+A test that has never been seen failing has not proven anything, no matter how
+green the suite looks. When reporting characterization work, say explicitly
+what you broke and what the failure message was — "the suite is green" is not
+evidence on its own.
+
+### Setting a Mutation Threshold
+
+After characterizing a module, decide whether it is worth adding to the
+mutation-testing gate (see [Mutation Testing](#mutation-testing) below).
+Measure the actual mutation score first, then set the threshold at, or just
+below, that measured number — never at an aspirational one, and never lower it
+later to make a PR pass.
+
 ## Test Types
 
 ### Unit Tests
@@ -99,6 +138,30 @@ Rules:
 - keep UI smoke tests small
 - do not try to fully automate visual QA in unit tests
 - use manual smoke checks for complex interactions such as Canvas editing and PDF scrolling
+
+## Mutation Testing
+
+Line coverage only proves a line ran, not that a test would notice if it broke.
+The highest-risk classes — the note/folder/tag DAOs on both the SQLite and
+filesystem backends, where a bug means silent data loss — are additionally
+checked with mutation testing: an automated pass injects small faults into the
+production code and confirms the suite actually fails for each one.
+
+CI enforces this as a gate (`.github/workflows/mutacion.yml`, PIT via
+`pitest-maven`) on those classes. The threshold only ever moves up as real
+coverage improves; it is never lowered to make a PR pass. Run it locally with:
+
+```bash
+mvn -f jylos/pom.xml org.pitest:pitest-maven:mutationCoverage \
+  -DtargetClasses=<fully.qualified.ClassName> \
+  -DtargetTests=com.example.jylos.tests.*
+```
+
+This complements, and does not replace, sabotage-verifying tests by hand when
+writing them: break the code on purpose, confirm the test goes red with the
+expected message, restore it, confirm green again. A "green suite" alone is
+not evidence a test protects anything — say explicitly what you verified and
+how.
 
 ## What Not To Add
 

@@ -12,6 +12,10 @@
 
 - Las suscripciones a eventos de un plugin se cancelan ahora automáticamente al desactivarlo, como ya ocurría con el resto de sus aportaciones (menús, paneles, preview enhancers, hooks de editor, botones de toolbar, renderizadores de bloque y comandos). Eran la única excepción: un plugin cuyo `shutdown()` fallara antes de llegar a su propio código de cancelación dejaba handlers vivos el resto de la sesión, ejecutando código de un plugin ya desactivado e impidiendo que su classloader se recolectara nunca. Los plugins que ya cancelaban a mano no se ven afectados: cancelar dos veces no hace nada.
 
+- Corrige un bucle infinito real al borrar una etiqueta en una bóveda de ficheros. El borrado recorría las etiquetas de la nota por índice, decrementando el índice al eliminar una coincidencia — pero esa lista es una copia, nunca encoge, así que el índice quedaba clavado para siempre. Pasaba en el caso normal de una bóveda de ficheros: cualquier etiqueta `#inline` (sin id, se busca por título), no uno raro. Colgaba la aplicación entera.
+
+- La caché de notas de la bóveda de ficheros ya se auto-limpia cuando un fichero desaparece por fuera de la aplicación (otro proceso, sincronización externa). El mecanismo existía pero no estaba conectado a ninguna lectura; ahora corre en cada listado de notas, limitado a como mucho una vez cada 3 segundos.
+
 ## [2.5.2] - 2026-08-14
 
 - El servidor MCP expone ahora el conjunto completo de operaciones sobre la bóveda, no solo lectura y dos escrituras: renombrar y mover notas, borrarlas y restaurarlas, listar la papelera, crear y borrar carpetas, y añadir, quitar y renombrar etiquetas. Borrar siempre significa la papelera, igual que el borrado por defecto de Obsidian: nada de lo que un cliente MCP puede hacer es irreversible, y `permanently_delete_note`, `empty_trash` y `permanently_delete_folder` siguen sin herramienta. Las notas privadas se rechazan por todas las vías, no solo al leerlas y editarlas.

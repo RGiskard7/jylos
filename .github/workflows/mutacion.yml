@@ -1,0 +1,88 @@
+name: Mutación
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutacion-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutation:
+    name: Gate de mutación (capa de datos)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      # Clases con riesgo de pérdida de datos, ya caracterizadas con test de sabotaje real.
+      # Ver gauntlet.config (gitignored) para el detalle por clase.
+      TARGET_CLASSES: 'com.example.jylos.data.dao.sqlite.FolderDAOSQLite,com.example.jylos.data.dao.filesystem.FolderDAOFileSystem,com.example.jylos.data.dao.filesystem.NoteDAOFileSystem,com.example.jylos.data.dao.filesystem.TagDAOFileSystem'
+      # UiPresentationFxmlGuardTest necesita ventana JavaFX real: aborta el proceso
+      # aislado de PIT si no se excluye.
+      EXCLUDED_TESTS: 'com.example.jylos.tests.UiPresentationFxmlGuardTest'
+      # Umbral: porcentaje real medido (KILLED+TIMED_OUT / total) el 2026-08-15. Solo subir.
+      MUTATION_THRESHOLD: '68'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Install headless UI test support
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+
+      - name: Tests
+        run: xvfb-run -a mvn -B -f jylos/pom.xml test
+
+      - name: Mutación
+        run: |
+          xvfb-run -a mvn -B -f jylos/pom.xml org.pitest:pitest-maven:mutationCoverage \
+            -DtargetClasses="$TARGET_CLASSES" \
+            -DtargetTests='com.example.jylos.tests.*' \
+            -DexcludedTestClasses="$EXCLUDED_TESTS" \
+            -DoutputFormats=XML,HTML \
+            -DtimestampedReports=false \
+            -DmutationThreshold="$MUTATION_THRESHOLD"
+
+      # PIT ya falla solo si no llega al umbral. Este paso deja el número visible
+      # en el resumen del PR sin tener que abrir el informe HTML.
+      - name: Resumen
+        if: always()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import collections, pathlib, xml.etree.ElementTree as ET
+          p = pathlib.Path("jylos/target/pit-reports/mutations.xml")
+          if not p.exists():
+              print("No se generó informe de mutación."); raise SystemExit
+          r = ET.parse(p).getroot()
+          c = collections.Counter(m.get("status") for m in r.iter("mutation"))
+          total = sum(c.values()) or 1
+          killed = c["KILLED"] + c["TIMED_OUT"]
+          print(f"## Mutación: {killed/total*100:.1f}%\n")
+          print("| Estado | N | Significado |")
+          print("|---|---:|---|")
+          print(f"| KILLED | {c['KILLED']} | Un test lo detectó |")
+          print(f"| SURVIVED | {c['SURVIVED']} | **Test débil: ejecuta pero no comprueba** |")
+          print(f"| NO_COVERAGE | {c['NO_COVERAGE']} | **Sin test que lo ejecute** |")
+          print(f"| TIMED_OUT | {c['TIMED_OUT']} | Colgó (cuenta como matado) |")
+          PY
+
+      - name: Publicar informe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: informe-mutacion
+          path: jylos/target/pit-reports/
+          retention-days: 14
