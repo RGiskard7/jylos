@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.5.3] - 2026-08-17
+
 - Corrige una pérdida de datos en notas privadas. Al listar notas, el cuerpo cifrado se sustituye por el candado para que ninguna vista muestre texto cifrado, pero en una bóveda de ficheros esa sustitución cae sobre la propia instancia cacheada, no sobre una copia. Bastaba con marcar como favorita una nota privada desde el panel de notas, con la sesión desbloqueada, para que se guardara el candado cifrado encima del contenido real y este se perdiera sin aviso. Ahora el guardado recupera el cuerpo almacenado antes de escribir, así que el cambio de metadatos se aplica y el contenido queda intacto; si no puede recuperarlo, no guarda nada.
 
 - La vista de cuadrícula de notas ya no construye una tarjeta por nota de la bóveda: pasa a virtualizarse, creando solo las filas visibles. Antes eran seis nodos por nota vivos en el escenario a la vez, tuvieran o no que dibujarse — con unos pocos miles de notas, decenas de miles de nodos que construir y maquetar. Las columnas siguen recalculándose al redimensionar el panel, igual que antes.
@@ -15,6 +17,12 @@
 - Corrige un bucle infinito real al borrar una etiqueta en una bóveda de ficheros. El borrado recorría las etiquetas de la nota por índice, decrementando el índice al eliminar una coincidencia — pero esa lista es una copia, nunca encoge, así que el índice quedaba clavado para siempre. Pasaba en el caso normal de una bóveda de ficheros: cualquier etiqueta `#inline` (sin id, se busca por título), no uno raro. Colgaba la aplicación entera.
 
 - La caché de notas de la bóveda de ficheros ya se auto-limpia cuando un fichero desaparece por fuera de la aplicación (otro proceso, sincronización externa). El mecanismo existía pero no estaba conectado a ninguna lectura; ahora corre en cada listado de notas, limitado a como mucho una vez cada 3 segundos.
+
+- El editor ya muestra los emojis correctamente, en vez de recuadros vacíos. WebKit (el motor de JavaFX) no sabe pintar fuentes de emoji a color, ni la del sistema ni una embebida — la vista previa ya lo resolvía rasterizando cada emoji a imagen con Java2D; el editor no tenía nada de eso. Ahora reutiliza el mismo rasterizado (con su misma caché) mediante una decoración de CodeMirror que sustituye el emoji por su imagen, salvo que el cursor esté encima — entonces se ve y se edita como texto normal.
+
+- Cada encabezado del Preview tiene ahora un ancla estable (`id`, estilo GitHub: minúsculas, guiones, conserva acentos y letras de cualquier alfabeto — incluido texto con el acento pegado como carácter combinante en vez de la letra ya acentuada, que si no acaba dando un id distinto para el mismo título), así que los índices `[Texto](#texto)` — generados por el plugin de tabla de contenidos o escritos/pegados a mano — por fin llevan a algún sitio en vez de no hacer nada. Antes el Preview no ponía `id` a ningún `<h1>-<h6>`.
+
+- El plugin Outline ahora lleva de verdad al encabezado al pulsarlo, tanto en modo edición como en Preview, en vez de solo mostrar un diálogo con su posición. Nueva capacidad de navegación expuesta a plugins (`PluginContext.navigateToHeading`), que salta al carácter exacto en el editor o al ancla correspondiente en el Preview según cuál esté visible.
 
 ## [2.5.2] - 2026-08-14
 

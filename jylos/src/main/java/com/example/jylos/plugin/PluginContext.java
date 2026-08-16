@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
@@ -44,6 +45,7 @@ public class PluginContext {
     private final ToolbarRegistry toolbarRegistry;
     private final EditorBlockRendererRegistry editorBlockRendererRegistry;
     private final Consumer<Note> noteOpenAction;
+    private final BiConsumer<Integer, String> editorNavigateAction;
     private final List<String> registeredCommandIds = new ArrayList<>();
     // Copy-on-write, unlike registeredCommandIds. Plugins today subscribe from initialize()
     // on the FX thread, but nothing in the API says they must, and a plugin that owns
@@ -67,6 +69,8 @@ public class PluginContext {
      * @param toolbarRegistry    The toolbar button registry (may be null in tests)
      * @param editorBlockRendererRegistry The editor fenced-block renderer registry (may be null in tests)
      * @param noteOpenAction     Owner callback for opening a note from plugin code
+     * @param editorNavigateAction Owner callback for plugin heading-navigation requests
+     *                             (may be {@code null})
      */
     public PluginContext(
             String pluginId,
@@ -81,7 +85,8 @@ public class PluginContext {
             EditorHookRegistry editorHookRegistry,
             ToolbarRegistry toolbarRegistry,
             EditorBlockRendererRegistry editorBlockRendererRegistry,
-            Consumer<Note> noteOpenAction) {
+            Consumer<Note> noteOpenAction,
+            BiConsumer<Integer, String> editorNavigateAction) {
         this.pluginId = pluginId;
         this.noteService = noteService;
         this.folderService = folderService;
@@ -95,6 +100,7 @@ public class PluginContext {
         this.toolbarRegistry = toolbarRegistry;
         this.editorBlockRendererRegistry = editorBlockRendererRegistry;
         this.noteOpenAction = noteOpenAction;
+        this.editorNavigateAction = editorNavigateAction;
     }
 
     /**
@@ -374,6 +380,21 @@ public class PluginContext {
             Platform.runLater(() -> {
                 noteOpenAction.accept(note);
             });
+        }
+    }
+
+    /**
+     * Navigates to a heading in the currently open note — jumps the caret to
+     * {@code offset} if the raw-source editor is showing, or scrolls to the matching
+     * anchor id if the rendered Preview is showing. No-op if no note is open.
+     *
+     * @param offset      character offset of the heading in the note's raw Markdown
+     * @param headingSlug the heading's anchor id in the rendered Preview, as produced
+     *                    by {@code MarkdownProcessor.slugifyHeading}
+     */
+    public void navigateToHeading(int offset, String headingSlug) {
+        if (editorNavigateAction != null) {
+            Platform.runLater(() -> editorNavigateAction.accept(offset, headingSlug));
         }
     }
 

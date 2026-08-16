@@ -1827,6 +1827,66 @@ public class EditorController {
         }
     }
 
+    /**
+     * Ids assigned by MarkdownProcessor's heading AttributeProvider: lowercase Unicode
+     * letters/digits (accented letters included — {@code \p{L}} is Unicode-aware, not
+     * ASCII-only) and hyphens.
+     */
+    private static final java.util.regex.Pattern VALID_HEADING_SLUG =
+            java.util.regex.Pattern.compile("[\\p{L}\\p{N}-]+");
+
+    /**
+     * Navigates to a heading in whichever view is currently showing: the raw-source
+     * character offset for the CodeMirror editor, or the rendered heading's anchor id
+     * for the Preview WebView (see {@code MarkdownProcessor.slugifyHeading}).
+     */
+    public void navigateToHeading(int offset, String headingSlug) {
+        if (isPreviewVisible()) {
+            scrollPreviewToHeading(headingSlug);
+        } else if (noteContentArea != null) {
+            noteContentArea.scrollToPosition(offset);
+        }
+    }
+
+    private void scrollPreviewToHeading(String headingSlug) {
+        if (previewWebView == null || headingSlug == null
+                || !VALID_HEADING_SLUG.matcher(headingSlug).matches()) {
+            return;
+        }
+        javafx.concurrent.Worker<Void> loadWorker = previewWebView.getEngine().getLoadWorker();
+        if (loadWorker.getState() == javafx.concurrent.Worker.State.SUCCEEDED) {
+            executeHeadingScroll(headingSlug);
+            return;
+        }
+        // A render triggered moments ago (e.g. just switched to Preview, or a
+        // background refresh from a recent edit) hasn't landed yet — jumping now would
+        // run the script against the page that's about to be replaced. Wait for the
+        // next load to actually finish, once, the same way restorePendingPreviewScroll
+        // waits rather than assuming loadContent() is synchronous.
+        loadWorker.stateProperty().addListener(new javafx.beans.value.ChangeListener<javafx.concurrent.Worker.State>() {
+            @Override
+            public void changed(javafx.beans.value.ObservableValue<? extends javafx.concurrent.Worker.State> obs,
+                    javafx.concurrent.Worker.State oldState, javafx.concurrent.Worker.State newState) {
+                if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
+                    loadWorker.stateProperty().removeListener(this);
+                    executeHeadingScroll(headingSlug);
+                } else if (newState == javafx.concurrent.Worker.State.FAILED
+                        || newState == javafx.concurrent.Worker.State.CANCELLED) {
+                    loadWorker.stateProperty().removeListener(this);
+                }
+            }
+        });
+    }
+
+    private void executeHeadingScroll(String headingSlug) {
+        try {
+            previewWebView.getEngine().executeScript(
+                    "document.getElementById('" + headingSlug + "')?.scrollIntoView({block: 'start'})");
+        } catch (Exception e) {
+            logger.fine("Could not scroll preview to heading: " + e.getMessage());
+        }
+    }
+
     public void applyEditorZoom(double editorFontSize) {
         if (noteContentArea != null) {
             noteContentArea.setEditorFontSize(editorFontSize);

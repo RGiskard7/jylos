@@ -50,3 +50,43 @@ describe("window.JylosEditor document/history isolation", () => {
     expect(document.activeElement.name).toBe("replace");
   });
 });
+
+describe("emoji decoration", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    window.javaEditor = { rasterizeEmoji: vi.fn(() => "data:image/png;base64,AAAA"), onEditorError: vi.fn() };
+  });
+
+  it("replaces an emoji outside the selection with an <img> from the Java bridge", async () => {
+    await mountEditor();
+    window.JylosEditor.setDocument("hello world");
+    window.JylosEditor.replaceSelection(" 😀");
+
+    const img = document.querySelector(".cm-emoji");
+    expect(img).not.toBeNull();
+    expect(img.tagName).toBe("IMG");
+    expect(img.alt).toBe("😀");
+    expect(img.src).toBe("data:image/png;base64,AAAA");
+    expect(window.javaEditor.rasterizeEmoji).toHaveBeenCalledWith("😀");
+  });
+
+  it("keeps the raw character editable while the caret is inside the run", async () => {
+    await mountEditor();
+    window.JylosEditor.setDocument("hi 😀 there");
+    // Place the caret inside the emoji run (offset 3-5).
+    window.JylosEditor.replaceRange(3, 3, "", 4);
+
+    expect(document.querySelector(".cm-emoji")).toBeNull();
+    expect(window.JylosEditor.getSelectionFrom()).toBe(4);
+  });
+
+  it("falls back to plain text when the bridge has no image", async () => {
+    window.javaEditor = { rasterizeEmoji: vi.fn(() => ""), onEditorError: vi.fn() };
+    await mountEditor();
+    window.JylosEditor.setDocument("plain text");
+    window.JylosEditor.replaceSelection(" 😀");
+
+    expect(document.querySelector(".cm-emoji")).toBeNull();
+    expect(document.getElementById("editor").textContent).toContain("😀");
+  });
+});

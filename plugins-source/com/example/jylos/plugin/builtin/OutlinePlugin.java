@@ -10,6 +10,7 @@ import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginContext;
+import com.example.jylos.util.MarkdownProcessor;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -211,11 +212,10 @@ public class OutlinePlugin implements Plugin {
         label.getStyleClass().add("outline-h" + header.level);
         label.setMaxWidth(Double.MAX_VALUE);
         
-        // Click to show info (in future: scroll to position)
-        label.setOnMouseClicked(e -> {
-            context.showInfo("Navigate to Header", header.text, 
-                String.format("Header Level: H%d\nPosition: %d", header.level, header.position));
-        });
+        // Click to jump to this header — the raw-source offset if the editor is
+        // showing, or the matching #anchor if the rendered Preview is showing.
+        String slug = MarkdownProcessor.slugifyHeading(header.text);
+        label.setOnMouseClicked(e -> context.navigateToHeading(header.position, slug));
         
         return label;
     }

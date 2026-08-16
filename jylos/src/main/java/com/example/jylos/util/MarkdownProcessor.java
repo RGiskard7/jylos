@@ -1,15 +1,22 @@
 package com.example.jylos.util;
 
+import org.commonmark.node.Code;
+import org.commonmark.node.Heading;
 import org.commonmark.node.Node;
+import org.commonmark.node.Text;
 import org.commonmark.Extension;
 import org.commonmark.parser.Parser;
+import org.commonmark.renderer.html.AttributeProvider;
 import org.commonmark.renderer.html.HtmlRenderer;
 import org.commonmark.ext.gfm.tables.TablesExtension;
 import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension;
 import org.commonmark.ext.autolink.AutolinkExtension;
 
+import java.text.Normalizer;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * CommonMark-based Markdown-to-HTML renderer used by the preview pipeline.
@@ -42,6 +49,13 @@ public class MarkdownProcessor {
         // replacement boxes. Emit semantic HTML line breaks instead of relying on its
         // whitespace handling.
         .softbreak("<br>")
+        // Gives every heading a stable #anchor id, the same convention GitHub/GitLab
+        // use, so in-note links (e.g. TableOfContentsPlugin's generated TOC) and
+        // Outline-style "jump to heading" navigation actually have something to land
+        // on. A new HeadingIdAttributeProvider per render, so its per-document dedup
+        // counter (two "Overview" headings must not collide on the same id) never
+        // leaks between notes.
+        .attributeProviderFactory(context -> new HeadingIdAttributeProvider())
         .build();
     
     /**
@@ -66,7 +80,7 @@ public class MarkdownProcessor {
     
     /**
      * Escapes HTML special characters in text.
-     * 
+     *
      * @param text The text to escape
      * @return HTML-escaped text
      */
@@ -79,5 +93,68 @@ public class MarkdownProcessor {
                    .replace(">", "&gt;")
                    .replace("\"", "&quot;")
                    .replace("'", "&#x27;");
+    }
+
+    /**
+     * Converts heading text to a GitHub-style anchor slug: lowercase, keeping letters
+     * (any script — {@code \p{L}} is Unicode-aware, so "Introducción" keeps its
+     * "ó") and digits, each run of whitespace collapsed to a single hyphen. Used both
+     * for this renderer's heading {@code id}s and by {@code TableOfContentsPlugin}'s
+     * generated links (via this same method) — the two must always agree, or a TOC
+     * link inserted into a note stops resolving to its heading.
+     *
+     * <p>Normalises to NFC first: text pasted from other tools can spell an accented
+     * letter as a base letter plus a separate combining accent mark (NFD) instead of
+     * one precomposed character (NFC). {@code \p{L}} only matches the letter itself —
+     * a standalone combining mark is its own, different Unicode category — so without
+     * this, "e" + "´" would silently lose the accent while "é" typed directly would
+     * not, producing a different id for what looks like identical text.</p>
+     */
+    public static String slugifyHeading(String text) {
+        if (text == null) {
+            return "";
+        }
+        return Normalizer.normalize(text, Normalizer.Form.NFC)
+                .toLowerCase()
+                .replaceAll("[^\\p{L}\\p{N}\\s-]", "")
+                .replaceAll("\\s+", "-");
+    }
+
+    /** Plain-text content of a node, walking past inline formatting (bold, links, ...). */
+    private static String extractText(Node node) {
+        StringBuilder text = new StringBuilder();
+        appendText(node, text);
+        return text.toString();
+    }
+
+    private static void appendText(Node node, StringBuilder out) {
+        for (Node child = node.getFirstChild(); child != null; child = child.getNext()) {
+            if (child instanceof Text textNode) {
+                out.append(textNode.getLiteral());
+            } else if (child instanceof Code codeNode) {
+                out.append(codeNode.getLiteral());
+            } else {
+                appendText(child, out);
+            }
+        }
+    }
+
+    /** Assigns each heading a {@link #slugifyHeading} id, deduped within one render. */
+    private static class HeadingIdAttributeProvider implements AttributeProvider {
+        private final Map<String, Integer> seenSlugs = new HashMap<>();
+
+        @Override
+        public void setAttributes(Node node, String tagName, Map<String, String> attributes) {
+            if (!(node instanceof Heading heading)) {
+                return;
+            }
+            String base = slugifyHeading(extractText(heading));
+            if (base.isEmpty()) {
+                return;
+            }
+            int occurrence = seenSlugs.getOrDefault(base, 0);
+            seenSlugs.put(base, occurrence + 1);
+            attributes.put("id", occurrence == 0 ? base : base + "-" + occurrence);
+        }
     }
 }

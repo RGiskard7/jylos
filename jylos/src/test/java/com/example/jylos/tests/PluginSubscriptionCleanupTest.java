@@ -107,7 +107,7 @@ class PluginSubscriptionCleanupTest {
 
     private static PluginManager managerWith(EventBus eventBus) {
         return new PluginManager(null, null, null, eventBus, null, null, null, null, null, null, null, note -> {
-        });
+        }, null);
     }
 
     /** Subscribes on initialize, then throws on shutdown before it can unsubscribe. */

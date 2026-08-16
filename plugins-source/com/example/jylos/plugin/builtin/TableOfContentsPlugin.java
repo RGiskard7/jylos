@@ -9,6 +9,7 @@ import java.util.regex.Pattern;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginContext;
+import com.example.jylos.util.MarkdownProcessor;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -62,10 +63,9 @@ public class TableOfContentsPlugin implements Plugin {
         TocEntry(int level, String text) {
             this.level = level;
             this.text = text;
-            // Create URL-friendly anchor
-            this.anchor = text.toLowerCase()
-                .replaceAll("[^a-z0-9\\s-]", "")
-                .replaceAll("\\s+", "-");
+            // Same algorithm the preview renderer uses for heading ids
+            // (MarkdownProcessor.slugifyHeading), so this link actually resolves.
+            this.anchor = MarkdownProcessor.slugifyHeading(text);
         }
     }
     

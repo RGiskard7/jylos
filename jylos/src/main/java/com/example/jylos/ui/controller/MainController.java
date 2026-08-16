@@ -891,7 +891,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             }
 
             pluginManager = new PluginManager(noteService, folderService, tagService, eventBus, commandPalette, this,
-                    this, this, editorHooks, this, this, this::handleUiNoteOpenRequest);
+                    this, this, editorHooks, this, this, this::handleUiNoteOpenRequest,
+                    this::handleUiHeadingNavigationRequest);
 
             PluginLifecycle.LoadResult pluginLoadResult = pluginLifecycle
                     .registerCoreAndExternalPlugins(pluginManager);
@@ -1086,6 +1087,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         loadNoteInEditor(noteToOpen);
         if (notesListView != null) {
             notesListView.getSelectionModel().select(noteToOpen);
+        }
+    }
+
+    void handleUiHeadingNavigationRequest(int offset, String headingSlug) {
+        if (editorController != null) {
+            editorController.navigateToHeading(offset, headingSlug);
         }
     }
 

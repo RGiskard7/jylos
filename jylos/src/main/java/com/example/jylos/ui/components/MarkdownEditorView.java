@@ -15,6 +15,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.util.MarkdownPreview;
 import com.example.jylos.util.WikiLinkResolver;
 import com.google.gson.Gson;
 
@@ -268,6 +269,12 @@ public final class MarkdownEditorView extends StackPane {
     public void setEditorFontSize(double size) {
         fontSize = Math.max(10, Math.min(36, size));
         whenReady(() -> execute("window.JylosEditor.setFontSize(" + fontSize + ")"));
+    }
+
+    /** Places the caret at the given character offset and scrolls it into view. */
+    public void scrollToPosition(int offset) {
+        int safeOffset = Math.max(0, offset);
+        whenReady(() -> execute("window.JylosEditor.scrollToOffset(" + safeOffset + ")"));
     }
 
     /** Enables or disables source-backed Live Preview without replacing the document. */
@@ -534,6 +541,16 @@ public final class MarkdownEditorView extends StackPane {
         public String resolveImageSource(String source) {
             String resolved = imageSourceResolver.apply(source != null ? source : "");
             return resolved != null ? resolved : "";
+        }
+
+        /**
+         * Rasterises an emoji run for the editor's emoji decoration, reusing the same
+         * cache and bundled font as the Preview (see {@link MarkdownPreview}) — the
+         * WebView's own font rendering cannot show colour emoji.
+         */
+        public String rasterizeEmoji(String run) {
+            String dataUri = MarkdownPreview.rasterizeEmojiRun(run, darkTheme);
+            return dataUri != null ? dataUri : "";
         }
 
         public void onEditorError(String message) {

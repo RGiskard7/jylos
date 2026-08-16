@@ -171,6 +171,16 @@ public class MarkdownPreview {
                             if (window.javaApp) {
                                 window.javaApp.openExternal(href);
                             }
+                        } else if (href.startsWith('#') && href.length > 1) {
+                            // Same-page anchors (e.g. a hand-written or TOC-plugin-generated
+                            // table of contents): this page has no real URL (loaded via
+                            // loadContent, not a file:// or http:// address), so WebKit's
+                            // native fragment-jump can't be relied on. Do it ourselves.
+                            e.preventDefault();
+                            let anchorTarget = document.getElementById(decodeURIComponent(href.slice(1)));
+                            if (anchorTarget) {
+                                anchorTarget.scrollIntoView({ block: 'start' });
+                            }
                         }
                     });
                 </script>
@@ -425,6 +435,23 @@ public class MarkdownPreview {
         }
         m.appendTail(out);
         return out.toString();
+    }
+
+    /**
+     * Rasterises a single emoji run to a transparent PNG data URI, for callers outside
+     * the Preview pipeline (the CodeMirror editor bridge, via {@code EditorBridge}).
+     * Same cache as {@link #emojifyToImages}, so a run already seen by either caller is
+     * a cache hit for the other.
+     *
+     * @return the data URI, or {@code null} if {@code run} is not a recognised emoji
+     *         run or the bundled emoji font could not be loaded
+     */
+    public static String rasterizeEmojiRun(String run, boolean dark) {
+        if (EMOJI_AWT_FONT == null || run == null || run.isEmpty() || !EMOJI_RUN.matcher(run).matches()) {
+            return null;
+        }
+        String colorKey = dark ? "d" : "l";
+        return EMOJI_CACHE.computeIfAbsent(colorKey + "|" + run, k -> renderEmoji(run, dark));
     }
 
     /** Rasterises an emoji run to a transparent PNG data URI, tinted for the theme. */

@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -70,6 +71,7 @@ public class PluginManager {
     private final ToolbarRegistry toolbarRegistry;
     private final EditorBlockRendererRegistry editorBlockRendererRegistry;
     private final Consumer<Note> noteOpenAction;
+    private final BiConsumer<Integer, String> editorNavigateAction;
 
     // Plugin storage
     private final Map<String, Plugin> plugins = new HashMap<>();
@@ -92,6 +94,7 @@ public class PluginManager {
      * @param toolbarRegistry    The toolbar button registry (nullable)
      * @param editorBlockRendererRegistry The editor fenced-block renderer registry (nullable)
      * @param noteOpenAction     Owner callback for plugin note-open requests
+     * @param editorNavigateAction Owner callback for plugin heading-navigation requests (nullable)
      */
     public PluginManager(
             NoteService noteService,
@@ -105,7 +108,8 @@ public class PluginManager {
             EditorHookRegistry editorHookRegistry,
             ToolbarRegistry toolbarRegistry,
             EditorBlockRendererRegistry editorBlockRendererRegistry,
-            Consumer<Note> noteOpenAction) {
+            Consumer<Note> noteOpenAction,
+            BiConsumer<Integer, String> editorNavigateAction) {
         this.noteService = noteService;
         this.folderService = folderService;
         this.tagService = tagService;
@@ -118,6 +122,7 @@ public class PluginManager {
         this.toolbarRegistry = toolbarRegistry;
         this.editorBlockRendererRegistry = editorBlockRendererRegistry;
         this.noteOpenAction = noteOpenAction;
+        this.editorNavigateAction = editorNavigateAction;
     }
 
     /**
@@ -236,7 +241,8 @@ public class PluginManager {
                     editorHookRegistry,
                     toolbarRegistry,
                     editorBlockRendererRegistry,
-                    noteOpenAction);
+                    noteOpenAction,
+                    editorNavigateAction);
             pluginContexts.put(pluginId, context);
 
             // Initialize plugin
