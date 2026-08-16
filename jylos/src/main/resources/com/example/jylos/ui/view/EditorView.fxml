@@ -88,6 +88,13 @@
             <tooltip><Tooltip text="%tooltip.add_favorite"/></tooltip>
             <graphic><FontIcon iconLiteral="fth-star" styleClass="feather-icon"/></graphic>
         </ToggleButton>
+        <!-- Lives here, not the main toolbar: focus mode hides the toolbar but keeps the
+             editor container, so a button here (unlike one in the toolbar) stays clickable
+             to exit focus mode too, not just to enter it. -->
+        <ToggleButton fx:id="focusModeToggleBtn" onAction="#handleFocusMode" styleClass="modern-toggle-btn">
+            <tooltip><Tooltip text="%action.focus_mode"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-maximize-2" styleClass="feather-icon"/></graphic>
+        </ToggleButton>
     </HBox>
 
     <!-- ── Tags Bar (collapsible) ─────────────────────────────────────────── -->

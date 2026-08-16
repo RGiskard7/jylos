@@ -1662,6 +1662,62 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 return () -> handleDocumentation(null);
             case "cmd.about":
                 return () -> handleAbout(null);
+            case "cmd.focus_mode":
+                return this::handleFocusMode;
+            case "cmd.kanban_view":
+                return overlaySupport::toggleKanban;
+            case "cmd.note_history":
+                return historySupport::showHistoryDialog;
+            case "cmd.toggle_private":
+                return this::handleTogglePrivate;
+            case "cmd.lock_notes":
+                return this::handleLockNotes;
+            case "cmd.unlock_notes":
+                return this::handleUnlockNotes;
+            case "cmd.navigate_back":
+                return this::navigateBack;
+            case "cmd.navigate_forward":
+                return this::navigateForward;
+            case "cmd.close_note":
+                return this::handleCloseNote;
+            case "cmd.switch_storage":
+                return this::handleSwitchStorage;
+            case "cmd.check_updates":
+                return this::checkForUpdatesManually;
+            case "cmd.toggle_pin":
+                return () -> handleTogglePin(null);
+            case "cmd.toggle_notes_list":
+                return () -> handleToggleNotesPanel(null);
+            case "cmd.toggle_tags":
+                return () -> handleToggleTags(null);
+            case "cmd.new_tag":
+                return () -> handleNewTag(null);
+            case "cmd.list_view":
+                return () -> handleListView(null);
+            case "cmd.grid_view":
+                return () -> handleGridView(null);
+            case "cmd.switch_layout":
+                return () -> handleViewLayoutSwitch(null);
+            case "cmd.editor_zoom_in":
+                return () -> handleEditorZoomIn(null);
+            case "cmd.editor_zoom_out":
+                return () -> handleEditorZoomOut(null);
+            case "cmd.editor_reset_zoom":
+                return () -> handleEditorResetZoom(null);
+            case "cmd.import_obsidian":
+                return importSupport::importObsidianVault;
+            case "cmd.import_enex":
+                return importSupport::importEnex;
+            case "cmd.strike":
+                return () -> publishEditorAction(SystemActionEvent.ActionType.STRIKE);
+            case "cmd.highlight":
+                return () -> publishEditorAction(SystemActionEvent.ActionType.HIGHLIGHT);
+            case "cmd.quote":
+                return () -> publishEditorAction(SystemActionEvent.ActionType.QUOTE);
+            case "cmd.code":
+                return () -> publishEditorAction(SystemActionEvent.ActionType.CODE);
+            case "cmd.insert_bullet_list":
+                return () -> publishEditorAction(SystemActionEvent.ActionType.BULLET_LIST);
             default:
                 return null;
         }
@@ -2667,6 +2723,14 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 systemActionSubscription.cancel();
             }
             pluginUiRefreshSubscription.cancel();
+            // Plugins first: a plugin's own shutdown() can still ask for UI work (e.g. a
+            // preview enhancer unregistering triggers a preview refresh) — tearing down
+            // the controllers it might call into first just means that work fails
+            // instead of never being requested.
+            if (pluginManager != null) {
+                pluginManager.shutdownAll();
+            }
+            com.example.jylos.plugin.PluginLoader.closeAllClassLoaders();
             if (editorController != null) {
                 editorController.teardown();
             }
@@ -2683,10 +2747,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 backlinkService.shutdown();
             }
             com.example.jylos.service.NoteTitleIndex.getInstance().shutdown();
-            if (pluginManager != null) {
-                pluginManager.shutdownAll();
-            }
-            com.example.jylos.plugin.PluginLoader.closeAllClassLoaders();
             quickSwitcherExecutor.shutdownNow();
             updateCheckExecutor.shutdownNow();
 

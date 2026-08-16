@@ -188,6 +188,7 @@ public class EditorController {
     @FXML private Tooltip readingModeTooltip;
     @FXML private ToggleButton pinButton;
     @FXML private ToggleButton favoriteButton;
+    @FXML private ToggleButton focusModeToggleBtn;
 
     // ── FXML — tags bar ─────────────────────────────────────────────────────
     @FXML private VBox tagsContainer;
@@ -317,6 +318,7 @@ public class EditorController {
         applyIconOnly(readingModeButton);
         applyIconOnly(pinButton);
         applyIconOnly(favoriteButton);
+        applyIconOnly(focusModeToggleBtn);
     }
 
     private void applyIconOnly(ButtonBase btn) {
@@ -410,6 +412,7 @@ public class EditorController {
     @FXML private void handleToggleTags(ActionEvent e)        { publish(SystemActionEvent.ActionType.TOGGLE_TAGS); }
     @FXML private void handleToggleReadingMode(ActionEvent e) { publish(SystemActionEvent.ActionType.TOGGLE_READING_MODE); }
     @FXML private void handleTogglePin(ActionEvent e)         { publish(SystemActionEvent.ActionType.TOGGLE_PIN); }
+    @FXML private void handleFocusMode(ActionEvent e)         { publish(SystemActionEvent.ActionType.FOCUS_MODE); }
     @FXML private void handleToggleFavorite(ActionEvent e)    { publish(SystemActionEvent.ActionType.TOGGLE_FAVORITE); }
     @FXML private void handleToggleRightPanel(ActionEvent e)  { publish(SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL); }
     @FXML private void handleHeading1(ActionEvent e)          { publish(SystemActionEvent.ActionType.HEADING1); }
@@ -1695,7 +1698,14 @@ public class EditorController {
     }
 
     public void refreshPreview(boolean darkTheme) {
-        if (previewWebView == null || currentNote == null || !isPreviewVisible()) {
+        // A plugin's own shutdown() can call unregisterPreviewEnhancer(), which queues
+        // this via Platform.runLater — that queued call always lands on a *later* tick
+        // of the event loop, after teardown() has already stopped previewRenderExecutor
+        // during app shutdown, no matter what order those two run in beforehand. Without
+        // this guard, previewRenderExecutor.execute() below throws
+        // RejectedExecutionException for every plugin that has a preview enhancer.
+        if (previewWebView == null || currentNote == null || !isPreviewVisible()
+                || previewRenderExecutor.isShutdown()) {
             return;
         }
 
