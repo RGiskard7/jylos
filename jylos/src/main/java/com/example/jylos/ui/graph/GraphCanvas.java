@@ -63,6 +63,7 @@ public final class GraphCanvas extends Region {
     private static final double MAX_SCALE = 8.0;
     private static final double CLICK_SLOP = 4.0;          // px movement still counts as a click
     private static final double MIN_NODE_PX = 2.0;         // floor on on-screen node radius (Obsidian-like dots)
+    private static final double HOVER_DIM_ALPHA = 0.28;    // opacity for nodes/labels not part of the hovered relation
 
     private final Canvas canvas = new Canvas();
     private final GraphicsContext g = canvas.getGraphicsContext2D();
@@ -681,7 +682,7 @@ public final class GraphCanvas extends Region {
             double px = sx(x[i]);
             double py = sy(y[i]);
             boolean dim = hovering && !active[i];
-            g.setGlobalAlpha(dim ? 0.28 : 1.0);
+            g.setGlobalAlpha(dim ? HOVER_DIM_ALPHA : 1.0);
 
             if (kind[i] == KIND_GHOST) {
                 // Unresolved link → hollow node (Obsidian style).
@@ -710,12 +711,17 @@ public final class GraphCanvas extends Region {
         }
         g.setGlobalAlpha(1.0);
 
-        // Labels. Hovering always shows just the hovered node's own label — never
-        // its neighbours, matching Obsidian. Otherwise labels fade in gradually as
-        // zoom crosses labelThreshold (near-invisible, then ramping to fully
-        // opaque), and higher-degree nodes claim their label first — any label
-        // that would overlap an already-placed one is skipped, so density
-        // self-limits instead of an all-or-nothing cutoff by raw node count.
+        // Labels. Below labelThreshold (labels are otherwise hidden), hovering shows
+        // just the hovered node's own label — never its neighbours, matching Obsidian
+        // at that zoom range. At or above labelThreshold, labels are already showing
+        // for every node regardless of hover (same decluttered pass as when nothing
+        // is hovered) — hovering must not suppress everyone else's label just because
+        // the mouse happens to be over a node; the connection highlight above already
+        // shows which ones are related. Otherwise labels fade in gradually as zoom
+        // crosses labelThreshold (near-invisible, then ramping to fully opaque), and
+        // higher-degree nodes claim their label first — any label that would overlap
+        // an already-placed one is skipped, so density self-limits instead of an
+        // all-or-nothing cutoff by raw node count.
         //
         // Width for the overlap check is a cheap chars-times-average-glyph-width
         // estimate, not real font metrics: measuring via a JavaFX Text node's
@@ -727,19 +733,18 @@ public final class GraphCanvas extends Region {
         g.setTextAlign(TextAlignment.CENTER);
         g.setFont(font);
         g.setFill(palette.text);
-        if (hovering) {
+        double fadeIn = clamp((scale - labelThreshold) / (labelThreshold * 0.75), 0.0, 1.0);
+        if (hovering && fadeIn <= 0.0) {
             if (!labels[hoverIndex].isEmpty()) {
                 double r = radius[hoverIndex] * scale;
                 g.fillText(labels[hoverIndex], sx(x[hoverIndex]), sy(y[hoverIndex]) + r + 12);
             }
             return;
         }
-        double fadeIn = clamp((scale - labelThreshold) / (labelThreshold * 0.75), 0.0, 1.0);
         if (fadeIn <= 0.0) {
             return;
         }
-        g.setGlobalAlpha(fadeIn);
-        drawDeclutteredLabels(font);
+        drawDeclutteredLabels(font, fadeIn, hovering ? active : null);
         g.setGlobalAlpha(1.0);
     }
 
@@ -754,8 +759,15 @@ public final class GraphCanvas extends Region {
      * to re-sort all {@code n} nodes on every single frame, including every
      * intermediate event of a zoom or pan gesture) and the reused
      * {@link #placedLabelBoxes} list (avoids an allocation per frame).</p>
+     *
+     * @param fadeIn base opacity from the zoom-threshold fade (independent of hover)
+     * @param active per-node "part of the hovered relation" flags, or {@code null}
+     *               when nothing is hovered — a label whose node is {@code false}
+     *               here is dimmed the same way its node circle already is, so the
+     *               highlighted relation reads clearly instead of every label
+     *               competing at full strength
      */
-    private void drawDeclutteredLabels(Font font) {
+    private void drawDeclutteredLabels(Font font, double fadeIn, boolean[] active) {
         double avgCharWidth = font.getSize() * 0.56; // typical proportional sans-serif average
         double labelHeight = font.getSize() + 2;
         double w = width();
@@ -787,6 +799,8 @@ public final class GraphCanvas extends Region {
                 continue;
             }
             placedLabelBoxes.add(new double[] { minX, minY, maxX, maxY });
+            boolean dim = active != null && !active[idx];
+            g.setGlobalAlpha(fadeIn * (dim ? HOVER_DIM_ALPHA : 1.0));
             g.fillText(labels[idx], cx, cy);
         }
     }

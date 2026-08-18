@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- En el grafo, pasar el ratón por un nodo ya no esconde las etiquetas de sus vecinos cuando el zoom es suficiente para que se vean los nombres de todos los nodos — antes, hacer hover ocultaba todas las etiquetas menos la del nodo señalado sin importar el nivel de zoom, así que resaltar una relación quitaba justo la información que la hacía útil (con qué nota concreta conecta cada línea). A un zoom bajo, donde los nombres no se muestran normalmente, el hover sigue revelando solo el del nodo señalado, como antes.
+
+- En el grafo, al pasar el ratón por un nodo con el zoom suficiente para ver todas las etiquetas, las de los nodos que no forman parte de la relación resaltada ahora se atenúan igual que ya se atenuaba su propio círculo — antes se quedaban a plena opacidad mientras el resto de la interfaz sí marcaba la diferencia, y la relación resaltada costaba más de leer de un vistazo.
+
 ## [2.5.3] - 2026-08-17
 
 - Corrige una pérdida de datos en notas privadas. Al listar notas, el cuerpo cifrado se sustituye por el candado para que ninguna vista muestre texto cifrado, pero en una bóveda de ficheros esa sustitución cae sobre la propia instancia cacheada, no sobre una copia. Bastaba con marcar como favorita una nota privada desde el panel de notas, con la sesión desbloqueada, para que se guardara el candado cifrado encima del contenido real y este se perdiera sin aviso. Ahora el guardado recupera el cuerpo almacenado antes de escribir, así que el cambio de metadatos se aplica y el contenido queda intacto; si no puede recuperarlo, no guarda nada.
