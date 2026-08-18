@@ -12,7 +12,7 @@
 
     <HBox alignment="CENTER_LEFT" spacing="8" styleClass="graph-toolbar">
         <padding>
-            <Insets top="8" right="12" bottom="8" left="14"/>
+            <Insets top="8" right="16" bottom="8" left="16"/>
         </padding>
 
         <FontIcon iconLiteral="fth-share-2" styleClass="feather-icon"/>

@@ -102,7 +102,7 @@ public final class KanbanBoard extends VBox {
         toolbar.getStyleClass().add("graph-toolbar");
         toolbar.setAlignment(Pos.CENTER_LEFT);
         toolbar.setSpacing(8);
-        toolbar.setPadding(new Insets(8, 12, 8, 14)); // match GraphView.fxml toolbar
+        toolbar.setPadding(new Insets(8, 16, 8, 16)); // match GraphView.fxml toolbar, both match the main toolbar
 
         FontIcon icon = new FontIcon("fth-columns");
         icon.getStyleClass().add("feather-icon");

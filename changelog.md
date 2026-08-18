@@ -2,9 +2,7 @@
 
 ## [Unreleased]
 
-- En el grafo, pasar el ratón por un nodo ya no esconde las etiquetas de sus vecinos cuando el zoom es suficiente para que se vean los nombres de todos los nodos — antes, hacer hover ocultaba todas las etiquetas menos la del nodo señalado sin importar el nivel de zoom, así que resaltar una relación quitaba justo la información que la hacía útil (con qué nota concreta conecta cada línea). A un zoom bajo, donde los nombres no se muestran normalmente, el hover sigue revelando solo el del nodo señalado, como antes.
-
-- En el grafo, al pasar el ratón por un nodo con el zoom suficiente para ver todas las etiquetas, las de los nodos que no forman parte de la relación resaltada ahora se atenúan igual que ya se atenuaba su propio círculo — antes se quedaban a plena opacidad mientras el resto de la interfaz sí marcaba la diferencia, y la relación resaltada costaba más de leer de un vistazo.
+- Las barras superiores del grafo y de Kanban ya alinean sus botones de la derecha con los de la barra principal de la aplicación — antes tenían 4px menos de margen a cada lado, así que sus iconos quedaban desplazados respecto a los botones equivalentes justo encima.
 
 ## [2.5.3] - 2026-08-17
 
@@ -31,6 +29,12 @@
 - Corrige que cerrar la aplicación lanzara una excepción por cada plugin con vista previa registrada (`RejectedExecutionException` en el hilo de la interfaz). Un plugin puede pedir un refresco de la vista previa desde su propio apagado; esa petición se encola de forma asíncrona y siempre llega en un instante posterior del bucle de eventos, después de que los recursos del editor ya se hayan cerrado — ningún orden de apagado lo evita del todo. El refresco de vista previa ahora comprueba que su executor sigue vivo antes de usarlo, y el propio apagado ordena primero los plugins y después el editor, como ya decía el comentario del método.
 
 - El modo concentración tiene ahora un botón dedicado en la barra de herramientas, además del atajo (`Cmd/Ctrl+Shift+F`). También se sumaron unos 28 comandos al Command Palette que ya existían como acción (menú, botón o atajo) pero no aparecían al buscarlos ahí: modo concentración, vista Kanban, historial de nota, bloquear/desbloquear notas privadas, navegar atrás/adelante, cerrar nota, cambiar de backend de almacenamiento, comprobar actualizaciones, fijar nota, listas de viñetas/numeradas, cita, código en línea, tachado, resaltado, y varios más — encontrados auditando el catálogo completo de acciones de la aplicación contra lo que había registrado en el Palette.
+
+- En el grafo, pasar el ratón por un nodo ahora revela siempre el nombre de sus vecinos directos, sin importar el zoom — antes, por debajo del umbral de etiquetas, el hover solo mostraba el nombre del propio nodo señalado, justo cuando más falta hace saber a qué conecta (mirando el grafo entero, sin haber hecho zoom). Con el zoom suficiente para ver todas las etiquetas, las de los nodos que no forman parte de la relación resaltada se atenúan igual que ya se atenuaba su propio círculo — antes se quedaban a plena opacidad mientras el resto de la interfaz sí marcaba la diferencia. El resaltado (nodos, líneas y aparición/desaparición de estos nombres) ahora hace un fundido suave al entrar y salir del hover, en vez de cambiar de golpe en el siguiente frame.
+
+- El nombre de cada nota aparece ahora al hacer zoom según el tamaño real de esa nota en pantalla, no un mismo umbral fijo para todas. Antes, hasta la nota con más enlaces del vault estaba invisible por debajo de una cifra de zoom arbitraria, igual que la más suelta — comprobado contra un vault real de 3.433 notas: el encuadre por defecto no mostraba ni un solo nombre, aunque la nota más conectada ocupara un círculo bastante mayor que el resto. Ahora una nota grande (muchos enlaces) rotula antes que una pequeña al hacer zoom, igual que un mapa rotula antes una ciudad grande que un pueblo. El deslizador de ajustes que ya existía sigue haciendo lo mismo para una nota de tamaño mínimo (grado 0); para el resto, escala con su tamaño.
+
+- El grafo tiene ahora fuerza de colisión: los círculos de los nodos ya no se pisan entre sí cuando la simulación se asienta. Antes solo había repulsión general, muelles de enlace y gravedad al centro — el trío clásico de d3-force, pero sin nada que impida que dos círculos terminen superpuestos si el resto de fuerzas los deja cerca, sobre todo en nodos de mucho grado (círculo más grande). A diferencia de la repulsión y los enlaces, esta fuerza no se atenúa con el enfriamiento de la simulación: si se atenuara, un solape ya asentado se quedaría para siempre en vez de corregirse. Es puramente local — no cambia el tamaño ni el encuadre del grafo, solo separa círculos que se tocan.
 
 ## [2.5.2] - 2026-08-14
 

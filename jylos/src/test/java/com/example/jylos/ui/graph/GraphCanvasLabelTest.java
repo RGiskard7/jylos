@@ -26,13 +26,24 @@ import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 
 /**
- * Regression test for a real gap: hovering used to unconditionally show only the
- * hovered node's own label, even when zoomed in far enough that every node's label
- * is normally showing anyway (the connection highlight then has no name to go with
- * for any neighbour). Renders to a real {@link javafx.scene.canvas.Canvas} and
- * inspects actual pixels — the label pass is hand-drawn text with no JavaFX node per
- * label to query, so there is no state to assert on other than what actually got
- * painted.
+ * Covers two real gaps in how the graph reveals node labels. Renders to a real
+ * {@link javafx.scene.canvas.Canvas} and inspects actual pixels — the label pass is
+ * hand-drawn text with no JavaFX node per label to query, so there is no state to
+ * assert on other than what actually got painted.
+ *
+ * <ol>
+ * <li>Hovering used to unconditionally show only the hovered node's own label —
+ * both when zoomed in far enough that every node's label is normally showing
+ * anyway (the connection highlight then had no name to go with for any neighbour),
+ * and when zoomed out below the label threshold (exactly when hovering to see what
+ * a note connects to is most useful, and exactly when it used to reveal the
+ * least). Hovering now always shows the hovered node and its direct neighbours,
+ * regardless of zoom.</li>
+ * <li>Label visibility used to be one flat zoom number for every node regardless
+ * of size. A node's label now reveals once that node's own on-screen circle
+ * crosses a legible size, so a big hub's name shows at a lower zoom than a small
+ * note's.</li>
+ * </ol>
  */
 class GraphCanvasLabelTest {
 
@@ -67,7 +78,7 @@ class GraphCanvasLabelTest {
     }
 
     @Test
-    void hoveringBelowLabelThresholdShowsOnlyTheHoveredNodesLabel() throws Exception {
+    void hoveringBelowLabelThresholdStillRevealsTheHoveredNodesNeighbour() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
 
         CountDownLatch done = new CountDownLatch(1);
@@ -76,6 +87,15 @@ class GraphCanvasLabelTest {
         Platform.runLater(() -> {
             try {
                 GraphCanvas gc = buildThreeNodeGraph();
+                // Pushed far apart in world space so their two labels land nowhere
+                // near each other on screen even at this tiny scale — otherwise the
+                // seeded-at-random positions could land close enough that the
+                // overlap-avoidance in the label pass (correctly) drops one of them,
+                // which isn't what this test is about.
+                setDoubleArrayElement(gc, "x", 0, 0.0);
+                setDoubleArrayElement(gc, "y", 0, 0.0);
+                setDoubleArrayElement(gc, "x", 1, 2000.0);
+                setDoubleArrayElement(gc, "y", 1, 0.0);
 
                 setScale(gc, 0.1); // well below the default labelThreshold (0.4)
                 setHoverIndex(gc, 0);
@@ -91,9 +111,10 @@ class GraphCanvasLabelTest {
 
         assertTrue(done.await(30, TimeUnit.SECONDS), "test never completed on the FX thread");
         assertTrue(centerVisible[0], "hovered node's own label should still be visible");
-        assertTrue(!neighbourVisible[0],
-                "below the label threshold, hovering must still reveal only the hovered node's "
-                        + "own label, matching Obsidian at that zoom range — this must not regress");
+        assertTrue(neighbourVisible[0],
+                "hovering must reveal the neighbour's name even zoomed out below the label "
+                        + "threshold — that's exactly when knowing what a note connects to is most "
+                        + "useful, and exactly when the normal zoom-based reveal shows nothing at all");
     }
 
     @Test
@@ -132,6 +153,50 @@ class GraphCanvasLabelTest {
                         + "neighbour strength=" + neighbourStrength[0] + " unrelated strength=" + unrelatedStrength[0]);
     }
 
+    @Test
+    void aBiggerNodesLabelRevealsAtALowerZoomThanASmallOnes() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        CountDownLatch done = new CountDownLatch(1);
+        boolean[] hubVisible = new boolean[1];
+        boolean[] leafVisible = new boolean[1];
+        Platform.runLater(() -> {
+            try {
+                // Unconnected on purpose — this is about label reveal by node size
+                // alone, nothing to do with hover/relations.
+                GraphNode hub = new GraphNode("hub", "Hub Note", GraphNode.Type.NOTE, null, 400);
+                GraphNode leaf = new GraphNode("leaf", "Leaf Note", GraphNode.Type.NOTE, null, 0);
+                GraphCanvas gc = new GraphCanvas();
+                gc.setPrefSize(600, 400);
+                Stage stage = new Stage();
+                stage.setScene(new Scene(new StackPane(gc), 600, 400));
+                stage.show();
+                gc.setData(new GraphData(List.of(hub, leaf), List.of()));
+                gc.pause();
+
+                // A scale between the two nodes' own reveal thresholds: past the
+                // hub's (big radius → low threshold), short of the leaf's (small
+                // radius → the default labelThreshold itself, 0.4).
+                setScale(gc, 0.2);
+                invokeDraw(gc);
+
+                WritableImage image = gc.snapshot(new SnapshotParameters(), null);
+                hubVisible[0] = hasNonBackgroundPixelsNear(gc, image, 0);
+                leafVisible[0] = hasNonBackgroundPixelsNear(gc, image, 1);
+            } finally {
+                done.countDown();
+            }
+        });
+
+        assertTrue(done.await(30, TimeUnit.SECONDS), "test never completed on the FX thread");
+        assertTrue(hubVisible[0],
+                "a high-degree node's label must already be visible at a zoom its own "
+                        + "on-screen size clears, even though the reference (small-node) threshold hasn't");
+        assertTrue(!leafVisible[0],
+                "a degree-0 node's label must not appear before the zoom its own (small) "
+                        + "on-screen size actually clears");
+    }
+
     private static GraphCanvas buildThreeNodeGraph() {
         return buildGraph(
                 new GraphNode("center", "Center Note", GraphNode.Type.NOTE, null, 1),
@@ -163,14 +228,27 @@ class GraphCanvasLabelTest {
         setDouble(gc, "scale", value);
     }
 
+    /** Sets the hover state as it looks once the real mouse-driven hover
+     *  transition has fully settled — {@code hoverIndex} alone isn't enough since
+     *  what actually gets drawn is {@code displayHoverIndex}/{@code
+     *  hoverStrength}, which only the mouse handlers (or a running hover
+     *  animation) update. */
     private static void setHoverIndex(GraphCanvas gc, int index) {
         try {
-            Field f = GraphCanvas.class.getDeclaredField("hoverIndex");
-            f.setAccessible(true);
-            f.setInt(gc, index);
+            setIntField(gc, "hoverIndex", index);
+            setIntField(gc, "displayHoverIndex", index);
+            Field strength = GraphCanvas.class.getDeclaredField("hoverStrength");
+            strength.setAccessible(true);
+            strength.setDouble(gc, index >= 0 ? 1.0 : 0.0);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    private static void setIntField(GraphCanvas gc, String field, int value) throws ReflectiveOperationException {
+        Field f = GraphCanvas.class.getDeclaredField(field);
+        f.setAccessible(true);
+        f.setInt(gc, value);
     }
 
     private static void setDouble(GraphCanvas gc, String field, double value) {
@@ -191,6 +269,10 @@ class GraphCanvasLabelTest {
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    private static void setDoubleArrayElement(GraphCanvas gc, String field, int index, double value) {
+        getDoubleArray(gc, field)[index] = value;
     }
 
     private static double[] getDoubleArray(GraphCanvas gc, String field) {
