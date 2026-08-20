@@ -65,17 +65,13 @@ public class ToolbarController {
     @FXML
     private Button newTagBtn;
     @FXML
-    private Button saveBtn;
-    @FXML
-    private Button deleteBtn;
-    @FXML
     private TextField searchField;
+    @FXML
+    private Button searchToggleBtn;
     @FXML
     private ToggleButton rightPanelToggleBtn;
     @FXML
     private MenuButton toolbarOverflowBtn;
-    @FXML
-    private Separator toolbarSeparator1;
     @FXML
     private HBox toolbarHBox;
     @FXML
@@ -112,6 +108,13 @@ public class ToolbarController {
     private void initialize() {
         if (menuBar != null) {
             menuBar.setUseSystemMenuBar(true);
+        }
+        if (searchField != null) {
+            searchField.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+                if (!isFocused) {
+                    collapseSearchIfEmpty();
+                }
+            });
         }
     }
 
@@ -175,10 +178,6 @@ public class ToolbarController {
         return toolbarOverflowBtn;
     }
 
-    public Separator getToolbarSeparator1() {
-        return toolbarSeparator1;
-    }
-
     @FXML
     private void handleNewNote(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.NEW_NOTE);
@@ -207,11 +206,6 @@ public class ToolbarController {
     @FXML
     private void handleSaveAll(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.SAVE_ALL);
-    }
-
-    @FXML
-    private void handleDelete(ActionEvent event) {
-        publishEvent(SystemActionEvent.ActionType.DELETE);
     }
 
     @FXML
@@ -386,11 +380,47 @@ public class ToolbarController {
 
     @FXML
     private void handleSearch(ActionEvent event) {
-        if (searchField != null) {
-            searchField.requestFocus();
-            if (!searchField.getText().isEmpty()) {
-                searchField.selectAll();
-            }
+        expandSearch();
+    }
+
+    @FXML
+    private void handleSearchToggle(ActionEvent event) {
+        expandSearch();
+    }
+
+    /** Shows the real search field in place of its collapsed icon button and
+     *  focuses it — the single entry point every search trigger (the icon click,
+     *  the menu item, the Ctrl+Shift+F shortcut, and the overflow menu's search
+     *  entry on a narrow window) goes through. */
+    public void expandSearch() {
+        if (searchField == null) {
+            return;
+        }
+        if (searchToggleBtn != null) {
+            searchToggleBtn.setVisible(false);
+            searchToggleBtn.setManaged(false);
+        }
+        searchField.setVisible(true);
+        searchField.setManaged(true);
+        searchField.requestFocus();
+        if (!searchField.getText().isEmpty()) {
+            searchField.selectAll();
+        }
+    }
+
+    /** Collapses the search field back to its icon button once it loses focus
+     *  with nothing typed — matching Obsidian. Text is left in place if the
+     *  field isn't empty, so a query in progress is never lost from a stray
+     *  focus change. */
+    private void collapseSearchIfEmpty() {
+        if (searchField == null || !searchField.getText().isEmpty()) {
+            return;
+        }
+        searchField.setVisible(false);
+        searchField.setManaged(false);
+        if (searchToggleBtn != null) {
+            searchToggleBtn.setVisible(true);
+            searchToggleBtn.setManaged(true);
         }
     }
 
@@ -522,8 +552,24 @@ public class ToolbarController {
 
     public void setResponsiveState(boolean showSearch, boolean showLayoutToggles, boolean showFileActions) {
         if (searchField != null) {
-            searchField.setVisible(showSearch);
-            searchField.setManaged(showSearch);
+            if (!showSearch) {
+                // Too narrow for search at all — it moves into the overflow menu
+                // instead, so neither the field nor its collapsed icon belong here.
+                searchField.setVisible(false);
+                searchField.setManaged(false);
+                if (searchToggleBtn != null) {
+                    searchToggleBtn.setVisible(false);
+                    searchToggleBtn.setManaged(false);
+                }
+            } else if (searchToggleBtn == null) {
+                searchField.setVisible(true);
+                searchField.setManaged(true);
+            } else if (!searchField.isVisible()) {
+                // Only set the default (collapsed) state — if the user already has
+                // it expanded, a responsive re-check shouldn't yank it away.
+                searchToggleBtn.setVisible(true);
+                searchToggleBtn.setManaged(true);
+            }
         }
         if (sidebarToggleBtn != null) {
             sidebarToggleBtn.setVisible(showLayoutToggles);
@@ -544,10 +590,6 @@ public class ToolbarController {
             newFolderBtn.setManaged(showFileActions);
             newTagBtn.setVisible(showFileActions);
             newTagBtn.setManaged(showFileActions);
-            saveBtn.setVisible(showFileActions);
-            saveBtn.setManaged(showFileActions);
-            deleteBtn.setVisible(showFileActions);
-            deleteBtn.setManaged(showFileActions);
         }
     }
 

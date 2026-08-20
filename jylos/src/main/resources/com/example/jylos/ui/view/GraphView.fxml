@@ -10,12 +10,14 @@
       xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.example.jylos.ui.controller.GraphController">
 
-    <HBox alignment="CENTER_LEFT" spacing="8" styleClass="graph-toolbar">
+    <HBox alignment="CENTER_LEFT" spacing="6" styleClass="graph-toolbar">
         <padding>
             <Insets top="8" right="16" bottom="8" left="16"/>
         </padding>
 
-        <FontIcon iconLiteral="fth-share-2" styleClass="feather-icon"/>
+        <FontIcon iconLiteral="fth-share-2" styleClass="feather-icon">
+            <HBox.margin><Insets left="6"/></HBox.margin>
+        </FontIcon>
         <Label fx:id="graphTitleLabel" text="%graph.title" styleClass="graph-title"/>
 
         <Region HBox.hgrow="ALWAYS"/>

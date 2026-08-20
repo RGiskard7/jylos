@@ -15,7 +15,7 @@
        </Button>
    </HBox>
 
-    <HBox alignment="CENTER_LEFT" spacing="8" styleClass="notes-header">
+    <HBox alignment="CENTER_LEFT" spacing="6" styleClass="notes-header">
         <padding>
             <Insets top="12" right="12" bottom="12" left="12"/>
         </padding>

@@ -1260,6 +1260,7 @@ public class NotesListController {
         dialog.setTitle(getString("dialog.rename_note.title"));
         dialog.setHeaderText(getString("dialog.rename_note.header"));
         dialog.setContentText(getString("dialog.rename_note.content"));
+        dialog.getDialogPane().setMinWidth(380);
 
         com.example.jylos.ui.UiDialogs.show(dialog).ifPresent(name -> {
             String trimmed = name != null ? name.trim() : "";

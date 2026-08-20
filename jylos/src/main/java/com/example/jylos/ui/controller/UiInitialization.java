@@ -158,12 +158,8 @@ class UiInitialization {
         toolbarController.getSidebarToggleBtn().setManaged(showLayoutToggles);
         toolbarController.getNotesPanelToggleBtn().setVisible(showLayoutToggles);
         toolbarController.getNotesPanelToggleBtn().setManaged(showLayoutToggles);
-        toolbarController.getSearchField().setVisible(showSearch);
-        toolbarController.getSearchField().setManaged(showSearch);
         toolbarController.getLayoutSwitchBtn().setVisible(showLayoutToggles);
         toolbarController.getLayoutSwitchBtn().setManaged(showLayoutToggles);
-        toolbarController.getToolbarSeparator1().setVisible(showLayoutToggles);
-        toolbarController.getToolbarSeparator1().setManaged(showLayoutToggles);
 
         toolbarController.getToolbarOverflowBtn().getItems().clear();
         boolean needsOverflow = !showFileActions || !showSearch || !showLayoutToggles;
@@ -171,7 +167,7 @@ class UiInitialization {
         if (needsOverflow) {
             if (!showSearch) {
                 MenuItem searchItem = new MenuItem(i18n("app.search.placeholder"));
-                searchItem.setOnAction(e -> toolbarController.getSearchField().requestFocus());
+                searchItem.setOnAction(e -> toolbarController.expandSearch());
                 toolbarController.getToolbarOverflowBtn().getItems().add(searchItem);
                 toolbarController.getToolbarOverflowBtn().getItems().add(new SeparatorMenuItem());
             }

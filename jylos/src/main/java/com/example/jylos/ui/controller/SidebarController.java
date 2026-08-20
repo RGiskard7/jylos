@@ -1536,6 +1536,10 @@ public class SidebarController {
             return;
         }
         TextInputDialog d = new TextInputDialog(f.getTitle());
+        d.setTitle(getString("dialog.rename_folder.title"));
+        d.setHeaderText(getString("dialog.rename_folder.header"));
+        d.setContentText(getString("dialog.rename_folder.content"));
+        d.getDialogPane().setMinWidth(380);
         com.example.jylos.ui.UiDialogs.show(d).ifPresent(name -> {
             try {
                 String previousId = f.getId();

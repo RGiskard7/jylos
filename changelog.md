@@ -2,8 +2,6 @@
 
 ## [Unreleased]
 
-- Las barras superiores del grafo y de Kanban ya alinean sus botones de la derecha con los de la barra principal de la aplicación — antes tenían 4px menos de margen a cada lado, así que sus iconos quedaban desplazados respecto a los botones equivalentes justo encima.
-
 ## [2.5.3] - 2026-08-17
 
 - Corrige una pérdida de datos en notas privadas. Al listar notas, el cuerpo cifrado se sustituye por el candado para que ninguna vista muestre texto cifrado, pero en una bóveda de ficheros esa sustitución cae sobre la propia instancia cacheada, no sobre una copia. Bastaba con marcar como favorita una nota privada desde el panel de notas, con la sesión desbloqueada, para que se guardara el candado cifrado encima del contenido real y este se perdiera sin aviso. Ahora el guardado recupera el cuerpo almacenado antes de escribir, así que el cambio de metadatos se aplica y el contenido queda intacto; si no puede recuperarlo, no guarda nada.

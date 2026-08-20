@@ -186,6 +186,7 @@ public class EditorController {
     @FXML private Button readingModeButton;
     @FXML private FontIcon readingModeIcon;
     @FXML private Tooltip readingModeTooltip;
+    @FXML private Button editorSaveBtn;
     @FXML private ToggleButton pinButton;
     @FXML private ToggleButton favoriteButton;
     @FXML private ToggleButton focusModeToggleBtn;
@@ -316,6 +317,7 @@ public class EditorController {
     public void applyHeaderControlsPresentation() {
         applyIconOnly(toggleTagsBtn);
         applyIconOnly(readingModeButton);
+        applyIconOnly(editorSaveBtn);
         applyIconOnly(pinButton);
         applyIconOnly(favoriteButton);
         applyIconOnly(focusModeToggleBtn);
@@ -413,6 +415,8 @@ public class EditorController {
     @FXML private void handleToggleReadingMode(ActionEvent e) { publish(SystemActionEvent.ActionType.TOGGLE_READING_MODE); }
     @FXML private void handleTogglePin(ActionEvent e)         { publish(SystemActionEvent.ActionType.TOGGLE_PIN); }
     @FXML private void handleFocusMode(ActionEvent e)         { publish(SystemActionEvent.ActionType.FOCUS_MODE); }
+    @FXML private void handleSave(ActionEvent e)               { publish(SystemActionEvent.ActionType.SAVE); }
+    @FXML private void handleDelete(ActionEvent e)             { publish(SystemActionEvent.ActionType.DELETE); }
     @FXML private void handleToggleFavorite(ActionEvent e)    { publish(SystemActionEvent.ActionType.TOGGLE_FAVORITE); }
     @FXML private void handleToggleRightPanel(ActionEvent e)  { publish(SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL); }
     @FXML private void handleHeading1(ActionEvent e)          { publish(SystemActionEvent.ActionType.HEADING1); }

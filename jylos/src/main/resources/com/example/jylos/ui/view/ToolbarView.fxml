@@ -127,7 +127,7 @@
     </MenuBar>
 
     <!-- Toolbar -->
-    <HBox fx:id="toolbarHBox" styleClass="toolbar" spacing="8" alignment="CENTER_LEFT">
+    <HBox fx:id="toolbarHBox" styleClass="toolbar" spacing="6" alignment="CENTER_LEFT">
         <padding>
             <Insets top="8" right="16" bottom="8" left="16"/>
         </padding>
@@ -163,28 +163,23 @@
 
         <!--<Separator fx:id="toolbarSeparator2" orientation="VERTICAL" styleClass="toolbar-separator"/>-->
 
-        <Button fx:id="saveBtn" onAction="#handleSave" styleClass="toolbar-btn">
-            <tooltip><Tooltip text="%action.save"/></tooltip>
-            <graphic>
-                <FontIcon iconLiteral="fth-save" styleClass="feather-icon"/>
-            </graphic>
-        </Button>
-        <Button fx:id="deleteBtn" onAction="#handleDelete" styleClass="toolbar-btn">
-            <tooltip><Tooltip text="%action.delete"/></tooltip>
-            <graphic>
-                <FontIcon iconLiteral="fth-trash-2" styleClass="feather-icon-danger"/>
-            </graphic>
-        </Button>
-
         <!--<Separator fx:id="toolbarSeparator3" orientation="VERTICAL" styleClass="toolbar-separator"/>-->
 
-        <!-- Search Box -->
-        <TextField fx:id="searchField" promptText="%app.search.placeholder" prefWidth="240" styleClass="search-field">
+        <!-- Search: collapsed to an icon button until clicked, like Obsidian — the
+             field beneath is the one and only search TextField (kept in the scene
+             either way), just hidden/shown so every existing text-listener and
+             getSearchField() caller keeps working unchanged. -->
+        <Button fx:id="searchToggleBtn" onAction="#handleSearchToggle" styleClass="modern-toggle-btn">
+            <tooltip><Tooltip text="%tooltip.search_syntax" wrapText="true" maxWidth="420"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-search" styleClass="feather-icon"/></graphic>
+        </Button>
+        <TextField fx:id="searchField" promptText="%app.search.placeholder" prefWidth="240" styleClass="search-field"
+                   visible="false" managed="false">
             <tooltip><Tooltip text="%tooltip.search_syntax" wrapText="true" maxWidth="420"/></tooltip>
         </TextField>
 
         <!-- Plugin toolbar buttons (populated via ToolbarRegistry; hidden when empty) -->
-        <HBox fx:id="pluginToolbarContainer" spacing="4" alignment="CENTER_LEFT"
+        <HBox fx:id="pluginToolbarContainer" spacing="6" alignment="CENTER_LEFT"
               visible="false" managed="false"/>
 
         <Region HBox.hgrow="ALWAYS"/>

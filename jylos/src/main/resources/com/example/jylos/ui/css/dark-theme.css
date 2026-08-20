@@ -362,11 +362,13 @@
     background-color: -fx-sidebar-bg;
     -fx-border-color: -fx-fn-border-color;
     border-color: -fx-fn-border-color;
-    -fx-border-radius: 20;
-    border-radius: 20px;
-    -fx-background-radius: 20;
-    -fx-padding: 8 16;
-    padding: 8px 16px;
+    -fx-border-radius: 14;
+    border-radius: 14px;
+    -fx-background-radius: 14;
+    -fx-padding: 4 16;
+    padding: 4px 16px;
+    -fx-min-height: 28px;
+    min-height: 28px;
     -fx-text-fill: -fx-text-main;
     color: -fx-text-main;
     -fx-prompt-text-fill: -fx-text-muted;
@@ -410,10 +412,10 @@
     background-color: -fx-base-bg;
 }
 
-/* Sidebar: centered icon navigation bar */
+/* Sidebar: left-aligned icon navigation bar */
 .sidebar-nav-bar {
-    -fx-alignment: center;
-    -fx-spacing: 8;
+    -fx-alignment: center-left;
+    -fx-spacing: 6;
     -fx-background-color: -fx-sidebar-bg;
     background-color: -fx-sidebar-bg;
     -fx-border-color: transparent transparent -fx-fn-border-color transparent;
@@ -432,16 +434,16 @@
     -fx-border-radius: 6;
     -fx-border-width: 1px;
     border-width: 1px;
-    -fx-padding: 6 10;
-    padding: 6px 10px;
+    -fx-padding: 0;
+    padding: 0;
     -fx-cursor: hand;
     cursor: pointer;
-    -fx-min-width: 36;
-    -fx-pref-width: 36;
-    -fx-max-width: 36;
-    -fx-min-height: 32;
-    -fx-pref-height: 32;
-    -fx-max-height: 32;
+    -fx-min-width: 28;
+    -fx-pref-width: 28;
+    -fx-max-width: 28;
+    -fx-min-height: 28;
+    -fx-pref-height: 28;
+    -fx-max-height: 28;
     -fx-content-display: graphic-only;
 }
 
@@ -793,6 +795,9 @@
     -fx-border-radius: 6;
     border-radius: 6px;
     -fx-background-radius: 6;
+    -fx-min-height: 28px;
+    -fx-pref-height: 28px;
+    -fx-max-height: 28px;
 }
 
 .sort-combo .list-cell {
@@ -1152,15 +1157,15 @@
     background-color: transparent;
     -fx-border-color: transparent;
     border-color: transparent;
-    -fx-font-size: 18px;
-    font-size: 18px;
+    -fx-font-size: 15px;
+    font-size: 15px;
     -fx-font-weight: 600;
     font-weight: 600;
     -fx-text-fill: -fx-text-main;
     color: -fx-text-main;
     -fx-prompt-text-fill: -fx-text-faint;
-    -fx-padding: 4 8;
-    padding: 4px 8px;
+    -fx-padding: 2 8;
+    padding: 2px 8px;
 }
 
 .title-field:focused {
@@ -1172,14 +1177,14 @@
 
 /* Read (preview-only) view: title rendered as a plain heading, not an input. */
 .title-heading {
-    -fx-font-size: 20px;
-    font-size: 20px;
+    -fx-font-size: 16px;
+    font-size: 16px;
     -fx-font-weight: 700;
     font-weight: 700;
     -fx-text-fill: -fx-text-main;
     color: -fx-text-main;
-    -fx-padding: 4 8;
-    padding: 4px 8px;
+    -fx-padding: 2 8;
+    padding: 2px 8px;
     -fx-text-overrun: ellipsis;
 }
 
@@ -1466,10 +1471,10 @@
     border-width: 1px;
     -fx-cursor: hand;
     cursor: pointer;
-    -fx-min-width: 30px;
-    min-width: 30px;
-    -fx-pref-width: 30px;
-    -fx-max-width: 30px;
+    -fx-min-width: 28px;
+    min-width: 28px;
+    -fx-pref-width: 28px;
+    -fx-max-width: 28px;
     -fx-min-height: 28px;
     min-height: 28px;
     -fx-pref-height: 28px;
@@ -1853,6 +1858,16 @@
     -fx-border-color: -fx-accent;
 }
 
+/* Every TextField carries the JavaFX-implicit "text-field" style class in addition to
+   any custom one — so .search-field (declared above, earlier in the file) and this
+   plain .text-field rule tie on specificity, and this one wins the shared "padding"
+   property just by being declared later. Reasserted here so the search field actually
+   keeps its own shorter padding instead of silently inheriting this taller default. */
+.search-field {
+    -fx-padding: 4 16;
+    -fx-min-height: 28px;
+}
+
 /* ========================================
    COMBO BOX POPUP
    ======================================== */
@@ -2163,9 +2178,13 @@
 
 .icon-btn,
 .icon-btn-small {
-    -fx-min-height: 26px;
-    -fx-min-width: 26px;
-    -fx-padding: 4 6;
+    -fx-min-height: 28px;
+    -fx-pref-height: 28px;
+    -fx-max-height: 28px;
+    -fx-min-width: 28px;
+    -fx-pref-width: 28px;
+    -fx-max-width: 28px;
+    -fx-padding: 0;
     -fx-background-radius: 6;
     -fx-border-radius: 6;
 }
@@ -2321,12 +2340,12 @@
 /* Responsive editor/view mode buttons */
 .icon-only-btn {
     -fx-content-display: graphic-only;
-    -fx-padding: 6 8;
-    -fx-min-width: 36px;
-    -fx-pref-width: 36px;
-    -fx-max-width: 36px;
-    -fx-min-height: 32px;
-    -fx-pref-height: 32px;
+    -fx-padding: 4 6;
+    -fx-min-width: 28px;
+    -fx-pref-width: 28px;
+    -fx-max-width: 28px;
+    -fx-min-height: 28px;
+    -fx-pref-height: 28px;
 }
 
 .drag-over-target {
@@ -3710,8 +3729,8 @@
     color: -fx-text-main;
     -fx-border-color: -fx-button-border;
     border-color: -fx-button-border;
-    -fx-background-radius: 8;
-    -fx-border-radius: 8;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
     -fx-background-insets: 0;
     -fx-border-insets: 0;
 }
@@ -3987,12 +4006,12 @@
 .toolbar .toolbar-btn,
 .toolbar .modern-toggle-btn,
 .toolbar .menu-button {
-    -fx-min-width: 36px;
-    -fx-pref-width: 36px;
-    -fx-max-width: 36px;
-    -fx-min-height: 32px;
-    -fx-pref-height: 32px;
-    -fx-max-height: 32px;
+    -fx-min-width: 28px;
+    -fx-pref-width: 28px;
+    -fx-max-width: 28px;
+    -fx-min-height: 28px;
+    -fx-pref-height: 28px;
+    -fx-max-height: 28px;
     -fx-padding: 0;
     padding: 0;
     -fx-background-radius: 6;
@@ -4090,12 +4109,12 @@
 /* Graph and Kanban top bars use graph-toolbar, not the main app toolbar. */
 .graph-toolbar .toolbar-btn,
 .graph-toolbar .modern-toggle-btn {
-    -fx-min-width: 36px;
-    -fx-pref-width: 36px;
-    -fx-max-width: 36px;
-    -fx-min-height: 32px;
-    -fx-pref-height: 32px;
-    -fx-max-height: 32px;
+    -fx-min-width: 28px;
+    -fx-pref-width: 28px;
+    -fx-max-width: 28px;
+    -fx-min-height: 28px;
+    -fx-pref-height: 28px;
+    -fx-max-height: 28px;
     -fx-padding: 0;
     padding: 0;
     -fx-background-radius: 6;

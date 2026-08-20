@@ -2603,6 +2603,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 ? getString("dialog.new_folder.header_root")
                 : java.text.MessageFormat.format(getString("dialog.new_folder.header_sub"), currentFolder.getTitle()));
         dialog.setContentText(getString("dialog.new_folder.content"));
+        dialog.getDialogPane().setMinWidth(380);
         styleDialog(dialog);
 
         Optional<String> result = dialog.showAndWait();

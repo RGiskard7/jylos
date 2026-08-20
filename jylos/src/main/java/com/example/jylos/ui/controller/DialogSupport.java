@@ -415,6 +415,7 @@ class DialogSupport {
         dialog.setTitle(i18n("dialog.new_tag.title"));
         dialog.setHeaderText(i18n("dialog.new_tag.header"));
         dialog.setContentText(i18n("dialog.new_tag.content"));
+        dialog.getDialogPane().setMinWidth(380);
 
         Optional<String> result = com.example.jylos.ui.UiDialogs.show(dialog);
         if (result.isEmpty() || result.get().trim().isEmpty()) {
