@@ -24,6 +24,40 @@ import javafx.stage.Stage;
 class MarkdownPreviewTest {
 
     @Test
+    void readableLineLengthAddsACenteredMaxWidthOnlyWhenEnabled() {
+        String withoutOption = MarkdownPreview.buildPreviewHtml("Some note text.", false, null);
+        assertFalse(withoutOption.contains("max-width: 700px"),
+                "Default preview must not cap content width");
+
+        String withOptionOff = MarkdownPreview.buildPreviewHtml("Some note text.", false, null, null, null, null, false);
+        assertFalse(withOptionOff.contains("max-width: 700px"),
+                "readableLineLength=false must not cap content width");
+
+        String withOptionOn = MarkdownPreview.buildPreviewHtml("Some note text.", false, null, null, null, null, true);
+        assertTrue(withOptionOn.contains("max-width: 700px"),
+                "readableLineLength=true must cap the body to a centered, readable column");
+        assertTrue(withOptionOn.contains("margin-left: auto") && withOptionOn.contains("margin-right: auto"),
+                "the capped column must be centered via auto margins, not just narrowed");
+    }
+
+    @Test
+    void contentFontSizeSetsTheBodyTextSizeOnlyWhenPositive() {
+        String defaultCall = MarkdownPreview.buildPreviewHtml("Some note text.", false, null);
+        assertFalse(defaultCall.contains("body { font-size:"),
+                "existing 3-arg callers (tests, NoteExporter) must render exactly as before");
+
+        String zeroMeansUnset = MarkdownPreview.buildPreviewHtml(
+                "Some note text.", false, null, null, null, null, false, 0);
+        assertFalse(zeroMeansUnset.contains("body { font-size:"),
+                "contentFontSize=0 must leave the WebView's own default font size untouched");
+
+        String withSize = MarkdownPreview.buildPreviewHtml(
+                "Some note text.", false, null, null, null, null, false, 18);
+        assertTrue(withSize.contains("body { font-size: 18px; }"),
+                "a positive contentFontSize must set the body's text size explicitly");
+    }
+
+    @Test
     void injectsKatexOnlyWhenMathIsPresent() {
         String withMath = MarkdownPreview.buildPreviewHtml("Energy $E=mc^2$ here.", false, null);
         assertTrue(withMath.contains("katex"), "KaTeX assets should be injected when math is present");

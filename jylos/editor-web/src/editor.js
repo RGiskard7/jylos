@@ -204,6 +204,12 @@ function wikiLinkCompletion(context) {
   return { from: before.from, options, validFor: /^\[\[[^\]\[\n]*$/ };
 }
 
+// Centered content column width (Obsidian's own default), shared with the preview
+// pane's equivalent rule in MarkdownPreview.java. Margins are plain auto margins on
+// a max-width block, so they shrink and disappear as the panel narrows — no resize
+// listener needed, same as Obsidian (also a web-rendered editor underneath).
+const READABLE_LINE_LENGTH_PX = 700;
+
 function editorTheme(config) {
   const dark = Boolean(config.dark);
   const accent = config.accent || (dark ? "#7da6ff" : "#315fbd");
@@ -213,6 +219,7 @@ function editorTheme(config) {
   const panel = dark ? "#292929" : "#f5f6f8";
   const border = dark ? "#3b3b3b" : "#d8dce3";
   const selection = dark ? "#35548a" : "#b9d2ff";
+  const readableLineLength = Boolean(config.readableLineLength);
 
   return EditorView.theme({
     "&": {
@@ -230,7 +237,16 @@ function editorTheme(config) {
       fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
       lineHeight: "1.55"
     },
-    ".cm-content": { minHeight: "100%", padding: "16px 18px", caretColor: foreground },
+    ".cm-content": readableLineLength
+      ? {
+        minHeight: "100%",
+        padding: "16px 18px",
+        caretColor: foreground,
+        maxWidth: `${READABLE_LINE_LENGTH_PX}px`,
+        marginLeft: "auto",
+        marginRight: "auto"
+      }
+      : { minHeight: "100%", padding: "16px 18px", caretColor: foreground },
     ".cm-line": { padding: "0" },
     ".cm-dropCursor": { borderLeftColor: foreground },
     "::selection": { backgroundColor: selection },
@@ -496,6 +512,10 @@ window.JylosEditor = {
   setLivePreviewEnabled(enabled) {
     window.__jylosEditorConfig.livePreview = Boolean(enabled);
     view?.dispatch({ effects: presentationCompartment.reconfigure(enabled ? livePreview() : []) });
+  },
+  setReadableLineLength(enabled) {
+    window.__jylosEditorConfig.readableLineLength = Boolean(enabled);
+    view?.dispatch({ effects: themeCompartment.reconfigure(editorTheme(window.__jylosEditorConfig)) });
   },
   setEditable(editable) {
     const enabled = Boolean(editable);

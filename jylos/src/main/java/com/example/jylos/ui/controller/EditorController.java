@@ -108,6 +108,13 @@ public class EditorController {
     private Consumer<Boolean> livePreviewPreferenceAction = enabled -> {
     };
 
+    /** Obsidian-style centered content column, toggled from Preferences. */
+    private boolean readableLineLength = false;
+    /** Theme of the most recent preview render, so a preference toggle can re-render without a caller. */
+    private boolean lastPreviewDarkTheme = false;
+    /** Editor/preview font size, independent from the native JavaFX chrome's own font size. */
+    private double contentFontSize = 14.0;
+
     private Note currentNote;
     private boolean isModified = false;
     private String persistedTitle = "";
@@ -584,6 +591,17 @@ public class EditorController {
         if (persist) {
             livePreviewPreferenceAction.accept(enabled);
             reportStatus(safeI18n(enabled ? "status.live_preview_enabled" : "status.source_mode_enabled"));
+        }
+    }
+
+    /** Applies the persisted "readable line length" preference to both editor and preview. */
+    public void applyReadableLineLengthPreference(boolean enabled) {
+        this.readableLineLength = enabled;
+        if (noteContentArea != null) {
+            noteContentArea.setReadableLineLength(enabled);
+        }
+        if (isPreviewVisible()) {
+            refreshPreview(lastPreviewDarkTheme);
         }
     }
 
@@ -1712,6 +1730,7 @@ public class EditorController {
                 || previewRenderExecutor.isShutdown()) {
             return;
         }
+        lastPreviewDarkTheme = darkTheme;
 
         Task<String> prev = currentPreviewTask;
         if (prev != null) {
@@ -1730,13 +1749,15 @@ public class EditorController {
         // sees the note this HTML came from, even if the user switches note mid-render.
         com.example.jylos.plugin.PreviewContext previewContext =
                 new com.example.jylos.plugin.PreviewContext(currentNote, darkTheme);
+        boolean readable = this.readableLineLength;
+        int fontSize = (int) Math.round(this.contentFontSize);
 
         Task<String> task = new Task<>() {
             @Override
             protected String call() {
                 if (content != null && !content.trim().isEmpty()) {
                     return MarkdownPreview.buildPreviewHtml(content, darkTheme, enhancers, baseDir,
-                            EditorController.this::resolveEmbedContentByTitle, previewContext);
+                            EditorController.this::resolveEmbedContentByTitle, previewContext, readable, fontSize);
                 }
                 return MarkdownPreview.buildEmptyHtml(darkTheme);
             }
@@ -1902,11 +1923,15 @@ public class EditorController {
     }
 
     public void applyEditorZoom(double editorFontSize) {
+        this.contentFontSize = editorFontSize;
         if (noteContentArea != null) {
             noteContentArea.setEditorFontSize(editorFontSize);
         }
         if (noteTitleField != null) {
             noteTitleField.setStyle("-fx-font-size: " + (editorFontSize + 2) + "px;");
+        }
+        if (isPreviewVisible()) {
+            refreshPreview(lastPreviewDarkTheme);
         }
     }
 
