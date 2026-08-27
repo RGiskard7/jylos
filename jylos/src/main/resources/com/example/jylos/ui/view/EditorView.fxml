@@ -29,7 +29,7 @@
     </HBox>
 
     <!-- ── Editor Header ─────────────────────────────────────────────────── -->
-    <HBox fx:id="editorHeaderBar" alignment="CENTER_LEFT" spacing="8" styleClass="editor-header">
+    <HBox fx:id="editorHeaderBar" alignment="CENTER_LEFT" spacing="6" styleClass="editor-header">
         <padding>
             <Insets top="10" right="16" bottom="10" left="16"/>
         </padding>
@@ -64,13 +64,18 @@
         <!-- Read (preview-only) view: title shown as a plain heading, not an input. -->
         <Label fx:id="noteTitleLabel" styleClass="title-heading" HBox.hgrow="ALWAYS"
                maxWidth="Infinity" visible="false" managed="false"/>
-        <HBox fx:id="noteOnlyControls" alignment="CENTER_LEFT" spacing="8">
+        <HBox fx:id="noteOnlyControls" alignment="CENTER_LEFT" spacing="6">
             <Separator orientation="VERTICAL" styleClass="header-separator"/>
 
             <!-- Obsidian-style view switch: book opens reading view, pencil returns to editing. -->
             <Button fx:id="readingModeButton" onAction="#handleToggleReadingMode" styleClass="modern-toggle-btn">
                 <tooltip><Tooltip fx:id="readingModeTooltip" text="%tooltip.switch_to_reading"/></tooltip>
                 <graphic><FontIcon fx:id="readingModeIcon" iconLiteral="fth-book-open" styleClass="feather-icon"/></graphic>
+            </Button>
+
+            <Button fx:id="editorSaveBtn" onAction="#handleSave" styleClass="modern-toggle-btn">
+                <tooltip><Tooltip text="%action.save"/></tooltip>
+                <graphic><FontIcon iconLiteral="fth-save" styleClass="feather-icon"/></graphic>
             </Button>
 
             <!-- Tags toggle -->
@@ -87,6 +92,13 @@
         <ToggleButton fx:id="favoriteButton" onAction="#handleToggleFavorite" styleClass="modern-toggle-btn">
             <tooltip><Tooltip text="%tooltip.add_favorite"/></tooltip>
             <graphic><FontIcon iconLiteral="fth-star" styleClass="feather-icon"/></graphic>
+        </ToggleButton>
+        <!-- Lives here, not the main toolbar: focus mode hides the toolbar but keeps the
+             editor container, so a button here (unlike one in the toolbar) stays clickable
+             to exit focus mode too, not just to enter it. -->
+        <ToggleButton fx:id="focusModeToggleBtn" onAction="#handleFocusMode" styleClass="modern-toggle-btn">
+            <tooltip><Tooltip text="%action.focus_mode"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-maximize-2" styleClass="feather-icon"/></graphic>
         </ToggleButton>
     </HBox>
 
@@ -222,6 +234,14 @@
                         </Button>
                     </HBox>
                 </ScrollPane>
+                <!-- Pinned outside the scrollable area (unlike the format buttons above,
+                     which scroll off on a narrow window) so delete stays reachable. -->
+                <HBox alignment="CENTER_LEFT" spacing="6" styleClass="format-toolbar">
+                        <Button fx:id="editorDeleteBtn" onAction="#handleDelete" styleClass="format-btn,format-btn-text,format-quote">
+                            <graphic><FontIcon iconLiteral="fth-trash-2" styleClass="feather-icon-danger"/></graphic>
+                            <tooltip><Tooltip text="%action.delete"/></tooltip>
+                        </Button>
+                </HBox>
             </HBox>
         </VBox>
 

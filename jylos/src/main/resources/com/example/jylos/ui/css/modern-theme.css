@@ -140,8 +140,8 @@
 .menu-bar .menu .label {
     -fx-text-fill: -fx-text-main;
     color: -fx-text-main;
-    -fx-font-size: 13px;
-    font-size: 13px;
+    -fx-font-size: 1em;
+    font-size: 1em;
 }
 
 .context-menu {
@@ -200,8 +200,8 @@
     background-color: -fx-base-bg;
     -fx-text-fill: -fx-text-main;
     color: -fx-text-main;
-    -fx-font-size: 12px;
-    font-size: 12px;
+    -fx-font-size: 0.923em;
+    font-size: 0.923em;
     -fx-font-weight: 500;
     font-weight: 500;
     -fx-padding: 6 12;
@@ -317,8 +317,8 @@
     background-color: -fx-base-bg;
     -fx-text-fill: -fx-text-muted;
     color: -fx-text-muted;
-    -fx-font-size: 14px;
-    font-size: 14px;
+    -fx-font-size: 1.077em;
+    font-size: 1.077em;
     -fx-padding: 6 10;
     padding: 6px 10px;
     -fx-background-radius: 4;
@@ -364,11 +364,13 @@
     background-color: -fx-base-bg;
     -fx-border-color: -fx-fn-border-color;
     border-color: -fx-fn-border-color;
-    -fx-border-radius: 20;
-    border-radius: 20px;
-    -fx-background-radius: 20;
-    -fx-padding: 8 16;
-    padding: 8px 16px;
+    -fx-border-radius: 14;
+    border-radius: 14px;
+    -fx-background-radius: 14;
+    -fx-padding: 4 16;
+    padding: 4px 16px;
+    -fx-min-height: 28px;
+    min-height: 28px;
     -fx-text-fill: -fx-text-main;
     color: -fx-text-main;
     -fx-prompt-text-fill: -fx-text-faint;
@@ -412,10 +414,10 @@
     background-color: -fx-base-bg;
 }
 
-/* Sidebar: centered icon navigation bar */
+/* Sidebar: left-aligned icon navigation bar */
 .sidebar-nav-bar {
-    -fx-alignment: center;
-    -fx-spacing: 8;
+    -fx-alignment: center-left;
+    -fx-spacing: 6;
     -fx-background-color: -fx-sidebar-bg;
     background-color: -fx-sidebar-bg;
     -fx-border-color: transparent transparent -fx-fn-border-color transparent;
@@ -434,16 +436,16 @@
     -fx-border-radius: 6;
     -fx-border-width: 1px;
     border-width: 1px;
-    -fx-padding: 6 10;
-    padding: 6px 10px;
+    -fx-padding: 0;
+    padding: 0;
     -fx-cursor: hand;
     cursor: pointer;
-    -fx-min-width: 36;
-    -fx-pref-width: 36;
-    -fx-max-width: 36;
-    -fx-min-height: 32;
-    -fx-pref-height: 32;
-    -fx-max-height: 32;
+    -fx-min-width: 28;
+    -fx-pref-width: 28;
+    -fx-max-width: 28;
+    -fx-min-height: 28;
+    -fx-pref-height: 28;
+    -fx-max-height: 28;
     -fx-content-display: graphic-only;
 }
 
@@ -522,8 +524,8 @@
     background-color: -fx-header-bg;
     -fx-text-fill: -fx-text-main;
     color: -fx-text-main;
-    -fx-font-size: 14px;
-    font-size: 14px;
+    -fx-font-size: 1.077em;
+    font-size: 1.077em;
     -fx-font-weight: 500;
     font-weight: 500;
     -fx-padding: 6 12;
@@ -580,8 +582,8 @@
     background-color: transparent;
     -fx-text-fill: -fx-text-main;
     color: -fx-text-main;
-    -fx-font-size: 13px;
-    font-size: 13px;
+    -fx-font-size: 1em;
+    font-size: 1em;
     -fx-padding: 6 12;
     padding: 6px 12px;
     -fx-background-radius: 4;
@@ -634,14 +636,14 @@
 
 .note-cell-title {
     -fx-font-weight: 600;
-    -fx-font-size: 13px;
+    -fx-font-size: 1em;
     -fx-text-fill: -fx-text-main;
 }
 
 .note-cell-preview {
     -fx-fill: -fx-text-muted;
     -fx-text-fill: -fx-text-muted;
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
 }
 
 .note-cell-preview-flow {
@@ -650,12 +652,12 @@
 
 .note-cell-date {
     -fx-text-fill: -fx-text-faint;
-    -fx-font-size: 10px;
+    -fx-font-size: 0.769em;
 }
 
 .note-cell-date-created {
     -fx-text-fill: -fx-text-faint;
-    -fx-font-size: 10px;
+    -fx-font-size: 0.769em;
     -fx-wrap-text: false;
     -fx-text-overrun: ellipsis;
 }
@@ -689,7 +691,7 @@
 .folder-cell-icon {
     -fx-font-weight: 800;
     /* Extra Bold for more 'pop' */
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
     /* Slightly larger */
 }
 
@@ -763,8 +765,8 @@
 .graph-title {
     -fx-text-fill: -fx-text-main;
     color: -fx-text-main;
-    -fx-font-size: 13px;
-    font-size: 13px;
+    -fx-font-size: 1em;
+    font-size: 1em;
     -fx-font-weight: bold;
     font-weight: bold;
     -fx-padding: 0 0 0 4;
@@ -793,8 +795,8 @@
 }
 
 .panel-title {
-    -fx-font-size: 14px;
-    font-size: 14px;
+    -fx-font-size: 1.077em;
+    font-size: 1.077em;
     -fx-font-weight: 600;
     font-weight: 600;
     -fx-text-fill: -fx-text-main;
@@ -812,6 +814,9 @@
     -fx-border-radius: 6;
     border-radius: 6px;
     -fx-background-radius: 6;
+    -fx-min-height: 28px;
+    -fx-pref-height: 28px;
+    -fx-max-height: 28px;
 }
 
 .sort-combo .list-cell {
@@ -883,8 +888,8 @@
     background-color: -fx-base-bg;
     -fx-text-fill: -fx-text-muted;
     color: -fx-text-muted;
-    -fx-font-size: 11px;
-    font-size: 11px;
+    -fx-font-size: 0.846em;
+    font-size: 0.846em;
     -fx-padding: 6 10;
     padding: 6px 10px;
     -fx-background-radius: 6;
@@ -983,22 +988,22 @@
 .note-card-title {
     -fx-font-weight: bold;
     font-weight: bold;
-    -fx-font-size: 13px;
-    font-size: 13px;
+    -fx-font-size: 1em;
+    font-size: 1em;
     -fx-text-fill: -fx-text-main;
     color: -fx-text-main;
 }
 
 .note-card-preview {
-    -fx-font-size: 11px;
-    font-size: 11px;
+    -fx-font-size: 0.846em;
+    font-size: 0.846em;
     -fx-text-fill: -fx-text-muted;
     color: -fx-text-muted;
 }
 
 .note-card-date {
-    -fx-font-size: 10px;
-    font-size: 10px;
+    -fx-font-size: 0.769em;
+    font-size: 0.769em;
     -fx-text-fill: -fx-text-faint;
     color: -fx-text-faint;
 }
@@ -1023,7 +1028,7 @@
 
 /* Inline save indicator dot (next to the note title). */
 .save-indicator-dot {
-    -fx-font-size: 9px;
+    -fx-font-size: 0.692em;
     -fx-padding: 0;
     -fx-min-width: 10px;
     -fx-pref-width: 10px;
@@ -1081,7 +1086,7 @@
 }
 .editor-tab-title {
     -fx-text-fill: -fx-text-muted;
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
 }
 .editor-tab.active .editor-tab-title {
     -fx-text-fill: -fx-text-main;
@@ -1089,11 +1094,11 @@
 }
 .editor-tab-dot {
     -fx-text-fill: -fx-warning;
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
 }
 .editor-tab-close {
     -fx-text-fill: -fx-text-faint;
-    -fx-font-size: 14px;
+    -fx-font-size: 1.077em;
     -fx-cursor: hand;
     -fx-padding: 0 2 0 2;
 }
@@ -1114,12 +1119,12 @@
     -fx-spacing: 10;
 }
 .kanban-title {
-    -fx-font-size: 16px;
+    -fx-font-size: 1.231em;
     -fx-font-weight: 700;
     -fx-text-fill: -fx-text-main;
 }
 .kanban-close {
-    -fx-font-size: 15px;
+    -fx-font-size: 1.154em;
     -fx-text-fill: -fx-text-muted;
     -fx-cursor: hand;
     -fx-padding: 0 6 0 6;
@@ -1150,7 +1155,7 @@
     -fx-background-color: derive(-fx-accent, 80%);
 }
 .kanban-lane-header {
-    -fx-font-size: 13px;
+    -fx-font-size: 1em;
     -fx-font-weight: 700;
     -fx-text-fill: -fx-text-muted;
     -fx-padding: 2 4 6 4;
@@ -1159,7 +1164,7 @@
    rule, which otherwise wins by source order and paints the count dark on the
    accent pill. */
 .label.kanban-lane-count {
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
     -fx-font-weight: 700;
     -fx-text-fill: -fx-accent-contrast;
     -fx-background-color: -fx-accent;
@@ -1171,7 +1176,7 @@
     -fx-border-color: -fx-fn-border-color;
     -fx-border-radius: 6;
     -fx-text-fill: -fx-text-muted;
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
     -fx-cursor: hand;
 }
 .kanban-add-card:hover {
@@ -1218,7 +1223,7 @@
     -fx-border-color: -fx-accent;
 }
 .kanban-card-title {
-    -fx-font-size: 13px;
+    -fx-font-size: 1em;
     -fx-font-weight: 600;
     -fx-text-fill: -fx-text-main;
 }
@@ -1228,15 +1233,15 @@
     background-color: transparent;
     -fx-border-color: transparent;
     border-color: transparent;
-    -fx-font-size: 18px;
-    font-size: 18px;
+    -fx-font-size: 1.154em;
+    font-size: 1.154em;
     -fx-font-weight: 600;
     font-weight: 600;
     -fx-text-fill: -fx-text-main;
     color: -fx-text-main;
     -fx-prompt-text-fill: -fx-text-faint;
-    -fx-padding: 4 8;
-    padding: 4px 8px;
+    -fx-padding: 2 8;
+    padding: 2px 8px;
 }
 
 .title-field:focused {
@@ -1248,14 +1253,14 @@
 
 /* Read (preview-only) view: title rendered as a plain heading, not an input. */
 .title-heading {
-    -fx-font-size: 20px;
-    font-size: 20px;
+    -fx-font-size: 1.231em;
+    font-size: 1.231em;
     -fx-font-weight: 700;
     font-weight: 700;
     -fx-text-fill: -fx-text-main;
     color: -fx-text-main;
-    -fx-padding: 4 8;
-    padding: 4px 8px;
+    -fx-padding: 2 8;
+    padding: 2px 8px;
     -fx-text-overrun: ellipsis;
 }
 
@@ -1269,8 +1274,8 @@
     background-color: -fx-header-bg;
     -fx-text-fill: -fx-text-main;
     color: -fx-text-main;
-    -fx-font-size: 11px;
-    font-size: 11px;
+    -fx-font-size: 0.846em;
+    font-size: 0.846em;
     -fx-font-weight: 500;
     font-weight: 500;
     -fx-padding: 6 10;
@@ -1310,8 +1315,8 @@
     background-color: -fx-header-bg;
     -fx-text-fill: -fx-text-main;
     color: -fx-text-main;
-    -fx-font-size: 12px;
-    font-size: 12px;
+    -fx-font-size: 0.923em;
+    font-size: 0.923em;
     -fx-font-weight: 600;
     font-weight: 600;
     -fx-padding: 6 10;
@@ -1380,8 +1385,8 @@
 .tag-label {
     -fx-text-fill: -fx-text-main;
     color: -fx-text-main;
-    -fx-font-size: 11px;
-    font-size: 11px;
+    -fx-font-size: 0.846em;
+    font-size: 0.846em;
 }
 
 .tag-remove-btn {
@@ -1389,8 +1394,8 @@
     background-color: transparent;
     -fx-text-fill: -fx-text-muted;
     color: -fx-text-muted;
-    -fx-font-size: 11px;
-    font-size: 11px;
+    -fx-font-size: 0.846em;
+    font-size: 0.846em;
     -fx-padding: 0 0 0 6;
     padding: 0 0 0 6px;
     -fx-cursor: hand;
@@ -1407,8 +1412,8 @@
     background-color: transparent;
     -fx-text-fill: -fx-accent;
     color: -fx-accent;
-    -fx-font-size: 11px;
-    font-size: 11px;
+    -fx-font-size: 0.846em;
+    font-size: 0.846em;
     -fx-padding: 4 10;
     padding: 4px 10px;
     -fx-border-color: -fx-accent;
@@ -1432,8 +1437,8 @@
 .meta-label {
     -fx-text-fill: -fx-text-faint;
     color: -fx-text-faint;
-    -fx-font-size: 11px;
-    font-size: 11px;
+    -fx-font-size: 0.846em;
+    font-size: 0.846em;
 }
 
 /* ========================================
@@ -1528,8 +1533,8 @@
     background-color: transparent;
     -fx-text-fill: -fx-text-muted;
     color: -fx-text-muted;
-    -fx-font-size: 12px;
-    font-size: 12px;
+    -fx-font-size: 0.923em;
+    font-size: 0.923em;
     -fx-font-weight: 600;
     font-weight: 600;
     -fx-padding: 0;
@@ -1543,10 +1548,10 @@
     border-width: 1px;
     -fx-cursor: hand;
     cursor: pointer;
-    -fx-min-width: 30px;
-    min-width: 30px;
-    -fx-pref-width: 30px;
-    -fx-max-width: 30px;
+    -fx-min-width: 28px;
+    min-width: 28px;
+    -fx-pref-width: 28px;
+    -fx-max-width: 28px;
     -fx-min-height: 28px;
     min-height: 28px;
     -fx-pref-height: 28px;
@@ -1576,8 +1581,8 @@
 
 /* Typographic (non-icon) format buttons share the icon buttons' metrics. */
 .format-toolbar .format-btn-text {
-    -fx-font-size: 12.5px;
-    font-size: 12.5px;
+    -fx-font-size: 0.962em;
+    font-size: 0.962em;
     -fx-font-weight: 700;
     font-weight: 700;
 }
@@ -1615,8 +1620,8 @@
 
 /* Quote: large curly-quote glyph, nudged to sit centered. */
 .format-toolbar .format-quote {
-    -fx-font-size: 17px;
-    font-size: 17px;
+    -fx-font-size: 1.308em;
+    font-size: 1.308em;
     -fx-font-weight: 700;
 }
 
@@ -1631,8 +1636,8 @@
 .word-count {
     -fx-text-fill: -fx-text-faint;
     color: -fx-text-faint;
-    -fx-font-size: 11px;
-    font-size: 11px;
+    -fx-font-size: 0.846em;
+    font-size: 0.846em;
 }
 
 /* ========================================
@@ -1660,8 +1665,8 @@
 .preview-label {
     -fx-text-fill: -fx-text-faint;
     color: -fx-text-faint;
-    -fx-font-size: 11px;
-    font-size: 11px;
+    -fx-font-size: 0.846em;
+    font-size: 0.846em;
     -fx-font-weight: 500;
     font-weight: 500;
 }
@@ -1684,8 +1689,8 @@
 }
 
 .info-title {
-    -fx-font-size: 14px;
-    font-size: 14px;
+    -fx-font-size: 1.077em;
+    font-size: 1.077em;
     -fx-font-weight: 600;
     font-weight: 600;
     -fx-text-fill: -fx-text-main;
@@ -1697,8 +1702,8 @@
     background-color: transparent;
     -fx-text-fill: -fx-text-muted;
     color: -fx-text-muted;
-    -fx-font-size: 16px;
-    font-size: 16px;
+    -fx-font-size: 1.231em;
+    font-size: 1.231em;
     -fx-padding: 4 8;
     padding: 4px 8px;
     -fx-cursor: hand;
@@ -1725,8 +1730,8 @@
     background-color: -fx-base-bg;
     -fx-text-fill: -fx-text-muted;
     color: -fx-text-muted;
-    -fx-font-size: 11px;
-    font-size: 11px;
+    -fx-font-size: 0.846em;
+    font-size: 0.846em;
     -fx-padding: 6 10;
     padding: 6px 10px;
     -fx-background-radius: 6;
@@ -1762,8 +1767,8 @@
 .info-label {
     -fx-text-fill: -fx-text-muted;
     color: -fx-text-muted;
-    -fx-font-size: 10px;
-    font-size: 10px;
+    -fx-font-size: 0.769em;
+    font-size: 0.769em;
     -fx-font-weight: 600;
     font-weight: 600;
 }
@@ -1771,15 +1776,15 @@
 .info-sublabel {
     -fx-text-fill: -fx-text-muted;
     color: -fx-text-muted;
-    -fx-font-size: 10px;
-    font-size: 10px;
+    -fx-font-size: 0.769em;
+    font-size: 0.769em;
 }
 
 .info-value {
     -fx-text-fill: -fx-text-main;
     color: -fx-text-main;
-    -fx-font-size: 12px;
-    font-size: 12px;
+    -fx-font-size: 0.923em;
+    font-size: 0.923em;
 }
 
 /* ========================================
@@ -1798,8 +1803,8 @@
 .status-text {
     -fx-text-fill: -fx-text-muted;
     color: -fx-text-muted;
-    -fx-font-size: 11px;
-    font-size: 11px;
+    -fx-font-size: 0.846em;
+    font-size: 0.846em;
 }
 
 .status-separator {
@@ -1888,8 +1893,8 @@
     background-color: -fx-text-main;
     -fx-text-fill: -fx-base-bg;
     color: -fx-base-bg;
-    -fx-font-size: 11px;
-    font-size: 11px;
+    -fx-font-size: 0.846em;
+    font-size: 0.846em;
     -fx-padding: 8 12;
     padding: 8px 12px;
     -fx-background-radius: 6;
@@ -1929,6 +1934,18 @@
     border-color: -fx-accent;
 }
 
+/* Every TextField carries the JavaFX-implicit "text-field" style class in addition to
+   any custom one — so .search-field (declared above, earlier in the file) and this
+   plain .text-field rule tie on specificity, and this one wins the shared "padding"
+   property just by being declared later. Reasserted here so the search field actually
+   keeps its own shorter padding instead of silently inheriting this taller default. */
+.search-field {
+    -fx-padding: 4 16;
+    padding: 4px 16px;
+    -fx-min-height: 28px;
+    min-height: 28px;
+}
+
 /* ========================================
    COMBO BOX POPUP
    ======================================== */
@@ -1952,8 +1969,8 @@
     background-color: -fx-base-bg;
     -fx-text-fill: -fx-text-main;
     color: -fx-text-main;
-    -fx-font-size: 12px;
-    font-size: 12px;
+    -fx-font-size: 0.923em;
+    font-size: 0.923em;
     -fx-padding: 8 14;
     padding: 8px 14px;
     -fx-background-radius: 6;
@@ -2015,8 +2032,8 @@
     background-color: transparent;
     -fx-text-fill: -fx-text-muted;
     color: -fx-text-muted;
-    -fx-font-size: 12px;
-    font-size: 12px;
+    -fx-font-size: 0.923em;
+    font-size: 0.923em;
     -fx-padding: 6 12;
     padding: 6px 12px;
     -fx-background-radius: 6;
@@ -2080,8 +2097,8 @@
 .panel-title {
     -fx-text-fill: -fx-text-muted;
     color: -fx-text-muted;
-    -fx-font-size: 11px;
-    font-size: 11px;
+    -fx-font-size: 0.846em;
+    font-size: 0.846em;
     -fx-font-weight: bold;
     font-weight: bold;
     -fx-text-transform: uppercase;
@@ -2092,8 +2109,8 @@
     background-color: transparent;
     -fx-text-fill: -fx-text-muted;
     color: -fx-text-muted;
-    -fx-font-size: 16px;
-    font-size: 16px;
+    -fx-font-size: 1.231em;
+    font-size: 1.231em;
     -fx-padding: 0 4;
     padding: 0 4px;
     -fx-cursor: hand;
@@ -2154,8 +2171,8 @@
 .collapse-icon {
     -fx-text-fill: -fx-text-muted;
     color: -fx-text-muted;
-    -fx-font-size: 10px;
-    font-size: 10px;
+    -fx-font-size: 0.769em;
+    font-size: 0.769em;
     -fx-padding: 0 6 0 0;
     padding: 0 6px 0 0;
 }
@@ -2163,8 +2180,8 @@
 .section-title {
     -fx-text-fill: -fx-text-main;
     color: -fx-text-main;
-    -fx-font-size: 12px;
-    font-size: 12px;
+    -fx-font-size: 0.923em;
+    font-size: 0.923em;
     -fx-font-weight: bold;
     font-weight: bold;
 }
@@ -2178,8 +2195,8 @@
 .info-label {
     -fx-text-fill: -fx-text-muted;
     color: -fx-text-muted;
-    -fx-font-size: 9px;
-    font-size: 9px;
+    -fx-font-size: 0.692em;
+    font-size: 0.692em;
     -fx-font-weight: bold;
     font-weight: bold;
     -fx-text-transform: uppercase;
@@ -2188,15 +2205,15 @@
 .info-value {
     -fx-text-fill: -fx-text-main;
     color: -fx-text-main;
-    -fx-font-size: 12px;
-    font-size: 12px;
+    -fx-font-size: 0.923em;
+    font-size: 0.923em;
 }
 
 .info-value-small {
     -fx-text-fill: -fx-text-muted;
     color: -fx-text-muted;
-    -fx-font-size: 11px;
-    font-size: 11px;
+    -fx-font-size: 0.846em;
+    font-size: 0.846em;
 }
 
 /* Feather Icon Styling (Ikonli FontIcon) */
@@ -2301,7 +2318,7 @@
 }
 
 .small-search {
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
     -fx-padding: 4px 8px;
     -fx-min-height: 28px;
 }
@@ -2327,9 +2344,13 @@
 
 .icon-btn,
 .icon-btn-small {
-    -fx-min-height: 26px;
-    -fx-min-width: 26px;
-    -fx-padding: 4 6;
+    -fx-min-height: 28px;
+    -fx-pref-height: 28px;
+    -fx-max-height: 28px;
+    -fx-min-width: 28px;
+    -fx-pref-width: 28px;
+    -fx-max-width: 28px;
+    -fx-padding: 0;
     -fx-background-radius: 6;
     -fx-border-radius: 6;
     -fx-background-color: transparent;
@@ -2401,7 +2422,7 @@
 }
 
 .status-text {
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
     -fx-text-fill: -fx-text-muted;
 }
 
@@ -2485,12 +2506,12 @@
 /* Responsive editor/view mode buttons */
 .icon-only-btn {
     -fx-content-display: graphic-only;
-    -fx-padding: 6 8;
-    -fx-min-width: 36px;
-    -fx-pref-width: 36px;
-    -fx-max-width: 36px;
-    -fx-min-height: 32px;
-    -fx-pref-height: 32px;
+    -fx-padding: 4 6;
+    -fx-min-width: 28px;
+    -fx-pref-width: 28px;
+    -fx-max-width: 28px;
+    -fx-min-height: 28px;
+    -fx-pref-height: 28px;
 }
 
 .drag-over-target {
@@ -2538,7 +2559,7 @@
 
 .section-header .collapse-icon {
     -fx-text-fill: -fx-text-muted;
-    -fx-font-size: 9px;
+    -fx-font-size: 0.692em;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2560,11 +2581,11 @@
 
 .properties-collapse-icon {
     -fx-text-fill: -fx-text-muted;
-    -fx-font-size: 9px;
+    -fx-font-size: 0.692em;
 }
 
 .properties-title {
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
     -fx-font-weight: bold;
     -fx-text-fill: -fx-text-muted;
     -fx-text-transform: uppercase;
@@ -2587,14 +2608,14 @@
 
 .property-type-icon {
     -fx-text-fill: -fx-text-faint;
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
     -fx-min-width: 18px;
     -fx-alignment: center;
 }
 
 .property-key {
     -fx-text-fill: -fx-text-muted;
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
     -fx-min-width: 90px;
     -fx-max-width: 110px;
 }
@@ -2605,7 +2626,7 @@
     -fx-background-radius: 4;
     -fx-border-color: transparent;
     -fx-border-radius: 4;
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
     -fx-text-fill: -fx-text-main;
     -fx-padding: 2 6;
 }
@@ -2615,13 +2636,13 @@
 }
 
 .property-value-check {
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
 }
 
 .property-remove-btn {
     -fx-background-color: transparent;
     -fx-text-fill: -fx-text-faint;
-    -fx-font-size: 14px;
+    -fx-font-size: 1.077em;
     -fx-padding: 0 4;
     -fx-cursor: hand;
     -fx-opacity: 0;
@@ -2638,7 +2659,7 @@
 .property-link-btn {
     -fx-background-color: transparent;
     -fx-text-fill: -fx-accent;
-    -fx-font-size: 13px;
+    -fx-font-size: 1em;
     -fx-padding: 0 4;
     -fx-cursor: hand;
 }
@@ -2650,7 +2671,7 @@
 .add-property-btn {
     -fx-background-color: transparent;
     -fx-text-fill: -fx-accent;
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
     -fx-padding: 2 8;
     -fx-cursor: hand;
     -fx-border-color: -fx-accent;
@@ -2671,7 +2692,7 @@
     -fx-border-radius: 6;
     -fx-background-radius: 6;
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 12, 0, 0, 4);
-    -fx-font-size: 13px;
+    -fx-font-size: 1em;
 }
 
 .autocomplete-list .list-cell {
@@ -2720,14 +2741,14 @@
 
 /* ── Read-only property values (read view) ─────────────────── */
 .property-readonly-value {
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
     -fx-text-fill: -fx-text-main;
     -fx-padding: 2 6;
 }
 
 .property-readonly-value .text {
     -fx-fill: -fx-text-main;
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
 }
 
 .property-wikilink {
@@ -2736,7 +2757,7 @@
     -fx-padding: 0;
     -fx-underline: false;
     -fx-cursor: hand;
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
 }
 
 .property-wikilink:hover {
@@ -2754,18 +2775,18 @@
 }
 
 .graph-settings-header {
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
     -fx-font-weight: bold;
     -fx-text-fill: -fx-text-muted;
 }
 
 .graph-settings-label {
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
     -fx-text-fill: -fx-text-faint;
 }
 
 .graph-settings .check-box {
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
     -fx-text-fill: -fx-text-main;
 }
 
@@ -2790,7 +2811,7 @@
     -fx-border-width: 0 0 1 0;
 }
 .note-path {
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
     -fx-text-fill: -fx-text-faint;
 }
 .feather-icon-faint {
@@ -2811,11 +2832,11 @@
     -fx-opacity: 0.5;
 }
 .empty-state-title {
-    -fx-font-size: 16px;
+    -fx-font-size: 1.231em;
     -fx-text-fill: -fx-text-muted;
 }
 .empty-state-btn {
-    -fx-font-size: 13px;
+    -fx-font-size: 1em;
     -fx-padding: 8 18;
     -fx-background-radius: 6;
     -fx-border-radius: 6;
@@ -2825,7 +2846,7 @@
 .empty-state-btn-secondary {
     -fx-background-color: transparent;
     -fx-text-fill: -fx-text-muted;
-    -fx-font-size: 13px;
+    -fx-font-size: 1em;
     -fx-padding: 8 18;
     -fx-background-radius: 6;
     -fx-border-color: -fx-fn-border-color;
@@ -2837,11 +2858,11 @@
 
 /* ── Status bar extras ────────────────────────────────────── */
 .status-text-muted {
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
     -fx-text-fill: -fx-text-faint;
 }
 .status-storage {
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
     -fx-text-fill: -fx-text-muted;
     -fx-cursor: hand;
     -fx-padding: 1 6;
@@ -2877,7 +2898,7 @@
 
 /* ── Git status indicator (status bar) ────────────────────── */
 .status-git {
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
     -fx-text-fill: -fx-text-muted;
     -fx-cursor: hand;
     -fx-padding: 1 6;
@@ -2898,10 +2919,10 @@
 }
 
 /* ── Git changes / history dialogs ────────────────────────── */
-.git-change-title  { -fx-font-size: 13px; -fx-font-weight: 600; -fx-text-fill: -fx-text-main; }
-.git-change-path   { -fx-font-size: 11px; -fx-text-fill: -fx-text-faint; }
-.git-change-stats  { -fx-font-size: 11px; -fx-text-fill: -fx-success; }
-.git-change-state  { -fx-font-size: 10px; -fx-text-fill: -fx-text-faint; }
+.git-change-title  { -fx-font-size: 1em; -fx-font-weight: 600; -fx-text-fill: -fx-text-main; }
+.git-change-path   { -fx-font-size: 0.846em; -fx-text-fill: -fx-text-faint; }
+.git-change-stats  { -fx-font-size: 0.846em; -fx-text-fill: -fx-success; }
+.git-change-state  { -fx-font-size: 0.769em; -fx-text-fill: -fx-text-faint; }
 .git-change-state-staged { -fx-text-fill: -fx-success; }
 .git-stage-btn {
     -fx-background-color: transparent;
@@ -2909,21 +2930,21 @@
     -fx-border-radius: 4;
     -fx-background-radius: 4;
     -fx-text-fill: -fx-accent;
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
     -fx-min-width: 72px;
     -fx-min-height: 30px;
     -fx-padding: 5 10;
     -fx-cursor: hand;
 }
 .git-stage-btn:hover { -fx-background-color: -fx-hover-bg; }
-.git-commit-subject { -fx-font-size: 13px; -fx-font-weight: 600; -fx-text-fill: -fx-text-main; }
+.git-commit-subject { -fx-font-size: 1em; -fx-font-weight: 600; -fx-text-fill: -fx-text-main; }
 
 /* ── Git Sync panel ───────────────────────────────────────── */
-.git-status-branch  { -fx-font-size: 13px; -fx-font-weight: 700; -fx-text-fill: -fx-text-main; }
-.git-status-remote  { -fx-font-size: 11px; -fx-text-fill: -fx-text-faint; }
-.git-status-summary { -fx-font-size: 11px; -fx-text-fill: -fx-text-muted; }
+.git-status-branch  { -fx-font-size: 1em; -fx-font-weight: 700; -fx-text-fill: -fx-text-main; }
+.git-status-remote  { -fx-font-size: 0.846em; -fx-text-fill: -fx-text-faint; }
+.git-status-summary { -fx-font-size: 0.846em; -fx-text-fill: -fx-text-muted; }
 .git-conflict-banner {
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
     -fx-font-weight: 600;
     -fx-text-fill: -fx-danger;
     -fx-background-color: derive(-fx-danger, 85%);
@@ -2932,7 +2953,7 @@
 }
 .git-change-badge {
     -fx-font-family: "monospace";
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
     -fx-font-weight: 700;
     -fx-text-fill: -fx-text-faint;
     -fx-min-width: 26px;
@@ -2941,7 +2962,7 @@
 .git-change-badge-staged   { -fx-text-fill: -fx-success; }
 .git-change-badge-conflict { -fx-text-fill: -fx-danger; }
 .git-change-conflict-tag {
-    -fx-font-size: 10px;
+    -fx-font-size: 0.769em;
     -fx-font-weight: 600;
     -fx-text-fill: -fx-danger;
     -fx-border-color: -fx-danger;
@@ -2957,33 +2978,33 @@
 }
 .git-log-area {
     -fx-font-family: "monospace";
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
     -fx-text-fill: -fx-text-muted;
 }
 
 /* Git workspace: clear operation state and compact, readable controls. */
 .git-operation-status {
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
     -fx-font-weight: 600;
     -fx-text-fill: -fx-text-muted;
 }
 .git-operation-status:error { -fx-text-fill: -fx-danger; }
 .git-workflow-hint {
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
     -fx-text-fill: -fx-text-muted;
     -fx-padding: 6 8 6 8;
     -fx-background-color: -fx-hover-bg;
     -fx-background-radius: 5;
 }
 .git-branch-menu {
-    -fx-font-size: 13px;
+    -fx-font-size: 1em;
     -fx-font-weight: 700;
     -fx-text-fill: -fx-text-main;
     -fx-background-color: transparent;
     -fx-padding: 2 6 2 6;
 }
 .git-branch-menu:hover { -fx-background-color: -fx-hover-bg; -fx-background-radius: 4; }
-.git-commit-meta    { -fx-font-size: 11px; -fx-text-fill: -fx-text-faint; }
+.git-commit-meta    { -fx-font-size: 0.846em; -fx-text-fill: -fx-text-faint; }
 
 /* ── Overlay windows (Command Palette / Quick Switcher) ─────────────────── */
 .overlay-backdrop {
@@ -3003,7 +3024,7 @@
 }
 .overlay-search-icon {
     -fx-text-fill: -fx-accent;
-    -fx-font-size: 18px;
+    -fx-font-size: 1.385em;
     -fx-font-weight: 700;
 }
 .overlay-search-field {
@@ -3013,7 +3034,7 @@
     -fx-padding: 0;
     -fx-text-fill: -fx-text-main;
     -fx-prompt-text-fill: -fx-text-faint;
-    -fx-font-size: 16px;
+    -fx-font-size: 1.231em;
 }
 .overlay-search-field:focused {
     -fx-background-color: transparent;
@@ -3049,35 +3070,35 @@
     -fx-background-radius: 6;
     -fx-padding: 4 8;
     -fx-text-fill: -fx-accent;
-    -fx-font-size: 14px;
+    -fx-font-size: 1.077em;
     -fx-font-weight: 700;
 }
 .quick-switcher-cell .overlay-item-icon {
     -fx-padding: 6 8;
-    -fx-font-size: 16px;
+    -fx-font-size: 1.231em;
 }
 .overlay-item-icon-favorite {
     -fx-text-fill: -fx-warning;
 }
 .overlay-item-title {
     -fx-text-fill: -fx-text-main;
-    -fx-font-size: 14px;
+    -fx-font-size: 1.077em;
     -fx-font-weight: 700;
 }
 .overlay-item-subtitle {
     -fx-text-fill: -fx-text-muted;
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
 }
 .overlay-item-meta {
     -fx-text-fill: -fx-text-faint;
-    -fx-font-size: 10px;
+    -fx-font-size: 0.769em;
 }
 .overlay-shortcut-badge {
     -fx-background-color: -fx-hover-bg;
     -fx-background-radius: 4;
     -fx-padding: 3 8;
     -fx-text-fill: -fx-text-faint;
-    -fx-font-size: 10px;
+    -fx-font-size: 0.769em;
 }
 .overlay-list-view .list-cell:selected .overlay-item-title,
 .overlay-list-view .list-cell:selected .overlay-item-subtitle,
@@ -3100,7 +3121,7 @@
 .overlay-hint,
 .overlay-status {
     -fx-text-fill: -fx-text-faint;
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
 }
 
 /* ── Dialogs (modals) — themed so they read correctly in dark & light ── */
@@ -3112,7 +3133,7 @@
 }
 .dialog-pane > .header-panel .label {
     -fx-text-fill: -fx-text-main;
-    -fx-font-size: 14px;
+    -fx-font-size: 1.077em;
 }
 .dialog-pane .content,
 .dialog-pane > .content.label,
@@ -3284,30 +3305,30 @@
 }
 .dialog-hint-label {
     -fx-text-fill: -fx-text-faint;
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
 }
 .dialog-monospace-area {
     -fx-font-family: "monospace";
 }
 .about-title {
-    -fx-font-size: 24px;
+    -fx-font-size: 1.846em;
     -fx-font-weight: 700;
     -fx-text-fill: -fx-text-main;
 }
 .about-version {
-    -fx-font-size: 14px;
+    -fx-font-size: 1.077em;
     -fx-text-fill: -fx-text-muted;
 }
 .about-description {
-    -fx-font-size: 13px;
+    -fx-font-size: 1em;
     -fx-text-fill: -fx-text-main;
 }
 .about-meta {
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
     -fx-text-fill: -fx-text-muted;
 }
 .about-credit {
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
     -fx-font-weight: 700;
     -fx-text-fill: -fx-text-main;
 }
@@ -3343,12 +3364,12 @@
     -fx-border-width: 0 0 1 0;
 }
 .plugin-manager-title {
-    -fx-font-size: 20px;
+    -fx-font-size: 1.538em;
     -fx-font-weight: bold;
     -fx-text-fill: -fx-text-main;
 }
 .plugin-manager-count {
-    -fx-font-size: 13px;
+    -fx-font-size: 1em;
     -fx-text-fill: -fx-text-muted;
 }
 .plugin-manager-scroll {
@@ -3364,7 +3385,7 @@
     -fx-spacing: 10;
 }
 .plugin-manager-empty {
-    -fx-font-size: 14px;
+    -fx-font-size: 1.077em;
     -fx-text-fill: -fx-text-muted;
     -fx-padding: 40;
 }
@@ -3377,27 +3398,27 @@
     -fx-padding: 15 18 15 18;
 }
 .plugin-card-title {
-    -fx-font-size: 15px;
+    -fx-font-size: 1.154em;
     -fx-font-weight: bold;
     -fx-text-fill: -fx-text-main;
 }
 .plugin-card-version {
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
     -fx-text-fill: -fx-text-muted;
     -fx-background-color: -fx-header-bg;
     -fx-padding: 2 8 2 8;
     -fx-background-radius: 10;
 }
 .plugin-card-desc {
-    -fx-font-size: 13px;
+    -fx-font-size: 1em;
     -fx-text-fill: -fx-text-muted;
 }
 .plugin-card-author {
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
     -fx-text-fill: -fx-text-muted;
 }
 .plugin-card-status {
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
 }
 .plugin-card-status-on {
     -fx-text-fill: -fx-success;
@@ -3412,7 +3433,7 @@
     -fx-border-width: 1 0 0 0;
 }
 .plugin-manager-action-btn {
-    -fx-font-size: 13px;
+    -fx-font-size: 1em;
     -fx-padding: 8 20 8 20;
     -fx-background-radius: 6;
     -fx-border-radius: 6;
@@ -3420,7 +3441,7 @@
     -fx-cursor: hand;
 }
 .plugin-manager-card-action-btn {
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
     -fx-padding: 5 12 5 12;
     -fx-background-radius: 6;
     -fx-border-radius: 6;
@@ -3486,14 +3507,14 @@
 .calendar-grid { -fx-padding: 4; -fx-hgap: 3; -fx-vgap: 3; }
 .calendar-day-name {
     -fx-text-fill: -fx-text-muted;
-    -fx-font-size: 10px;
+    -fx-font-size: 0.769em;
     -fx-font-weight: bold;
     -fx-min-width: 28px; -fx-pref-width: 28px;
     -fx-alignment: center;
 }
 .calendar-day {
     -fx-text-fill: -fx-text-main;
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
     -fx-min-width: 28px; -fx-pref-width: 28px;
     -fx-min-height: 28px; -fx-pref-height: 28px;
     -fx-alignment: center;
@@ -3515,13 +3536,13 @@
 .calendar-today:hover { -fx-background-color: -fx-accent-hover; }
 .calendar-month-label {
     -fx-font-weight: bold;
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
     -fx-text-fill: -fx-text-main;
 }
 
 .outline-header {
     -fx-text-fill: -fx-text-main;
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
     -fx-font-weight: bold;
     -fx-padding: 6 8;
     -fx-cursor: hand;
@@ -3530,7 +3551,7 @@
 .outline-header:hover { -fx-background-color: -fx-hover-bg; }
 .outline-empty-label {
     -fx-text-fill: -fx-text-faint;
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
     -fx-font-style: italic;
 }
 .outline-item {
@@ -3541,10 +3562,10 @@
     -fx-text-fill: -fx-text-muted;
 }
 .outline-item:hover { -fx-background-color: -fx-hover-bg; -fx-text-fill: -fx-text-main; }
-.outline-h1 { -fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: -fx-text-main; }
-.outline-h2 { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -fx-text-main; }
-.outline-h3 { -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -fx-text-muted; }
-.outline-h4, .outline-h5, .outline-h6 { -fx-font-size: 11px; -fx-text-fill: -fx-text-muted; }
+.outline-h1 { -fx-font-size: 1em; -fx-font-weight: bold; -fx-text-fill: -fx-text-main; }
+.outline-h2 { -fx-font-size: 0.923em; -fx-font-weight: bold; -fx-text-fill: -fx-text-main; }
+.outline-h3 { -fx-font-size: 0.846em; -fx-font-weight: bold; -fx-text-fill: -fx-text-muted; }
+.outline-h4, .outline-h5, .outline-h6 { -fx-font-size: 0.846em; -fx-text-fill: -fx-text-muted; }
 
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -3562,7 +3583,7 @@
 .viewer-info {
     -fx-text-fill: -fx-text-muted;
     -fx-padding: 0 8 0 2;
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
 }
 .viewer-btn {
     -fx-background-color: transparent;
@@ -3572,7 +3593,7 @@
     -fx-background-radius: 6;
     -fx-border-radius: 6;
     -fx-padding: 3 10 3 10;
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
     -fx-cursor: hand;
     -fx-min-width: 30px;
 }
@@ -3592,7 +3613,7 @@
     -fx-background-radius: 6;
     -fx-border-radius: 6;
     -fx-padding: 3 6 3 6;
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
     -fx-pref-width: 54px;
     -fx-max-width: 54px;
     -fx-alignment: center;
@@ -3657,7 +3678,7 @@
     -fx-background-radius: 4;
     -fx-text-fill: white;
     -fx-font-weight: bold;
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
     -fx-padding: 2 5 2 5;
 }
 .viewer-pdf-placeholder {
@@ -3669,7 +3690,7 @@
 
 .backlink-item {
     -fx-text-fill: -fx-accent;
-    -fx-font-size: 12px;
+    -fx-font-size: 0.923em;
     -fx-padding: 3 6 3 6;
     -fx-background-radius: 4;
     -fx-cursor: hand;
@@ -3681,7 +3702,7 @@
 
 /* Git changes dialog: staged / not-staged section headers + separator */
 .git-section-header {
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
     -fx-font-weight: bold;
     -fx-text-fill: -fx-text-muted;
     -fx-padding: 4 2 2 2;
@@ -3727,14 +3748,14 @@
 }
 
 /* ── Knowledge Insights panel ─────────────────────────────── */
-.insights-metric-label { -fx-font-size: 11px; -fx-text-fill: -fx-text-faint; }
-.insights-metric-value { -fx-font-size: 20px; -fx-font-weight: 700; -fx-text-fill: -fx-text-main; }
-.insights-score        { -fx-font-size: 34px; -fx-font-weight: 800; }
+.insights-metric-label { -fx-font-size: 0.846em; -fx-text-fill: -fx-text-faint; }
+.insights-metric-value { -fx-font-size: 1.538em; -fx-font-weight: 700; -fx-text-fill: -fx-text-main; }
+.insights-score        { -fx-font-size: 2.615em; -fx-font-weight: 800; }
 .insights-score-good   { -fx-text-fill: -fx-success; }
 .insights-score-warn   { -fx-text-fill: -fx-warning; }
 .insights-score-bad    { -fx-text-fill: -fx-danger; }
-.insights-explanation  { -fx-font-size: 12px; -fx-text-fill: -fx-text-muted; }
-.insights-hint         { -fx-font-size: 11px; -fx-text-fill: -fx-text-faint; -fx-font-style: italic; }
+.insights-explanation  { -fx-font-size: 0.923em; -fx-text-fill: -fx-text-muted; }
+.insights-hint         { -fx-font-size: 0.846em; -fx-text-fill: -fx-text-faint; -fx-font-style: italic; }
 
 /* ========================================
    CANVAS VIEWER (.canvas / JSON Canvas)
@@ -3763,8 +3784,8 @@
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.12), 6, 0, 0, 1);
 }
 .canvas-node-title { -fx-font-weight: bold; -fx-text-fill: -fx-text-main; }
-.canvas-node-text { -fx-text-fill: -fx-text-main; -fx-font-size: 13px; }
-.canvas-node-link-url { -fx-text-fill: -fx-accent; -fx-font-size: 12px; }
+.canvas-node-text { -fx-text-fill: -fx-text-main; -fx-font-size: 1em; }
+.canvas-node-link-url { -fx-text-fill: -fx-accent; -fx-font-size: 0.923em; }
 .canvas-group {
     -fx-background-color: rgba(125, 125, 125, 0.07);
     -fx-background-radius: 10;
@@ -3774,7 +3795,7 @@
     -fx-border-radius: 10;
     -fx-padding: 6 10;
 }
-.canvas-group-label { -fx-text-fill: -fx-text-muted; -fx-font-weight: bold; -fx-font-size: 12px; }
+.canvas-group-label { -fx-text-fill: -fx-text-muted; -fx-font-weight: bold; -fx-font-size: 0.923em; }
 .canvas-edge { -fx-stroke: -fx-text-muted; -fx-stroke-width: 2; -fx-cursor: hand; }
 .canvas-edge-selected { -fx-stroke: -fx-accent; -fx-stroke-width: 3.5; }
 .canvas-edge-arrow { -fx-fill: -fx-text-muted; -fx-cursor: hand; }
@@ -3810,16 +3831,16 @@
 }
 .toolbar-btn-active .feather-icon { -fx-icon-color: -fx-accent; }
 .canvas-edge-label {
-    -fx-text-fill: -fx-text-muted; -fx-font-size: 11px;
+    -fx-text-fill: -fx-text-muted; -fx-font-size: 0.846em;
     -fx-background-color: -fx-base-bg; -fx-padding: 1 4;
 }
-.canvas-empty { -fx-text-fill: -fx-text-faint; -fx-font-size: 14px; }
+.canvas-empty { -fx-text-fill: -fx-text-faint; -fx-font-size: 1.077em; }
 .canvas-selected { -fx-effect: dropshadow(gaussian, -fx-accent, 12, 0.55, 0, 0); }
 .canvas-node-scroll { -fx-background-color: transparent; -fx-background: transparent; -fx-padding: 0; }
 .canvas-node-scroll > .viewport { -fx-background-color: transparent; }
 .canvas-node-editor {
     -fx-control-inner-background: -fx-base-bg; -fx-text-fill: -fx-text-main;
-    -fx-font-size: 13px; -fx-background-radius: 4; -fx-border-width: 0;
+    -fx-font-size: 1em; -fx-background-radius: 4; -fx-border-width: 0;
 }
 .canvas-embed {
     -fx-background-color: rgba(0,0,0,0.03);
@@ -3831,10 +3852,10 @@
 }
 .canvas-embed-title {
     -fx-text-fill: -fx-accent;
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
     -fx-font-weight: bold;
 }
-.canvas-embed-notice { -fx-text-fill: -fx-text-muted; -fx-font-size: 12px; }
+.canvas-embed-notice { -fx-text-fill: -fx-text-muted; -fx-font-size: 0.923em; }
 
 /* Lightweight Markdown rendering (canvas note/text nodes) — Text uses -fx-fill */
 .md-mini-run { -fx-fill: -fx-text-main; }
@@ -3870,8 +3891,8 @@
     color: -fx-text-main;
     -fx-border-color: -fx-button-border;
     border-color: -fx-button-border;
-    -fx-background-radius: 8;
-    -fx-border-radius: 8;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
     -fx-background-insets: 0;
     -fx-border-insets: 0;
 }
@@ -4151,12 +4172,12 @@
 .toolbar .toolbar-btn,
 .toolbar .modern-toggle-btn,
 .toolbar .menu-button {
-    -fx-min-width: 36px;
-    -fx-pref-width: 36px;
-    -fx-max-width: 36px;
-    -fx-min-height: 32px;
-    -fx-pref-height: 32px;
-    -fx-max-height: 32px;
+    -fx-min-width: 28px;
+    -fx-pref-width: 28px;
+    -fx-max-width: 28px;
+    -fx-min-height: 28px;
+    -fx-pref-height: 28px;
+    -fx-max-height: 28px;
     -fx-padding: 0;
     padding: 0;
     -fx-background-radius: 6;
@@ -4254,12 +4275,12 @@
 /* Graph and Kanban top bars use graph-toolbar, not the main app toolbar. */
 .graph-toolbar .toolbar-btn,
 .graph-toolbar .modern-toggle-btn {
-    -fx-min-width: 36px;
-    -fx-pref-width: 36px;
-    -fx-max-width: 36px;
-    -fx-min-height: 32px;
-    -fx-pref-height: 32px;
-    -fx-max-height: 32px;
+    -fx-min-width: 28px;
+    -fx-pref-width: 28px;
+    -fx-max-width: 28px;
+    -fx-min-height: 28px;
+    -fx-pref-height: 28px;
+    -fx-max-height: 28px;
     -fx-padding: 0;
     padding: 0;
     -fx-background-radius: 6;
@@ -4370,7 +4391,7 @@
     -fx-min-height: 20px;
     -fx-pref-width: 20px;
     -fx-pref-height: 20px;
-    -fx-font-size: 11px;
+    -fx-font-size: 0.846em;
     -fx-cursor: hand;
 }
 

@@ -84,6 +84,8 @@ class DialogSupport {
             int uiFontSize,
             String accentColor,
             boolean livePreviewEnabled,
+            boolean readableLineLength,
+            int contentFontSize,
             Set<String> enabledSnippets) {
     }
 
@@ -136,6 +138,9 @@ class DialogSupport {
                 i18n("editing_mode.source"));
         editingModeCombo.getSelectionModel().select(current.livePreviewEnabled() ? 0 : 1);
 
+        CheckBox readableLineLengthCheck = new CheckBox(i18n("dialog.preferences.readable_line_length"));
+        readableLineLengthCheck.setSelected(current.readableLineLength());
+
         Label fontSizeLabel = new Label(i18n("dialog.preferences.font_size"));
         ComboBox<Integer> fontSizeCombo = new ComboBox<>();
         for (int i = UiPreferencesStore.MIN_UI_FONT_SIZE; i <= UiPreferencesStore.MAX_UI_FONT_SIZE; i++) {
@@ -143,6 +148,14 @@ class DialogSupport {
         }
         fontSizeCombo.getSelectionModel()
                 .select(Integer.valueOf(UiPreferencesStore.clampFontSize(current.uiFontSize())));
+
+        Label contentFontSizeLabel = new Label(i18n("dialog.preferences.font_size_content"));
+        ComboBox<Integer> contentFontSizeCombo = new ComboBox<>();
+        for (int i = UiPreferencesStore.MIN_CONTENT_FONT_SIZE; i <= UiPreferencesStore.MAX_CONTENT_FONT_SIZE; i++) {
+            contentFontSizeCombo.getItems().add(i);
+        }
+        contentFontSizeCombo.getSelectionModel()
+                .select(Integer.valueOf(UiPreferencesStore.clampContentFontSize(current.contentFontSize())));
 
         // Accent color: opt-in override of the theme's -fx-accent (Obsidian-style).
         CheckBox customAccentCheck = new CheckBox(i18n("dialog.preferences.accent_custom"));
@@ -240,8 +253,10 @@ class DialogSupport {
                 new HBox(8, autosaveIntervalLabel, autosaveIntervalCombo),
                 new Separator(),
                 editingModeLabel, editingModeCombo,
+                readableLineLengthCheck,
                 notesPreviewLinesLabel, notesPreviewLinesCombo,
                 fontSizeLabel, fontSizeCombo,
+                contentFontSizeLabel, contentFontSizeCombo,
                 new Separator(),
                 themeModeLabel, themeModeCombo,
                 externalThemeLabel, externalThemeCombo,
@@ -289,6 +304,7 @@ class DialogSupport {
             }
             Integer previewLines = notesPreviewLinesCombo.getSelectionModel().getSelectedItem();
             Integer fontSize = fontSizeCombo.getSelectionModel().getSelectedItem();
+            Integer contentFontSize = contentFontSizeCombo.getSelectionModel().getSelectedItem();
             String accent = "";
             if (customAccentCheck.isSelected() && accentPicker.getValue() != null) {
                 javafx.scene.paint.Color c = accentPicker.getValue();
@@ -306,6 +322,8 @@ class DialogSupport {
                     fontSize != null ? fontSize : UiPreferencesStore.DEFAULT_UI_FONT_SIZE,
                     accent,
                     editingModeCombo.getSelectionModel().getSelectedIndex() != 1,
+                    readableLineLengthCheck.isSelected(),
+                    contentFontSize != null ? contentFontSize : UiPreferencesStore.DEFAULT_CONTENT_FONT_SIZE,
                     new LinkedHashSet<>(selectedSnippets));
         });
         return com.example.jylos.ui.UiDialogs.show(dialog);
@@ -415,6 +433,7 @@ class DialogSupport {
         dialog.setTitle(i18n("dialog.new_tag.title"));
         dialog.setHeaderText(i18n("dialog.new_tag.header"));
         dialog.setContentText(i18n("dialog.new_tag.content"));
+        dialog.getDialogPane().setMinWidth(380);
 
         Optional<String> result = com.example.jylos.ui.UiDialogs.show(dialog);
         if (result.isEmpty() || result.get().trim().isEmpty()) {

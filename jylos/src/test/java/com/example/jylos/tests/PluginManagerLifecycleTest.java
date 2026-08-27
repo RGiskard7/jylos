@@ -48,7 +48,7 @@ class PluginManagerLifecycleTest {
         RecordingToolbarRegistry toolbar = new RecordingToolbarRegistry();
         PluginManager manager = new PluginManager(null, null, null, null, null, menu, side, preview, hooks, toolbar,
                 null, note -> {
-                });
+                }, null);
         CountingPlugin plugin = new CountingPlugin("alpha");
 
         assertTrue(manager.registerPlugin(plugin));
@@ -77,7 +77,7 @@ class PluginManagerLifecycleTest {
         PluginManager manager = new PluginManager(null, null, null, null, null,
                 new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry(),
                 new RecordingHookRegistry(), new RecordingToolbarRegistry(), null, note -> {
-                });
+                }, null);
         CountingPlugin one = new CountingPlugin("one");
         CountingPlugin two = new CountingPlugin("two");
 
@@ -97,7 +97,7 @@ class PluginManagerLifecycleTest {
         PluginManager firstSession = new PluginManager(null, null, null, null, null,
                 new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry(),
                 new RecordingHookRegistry(), new RecordingToolbarRegistry(), null, note -> {
-                });
+                }, null);
         CountingPlugin firstPlugin = new CountingPlugin(pluginId);
         firstSession.registerPlugin(firstPlugin);
         firstSession.initializeAll();
@@ -106,7 +106,7 @@ class PluginManagerLifecycleTest {
         PluginManager secondSession = new PluginManager(null, null, null, null, null,
                 new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry(),
                 new RecordingHookRegistry(), new RecordingToolbarRegistry(), null, note -> {
-                });
+                }, null);
         CountingPlugin secondPlugin = new CountingPlugin(pluginId);
         secondSession.registerPlugin(secondPlugin);
 
@@ -127,7 +127,7 @@ class PluginManagerLifecycleTest {
         PluginManager manager = new PluginManager(null, null, null, null, null,
                 new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry(),
                 new RecordingHookRegistry(), new RecordingToolbarRegistry(), null, note -> {
-                });
+                }, null);
         FailingPlugin plugin = new FailingPlugin("broken");
 
         assertFalse(manager.initializePlugin("broken"));
@@ -151,7 +151,7 @@ class PluginManagerLifecycleTest {
             PluginManager manager = new PluginManager(null, null, null, null, null,
                     new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry(),
                     new RecordingHookRegistry(), new RecordingToolbarRegistry(), null, note -> {
-                    });
+                    }, null);
 
             Plugin installed = manager.installPluginJar(sourceJar);
 

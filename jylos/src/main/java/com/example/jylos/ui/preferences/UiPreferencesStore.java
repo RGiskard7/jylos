@@ -20,6 +20,8 @@ public final class UiPreferencesStore {
     public static final String SNIPPETS_ENABLED_KEY = "ui.snippets.enabled";
     public static final String UI_ACCENT_KEY = "ui.accent.color";
     public static final String MARKDOWN_LIVE_PREVIEW_KEY = "ui.editor.live_preview";
+    public static final String READABLE_LINE_LENGTH_KEY = "ui.editor.readable_line_length";
+    public static final String CONTENT_FONT_SIZE_KEY = "ui.content.font_size";
     public static final String SPLIT_MAIN_KEY = "ui.split.main";
     public static final String SPLIT_CONTENT_KEY = "ui.split.content";
     public static final double DEFAULT_SPLIT_MAIN = 0.22;
@@ -33,6 +35,11 @@ public final class UiPreferencesStore {
     public static final int DEFAULT_UI_FONT_SIZE = 13;
     public static final int MIN_UI_FONT_SIZE = 10;
     public static final int MAX_UI_FONT_SIZE = 22;
+    /** Default matches both {@code MarkdownEditorView}'s own hardcoded CodeMirror default
+     * and {@code MainController.editorFontSize}'s field default, kept in sync deliberately. */
+    public static final int DEFAULT_CONTENT_FONT_SIZE = 14;
+    public static final int MIN_CONTENT_FONT_SIZE = 10;
+    public static final int MAX_CONTENT_FONT_SIZE = 24;
 
     /**
      * Snapshot of persisted UI preferences used to populate the Preferences dialog.
@@ -45,6 +52,9 @@ public final class UiPreferencesStore {
      * @param uiFontSize base UI font size
      * @param accentColor optional custom accent color
      * @param livePreviewEnabled whether editing uses Live Preview instead of source mode
+     * @param readableLineLength whether editor/preview content is capped to a centered, readable-width column
+     * @param contentFontSize font size applied to the note editor (CodeMirror) and preview body text —
+     *                        independent from {@code uiFontSize}, which only affects the native JavaFX chrome
      */
     public record UiPreferencesData(
             boolean autosaveEnabled,
@@ -54,7 +64,9 @@ public final class UiPreferencesStore {
             int notesPreviewLines,
             int uiFontSize,
             String accentColor,
-            boolean livePreviewEnabled) {
+            boolean livePreviewEnabled,
+            boolean readableLineLength,
+            int contentFontSize) {
     }
 
     public UiPreferencesData load(Preferences prefs) {
@@ -76,7 +88,7 @@ public final class UiPreferencesStore {
                 prefs != null ? prefs.getInt(UI_FONT_SIZE_KEY, DEFAULT_UI_FONT_SIZE) : DEFAULT_UI_FONT_SIZE);
         String accent = sanitizeAccent(prefs != null ? prefs.get(UI_ACCENT_KEY, "") : "");
         return new UiPreferencesData(autosaveEnabled, autosaveIdleMs, source, externalId, previewLines, fontSize,
-                accent, loadLivePreviewEnabled(prefs));
+                accent, loadLivePreviewEnabled(prefs), loadReadableLineLength(prefs), loadContentFontSize(prefs));
     }
 
     public void save(Preferences prefs, UiPreferencesData value) {
@@ -89,6 +101,8 @@ public final class UiPreferencesStore {
         prefs.putInt(UI_FONT_SIZE_KEY, clampFontSize(value.uiFontSize()));
         prefs.put(UI_ACCENT_KEY, sanitizeAccent(value.accentColor()));
         prefs.putBoolean(MARKDOWN_LIVE_PREVIEW_KEY, value.livePreviewEnabled());
+        prefs.putBoolean(READABLE_LINE_LENGTH_KEY, value.readableLineLength());
+        prefs.putInt(CONTENT_FONT_SIZE_KEY, clampContentFontSize(value.contentFontSize()));
 
         String source = THEME_SOURCE_EXTERNAL.equals(value.themeSource()) ? THEME_SOURCE_EXTERNAL : THEME_SOURCE_BUILTIN;
         prefs.put(THEME_SOURCE_KEY, source);
@@ -142,6 +156,25 @@ public final class UiPreferencesStore {
         }
     }
 
+    /** Whether editor/preview content is capped to a centered, readable-width column (Obsidian-style). */
+    public boolean loadReadableLineLength(Preferences prefs) {
+        return prefs != null && prefs.getBoolean(READABLE_LINE_LENGTH_KEY, false);
+    }
+
+    /** Font size for the note editor and preview body text, independent from {@code uiFontSize}. */
+    public int loadContentFontSize(Preferences prefs) {
+        return clampContentFontSize(
+                prefs != null ? prefs.getInt(CONTENT_FONT_SIZE_KEY, DEFAULT_CONTENT_FONT_SIZE)
+                        : DEFAULT_CONTENT_FONT_SIZE);
+    }
+
+    /** Persists editor/preview font size independently, so Ctrl+/- zoom on the editor survives a restart. */
+    public void saveContentFontSize(Preferences prefs, int fontSize) {
+        if (prefs != null) {
+            prefs.putInt(CONTENT_FONT_SIZE_KEY, clampContentFontSize(fontSize));
+        }
+    }
+
     public static String sanitizeAccent(String value) {
         if (value == null) {
             return "";
@@ -156,5 +189,9 @@ public final class UiPreferencesStore {
 
     public static int clampFontSize(int size) {
         return Math.max(MIN_UI_FONT_SIZE, Math.min(MAX_UI_FONT_SIZE, size));
+    }
+
+    public static int clampContentFontSize(int size) {
+        return Math.max(MIN_CONTENT_FONT_SIZE, Math.min(MAX_CONTENT_FONT_SIZE, size));
     }
 }

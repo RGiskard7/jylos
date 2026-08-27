@@ -145,7 +145,7 @@ plugin out of the JAR mechanism (no independent enable/disable-by-file, no
 | `registerEditorBlockRenderer(language, renderer)` | Renders a fenced block inline in the editor's Live Preview |
 | `requestOpenNote(note)` | Ask the shell owner to open a note directly in the editor UI |
 | `requestRefreshNotes()` | Ask the shell to fan out a notes refresh event |
-| `subscribe(...)` / `publish(...)` | Typed `EventBus` access |
+| `subscribe(...)` / `publish(...)` | Typed `EventBus` access; subscriptions are cancelled automatically on disable |
 
 ### Preview enhancers
 
@@ -214,7 +214,15 @@ requests explicit while preserving the public plugin API.
    so plugin code can reflectively reach any internal Jylos class. Plugins run
    with the full privileges of the JVM process.
 3. Register metadata, menu entries, preview enhancers, side panels; initialize enabled plugins.
-4. Disable: unregister UI hooks and commands; shut down classloaders on app exit.
+4. Disable: unregister UI hooks, commands and event subscriptions; shut down classloaders on app exit.
+
+Teardown does not depend on the plugin cooperating. `PluginManager` calls the plugin's
+`shutdown()`, then removes every contribution it registered — menu entries, side panels,
+preview enhancers, editor hooks, toolbar buttons, block renderers, commands and event
+subscriptions — even if that `shutdown()` threw. Cancelling your own subscriptions in
+`shutdown()` is still good practice and costs nothing (`cancel()` is idempotent), but a
+plugin that fails halfway through teardown no longer leaves live handlers behind — which
+also kept its classloader from ever being collected.
 
 ## Notes
 

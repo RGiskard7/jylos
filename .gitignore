@@ -119,6 +119,10 @@ jylos/snippets/
 # Plugin runtime bookkeeping
 **/.bundled-plugins-copied
 
+*/gauntlet
+*/gauntlet-*
+*/gauntlet.config.example
+
 .claude/
 .tools/
 

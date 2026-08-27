@@ -73,7 +73,7 @@ class EventBusContractTest {
                 null,
                 null,
                 note -> {
-                });
+                }, null);
 
         EventBus.Subscription subscription = context.subscribe(DummyEvent.class, event -> {
         });

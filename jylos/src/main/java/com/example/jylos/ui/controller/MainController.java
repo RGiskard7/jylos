@@ -891,7 +891,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             }
 
             pluginManager = new PluginManager(noteService, folderService, tagService, eventBus, commandPalette, this,
-                    this, this, editorHooks, this, this, this::handleUiNoteOpenRequest);
+                    this, this, editorHooks, this, this, this::handleUiNoteOpenRequest,
+                    this::handleUiHeadingNavigationRequest);
 
             PluginLifecycle.LoadResult pluginLoadResult = pluginLifecycle
                     .registerCoreAndExternalPlugins(pluginManager);
@@ -1089,6 +1090,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
     }
 
+    void handleUiHeadingNavigationRequest(int offset, String headingSlug) {
+        if (editorController != null) {
+            editorController.navigateToHeading(offset, headingSlug);
+        }
+    }
+
     private Note resolveNoteToOpen(Note requestedNote) {
         if (requestedNote == null) {
             return null;
@@ -1222,6 +1229,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         externalThemeId = uiPrefs.externalThemeId();
         notesListPreviewLines = uiPrefs.notesPreviewLines();
         uiFontSize = uiPrefs.uiFontSize();
+        editorFontSize = uiPrefs.contentFontSize();
         uiAccentColor = uiPrefs.accentColor();
         enabledSnippets = uiPreferences.loadEnabledSnippets(prefs);
         autosaveDebounce.setDuration(Duration.millis(autosaveIdleMs));
@@ -1234,9 +1242,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
         if (editorController != null) {
             editorController.applyLivePreviewPreference(uiPrefs.livePreviewEnabled());
+            editorController.applyReadableLineLengthPreference(uiPrefs.readableLineLength());
         }
         applyEditorControlsPresentation();
         applyUiZoom();
+        applyEditorZoom();
         Platform.runLater(this::applyThemeAndRefreshDependents);
     }
 
@@ -1655,6 +1665,62 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 return () -> handleDocumentation(null);
             case "cmd.about":
                 return () -> handleAbout(null);
+            case "cmd.focus_mode":
+                return this::handleFocusMode;
+            case "cmd.kanban_view":
+                return overlaySupport::toggleKanban;
+            case "cmd.note_history":
+                return historySupport::showHistoryDialog;
+            case "cmd.toggle_private":
+                return this::handleTogglePrivate;
+            case "cmd.lock_notes":
+                return this::handleLockNotes;
+            case "cmd.unlock_notes":
+                return this::handleUnlockNotes;
+            case "cmd.navigate_back":
+                return this::navigateBack;
+            case "cmd.navigate_forward":
+                return this::navigateForward;
+            case "cmd.close_note":
+                return this::handleCloseNote;
+            case "cmd.switch_storage":
+                return this::handleSwitchStorage;
+            case "cmd.check_updates":
+                return this::checkForUpdatesManually;
+            case "cmd.toggle_pin":
+                return () -> handleTogglePin(null);
+            case "cmd.toggle_notes_list":
+                return () -> handleToggleNotesPanel(null);
+            case "cmd.toggle_tags":
+                return () -> handleToggleTags(null);
+            case "cmd.new_tag":
+                return () -> handleNewTag(null);
+            case "cmd.list_view":
+                return () -> handleListView(null);
+            case "cmd.grid_view":
+                return () -> handleGridView(null);
+            case "cmd.switch_layout":
+                return () -> handleViewLayoutSwitch(null);
+            case "cmd.editor_zoom_in":
+                return () -> handleEditorZoomIn(null);
+            case "cmd.editor_zoom_out":
+                return () -> handleEditorZoomOut(null);
+            case "cmd.editor_reset_zoom":
+                return () -> handleEditorResetZoom(null);
+            case "cmd.import_obsidian":
+                return importSupport::importObsidianVault;
+            case "cmd.import_enex":
+                return importSupport::importEnex;
+            case "cmd.strike":
+                return () -> publishEditorAction(SystemActionEvent.ActionType.STRIKE);
+            case "cmd.highlight":
+                return () -> publishEditorAction(SystemActionEvent.ActionType.HIGHLIGHT);
+            case "cmd.quote":
+                return () -> publishEditorAction(SystemActionEvent.ActionType.QUOTE);
+            case "cmd.code":
+                return () -> publishEditorAction(SystemActionEvent.ActionType.CODE);
+            case "cmd.insert_bullet_list":
+                return () -> publishEditorAction(SystemActionEvent.ActionType.BULLET_LIST);
             default:
                 return null;
         }
@@ -2540,6 +2606,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 ? getString("dialog.new_folder.header_root")
                 : java.text.MessageFormat.format(getString("dialog.new_folder.header_sub"), currentFolder.getTitle()));
         dialog.setContentText(getString("dialog.new_folder.content"));
+        dialog.getDialogPane().setMinWidth(380);
         styleDialog(dialog);
 
         Optional<String> result = dialog.showAndWait();
@@ -2660,6 +2727,14 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 systemActionSubscription.cancel();
             }
             pluginUiRefreshSubscription.cancel();
+            // Plugins first: a plugin's own shutdown() can still ask for UI work (e.g. a
+            // preview enhancer unregistering triggers a preview refresh) — tearing down
+            // the controllers it might call into first just means that work fails
+            // instead of never being requested.
+            if (pluginManager != null) {
+                pluginManager.shutdownAll();
+            }
+            com.example.jylos.plugin.PluginLoader.closeAllClassLoaders();
             if (editorController != null) {
                 editorController.teardown();
             }
@@ -2676,10 +2751,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 backlinkService.shutdown();
             }
             com.example.jylos.service.NoteTitleIndex.getInstance().shutdown();
-            if (pluginManager != null) {
-                pluginManager.shutdownAll();
-            }
-            com.example.jylos.plugin.PluginLoader.closeAllClassLoaders();
             quickSwitcherExecutor.shutdownNow();
             updateCheckExecutor.shutdownNow();
 
@@ -2905,13 +2976,20 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private void applyUiZoom() {
         if (toolbarController != null && toolbarController.getToolbarHBox() != null
                 && toolbarController.getToolbarHBox().getScene() != null) {
+            javafx.scene.Scene scene = toolbarController.getToolbarHBox().getScene();
             StringBuilder style = new StringBuilder("-fx-font-size: ").append(uiFontSize).append("px;");
             if (uiAccentColor != null && !uiAccentColor.isBlank()) {
                 style.append(" -fx-accent: ").append(uiAccentColor).append(';')
                      .append(" -fx-accent-hover: derive(").append(uiAccentColor).append(", -12%);")
                      .append(" -fx-selected-bg: ").append(uiAccentColor).append(';');
             }
-            toolbarController.getToolbarHBox().getScene().getRoot().setStyle(style.toString());
+            scene.getRoot().setStyle(style.toString());
+            // Every other CSS rule in the theme derives its own font-size from this root's
+            // via `em` units, so a Dialog (its own separate Scene/root — JavaFX dialogs don't
+            // inherit the main window's root) needs this same inline style re-captured right
+            // away, not just on the next theme switch, or a dialog opened right after a live
+            // zoom change would still render at the old size.
+            com.example.jylos.ui.UiDialogs.syncFromScene(scene);
         }
         // Keep the persisted font size in sync so Ctrl+/- zoom survives a restart.
         prefs.putInt(UiPreferencesStore.UI_FONT_SIZE_KEY, (int) Math.round(uiFontSize));
@@ -2937,10 +3015,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         applyEditorZoom();
     }
 
+    /** Applies the editor/preview font size and keeps it persisted, so Ctrl+/- zoom survives a restart. */
     private void applyEditorZoom() {
         if (editorController != null) {
             editorController.applyEditorZoom(editorFontSize);
         }
+        uiPreferences.saveContentFontSize(prefs, (int) Math.round(editorFontSize));
     }
 
     @FXML
@@ -3241,7 +3321,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 notesListPreviewLines,
                 (int) Math.round(uiFontSize),
                 uiAccentColor,
-                uiPreferences.loadLivePreviewEnabled(prefs));
+                uiPreferences.loadLivePreviewEnabled(prefs),
+                uiPreferences.loadReadableLineLength(prefs),
+                (int) Math.round(editorFontSize));
         List<ThemeCatalog.ThemeDescriptor> themes = themeCatalog.getAvailableThemes();
         Optional<DialogSupport.PreferencesDialogResult> result = dialogSupport.showPreferences(
                 currentUiPrefs,
@@ -3260,7 +3342,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 values.notesPreviewLines(),
                 values.uiFontSize(),
                 values.accentColor(),
-                values.livePreviewEnabled());
+                values.livePreviewEnabled(),
+                values.readableLineLength(),
+                values.contentFontSize());
         uiPreferences.save(prefs, newPrefs);
         uiPreferences.saveEnabledSnippets(prefs, values.enabledSnippets());
         applyUiPreferencesFromStore();

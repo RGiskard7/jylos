@@ -2,7 +2,9 @@ package com.example.jylos.plugin;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
@@ -43,7 +45,13 @@ public class PluginContext {
     private final ToolbarRegistry toolbarRegistry;
     private final EditorBlockRendererRegistry editorBlockRendererRegistry;
     private final Consumer<Note> noteOpenAction;
+    private final BiConsumer<Integer, String> editorNavigateAction;
     private final List<String> registeredCommandIds = new ArrayList<>();
+    // Copy-on-write, unlike registeredCommandIds. Plugins today subscribe from initialize()
+    // on the FX thread, but nothing in the API says they must, and a plugin that owns
+    // background threads (the MCP server plugin runs an HTTP server on its own) could
+    // subscribe from one while teardown is walking this list.
+    private final List<EventBus.Subscription> registeredSubscriptions = new CopyOnWriteArrayList<>();
 
     /**
      * Creates a new PluginContext.
@@ -61,6 +69,8 @@ public class PluginContext {
      * @param toolbarRegistry    The toolbar button registry (may be null in tests)
      * @param editorBlockRendererRegistry The editor fenced-block renderer registry (may be null in tests)
      * @param noteOpenAction     Owner callback for opening a note from plugin code
+     * @param editorNavigateAction Owner callback for plugin heading-navigation requests
+     *                             (may be {@code null})
      */
     public PluginContext(
             String pluginId,
@@ -75,7 +85,8 @@ public class PluginContext {
             EditorHookRegistry editorHookRegistry,
             ToolbarRegistry toolbarRegistry,
             EditorBlockRendererRegistry editorBlockRendererRegistry,
-            Consumer<Note> noteOpenAction) {
+            Consumer<Note> noteOpenAction,
+            BiConsumer<Integer, String> editorNavigateAction) {
         this.pluginId = pluginId;
         this.noteService = noteService;
         this.folderService = folderService;
@@ -89,6 +100,7 @@ public class PluginContext {
         this.toolbarRegistry = toolbarRegistry;
         this.editorBlockRendererRegistry = editorBlockRendererRegistry;
         this.noteOpenAction = noteOpenAction;
+        this.editorNavigateAction = editorNavigateAction;
     }
 
     /**
@@ -300,17 +312,51 @@ public class PluginContext {
 
     /**
      * Subscribes to an event type.
-     * 
+     *
+     * <p>The subscription is tracked and cancelled for you when the plugin is disabled,
+     * like every other contribution registered through this context. Cancelling the
+     * returned handle yourself in {@code shutdown()} is still good practice and costs
+     * nothing — {@code cancel()} is idempotent — but is no longer what stands between a
+     * disabled plugin and a handler that keeps firing.</p>
+     *
+     * <p>Note the bus dispatches on the event's exact class: subscribing to a supertype
+     * does not receive its subclasses.</p>
+     *
      * @param <T>       The event type
      * @param eventType The event class
      * @param handler   The event handler
-     * @return The subscription (can be used to unsubscribe)
+     * @return The subscription (can be used to unsubscribe early)
      */
     public <T extends AppEvent> EventBus.Subscription subscribe(Class<T> eventType, Consumer<T> handler) {
         if (eventBus != null) {
-            return eventBus.subscribe(eventType, handler);
+            EventBus.Subscription subscription = eventBus.subscribe(eventType, handler);
+            registeredSubscriptions.add(subscription);
+            return subscription;
         }
         return EventBus.Subscription.NO_OP;
+    }
+
+    /**
+     * Cancels every event subscription this plugin registered (safe to call from
+     * {@link Plugin#shutdown()}).
+     *
+     * <p>This is the safety net the other contribution types already had. A plugin whose
+     * {@code shutdown()} throws before reaching its own cancellation code used to leave
+     * live handlers behind for the rest of the session — still running code from a
+     * disabled plugin, and pinning its classloader so it could never be collected.
+     * Cancelling twice is harmless, so a plugin that does clean up after itself is
+     * unaffected.</p>
+     */
+    public void unsubscribeAll() {
+        for (EventBus.Subscription subscription : new ArrayList<>(registeredSubscriptions)) {
+            try {
+                subscription.cancel();
+            } catch (RuntimeException e) {
+                // One uncooperative subscription must not strand the others.
+                logger.warning("Failed to cancel a subscription for plugin " + pluginId + ": " + e.getMessage());
+            }
+        }
+        registeredSubscriptions.clear();
     }
 
     /**
@@ -334,6 +380,21 @@ public class PluginContext {
             Platform.runLater(() -> {
                 noteOpenAction.accept(note);
             });
+        }
+    }
+
+    /**
+     * Navigates to a heading in the currently open note — jumps the caret to
+     * {@code offset} if the raw-source editor is showing, or scrolls to the matching
+     * anchor id if the rendered Preview is showing. No-op if no note is open.
+     *
+     * @param offset      character offset of the heading in the note's raw Markdown
+     * @param headingSlug the heading's anchor id in the rendered Preview, as produced
+     *                    by {@code MarkdownProcessor.slugifyHeading}
+     */
+    public void navigateToHeading(int offset, String headingSlug) {
+        if (editorNavigateAction != null) {
+            Platform.runLater(() -> editorNavigateAction.accept(offset, headingSlug));
         }
     }
 

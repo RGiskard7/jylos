@@ -108,6 +108,13 @@ public class EditorController {
     private Consumer<Boolean> livePreviewPreferenceAction = enabled -> {
     };
 
+    /** Obsidian-style centered content column, toggled from Preferences. */
+    private boolean readableLineLength = false;
+    /** Theme of the most recent preview render, so a preference toggle can re-render without a caller. */
+    private boolean lastPreviewDarkTheme = false;
+    /** Editor/preview font size, independent from the native JavaFX chrome's own font size. */
+    private double contentFontSize = 14.0;
+
     private Note currentNote;
     private boolean isModified = false;
     private String persistedTitle = "";
@@ -116,6 +123,19 @@ public class EditorController {
 
     /** Cancels any in-flight preview render so FX thread is never blocked by markdown parsing. */
     private volatile Task<String> currentPreviewTask;
+
+    /**
+     * Runs preview renders off the FX thread. A single thread, reused: renders are already
+     * debounced and only the newest one matters, so there is nothing to gain from running
+     * two at once — and spawning a fresh thread per render, as this used to, meant paying
+     * for thread creation on every pause in typing.
+     */
+    private final java.util.concurrent.ExecutorService previewRenderExecutor =
+            java.util.concurrent.Executors.newSingleThreadExecutor(runnable -> {
+                Thread thread = new Thread(runnable, "preview-render");
+                thread.setDaemon(true);
+                return thread;
+            });
 
     private final List<EventBus.Subscription> subscriptions = new ArrayList<>();
 
@@ -173,8 +193,10 @@ public class EditorController {
     @FXML private Button readingModeButton;
     @FXML private FontIcon readingModeIcon;
     @FXML private Tooltip readingModeTooltip;
+    @FXML private Button editorSaveBtn;
     @FXML private ToggleButton pinButton;
     @FXML private ToggleButton favoriteButton;
+    @FXML private ToggleButton focusModeToggleBtn;
 
     // ── FXML — tags bar ─────────────────────────────────────────────────────
     @FXML private VBox tagsContainer;
@@ -302,8 +324,10 @@ public class EditorController {
     public void applyHeaderControlsPresentation() {
         applyIconOnly(toggleTagsBtn);
         applyIconOnly(readingModeButton);
+        applyIconOnly(editorSaveBtn);
         applyIconOnly(pinButton);
         applyIconOnly(favoriteButton);
+        applyIconOnly(focusModeToggleBtn);
     }
 
     private void applyIconOnly(ButtonBase btn) {
@@ -397,6 +421,9 @@ public class EditorController {
     @FXML private void handleToggleTags(ActionEvent e)        { publish(SystemActionEvent.ActionType.TOGGLE_TAGS); }
     @FXML private void handleToggleReadingMode(ActionEvent e) { publish(SystemActionEvent.ActionType.TOGGLE_READING_MODE); }
     @FXML private void handleTogglePin(ActionEvent e)         { publish(SystemActionEvent.ActionType.TOGGLE_PIN); }
+    @FXML private void handleFocusMode(ActionEvent e)         { publish(SystemActionEvent.ActionType.FOCUS_MODE); }
+    @FXML private void handleSave(ActionEvent e)               { publish(SystemActionEvent.ActionType.SAVE); }
+    @FXML private void handleDelete(ActionEvent e)             { publish(SystemActionEvent.ActionType.DELETE); }
     @FXML private void handleToggleFavorite(ActionEvent e)    { publish(SystemActionEvent.ActionType.TOGGLE_FAVORITE); }
     @FXML private void handleToggleRightPanel(ActionEvent e)  { publish(SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL); }
     @FXML private void handleHeading1(ActionEvent e)          { publish(SystemActionEvent.ActionType.HEADING1); }
@@ -564,6 +591,17 @@ public class EditorController {
         if (persist) {
             livePreviewPreferenceAction.accept(enabled);
             reportStatus(safeI18n(enabled ? "status.live_preview_enabled" : "status.source_mode_enabled"));
+        }
+    }
+
+    /** Applies the persisted "readable line length" preference to both editor and preview. */
+    public void applyReadableLineLengthPreference(boolean enabled) {
+        this.readableLineLength = enabled;
+        if (noteContentArea != null) {
+            noteContentArea.setReadableLineLength(enabled);
+        }
+        if (isPreviewVisible()) {
+            refreshPreview(lastPreviewDarkTheme);
         }
     }
 
@@ -1427,6 +1465,7 @@ public class EditorController {
 
     public void teardown() {
         blockRenderSupport.shutdown();
+        previewRenderExecutor.shutdownNow();
         subscriptions.forEach(EventBus.Subscription::cancel);
         subscriptions.clear();
     }
@@ -1681,9 +1720,17 @@ public class EditorController {
     }
 
     public void refreshPreview(boolean darkTheme) {
-        if (previewWebView == null || currentNote == null || !isPreviewVisible()) {
+        // A plugin's own shutdown() can call unregisterPreviewEnhancer(), which queues
+        // this via Platform.runLater — that queued call always lands on a *later* tick
+        // of the event loop, after teardown() has already stopped previewRenderExecutor
+        // during app shutdown, no matter what order those two run in beforehand. Without
+        // this guard, previewRenderExecutor.execute() below throws
+        // RejectedExecutionException for every plugin that has a preview enhancer.
+        if (previewWebView == null || currentNote == null || !isPreviewVisible()
+                || previewRenderExecutor.isShutdown()) {
             return;
         }
+        lastPreviewDarkTheme = darkTheme;
 
         Task<String> prev = currentPreviewTask;
         if (prev != null) {
@@ -1702,13 +1749,15 @@ public class EditorController {
         // sees the note this HTML came from, even if the user switches note mid-render.
         com.example.jylos.plugin.PreviewContext previewContext =
                 new com.example.jylos.plugin.PreviewContext(currentNote, darkTheme);
+        boolean readable = this.readableLineLength;
+        int fontSize = (int) Math.round(this.contentFontSize);
 
         Task<String> task = new Task<>() {
             @Override
             protected String call() {
                 if (content != null && !content.trim().isEmpty()) {
                     return MarkdownPreview.buildPreviewHtml(content, darkTheme, enhancers, baseDir,
-                            EditorController.this::resolveEmbedContentByTitle, previewContext);
+                            EditorController.this::resolveEmbedContentByTitle, previewContext, readable, fontSize);
                 }
                 return MarkdownPreview.buildEmptyHtml(darkTheme);
             }
@@ -1734,9 +1783,7 @@ public class EditorController {
             logger.warning("Preview render failed: " + task.getException());
         });
         currentPreviewTask = task;
-        Thread thread = new Thread(task, "preview-render");
-        thread.setDaemon(true);
-        thread.start();
+        previewRenderExecutor.execute(task);
     }
 
     private double currentPreviewScrollY() {
@@ -1815,12 +1862,76 @@ public class EditorController {
         }
     }
 
+    /**
+     * Ids assigned by MarkdownProcessor's heading AttributeProvider: lowercase Unicode
+     * letters/digits (accented letters included — {@code \p{L}} is Unicode-aware, not
+     * ASCII-only) and hyphens.
+     */
+    private static final java.util.regex.Pattern VALID_HEADING_SLUG =
+            java.util.regex.Pattern.compile("[\\p{L}\\p{N}-]+");
+
+    /**
+     * Navigates to a heading in whichever view is currently showing: the raw-source
+     * character offset for the CodeMirror editor, or the rendered heading's anchor id
+     * for the Preview WebView (see {@code MarkdownProcessor.slugifyHeading}).
+     */
+    public void navigateToHeading(int offset, String headingSlug) {
+        if (isPreviewVisible()) {
+            scrollPreviewToHeading(headingSlug);
+        } else if (noteContentArea != null) {
+            noteContentArea.scrollToPosition(offset);
+        }
+    }
+
+    private void scrollPreviewToHeading(String headingSlug) {
+        if (previewWebView == null || headingSlug == null
+                || !VALID_HEADING_SLUG.matcher(headingSlug).matches()) {
+            return;
+        }
+        javafx.concurrent.Worker<Void> loadWorker = previewWebView.getEngine().getLoadWorker();
+        if (loadWorker.getState() == javafx.concurrent.Worker.State.SUCCEEDED) {
+            executeHeadingScroll(headingSlug);
+            return;
+        }
+        // A render triggered moments ago (e.g. just switched to Preview, or a
+        // background refresh from a recent edit) hasn't landed yet — jumping now would
+        // run the script against the page that's about to be replaced. Wait for the
+        // next load to actually finish, once, the same way restorePendingPreviewScroll
+        // waits rather than assuming loadContent() is synchronous.
+        loadWorker.stateProperty().addListener(new javafx.beans.value.ChangeListener<javafx.concurrent.Worker.State>() {
+            @Override
+            public void changed(javafx.beans.value.ObservableValue<? extends javafx.concurrent.Worker.State> obs,
+                    javafx.concurrent.Worker.State oldState, javafx.concurrent.Worker.State newState) {
+                if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
+                    loadWorker.stateProperty().removeListener(this);
+                    executeHeadingScroll(headingSlug);
+                } else if (newState == javafx.concurrent.Worker.State.FAILED
+                        || newState == javafx.concurrent.Worker.State.CANCELLED) {
+                    loadWorker.stateProperty().removeListener(this);
+                }
+            }
+        });
+    }
+
+    private void executeHeadingScroll(String headingSlug) {
+        try {
+            previewWebView.getEngine().executeScript(
+                    "document.getElementById('" + headingSlug + "')?.scrollIntoView({block: 'start'})");
+        } catch (Exception e) {
+            logger.fine("Could not scroll preview to heading: " + e.getMessage());
+        }
+    }
+
     public void applyEditorZoom(double editorFontSize) {
+        this.contentFontSize = editorFontSize;
         if (noteContentArea != null) {
             noteContentArea.setEditorFontSize(editorFontSize);
         }
         if (noteTitleField != null) {
             noteTitleField.setStyle("-fx-font-size: " + (editorFontSize + 2) + "px;");
+        }
+        if (isPreviewVisible()) {
+            refreshPreview(lastPreviewDarkTheme);
         }
     }
 

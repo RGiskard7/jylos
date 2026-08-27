@@ -127,30 +127,11 @@
     </MenuBar>
 
     <!-- Toolbar -->
-    <HBox fx:id="toolbarHBox" styleClass="toolbar" spacing="8" alignment="CENTER_LEFT">
+    <HBox fx:id="toolbarHBox" styleClass="toolbar" spacing="6" alignment="CENTER_LEFT">
         <padding>
             <Insets top="8" right="16" bottom="8" left="16"/>
         </padding>
 
-        <!-- Layout Toggles -->
-        <ToggleButton fx:id="sidebarToggleBtn" onAction="#handleToggleSidebar" styleClass="modern-toggle-btn">
-            <tooltip><Tooltip text="%action.toggle_sidebar"/></tooltip>
-            <graphic>
-                <FontIcon iconLiteral="fth-sidebar" styleClass="feather-icon"/>
-            </graphic>
-        </ToggleButton>
-        <ToggleButton fx:id="notesPanelToggleBtn" onAction="#handleToggleNotesPanel" styleClass="modern-toggle-btn">
-            <tooltip><Tooltip text="%action.toggle_notes_list"/></tooltip>
-            <graphic>
-                <FontIcon iconLiteral="fth-list" styleClass="feather-icon"/>
-            </graphic>
-        </ToggleButton>
-        <Button fx:id="layoutSwitchBtn" onAction="#handleViewLayoutSwitch" styleClass="toolbar-btn">
-            <tooltip><Tooltip text="%action.switch_layout"/></tooltip>
-            <graphic>
-                <FontIcon iconLiteral="fth-layout" styleClass="feather-icon"/>
-            </graphic>
-        </Button>
         <Button fx:id="graphViewBtn" onAction="#handleGraphView" styleClass="toolbar-btn">
             <tooltip><Tooltip text="%action.graph_view"/></tooltip>
             <graphic>
@@ -158,7 +139,7 @@
             </graphic>
         </Button>
 
-        <Separator fx:id="toolbarSeparator1" orientation="VERTICAL" styleClass="toolbar-separator"/>
+        <!--<Separator fx:id="toolbarSeparator1" orientation="VERTICAL" styleClass="toolbar-separator"/>-->
 
         <!-- File Actions -->
         <Button fx:id="newNoteBtn" onAction="#handleNewNote" styleClass="toolbar-btn">
@@ -180,33 +161,48 @@
             </graphic>
         </Button>
 
-        <Separator fx:id="toolbarSeparator2" orientation="VERTICAL" styleClass="toolbar-separator"/>
+        <!--<Separator fx:id="toolbarSeparator2" orientation="VERTICAL" styleClass="toolbar-separator"/>-->
 
-        <Button fx:id="saveBtn" onAction="#handleSave" styleClass="toolbar-btn">
-            <tooltip><Tooltip text="%action.save"/></tooltip>
-            <graphic>
-                <FontIcon iconLiteral="fth-save" styleClass="feather-icon"/>
-            </graphic>
-        </Button>
-        <Button fx:id="deleteBtn" onAction="#handleDelete" styleClass="toolbar-btn">
-            <tooltip><Tooltip text="%action.delete"/></tooltip>
-            <graphic>
-                <FontIcon iconLiteral="fth-trash-2" styleClass="feather-icon-danger"/>
-            </graphic>
-        </Button>
-        <Separator fx:id="toolbarSeparator3" orientation="VERTICAL" styleClass="toolbar-separator"/>
+        <!--<Separator fx:id="toolbarSeparator3" orientation="VERTICAL" styleClass="toolbar-separator"/>-->
 
-        <!-- Search Box -->
-        <TextField fx:id="searchField" promptText="%app.search.placeholder" prefWidth="240" styleClass="search-field">
+        <!-- Search: collapsed to an icon button until clicked, like Obsidian — the
+             field beneath is the one and only search TextField (kept in the scene
+             either way), just hidden/shown so every existing text-listener and
+             getSearchField() caller keeps working unchanged. -->
+        <Button fx:id="searchToggleBtn" onAction="#handleSearchToggle" styleClass="modern-toggle-btn">
+            <tooltip><Tooltip text="%tooltip.search_syntax" wrapText="true" maxWidth="420"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-search" styleClass="feather-icon"/></graphic>
+        </Button>
+        <TextField fx:id="searchField" promptText="%app.search.placeholder" prefWidth="240" styleClass="search-field"
+                   visible="false" managed="false">
             <tooltip><Tooltip text="%tooltip.search_syntax" wrapText="true" maxWidth="420"/></tooltip>
         </TextField>
 
         <!-- Plugin toolbar buttons (populated via ToolbarRegistry; hidden when empty) -->
-        <HBox fx:id="pluginToolbarContainer" spacing="4" alignment="CENTER_LEFT"
+        <HBox fx:id="pluginToolbarContainer" spacing="6" alignment="CENTER_LEFT"
               visible="false" managed="false"/>
 
         <Region HBox.hgrow="ALWAYS"/>
 
+        <!-- Layout Toggles -->
+        <ToggleButton fx:id="sidebarToggleBtn" onAction="#handleToggleSidebar" styleClass="modern-toggle-btn">
+            <tooltip><Tooltip text="%action.toggle_sidebar"/></tooltip>
+            <graphic>
+                <FontIcon iconLiteral="fth-sidebar" styleClass="feather-icon"/>
+            </graphic>
+        </ToggleButton>
+        <ToggleButton fx:id="notesPanelToggleBtn" onAction="#handleToggleNotesPanel" styleClass="modern-toggle-btn">
+            <tooltip><Tooltip text="%action.toggle_notes_list"/></tooltip>
+            <graphic>
+                <FontIcon iconLiteral="fth-list" styleClass="feather-icon"/>
+            </graphic>
+        </ToggleButton>
+        <Button fx:id="layoutSwitchBtn" onAction="#handleViewLayoutSwitch" styleClass="toolbar-btn">
+            <tooltip><Tooltip text="%action.switch_layout"/></tooltip>
+            <graphic>
+                <FontIcon iconLiteral="fth-layout" styleClass="feather-icon"/>
+            </graphic>
+        </Button>
         <ToggleButton fx:id="rightPanelToggleBtn" onAction="#handleToggleRightPanel" styleClass="modern-toggle-btn">
             <tooltip><Tooltip text="%tooltip.toggle_right_panel"/></tooltip>
             <graphic>

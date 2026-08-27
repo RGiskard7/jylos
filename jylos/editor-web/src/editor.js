@@ -12,7 +12,8 @@ import {
   highlightActiveLine,
   keymap,
   MatchDecorator,
-  ViewPlugin
+  ViewPlugin,
+  WidgetType
 } from "@codemirror/view";
 import { Tag, tags } from "@lezer/highlight";
 import { GFM } from "@lezer/markdown";
@@ -108,6 +109,77 @@ const wikiLinkDecorations = ViewPlugin.fromClass(class {
   }
 }, { decorations: value => value.decorations });
 
+// Matches MarkdownPreview.java's EMOJI_RUN exactly (same codepoint ranges), so an
+// editor and Preview agree on what counts as "an emoji" worth rasterising.
+const EMOJI_RUN = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{2300}-\u{23FF}\u{2190}-\u{21FF}\u{FE00}-\u{FE0F}\u{20E3}\u{200D}\u{1F1E6}-\u{1F1FF}\u{1F3FB}-\u{1F3FF}]+/gu;
+
+// JavaFX WebView cannot render colour-emoji fonts (see MarkdownPreview.java's own
+// comment on the same limitation), so an emoji run is replaced by an <img> rasterised
+// by the same Java2D path the Preview already uses. The bridge call only happens in
+// toDOM(), which CodeMirror calls only for a genuinely new widget (eq() reuses the
+// existing DOM node otherwise) — typing and scrolling over already-rendered emoji
+// never touch the bridge again, and the Java side caches by run+theme besides.
+class EmojiWidget extends WidgetType {
+  constructor(run) {
+    super();
+    this.run = run;
+  }
+
+  eq(other) {
+    return this.run === other.run;
+  }
+
+  toDOM() {
+    const src = window.javaEditor?.rasterizeEmoji(this.run);
+    if (!src) {
+      const fallback = document.createElement("span");
+      fallback.textContent = this.run;
+      return fallback;
+    }
+    const img = document.createElement("img");
+    img.className = "cm-emoji";
+    img.alt = this.run;
+    img.src = src;
+    return img;
+  }
+
+  ignoreEvent() {
+    return false;
+  }
+}
+
+// A run under the cursor/selection stays raw text, editable and selectable like any
+// other character — only emoji fully outside the selection become images.
+function buildEmojiDecorations(editorView) {
+  const decorations = [];
+  const selectionRanges = editorView.state.selection.ranges;
+  for (const visible of editorView.visibleRanges) {
+    const text = editorView.state.sliceDoc(visible.from, visible.to);
+    for (const match of text.matchAll(EMOJI_RUN)) {
+      const from = visible.from + match.index;
+      const to = from + match[0].length;
+      // Strict inequalities: a caret merely touching an edge (e.g. resting right
+      // after a just-typed emoji) does not count as "inside" it — only a caret or
+      // selection that actually spans into the run keeps it as raw, editable text.
+      if (selectionRanges.some(range => range.from < to && range.to > from)) continue;
+      decorations.push(Decoration.replace({ widget: new EmojiWidget(match[0]) }).range(from, to));
+    }
+  }
+  return Decoration.set(decorations, true);
+}
+
+const emojiDecorations = ViewPlugin.fromClass(class {
+  constructor(editorView) {
+    this.decorations = buildEmojiDecorations(editorView);
+  }
+
+  update(update) {
+    if (update.docChanged || update.viewportChanged || update.selectionSet) {
+      this.decorations = buildEmojiDecorations(update.view);
+    }
+  }
+}, { decorations: value => value.decorations });
+
 function wikiLinkCompletion(context) {
   const before = context.matchBefore(/\[\[[^\]\[\n]*$/);
   if (!before) return null;
@@ -132,6 +204,12 @@ function wikiLinkCompletion(context) {
   return { from: before.from, options, validFor: /^\[\[[^\]\[\n]*$/ };
 }
 
+// Centered content column width (Obsidian's own default), shared with the preview
+// pane's equivalent rule in MarkdownPreview.java. Margins are plain auto margins on
+// a max-width block, so they shrink and disappear as the panel narrows — no resize
+// listener needed, same as Obsidian (also a web-rendered editor underneath).
+const READABLE_LINE_LENGTH_PX = 700;
+
 function editorTheme(config) {
   const dark = Boolean(config.dark);
   const accent = config.accent || (dark ? "#7da6ff" : "#315fbd");
@@ -141,6 +219,7 @@ function editorTheme(config) {
   const panel = dark ? "#292929" : "#f5f6f8";
   const border = dark ? "#3b3b3b" : "#d8dce3";
   const selection = dark ? "#35548a" : "#b9d2ff";
+  const readableLineLength = Boolean(config.readableLineLength);
 
   return EditorView.theme({
     "&": {
@@ -158,7 +237,16 @@ function editorTheme(config) {
       fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
       lineHeight: "1.55"
     },
-    ".cm-content": { minHeight: "100%", padding: "16px 18px", caretColor: foreground },
+    ".cm-content": readableLineLength
+      ? {
+        minHeight: "100%",
+        padding: "16px 18px",
+        caretColor: foreground,
+        maxWidth: `${READABLE_LINE_LENGTH_PX}px`,
+        marginLeft: "auto",
+        marginRight: "auto"
+      }
+      : { minHeight: "100%", padding: "16px 18px", caretColor: foreground },
     ".cm-line": { padding: "0" },
     ".cm-dropCursor": { borderLeftColor: foreground },
     "::selection": { backgroundColor: selection },
@@ -171,6 +259,7 @@ function editorTheme(config) {
     ".cm-tooltip": { color: foreground, backgroundColor: panel, border: `1px solid ${border}` },
     ".cm-tooltip-autocomplete > ul > li[aria-selected]": { color: foreground, backgroundColor: selection },
     ".cm-wikilink, .cm-embed": { color: accent, fontWeight: "600" },
+    ".cm-emoji": { height: "1.05em", width: "auto", maxWidth: "none", verticalAlign: "-0.15em", margin: "0 0.04em", display: "inline" },
     ".cm-embed": { textDecoration: "underline" },
     ".tok-link, .tok-url": { color: accent },
     ".tok-meta": { color: muted },
@@ -298,6 +387,7 @@ function createState(doc, config) {
     presentationCompartment.of(config?.livePreview ? livePreview() : []),
     editableCompartment.of(editableExtensions(editable)),
     wikiLinkDecorations,
+    emojiDecorations,
     autocompletion({ override: [wikiLinkCompletion], activateOnTyping: true }),
     sourceLinkNavigation(),
     keymap.of([indentWithTab, ...closeBracketsKeymap, ...defaultKeymap, ...searchKeymap, ...historyKeymap, ...completionKeymap]),
@@ -356,6 +446,14 @@ function replaceRange(from, to, text, anchor = -1) {
   view.focus();
 }
 
+function scrollToOffset(pos) {
+  if (!view) return false;
+  const safePos = Math.max(0, Math.min(Number(pos) || 0, view.state.doc.length));
+  view.dispatch({ selection: EditorSelection.cursor(safePos), scrollIntoView: true, userEvent: "select" });
+  view.focus();
+  return true;
+}
+
 window.JylosEditor = {
   initialize,
   setDocument,
@@ -366,6 +464,7 @@ window.JylosEditor = {
   getCaretPosition: () => view ? selectedRange().head : 0,
   replaceSelection,
   replaceRange,
+  scrollToOffset,
   focus: () => view?.focus(),
   undo: () => Boolean(view && !view.state.readOnly && undo(view)),
   redo: () => Boolean(view && !view.state.readOnly && redo(view)),
@@ -413,6 +512,10 @@ window.JylosEditor = {
   setLivePreviewEnabled(enabled) {
     window.__jylosEditorConfig.livePreview = Boolean(enabled);
     view?.dispatch({ effects: presentationCompartment.reconfigure(enabled ? livePreview() : []) });
+  },
+  setReadableLineLength(enabled) {
+    window.__jylosEditorConfig.readableLineLength = Boolean(enabled);
+    view?.dispatch({ effects: themeCompartment.reconfigure(editorTheme(window.__jylosEditorConfig)) });
   },
   setEditable(editable) {
     const enabled = Boolean(editable);

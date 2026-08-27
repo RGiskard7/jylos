@@ -15,6 +15,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.util.MarkdownPreview;
 import com.example.jylos.util.WikiLinkResolver;
 import com.google.gson.Gson;
 
@@ -78,6 +79,7 @@ public final class MarkdownEditorView extends StackPane {
     private String accent = "";
     private double fontSize = 14;
     private boolean livePreviewEnabled = true;
+    private boolean readableLineLength = false;
     private boolean editable;
     /** Plugin-rendered fenced blocks for the current document; see {@link #setBlockRenders}. */
     private Map<String, String> blockRenders = Map.of();
@@ -270,6 +272,12 @@ public final class MarkdownEditorView extends StackPane {
         whenReady(() -> execute("window.JylosEditor.setFontSize(" + fontSize + ")"));
     }
 
+    /** Places the caret at the given character offset and scrolls it into view. */
+    public void scrollToPosition(int offset) {
+        int safeOffset = Math.max(0, offset);
+        whenReady(() -> execute("window.JylosEditor.scrollToOffset(" + safeOffset + ")"));
+    }
+
     /** Enables or disables source-backed Live Preview without replacing the document. */
     public void setLivePreviewEnabled(boolean enabled) {
         livePreviewEnabled = enabled;
@@ -279,6 +287,12 @@ public final class MarkdownEditorView extends StackPane {
     /** Returns the selected Markdown presentation mode. */
     public boolean isLivePreviewEnabled() {
         return livePreviewEnabled;
+    }
+
+    /** Obsidian-style centered content column: caps editor width, margins fill the rest. */
+    public void setReadableLineLength(boolean enabled) {
+        readableLineLength = enabled;
+        whenReady(() -> execute("window.JylosEditor.setReadableLineLength(" + enabled + ")"));
     }
 
     /** Sets whether CodeMirror accepts document-changing commands and input. */
@@ -316,6 +330,7 @@ public final class MarkdownEditorView extends StackPane {
                     "fontSize", fontSize,
                     "labels", labels,
                     "livePreview", livePreviewEnabled,
+                    "readableLineLength", readableLineLength,
                     "editable", editable);
             execute("window.JylosEditor.initialize(" + GSON.toJson(config) + ")");
             ready = true;
@@ -534,6 +549,16 @@ public final class MarkdownEditorView extends StackPane {
         public String resolveImageSource(String source) {
             String resolved = imageSourceResolver.apply(source != null ? source : "");
             return resolved != null ? resolved : "";
+        }
+
+        /**
+         * Rasterises an emoji run for the editor's emoji decoration, reusing the same
+         * cache and bundled font as the Preview (see {@link MarkdownPreview}) — the
+         * WebView's own font rendering cannot show colour emoji.
+         */
+        public String rasterizeEmoji(String run) {
+            String dataUri = MarkdownPreview.rasterizeEmojiRun(run, darkTheme);
+            return dataUri != null ? dataUri : "";
         }
 
         public void onEditorError(String message) {

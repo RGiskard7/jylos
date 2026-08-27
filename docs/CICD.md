@@ -41,6 +41,34 @@ xvfb-run -a mvn -B -f jylos/pom.xml clean test
 It does not build installers. Its purpose is to verify that the branch still
 compiles and the test suite passes.
 
+### `mutacion.yml`
+
+Mutation testing gate for the highest-risk data layer classes.
+
+Runs on:
+
+- `pull_request`;
+- `workflow_dispatch`.
+
+Deliberately not on `push`: PIT is much slower than the plain test suite, so
+it only gates merges, not every commit on `develop`.
+
+It does:
+
+- repository checkout;
+- Java 21 Temurin setup;
+- `xvfb` installation for the headless test run;
+- `mvn -B -f jylos/pom.xml test`;
+- `org.pitest:pitest-maven:mutationCoverage` against the configured
+  `TARGET_CLASSES`, failing the job if the result is below
+  `MUTATION_THRESHOLD`;
+- writes a KILLED/SURVIVED/NO_COVERAGE/TIMED_OUT summary to the job summary;
+- uploads the PIT HTML report as an artifact.
+
+`TARGET_CLASSES` and `MUTATION_THRESHOLD` live in the workflow's `env` block.
+The threshold is a measured floor, not a target: it only ever moves up, and
+only after a real run confirms the new number.
+
 ### `release-jylos.yml`
 
 Release publishing workflow.

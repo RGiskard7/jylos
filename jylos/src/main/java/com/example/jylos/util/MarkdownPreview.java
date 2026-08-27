@@ -80,6 +80,36 @@ public class MarkdownPreview {
     public static String buildPreviewHtml(String markdownContent, boolean isDarkTheme,
             Collection<PreviewEnhancer> enhancers, java.nio.file.Path baseDir,
             Function<String, String> embeddedContentResolver, PreviewContext context) {
+        return buildPreviewHtml(markdownContent, isDarkTheme, enhancers, baseDir, embeddedContentResolver, context,
+                false, 0);
+    }
+
+    /**
+     * Builds preview HTML with the Obsidian-style "readable line length" option: when
+     * {@code readableLineLength} is {@code true}, the body is capped to a centered
+     * column instead of filling the full WebView width.
+     */
+    public static String buildPreviewHtml(String markdownContent, boolean isDarkTheme,
+            Collection<PreviewEnhancer> enhancers, java.nio.file.Path baseDir,
+            Function<String, String> embeddedContentResolver, PreviewContext context,
+            boolean readableLineLength) {
+        return buildPreviewHtml(markdownContent, isDarkTheme, enhancers, baseDir, embeddedContentResolver, context,
+                readableLineLength, 0);
+    }
+
+    /**
+     * Builds preview HTML with an explicit body text size, independent from the native
+     * JavaFX chrome's own font size preference.
+     *
+     * @param contentFontSize font size in pixels for the rendered body text, or
+     *                        {@code 0} to leave the WebView's own default untouched
+     *                        (existing callers that don't care about this keep the
+     *                        exact output they always got)
+     */
+    public static String buildPreviewHtml(String markdownContent, boolean isDarkTheme,
+            Collection<PreviewEnhancer> enhancers, java.nio.file.Path baseDir,
+            Function<String, String> embeddedContentResolver, PreviewContext context,
+            boolean readableLineLength, int contentFontSize) {
         String raw = markdownContent == null ? "" : markdownContent;
 
         // Resolve [[WikiLinks]] in the raw Markdown source FIRST, then pass
@@ -121,7 +151,8 @@ public class MarkdownPreview {
                 : "";
         String highlightAsset = codeBlocks ? highlightJsScript() : "";
 
-        String styleBlock = isDarkTheme ? MarkdownPreview.darkStyles() : MarkdownPreview.lightStyles();
+        String styleBlock = isDarkTheme ? MarkdownPreview.darkStyles(readableLineLength, contentFontSize)
+                : MarkdownPreview.lightStyles(readableLineLength, contentFontSize);
         String highlightScript = codeBlocks ? MarkdownPreview.highlightScriptBlock() : "";
 
         // KaTeX math (offline) — only when the note actually contains math delimiters.
@@ -170,6 +201,16 @@ public class MarkdownPreview {
                             e.preventDefault();
                             if (window.javaApp) {
                                 window.javaApp.openExternal(href);
+                            }
+                        } else if (href.startsWith('#') && href.length > 1) {
+                            // Same-page anchors (e.g. a hand-written or TOC-plugin-generated
+                            // table of contents): this page has no real URL (loaded via
+                            // loadContent, not a file:// or http:// address), so WebKit's
+                            // native fragment-jump can't be relied on. Do it ourselves.
+                            e.preventDefault();
+                            let anchorTarget = document.getElementById(decodeURIComponent(href.slice(1)));
+                            if (anchorTarget) {
+                                anchorTarget.scrollIntoView({ block: 'start' });
                             }
                         }
                     });
@@ -274,8 +315,30 @@ public class MarkdownPreview {
         return new Injections(head.toString(), body.toString());
     }
 
-    private static String darkStyles() {
-        return """
+    /** Centered content column width (Obsidian's own default), shared by editor and preview. */
+    private static final int READABLE_LINE_LENGTH_PX = 700;
+
+    /** Centered content column, applied only when the reader opts into it — plain string
+     * concatenation (not a formatted text block) because the CSS below is full of literal
+     * {@code %} signs that a {@code .formatted()} call would misparse as format specifiers. */
+    private static String readableLineLengthRule() {
+        return "body { max-width: " + READABLE_LINE_LENGTH_PX
+                + "px; margin-left: auto; margin-right: auto; }";
+    }
+
+    /**
+     * Explicit body text size, independent from the readable-line-length column width.
+     * Headings/lists/blockquotes/table cells inherit it (they carry no {@code font-size}
+     * of their own, or use relative {@code em} units off it); code blocks keep their own
+     * fixed monospace size on purpose, same convention as most editors — a "text size"
+     * control for prose shouldn't also resize copy-pasted code samples.
+     */
+    private static String contentFontSizeRule(int contentFontSize) {
+        return contentFontSize > 0 ? "body { font-size: " + contentFontSize + "px; }" : "";
+    }
+
+    private static String darkStyles(boolean readableLineLength, int contentFontSize) {
+        String base = """
                 html { background-color: #1E1E1E; margin: 0; padding: 0; }
                 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; padding: 20px; line-height: 1.6; color: #E0E0E0; background-color: #1E1E1E; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; overflow-x: hidden; }
                 ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -326,10 +389,13 @@ public class MarkdownPreview {
                 .embed-note { color: #f87171; font-size: 0.8em; font-style: italic; }
                 .embed-missing, .embed-cycle, .embed-too-deep { border-left-color: #ef4444; background-color: #2a1f1f; }
                 """;
+        return base
+                + (readableLineLength ? readableLineLengthRule() : "")
+                + contentFontSizeRule(contentFontSize);
     }
 
-    private static String lightStyles() {
-        return """
+    private static String lightStyles(boolean readableLineLength, int contentFontSize) {
+        String base = """
                 html { background-color: #FFFFFF; margin: 0; padding: 0; }
                 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; padding: 20px; line-height: 1.6; color: #24292e; background-color: #FFFFFF; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; overflow-x: hidden; }
                 ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -380,6 +446,9 @@ public class MarkdownPreview {
                 .embed-note { color: #d1242f; font-size: 0.8em; font-style: italic; }
                 .embed-missing, .embed-cycle, .embed-too-deep { border-left-color: #d1242f; background-color: #fff0f0; }
                 """;
+        return base
+                + (readableLineLength ? readableLineLengthRule() : "")
+                + contentFontSizeRule(contentFontSize);
     }
 
     private record Injections(String head, String body) {
@@ -425,6 +494,23 @@ public class MarkdownPreview {
         }
         m.appendTail(out);
         return out.toString();
+    }
+
+    /**
+     * Rasterises a single emoji run to a transparent PNG data URI, for callers outside
+     * the Preview pipeline (the CodeMirror editor bridge, via {@code EditorBridge}).
+     * Same cache as {@link #emojifyToImages}, so a run already seen by either caller is
+     * a cache hit for the other.
+     *
+     * @return the data URI, or {@code null} if {@code run} is not a recognised emoji
+     *         run or the bundled emoji font could not be loaded
+     */
+    public static String rasterizeEmojiRun(String run, boolean dark) {
+        if (EMOJI_AWT_FONT == null || run == null || run.isEmpty() || !EMOJI_RUN.matcher(run).matches()) {
+            return null;
+        }
+        String colorKey = dark ? "d" : "l";
+        return EMOJI_CACHE.computeIfAbsent(colorKey + "|" + run, k -> renderEmoji(run, dark));
     }
 
     /** Rasterises an emoji run to a transparent PNG data URI, tinted for the theme. */

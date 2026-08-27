@@ -143,7 +143,7 @@ fichero independiente, sin `isPluginRemovable`) a cambio de disponibilidad incon
 | `registerEditorBlockRenderer(language, renderer)` | Renderiza un bloque cercado dentro del Live Preview del editor |
 | `requestOpenNote(note)` | Pedir al shell abrir nota |
 | `requestRefreshNotes()` | Pedir refresh fan-out |
-| `subscribe(...)` / `publish(...)` | Eventos tipados |
+| `subscribe(...)` / `publish(...)` | Eventos tipados; las suscripciones se cancelan solas al deshabilitar |
 
 ## Preview enhancers
 
@@ -198,6 +198,14 @@ Deben ser rápidos, se ejecutan en JavaFX Application Thread y se eliminan al de
 1. Descubrir JARs.
 2. Cargar con classloaders dedicados.
 3. Registrar metadata, comandos, menús, preview enhancers y paneles.
-4. Deshabilitar limpia UI/hooks/comandos.
+4. Deshabilitar limpia UI/hooks/comandos/suscripciones.
+
+El desmontaje no depende de que el plugin colabore. `PluginManager` llama a su
+`shutdown()` y después retira todas sus aportaciones —entradas de menú, paneles, preview
+enhancers, hooks de editor, botones de toolbar, renderizadores de bloque, comandos y
+suscripciones a eventos— aunque ese `shutdown()` haya lanzado. Cancelar tus propias
+suscripciones en `shutdown()` sigue siendo buena práctica y no cuesta nada (`cancel()` es
+idempotente), pero un plugin que falla a mitad del desmontaje ya no deja handlers vivos
+detrás, cosa que además impedía que su classloader se recolectara nunca.
 
 Un plugin roto no debe impedir arranque de la app. Los plugins desactivados desde el gestor quedan persistidos como desactivados y no se inicializan al siguiente arranque, evitando que registren botones, menús o paneles antes de aplicar su estado.

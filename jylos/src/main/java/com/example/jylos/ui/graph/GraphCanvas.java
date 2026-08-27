@@ -57,12 +57,28 @@ public final class GraphCanvas extends Region {
     private static final double LINK_DISTANCE  = 36.0;
     private static final double CENTER_GRAVITY = 0.035;    // weak pull → orphans drift to the rim
     private static final double MAX_VELOCITY   = 160.0;    // clamp to avoid explosions
+    private static final double COLLISION_PADDING  = 2.0;  // small visual gap even when circles "touch"
+    private static final double COLLISION_STRENGTH = 0.7;  // d3-force's own default — unlike charge/link,
+                                                             // this is not scaled by alpha: collisions must
+                                                             // keep resolving even once the simulation has
+                                                             // cooled down, or an overlap in an already-settled
+                                                             // layout would never get corrected
 
     // ── Interaction tuning ──────────────────────────────────────────────────
     private static final double MIN_SCALE = 0.02;
     private static final double MAX_SCALE = 8.0;
     private static final double CLICK_SLOP = 4.0;          // px movement still counts as a click
     private static final double MIN_NODE_PX = 2.0;         // floor on on-screen node radius (Obsidian-like dots)
+    private static final double HOVER_DIM_ALPHA = 0.28;    // opacity for nodes/labels not part of the hovered relation
+    private static final double HOVER_EASE_RATE = 0.25;    // fraction of the remaining hover-fade gap closed
+                                                             // per animation frame — a simple exponential ease,
+                                                             // not a fixed-duration tween: no elapsed-time
+                                                             // bookkeeping needed, and it self-adjusts to
+                                                             // whatever frame rate is actually delivered
+    private static final double BASE_NODE_RADIUS = 2.4;    // smallest normal (non-ghost) note radius, degree 0 —
+                                                             // the reference point labelThreshold is calibrated
+                                                             // against; a bigger node's label reveals at a
+                                                             // proportionally lower zoom than that reference
 
     private final Canvas canvas = new Canvas();
     private final GraphicsContext g = canvas.getGraphicsContext2D();
@@ -115,6 +131,15 @@ public final class GraphCanvas extends Region {
     private double alpha = 0;
     private boolean timerRunning = false;
     private int hoverIndex = -1;
+    /** The node whose highlight is currently being shown/animated — updates the
+     *  instant a new node is hovered, but (unlike {@link #hoverIndex}) holds its
+     *  last value through the fade-<em>out</em> after the cursor leaves, so the
+     *  highlight has something to ease back down from instead of vanishing the
+     *  instant the cursor moves off. */
+    private int displayHoverIndex = -1;
+    private double hoverStrength = 0.0;  // 0 = no highlight showing, 1 = fully shown
+    private double hoverTarget = 0.0;
+    private boolean hoverAnimating = false;
     private int dragIndex = -1;
     private boolean panning = false;
     private boolean movedSincePress = false;
@@ -135,6 +160,36 @@ public final class GraphCanvas extends Region {
             }
         }
     };
+
+    /** Drives {@link #hoverStrength} toward {@link #hoverTarget}, independently of
+     *  the physics timer above — hovering must animate smoothly even when the
+     *  layout has long since settled and that timer isn't running. Starts on a
+     *  hover change and stops itself once it converges, matching the same
+     *  don't-run-when-nothing's-animating discipline the physics timer already
+     *  follows. */
+    private final AnimationTimer hoverTimer = new AnimationTimer() {
+        @Override
+        public void handle(long now) {
+            hoverStrength += (hoverTarget - hoverStrength) * HOVER_EASE_RATE;
+            if (Math.abs(hoverTarget - hoverStrength) < 0.01) {
+                hoverStrength = hoverTarget;
+                if (hoverTarget <= 0.0) {
+                    displayHoverIndex = -1;
+                }
+                hoverAnimating = false;
+                stop();
+            }
+            draw();
+        }
+    };
+
+    private void setHoverTarget(double target) {
+        hoverTarget = target;
+        if (!hoverAnimating) {
+            hoverAnimating = true;
+            hoverTimer.start();
+        }
+    }
 
     public GraphCanvas() {
         getChildren().add(canvas);
@@ -353,7 +408,7 @@ public final class GraphCanvas extends Region {
                 case GHOST -> KIND_GHOST;
                 default -> KIND_NOTE;
             };
-            double base = node.type() == GraphNode.Type.GHOST ? 2.0 : 2.4;
+            double base = node.type() == GraphNode.Type.GHOST ? 2.0 : BASE_NODE_RADIUS;
             radius[i] = base + Math.sqrt(Math.max(0, node.degree())) * 1.5;
         }
 
@@ -444,8 +499,10 @@ public final class GraphCanvas extends Region {
         }
         alpha += (0 - alpha) * ALPHA_DECAY;
 
-        applyManyBody();
+        QuadNode root = buildQuadtree();
+        applyManyBody(root);
         applyLinks();
+        applyCollisions(root);
         applyCenterGravity();
 
         for (int i = 0; i < n; i++) {
@@ -496,16 +553,83 @@ public final class GraphCanvas extends Region {
 
     // ── Barnes–Hut many-body repulsion ──────────────────────────────────────────
 
-    private void applyManyBody() {
-        if (n < 2) {
-            return;
-        }
-        QuadNode root = buildQuadtree();
-        if (root == null) {
+    private void applyManyBody(QuadNode root) {
+        if (n < 2 || root == null) {
             return;
         }
         for (int i = 0; i < n; i++) {
             accumulateRepulsion(root, i);
+        }
+    }
+
+    // ── Collision (node circles never overlap once the layout settles) ─────────
+
+    private void applyCollisions(QuadNode root) {
+        if (n < 2 || root == null) {
+            return;
+        }
+        for (int i = 0; i < n; i++) {
+            resolveCollisionsFor(root, i);
+        }
+    }
+
+    /**
+     * Pushes node {@code i} apart from any other node whose circle it overlaps,
+     * found via the same quadtree {@link #accumulateRepulsion} uses for repulsion —
+     * pruned the same Barnes–Hut way, but on reach ({@code radius[i] + cell's max
+     * radius}) instead of the charge/theta accuracy trade-off, since a collision is
+     * exact-or-nothing rather than something an approximation is acceptable for.
+     *
+     * <p>Each pair is resolved only from the lower-index node's traversal ({@code
+     * j <= i} is skipped) so overlap isn't corrected twice — once per node — in the
+     * same tick, which would double the effective push.</p>
+     */
+    private void resolveCollisionsFor(QuadNode node, int i) {
+        if (node == null) {
+            return;
+        }
+        if (node.leaf) {
+            int j = node.index;
+            if (j <= i) {
+                return;
+            }
+            double dx = (x[j] + vx[j]) - (x[i] + vx[i]);
+            double dy = (y[j] + vy[j]) - (y[i] + vy[i]);
+            double minDist = radius[i] + radius[j] + COLLISION_PADDING;
+            double d2 = dx * dx + dy * dy;
+            if (d2 >= minDist * minDist) {
+                return;
+            }
+            double d = Math.sqrt(d2);
+            if (d < 1e-6) {
+                dx = jiggle();
+                dy = jiggle();
+                d = Math.sqrt(dx * dx + dy * dy);
+            }
+            double push = (minDist - d) / d * COLLISION_STRENGTH;
+            double fx = dx * push;
+            double fy = dy * push;
+            vx[j] += fx;
+            vy[j] += fy;
+            vx[i] -= fx;
+            vy[i] -= fy;
+            return;
+        }
+        // Prune whole subtrees no node inside could possibly reach: even the
+        // biggest circle in this cell, added to i's own radius, can't bridge the
+        // gap to the nearest point of the cell's bounding square.
+        double closestX = clamp(x[i], node.x0, node.x0 + node.size);
+        double closestY = clamp(y[i], node.y0, node.y0 + node.size);
+        double dx = closestX - x[i];
+        double dy = closestY - y[i];
+        double maxReach = radius[i] + node.maxRadius + COLLISION_PADDING;
+        if (dx * dx + dy * dy > maxReach * maxReach) {
+            return;
+        }
+        for (QuadNode child : node.children) {
+            if (child != null) {
+                resolveCollisionsFor(child, i);
+            }
         }
     }
 
@@ -552,7 +676,7 @@ public final class GraphCanvas extends Region {
         for (int i = 0; i < n; i++) {
             root.insert(i, x, y);
         }
-        root.computeMass();
+        root.computeMass(radius);
         return root;
     }
 
@@ -563,6 +687,7 @@ public final class GraphCanvas extends Region {
         int index = -1;        // leaf node index, or -1
         int count = 0;         // number of bodies in subtree
         double cx, cy;         // center of mass
+        double maxRadius;      // largest node radius anywhere in this subtree (collision pruning)
         boolean leaf = true;
 
         QuadNode(double x0, double y0, double size) {
@@ -612,26 +737,30 @@ public final class GraphCanvas extends Region {
             return children[q];
         }
 
-        void computeMass() {
+        void computeMass(double[] radius) {
             if (leaf) {
+                maxRadius = index >= 0 ? radius[index] : 0;
                 return;
             }
             double sx = 0, sy = 0;
             int c = 0;
+            double maxR = 0;
             for (QuadNode child : children) {
                 if (child == null) {
                     continue;
                 }
-                child.computeMass();
+                child.computeMass(radius);
                 sx += child.cx * child.count;
                 sy += child.cy * child.count;
                 c += child.count;
+                maxR = Math.max(maxR, child.maxRadius);
             }
             if (c > 0) {
                 cx = sx / c;
                 cy = sy / c;
                 count = c;
             }
+            maxRadius = maxR;
         }
     }
 
@@ -646,27 +775,30 @@ public final class GraphCanvas extends Region {
             return;
         }
 
-        boolean hovering = hoverIndex >= 0;
+        boolean hoveringDisplay = displayHoverIndex >= 0;
         boolean[] active = null;
-        if (hovering) {
+        if (hoveringDisplay) {
             active = new boolean[n];
-            active[hoverIndex] = true;
-            for (int nb : neighbors[hoverIndex]) {
+            active[displayHoverIndex] = true;
+            for (int nb : neighbors[displayHoverIndex]) {
                 active[nb] = true;
             }
         }
 
         // Edges — thin, constant-ish width so relationships always read clearly.
+        // Colors ease between resting and highlighted/dimmed via hoverStrength
+        // instead of switching outright, so the whole highlight (edges, nodes,
+        // labels below) reads as one smooth transition rather than some parts
+        // snapping instantly while others fade.
         g.setLineWidth(clamp(scale, 0.7, 1.6) * lineThickness);
         for (int e = 0; e < edgeA.length; e++) {
             int s = edgeA[e];
             int t = edgeB[e];
-            if (!hovering) {
+            if (!hoveringDisplay) {
                 g.setStroke(palette.link);
-            } else if (active[s] && active[t]) {
-                g.setStroke(palette.linkActive);
             } else {
-                g.setStroke(palette.linkDim);
+                Color target = (active[s] && active[t]) ? palette.linkActive : palette.linkDim;
+                g.setStroke(palette.link.interpolate(target, hoverStrength));
             }
             double x1 = sx(x[s]), y1 = sy(y[s]), x2 = sx(x[t]), y2 = sy(y[t]);
             g.strokeLine(x1, y1, x2, y2);
@@ -680,18 +812,18 @@ public final class GraphCanvas extends Region {
             double r = screenRadius(i);
             double px = sx(x[i]);
             double py = sy(y[i]);
-            boolean dim = hovering && !active[i];
-            g.setGlobalAlpha(dim ? 0.28 : 1.0);
+            boolean dim = hoveringDisplay && !active[i];
+            g.setGlobalAlpha(dim ? 1.0 - (1.0 - HOVER_DIM_ALPHA) * hoverStrength : 1.0);
 
             if (kind[i] == KIND_GHOST) {
                 // Unresolved link → hollow node (Obsidian style).
-                g.setStroke(i == hoverIndex ? palette.accent : palette.ghost);
+                g.setStroke(i == displayHoverIndex ? palette.accent : palette.ghost);
                 g.setLineWidth(1.2);
                 g.strokeOval(px - r, py - r, r * 2, r * 2);
             } else {
                 Color fill;
-                if (i == hoverIndex) {
-                    fill = palette.accent;
+                if (i == displayHoverIndex) {
+                    fill = palette.node.interpolate(palette.accent, hoverStrength);
                 } else if (kind[i] == KIND_TAG) {
                     fill = palette.tag;
                 } else if (colorByFolder) {
@@ -701,94 +833,126 @@ public final class GraphCanvas extends Region {
                 }
                 g.setFill(fill);
                 g.fillOval(px - r, py - r, r * 2, r * 2);
-                if (i == hoverIndex) {
+                if (i == displayHoverIndex) {
                     g.setStroke(palette.nodeRing);
                     g.setLineWidth(1.5);
+                    g.setGlobalAlpha(hoverStrength);
                     g.strokeOval(px - r, py - r, r * 2, r * 2);
                 }
             }
         }
         g.setGlobalAlpha(1.0);
 
-        // Labels. Hovering always shows just the hovered node's own label — never
-        // its neighbours, matching Obsidian. Otherwise labels fade in gradually as
-        // zoom crosses labelThreshold (near-invisible, then ramping to fully
-        // opaque), and higher-degree nodes claim their label first — any label
-        // that would overlap an already-placed one is skipped, so density
-        // self-limits instead of an all-or-nothing cutoff by raw node count.
-        //
-        // Width for the overlap check is a cheap chars-times-average-glyph-width
-        // estimate, not real font metrics: measuring via a JavaFX Text node's
-        // getLayoutBounds() per node per frame (the first version of this) forces
-        // a real font/layout pass in the toolkit on every call — cheap once, very
-        // expensive when it's the inner loop of a 60fps animation. The estimate
-        // only needs to be close enough to avoid gross overlaps, not exact.
+        drawLabels(active, hoveringDisplay);
+    }
+
+    /**
+     * Labels in two passes sharing one {@link #placedLabelBoxes} overlap-avoidance
+     * list, so whichever pass runs first wins any conflict:
+     *
+     * <ol>
+     * <li>When hovering, the hovered node and its direct neighbours — regardless
+     * of zoom. This is the one place a label ignores {@link #labelThreshold}
+     * entirely: hovering to see what a note connects to is most useful exactly
+     * when zoomed out over the whole graph, which is precisely when the normal
+     * zoom-based reveal below would otherwise show nothing. Fades in/out with
+     * {@link #hoverStrength} together with the dimming below, and still goes
+     * through the same overlap check as everything else — a hub's hover can't
+     * flood the screen with a hundred overlapping names, it just places as many
+     * as fit, prioritizing its larger (by radius) neighbours first.</li>
+     * <li>Everyone else, using the normal per-node zoom-based reveal: each node's
+     * label appears once <em>that node's own on-screen circle</em> — not a
+     * one-size-fits-all zoom number — crosses a minimum legible size, so a big
+     * hub's name shows at a lower zoom than a small note's, the same way a city
+     * rotules before a village does on a map as you zoom out. {@link
+     * #labelThreshold} calibrates that minimum size, relative to the smallest
+     * normal node ({@link #BASE_NODE_RADIUS}); the existing settings slider still
+     * drives it, unchanged in meaning for a node at that reference size.</li>
+     * </ol>
+     */
+    private void drawLabels(boolean[] active, boolean hoveringDisplay) {
         Font font = Font.font(Math.max(9, Math.min(15, 11 * Math.max(0.8, scale))));
         g.setTextAlign(TextAlignment.CENTER);
         g.setFont(font);
         g.setFill(palette.text);
-        if (hovering) {
-            if (!labels[hoverIndex].isEmpty()) {
-                double r = radius[hoverIndex] * scale;
-                g.fillText(labels[hoverIndex], sx(x[hoverIndex]), sy(y[hoverIndex]) + r + 12);
+        double avgCharWidth = font.getSize() * 0.56; // typical proportional sans-serif average
+        double labelHeight = font.getSize() + 2;
+
+        placedLabelBoxes.clear();
+        if (hoveringDisplay) {
+            for (int idx : labelOrder) {
+                if (active[idx]) {
+                    // Never dimmer than its own zoom-based reveal would already make
+                    // it — a neighbour that's already legible on zoom alone shouldn't
+                    // visibly dip in brightness while the hover highlight fades out.
+                    double opacity = Math.max(hoverStrength, labelFadeIn(idx));
+                    placeLabel(idx, avgCharWidth, labelHeight, opacity, false);
+                }
             }
-            return;
         }
-        double fadeIn = clamp((scale - labelThreshold) / (labelThreshold * 0.75), 0.0, 1.0);
-        if (fadeIn <= 0.0) {
-            return;
+        for (int idx : labelOrder) {
+            if (active != null && active[idx]) {
+                continue; // already placed (or deliberately skipped) by the hover pass above
+            }
+            double fadeIn = labelFadeIn(idx);
+            if (fadeIn <= 0.0) {
+                continue;
+            }
+            placeLabel(idx, avgCharWidth, labelHeight, fadeIn, hoveringDisplay);
         }
-        g.setGlobalAlpha(fadeIn);
-        drawDeclutteredLabels(font);
         g.setGlobalAlpha(1.0);
     }
 
+    /** The scale at which node {@code idx}'s own on-screen circle first reaches a
+     *  legible label size, and how far {@code scale} currently is past that (0 =
+     *  not there yet, 1 = fully faded in). A node twice the reference radius
+     *  reveals its label at half the zoom a reference-sized node needs. */
+    private double labelFadeIn(int idx) {
+        double revealScale = labelThreshold * (BASE_NODE_RADIUS / radius[idx]);
+        return clamp((scale - revealScale) / (revealScale * 0.75), 0.0, 1.0);
+    }
+
     /**
-     * Draws as many labels as fit without overlapping, prioritizing higher-degree
-     * (larger) nodes. Off-screen candidates are skipped before any box math so a
-     * zoomed-in view over a small area of a large graph doesn't pay for the rest of
-     * it. {@code O(k^2)} in the number of on-screen labels actually placed, which
-     * self-bounds: a crowded viewport places few labels regardless of {@code n}.
+     * Places one label if it isn't empty, isn't fully off-screen, and doesn't
+     * overlap anything already placed this frame (appended to {@link
+     * #placedLabelBoxes} on success). {@code O(k)} against the labels placed so
+     * far, which self-bounds: a crowded viewport places few labels regardless of
+     * how many nodes exist.
      *
-     * <p>Uses {@link #labelOrder} (sorted once per model build, not here — this used
-     * to re-sort all {@code n} nodes on every single frame, including every
-     * intermediate event of a zoom or pan gesture) and the reused
-     * {@link #placedLabelBoxes} list (avoids an allocation per frame).</p>
+     * <p>Width is a cheap chars-times-average-glyph-width estimate, not real font
+     * metrics: measuring via a JavaFX Text node's getLayoutBounds() per node per
+     * frame forces a real font/layout pass in the toolkit on every call — cheap
+     * once, very expensive when it's the inner loop of a 60fps animation. The
+     * estimate only needs to be close enough to avoid gross overlaps, not exact.</p>
+     *
+     * @param opacity base opacity for this label (the zoom fade-in, or {@link
+     *                #hoverStrength} for the always-on hover set)
+     * @param dim     whether to additionally darken it the way its node circle is
+     *                dimmed while something else is hovered
      */
-    private void drawDeclutteredLabels(Font font) {
-        double avgCharWidth = font.getSize() * 0.56; // typical proportional sans-serif average
-        double labelHeight = font.getSize() + 2;
+    private void placeLabel(int idx, double avgCharWidth, double labelHeight, double opacity, boolean dim) {
+        if (labels[idx].isEmpty()) {
+            return;
+        }
         double w = width();
         double h = height();
-
-        placedLabelBoxes.clear();
-        for (int idx : labelOrder) {
-            if (labels[idx].isEmpty()) {
-                continue;
-            }
-            double r = radius[idx] * scale;
-            double cx = sx(x[idx]);
-            double cy = sy(y[idx]) + r + 12;
-            double halfW = labels[idx].length() * avgCharWidth / 2.0 + 2;
-            double minX = cx - halfW, maxX = cx + halfW;
-            double minY = cy - labelHeight / 2.0, maxY = cy + labelHeight / 2.0;
-            if (maxX < 0 || minX > w || maxY < 0 || minY > h) {
-                continue; // fully off-screen — cheap reject before any collision math
-            }
-
-            boolean overlaps = false;
-            for (double[] box : placedLabelBoxes) {
-                if (minX < box[2] && maxX > box[0] && minY < box[3] && maxY > box[1]) {
-                    overlaps = true;
-                    break;
-                }
-            }
-            if (overlaps) {
-                continue;
-            }
-            placedLabelBoxes.add(new double[] { minX, minY, maxX, maxY });
-            g.fillText(labels[idx], cx, cy);
+        double r = radius[idx] * scale;
+        double cx = sx(x[idx]);
+        double cy = sy(y[idx]) + r + 12;
+        double halfW = labels[idx].length() * avgCharWidth / 2.0 + 2;
+        double minX = cx - halfW, maxX = cx + halfW;
+        double minY = cy - labelHeight / 2.0, maxY = cy + labelHeight / 2.0;
+        if (maxX < 0 || minX > w || maxY < 0 || minY > h) {
+            return; // fully off-screen — cheap reject before any collision math
         }
+        for (double[] box : placedLabelBoxes) {
+            if (minX < box[2] && maxX > box[0] && minY < box[3] && maxY > box[1]) {
+                return; // overlaps an already-placed label
+            }
+        }
+        placedLabelBoxes.add(new double[] { minX, minY, maxX, maxY });
+        g.setGlobalAlpha(opacity * (dim ? HOVER_DIM_ALPHA : 1.0));
+        g.fillText(labels[idx], cx, cy);
     }
 
     // ── Interaction ────────────────────────────────────────────────────────────
@@ -855,15 +1019,18 @@ public final class GraphCanvas extends Region {
             int hit = pick(e.getX(), e.getY());
             if (hit != hoverIndex) {
                 hoverIndex = hit;
+                if (hit >= 0) {
+                    displayHoverIndex = hit; // switch immediately — only the fade *out* holds the old value
+                }
                 canvas.setCursor(hit >= 0 ? javafx.scene.Cursor.HAND : javafx.scene.Cursor.DEFAULT);
-                drawIfIdle();
+                setHoverTarget(hit >= 0 ? 1.0 : 0.0);
             }
         });
 
         canvas.setOnMouseExited(e -> {
             if (hoverIndex != -1) {
                 hoverIndex = -1;
-                drawIfIdle();
+                setHoverTarget(0.0);
             }
         });
     }
