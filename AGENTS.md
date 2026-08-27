@@ -129,4 +129,3 @@ OpenWiki workflow and do not need manual translation mirroring in `docs/es/`.
   pasan en verde desde el primer run y el anti-fraude es el sabotaje posterior.
 
 Procedimiento y protocolo de sabotaje detallados: `docs/TESTING.md`.
-

@@ -36,4 +36,3 @@ should close a GitHub issue.
   pasan en verde desde el primer run y el anti-fraude es el sabotaje posterior.
 
 Procedimiento y protocolo de sabotaje detallados: `docs/TESTING.md`.
-

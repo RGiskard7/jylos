@@ -1229,6 +1229,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         externalThemeId = uiPrefs.externalThemeId();
         notesListPreviewLines = uiPrefs.notesPreviewLines();
         uiFontSize = uiPrefs.uiFontSize();
+        editorFontSize = uiPrefs.contentFontSize();
         uiAccentColor = uiPrefs.accentColor();
         enabledSnippets = uiPreferences.loadEnabledSnippets(prefs);
         autosaveDebounce.setDuration(Duration.millis(autosaveIdleMs));
@@ -1241,9 +1242,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
         if (editorController != null) {
             editorController.applyLivePreviewPreference(uiPrefs.livePreviewEnabled());
+            editorController.applyReadableLineLengthPreference(uiPrefs.readableLineLength());
         }
         applyEditorControlsPresentation();
         applyUiZoom();
+        applyEditorZoom();
         Platform.runLater(this::applyThemeAndRefreshDependents);
     }
 
@@ -2973,13 +2976,20 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private void applyUiZoom() {
         if (toolbarController != null && toolbarController.getToolbarHBox() != null
                 && toolbarController.getToolbarHBox().getScene() != null) {
+            javafx.scene.Scene scene = toolbarController.getToolbarHBox().getScene();
             StringBuilder style = new StringBuilder("-fx-font-size: ").append(uiFontSize).append("px;");
             if (uiAccentColor != null && !uiAccentColor.isBlank()) {
                 style.append(" -fx-accent: ").append(uiAccentColor).append(';')
                      .append(" -fx-accent-hover: derive(").append(uiAccentColor).append(", -12%);")
                      .append(" -fx-selected-bg: ").append(uiAccentColor).append(';');
             }
-            toolbarController.getToolbarHBox().getScene().getRoot().setStyle(style.toString());
+            scene.getRoot().setStyle(style.toString());
+            // Every other CSS rule in the theme derives its own font-size from this root's
+            // via `em` units, so a Dialog (its own separate Scene/root — JavaFX dialogs don't
+            // inherit the main window's root) needs this same inline style re-captured right
+            // away, not just on the next theme switch, or a dialog opened right after a live
+            // zoom change would still render at the old size.
+            com.example.jylos.ui.UiDialogs.syncFromScene(scene);
         }
         // Keep the persisted font size in sync so Ctrl+/- zoom survives a restart.
         prefs.putInt(UiPreferencesStore.UI_FONT_SIZE_KEY, (int) Math.round(uiFontSize));
@@ -3005,10 +3015,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         applyEditorZoom();
     }
 
+    /** Applies the editor/preview font size and keeps it persisted, so Ctrl+/- zoom survives a restart. */
     private void applyEditorZoom() {
         if (editorController != null) {
             editorController.applyEditorZoom(editorFontSize);
         }
+        uiPreferences.saveContentFontSize(prefs, (int) Math.round(editorFontSize));
     }
 
     @FXML
@@ -3309,7 +3321,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 notesListPreviewLines,
                 (int) Math.round(uiFontSize),
                 uiAccentColor,
-                uiPreferences.loadLivePreviewEnabled(prefs));
+                uiPreferences.loadLivePreviewEnabled(prefs),
+                uiPreferences.loadReadableLineLength(prefs),
+                (int) Math.round(editorFontSize));
         List<ThemeCatalog.ThemeDescriptor> themes = themeCatalog.getAvailableThemes();
         Optional<DialogSupport.PreferencesDialogResult> result = dialogSupport.showPreferences(
                 currentUiPrefs,
@@ -3328,7 +3342,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 values.notesPreviewLines(),
                 values.uiFontSize(),
                 values.accentColor(),
-                values.livePreviewEnabled());
+                values.livePreviewEnabled(),
+                values.readableLineLength(),
+                values.contentFontSize());
         uiPreferences.save(prefs, newPrefs);
         uiPreferences.saveEnabledSnippets(prefs, values.enabledSnippets());
         applyUiPreferencesFromStore();

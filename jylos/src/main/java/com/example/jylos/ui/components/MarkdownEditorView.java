@@ -79,6 +79,7 @@ public final class MarkdownEditorView extends StackPane {
     private String accent = "";
     private double fontSize = 14;
     private boolean livePreviewEnabled = true;
+    private boolean readableLineLength = false;
     private boolean editable;
     /** Plugin-rendered fenced blocks for the current document; see {@link #setBlockRenders}. */
     private Map<String, String> blockRenders = Map.of();
@@ -288,6 +289,12 @@ public final class MarkdownEditorView extends StackPane {
         return livePreviewEnabled;
     }
 
+    /** Obsidian-style centered content column: caps editor width, margins fill the rest. */
+    public void setReadableLineLength(boolean enabled) {
+        readableLineLength = enabled;
+        whenReady(() -> execute("window.JylosEditor.setReadableLineLength(" + enabled + ")"));
+    }
+
     /** Sets whether CodeMirror accepts document-changing commands and input. */
     public void setEditable(boolean value) {
         editable = value;
@@ -323,6 +330,7 @@ public final class MarkdownEditorView extends StackPane {
                     "fontSize", fontSize,
                     "labels", labels,
                     "livePreview", livePreviewEnabled,
+                    "readableLineLength", readableLineLength,
                     "editable", editable);
             execute("window.JylosEditor.initialize(" + GSON.toJson(config) + ")");
             ready = true;

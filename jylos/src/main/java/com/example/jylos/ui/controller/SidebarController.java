@@ -387,14 +387,49 @@ public class SidebarController {
         trashTreeView.setShowRoot(false);
     }
 
+    /**
+     * JavaFX's {@code TreeCellSkin} caches ONE shared disclosure-arrow width per
+     * {@code TreeView}, seeded with a hardcoded fallback of 18px and only ever
+     * overwritten once a real disclosure node measures WIDER than the current cached
+     * value (never narrower — see {@code TreeCellSkin.layoutChildren}, "RT-19656:
+     * default width of default disclosure node"). Left to JavaFX's own default arrow
+     * (whose real measured width in this theme is larger than 18px), whichever rows
+     * render before the first expandable folder gets measured use the stale 18px
+     * fallback while later rows use the corrected, larger value — siblings at the same
+     * depth end up indented differently, exactly the skew reported after startup or a
+     * tree rebuild.
+     *
+     * <p>The fix has to land on EXACTLY 18px, not merely "smaller than 18": for a row
+     * WITH children, {@code TreeCellSkin} ignores the cache entirely and uses this
+     * arrow's own real measured width; for a LEAF row it falls back to the cache
+     * (18px, since 18 is never strictly greater than 18 the cache can never grow past
+     * it once every arrow measures exactly that). Any other fixed value — including a
+     * smaller one — makes branch rows and leaf rows use two different, merely
+     * consistently-wrong offsets instead of matching.</p>
+     */
+    private static final double DISCLOSURE_ARROW_SIZE = 18;
+
+    private static StackPane buildFixedSizeDisclosureArrow() {
+        FontIcon chevron = new FontIcon("fth-chevron-right");
+        chevron.setIconSize(12);
+        chevron.getStyleClass().add("feather-icon");
+        StackPane arrow = new StackPane(chevron);
+        arrow.setMinSize(DISCLOSURE_ARROW_SIZE, DISCLOSURE_ARROW_SIZE);
+        arrow.setPrefSize(DISCLOSURE_ARROW_SIZE, DISCLOSURE_ARROW_SIZE);
+        arrow.setMaxSize(DISCLOSURE_ARROW_SIZE, DISCLOSURE_ARROW_SIZE);
+        return arrow;
+    }
+
     private void setupCellFactories() {
         folderTreeView.setCellFactory(tv -> new TreeCell<Folder>() {
             private final ContextMenu folderContextMenu = createFolderContextMenuForCell(this);
             private final ChangeListener<Boolean> expandedListener = (obs, wasExpanded, isExpanded) -> refreshFolderIcon();
+            private final StackPane disclosureArrow = buildFixedSizeDisclosureArrow();
             private TreeItem<Folder> observedFolderItem;
             private Label folderIconLabel;
 
             {
+                setDisclosureNode(disclosureArrow);
                 addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
                     if (event.getButton() == MouseButton.SECONDARY && !isEmpty()) {
                         restoringFolderSelection = true;
@@ -450,6 +485,24 @@ public class SidebarController {
                     container.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
                     Label nameLabel = new Label(folder.getTitle());
                     nameLabel.getStyleClass().add("folder-cell-name");
+                    // The name is the flexible element, not a separate spacer: growing to
+                    // fill whatever room the row actually has, but also — critically —
+                    // allowed to shrink below its own text's natural width (minWidth 0
+                    // overrides a Label's default of never shrinking past its content) AND
+                    // told not to prefer that natural width either (prefWidth 0). Skipping
+                    // that last part was the first fix's actual bug: TreeCellSkin sizes the
+                    // ROW ITSELF off the graphic's *preferred* width, not its resized/actual
+                    // one — a Label's preferred width is always its full, uncompressed text
+                    // width regardless of minWidth, so a long folder name still made the row
+                    // (and therefore the whole tree) want to be wider than the sidebar, which
+                    // is exactly what forces a permanent horizontal scrollbar and pushes the
+                    // count off-screen. With prefWidth pinned to 0, the row's own natural size
+                    // no longer depends on the name's length; Hgrow.ALWAYS still expands it to
+                    // fill whatever space is actually available once the row is laid out.
+                    nameLabel.setMaxWidth(Double.MAX_VALUE);
+                    nameLabel.setMinWidth(0);
+                    nameLabel.setPrefWidth(0);
+                    HBox.setHgrow(nameLabel, Priority.ALWAYS);
                     if (count > 0 || isAllNotes) {
                         Label countLabel = new Label("(" + count + ")");
                         countLabel.getStyleClass().add("folder-cell-count");
@@ -464,12 +517,14 @@ public class SidebarController {
                     else
                         setContextMenu(null);
 
+                    refreshDisclosureArrowRotation();
                     setupFolderDragSource(this, folder);
                     setupFolderDropTargets(this, folder);
                 }
             }
 
             private void refreshFolderIcon() {
+                refreshDisclosureArrowRotation();
                 Folder folder = getItem();
                 if (folder == null || folderIconLabel == null || "ALL_NOTES_VIRTUAL".equals(folder.getId())) {
                     return;
@@ -481,9 +536,24 @@ public class SidebarController {
                         "folder-cell-icon",
                         expanded ? "folder-expanded" : "folder-collapsed");
             }
+
+            /** Points the chevron down when expanded, right when collapsed — same affordance
+             *  as the "[+]"/"[/]" icon label, just on the actual clickable disclosure arrow. */
+            private void refreshDisclosureArrowRotation() {
+                TreeItem<Folder> item = getTreeItem();
+                boolean expanded = item != null && item.isExpanded();
+                disclosureArrow.setRotate(expanded ? 90 : 0);
+            }
         });
 
         trashTreeView.setCellFactory(tv -> new TreeCell<Component>() {
+            // Same disclosure-arrow cache bug as folderTreeView above (each TreeView has
+            // its own independent cache entry) — the trash tree mixes deleted folders
+            // (branch) and deleted notes (leaf) too, so it needs the same fix.
+            {
+                setDisclosureNode(buildFixedSizeDisclosureArrow());
+            }
+
             @Override
             protected void updateItem(Component item, boolean empty) {
                 super.updateItem(item, empty);
