@@ -11,6 +11,7 @@ import com.example.jylos.ui.preferences.UiPreferencesStore;
 
 import javafx.scene.Node;
 import javafx.scene.control.SplitPane;
+import javafx.scene.layout.Region;
 
 /**
  * Focus / writing mode: hides everything but the editor (sidebar, notes list, right
@@ -31,7 +32,7 @@ final class FocusModeSupport {
     private SplitPane contentSplitPane;
     private Supplier<Node> toolbar;
     private Node statusBar;
-    private Node rightPanel;
+    private Region rightPanel;
     private Supplier<Node> editorContainer;
     private Preferences prefs;
     private Function<String, String> i18n;
@@ -45,7 +46,7 @@ final class FocusModeSupport {
     private List<Node> savedContentItems;
 
     void wire(SplitPane mainSplitPane, SplitPane contentSplitPane, Supplier<Node> toolbar,
-            Node statusBar, Node rightPanel, Supplier<Node> editorContainer, Preferences prefs,
+            Node statusBar, Region rightPanel, Supplier<Node> editorContainer, Preferences prefs,
             Function<String, String> i18n, Consumer<String> status) {
         this.mainSplitPane = mainSplitPane;
         this.contentSplitPane = contentSplitPane;
@@ -72,7 +73,7 @@ final class FocusModeSupport {
 
     private void enter() {
         Node tb = toolbar != null ? toolbar.get() : null;
-        savedRightVisible = rightPanel != null && rightPanel.isVisible();
+        savedRightVisible = isRightPanelExpanded();
         savedToolbarVisible = tb != null && tb.isVisible();
         savedStatusVisible = statusBar != null && statusBar.isVisible();
         savedMainItems = mainSplitPane != null ? new ArrayList<>(mainSplitPane.getItems()) : null;
@@ -80,7 +81,15 @@ final class FocusModeSupport {
 
         setShown(tb, false);
         setShown(statusBar, false);
-        setShown(rightPanel, false);
+        // The right panel lives inside a SplitPane (editor | right panel), not a plain
+        // Box — a SplitPane still reserves that item's divided region even once it's
+        // set invisible/unmanaged, since collapsing happens via divider position, not
+        // the normal managed-layout pass. Collapsing it here has to use the exact same
+        // technique the rest of the app already uses to hide THIS panel (squeeze its
+        // width to 0, `UiLayout.toggleRightPanel`'s "collapsed" branch below) — that's
+        // what actually empties its divided region, instead of just hiding content
+        // inside a region that stays as wide as it was, showing as an empty gap.
+        collapseRightPanel();
         if (mainSplitPane != null && contentSplitPane != null) {
             mainSplitPane.getItems().setAll(contentSplitPane);
         }
@@ -111,7 +120,11 @@ final class FocusModeSupport {
         }
         setShown(toolbar != null ? toolbar.get() : null, savedToolbarVisible);
         setShown(statusBar, savedStatusVisible);
-        setShown(rightPanel, savedRightVisible);
+        if (savedRightVisible) {
+            expandRightPanel();
+        }
+        // If it was already collapsed before entering focus mode, leave it collapsed —
+        // enter() already squeezed it to 0 and nothing since has changed that.
 
         focusMode = false;
         updateStatus(getString("status.focus_off"));
@@ -121,6 +134,31 @@ final class FocusModeSupport {
         if (node != null) {
             node.setVisible(shown);
             node.setManaged(shown);
+        }
+    }
+
+    /** Same "collapsed" check {@code UiLayout.toggleRightPanel} itself uses. */
+    private boolean isRightPanelExpanded() {
+        return rightPanel != null && rightPanel.isManaged() && rightPanel.isVisible()
+                && rightPanel.getPrefWidth() >= 10;
+    }
+
+    /** Matches {@code UiLayout.toggleRightPanel}'s collapsed branch exactly — visible/managed
+     *  always stay true for this panel; only its width collapses to 0. */
+    private void collapseRightPanel() {
+        if (rightPanel != null) {
+            rightPanel.setMinWidth(0);
+            rightPanel.setMaxWidth(0);
+            rightPanel.setPrefWidth(0);
+        }
+    }
+
+    /** Matches {@code UiLayout.toggleRightPanel}'s expanded branch. */
+    private void expandRightPanel() {
+        if (rightPanel != null) {
+            rightPanel.setMinWidth(240);
+            rightPanel.setMaxWidth(Double.MAX_VALUE);
+            rightPanel.setPrefWidth(300);
         }
     }
 

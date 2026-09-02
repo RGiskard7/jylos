@@ -23,7 +23,6 @@ class DocumentSupport {
 
     private static final Logger logger = LoggerConfig.getLogger(DocumentSupport.class);
     private static final String ROOT_ID = "ROOT";
-    private static final String ALL_NOTES_VIRTUAL_ID = "ALL_NOTES_VIRTUAL";
     private NoteService noteService;
     private FolderService folderService;
 
@@ -172,7 +171,6 @@ class DocumentSupport {
         return folder != null
                 && folder.getId() != null
                 && !folder.getId().isBlank()
-                && !ROOT_ID.equals(folder.getId())
-                && !ALL_NOTES_VIRTUAL_ID.equals(folder.getId());
+                && !ROOT_ID.equals(folder.getId());
     }
 }

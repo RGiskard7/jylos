@@ -28,6 +28,12 @@
                 <FontIcon fx:id="viewModeToggleIcon" iconLiteral="fth-grid" styleClass="feather-icon"/>
             </graphic>
         </Button>
+        <ToggleButton fx:id="peekRecursiveBtn" onAction="#handlePeekRecursiveToggle" styleClass="modern-toggle-btn">
+            <tooltip><Tooltip text="%tooltip.peek_recursive_notes" wrapText="true" maxWidth="260"/></tooltip>
+            <graphic>
+                <FontIcon iconLiteral="fth-layers" styleClass="feather-icon"/>
+            </graphic>
+        </ToggleButton>
         <Button fx:id="refreshBtn" onAction="#handleRefresh" styleClass="icon-btn">
             <tooltip><Tooltip text="%tooltip.refresh_list"/></tooltip>
             <graphic>

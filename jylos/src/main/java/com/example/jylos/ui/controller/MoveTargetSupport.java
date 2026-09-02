@@ -137,7 +137,7 @@ final class MoveTargetSupport {
         Folder cursor = folder;
         int safety = 0;
         while (cursor != null && cursor.getId() != null && safety++ < 128) {
-            if (!"ROOT".equals(cursor.getId()) && !"ALL_NOTES_VIRTUAL".equals(cursor.getId())) {
+            if (!"ROOT".equals(cursor.getId())) {
                 parts.addFirst(cursor.getTitle());
             }
             Optional<Folder> parent = parentResolver != null ? parentResolver.apply(cursor) : Optional.empty();

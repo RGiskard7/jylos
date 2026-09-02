@@ -22,6 +22,7 @@ public final class UiPreferencesStore {
     public static final String MARKDOWN_LIVE_PREVIEW_KEY = "ui.editor.live_preview";
     public static final String READABLE_LINE_LENGTH_KEY = "ui.editor.readable_line_length";
     public static final String CONTENT_FONT_SIZE_KEY = "ui.content.font_size";
+    public static final String SHOW_FOLDER_NOTE_COUNTS_KEY = "ui.sidebar.show_folder_note_counts";
     public static final String SPLIT_MAIN_KEY = "ui.split.main";
     public static final String SPLIT_CONTENT_KEY = "ui.split.content";
     public static final double DEFAULT_SPLIT_MAIN = 0.22;
@@ -55,6 +56,7 @@ public final class UiPreferencesStore {
      * @param readableLineLength whether editor/preview content is capped to a centered, readable-width column
      * @param contentFontSize font size applied to the note editor (CodeMirror) and preview body text —
      *                        independent from {@code uiFontSize}, which only affects the native JavaFX chrome
+     * @param showFolderNoteCounts whether the sidebar folder tree shows each folder's note count
      */
     public record UiPreferencesData(
             boolean autosaveEnabled,
@@ -66,7 +68,8 @@ public final class UiPreferencesStore {
             String accentColor,
             boolean livePreviewEnabled,
             boolean readableLineLength,
-            int contentFontSize) {
+            int contentFontSize,
+            boolean showFolderNoteCounts) {
     }
 
     public UiPreferencesData load(Preferences prefs) {
@@ -88,7 +91,8 @@ public final class UiPreferencesStore {
                 prefs != null ? prefs.getInt(UI_FONT_SIZE_KEY, DEFAULT_UI_FONT_SIZE) : DEFAULT_UI_FONT_SIZE);
         String accent = sanitizeAccent(prefs != null ? prefs.get(UI_ACCENT_KEY, "") : "");
         return new UiPreferencesData(autosaveEnabled, autosaveIdleMs, source, externalId, previewLines, fontSize,
-                accent, loadLivePreviewEnabled(prefs), loadReadableLineLength(prefs), loadContentFontSize(prefs));
+                accent, loadLivePreviewEnabled(prefs), loadReadableLineLength(prefs), loadContentFontSize(prefs),
+                loadShowFolderNoteCounts(prefs));
     }
 
     public void save(Preferences prefs, UiPreferencesData value) {
@@ -103,6 +107,7 @@ public final class UiPreferencesStore {
         prefs.putBoolean(MARKDOWN_LIVE_PREVIEW_KEY, value.livePreviewEnabled());
         prefs.putBoolean(READABLE_LINE_LENGTH_KEY, value.readableLineLength());
         prefs.putInt(CONTENT_FONT_SIZE_KEY, clampContentFontSize(value.contentFontSize()));
+        prefs.putBoolean(SHOW_FOLDER_NOTE_COUNTS_KEY, value.showFolderNoteCounts());
 
         String source = THEME_SOURCE_EXTERNAL.equals(value.themeSource()) ? THEME_SOURCE_EXTERNAL : THEME_SOURCE_BUILTIN;
         prefs.put(THEME_SOURCE_KEY, source);
@@ -173,6 +178,11 @@ public final class UiPreferencesStore {
         if (prefs != null) {
             prefs.putInt(CONTENT_FONT_SIZE_KEY, clampContentFontSize(fontSize));
         }
+    }
+
+    /** Whether the sidebar folder tree shows each folder's note count badge. */
+    public boolean loadShowFolderNoteCounts(Preferences prefs) {
+        return prefs == null || prefs.getBoolean(SHOW_FOLDER_NOTE_COUNTS_KEY, true);
     }
 
     public static String sanitizeAccent(String value) {

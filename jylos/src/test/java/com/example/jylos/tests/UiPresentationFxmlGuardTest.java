@@ -70,6 +70,26 @@ class UiPresentationFxmlGuardTest {
     }
 
     @Test
+    void deleteButtonInTheBottomFormatToolbarOnlyCarriesTheIconButtonClass() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+
+        Map<String, Object> nodes = loadNamespace("/com/example/jylos/ui/view/EditorView.fxml");
+        Node deleteBtn = node(nodes, "editorDeleteBtn");
+
+        // editorDeleteBtn is icon-only (a trash-can FontIcon graphic, no text) — it must
+        // match every other icon-only button in the format toolbar (undo, bold, link, …),
+        // not the text-glyph buttons' classes (format-btn-text, and format-quote's much
+        // larger font-size meant for the "❝" quote glyph), which it had picked up by
+        // copy-paste even though its size was pinned elsewhere and never visibly changed.
+        assertTrue(deleteBtn.getStyleClass().contains("format-btn"),
+                "delete button must carry the base format-btn class");
+        assertTrue(!deleteBtn.getStyleClass().contains("format-btn-text"),
+                "delete button is icon-only and must not carry the text-glyph-button class");
+        assertTrue(!deleteBtn.getStyleClass().contains("format-quote"),
+                "delete button must not carry the quote button's oversized-font class");
+    }
+
+    @Test
     void editorUsesCodeMirrorHostForMarkdownEditing() throws Exception {
         Assumptions.assumeTrue(fxRuntimeAvailable);
 

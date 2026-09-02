@@ -76,10 +76,16 @@ public class SidebarController {
     @FXML
     private TextField filterFoldersField;
     private TreeItem<Folder> vaultRootItem;
-    private TreeItem<Folder> allNotesItem;
     private boolean folderSortAscending = true;
+    /** Preferences toggle: whether the folder tree shows each folder's note count badge. */
+    private boolean showFolderNoteCounts = true;
     private final Map<String, Integer> folderNoteCountCache = new HashMap<>();
-    private int allNotesCountCache = 0;
+    /** Each folder's own direct count PLUS every descendant subfolder's, recursively —
+     *  what the sidebar actually displays. Recomputed from {@link #folderNoteCountCache}
+     *  by walking the real {@code TreeItem<Folder>} hierarchy, so it stays correct
+     *  regardless of storage backend (SQLite ids are opaque, filesystem ids are paths —
+     *  this doesn't parse either, it just sums what the tree already shows as children). */
+    private final Map<String, Integer> folderRecursiveNoteCountCache = new HashMap<>();
     private boolean folderNoteCountCacheDirty = true;
     private String activeFolderId;
     /** Guards the selection listener while a tree rebuild restores the prior selection. */
@@ -265,10 +271,7 @@ public class SidebarController {
             }
             if (newVal != null && newVal.getValue() != null) {
                 Folder f = newVal.getValue();
-                if ("ALL_NOTES_VIRTUAL".equals(f.getId())) {
-                    activeFolderId = null;
-                    folderSelectionAction.accept(f);
-                } else if (!"INVISIBLE_ROOT".equals(f.getTitle())) {
+                if (!"INVISIBLE_ROOT".equals(f.getTitle())) {
                     activeFolderId = f.getId();
                     folderSelectionAction.accept(f);
                 }
@@ -331,12 +334,6 @@ public class SidebarController {
         folderTreeView.setRoot(rootContainer);
         folderTreeView.setShowRoot(false);
 
-        // All Notes Virtual Folder
-        Folder allNotesFolder = new Folder(getString("app.all_notes"), null, null);
-        allNotesFolder.setId("ALL_NOTES_VIRTUAL");
-        allNotesItem = new TreeItem<>(allNotesFolder);
-        folderTreeView.getRoot().getChildren().add(allNotesItem);
-
         // Vault Root Folder logic literal
         String vaultName = "My Vault";
         try {
@@ -362,9 +359,6 @@ public class SidebarController {
     }
 
     private void refreshLocalizedRootLabels() {
-        if (allNotesItem != null && allNotesItem.getValue() != null) {
-            allNotesItem.getValue().setTitle(getString("app.all_notes"));
-        }
         if (vaultRootItem != null && vaultRootItem.getValue() != null) {
             try {
                 Preferences prefs = Preferences.userNodeForPackage(SidebarController.class);
@@ -461,22 +455,13 @@ public class SidebarController {
                     Label iconLabel = new Label("");
                     folderIconLabel = iconLabel;
                     iconLabel.getStyleClass().setAll("folder-cell-icon");
-                    boolean isAllNotes = "ALL_NOTES_VIRTUAL".equals(folder.getId());
-                    if (isAllNotes) {
-                        iconLabel.setText("[=]");
-                        iconLabel.getStyleClass().add("folder-all-notes");
-                    } else {
-                        TreeItem<Folder> ti = getTreeItem();
-                        boolean isExp = ti != null && ti.isExpanded();
-                        iconLabel.setText(isExp ? "[/]" : "[+]");
-                        iconLabel.getStyleClass().add(isExp ? "folder-expanded" : "folder-collapsed");
-                    }
+                    TreeItem<Folder> ti = getTreeItem();
+                    boolean isExp = ti != null && ti.isExpanded();
+                    iconLabel.setText(isExp ? "[/]" : "[+]");
+                    iconLabel.getStyleClass().add(isExp ? "folder-expanded" : "folder-collapsed");
                     int count = 0;
                     try {
-                        if (isAllNotes)
-                            count = allNotesCountCache;
-                        else
-                            count = getNoteCountForFolder(folder);
+                        count = getNoteCountForFolder(folder);
                     } catch (Exception e) {
                         logger.warning("Failed to compute folder note count for "
                                 + (folder != null ? folder.getId() : "null") + ": " + e.getMessage());
@@ -503,7 +488,7 @@ public class SidebarController {
                     nameLabel.setMinWidth(0);
                     nameLabel.setPrefWidth(0);
                     HBox.setHgrow(nameLabel, Priority.ALWAYS);
-                    if (count > 0 || isAllNotes) {
+                    if (count > 0 && showFolderNoteCounts) {
                         Label countLabel = new Label("(" + count + ")");
                         countLabel.getStyleClass().add("folder-cell-count");
                         container.getChildren().addAll(iconLabel, nameLabel, countLabel);
@@ -512,10 +497,7 @@ public class SidebarController {
                     }
                     setGraphic(container);
                     setText(null);
-                    if (!isAllNotes)
-                        setContextMenu(folderContextMenu);
-                    else
-                        setContextMenu(null);
+                    setContextMenu(folderContextMenu);
 
                     refreshDisclosureArrowRotation();
                     setupFolderDragSource(this, folder);
@@ -526,7 +508,7 @@ public class SidebarController {
             private void refreshFolderIcon() {
                 refreshDisclosureArrowRotation();
                 Folder folder = getItem();
-                if (folder == null || folderIconLabel == null || "ALL_NOTES_VIRTUAL".equals(folder.getId())) {
+                if (folder == null || folderIconLabel == null) {
                     return;
                 }
                 TreeItem<Folder> item = getTreeItem();
@@ -614,7 +596,7 @@ public class SidebarController {
             return;
         }
         String folderId = normalizeId(folder.getId());
-        if ("ALL_NOTES_VIRTUAL".equals(folderId) || "ROOT".equals(folderId)) {
+        if ("ROOT".equals(folderId)) {
             return;
         }
         cell.setOnDragDetected(event -> {
@@ -673,7 +655,7 @@ public class SidebarController {
             return false;
         }
         String targetId = normalizeId(targetFolder.getId());
-        if ("ALL_NOTES_VIRTUAL".equals(targetId) || "INVISIBLE_ROOT".equals(targetId)) {
+        if ("INVISIBLE_ROOT".equals(targetId)) {
             return false;
         }
         if (payload.startsWith("note:")) {
@@ -979,6 +961,7 @@ public class SidebarController {
         } finally {
             restoringFolderSelection = wasRestoringSelection;
         }
+        recomputeRecursiveNoteCounts();
     }
 
     /** Re-selects the folder with {@code folderId} after a tree rebuild, without re-navigating. */
@@ -1502,7 +1485,7 @@ public class SidebarController {
             return false;
         }
         String id = normalizeId(folder.getId());
-        return !"ROOT".equals(id) && !"ALL_NOTES_VIRTUAL".equals(id) && !"INVISIBLE_ROOT".equals(id);
+        return !"ROOT".equals(id) && !"INVISIBLE_ROOT".equals(id);
     }
 
     private void handleMoveFolder(Folder folder) {
@@ -1694,9 +1677,9 @@ public class SidebarController {
             if (f == null)
                 return 0;
             String id = f.getId();
-            if (id == null || "ALL_NOTES_VIRTUAL".equals(id))
-                return allNotesCountCache;
-            return folderNoteCountCache.getOrDefault(normalizeId(id), 0);
+            if (id == null)
+                return 0;
+            return folderRecursiveNoteCountCache.getOrDefault(normalizeId(id), 0);
         } catch (Exception e) {
             logger.log(Level.WARNING, "Failed to count notes for folder " + (f != null ? f.getId() : "null"), e);
             return 0;
@@ -1719,15 +1702,14 @@ public class SidebarController {
                     }
                     freshCounts.merge(folderId, 1, Integer::sum);
                 }
-                final int allNotesCount = allNotes.size();
                 Platform.runLater(() -> {
                     if (requestId != noteCountBuildVersion.get()) {
                         return;
                     }
                     folderNoteCountCache.clear();
                     folderNoteCountCache.putAll(freshCounts);
-                    allNotesCountCache = allNotesCount;
                     folderNoteCountCacheDirty = false;
+                    recomputeRecursiveNoteCounts();
                     if (folderTreeView != null) {
                         folderTreeView.refresh();
                     }
@@ -1736,6 +1718,33 @@ public class SidebarController {
                 logger.log(Level.WARNING, "Failed to rebuild folder note count cache", e);
             }
         });
+    }
+
+    /**
+     * Walks the real folder tree bottom-up so every folder's displayed count is its own
+     * direct notes plus every descendant subfolder's, recursively — not just what's
+     * sitting directly inside it. Recomputed after either the note-count cache or the
+     * tree's own shape changes (a rebuild can add/remove/move folders without any note
+     * being touched), so it's called from both places rather than only one.
+     */
+    private void recomputeRecursiveNoteCounts() {
+        folderRecursiveNoteCountCache.clear();
+        if (vaultRootItem != null) {
+            sumRecursiveNoteCount(vaultRootItem);
+        }
+    }
+
+    private int sumRecursiveNoteCount(TreeItem<Folder> item) {
+        Folder folder = item.getValue();
+        String id = folder != null ? folder.getId() : null;
+        int total = id != null ? folderNoteCountCache.getOrDefault(normalizeId(id), 0) : 0;
+        for (TreeItem<Folder> child : item.getChildren()) {
+            total += sumRecursiveNoteCount(child);
+        }
+        if (id != null) {
+            folderRecursiveNoteCountCache.put(normalizeId(id), total);
+        }
+        return total;
     }
 
     private void invalidateFolderNoteCountCache() {
@@ -1818,6 +1827,17 @@ public class SidebarController {
     public void applySidebarTabPresentation() {
         refreshSidebarNavSelection();
         refreshSidebarNavTooltips();
+    }
+
+    /** Preferences toggle: shows/hides the "(N)" note count next to every folder. */
+    public void applyShowFolderNoteCountsPreference(boolean enabled) {
+        if (showFolderNoteCounts == enabled) {
+            return;
+        }
+        showFolderNoteCounts = enabled;
+        if (folderTreeView != null) {
+            folderTreeView.refresh();
+        }
     }
 
     private void setupSidebarNavigation() {

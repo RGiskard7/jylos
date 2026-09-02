@@ -120,9 +120,8 @@ class I18nBundleFallbackGuardTest {
                 Locale.forLanguageTag("fr-FR"));
 
         assertNotNull(bundle);
-        assertTrue(bundle.containsKey("app.all_notes"));
         assertTrue(bundle.containsKey("app.my_notes"));
-        assertNotEquals("app.all_notes", bundle.getString("app.all_notes"));
+        assertNotEquals("app.my_notes", bundle.getString("app.my_notes"));
     }
 
     /** Every language bundle must define exactly the same set of keys (ready for translation). */

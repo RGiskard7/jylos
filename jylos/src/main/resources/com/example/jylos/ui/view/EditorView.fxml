@@ -237,7 +237,7 @@
                 <!-- Pinned outside the scrollable area (unlike the format buttons above,
                      which scroll off on a narrow window) so delete stays reachable. -->
                 <HBox alignment="CENTER_LEFT" spacing="6" styleClass="format-toolbar">
-                        <Button fx:id="editorDeleteBtn" onAction="#handleDelete" styleClass="format-btn,format-btn-text,format-quote">
+                        <Button fx:id="editorDeleteBtn" onAction="#handleDelete" styleClass="format-btn">
                             <graphic><FontIcon iconLiteral="fth-trash-2" styleClass="feather-icon-danger"/></graphic>
                             <tooltip><Tooltip text="%action.delete"/></tooltip>
                         </Button>
