@@ -116,6 +116,11 @@ jylos/backups/
 # User CSS snippets (runtime; auto-created, user-provided .css tweaks)
 jylos/snippets/
 
+# Downloaded update installers, staged before the user runs them (runtime; see
+# AppDataDirectory.getUpdatesDirectory() / UpdateInstaller — REMOVABLE: in-app updater)
+updates/
+jylos/updates/
+
 # Plugin runtime bookkeeping
 **/.bundled-plugins-copied
 

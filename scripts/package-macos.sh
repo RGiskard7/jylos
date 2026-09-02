@@ -234,6 +234,16 @@ if [ $? -eq 0 ]; then
         echo "Notarization disabled (set JYLOS_NOTARY_PROFILE to enable). See docs/PACKAGING.md."
     fi
 
+    # ── Standardized filename copy ──────────────────────────────────────────
+    # Mirrors the naming release-jylos.yml's CI workflow gives its release
+    # assets, so a locally-built installer is drop-in identical.
+    case "$(uname -m)" in
+        arm64) MAC_ARCH="arm64" ;;
+        *)     MAC_ARCH="x64" ;;
+    esac
+    STANDARD_DMG_PATH="$OUTPUT_DIR/jylos-macos-$MAC_ARCH.dmg"
+    cp "$DMG_PATH" "$STANDARD_DMG_PATH"
+    echo "Standardized copy:  $STANDARD_DMG_PATH"
     echo ""
     echo "Data will be stored in: ~/Library/Application Support/$APP_NAME/"
     echo ""

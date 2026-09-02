@@ -49,6 +49,52 @@ export JYLOS_NOTARY_PROFILE="jylos-notary"
 ./scripts/package-macos.sh
 ```
 
+## Actualizador dentro de la app (builds sin firmar)
+
+Las releases de Jylos no están firmadas ni notarizadas (arriba se explica por
+qué: cuesta dinero que el proyecto no tiene ahora mismo). Un instalador sin
+firmar descargado por el navegador lleva una marca de "viene de internet"
+(`com.apple.quarantine` en macOS, el flujo de datos alternativo
+`Zone.Identifier` en Windows), y Gatekeeper/SmartScreen repiten su aviso o
+bloqueo contra esa marca **en cada descarga** — hay que confirmarlo a mano
+cada vez, no solo la primera.
+
+Para no repetir ese paso en cada actualización, `UpdateChecker` (consulta
+GitHub Releases), `UpdateInstaller` (descarga, verifica, lanza) y
+`UpdateInstallSupport` (los diálogos de confirmación) implementan una **vía
+opcional de actualización dentro de la app**: al pulsar "Instalar ahora" en
+el aviso de actualización, Jylos descarga el asset de la release para la
+plataforma actual directamente (no por el navegador, así que nunca lleva esa
+marca), lo verifica contra el `digest` SHA-256 que el propio GitHub calculó
+al subir el asset, y — solo tras una confirmación explícita más — se cierra
+y entrega el control al instalador nativo.
+
+**Qué demuestra la verificación de checksum y qué no:** detecta corrupción en
+el transporte o manipulación por el camino entre GitHub y la máquina del
+usuario. **No** avala la release en sí — una cuenta de GitHub o un pipeline
+de release comprometidos podrían publicar un asset malicioso que pase la
+verificación igualmente, porque el checksum "esperado" viene de la misma
+release que el fichero que se comprueba. Solo una firma de código real cierra
+ese hueco. Si GitHub no reporta digest para el asset de esa plataforma,
+`UpdateInstaller.verifyDigest` devuelve `false` y la app cae de vuelta al
+enlace normal "Abrir descargas" en vez de ejecutar un fichero sin verificar.
+
+**"Abrir descargas" sigue siempre disponible** como enlace normal junto a
+"Instalar ahora" en el aviso — quien prefiera la descarga y los avisos de
+seguridad propios del navegador nunca tiene que usar la vía dentro de la app.
+
+**Eliminar esto en cuanto el proyecto pueda pagar firma real:** una vez haya
+notarización de macOS (`JYLOS_MAC_SIGN_IDENTITY`/`JYLOS_NOTARY_PROFILE`,
+arriba) y certificado de firma de Windows en todas las releases, una
+descarga normal firmada por el navegador deja de disparar avisos repetidos
+del sistema y todo este mecanismo deja de ser necesario. Todos los ficheros
+implicados — código, tests, claves de i18n — llevan el comentario exacto
+`REMOVABLE: in-app updater`, así que
+`grep -rn "REMOVABLE: in-app updater" jylos/src docs/` encuentra de golpe
+cada punto a tocar; la checklist completa de eliminación (paso a paso, qué
+borrar y qué dejar) está en el javadoc de `UpdateInstaller.java`, sección
+"Removing this later".
+
 ## Iconos
 
 | Asset | Archivo | Uso |

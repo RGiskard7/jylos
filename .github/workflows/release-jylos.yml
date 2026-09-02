@@ -192,18 +192,6 @@ jobs:
             exit 1
           fi
 
-          {
-            echo ""
-            echo "---"
-            echo ""
-            echo "Verify downloads with \`SHA256SUMS.txt\`."
-          } >> release-notes.md
-
-      - name: Generate SHA256 checksums
-        run: |
-          cd dist
-          sha256sum * > SHA256SUMS.txt
-
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:

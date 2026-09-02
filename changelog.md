@@ -1,6 +1,12 @@
 # Changelog
 
-## [Unreleased]
+## [2.5.5] - 2026-09-02
+
+- Los scripts de empaquetado locales (`package-macos.sh`, `package-linux.sh`, `package-windows.ps1`) ahora generan también una copia con el nombre estandarizado que ya usaban los assets del release automático (`jylos-macos-arm64.dmg`/`jylos-macos-x64.dmg`, `jylos-linux-amd64.deb`/`.rpm`, `jylos-windows-x64.exe`/`.msi`, `jylos-windows-portable.zip`), junto al nombre crudo que produce jpackage — antes ese renombrado solo pasaba en el workflow de CI. La versión portable de Windows, que hasta ahora solo dejaba la carpeta de la imagen de la app sin comprimir, también genera ya el zip en local.
+
+- El release automático ya no genera `SHA256SUMS.txt` ni lo menciona en las notas de la versión.
+
+- Nuevo actualizador dentro de la app: el aviso de nueva versión incorpora un botón "Instalar ahora" junto al enlace de siempre a la página de descargas. Descarga el instalador correspondiente a la plataforma actual sin pasar por el navegador, lo verifica contra el checksum SHA-256 que el propio GitHub calcula al publicar cada asset de la release, y solo tras una confirmación explícita cierra Jylos y entrega el control al instalador nativo — sin eso, no instala nada. Al no pasar por el navegador, la descarga no lleva la marca de "viene de internet" que hace que macOS y Windows repitan su aviso de seguridad en cada actualización de una app sin firmar; ese aviso sigue apareciendo en la primera instalación, como es inevitable sin firma. Documentado en detalle en `docs/PACKAGING.md` (qué garantiza la verificación y qué no, y cuándo debe eliminarse este mecanismo). Gracias a [@lanthale](https://github.com/lanthale) por la idea original y el código de referencia (issue #55).
 
 ## [2.5.4] - 2026-09-02
 

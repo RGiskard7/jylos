@@ -94,6 +94,53 @@ Icons (see `jylos/src/main/resources/app.properties` and [icons README](../jylos
 
 Update **`app-icon.png`** before dev runs; update **`icon.*`** before native packages (Dock/taskbar icons come from the installer assets).
 
+## In-app updater (unsigned builds)
+
+Jylos releases are not signed or notarized (see above — an Apple Developer
+Program membership and a Windows code-signing certificate both cost money the
+project cannot currently spend). A browser download of an unsigned installer
+gets an OS-level "downloaded from the internet" marker
+(`com.apple.quarantine` on macOS, the `Zone.Identifier` alternate data stream
+on Windows), and macOS Gatekeeper / Windows SmartScreen re-runs its
+block-or-warn check against that marker on **every single download** — the
+user has to override it in system settings each time, not just once.
+
+To avoid repeating that override on every update, `UpdateChecker` (checks
+GitHub Releases), `UpdateInstaller` (downloads, verifies, launches) and
+`UpdateInstallSupport` (the confirmation dialogs) implement an **optional
+in-app update path**: the user clicks "Install now" on the update toast,
+Jylos downloads the release asset for their platform directly (not via the
+browser, so it never gets the marker above), verifies it against the SHA-256
+`digest` GitHub itself computed when the asset was uploaded, and — only after
+one more explicit confirmation — closes itself and hands off to the native
+installer.
+
+**What the checksum verification does and does not prove:** it catches
+transport corruption and man-in-the-middle tampering between GitHub and the
+user's machine. It does **not** vouch for the release itself — a compromised
+Jylos release pipeline or GitHub account could still publish a malicious
+asset that passes verification, because the "expected" checksum comes from
+the same GitHub release as the file being checked. Nothing short of real code
+signing closes that gap. When GitHub has not reported a digest for the
+platform's asset, `UpdateInstaller.verifyDigest` returns `false` and the app
+falls back to the normal "Open downloads" browser link rather than running an
+unverified file.
+
+**"Open downloads" always stays available** as a plain link next to "Install
+now" on the update toast — a user who prefers the browser's own download and
+security prompts never has to use the in-app path.
+
+**Remove this once the project can afford real signing:** once macOS
+notarization (`JYLOS_MAC_SIGN_IDENTITY`/`JYLOS_NOTARY_PROFILE`, see above) and
+a Windows code-signing certificate are both in place for every release, a
+normal signed browser download stops triggering repeated OS warnings and this
+whole mechanism stops being necessary. Every file involved — code, tests,
+i18n keys — carries the exact comment `REMOVABLE: in-app updater`, so
+`grep -rn "REMOVABLE: in-app updater" jylos/src docs/` finds every single
+touch point at once; the full removal checklist (step by step, what to
+delete vs. what to leave alone) lives in `UpdateInstaller.java`'s class docs,
+under "Removing this later".
+
 ## Smoke check after packaging
 
 1. App starts from the platform launcher.
