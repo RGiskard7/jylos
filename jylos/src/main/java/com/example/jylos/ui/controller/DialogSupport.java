@@ -86,6 +86,7 @@ class DialogSupport {
             boolean livePreviewEnabled,
             boolean readableLineLength,
             int contentFontSize,
+            boolean showFolderNoteCounts,
             Set<String> enabledSnippets) {
     }
 
@@ -140,6 +141,9 @@ class DialogSupport {
 
         CheckBox readableLineLengthCheck = new CheckBox(i18n("dialog.preferences.readable_line_length"));
         readableLineLengthCheck.setSelected(current.readableLineLength());
+
+        CheckBox showFolderNoteCountsCheck = new CheckBox(i18n("dialog.preferences.show_folder_note_counts"));
+        showFolderNoteCountsCheck.setSelected(current.showFolderNoteCounts());
 
         Label fontSizeLabel = new Label(i18n("dialog.preferences.font_size"));
         ComboBox<Integer> fontSizeCombo = new ComboBox<>();
@@ -254,6 +258,7 @@ class DialogSupport {
                 new Separator(),
                 editingModeLabel, editingModeCombo,
                 readableLineLengthCheck,
+                showFolderNoteCountsCheck,
                 notesPreviewLinesLabel, notesPreviewLinesCombo,
                 fontSizeLabel, fontSizeCombo,
                 contentFontSizeLabel, contentFontSizeCombo,
@@ -324,6 +329,7 @@ class DialogSupport {
                     editingModeCombo.getSelectionModel().getSelectedIndex() != 1,
                     readableLineLengthCheck.isSelected(),
                     contentFontSize != null ? contentFontSize : UiPreferencesStore.DEFAULT_CONTENT_FONT_SIZE,
+                    showFolderNoteCountsCheck.isSelected(),
                     new LinkedHashSet<>(selectedSnippets));
         });
         return com.example.jylos.ui.UiDialogs.show(dialog);

@@ -1,6 +1,8 @@
 package com.example.jylos.ui.controller;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
@@ -19,7 +21,6 @@ class NoteOperations {
 
     private static final Logger logger = LoggerConfig.getLogger(NoteOperations.class);
     private static final String ROOT_ID = "ROOT";
-    private static final String ALL_NOTES_VIRTUAL_ID = "ALL_NOTES_VIRTUAL";
     private final NoteService noteService;
     private final FolderService folderService;
 
@@ -93,11 +94,29 @@ class NoteOperations {
         }
     }
 
+    /**
+     * All notes in {@code folder} AND every subfolder, recursively — used by the notes
+     * panel's "peek" button (held down: show the whole subtree; released: back to just
+     * this folder's own notes).
+     */
+    List<Note> getNotesByFolderRecursive(Folder folder) {
+        List<Note> result = new ArrayList<>();
+        if (folder == null || noteService == null) {
+            return result;
+        }
+        result.addAll(noteService.getNotesByFolder(folder));
+        if (folderService != null) {
+            for (Folder subfolder : folderService.getSubfolders(folder)) {
+                result.addAll(getNotesByFolderRecursive(subfolder));
+            }
+        }
+        return result;
+    }
+
     private boolean isConcreteFolder(Folder folder) {
         return folder != null
                 && folder.getId() != null
                 && !folder.getId().isBlank()
-                && !ROOT_ID.equals(folder.getId())
-                && !ALL_NOTES_VIRTUAL_ID.equals(folder.getId());
+                && !ROOT_ID.equals(folder.getId());
     }
 }

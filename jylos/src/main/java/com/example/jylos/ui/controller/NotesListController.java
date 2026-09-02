@@ -116,6 +116,8 @@ public class NotesListController {
     @FXML
     private Button refreshBtn;
     @FXML
+    private ToggleButton peekRecursiveBtn;
+    @FXML
     private ListView<Note> notesListView;
 
     @FXML
@@ -683,10 +685,6 @@ public class NotesListController {
         return bundle != null && bundle.containsKey(key) ? bundle.getString(key) : key;
     }
 
-    private boolean isAllNotesVirtualFolder(Folder folder) {
-        return folder != null && "ALL_NOTES_VIRTUAL".equals(folder.getId());
-    }
-
     private void setEventBus(EventBus eventBus) {
         subscriptions.forEach(EventBus.Subscription::cancel);
         subscriptions.clear();
@@ -829,13 +827,20 @@ public class NotesListController {
         currentTag = null;
         currentFilterType = "folder";
         String sortOption = sortComboBox != null ? sortComboBox.getValue() : null;
+        // Reread on every load (not just when the toggle itself is clicked) so switching
+        // folders from the sidebar while "show all descendants" is on stays recursive for
+        // the newly selected folder too, instead of only applying to the folder that was
+        // current when the button was pressed.
+        boolean recursive = peekRecursiveBtn != null && peekRecursiveBtn.isSelected();
         executeNotesLoad(
-                () -> noteService.getNotesByFolder(folder),
+                () -> recursive
+                        ? new NoteOperations(noteService, folderService).getNotesByFolderRecursive(folder)
+                        : noteService.getNotesByFolder(folder),
                 notes -> {
                     List<Note> sorted = sortNotesData(notes, sortOption);
                     applyNotesPreservingSelection(sorted);
                     if (notesPanelTitleLabel != null) {
-                        notesPanelTitleLabel.setText(getString("panel.notes.title") + " - " + folder.getTitle());
+                        notesPanelTitleLabel.setText(folder.getTitle());
                     }
                     publishNotesLoadedEvent(sorted,
                             bundle != null
@@ -1184,6 +1189,22 @@ public class NotesListController {
     @FXML
     private void handleRefresh(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.REFRESH_NOTES);
+    }
+
+    /**
+     * "Show all descendants" toggle: while it's pressed, browsing a folder shows every
+     * note in its whole subtree (recursively) instead of just that folder's own notes;
+     * unpressed, back to normal. A real persisted toggle state, not a momentary
+     * press-and-hold — {@link #loadNotesForFolder} itself reads this on every folder
+     * load, so switching folders from the sidebar while it's on stays recursive for
+     * whichever folder gets selected next, exactly like the app's other toggle buttons
+     * (expand/collapse, show tags, …) stay in effect until clicked again.
+     */
+    @FXML
+    private void handlePeekRecursiveToggle(ActionEvent event) {
+        if ("folder".equals(currentFilterType) && currentFolder != null) {
+            loadNotesForFolder(currentFolder);
+        }
     }
 
     private void publishStatusUpdate(String message) {

@@ -1056,13 +1056,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             currentFolder = null;
             return;
         }
-        if ("ALL_NOTES_VIRTUAL".equals(id)) {
-            if (notesListController != null) {
-                notesListController.loadAllNotes();
-            }
-            currentFolder = null;
-            return;
-        }
         handleFolderSelection(selectedFolder);
         currentFolder = selectedFolder;
     }
@@ -1236,6 +1229,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
         if (sidebarController != null) {
             sidebarController.applySidebarTabPresentation();
+            sidebarController.applyShowFolderNoteCountsPreference(uiPrefs.showFolderNoteCounts());
         }
         if (notesListController != null) {
             notesListController.setPreviewLines(notesListPreviewLines);
@@ -2077,22 +2071,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
     }
 
-    /** Selects the "All Notes" virtual node in the sidebar tree, or falls back to {@link #loadAllNotes()} when the tree is unavailable. */
+    /** Shows every note, unfiltered — the sidebar no longer has a dedicated "All Notes"
+     *  row to select for this (selecting the vault root with the notes panel's "show
+     *  subfolders recursively" toggle on now covers that), so this loads directly. */
     private void goToAllNotes() {
-        if (sidebarController == null) {
-            loadAllNotes();
-            return;
-        }
-        if (sidebarController.getFolderTreeView() != null && sidebarController.getFolderTreeView().getRoot() != null) {
-            for (TreeItem<Folder> child : sidebarController.getFolderTreeView().getRoot().getChildren()) {
-                Folder folder = child.getValue();
-                if (folder != null && "ALL_NOTES_VIRTUAL".equals(folder.getId())) {
-                    sidebarController.getFolderTreeView().getSelectionModel().select(child);
-                    child.setExpanded(true);
-                    return;
-                }
-            }
-        }
         loadAllNotes();
     }
 
@@ -2599,7 +2581,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     @FXML
     void handleNewFolder(ActionEvent event) {
-        boolean createInRoot = (currentFolder == null || "ALL_NOTES_VIRTUAL".equals(currentFolder.getId()));
+        boolean createInRoot = currentFolder == null;
         TextInputDialog dialog = new TextInputDialog("");
         dialog.setTitle(getString("dialog.new_folder.title"));
         dialog.setHeaderText(createInRoot
@@ -3323,7 +3305,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 uiAccentColor,
                 uiPreferences.loadLivePreviewEnabled(prefs),
                 uiPreferences.loadReadableLineLength(prefs),
-                (int) Math.round(editorFontSize));
+                (int) Math.round(editorFontSize),
+                uiPreferences.loadShowFolderNoteCounts(prefs));
         List<ThemeCatalog.ThemeDescriptor> themes = themeCatalog.getAvailableThemes();
         Optional<DialogSupport.PreferencesDialogResult> result = dialogSupport.showPreferences(
                 currentUiPrefs,
@@ -3344,7 +3327,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 values.accentColor(),
                 values.livePreviewEnabled(),
                 values.readableLineLength(),
-                values.contentFontSize());
+                values.contentFontSize(),
+                values.showFolderNoteCounts());
         uiPreferences.save(prefs, newPrefs);
         uiPreferences.saveEnabledSnippets(prefs, values.enabledSnippets());
         applyUiPreferencesFromStore();

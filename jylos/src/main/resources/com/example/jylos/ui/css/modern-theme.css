@@ -2357,6 +2357,23 @@
     -fx-border-color: transparent;
 }
 
+/* Icon-only .modern-toggle-btn usage OUTSIDE the main/graph toolbar (those already get a
+   28x28 square from their own compound rule, `.toolbar .modern-toggle-btn` etc., which
+   wins on specificity) falls through to this class's own base rule instead, whose
+   padding (6 10) leaves it wider than every other icon button — the shared block further
+   below only fixes its min-height, not its width. Locked here to the exact same square
+   .icon-btn uses, so a bare .modern-toggle-btn (e.g. the notes panel's "show all
+   descendants" toggle) matches every other icon-only button instead of standing out. */
+.modern-toggle-btn {
+    -fx-min-width: 28px;
+    -fx-pref-width: 28px;
+    -fx-max-width: 28px;
+    -fx-min-height: 28px;
+    -fx-pref-height: 28px;
+    -fx-max-height: 28px;
+    -fx-padding: 0;
+}
+
 .icon-btn:hover,
 .icon-btn-small:hover {
     -fx-background-color: -fx-hover-bg;

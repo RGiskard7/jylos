@@ -50,7 +50,7 @@ class UiPreferencesStoreTest {
             assertFalse(store.load(prefs).readableLineLength());
 
             store.save(prefs, new UiPreferencesStore.UiPreferencesData(
-                    true, 2000, UiPreferencesStore.THEME_SOURCE_BUILTIN, "", 2, 14, "", true, true, 14));
+                    true, 2000, UiPreferencesStore.THEME_SOURCE_BUILTIN, "", 2, 14, "", true, true, 14, true));
 
             assertTrue(store.loadReadableLineLength(prefs));
             assertTrue(store.load(prefs).readableLineLength());
@@ -88,7 +88,7 @@ class UiPreferencesStoreTest {
         Preferences prefs = Preferences.userRoot().node("/com/example/jylos/test/" + UUID.randomUUID());
         try {
             store.save(prefs, new UiPreferencesStore.UiPreferencesData(
-                    true, 2000, UiPreferencesStore.THEME_SOURCE_BUILTIN, "", 2, 14, "", false, false, 14));
+                    true, 2000, UiPreferencesStore.THEME_SOURCE_BUILTIN, "", 2, 14, "", false, false, 14, true));
 
             assertFalse(store.load(prefs).livePreviewEnabled());
         } finally {

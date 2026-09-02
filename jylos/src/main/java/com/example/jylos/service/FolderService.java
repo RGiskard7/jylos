@@ -352,7 +352,7 @@ public class FolderService {
         if (targetParent == null) {
             return true;
         }
-        if (targetParent.getId() == null || "ALL_NOTES_VIRTUAL".equals(targetParent.getId())) {
+        if (targetParent.getId() == null) {
             return false;
         }
         String folderId = folder.getId();
