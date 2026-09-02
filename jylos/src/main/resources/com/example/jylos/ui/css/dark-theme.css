@@ -1868,6 +1868,17 @@
     -fx-min-height: 28px;
 }
 
+/* Same cascade tie as .search-field above: this plain .text-field rule was winning the
+   shared "padding" property over .title-field's own (declared earlier), silently taking
+   it from the intended 2px vertical padding up to this rule's 8px — a real ~10px taller
+   note-title field than the CSS appeared to say, towering over the 28px icon buttons
+   sharing its row. Reasserted here so the title field keeps its own tighter padding; no
+   forced height (unlike the search field) since a note title's font is noticeably
+   bigger/bolder and a hard cap risks clipping descenders/ascenders. */
+.title-field {
+    -fx-padding: 2 8;
+}
+
 /* ========================================
    COMBO BOX POPUP
    ======================================== */
@@ -2566,13 +2577,21 @@
 .autocomplete-list .list-cell:hover { -fx-background-color: -fx-hover-bg; }
 
 /* ── Navigation back/forward buttons ───────────────────────── */
+/* Same 28x28 square every other icon-only button in the app uses (.icon-btn) — this
+   one had its own padding-driven size (4 6, no fixed height) instead, leaving it
+   visibly bigger/longer than its neighbors in the note header. */
 .nav-btn {
     -fx-background-color: transparent;
-    -fx-padding: 4 6;
+    -fx-padding: 0;
     -fx-cursor: hand;
     -fx-background-radius: 4;
     -fx-border-color: transparent;
     -fx-min-width: 28px;
+    -fx-pref-width: 28px;
+    -fx-max-width: 28px;
+    -fx-min-height: 28px;
+    -fx-pref-height: 28px;
+    -fx-max-height: 28px;
 }
 
 .nav-btn:hover {
