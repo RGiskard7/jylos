@@ -267,7 +267,8 @@ try {
 
     if ($Type -ne 'portable') {
         # Installer UX: dir chooser, Start-menu group, desktop shortcut prompt,
-        # per-machine upgrade path via a stable upgrade UUID, MIT license page.
+        # a stable upgrade UUID (upgrades in place instead of installing side by
+        # side, regardless of per-user/per-machine), MIT license page.
         $jpackageArgs += @(
             '--win-dir-chooser',
             '--win-menu',
@@ -280,6 +281,22 @@ try {
         if (Test-Path $licenseFile) {
             $jpackageArgs += @('--license-file', $licenseFile)
         }
+
+        # Installs to the current user's profile — no admin/UAC prompt.
+        $jpackageArgs += @('--win-per-user-install')
+
+        # DISABLED — real Windows build, candle.exe itself now failing to
+        # compile (exit 104) with --resource-dir scripts\wix-resources in
+        # place: `overrides.wxi` is not being wired into jpackage's generated
+        # main.wxs the way this assumed. See docs/PACKAGING.md, "Windows
+        # installer branding", for the exact failing command and how to get
+        # WiX's real CNDL error text (jpackage --verbose) before touching this
+        # again.
+        #
+        # $wixResourceDir = Join-Path $root 'scripts\wix-resources'
+        # if (Test-Path $wixResourceDir) {
+        #     $jpackageArgs += @('--resource-dir', $wixResourceDir)
+        # }
     }
 
     Write-Host "Running jpackage --type $jpackageType (this can take a few minutes)..." -ForegroundColor Cyan

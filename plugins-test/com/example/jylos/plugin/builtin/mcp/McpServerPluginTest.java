@@ -28,8 +28,9 @@ import com.example.jylos.service.TagService;
  * {@code test-plugins.sh} compiles against — and drives it over real HTTP.
  *
  * <h2>Why through the JAR, not the sources</h2>
- * <p>This plugin bundles its own copies of the MCP SDK, Jackson and Jetty (see
- * {@code plugins-source/.../mcp/lib/}). A classloading bug caught here already once:
+ * <p>This plugin bundles its own copies of the MCP SDK, Jackson and Jetty, resolved via
+ * Maven from its own {@code plugins-source/.../mcp/pom.xml} at build time (see
+ * PLUGINS.md#third-party-dependencies). A classloading bug caught here already once:
  * the SDK resolves its default JSON mapper via {@code ServiceLoader}, which by default
  * consults the calling thread's <em>context</em> classloader — not the classloader that
  * actually loaded the SDK's own classes. Compiling this plugin's sources flat alongside

@@ -47,22 +47,33 @@ del directorio.
 
 ### Dependencias de terceros
 
-Un bundle puede incluir librerías que el core no proporciona. Coloca sus JAR en un
-directorio `lib/` dentro del bundle:
+Un bundle puede necesitar librerías que el core no proporciona. Se declaran en un
+`pom.xml` propio dentro del bundle — un POM Maven real, resuelto con
+`mvn -f pom.xml dependency:build-classpath` (descargas con checksum verificado a la caché
+local `~/.m2` de siempre), el mismo mecanismo de resolución de dependencias que ya usa el
+resto del proyecto. No forma parte del reactor principal — `jylos/pom.xml` nunca lo
+referencia — así que estas dependencias nunca acaban en el uber-jar de la app; solo
+existen para compilar este bundle:
 
 ```
 plugins-source/com/example/jylos/plugin/builtin/mcp/
 ├── plugin.properties
+├── pom.xml
 ├── McpServerPlugin.java
-└── lib/
-    └── some-sdk-1.2.0.jar
+└── ...
 ```
 
-Se añaden al classpath de compilación del bundle y **se empaquetan dentro del propio JAR
-del plugin**. Es deliberado: un plugin se instala y se elimina como un único fichero — el
-selector del gestor acepta un solo `*.jar` y `PluginLoader.deletePluginJar` borra un solo
-fichero — así que un directorio `lib/` junto al plugin instalado nunca podría viajar con
-él. Empaquetarlo mantiene el plugin como artefacto autocontenido e instalable, y no exige
+Solo hace falta listar los artefactos que el bundle importa directamente; Maven resuelve
+el resto del árbol de dependencias de forma transitiva, igual que hace con el propio
+`jylos/pom.xml`. Nada se vendoriza en el repositorio — cada JAR se descarga de Maven
+Central (o de lo que apunte tu `~/.m2/settings.xml`) en el momento de compilar.
+
+Los JAR resueltos se añaden al classpath de compilación del bundle y **se empaquetan
+dentro del propio JAR del plugin**. Es deliberado: un plugin se instala y se elimina como
+un único fichero — el selector del gestor acepta un solo `*.jar` y
+`PluginLoader.deletePluginJar` borra un solo fichero — así que dependencias que solo
+existieran en el classpath local de Maven nunca podrían viajar con un plugin instalado.
+Empaquetarlo mantiene el plugin como artefacto autocontenido e instalable, y no exige
 ningún cambio en cómo `PluginLoader` construye su classloader.
 
 El build resuelve las partes del mezclado que si no fallarían en silencio:
@@ -97,7 +108,7 @@ así que `mvn test` no las ve. Este script primero construye los JAR de plugins
 (`build-plugins.sh`), luego compila `plugins-source/` junto a `plugins-test/` y ejecuta el
 `main()` de cada clase `*Test`, fallando si alguna devuelve código distinto de cero.
 
-Un bundle que trae sus propias dependencias en `lib/` se excluye de esa compilación plana
+Un bundle que declara sus propias dependencias de terceros (vía `pom.xml`) se excluye de esa compilación plana
 y se prueba solo a través de su JAR ya construido, cargado con su propio `URLClassLoader`
 — el mismo aislamiento que `PluginLoader` le da en tiempo de ejecución. Compilar las
 fuentes de ese bundle en plano junto a la prueba pondría sus librerías empaquetadas en el

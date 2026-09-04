@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Third-party dependencies for the mcp plugin bundle ONLY — not part of the main
+  Maven reactor (jylos/pom.xml never references this file). Jetty, the MCP SDK,
+  Jackson-based JSON handling etc. are things this one plugin needs at compile
+  time; the main Jylos app never uses them at runtime, so they do not belong in
+  jylos/pom.xml (that would bloat the app's own uber-jar with an embedded HTTP
+  server stack it never runs).
+
+  scripts/build-plugins.ps1 and .sh resolve this with
+  `mvn -f pom.xml dependency:build-classpath` — real dependency resolution
+  against Maven Central (checksum-verified, cached in the normal local ~/.m2
+  repository), not JARs vendored into the repo. See docs/PLUGINS.md.
+
+  Only the directly-used artifacts are listed; Maven resolves the rest of the
+  dependency tree (Jetty's own sub-modules, Jackson core/databind, reactor-core,
+  reactive-streams, slf4j-api, snakeyaml-engine, itu, ...) transitively — that
+  full resolved set was verified once against the exact JARs this bundle used to
+  vendor by hand (traced from each vendored JAR's own embedded Maven coordinates)
+  and compiles cleanly.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example.jylos.plugin.builtin.mcp</groupId>
+    <artifactId>mcp-plugin-deps</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+
+    <properties>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <!-- MCP Java SDK: server-side protocol implementation (McpServer, McpSchema, ...). -->
+        <dependency>
+            <groupId>io.modelcontextprotocol.sdk</groupId>
+            <artifactId>mcp-core</artifactId>
+            <version>2.0.0</version>
+        </dependency>
+        <!-- JSON (de)serialization for the SDK, backed by Jackson 3.x. -->
+        <dependency>
+            <groupId>io.modelcontextprotocol.sdk</groupId>
+            <artifactId>mcp-json-jackson3</artifactId>
+            <version>2.0.0</version>
+        </dependency>
+
+        <!-- Embedded HTTP server + Servlet support for the MCP streamable-HTTP transport. -->
+        <dependency>
+            <groupId>org.eclipse.jetty.ee11</groupId>
+            <artifactId>jetty-ee11-servlet</artifactId>
+            <version>12.1.12</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-server</artifactId>
+            <version>12.1.12</version>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <version>6.1.0</version>
+        </dependency>
+
+        <!-- Tool input schema validation. -->
+        <dependency>
+            <groupId>com.networknt</groupId>
+            <artifactId>json-schema-validator</artifactId>
+            <version>3.0.0</version>
+        </dependency>
+
+        <!-- YAML support (transitively required by json-schema-validator's Jackson 3 stack). -->
+        <dependency>
+            <groupId>tools.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-yaml</artifactId>
+            <version>3.0.3</version>
+        </dependency>
+    </dependencies>
+</project>

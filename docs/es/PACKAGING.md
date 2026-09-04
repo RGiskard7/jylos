@@ -36,6 +36,60 @@ CI establece `JYLOS_RELEASE_VERSION` desde el tag. El workflow ajusta Maven con 
 
 Los instaladores tienen UUID de upgrade estable. No cambiarlo. Paquetes sin firma pueden mostrar SmartScreen.
 
+### Instalación por-usuario
+
+`--win-per-user-install` instala en el perfil del usuario actual en vez de
+para toda la máquina — sin UAC/admin, como VS Code/Discord/Slack. Activado.
+
+Nota para quien tenga una instalación **per-máquina** previa de una release
+anterior: Windows Installer puede no actualizarla limpiamente si el ámbito
+cambia a per-usuario (contexto de instalación distinto es un fallo conocido
+de mayor actualización de MSI). El peor caso es una segunda entrada en
+paralelo o un error de instalación, no pérdida de datos (las notas viven
+fuera del alcance del instalador en cualquier caso).
+
+### Personalización del instalador Windows (desactivada — candle.exe no la compila)
+
+`scripts/wix-resources/` tiene un banner personalizado (`banner.bmp`,
+493×58, arriba de la mayoría de páginas) y fondo (`dialog.bmp`, 493×312,
+páginas de bienvenida/fin), construidos a partir del banner real de marca
+de Jylos (`resources/images/banner.png`), pensados para aplicarse vía
+`overrides.wxi` — el fichero que, según la
+[documentación de `--resource-dir` de jpackage](https://docs.oracle.com/en/java/javase/17/jpackage/override-jpackage-resources.html),
+sobreescribe variables WiX en su proyecto generado.
+
+**Probado en Windows real con un WiX sano (no el falso positivo de la
+instalación corrupta de abajo), y falla de verdad.** Con `--resource-dir
+scripts\wix-resources` puesto, el propio `candle.exe` de jpackage falla al
+compilar el `main.wxs` generado:
+
+```
+java.io.IOException: Command [candle.exe, -nologo, ...main.wxs, -ext, WixUtilExtension, -arch, x64, ...] exited with 104 code
+```
+
+El 104 es el código genérico de "compilación fallida" de WiX — jpackage no
+saca por consola el error real `CNDL####`, así que todavía no se sabe por
+qué exactamente no compila. Algo notable: el comando `candle.exe` que
+construye jpackage no lleva ningún `-I` (ruta de búsqueda de includes)
+apuntando cerca de `scripts/wix-resources` — puede que la suposición de que
+`--resource-dir` mete `overrides.wxi` con un `<?include?>` dentro del
+`main.wxs` generado sea sencillamente incorrecta para esta versión de
+jpackage. Para depurarlo de verdad: relanzar con el propio `--verbose` de
+jpackage, que debería sacar el error real de WiX en vez de solo la
+excepción envoltorio.
+
+**Comentado ahora mismo** en `package-windows.ps1` (buscar "DISABLED" en el
+bloque de UX del instalador Windows) — no borrado, los bitmaps pueden seguir
+siendo útiles una vez se entienda el mecanismo real.
+
+Antes hubo un fallo *distinto*, sin relación (`Error: Invalid or unsupported
+type: [msi]`, sin que se llegara a invocar `candle.exe` en absoluto), que
+resultó ser un `.tools\wix314` local corrupto (sin `wix.dll`) — ese ya está
+arreglado y no es lo descrito arriba. Si `candle.exe /?` no imprime el
+banner de versión de WiX, es ese problema de toolchain antiguo, no
+`overrides.wxi`; volver a ejecutar `.\scripts\setup-packaging-windows.ps1`
+descarga una copia limpia.
+
 ## macOS
 
 `package-macos.sh` genera DMG sin firmar por defecto. Para firma/notarización:

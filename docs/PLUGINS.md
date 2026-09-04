@@ -53,23 +53,33 @@ directory name.
 
 ### Third-party dependencies
 
-A bundle may ship libraries the core does not provide. Drop their JARs into a `lib/`
-directory inside the bundle:
+A bundle may need libraries the core does not provide. Declare them in a standalone
+`pom.xml` inside the bundle — a real Maven POM, resolved with
+`mvn -f pom.xml dependency:build-classpath` (checksum-verified downloads into the normal
+local `~/.m2` cache), the same dependency-resolution mechanism the rest of the project
+already uses. It is **not** part of the main reactor — `jylos/pom.xml` never references
+it — so these dependencies never leak into the app's own uber-jar; they only exist for
+compiling this one bundle:
 
 ```
 plugins-source/com/example/jylos/plugin/builtin/mcp/
 ├── plugin.properties
+├── pom.xml
 ├── McpServerPlugin.java
-└── lib/
-    └── some-sdk-1.2.0.jar
+└── ...
 ```
 
-They are added to the bundle's compile classpath and **packed into the plugin JAR
-itself**. This is deliberate: a plugin is installed and removed as a single file — the
-manager's file chooser accepts one `*.jar`, and `PluginLoader.deletePluginJar` removes one
-file — so a `lib/` directory sitting next to an installed plugin could never travel with
-it. Packing keeps a plugin a self-contained, installable artifact and needs no change to
-how `PluginLoader` builds its classloader.
+List only the artifacts the bundle imports directly; Maven resolves the rest of the
+dependency tree transitively, same as it does for `jylos/pom.xml` itself. Nothing is
+vendored into the repository — every JAR is downloaded from Maven Central (or whatever
+repository your `~/.m2/settings.xml` points at) at build time.
+
+The resolved JARs are added to the bundle's compile classpath and **packed into the
+plugin JAR itself**. This is deliberate: a plugin is installed and removed as a single
+file — the manager's file chooser accepts one `*.jar`, and `PluginLoader.deletePluginJar`
+removes one file — so dependencies that only existed on the local Maven classpath could
+never travel with an installed plugin otherwise. Packing keeps a plugin a self-contained,
+installable artifact and needs no change to how `PluginLoader` builds its classloader.
 
 The build handles the parts of merging that silently break otherwise:
 
@@ -101,7 +111,7 @@ not see them. This script builds the plugin JARs first (`build-plugins.sh`), the
 `plugins-source/` together with `plugins-test/` and runs the `main()` of every `*Test`
 class found there, failing on a non-zero exit.
 
-A bundle that ships its own `lib/` dependencies is excluded from that flat compile and
+A bundle that declares its own third-party dependencies (via `pom.xml`) is excluded from that flat compile and
 tested only through its built JAR, loaded via its own `URLClassLoader` — the same
 isolation `PluginLoader` gives it at runtime. Compiling such a bundle's sources flat
 alongside the test would put its bundled libraries on the same classpath as everything

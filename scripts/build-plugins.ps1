@@ -206,29 +206,82 @@ foreach ($bundleDir in $BundleDirs) {
     $ClassesDir = Join-Path $TempDir "classes"
     New-Item -ItemType Directory -Path $ClassesDir -Force | Out-Null
 
-    # Third-party dependencies: any JAR under the bundle's lib/ directory. They join
-    # the compile classpath and are packed into the plugin JAR itself (below), because
-    # a plugin is installed and removed as a single file — the manager's file chooser
-    # and deletePluginJar() both assume exactly one JAR — so a sidecar lib/ directory
-    # next to the installed plugin could never travel with it.
-    $LibDir = Join-Path $bundleDir "lib"
+    # Third-party dependencies: a bundle may need packages the main app never uses
+    # at runtime (e.g. mcp needs an embedded Jetty server + the MCP SDK), so they
+    # cannot live in jylos/pom.xml without bloating the app's own uber-jar. A
+    # bundle declares them instead in its own standalone pom.xml, resolved here
+    # via real Maven dependency resolution (checksum-verified downloads into the
+    # normal local ~/.m2 cache) — the same mechanism the rest of the project
+    # already uses for every other dependency, not vendored JARs committed to git.
+    # Every resolved JAR still gets unpacked and merged into the plugin JAR below:
+    # a plugin is installed and removed as a single file — the manager's file
+    # chooser and deletePluginJar() both assume exactly one JAR, so a JAR that
+    # only exists on the local Maven classpath could never travel with it.
     $LibJars = @()
-    if (Test-Path $LibDir) {
-        $LibJars = @(Get-ChildItem -Path $LibDir -Filter "*.jar" -Recurse |
-            Sort-Object FullName | ForEach-Object { $_.FullName })
+    $BundlePom = Join-Path $bundleDir "pom.xml"
+    if (Test-Path $BundlePom) {
+        $bundleClasspathFile = Join-Path $TempDir "bundle-classpath.txt"
+        & mvn -q -f $BundlePom dependency:build-classpath "-DincludeScope=compile" "-Dmdep.outputFile=$bundleClasspathFile"
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path $bundleClasspathFile)) {
+            Write-Host "  ERROR: Could not resolve dependencies from $BundlePom" -ForegroundColor Red
+            Remove-Item -Path $TempDir -Recurse -Force
+            continue
+        }
+        $resolvedClasspath = (Get-Content $bundleClasspathFile -Raw).Trim()
+        $LibJars = @($resolvedClasspath -split ';' | Where-Object { $_ })
     }
     $BundleClasspath = $Classpath
     foreach ($lib in $LibJars) { $BundleClasspath = "$BundleClasspath;$lib" }
     if ($LibJars.Count -gt 0) {
-        Write-Host "  Bundling $($LibJars.Count) dependency JAR(s) from lib/" -ForegroundColor Gray
+        Write-Host "  Bundling $($LibJars.Count) dependency JAR(s) resolved from pom.xml" -ForegroundColor Gray
     }
 
     $BundleSources = @(Get-ChildItem -Path $bundleDir -Filter "*.java" -Recurse |
         ForEach-Object { $_.FullName })
     Write-Host "  Compiling $($BundleSources.Count) source file(s)..." -ForegroundColor Gray
 
-    & $Javac --release 21 -encoding UTF-8 -cp $BundleClasspath -d $ClassesDir $BundleSources 2>&1 |
+    # Args go through a javac @argfile, not the command line directly: a bundle's
+    # lib/ dependencies (e.g. mcp's 19 JARs) can push -cp past Windows' command-line
+    # length limit, which fails the whole process before javac even starts — no
+    # compiler diagnostics printed, just a bare non-zero exit. @argfile (a real
+    # javac feature, not a workaround) sidesteps that entirely: the shell only ever
+    # sees "javac @path-to-file", regardless of how long the classpath inside it is.
+    #
+    # Every path below is normalized to forward slashes first: javac's @argfile
+    # parser treats backslash as an escape character inside double-quoted tokens,
+    # so a bare Windows path like C:\Users\...\Foo.java placed in quotes there can
+    # come out corrupted (a first, backslash-quoted attempt broke compilation for
+    # every bundle, not just the ones with a long classpath). Java's own file APIs
+    # have always accepted "/" as a path separator on Windows, so this sidesteps
+    # the escaping ambiguity entirely instead of trying to out-guess it.
+    $ArgFile = Join-Path $TempDir "javac-args.txt"
+    $ArgClasspath = ($BundleClasspath -split ';' | ForEach-Object { $_ -replace '\\', '/' }) -join ';'
+    $ArgClassesDir = $ClassesDir -replace '\\', '/'
+    $ArgFileLines = @(
+        "--release 21",
+        "-encoding UTF-8",
+        "-cp `"$ArgClasspath`"",
+        "-d `"$ArgClassesDir`""
+    ) + ($BundleSources | ForEach-Object { "`"$($_ -replace '\\', '/')`"" })
+    # Not -Encoding UTF8 (PowerShell adds a BOM — same class of bug as the manifest
+    # fix above) and not ASCII either: unlike the manifest, these are real file
+    # paths, which can contain non-ASCII characters (an accented Windows username,
+    # say). UTF8Encoding($false) is UTF-8 with the BOM explicitly turned off — safe
+    # for both cases, and works the same on Windows PowerShell 5.1 and PowerShell 7+.
+    [System.IO.File]::WriteAllLines($ArgFile, $ArgFileLines, [System.Text.UTF8Encoding]::new($false))
+
+    # Continue, not SilentlyContinue: SilentlyContinue doesn't just stop stderr
+    # from becoming a terminating error, it also drops the error content itself
+    # before it reaches the ForEach-Object below — real javac diagnostics (why a
+    # bundle actually failed to compile) were silently discarded, both times this
+    # is what hid mcp's (and briefly dataview's) real compiler errors. Continue is
+    # PowerShell's own default non-terminating behavior: shows the error, doesn't
+    # throw.
+    $oldErrorAction = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    & $Javac "@$ArgFile" 2>&1 |
         ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+    $ErrorActionPreference = $oldErrorAction
 
     if ($LASTEXITCODE -ne 0) {
         Write-Host "  ERROR: Failed to compile bundle $bundleName" -ForegroundColor Red
@@ -244,7 +297,10 @@ foreach ($bundleDir in $BundleDirs) {
         New-Item -ItemType Directory -Path $UnpackDir -Force | Out-Null
 
         Push-Location $UnpackDir
+        $oldErrorAction = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
         & $Jar xf $lib 2>&1 | Out-Null
+        $ErrorActionPreference = $oldErrorAction
         $unpackExit = $LASTEXITCODE
         Pop-Location
         if ($unpackExit -ne 0) {
@@ -291,17 +347,25 @@ foreach ($bundleDir in $BundleDirs) {
 
     Write-Host "  Plugin class: $BundleClass" -ForegroundColor Gray
     $ManifestFile = Join-Path $TempDir "MANIFEST.MF"
+    # ASCII, not UTF8: PowerShell's -Encoding UTF8 writes a BOM, and jar.exe cannot
+    # parse a MANIFEST.MF that starts with one ("invalid header field name" — the
+    # BOM bytes get read as part of the first header name). Manifest content here
+    # is always plain ASCII (fixed keys + a Java class name), so ASCII is exact,
+    # not just "close enough", and never carries a BOM.
     @(
         "Manifest-Version: 1.0",
         "Plugin-Class: $BundleClass",
         "Created-By: Jylos Plugin Builder",
         ""
-    ) | Set-Content -Path $ManifestFile -Encoding UTF8
+    ) | Set-Content -Path $ManifestFile -Encoding ASCII
 
     $JarPath = Join-Path $PluginsOutput "$BundleJarName.jar"
     # Packs the whole staging directory, not just com/: a dependency's packages
     # (org/, io/, …) must end up in the JAR too.
+    $oldErrorAction = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     & $Jar cfm $JarPath $ManifestFile -C $ClassesDir . 2>&1 | Out-Null
+    $ErrorActionPreference = $oldErrorAction
 
     if (Test-Path $JarPath) {
         Write-Host "  [OK] Created: $BundleJarName.jar" -ForegroundColor Green
@@ -450,7 +514,10 @@ Created-By: Jylos Plugin Builder
         & $Jar cfm $JarPath $ManifestFile -C $TempDir com
         if ($LASTEXITCODE -eq 0) {
             # Verify JAR contains the main class and inner classes
+            $oldErrorAction = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
             $jarContents = & $Jar tf $JarPath 2>&1 | Where-Object { $_ -match "\.class$" }
+            $ErrorActionPreference = $oldErrorAction
             $pluginClasses = $jarContents | Where-Object { $_ -match "builtin.*\.class$" }
             $hasMainClass = $pluginClasses | Where-Object { $_ -match "$pluginName\.class$" }
             $hasInnerClasses = $pluginClasses | Where-Object { $_ -match '\$.*\.class$' }

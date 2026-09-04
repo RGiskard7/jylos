@@ -129,7 +129,7 @@ corre dentro de una app de escritorio viva. Este aloja el propio
 `HttpServletStreamableServerTransportProvider` del SDK — probado contra la suite de
 conformidad, un `HttpServlet` real — sobre un Jetty embebido mínimo (un servidor, un
 contexto de servlet; no una distribución completa), en vez de escribir a mano el manejo
-de sesiones HTTP/SSE. Ver `plugins-source/.../mcp/lib/` y
+de sesiones HTTP/SSE. Ver `plugins-source/.../mcp/pom.xml` y
 [PLUGINS.md](PLUGINS.md#dependencias-de-terceros) para cómo un plugin empaqueta un SDK
 real en vez de reimplementar desde cero un protocolo externo y en evolución.
 
