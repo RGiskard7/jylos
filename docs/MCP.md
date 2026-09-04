@@ -126,7 +126,7 @@ spawns the server as a subprocess, which does not fit a plugin already running i
 live desktop app. This hosts the SDK's own conformance-tested
 `HttpServletStreamableServerTransportProvider` — a real `HttpServlet` — on a minimal
 embedded Jetty (one server, one servlet context; not a full distribution), rather than
-writing HTTP/SSE session handling by hand. See `plugins-source/.../mcp/lib/` and
+writing HTTP/SSE session handling by hand. See `plugins-source/.../mcp/pom.xml` and
 [PLUGINS.md](PLUGINS.md#third-party-dependencies) for how a plugin bundles a real SDK
 instead of reimplementing an external, evolving protocol from scratch.
 

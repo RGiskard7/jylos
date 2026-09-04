@@ -267,7 +267,8 @@ try {
 
     if ($Type -ne 'portable') {
         # Installer UX: dir chooser, Start-menu group, desktop shortcut prompt,
-        # per-machine upgrade path via a stable upgrade UUID, MIT license page.
+        # a stable upgrade UUID (upgrades in place instead of installing side by
+        # side, regardless of per-user/per-machine), MIT license page.
         $jpackageArgs += @(
             '--win-dir-chooser',
             '--win-menu',
@@ -280,6 +281,22 @@ try {
         if (Test-Path $licenseFile) {
             $jpackageArgs += @('--license-file', $licenseFile)
         }
+
+        # Installs to the current user's profile — no admin/UAC prompt.
+        $jpackageArgs += @('--win-per-user-install')
+
+        # DISABLED — real Windows build, candle.exe itself now failing to
+        # compile (exit 104) with --resource-dir scripts\wix-resources in
+        # place: `overrides.wxi` is not being wired into jpackage's generated
+        # main.wxs the way this assumed. See docs/PACKAGING.md, "Windows
+        # installer branding", for the exact failing command and how to get
+        # WiX's real CNDL error text (jpackage --verbose) before touching this
+        # again.
+        #
+        # $wixResourceDir = Join-Path $root 'scripts\wix-resources'
+        # if (Test-Path $wixResourceDir) {
+        #     $jpackageArgs += @('--resource-dir', $wixResourceDir)
+        # }
     }
 
     Write-Host "Running jpackage --type $jpackageType (this can take a few minutes)..." -ForegroundColor Cyan
@@ -309,12 +326,26 @@ try {
             }
         }
         Write-Host "Portable app-image: $appImagePath" -ForegroundColor Cyan
-        Write-Host "Run $APP_NAME.exe inside that folder, or zip it for distribution." -ForegroundColor Green
+        Write-Host "Run $APP_NAME.exe inside that folder to test it directly." -ForegroundColor Green
+
+        # Standardized copy: mirrors the naming release-jylos.yml's CI workflow gives
+        # its release assets (zips the app-image folder's contents, not the folder
+        # itself, matching CI's own Compress-Archive step).
+        $standardZipPath = Join-Path $outputDir 'jylos-windows-portable.zip'
+        if (Test-Path $standardZipPath) { Remove-Item $standardZipPath -Force }
+        Compress-Archive -Path (Join-Path $appImagePath '*') -DestinationPath $standardZipPath -Force
+        Write-Host "Standardized copy:  $standardZipPath" -ForegroundColor Cyan
     } else {
         $artifact = Get-ChildItem -Path $outputDir -Filter "*.$Type" |
             Sort-Object LastWriteTime -Descending | Select-Object -First 1
         if ($artifact) {
             Write-Host "Installer: $($artifact.FullName)" -ForegroundColor Cyan
+
+            # Standardized copy: mirrors the naming release-jylos.yml's CI workflow
+            # gives its release assets.
+            $standardArtifactPath = Join-Path $outputDir "jylos-windows-x64.$Type"
+            Copy-Item -Path $artifact.FullName -Destination $standardArtifactPath -Force
+            Write-Host "Standardized copy:  $standardArtifactPath" -ForegroundColor Cyan
         } else {
             Write-Host "Installer written to: $outputDir" -ForegroundColor Cyan
         }

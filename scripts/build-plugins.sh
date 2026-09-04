@@ -219,14 +219,28 @@ for bundle_dir in $BUNDLE_DIRS; do
     mkdir -p "$CLASSES_DIR"
     BUNDLE_SOURCES=$(find "$bundle_dir" -name "*.java")
 
-    # Third-party dependencies: any JAR under the bundle's lib/ directory. They join
-    # the compile classpath and are packed into the plugin JAR itself (below), because
-    # a plugin is installed and removed as a single file — the manager's file chooser
-    # and deletePluginJar() both assume exactly one JAR — so a sidecar lib/ directory
-    # next to the installed plugin could never travel with it.
+    # Third-party dependencies: a bundle may need packages the main app never uses
+    # at runtime (e.g. mcp needs an embedded Jetty server + the MCP SDK), so they
+    # cannot live in jylos/pom.xml without bloating the app's own uber-jar. A
+    # bundle declares them instead in its own standalone pom.xml, resolved here
+    # via real Maven dependency resolution (checksum-verified downloads into the
+    # normal local ~/.m2 cache) — the same mechanism the rest of the project
+    # already uses for every other dependency, not vendored JARs committed to git.
+    # Every resolved JAR still gets unpacked and merged into the plugin JAR below:
+    # a plugin is installed and removed as a single file — the manager's file
+    # chooser and deletePluginJar() both assume exactly one JAR, so a JAR that
+    # only exists on the local Maven classpath could never travel with it.
     LIB_JARS=""
-    if [ -d "$bundle_dir/lib" ]; then
-        LIB_JARS=$(find "$bundle_dir/lib" -name "*.jar" | sort)
+    if [ -f "$bundle_dir/pom.xml" ]; then
+        BUNDLE_CLASSPATH_FILE="$TEMP_DIR/bundle-classpath.txt"
+        if ! mvn -q -f "$bundle_dir/pom.xml" dependency:build-classpath \
+                -DincludeScope=compile "-Dmdep.outputFile=$BUNDLE_CLASSPATH_FILE"; then
+            echo -e "${RED}  ERROR: Could not resolve dependencies from $bundle_dir/pom.xml${NC}"
+            rm -rf "$TEMP_DIR"
+            continue
+        fi
+        RESOLVED_CLASSPATH=$(cat "$BUNDLE_CLASSPATH_FILE" 2>/dev/null | tr -d '\r\n')
+        LIB_JARS=$(echo "$RESOLVED_CLASSPATH" | tr ':' '\n' | grep -v '^$' || true)
     fi
     BUNDLE_CLASSPATH="$CLASSPATH"
     for lib in $LIB_JARS; do
@@ -234,7 +248,7 @@ for bundle_dir in $BUNDLE_DIRS; do
     done
     LIB_COUNT=$(echo "$LIB_JARS" | grep -c . || true)
     if [ "$LIB_COUNT" -gt 0 ]; then
-        echo -e "${GRAY}  Bundling $LIB_COUNT dependency JAR(s) from lib/${NC}"
+        echo -e "${GRAY}  Bundling $LIB_COUNT dependency JAR(s) resolved from pom.xml${NC}"
     fi
 
     echo -e "${GRAY}  Compiling $(echo "$BUNDLE_SOURCES" | grep -c .) source file(s)...${NC}"

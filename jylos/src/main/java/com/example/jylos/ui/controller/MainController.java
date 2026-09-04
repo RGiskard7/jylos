@@ -234,6 +234,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     /** Editor hook dispatcher shared by the plugin system and the editor. */
     private final com.example.jylos.plugin.EditorHooks editorHooks = new com.example.jylos.plugin.EditorHooks();
     private final ImportSupport importSupport = new ImportSupport();
+    // REMOVABLE: in-app updater — a workaround for shipping unsigned installers, not
+    // meant to be permanent. Delete alongside every other spot tagged "REMOVABLE:
+    // in-app updater" (grep the repo for that exact string) once Jylos can afford
+    // real code signing/notarization. Full rationale and removal checklist in
+    // docs/PACKAGING.md, section "In-app updater (unsigned builds)".
+    private final UpdateInstallSupport updateInstallSupport = new UpdateInstallSupport();
     private final HistorySupport historySupport = new HistorySupport();
     /** pluginId → toolbar buttons contributed via {@link com.example.jylos.plugin.ToolbarRegistry}. */
     private final Map<String, List<javafx.scene.Node>> pluginToolbarButtons = new HashMap<>();
@@ -632,6 +638,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 });
         workspaceController.wire(this::captureLiveWorkspace, this::applyWorkspace,
                 this::getString, this::updateStatus, sceneSupplier);
+        // REMOVABLE: in-app updater (see docs/PACKAGING.md).
+        updateInstallSupport.wire(this::getString, this::updateStatus, this::openExternalUrl,
+                this::requestApplicationClose, () -> {
+                    Platform.exit();
+                    System.exit(0);
+                });
         updateStorageLabel();
         installVaultContentLoadedCallback(beginBackendSessionGeneration());
     }
@@ -2451,10 +2463,26 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         Label message = new Label(getString("update.available.message"));
         message.getStyleClass().add("update-toast-message");
 
+        HBox links = new HBox(12);
+        links.setAlignment(Pos.CENTER_LEFT);
+
+        // REMOVABLE: in-app updater (see docs/PACKAGING.md, "In-app updater (unsigned
+        // builds)"). To revert to the old behavior, delete this Hyperlink and its
+        // "links" HBox wrapper, and go back to adding the plain "link" below directly
+        // to content.getChildren() as the toast's only action.
+        Hyperlink installLink = new Hyperlink(getString("update.install.button"));
+        installLink.getStyleClass().add("update-toast-link");
+        installLink.setOnAction(event -> {
+            hideUpdateToast(toast);
+            updateInstallSupport.installUpdate(release);
+        });
+
         Hyperlink link = new Hyperlink(getString("update.available.download"));
         link.getStyleClass().add("update-toast-link");
         link.setOnAction(event -> openExternalUrl(release.htmlUrl()));
-        content.getChildren().addAll(title, message, link);
+
+        links.getChildren().addAll(installLink, link);
+        content.getChildren().addAll(title, message, links);
         HBox.setHgrow(content, javafx.scene.layout.Priority.ALWAYS);
 
         Button closeButton = new Button("×");

@@ -1,0 +1,27 @@
+<!--
+  NOT WIRED IN — see docs/PACKAGING.md, "Windows installer branding", and
+  package-windows.ps1 (the --resource-dir block is commented out there).
+
+  jpackage's --resource-dir mechanism is supposed to look up this exact
+  filename ("overrides.wxi") to override WiX variables in its generated WiX
+  project (documented at
+  https://docs.oracle.com/en/java/javase/17/jpackage/override-jpackage-resources.html
+  as "WiX source file with WiX variables overrides"). Tried on a real
+  Windows build with --resource-dir pointed at this directory: candle.exe
+  itself failed to compile jpackage's generated main.wxs (exit code 104),
+  and jpackage did not surface WiX's actual CNDL error text — so whatever is
+  wrong (this file isn't being <?include?>'d where expected, a required
+  search path is missing, the WixVariable syntax itself is wrong for this
+  jpackage/WiX version, something else) is not yet known. Re-run with
+  jpackage's own --verbose flag to get WiX's real error before touching this
+  again.
+
+  Intent, if it's ever made to work: WixUIBannerBmp is the 493x58 strip shown
+  atop every wizard page except Welcome/Finish; WixUIDialogBmp is the
+  493x312 full background of the Welcome/Finish pages. banner.bmp/dialog.bmp
+  sit next to this file so the relative paths below would resolve
+  regardless of the working directory candle.exe is invoked from — assuming
+  that relative-path resolution is even correct, which was never confirmed.
+-->
+<WixVariable Id="WixUIBannerBmp" Value="banner.bmp" />
+<WixVariable Id="WixUIDialogBmp" Value="dialog.bmp" />

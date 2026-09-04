@@ -97,7 +97,6 @@ Hace:
 - recoge el JAR normal y el uber-JAR generados por Maven;
 - sube artefactos intermedios;
 - extrae release notes desde `changelog.md`;
-- genera `SHA256SUMS.txt`;
 - publica GitHub Release con `softprops/action-gh-release`.
 
 Assets publicados actualmente:
@@ -109,7 +108,10 @@ Assets publicados actualmente:
 - `jylos-linux-amd64.rpm`
 - `jylos.jar`
 - `jylos-uber.jar`
-- `SHA256SUMS.txt`
+
+Los scripts de empaquetado locales (`scripts/package-*.sh`/`.ps1`) generan estos
+mismos nombres estandarizados junto a la salida cruda de jpackage, asi que un
+instalador construido en local es identico al publicado por CI.
 
 Los nombres de los JAR son estables a proposito, igual que los instaladores
 nativos. Herramientas como JBang pueden usar

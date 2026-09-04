@@ -135,6 +135,20 @@ public final class AppDataDirectory {
     }
 
     /**
+     * REMOVABLE: in-app updater — see {@link com.example.jylos.service.UpdateInstaller}'s
+     * class docs ("Removing this later") for the removal checklist; this method is
+     * on that list. Directory path (baseDir/updates) where downloaded update
+     * installers are staged before the user runs them. Not created eagerly by
+     * {@link #ensureDirectoriesExist()} — only needed while an update is in flight,
+     * so {@code UpdateInstaller} creates it on demand.
+     *
+     * @return absolute path to the updates directory
+     */
+    public static String getUpdatesDirectory() {
+        return new File(getBaseDirectory(), "updates").getAbsolutePath();
+    }
+
+    /**
      * Ensures runtime directories exist: data, logs, backups, plugins, themes, snippets.
      * Invoked from {@link Main} static initializer and at startup.
      *

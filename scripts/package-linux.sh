@@ -214,16 +214,39 @@ if [ $? -eq 0 ]; then
         fi
     fi
     
+    # ── Standardized filename copy ──────────────────────────────────────────
+    # Mirrors the naming release-jylos.yml's CI workflow gives its release
+    # assets. Locate the real jpackage output via glob (its filename encodes
+    # the host's own architecture, which the echoes below don't necessarily
+    # match on non-amd64 hosts), so this works regardless of arch.
+    case "$(uname -m)" in
+        x86_64)          LINUX_ARCH="amd64" ;;
+        aarch64|arm64)   LINUX_ARCH="arm64" ;;
+        *)               LINUX_ARCH="$(uname -m)" ;;
+    esac
+
     if [ "$PACKAGE_TYPE" = "deb" ]; then
-        echo "Installer location: $OUTPUT_DIR/${PACKAGE_NAME}_${APP_VERSION}-1_amd64.deb"
+        BUILT_PKG=$(find "$OUTPUT_DIR" -maxdepth 1 -type f -name '*.deb' | sort | tail -n1)
+        echo "Installer location: $BUILT_PKG"
+        if [ -n "$BUILT_PKG" ]; then
+            STANDARD_PKG="$OUTPUT_DIR/jylos-linux-$LINUX_ARCH.deb"
+            cp "$BUILT_PKG" "$STANDARD_PKG"
+            echo "Standardized copy:  $STANDARD_PKG"
+        fi
         echo ""
-        echo "Install with: sudo dpkg -i $OUTPUT_DIR/${PACKAGE_NAME}_${APP_VERSION}-1_amd64.deb"
+        echo "Install with: sudo dpkg -i $BUILT_PKG"
     else
-        echo "Installer location: $OUTPUT_DIR/${PACKAGE_NAME}-${APP_VERSION}-1.x86_64.rpm"
+        BUILT_PKG=$(find "$OUTPUT_DIR" -maxdepth 1 -type f -name '*.rpm' | sort | tail -n1)
+        echo "Installer location: $BUILT_PKG"
+        if [ -n "$BUILT_PKG" ]; then
+            STANDARD_PKG="$OUTPUT_DIR/jylos-linux-$LINUX_ARCH.rpm"
+            cp "$BUILT_PKG" "$STANDARD_PKG"
+            echo "Standardized copy:  $STANDARD_PKG"
+        fi
         echo ""
-        echo "Install with: sudo rpm -i $OUTPUT_DIR/${PACKAGE_NAME}-${APP_VERSION}-1.x86_64.rpm"
+        echo "Install with: sudo rpm -i $BUILT_PKG"
     fi
-    
+
     echo ""
     echo "You can now distribute this installer."
     echo "Users can install it like any other Linux package."

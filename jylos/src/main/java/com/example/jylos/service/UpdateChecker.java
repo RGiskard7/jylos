@@ -6,6 +6,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -13,6 +15,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -26,12 +29,28 @@ import com.google.gson.JsonParser;
 public final class UpdateChecker {
 
     /**
+     * One downloadable file attached to a GitHub release.
+     *
+     * @param name canonical asset filename, e.g. {@code jylos-windows-x64.exe}
+     * @param browserDownloadUrl direct download URL for the asset
+     * @param size asset size in bytes, as reported by GitHub
+     * @param digest content digest GitHub computed server-side when the asset was
+     *         uploaded, formatted {@code "sha256:<hex>"} — {@code null} when GitHub
+     *         did not report one (older releases, or a non-github.com host). Used by
+     *         {@link com.example.jylos.service.UpdateInstaller} to verify a downloaded
+     *         file was not corrupted or tampered with in transit before it is run.
+     */
+    public record AssetInfo(String name, String browserDownloadUrl, long size, String digest) {
+    }
+
+    /**
      * Metadata for the latest GitHub release.
      *
      * @param tagName release tag, usually prefixed with {@code v}
      * @param htmlUrl browser URL for the GitHub release page
+     * @param assets downloadable files attached to the release (installers, JARs, …)
      */
-    public record ReleaseInfo(String tagName, String htmlUrl) {
+    public record ReleaseInfo(String tagName, String htmlUrl, List<AssetInfo> assets) {
     }
 
     /**
@@ -124,7 +143,32 @@ public final class UpdateChecker {
         JsonObject json = JsonParser.parseString(response.body()).getAsJsonObject();
         String tagName = getRequiredString(json, "tag_name");
         String htmlUrl = getRequiredString(json, "html_url");
-        return new ReleaseInfo(tagName, htmlUrl);
+        return new ReleaseInfo(tagName, htmlUrl, parseAssets(json));
+    }
+
+    /** Package-private (not private) so {@code UpdateCheckerTest} can exercise it directly against a hand-built JSON payload, without a real network call. */
+    static List<AssetInfo> parseAssets(JsonObject releaseJson) {
+        List<AssetInfo> assets = new ArrayList<>();
+        if (!releaseJson.has("assets") || !releaseJson.get("assets").isJsonArray()) {
+            return assets;
+        }
+        JsonArray array = releaseJson.getAsJsonArray("assets");
+        for (var element : array) {
+            if (!element.isJsonObject()) {
+                continue;
+            }
+            JsonObject asset = element.getAsJsonObject();
+            if (!asset.has("name") || !asset.has("browser_download_url")) {
+                continue;
+            }
+            String name = asset.get("name").getAsString();
+            String url = asset.get("browser_download_url").getAsString();
+            long size = asset.has("size") && !asset.get("size").isJsonNull() ? asset.get("size").getAsLong() : -1;
+            String digest = asset.has("digest") && !asset.get("digest").isJsonNull()
+                    ? asset.get("digest").getAsString() : null;
+            assets.add(new AssetInfo(name, url, size, digest));
+        }
+        return assets;
     }
 
     static boolean isNewerVersion(String candidate, String current) {
