@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- `PluginContext` gana tres capacidades nuevas, y siete plugins integrados dejan de saltarse la API documentada para conseguirlas por su cuenta:
+  - `applyTheme(DialogPane | Dialog<?> | Scene)` / `showThemed(Dialog<T>)`: aplica el tema actual de la app a un diálogo o ventana que el propio plugin construye. Hasta ahora, cualquier plugin con un diálogo propio (más allá de `showInfo`/`showError`) no tenía más remedio que llamar directamente a `com.example.jylos.ui.UiDialogs`, una clase interna sin ningún contrato de estabilidad de cara a plugins. Publish, Dataview (indirectamente, vía Publish), WordCount, Templates, Table of Contents, Reading Time, Auto Backup y AI migrados — cero referencias a `UiDialogs` fuera del propio core.
+  - `getPluginPreferences()`: nodo de `java.util.prefs.Preferences` propio, namespaced por id de plugin, en vez de que cada plugin llame a `Preferences.userNodeForPackage(SuClase.class)` a mano — evita colisiones entre plugins (o con las claves de activado/desactivado que usa el propio host). Publish y AI migrados.
+  - `runWithProgress(title, header, Task<T>, onSuccess, onFailure)`: encapsula el patrón diálogo-de-progreso + hilo en segundo plano + cierre + callback diferido (para evitar el bug ya conocido de JavaFX de diálogo modal en blanco al abrir uno nuevo justo al cerrar el anterior) que Publish repetía dos veces casi idéntico. Publish migrado, queda como capacidad reutilizable para cualquier plugin con trabajo largo.
+  - `docs/PLUGINS.md` actualizado: tabla de extension points documenta ahora también `showInfo`/`showCopyableInfo`/`showError` (ya existían, nunca se habían documentado) además de los tres métodos nuevos, y la sección de ciclo de vida deja explícito que una clase interna alcanzable por reflexión no es una clase soportada.
+
 ## [2.5.6] - 2026-09-07
 
 - Nuevo plugin **Publish**: exporta toda la bóveda a un sitio web estático (HTML/CSS/JS) autocontenido, con un diseño inspirado en Obsidian Publish/Quartz en vez de una lista plana de páginas — una página por nota, wiki-links convertidos en enlaces relativos reales (reutilizando el mismo resolutor de wiki-links que usa la vista previa, no una reimplementación aparte), listo para subir tal cual a GitHub Pages, Vercel o cualquier hosting estático. `Tools → Publish Vault as Static Site...` o desde la paleta de comandos.

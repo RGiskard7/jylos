@@ -130,8 +130,7 @@ public class AIPlugin implements Plugin {
             this.context = context;
 
             // Initialize Preferences
-            preferences = java.util.prefs.Preferences.userNodeForPackage(AIPlugin.class)
-                .node("ai-plugin-config");
+            preferences = context.getPluginPreferences().node("ai-plugin-config");
 
             // Load saved configuration
             loadConfiguration();
@@ -322,7 +321,7 @@ public class AIPlugin implements Plugin {
                 return null;
             });
             
-            Optional<String> langResult = com.example.jylos.ui.UiDialogs.show(langDialog);
+            Optional<String> langResult = context.showThemed(langDialog);
             if (langResult.isEmpty()) return;
             
             String targetLang = langResult.get();
@@ -452,7 +451,7 @@ public class AIPlugin implements Plugin {
                 return null;
             });
             
-            Optional<String> promptResult = com.example.jylos.ui.UiDialogs.show(promptDialog);
+            Optional<String> promptResult = context.showThemed(promptDialog);
             if (promptResult.isEmpty() || promptResult.get().trim().isEmpty()) return;
             
             String prompt = promptResult.get();
@@ -619,7 +618,7 @@ public class AIPlugin implements Plugin {
                 return null;
             });
             
-            com.example.jylos.ui.UiDialogs.show(configDialog);
+            context.showThemed(configDialog);
         });
     }
     
@@ -832,7 +831,7 @@ public class AIPlugin implements Plugin {
                 alert.setTitle(tr("ai.apiKeyRequired.title", "API Key Required"));
                 alert.setHeaderText(tr("ai.apiKeyRequired.header", "AI API key not configured"));
                 alert.setContentText(tr("ai.apiKeyRequired.body", "Please configure your AI API key first using 'AI: Configure API' command."));
-                com.example.jylos.ui.UiDialogs.show(alert);
+                context.showThemed(alert);
             });
             return false;
         }
@@ -874,7 +873,7 @@ public class AIPlugin implements Plugin {
             return null;
         });
         
-        Optional<Note> result = com.example.jylos.ui.UiDialogs.show(dialog);
+        Optional<Note> result = context.showThemed(dialog);
         return result.orElse(null);
     }
     
@@ -952,7 +951,7 @@ public class AIPlugin implements Plugin {
             
             Scene scene = new Scene(content);
             progressStage.setScene(scene);
-            com.example.jylos.ui.UiDialogs.apply(scene);
+            context.applyTheme(scene);
             
             // Center on screen
             progressStage.centerOnScreen();
@@ -1010,7 +1009,7 @@ public class AIPlugin implements Plugin {
                 return null;
             });
             
-            com.example.jylos.ui.UiDialogs.show(dialog);
+            context.showThemed(dialog);
         });
     }
     

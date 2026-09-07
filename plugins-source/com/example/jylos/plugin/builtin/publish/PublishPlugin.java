@@ -5,7 +5,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Optional;
-import java.util.prefs.Preferences;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.Plugin;
@@ -16,7 +15,6 @@ import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.ProgressBar;
 import javafx.stage.DirectoryChooser;
 
 /**
@@ -55,7 +53,6 @@ public final class PublishPlugin implements Plugin {
     private static final String PREFS_KEY_LAST_OUTPUT_DIR = "lastOutputDir";
 
     private PluginContext context;
-    private final Preferences preferences = Preferences.userNodeForPackage(PublishPlugin.class);
 
     // Loaded once, lazily — getDescription() can be called by the Plugin Manager before
     // initialize() ever runs, so this cannot wait for that. See PluginI18n's own doc for
@@ -141,8 +138,7 @@ public final class PublishPlugin implements Plugin {
             // "keep doing what I did last time", not reset to a blank config every run.
             VaultExporter.PublishOptions previous = VaultExporter.readManifest(outputDir);
             Optional<VaultExporter.PublishOptions> options = PublishConfigDialog.show(
-                    context.getNoteService(), context.getFolderService(), previous.siteTitle(),
-                    previous.generateGraph());
+                    context, previous.siteTitle(), previous.generateGraph());
             if (options.isEmpty()) {
                 return;
             }
@@ -176,7 +172,7 @@ public final class PublishPlugin implements Plugin {
     }
 
     private Optional<Path> lastOutputDir() {
-        String stored = preferences.get(PREFS_KEY_LAST_OUTPUT_DIR, null);
+        String stored = context.getPluginPreferences().get(PREFS_KEY_LAST_OUTPUT_DIR, null);
         if (stored == null || stored.isBlank()) {
             return Optional.empty();
         }
@@ -206,21 +202,12 @@ public final class PublishPlugin implements Plugin {
                 ButtonType.YES, ButtonType.NO);
         alert.setTitle(tr("progress.vault.title", "Publish Vault"));
         alert.setHeaderText(tr("confirm.notEmpty.header", "Output folder is not empty"));
-        com.example.jylos.ui.UiDialogs.apply(alert.getDialogPane());
+        context.applyTheme(alert.getDialogPane());
         Optional<ButtonType> result = alert.showAndWait();
         return result.isPresent() && result.get() == ButtonType.YES;
     }
 
     private void runExport(Path outputDir, VaultExporter.PublishOptions options) {
-        Alert progressDialog = new Alert(Alert.AlertType.INFORMATION);
-        progressDialog.setTitle(tr("progress.vault.title", "Publish Vault"));
-        progressDialog.setHeaderText(tr("progress.vault.header", "Exporting notes..."));
-        ProgressBar progressBar = new ProgressBar(0);
-        progressBar.setPrefWidth(320);
-        progressDialog.getDialogPane().setContent(progressBar);
-        progressDialog.getButtonTypes().setAll(ButtonType.CANCEL);
-        com.example.jylos.ui.UiDialogs.apply(progressDialog.getDialogPane());
-
         Task<VaultExporter.Result> task = new Task<>() {
             @Override
             protected VaultExporter.Result call() throws Exception {
@@ -233,43 +220,26 @@ public final class PublishPlugin implements Plugin {
                 });
             }
         };
-        progressBar.progressProperty().bind(task.progressProperty());
-
-        task.setOnSucceeded(e -> {
-            progressDialog.close();
-            VaultExporter.Result result = task.getValue();
-            preferences.put(PREFS_KEY_LAST_OUTPUT_DIR, outputDir.toAbsolutePath().toString());
-            Platform.runLater(() -> showSummary(result));
-        });
-        task.setOnFailed(e -> {
-            progressDialog.close();
-            Throwable ex = task.getException();
-            context.logError("Vault export failed", ex);
-            Platform.runLater(() -> context.showError(tr("error.title", "Publish Failed"),
-                    tr("error.vault.body", "Could not export the vault: %s")
-                            .formatted(ex != null ? ex.getMessage() : tr("error.unknown", "unknown error"))));
-        });
-
-        Thread thread = new Thread(task, "jylos-publish-export");
-        thread.setDaemon(true);
-        thread.start();
-
-        com.example.jylos.ui.UiDialogs.show(progressDialog);
+        // context.runWithProgress owns the dialog/thread ceremony (and the deferred-one-
+        // more-Platform.runLater-tick needed to avoid the nested-modal-goes-blank JavaFX
+        // quirk) — onSuccess/onFailure below are the only export-specific parts left.
+        context.runWithProgress(
+                tr("progress.vault.title", "Publish Vault"),
+                tr("progress.vault.header", "Exporting notes..."),
+                task,
+                result -> {
+                    context.getPluginPreferences().put(PREFS_KEY_LAST_OUTPUT_DIR, outputDir.toAbsolutePath().toString());
+                    showSummary(result);
+                },
+                ex -> {
+                    context.logError("Vault export failed", ex);
+                    context.showError(tr("error.title", "Publish Failed"),
+                            tr("error.vault.body", "Could not export the vault: %s")
+                                    .formatted(ex != null ? ex.getMessage() : tr("error.unknown", "unknown error")));
+                });
     }
 
-    // Same nested-modal-goes-blank quirk as runExport()/showSummary() above (and
-    // UpdateInstallSupport before that) — the follow-up dialog is deferred via
-    // Platform.runLater rather than shown directly from setOnSucceeded/setOnFailed.
     private void runSingleNoteExport(Path outputDir, Note note) {
-        Alert progressDialog = new Alert(Alert.AlertType.INFORMATION);
-        progressDialog.setTitle(tr("summary.note.title", "Publish This Note"));
-        progressDialog.setHeaderText(tr("progress.note.header", "Updating the published site..."));
-        ProgressBar progressBar = new ProgressBar(0);
-        progressBar.setPrefWidth(320);
-        progressDialog.getDialogPane().setContent(progressBar);
-        progressDialog.getButtonTypes().setAll(ButtonType.CANCEL);
-        com.example.jylos.ui.UiDialogs.apply(progressDialog.getDialogPane());
-
         Task<VaultExporter.SingleNoteResult> task = new Task<>() {
             @Override
             protected VaultExporter.SingleNoteResult call() throws Exception {
@@ -282,27 +252,18 @@ public final class PublishPlugin implements Plugin {
                 });
             }
         };
-        progressBar.progressProperty().bind(task.progressProperty());
-
-        task.setOnSucceeded(e -> {
-            progressDialog.close();
-            VaultExporter.SingleNoteResult result = task.getValue();
-            Platform.runLater(() -> showSingleNoteSummary(note, result));
-        });
-        task.setOnFailed(e -> {
-            progressDialog.close();
-            Throwable ex = task.getException();
-            context.logError("Single-note publish failed", ex);
-            Platform.runLater(() -> context.showError(tr("error.title", "Publish Failed"),
-                    tr("error.note.body", "Could not publish \"%s\": %s")
-                            .formatted(note.getTitle(), ex != null ? ex.getMessage() : tr("error.unknown", "unknown error"))));
-        });
-
-        Thread thread = new Thread(task, "jylos-publish-single-note");
-        thread.setDaemon(true);
-        thread.start();
-
-        com.example.jylos.ui.UiDialogs.show(progressDialog);
+        context.runWithProgress(
+                tr("summary.note.title", "Publish This Note"),
+                tr("progress.note.header", "Updating the published site..."),
+                task,
+                result -> showSingleNoteSummary(note, result),
+                ex -> {
+                    context.logError("Single-note publish failed", ex);
+                    context.showError(tr("error.title", "Publish Failed"),
+                            tr("error.note.body", "Could not publish \"%s\": %s")
+                                    .formatted(note.getTitle(),
+                                            ex != null ? ex.getMessage() : tr("error.unknown", "unknown error")));
+                });
     }
 
     private void showSingleNoteSummary(Note note, VaultExporter.SingleNoteResult result) {

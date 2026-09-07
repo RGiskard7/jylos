@@ -2,10 +2,12 @@ package com.example.jylos.plugin;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.function.BiConsumer;
 import java.util.logging.Logger;
+import java.util.prefs.Preferences;
 
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.models.Note;
@@ -15,11 +17,17 @@ import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
+import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.ui.components.CommandPalette;
 
 import javafx.application.Platform;
+import javafx.concurrent.Task;
 import javafx.scene.Node;
 import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.DialogPane;
+import javafx.scene.control.ProgressBar;
 
 /**
  * Context provided to plugins during initialization.
@@ -429,8 +437,59 @@ public class PluginContext {
     }
 
     /**
+     * Applies the app's current theme to a plugin's own {@link DialogPane} — a plain
+     * JavaFX dialog does not inherit the main window's stylesheets on its own, so
+     * without this it renders with the platform default (light) look, illegible over a
+     * dark theme. Call this on any {@link Alert}/{@link Dialog} a plugin builds itself
+     * (a custom form, a confirmation with extra content, …) before showing it; {@link
+     * #showInfo}, {@link #showCopyableInfo} and {@link #showError} already do this for
+     * the dialogs they build.
+     *
+     * @param dialogPane the dialog pane to theme (usually {@code dialog.getDialogPane()})
+     */
+    public void applyTheme(DialogPane dialogPane) {
+        UiDialogs.apply(dialogPane);
+    }
+
+    /**
+     * Convenience overload of {@link #applyTheme(DialogPane)} taking the {@link Dialog}
+     * itself.
+     *
+     * @param dialog the dialog to theme
+     */
+    public void applyTheme(Dialog<?> dialog) {
+        UiDialogs.apply(dialog);
+    }
+
+    /**
+     * Applies the app's current theme to a plugin's own custom {@link
+     * javafx.stage.Stage}-based window (a popup that is not a {@link Dialog} at all —
+     * for example, a borderless progress indicator) — same reasoning as {@link
+     * #applyTheme(DialogPane)}, but for a plugin that builds its own {@link
+     * javafx.scene.Scene} instead of going through {@code Dialog}/{@code Alert}.
+     *
+     * @param scene the scene to theme
+     */
+    public void applyTheme(javafx.scene.Scene scene) {
+        UiDialogs.apply(scene);
+    }
+
+    /**
+     * Themes a plugin's own {@link Dialog} and shows it modally, returning its result —
+     * {@link #applyTheme(Dialog)} followed by {@code dialog.showAndWait()} in one call,
+     * for the common case where nothing else needs to happen between the two.
+     *
+     * @param <T>    the dialog's result type
+     * @param dialog the dialog to theme and show
+     * @return the dialog's result, as {@link Dialog#showAndWait()} returns it
+     */
+    public <T> Optional<T> showThemed(Dialog<T> dialog) {
+        return UiDialogs.show(dialog);
+    }
+
+    /**
      * Shows an information dialog.
-     * 
+     *
      * @param title   The dialog title
      * @param header  The dialog header
      * @param content The dialog content
@@ -441,7 +500,7 @@ public class PluginContext {
             alert.setTitle(title);
             alert.setHeaderText(header);
             alert.setContentText(content);
-            com.example.jylos.ui.UiDialogs.apply(alert.getDialogPane());
+            UiDialogs.apply(alert.getDialogPane());
             alert.showAndWait();
         });
     }
@@ -465,7 +524,7 @@ public class PluginContext {
     public void showCopyableInfo(String title, String header, String content) {
         Platform.runLater(() -> {
             Alert alert = buildCopyableInfoAlert(title, header, content);
-            com.example.jylos.ui.UiDialogs.apply(alert.getDialogPane());
+            UiDialogs.apply(alert.getDialogPane());
             alert.showAndWait();
         });
     }
@@ -528,9 +587,74 @@ public class PluginContext {
             alert.setTitle(title);
             alert.setHeaderText(null);
             alert.setContentText(message);
-            com.example.jylos.ui.UiDialogs.apply(alert.getDialogPane());
+            UiDialogs.apply(alert.getDialogPane());
             alert.showAndWait();
         });
+    }
+
+    /**
+     * Runs a long operation on a background thread with a themed, indeterminate-turned-
+     * determinate progress dialog — the ceremony a plugin doing real work (exporting a
+     * vault, an I/O-bound backup, …) already needs today: build the dialog, bind a
+     * progress bar to the task, start a daemon thread, close the dialog and hand off to a
+     * follow-up callback on success or failure.
+     *
+     * <p>{@code onSuccess}/{@code onFailure} run <b>after</b> the progress dialog has
+     * closed, each deferred one more {@link Platform#runLater} tick past that — opening
+     * another modal {@link Alert} directly from a {@link Task}'s {@code setOnSucceeded}/
+     * {@code setOnFailed} (which fire while the progress dialog's own {@code
+     * showAndWait()} nested event loop is still unwinding) renders as a blank window on
+     * JavaFX; deferring one tick is the established fix already used everywhere else in
+     * this codebase that chains a modal after another. {@code task} should call {@link
+     * Task#updateProgress} from its {@code call()} — {@link Task} marshals that back to
+     * the FX thread itself, so it is safe to call from the background thread {@code
+     * call()} runs on.</p>
+     *
+     * <p>Must be called on the FX thread (it builds and shows UI); safe to call it from
+     * inside your own {@code Platform.runLater} if you are not already on it.</p>
+     *
+     * @param <T>       the task's result type
+     * @param title     the progress dialog's title
+     * @param header    the progress dialog's header text
+     * @param task      the work to run — not yet started
+     * @param onSuccess called with the task's result once it finishes successfully, or
+     *                  {@code null} to ignore success
+     * @param onFailure called with the task's exception if it fails, or {@code null} to
+     *                  ignore failure (the exception is still logged nowhere by this
+     *                  method itself — log it in the callback if you want it recorded)
+     */
+    public <T> void runWithProgress(String title, String header, Task<T> task,
+            Consumer<T> onSuccess, Consumer<Throwable> onFailure) {
+        Alert progressDialog = new Alert(Alert.AlertType.INFORMATION);
+        progressDialog.setTitle(title);
+        progressDialog.setHeaderText(header);
+        ProgressBar progressBar = new ProgressBar(0);
+        progressBar.setPrefWidth(320);
+        progressDialog.getDialogPane().setContent(progressBar);
+        progressDialog.getButtonTypes().setAll(ButtonType.CANCEL);
+        UiDialogs.apply(progressDialog.getDialogPane());
+        progressBar.progressProperty().bind(task.progressProperty());
+
+        task.setOnSucceeded(e -> {
+            progressDialog.close();
+            T result = task.getValue();
+            if (onSuccess != null) {
+                Platform.runLater(() -> onSuccess.accept(result));
+            }
+        });
+        task.setOnFailed(e -> {
+            progressDialog.close();
+            Throwable ex = task.getException();
+            if (onFailure != null) {
+                Platform.runLater(() -> onFailure.accept(ex));
+            }
+        });
+
+        Thread thread = new Thread(task, "jylos-plugin-" + pluginId + "-task");
+        thread.setDaemon(true);
+        thread.start();
+
+        UiDialogs.show(progressDialog);
     }
 
     /**
@@ -557,11 +681,35 @@ public class PluginContext {
 
     /**
      * Gets the plugin ID.
-     * 
+     *
      * @return The plugin ID
      */
     public String getPluginId() {
         return pluginId;
+    }
+
+    /**
+     * A {@link Preferences} node reserved for this plugin's own settings — a stable,
+     * namespaced key/value store that survives restarts, instead of every plugin that
+     * needs one calling {@code Preferences.userNodeForPackage(SomeOwnClass.class)} by
+     * hand. Two problems that reaching for the JDK API directly invites: first, a plugin
+     * choosing its own arbitrary node (or reusing a class name that collides with another
+     * plugin's, or with a core class's) has no guarantee of not colliding with anything
+     * else on the same machine; second, a test that happens to construct a real instance
+     * of that DAO/service class off this exact node touches whatever the live app has
+     * persisted there — this actually happened once in this project's own history, with a
+     * plugin id colliding with a real plugin's disabled/enabled flag.
+     *
+     * <p>The node returned here is scoped under the same {@code Preferences} subtree the
+     * host itself uses for plugin bookkeeping ({@link PluginManager}'s own node), keyed by
+     * this plugin's id — guaranteed distinct per plugin, and never the same node the host
+     * uses for enable/disable state (that lives directly on the parent, this is a child of
+     * it), so a plugin cannot accidentally read or corrupt it.</p>
+     *
+     * @return this plugin's own {@link Preferences} node
+     */
+    public Preferences getPluginPreferences() {
+        return Preferences.userNodeForPackage(PluginManager.class).node(pluginId);
     }
 
     /**

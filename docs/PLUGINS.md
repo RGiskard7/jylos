@@ -156,6 +156,12 @@ plugin out of the JAR mechanism (no independent enable/disable-by-file, no
 | `requestOpenNote(note)` | Ask the shell owner to open a note directly in the editor UI |
 | `requestRefreshNotes()` | Ask the shell to fan out a notes refresh event |
 | `subscribe(...)` / `publish(...)` | Typed `EventBus` access; subscriptions are cancelled automatically on disable |
+| `showInfo(title, header, content)` / `showError(title, message)` | A themed, read-only info/error `Alert` — the content renders as plain text, not selectable |
+| `showCopyableInfo(title, header, content)` | Same as `showInfo`, but the content is a real, selectable/copyable text area (plus a "Copy" button) — use this instead of `showInfo` for anything meant to be pasted elsewhere (a template snippet, a URL) |
+| `applyTheme(DialogPane \| Dialog<?> \| Scene)` | Applies the app's current theme to a dialog/window **you** build yourself. A plugin that needs more than `showInfo`/`showCopyableInfo`/`showError` offer (a custom form, its own `Alert` subtype, a borderless `Stage`) still needs this — it is what those three helpers call internally, and the only supported way to theme custom plugin UI. Reaching for `com.example.jylos.ui.UiDialogs` directly instead works today (nothing stops it at the classloader level, see [Lifecycle](#lifecycle) below) but is unsupported: it is an internal class, not part of this API, and every built-in plugin that used to do exactly that has since been migrated to `applyTheme` |
+| `showThemed(Dialog<T>)` | `applyTheme(dialog)` followed by `dialog.showAndWait()`, for the common case where nothing else needs to happen in between |
+| `runWithProgress(title, header, Task<T>, onSuccess, onFailure)` | Runs a `Task` on a background thread behind a themed, indeterminate-turned-determinate progress dialog — the ceremony a plugin doing real I/O (exporting a vault, a backup) needs: build the dialog, bind the progress bar, start a daemon thread, close the dialog, then hand off to `onSuccess`/`onFailure` (each already deferred past the nested-modal-goes-blank JavaFX quirk, so it is safe to open another dialog from either). See `PublishPlugin` for a real example |
+| `getPluginPreferences()` | This plugin's own, namespaced `java.util.prefs.Preferences` node — for settings that must survive a restart (an API key, a "last folder used"). Use this instead of `Preferences.userNodeForPackage(YourOwnClass.class)`: the node returned here is keyed by your plugin id under the host's own preferences subtree, guaranteed not to collide with another plugin's (or, worse, with the host's own bookkeeping keys for enabling/disabling plugins) |
 
 ### Preview enhancers
 
@@ -222,7 +228,13 @@ requests explicit while preserving the public plugin API.
    JARs don't collide with each other. This is namespace isolation, **not** a
    security sandbox: each classloader's parent is the app's own classloader,
    so plugin code can reflectively reach any internal Jylos class. Plugins run
-   with the full privileges of the JVM process.
+   with the full privileges of the JVM process. That a class is *reachable*
+   this way does not make it *supported* — only what's listed in [Extension
+   points](#extension-points-plugincontext) is; an internal class (`UiDialogs`
+   and friends) can change shape or move in any release with no notice, since
+   nothing outside `PluginContext` is part of the plugin API contract. A real
+   compiler-enforced boundary (a classloader that only delegates the
+   documented surface to the parent) is planned but not yet built.
 3. Register metadata, menu entries, preview enhancers, side panels; initialize enabled plugins.
 4. Disable: unregister UI hooks, commands and event subscriptions; shut down classloaders on app exit.
 

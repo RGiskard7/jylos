@@ -89,15 +89,22 @@ final class PublishConfigDialog {
      * fills the title field — the last one used, if this vault has been
      * published before ({@code PublishPlugin} reads that back from the target
      * directory's manifest before showing this dialog).
+     *
+     * @param context used for {@link com.example.jylos.plugin.PluginContext#applyTheme},
+     *                {@link com.example.jylos.plugin.PluginContext#getNoteService()} and
+     *                {@link com.example.jylos.plugin.PluginContext#getFolderService()} — this
+     *                dialog builds its own {@link Dialog}, so it needs the theming call every
+     *                other plugin dialog gets for free through {@code showInfo}/{@code showError}
      */
-    static Optional<VaultExporter.PublishOptions> show(NoteService noteService, FolderService folderService,
+    static Optional<VaultExporter.PublishOptions> show(com.example.jylos.plugin.PluginContext context,
             String defaultSiteTitle, boolean defaultGenerateGraph) {
         Dialog<VaultExporter.PublishOptions> dialog = new Dialog<>();
         dialog.setTitle(tr("dialog.title", "Publish Vault as Static Site"));
         dialog.setHeaderText(tr("dialog.header", "Choose what to publish"));
-        com.example.jylos.ui.UiDialogs.apply(dialog.getDialogPane());
+        context.applyTheme(dialog.getDialogPane());
 
-        Built built = buildContent(noteService, folderService, defaultSiteTitle, defaultGenerateGraph);
+        Built built = buildContent(context.getNoteService(), context.getFolderService(), defaultSiteTitle,
+                defaultGenerateGraph);
 
         dialog.getDialogPane().setContent(built.content());
         dialog.getDialogPane().setPrefSize(660, 620);

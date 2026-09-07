@@ -322,7 +322,7 @@ public class AutoBackupPlugin implements Plugin {
             dialog.setHeaderText(tr("autobackup.exportNote.header", "Select a note to export:"));
             dialog.setContentText(tr("autobackup.exportNote.content", "Note:"));
 
-            com.example.jylos.ui.UiDialogs.show(dialog).ifPresent(note -> {
+            context.showThemed(dialog).ifPresent(note -> {
                 javafx.stage.FileChooser fileChooser = new javafx.stage.FileChooser();
                 fileChooser.setTitle(tr("autobackup.saveNote.title", "Save Note As"));
                 fileChooser.setInitialFileName(sanitizeFileName(note.getTitle()) + ".md");

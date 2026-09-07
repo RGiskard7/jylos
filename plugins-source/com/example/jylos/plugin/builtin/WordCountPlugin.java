@@ -252,7 +252,7 @@ public class WordCountPlugin implements Plugin {
             alert.setTitle(title);
             alert.setHeaderText(header);
             alert.setContentText(content);
-            com.example.jylos.ui.UiDialogs.show(alert);
+            context.showThemed(alert);
         });
     }
     

@@ -248,8 +248,8 @@ public class TableOfContentsPlugin implements Plugin {
             });
             
             // Show and process result
-            com.example.jylos.ui.UiDialogs.apply(dialog);
-            Optional<Note> result = com.example.jylos.ui.UiDialogs.show(dialog);
+            context.applyTheme(dialog);
+            Optional<Note> result = context.showThemed(dialog);
             result.ifPresent(note -> {
                 String toc = generateToc(note.getContent(), numbered);
                 if (toc.isEmpty()) {
@@ -271,7 +271,7 @@ public class TableOfContentsPlugin implements Plugin {
         alert.setTitle(tr("toc.title", "Table of Contents"));
         alert.setHeaderText(header);
         alert.setContentText(content);
-        com.example.jylos.ui.UiDialogs.show(alert);
+        context.showThemed(alert);
     }
     
     /**
@@ -387,7 +387,7 @@ public class TableOfContentsPlugin implements Plugin {
                 return null;
             });
             
-            com.example.jylos.ui.UiDialogs.show(dialog);
+            context.showThemed(dialog);
         });
     }
 }
