@@ -3,6 +3,7 @@ package com.example.jylos.service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -174,16 +175,35 @@ public class FolderService {
     }
 
     /**
-     * Fetches only root folders (folders without a parent).
-     * 
+     * Fetches only root folders (top-level: not nested inside another folder).
+     *
+     * <p>"Has no parent" cannot be expressed as {@code getParentFolder() == null} alone,
+     * because the two backends disagree on what a top-level folder's parent is. SQLite
+     * stores no parent row and returns {@code null}. The filesystem backend resolves the
+     * parent by walking the path up, so a top-level folder's parent comes back as the
+     * synthetic {@code ROOT} folder standing for the vault directory itself — never null.
+     * The old {@code parent == null} filter therefore returned EVERY root folder on
+     * SQLite and NONE of them on a filesystem vault: measured against a real 922-folder
+     * vault it returned 0, which silently flattened everything downstream of it (the
+     * publish dialog's folder tree, and the exported site's folder mirroring, which both
+     * seed their walk here).</p>
+     *
+     * <p>Asking whether the parent is itself a real folder covers both: a synthetic root
+     * is not in {@link #getAllFolders()} (the filesystem backend excludes it explicitly),
+     * and neither is {@code null}, so top-level folders qualify either way, while a
+     * genuinely nested folder's parent is in that set and is correctly excluded.</p>
+     *
      * @return List of root folders
      */
     public List<Folder> getRootFolders() {
         List<Folder> allFolders = getAllFolders();
+        Set<String> realFolderIds = allFolders.stream()
+                .map(Folder::getId)
+                .collect(Collectors.toSet());
         return allFolders.stream()
                 .filter(folder -> {
                     Folder parent = folderDAO.getParentFolder(folder.getId());
-                    return parent == null;
+                    return parent == null || !realFolderIds.contains(parent.getId());
                 })
                 .collect(Collectors.toList());
     }

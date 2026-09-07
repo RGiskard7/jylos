@@ -39,6 +39,7 @@ public class PluginContext {
     private final EventBus eventBus;
     private final CommandPalette commandPalette;
     private final PluginMenuRegistry menuRegistry;
+    private final PluginNoteContextMenuRegistry noteContextMenuRegistry;
     private final SidePanelRegistry sidePanelRegistry;
     private final PreviewEnhancerRegistry previewEnhancerRegistry;
     private final EditorHookRegistry editorHookRegistry;
@@ -71,6 +72,7 @@ public class PluginContext {
      * @param noteOpenAction     Owner callback for opening a note from plugin code
      * @param editorNavigateAction Owner callback for plugin heading-navigation requests
      *                             (may be {@code null})
+     * @param noteContextMenuRegistry The note context menu registry (may be null in tests)
      */
     public PluginContext(
             String pluginId,
@@ -86,7 +88,8 @@ public class PluginContext {
             ToolbarRegistry toolbarRegistry,
             EditorBlockRendererRegistry editorBlockRendererRegistry,
             Consumer<Note> noteOpenAction,
-            BiConsumer<Integer, String> editorNavigateAction) {
+            BiConsumer<Integer, String> editorNavigateAction,
+            PluginNoteContextMenuRegistry noteContextMenuRegistry) {
         this.pluginId = pluginId;
         this.noteService = noteService;
         this.folderService = folderService;
@@ -101,6 +104,7 @@ public class PluginContext {
         this.editorBlockRendererRegistry = editorBlockRendererRegistry;
         this.noteOpenAction = noteOpenAction;
         this.editorNavigateAction = editorNavigateAction;
+        this.noteContextMenuRegistry = noteContextMenuRegistry;
     }
 
     /**
@@ -242,12 +246,27 @@ public class PluginContext {
 
     /**
      * Adds a separator in a menu category.
-     * 
+     *
      * @param category The menu category
      */
     public void addMenuSeparator(String category) {
         if (menuRegistry != null) {
             menuRegistry.addMenuSeparator(pluginId, category);
+        }
+    }
+
+    /**
+     * Registers an item in every note's right-click context menu (the notes
+     * list, both list-view and grid-view) — e.g. a plugin action that operates
+     * on one specific note, rather than {@link #registerCommand} or {@link
+     * #registerMenuItem}, which have no note to act on until the user picks one.
+     *
+     * @param label  The menu item's visible text
+     * @param action Invoked with the right-clicked note when chosen
+     */
+    public void registerNoteContextMenuItem(String label, Consumer<Note> action) {
+        if (noteContextMenuRegistry != null) {
+            noteContextMenuRegistry.registerNoteContextMenuItem(pluginId, label, action);
         }
     }
 
@@ -425,6 +444,76 @@ public class PluginContext {
             com.example.jylos.ui.UiDialogs.apply(alert.getDialogPane());
             alert.showAndWait();
         });
+    }
+
+    /**
+     * Shows an information dialog whose content the user can actually select and copy —
+     * for anything meant to be pasted elsewhere (a template snippet, a connection URL),
+     * as opposed to {@link #showInfo}, which is for a message that is just read. {@code
+     * setContentText} on a plain {@link Alert} renders the content as a {@code Label},
+     * and JavaFX {@code Label}s are not selectable at all — no drag-select, no Ctrl+C,
+     * nothing copies out of one no matter how the user tries. This swaps that content
+     * area for a read-only, wrapped {@link javafx.scene.control.TextArea} instead (a
+     * real text control, so normal text selection and copy shortcuts work exactly as
+     * they would anywhere else in the app), plus an explicit "Copy" button as a second,
+     * more discoverable way to get the same text onto the clipboard.
+     *
+     * @param title   The dialog title
+     * @param header  The dialog header
+     * @param content The copyable content
+     */
+    public void showCopyableInfo(String title, String header, String content) {
+        Platform.runLater(() -> {
+            Alert alert = buildCopyableInfoAlert(title, header, content);
+            com.example.jylos.ui.UiDialogs.apply(alert.getDialogPane());
+            alert.showAndWait();
+        });
+    }
+
+    /** Builds the {@link Alert} {@link #showCopyableInfo} shows, minus the app-theme styling and the
+     *  blocking {@code showAndWait()} — split out so a test can inspect the real widgets (that the
+     *  content is a real, read-only {@link javafx.scene.control.TextArea} carrying the exact text
+     *  passed in, not a {@code Label}, and that the "Copy" button is wired to the clipboard) without
+     *  ever popping an actual modal window. Package-private: {@link #showCopyableInfo} is the public
+     *  entry point plugins use. */
+    static Alert buildCopyableInfoAlert(String title, String header, String content) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(title);
+        alert.setHeaderText(header);
+
+        javafx.scene.control.TextArea textArea = new javafx.scene.control.TextArea(content);
+        textArea.setEditable(false);
+        // Sized to the content, so a snippet that fits shows whole with no scrollbar at all.
+        // wrapText stays OFF on purpose: this is pre-formatted text (a fenced code block, a
+        // URL), wrapping it both misrepresents it and makes the visible line count larger
+        // than the real one, which is what forced a scrollbar onto dialogs that fit fine.
+        // The caps only kick in for genuinely huge content, where scrolling is the right
+        // answer rather than a dialog taller than the screen.
+        List<String> lines = content.lines().toList();
+        int longestLine = lines.stream().mapToInt(String::length).max().orElse(20);
+        textArea.setWrapText(false);
+        textArea.setPrefRowCount(Math.min(30, Math.max(2, lines.size())));
+        textArea.setPrefColumnCount(Math.min(100, Math.max(20, longestLine)));
+        javafx.scene.layout.VBox.setVgrow(textArea, javafx.scene.layout.Priority.ALWAYS);
+        alert.getDialogPane().setContent(textArea);
+        alert.getDialogPane().setExpandableContent(null);
+
+        javafx.scene.control.ButtonType copyButtonType =
+                new javafx.scene.control.ButtonType("Copy", javafx.scene.control.ButtonBar.ButtonData.LEFT);
+        alert.getDialogPane().getButtonTypes().add(0, copyButtonType);
+        // A plain ButtonType closes the dialog on click by default — consume the event
+        // on this one so "Copy" copies and leaves the dialog open (the user may want
+        // to re-read the content, or copy again after scrolling).
+        javafx.scene.control.Button copyButton =
+                (javafx.scene.control.Button) alert.getDialogPane().lookupButton(copyButtonType);
+        copyButton.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
+            javafx.scene.input.ClipboardContent clipboardContent = new javafx.scene.input.ClipboardContent();
+            clipboardContent.putString(content);
+            javafx.scene.input.Clipboard.getSystemClipboard().setContent(clipboardContent);
+            event.consume();
+        });
+
+        return alert;
     }
 
     /**

@@ -12,6 +12,7 @@ import java.util.Optional;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginContext;
+import com.example.jylos.plugin.PluginI18n;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -97,82 +98,93 @@ public class AIPlugin implements Plugin {
         }
     }
     
+    // Loaded once, lazily — getDescription() can be called by the Plugin Manager before
+    // initialize() ever runs, so this cannot wait for that.
+    private static java.util.ResourceBundle bundle;
+
+    private static String tr(String key, String fallback) {
+        if (bundle == null) {
+            bundle = PluginI18n.bundle(AIPlugin.class);
+        }
+        return PluginI18n.tr(bundle, key, fallback);
+    }
+
     @Override
     public String getId() { return ID; }
-    
+
     @Override
     public String getName() { return NAME; }
-    
+
     @Override
     public String getVersion() { return VERSION; }
-    
+
     @Override
-    public String getDescription() { return DESCRIPTION; }
-    
+    public String getDescription() { return tr("ai.plugin.description", DESCRIPTION); }
+
     @Override
     public String getAuthor() { return AUTHOR; }
-    
+
     @Override
     public void initialize(PluginContext context) {
         try {
             this.context = context;
-            
+
             // Initialize Preferences
             preferences = java.util.prefs.Preferences.userNodeForPackage(AIPlugin.class)
                 .node("ai-plugin-config");
-            
+
             // Load saved configuration
             loadConfiguration();
-            
+
             // Initialize HTTP client
             httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(30))
                 .build();
-            
+
             // Register commands
         context.registerCommand(
             "AI: Summarize Note",
-            "Generate an AI summary of the current note",
+            tr("ai.command.summarize.description", "Generate an AI summary of the current note"),
             "Ctrl+Shift+S",
             this::summarizeNote
         );
-        
+
         context.registerCommand(
             "AI: Translate Note",
-            "Translate note content to another language",
+            tr("ai.command.translate.description", "Translate note content to another language"),
             null,
             this::translateNote
         );
-        
+
         context.registerCommand(
             "AI: Improve Writing",
-            "Improve grammar and style of note content",
+            tr("ai.command.improve.description", "Improve grammar and style of note content"),
             null,
             this::improveWriting
         );
-        
+
         context.registerCommand(
             "AI: Generate Content",
-            "Generate new content based on a prompt",
+            tr("ai.command.generate.description", "Generate new content based on a prompt"),
             null,
             this::generateContent
         );
-        
+
         context.registerCommand(
             "AI: Configure API",
-            "Configure AI API key and endpoint",
+            tr("ai.command.configure.description", "Configure AI API key and endpoint"),
             null,
             this::configureAPI
         );
-        
+
         // Register menu items (dynamic plugin menu)
-        context.registerMenuItem("AI", "Configure API...", this::configureAPI);
-        context.addMenuSeparator("AI");
-        context.registerMenuItem("AI", "Summarize Note", "Ctrl+Shift+S", this::summarizeNote);
-        context.registerMenuItem("AI", "Translate Note...", this::translateNote);
-        context.registerMenuItem("AI", "Improve Writing", this::improveWriting);
-        context.registerMenuItem("AI", "Generate Content...", this::generateContent);
-        
+        context.registerMenuItem(tr("ai.menuCategory", "AI"), tr("ai.menu.configure", "Configure API..."), this::configureAPI);
+        context.addMenuSeparator(tr("ai.menuCategory", "AI"));
+        context.registerMenuItem(tr("ai.menuCategory", "AI"), tr("ai.menu.summarize", "Summarize Note"), "Ctrl+Shift+S", this::summarizeNote);
+        context.registerMenuItem(tr("ai.menuCategory", "AI"), tr("ai.menu.translate", "Translate Note..."), this::translateNote);
+        context.registerMenuItem(tr("ai.menuCategory", "AI"), tr("ai.menu.improve", "Improve Writing"), this::improveWriting);
+        context.registerMenuItem(tr("ai.menuCategory", "AI"), tr("ai.menu.generateContent", "Generate Content..."), this::generateContent);
+
         context.log("AI Plugin initialized (API key required for functionality)");
         } catch (Exception e) {
             context.logError("Failed to initialize AI Plugin", e);
@@ -197,36 +209,40 @@ public class AIPlugin implements Plugin {
         List<Note> allNotes = context.getNoteService().getAllNotes();
         
         if (allNotes.isEmpty()) {
-            context.showInfo("AI Assistant", "No Notes", "Create a note first to summarize.");
+            context.showInfo(tr("ai.title", "AI Assistant"), tr("ai.noNotes.header", "No Notes"),
+                    tr("ai.noNotes.summarize.body", "Create a note first to summarize."));
             return;
         }
-        
+
         if (!checkAPIKey()) {
             return;
         }
-        
+
         Platform.runLater(() -> {
-            Note selectedNote = showNoteSelector("Summarize Note", "Select a note to summarize:");
+            Note selectedNote = showNoteSelector(tr("ai.selector.summarize.title", "Summarize Note"),
+                    tr("ai.selector.summarize.header", "Select a note to summarize:"));
             if (selectedNote == null) return;
-            
+
             String content = selectedNote.getContent();
             if (content == null || content.trim().isEmpty()) {
-                context.showInfo("AI Assistant", "Empty Note", "The selected note has no content.");
+                context.showInfo(tr("ai.title", "AI Assistant"), tr("ai.emptyNote.header", "Empty Note"),
+                        tr("ai.emptyNote.body", "The selected note has no content."));
                 return;
             }
-            
+
             // Show progress dialog
-            showProgressDialog("Summarizing...", "Please wait while AI processes your note.");
-            
+            showProgressDialog(tr("ai.progress.summarize.title", "Summarizing..."),
+                    tr("ai.progress.summarize.body", "Please wait while AI processes your note."));
+
             // Call AI API in background
             new Thread(() -> {
                 try {
                     String prompt = "Summarize the following text in 2-3 sentences:\n\n" + content;
                     String summary = callAI(prompt);
-                    
+
                     Platform.runLater(() -> {
                         closeProgressDialog();
-                        showResultDialog("Summary", selectedNote.getTitle(), summary, 
+                        showResultDialog(tr("ai.result.summary.title", "Summary"), selectedNote.getTitle(), summary,
                             () -> createSummaryNote(selectedNote, summary));
                     });
                 } catch (Exception e) {
@@ -234,9 +250,9 @@ public class AIPlugin implements Plugin {
                         closeProgressDialog();
                         String errorMsg = e.getMessage();
                         if (errorMsg == null || errorMsg.isEmpty()) {
-                            errorMsg = "Unknown error occurred";
+                            errorMsg = tr("ai.error.unknown", "Unknown error occurred");
                         }
-                        context.showError("AI Error", "Failed to summarize: " + errorMsg);
+                        context.showError(tr("ai.error.title", "AI Error"), tr("ai.error.summarizeFailed", "Failed to summarize: %s").formatted(errorMsg));
                         context.logError("AI summarization failed", e);
                     });
                 }
@@ -251,33 +267,49 @@ public class AIPlugin implements Plugin {
         List<Note> allNotes = context.getNoteService().getAllNotes();
         
         if (allNotes.isEmpty()) {
-            context.showInfo("AI Assistant", "No Notes", "Create a note first to translate.");
+            context.showInfo(tr("ai.title", "AI Assistant"), tr("ai.noNotes.header", "No Notes"),
+                    tr("ai.noNotes.translate.body", "Create a note first to translate."));
             return;
         }
-        
+
         if (!checkAPIKey()) {
             return;
         }
-        
+
         Platform.runLater(() -> {
-            Note selectedNote = showNoteSelector("Translate Note", "Select a note to translate:");
+            Note selectedNote = showNoteSelector(tr("ai.selector.translate.title", "Translate Note"),
+                    tr("ai.selector.translate.header", "Select a note to translate:"));
             if (selectedNote == null) return;
-            
-            // Language selector
+
+            // Language selector — the combo's items stay the canonical English names (used
+            // as-is in the AI prompt and in the resulting note's title); only their on-screen
+            // rendering is localized, via the converter below.
             Dialog<String> langDialog = new Dialog<>();
-            langDialog.setTitle("Translate Note");
-            langDialog.setHeaderText("Select target language:");
-            
+            langDialog.setTitle(tr("ai.selector.translate.title", "Translate Note"));
+            langDialog.setHeaderText(tr("ai.dialog.selectLanguage.header", "Select target language:"));
+
             ComboBox<String> langCombo = new ComboBox<>();
-            langCombo.getItems().addAll("Spanish", "French", "German", "Italian", "Portuguese", 
+            langCombo.getItems().addAll("Spanish", "French", "German", "Italian", "Portuguese",
                                        "Chinese", "Japanese", "Korean", "Russian", "Arabic");
             langCombo.setValue("Spanish");
-            
+            langCombo.setConverter(new StringConverter<String>() {
+                @Override
+                public String toString(String lang) {
+                    if (lang == null) return "";
+                    return tr("ai.lang." + lang.toLowerCase(java.util.Locale.ROOT), lang);
+                }
+
+                @Override
+                public String fromString(String string) {
+                    return string;
+                }
+            });
+
             GridPane grid = new GridPane();
             grid.setHgap(10);
             grid.setVgap(10);
             grid.setPadding(new Insets(20));
-            grid.add(new Label("Language:"), 0, 0);
+            grid.add(new Label(tr("ai.field.language.label", "Language:")), 0, 0);
             grid.add(langCombo, 1, 0);
             
             langDialog.getDialogPane().setContent(grid);
@@ -297,21 +329,23 @@ public class AIPlugin implements Plugin {
             String content = selectedNote.getContent();
             
             if (content == null || content.trim().isEmpty()) {
-                context.showInfo("AI Assistant", "Empty Note", "The selected note has no content.");
+                context.showInfo(tr("ai.title", "AI Assistant"), tr("ai.emptyNote.header", "Empty Note"),
+                        tr("ai.emptyNote.body", "The selected note has no content."));
                 return;
             }
-            
-            showProgressDialog("Translating...", "Please wait while AI translates your note.");
-            
+
+            showProgressDialog(tr("ai.progress.translate.title", "Translating..."),
+                    tr("ai.progress.translate.body", "Please wait while AI translates your note."));
+
             new Thread(() -> {
                 try {
                     String prompt = "Translate the following text to " + targetLang + ":\n\n" + content;
                     String translation = callAI(prompt);
-                    
+
                     Platform.runLater(() -> {
                         closeProgressDialog();
                         String newTitle = selectedNote.getTitle() + " (" + targetLang + ")";
-                        showResultDialog("Translation", newTitle, translation,
+                        showResultDialog(tr("ai.result.translation.title", "Translation"), newTitle, translation,
                             () -> createTranslatedNote(newTitle, translation));
                     });
                 } catch (Exception e) {
@@ -319,9 +353,9 @@ public class AIPlugin implements Plugin {
                         closeProgressDialog();
                         String errorMsg = e.getMessage();
                         if (errorMsg == null || errorMsg.isEmpty()) {
-                            errorMsg = "Unknown error occurred";
+                            errorMsg = tr("ai.error.unknown", "Unknown error occurred");
                         }
-                        context.showError("AI Error", "Failed to translate: " + errorMsg);
+                        context.showError(tr("ai.error.title", "AI Error"), tr("ai.error.translateFailed", "Failed to translate: %s").formatted(errorMsg));
                         context.logError("AI translation failed", e);
                     });
                 }
@@ -336,35 +370,39 @@ public class AIPlugin implements Plugin {
         List<Note> allNotes = context.getNoteService().getAllNotes();
         
         if (allNotes.isEmpty()) {
-            context.showInfo("AI Assistant", "No Notes", "Create a note first.");
+            context.showInfo(tr("ai.title", "AI Assistant"), tr("ai.noNotes.header", "No Notes"),
+                    tr("ai.noNotes.improve.body", "Create a note first."));
             return;
         }
-        
+
         if (!checkAPIKey()) {
             return;
         }
-        
+
         Platform.runLater(() -> {
-            Note selectedNote = showNoteSelector("Improve Writing", "Select a note to improve:");
+            Note selectedNote = showNoteSelector(tr("ai.selector.improve.title", "Improve Writing"),
+                    tr("ai.selector.improve.header", "Select a note to improve:"));
             if (selectedNote == null) return;
-            
+
             String content = selectedNote.getContent();
             if (content == null || content.trim().isEmpty()) {
-                context.showInfo("AI Assistant", "Empty Note", "The selected note has no content.");
+                context.showInfo(tr("ai.title", "AI Assistant"), tr("ai.emptyNote.header", "Empty Note"),
+                        tr("ai.emptyNote.body", "The selected note has no content."));
                 return;
             }
-            
-            showProgressDialog("Improving...", "Please wait while AI improves your writing.");
-            
+
+            showProgressDialog(tr("ai.progress.improve.title", "Improving..."),
+                    tr("ai.progress.improve.body", "Please wait while AI improves your writing."));
+
             new Thread(() -> {
                 try {
                     String prompt = "Improve the grammar, style, and clarity of the following text. " +
                                    "Return only the improved version without explanations:\n\n" + content;
                     String improved = callAI(prompt);
-                    
+
                     Platform.runLater(() -> {
                         closeProgressDialog();
-                        showResultDialog("Improved Writing", selectedNote.getTitle(), improved,
+                        showResultDialog(tr("ai.result.improve.title", "Improved Writing"), selectedNote.getTitle(), improved,
                             () -> updateNoteContent(selectedNote, improved));
                     });
                 } catch (Exception e) {
@@ -372,9 +410,9 @@ public class AIPlugin implements Plugin {
                         closeProgressDialog();
                         String errorMsg = e.getMessage();
                         if (errorMsg == null || errorMsg.isEmpty()) {
-                            errorMsg = "Unknown error occurred";
+                            errorMsg = tr("ai.error.unknown", "Unknown error occurred");
                         }
-                        context.showError("AI Error", "Failed to improve writing: " + errorMsg);
+                        context.showError(tr("ai.error.title", "AI Error"), tr("ai.error.improveFailed", "Failed to improve writing: %s").formatted(errorMsg));
                         context.logError("AI improvement failed", e);
                     });
                 }
@@ -392,11 +430,11 @@ public class AIPlugin implements Plugin {
         
         Platform.runLater(() -> {
             Dialog<String> promptDialog = new Dialog<>();
-            promptDialog.setTitle("Generate Content");
-            promptDialog.setHeaderText("Enter a prompt for AI to generate content:");
-            
+            promptDialog.setTitle(tr("ai.generate.title", "Generate Content"));
+            promptDialog.setHeaderText(tr("ai.generate.header", "Enter a prompt for AI to generate content:"));
+
             TextArea promptField = new TextArea();
-            promptField.setPromptText("e.g., 'Write a blog post about productivity'");
+            promptField.setPromptText(tr("ai.generate.prompt.placeholder", "e.g., 'Write a blog post about productivity'"));
             promptField.setPrefRowCount(5);
             promptField.setPrefColumnCount(40);
             
@@ -418,15 +456,16 @@ public class AIPlugin implements Plugin {
             if (promptResult.isEmpty() || promptResult.get().trim().isEmpty()) return;
             
             String prompt = promptResult.get();
-            showProgressDialog("Generating...", "Please wait while AI generates content.");
-            
+            showProgressDialog(tr("ai.progress.generate.title", "Generating..."),
+                    tr("ai.progress.generate.body", "Please wait while AI generates content."));
+
             new Thread(() -> {
                 try {
                     String generated = callAI(prompt);
-                    
+
                     Platform.runLater(() -> {
                         closeProgressDialog();
-                        showResultDialog("Generated Content", "AI Generated", generated,
+                        showResultDialog(tr("ai.result.generate.title", "Generated Content"), tr("ai.result.generate.header", "AI Generated"), generated,
                             () -> createGeneratedNote(generated));
                     });
                 } catch (Exception e) {
@@ -434,9 +473,9 @@ public class AIPlugin implements Plugin {
                         closeProgressDialog();
                         String errorMsg = e.getMessage();
                         if (errorMsg == null || errorMsg.isEmpty()) {
-                            errorMsg = "Unknown error occurred";
+                            errorMsg = tr("ai.error.unknown", "Unknown error occurred");
                         }
-                        context.showError("AI Error", "Failed to generate content: " + errorMsg);
+                        context.showError(tr("ai.error.title", "AI Error"), tr("ai.error.generateFailed", "Failed to generate content: %s").formatted(errorMsg));
                         context.logError("AI generation failed", e);
                     });
                 }
@@ -485,8 +524,8 @@ public class AIPlugin implements Plugin {
     private void configureAPI() {
         Platform.runLater(() -> {
             Dialog<Void> configDialog = new Dialog<>();
-            configDialog.setTitle("Configure AI Assistant");
-            configDialog.setHeaderText("Configure your AI provider and API key:");
+            configDialog.setTitle(tr("ai.configure.title", "Configure AI Assistant"));
+            configDialog.setHeaderText(tr("ai.configure.header", "Configure your AI provider and API key:"));
             
             GridPane grid = new GridPane();
             grid.setHgap(10);
@@ -503,17 +542,17 @@ public class AIPlugin implements Plugin {
             
             // API Key field
             TextField keyField = new TextField(apiKey);
-            keyField.setPromptText("Enter your API key");
+            keyField.setPromptText(tr("ai.field.apiKey.prompt", "Enter your API key"));
             keyField.setPrefWidth(300);
-            
+
             // Endpoint field (updates when provider changes)
             TextField endpointField = new TextField(apiEndpoint);
-            endpointField.setPromptText("API Endpoint URL");
+            endpointField.setPromptText(tr("ai.field.endpoint.prompt", "API Endpoint URL"));
             endpointField.setPrefWidth(300);
-            
+
             // Model field (updates when provider changes)
             TextField modelField = new TextField(model);
-            modelField.setPromptText("Model name");
+            modelField.setPromptText(tr("ai.field.model.prompt", "Model name"));
             modelField.setPrefWidth(300);
             
             // Update endpoint and model when provider changes
@@ -533,18 +572,18 @@ public class AIPlugin implements Plugin {
             });
             
             // Labels and layout
-            grid.add(new Label("Provider:"), 0, 0);
+            grid.add(new Label(tr("ai.field.provider.label", "Provider:")), 0, 0);
             grid.add(providerCombo, 1, 0);
-            grid.add(new Label("API Key:"), 0, 1);
+            grid.add(new Label(tr("ai.field.apiKey.label", "API Key:")), 0, 1);
             grid.add(keyField, 1, 1);
-            grid.add(new Label("Endpoint:"), 0, 2);
+            grid.add(new Label(tr("ai.field.endpoint.label", "Endpoint:")), 0, 2);
             grid.add(endpointField, 1, 2);
-            grid.add(new Label("Model:"), 0, 3);
+            grid.add(new Label(tr("ai.field.model.label", "Model:")), 0, 3);
             grid.add(modelField, 1, 3);
-            
+
             // Help text
-            Label helpLabel = new Label("Tip: Select a provider to auto-fill endpoint and model. " +
-                                       "For custom providers, enter your own endpoint.");
+            Label helpLabel = new Label(tr("ai.configure.help", "Tip: Select a provider to auto-fill endpoint and model. "
+                                       + "For custom providers, enter your own endpoint."));
             helpLabel.setWrapText(true);
             helpLabel.getStyleClass().add("dialog-hint-label");
             grid.add(helpLabel, 0, 4, 2, 1);
@@ -561,18 +600,18 @@ public class AIPlugin implements Plugin {
                     model = modelField.getText().trim();
                     
                     if (apiKey.isEmpty()) {
-                        context.showError("Configuration Error", "API key cannot be empty.");
+                        context.showError(tr("ai.configError.title", "Configuration Error"), tr("ai.configError.emptyKey", "API key cannot be empty."));
                         return null;
                     }
-                    
+
                     if (apiEndpoint.isEmpty()) {
-                        context.showError("Configuration Error", "API endpoint cannot be empty.");
+                        context.showError(tr("ai.configError.title", "Configuration Error"), tr("ai.configError.emptyEndpoint", "API endpoint cannot be empty."));
                         return null;
                     }
-                    
+
                     saveConfiguration();
-                    context.showInfo("AI Configuration", "Configuration Saved", 
-                        "AI Assistant is now configured and ready to use!");
+                    context.showInfo(tr("ai.configSaved.title", "AI Configuration"), tr("ai.configSaved.header", "Configuration Saved"),
+                        tr("ai.configSaved.body", "AI Assistant is now configured and ready to use!"));
                     context.log("AI API configured - Provider: " + provider + 
                                ", Endpoint: " + apiEndpoint + ", Model: " + model);
                     return null;
@@ -790,9 +829,9 @@ public class AIPlugin implements Plugin {
         if (apiKey == null || apiKey.trim().isEmpty()) {
             Platform.runLater(() -> {
                 Alert alert = new Alert(Alert.AlertType.WARNING);
-                alert.setTitle("API Key Required");
-                alert.setHeaderText("AI API key not configured");
-                alert.setContentText("Please configure your AI API key first using 'AI: Configure API' command.");
+                alert.setTitle(tr("ai.apiKeyRequired.title", "API Key Required"));
+                alert.setHeaderText(tr("ai.apiKeyRequired.header", "AI API key not configured"));
+                alert.setContentText(tr("ai.apiKeyRequired.body", "Please configure your AI API key first using 'AI: Configure API' command."));
                 com.example.jylos.ui.UiDialogs.show(alert);
             });
             return false;
@@ -822,7 +861,7 @@ public class AIPlugin implements Plugin {
         grid.setHgap(10);
         grid.setVgap(10);
         grid.setPadding(new Insets(20));
-        grid.add(new Label("Note:"), 0, 0);
+        grid.add(new Label(tr("ai.field.note.label", "Note:")), 0, 0);
         grid.add(noteCombo, 1, 0);
         
         dialog.getDialogPane().setContent(grid);
@@ -848,7 +887,7 @@ public class AIPlugin implements Plugin {
             public String toString(Note note) {
                 if (note == null) return "";
                 String title = note.getTitle();
-                return title != null ? title : "Untitled";
+                return title != null ? title : tr("ai.note.untitled", "Untitled");
             }
             
             @Override
@@ -870,7 +909,7 @@ public class AIPlugin implements Plugin {
                     setText("");
                 } else {
                     String title = note.getTitle();
-                    setText(title != null ? title : "Untitled");
+                    setText(title != null ? title : tr("ai.note.untitled", "Untitled"));
                 }
             }
         };
@@ -954,12 +993,12 @@ public class AIPlugin implements Plugin {
             textArea.setPrefColumnCount(60);
             textArea.getStyleClass().add("dialog-monospace-area");
             
-            ButtonType saveButton = new ButtonType("Save as Note", ButtonBar.ButtonData.OK_DONE);
+            ButtonType saveButton = new ButtonType(tr("ai.button.saveAsNote", "Save as Note"), ButtonBar.ButtonData.OK_DONE);
             dialog.getDialogPane().getButtonTypes().addAll(saveButton, ButtonType.CLOSE);
-            
+
             VBox vbox = new VBox(10);
             vbox.setPadding(new Insets(10));
-            vbox.getChildren().addAll(new Label("AI Result:"), textArea);
+            vbox.getChildren().addAll(new Label(tr("ai.result.label", "AI Result:")), textArea);
             
             dialog.getDialogPane().setContent(vbox);
             dialog.getDialogPane().setPrefSize(600, 500);

@@ -50,7 +50,7 @@ public class MermaidPlugin implements Plugin {
 
         // Register a menu item to help users
         context.registerMenuItem("Diagrams", "Insert Mermaid Template", () -> {
-            context.showInfo("Mermaid Template", "Copy this to your note:",
+            context.showCopyableInfo("Mermaid Template", "Copy this to your note:",
                     "```mermaid\n" +
                             "graph TD\n" +
                             "    A[\"Inicio\"] --> B{\"¿Funciona?\"}\n" +

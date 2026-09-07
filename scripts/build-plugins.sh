@@ -300,6 +300,22 @@ for bundle_dir in $BUNDLE_DIRS; do
         continue
     fi
 
+    # Resource files (messages*.properties for plugin i18n, see PluginI18n) sitting
+    # directly alongside the bundle's .java sources — javac only picks up .java, so
+    # these need copying by hand into the same package path javac already gave the
+    # compiled classes, or a plugin's own translations would compile clean locally
+    # and then silently vanish (ResourceBundle returns null, every string falls
+    # back to English) the moment it's actually loaded from the built JAR.
+    BUNDLE_PACKAGE_DIR="${bundle_dir#"$PLUGINS_SOURCE"/}"
+    BUNDLE_RESOURCES=$(find "$bundle_dir" -maxdepth 1 -name "*.properties" -not -name "plugin.properties")
+    if [ -n "$BUNDLE_RESOURCES" ]; then
+        mkdir -p "$CLASSES_DIR/$BUNDLE_PACKAGE_DIR"
+        for resource in $BUNDLE_RESOURCES; do
+            cp "$resource" "$CLASSES_DIR/$BUNDLE_PACKAGE_DIR/"
+        done
+        echo -e "${GRAY}  Bundled $(echo "$BUNDLE_RESOURCES" | grep -c .) resource file(s) (i18n messages)${NC}"
+    fi
+
     echo -e "${GRAY}  Plugin class: $BUNDLE_CLASS${NC}"
     MANIFEST_FILE="$TEMP_DIR/MANIFEST.MF"
     cat > "$MANIFEST_FILE" << EOF
@@ -391,7 +407,19 @@ EOF
     
     # Remove source files from temp dir
     find "$TEMP_DIR" -name "*.java" -delete
-    
+
+    # Resource files (messages*.properties for plugin i18n, see PluginI18n) — single-
+    # file built-in plugins all share one source directory/package, so their
+    # translations live in ONE shared messages*.properties there (see e.g. "Utilities"/
+    # "Productivity" menu categories, already reused across several of these plugins)
+    # rather than one per plugin; every single-file plugin's own JAR gets its own copy.
+    PLUGIN_RESOURCES=$(find "$PLUGINS_SOURCE/$PACKAGE_DIR" -maxdepth 1 -name "*.properties")
+    if [ -n "$PLUGIN_RESOURCES" ]; then
+        for resource in $PLUGIN_RESOURCES; do
+            cp "$resource" "$PLUGIN_PACKAGE_DIR/"
+        done
+    fi
+
     # Build JAR
     cd "$TEMP_DIR"
     "$JAR" cfm "$JAR_PATH" "$MANIFEST_FILE" com 2>/dev/null

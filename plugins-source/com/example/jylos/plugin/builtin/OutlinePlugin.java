@@ -10,6 +10,7 @@ import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginContext;
+import com.example.jylos.plugin.PluginI18n;
 import com.example.jylos.util.MarkdownProcessor;
 
 import javafx.application.Platform;
@@ -51,36 +52,47 @@ public class OutlinePlugin implements Plugin {
     private Note currentNote;
     private String lastContent = "";
     private List<EventBus.Subscription> subscriptions = new ArrayList<>();
-    
+
+    // Loaded once, lazily — getDescription() can be called by the Plugin Manager before
+    // initialize() ever runs, so this cannot wait for that.
+    private static java.util.ResourceBundle bundle;
+
+    private static String tr(String key, String fallback) {
+        if (bundle == null) {
+            bundle = PluginI18n.bundle(OutlinePlugin.class);
+        }
+        return PluginI18n.tr(bundle, key, fallback);
+    }
+
     @Override
     public String getId() { return ID; }
-    
+
     @Override
     public String getName() { return NAME; }
-    
+
     @Override
     public String getVersion() { return VERSION; }
-    
+
     @Override
-    public String getDescription() { return DESCRIPTION; }
-    
+    public String getDescription() { return tr("outline.plugin.description", DESCRIPTION); }
+
     @Override
     public String getAuthor() { return AUTHOR; }
-    
+
     @Override
     public void initialize(PluginContext context) {
         this.context = context;
-        
+
         // Register commands
         context.registerCommand(
             "Outline: Refresh",
-            "Refresh the document outline",
+            tr("outline.command.refresh.description", "Refresh the document outline"),
             null,
             this::refreshOutline
         );
-        
+
         // Register menu items
-        context.registerMenuItem("Outline", "Refresh Outline", this::refreshOutline);
+        context.registerMenuItem(tr("outline.title", "Outline"), tr("outline.menu.refresh", "Refresh Outline"), this::refreshOutline);
         
         // Subscribe to note events
         EventBus.Subscription noteSub = context.subscribe(NoteEvents.NoteSelectedEvent.class, event -> {
@@ -101,7 +113,7 @@ public class OutlinePlugin implements Plugin {
         // Create and register the side panel
         Platform.runLater(() -> {
             createOutlinePanel();
-            context.registerSidePanel(PANEL_ID, "Outline", outlineContent, "fth-layers");
+            context.registerSidePanel(PANEL_ID, tr("outline.title", "Outline"), outlineContent, "fth-layers");
         });
         
         context.log("Outline Plugin initialized");
@@ -129,7 +141,7 @@ public class OutlinePlugin implements Plugin {
         outlineContent.setPadding(new Insets(8));
         outlineContent.setStyle("-fx-background-color: transparent;");
         
-        emptyLabel = new Label("No headers found");
+        emptyLabel = new Label(tr("outline.panel.empty", "No headers found"));
         emptyLabel.getStyleClass().add("outline-empty-label");
         emptyLabel.setPadding(new Insets(8));
         
@@ -228,9 +240,9 @@ public class OutlinePlugin implements Plugin {
             // Force refresh by clearing lastContent
             lastContent = "";
             updateOutline(currentNote.getContent());
-            context.showInfo("Outline", null, "Outline refreshed!");
+            context.showInfo(tr("outline.title", "Outline"), null, tr("outline.info.refreshed", "Outline refreshed!"));
         } else {
-            context.showInfo("Outline", null, "No note selected");
+            context.showInfo(tr("outline.title", "Outline"), null, tr("outline.info.noNote", "No note selected"));
         }
     }
     

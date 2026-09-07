@@ -11,6 +11,7 @@ import org.commonmark.renderer.html.HtmlRenderer;
 import org.commonmark.ext.gfm.tables.TablesExtension;
 import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension;
 import org.commonmark.ext.autolink.AutolinkExtension;
+import org.commonmark.ext.task.list.items.TaskListItemsExtension;
 
 import java.text.Normalizer;
 import java.util.Arrays;
@@ -31,7 +32,8 @@ public class MarkdownProcessor {
     private static final List<Extension> EXTENSIONS = Arrays.asList(
         TablesExtension.create(),
         StrikethroughExtension.create(),
-        AutolinkExtension.create()
+        AutolinkExtension.create(),
+        TaskListItemsExtension.create()
     );
     
     private static final Parser PARSER = Parser.builder()

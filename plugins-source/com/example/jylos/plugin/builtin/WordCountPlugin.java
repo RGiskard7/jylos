@@ -8,6 +8,7 @@ import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginContext;
+import com.example.jylos.plugin.PluginI18n;
 
 /**
  * Word Count Plugin - Displays word and character statistics for notes.
@@ -41,55 +42,66 @@ public class WordCountPlugin implements Plugin {
     private PluginContext context;
     private Note currentNote;
     private List<EventBus.Subscription> subscriptions = new ArrayList<>();
-    
+
+    // Loaded once, lazily — getDescription() can be called by the Plugin Manager before
+    // initialize() ever runs, so this cannot wait for that.
+    private static java.util.ResourceBundle bundle;
+
+    private static String tr(String key, String fallback) {
+        if (bundle == null) {
+            bundle = PluginI18n.bundle(WordCountPlugin.class);
+        }
+        return PluginI18n.tr(bundle, key, fallback);
+    }
+
     @Override
     public String getId() {
         return ID;
     }
-    
+
     @Override
     public String getName() {
         return NAME;
     }
-    
+
     @Override
     public String getVersion() {
         return VERSION;
     }
-    
+
     @Override
     public String getDescription() {
-        return DESCRIPTION;
+        return tr("wordcount.plugin.description", DESCRIPTION);
     }
-    
+
     @Override
     public String getAuthor() {
         return AUTHOR;
     }
-    
+
     @Override
     public void initialize(PluginContext context) {
         this.context = context;
-        
+
         // Register commands in Command Palette
         context.registerCommand(
             "Word Count: Current Note",
-            "Show word and character statistics for current note",
+            tr("wordcount.command.current.description", "Show word and character statistics for current note"),
             "Ctrl+Shift+W",
             this::showCurrentNoteStats
         );
-        
+
         context.registerCommand(
             "Word Count: All Notes",
-            "Show total word count across all notes",
+            tr("wordcount.command.all.description", "Show total word count across all notes"),
             null,
             this::showAllNotesStats
         );
-        
+
         // Register menu items (dynamic plugin menu)
-        context.registerMenuItem("Core", "Word Count", "Ctrl+Shift+W", this::showCurrentNoteStats);
-        context.registerMenuItem("Core", "All Notes Stats", this::showAllNotesStats);
-        
+        context.registerMenuItem(tr("menuCategory.core", "Core"), tr("wordcount.menu.current", "Word Count"), "Ctrl+Shift+W", this::showCurrentNoteStats);
+        context.registerMenuItem(tr("menuCategory.core", "Core"), tr("wordcount.menu.allNotes", "All Notes Stats"), this::showAllNotesStats);
+
         // Subscribe to note selection events
         EventBus.Subscription sub = context.subscribe(NoteEvents.NoteSelectedEvent.class, event -> {
             this.currentNote = event.getNote();
@@ -97,7 +109,7 @@ public class WordCountPlugin implements Plugin {
         subscriptions.add(sub);
 
         // Toolbar button (ToolbarRegistry API): one-click word count for the open note.
-        context.registerToolbarButton("word-count", "Word count", "fth-bar-chart-2",
+        context.registerToolbarButton("word-count", tr("wordcount.toolbar.tooltip", "Word count"), "fth-bar-chart-2",
                 this::showCurrentNoteStats);
 
         context.log("Word Count Plugin initialized");
@@ -124,24 +136,26 @@ public class WordCountPlugin implements Plugin {
      */
     private void showCurrentNoteStats() {
         if (currentNote == null) {
-            showAlert("Word Count", "No note selected", "Please select a note first.");
+            showAlert(tr("wordcount.title", "Word Count"), tr("wordcount.alert.noNote.header", "No note selected"),
+                    tr("wordcount.alert.noNote.body", "Please select a note first."));
             return;
         }
-        
+
         String content = currentNote.getContent();
         if (content == null) {
             content = "";
         }
-        
+
         Statistics stats = calculateStatistics(content);
-        
+
         String message = String.format(
-            "Note: %s\n\n" +
-            "Words: %,d\n" +
-            "Characters (with spaces): %,d\n" +
-            "Characters (without spaces): %,d\n" +
-            "Lines: %,d\n" +
-            "Paragraphs: %,d",
+            tr("wordcount.current.body",
+                "Note: %s\n\n" +
+                "Words: %,d\n" +
+                "Characters (with spaces): %,d\n" +
+                "Characters (without spaces): %,d\n" +
+                "Lines: %,d\n" +
+                "Paragraphs: %,d"),
             currentNote.getTitle(),
             stats.words,
             stats.charsWithSpaces,
@@ -149,8 +163,8 @@ public class WordCountPlugin implements Plugin {
             stats.lines,
             stats.paragraphs
         );
-        
-        showAlert("Word Count - Current Note", null, message);
+
+        showAlert(tr("wordcount.current.title", "Word Count - Current Note"), null, message);
     }
     
     /**
@@ -172,17 +186,18 @@ public class WordCountPlugin implements Plugin {
         }
         
         String message = String.format(
-            "Total Notes: %,d\n\n" +
-            "Total Words: %,d\n" +
-            "Total Characters: %,d\n" +
-            "Average Words per Note: %,d",
+            tr("wordcount.allNotes.body",
+                "Total Notes: %,d\n\n" +
+                "Total Words: %,d\n" +
+                "Total Characters: %,d\n" +
+                "Average Words per Note: %,d"),
             totalNotes,
             totalWords,
             totalChars,
             totalNotes > 0 ? totalWords / totalNotes : 0
         );
-        
-        showAlert("Word Count - All Notes", null, message);
+
+        showAlert(tr("wordcount.allNotes.title", "Word Count - All Notes"), null, message);
     }
     
     /**

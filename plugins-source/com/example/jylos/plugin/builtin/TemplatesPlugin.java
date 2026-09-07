@@ -6,6 +6,7 @@ import java.util.Map;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginContext;
+import com.example.jylos.plugin.PluginI18n;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -61,72 +62,83 @@ public class TemplatesPlugin implements Plugin {
         public String getContent() { return content; }
     }
     
+    // Loaded once, lazily — getDescription() can be called by the Plugin Manager before
+    // initialize() ever runs, so this cannot wait for that.
+    private static java.util.ResourceBundle bundle;
+
+    private static String tr(String key, String fallback) {
+        if (bundle == null) {
+            bundle = PluginI18n.bundle(TemplatesPlugin.class);
+        }
+        return PluginI18n.tr(bundle, key, fallback);
+    }
+
     @Override
     public String getId() { return ID; }
-    
+
     @Override
     public String getName() { return NAME; }
-    
+
     @Override
     public String getVersion() { return VERSION; }
-    
+
     @Override
-    public String getDescription() { return DESCRIPTION; }
-    
+    public String getDescription() { return tr("templates.plugin.description", DESCRIPTION); }
+
     @Override
     public String getAuthor() { return AUTHOR; }
-    
+
     @Override
     public void initialize(PluginContext context) {
         this.context = context;
-        
+
         // Initialize built-in templates
         initializeTemplates();
-        
+
         // Register main command
         context.registerCommand(
             "Templates: New from Template",
-            "Create a new note from a template",
+            tr("templates.command.newFromTemplate.description", "Create a new note from a template"),
             "Ctrl+Shift+T",
             this::showTemplateSelector
         );
-        
+
         // Register quick commands for common templates
         context.registerCommand(
             "Templates: Meeting Notes",
-            "Create a new meeting notes document",
+            tr("templates.command.meeting.description", "Create a new meeting notes document"),
             null,
             () -> createFromTemplate("meeting")
         );
-        
+
         context.registerCommand(
             "Templates: Project Plan",
-            "Create a new project plan",
+            tr("templates.command.project.description", "Create a new project plan"),
             null,
             () -> createFromTemplate("project")
         );
-        
+
         context.registerCommand(
             "Templates: Weekly Review",
-            "Create a weekly review document",
+            tr("templates.command.weeklyReview.description", "Create a weekly review document"),
             null,
             () -> createFromTemplate("weekly-review")
         );
-        
+
         context.registerCommand(
             "Templates: Checklist",
-            "Create a new checklist",
+            tr("templates.command.checklist.description", "Create a new checklist"),
             null,
             () -> createFromTemplate("checklist")
         );
-        
+
         // Register menu items (dynamic plugin menu)
-        context.registerMenuItem("Productivity", "New from Template...", "Ctrl+Shift+T", this::showTemplateSelector);
-        context.addMenuSeparator("Productivity");
-        context.registerMenuItem("Productivity", "Meeting Notes", () -> createFromTemplate("meeting"));
-        context.registerMenuItem("Productivity", "Project Plan", () -> createFromTemplate("project"));
-        context.registerMenuItem("Productivity", "Weekly Review", () -> createFromTemplate("weekly-review"));
-        context.registerMenuItem("Productivity", "Checklist", () -> createFromTemplate("checklist"));
+        context.registerMenuItem(tr("menuCategory.productivity", "Productivity"), tr("templates.menu.newFromTemplate", "New from Template..."), "Ctrl+Shift+T", this::showTemplateSelector);
+        context.addMenuSeparator(tr("menuCategory.productivity", "Productivity"));
+        context.registerMenuItem(tr("menuCategory.productivity", "Productivity"), tr("templates.name.meeting", "Meeting Notes"), () -> createFromTemplate("meeting"));
+        context.registerMenuItem(tr("menuCategory.productivity", "Productivity"), tr("templates.name.project", "Project Plan"), () -> createFromTemplate("project"));
+        context.registerMenuItem(tr("menuCategory.productivity", "Productivity"), tr("templates.name.weeklyReview", "Weekly Review"), () -> createFromTemplate("weekly-review"));
+        context.registerMenuItem(tr("menuCategory.productivity", "Productivity"), tr("templates.name.checklist", "Checklist"), () -> createFromTemplate("checklist"));
         
         context.log("Templates Plugin initialized with " + templates.size() + " templates");
     }
@@ -147,8 +159,8 @@ public class TemplatesPlugin implements Plugin {
     private void initializeTemplates() {
         // Meeting Notes Template
         templates.put("meeting", new Template(
-            "Meeting Notes",
-            "Template for taking meeting notes",
+            tr("templates.name.meeting", "Meeting Notes"),
+            tr("templates.desc.meeting", "Template for taking meeting notes"),
             "# Meeting Notes\n\n" +
             "**Date:** {{date}}\n" +
             "**Attendees:** \n\n" +
@@ -171,8 +183,8 @@ public class TemplatesPlugin implements Plugin {
         
         // Project Plan Template
         templates.put("project", new Template(
-            "Project Plan",
-            "Template for project planning",
+            tr("templates.name.project", "Project Plan"),
+            tr("templates.desc.project", "Template for project planning"),
             "# Project: {{title}}\n\n" +
             "**Start Date:** {{date}}\n" +
             "**Target Date:** \n" +
@@ -199,8 +211,8 @@ public class TemplatesPlugin implements Plugin {
         
         // Weekly Review Template
         templates.put("weekly-review", new Template(
-            "Weekly Review",
-            "Template for weekly review and planning",
+            tr("templates.name.weeklyReview", "Weekly Review"),
+            tr("templates.desc.weeklyReview", "Template for weekly review and planning"),
             "# Weekly Review - Week {{week}}\n\n" +
             "**Date:** {{date}}\n\n" +
             "---\n\n" +
@@ -230,8 +242,8 @@ public class TemplatesPlugin implements Plugin {
         
         // Checklist Template
         templates.put("checklist", new Template(
-            "Checklist",
-            "Simple checklist template",
+            tr("templates.name.checklist", "Checklist"),
+            tr("templates.desc.checklist", "Simple checklist template"),
             "# {{title}}\n\n" +
             "**Created:** {{date}}\n\n" +
             "---\n\n" +
@@ -247,8 +259,8 @@ public class TemplatesPlugin implements Plugin {
         
         // Cornell Notes Template
         templates.put("cornell", new Template(
-            "Cornell Notes",
-            "Cornell note-taking method template",
+            tr("templates.name.cornell", "Cornell Notes"),
+            tr("templates.desc.cornell", "Cornell note-taking method template"),
             "# {{title}}\n\n" +
             "**Date:** {{date}}\n" +
             "**Topic:** \n\n" +
@@ -268,8 +280,8 @@ public class TemplatesPlugin implements Plugin {
         
         // Blog Post Template
         templates.put("blog", new Template(
-            "Blog Post",
-            "Template for writing blog posts",
+            tr("templates.name.blog", "Blog Post"),
+            tr("templates.desc.blog", "Template for writing blog posts"),
             "# {{title}}\n\n" +
             "**Draft Date:** {{date}}\n" +
             "**Status:** Draft\n" +
@@ -298,8 +310,8 @@ public class TemplatesPlugin implements Plugin {
         
         // Bug Report Template
         templates.put("bug-report", new Template(
-            "Bug Report",
-            "Template for reporting software bugs",
+            tr("templates.name.bugReport", "Bug Report"),
+            tr("templates.desc.bugReport", "Template for reporting software bugs"),
             "# Bug: {{title}}\n\n" +
             "**Reported:** {{date}}\n" +
             "**Severity:** Medium\n" +
@@ -333,26 +345,26 @@ public class TemplatesPlugin implements Plugin {
     private void showTemplateSelector() {
         Platform.runLater(() -> {
             Dialog<String> dialog = new Dialog<>();
-            dialog.setTitle("New from Template");
-            dialog.setHeaderText("Select a template to create a new note");
-            
-            ButtonType createButton = new ButtonType("Create", ButtonBar.ButtonData.OK_DONE);
+            dialog.setTitle(tr("templates.selector.title", "New from Template"));
+            dialog.setHeaderText(tr("templates.selector.header", "Select a template to create a new note"));
+
+            ButtonType createButton = new ButtonType(tr("templates.button.create", "Create"), ButtonBar.ButtonData.OK_DONE);
             dialog.getDialogPane().getButtonTypes().addAll(createButton, ButtonType.CANCEL);
-            
+
             VBox content = new VBox(10);
             content.setPadding(new Insets(20));
-            
+
             ListView<String> templateList = new ListView<>();
             templateList.setPrefHeight(200);
-            
+
             for (Map.Entry<String, Template> entry : templates.entrySet()) {
                 templateList.getItems().add(entry.getValue().getName() + " - " + entry.getValue().getDescription());
             }
-            
+
             templateList.getSelectionModel().selectFirst();
-            
+
             content.getChildren().addAll(
-                new Label("Available Templates:"),
+                new Label(tr("templates.selector.listLabel", "Available Templates:")),
                 templateList
             );
             
@@ -380,29 +392,29 @@ public class TemplatesPlugin implements Plugin {
     private void createFromTemplate(String templateId) {
         Template template = templates.get(templateId);
         if (template == null) {
-            context.showError("Template Error", "Template not found: " + templateId);
+            context.showError(tr("templates.error.title", "Template Error"), tr("templates.error.notFound", "Template not found: %s").formatted(templateId));
             return;
         }
-        
+
         Platform.runLater(() -> {
             // Ask for title
             Dialog<String> dialog = new Dialog<>();
-            dialog.setTitle("New " + template.getName());
-            dialog.setHeaderText("Enter a title for your new note");
-            
-            ButtonType createButton = new ButtonType("Create", ButtonBar.ButtonData.OK_DONE);
+            dialog.setTitle(tr("templates.dialog.newTitle", "New %s").formatted(template.getName()));
+            dialog.setHeaderText(tr("templates.dialog.header", "Enter a title for your new note"));
+
+            ButtonType createButton = new ButtonType(tr("templates.button.create", "Create"), ButtonBar.ButtonData.OK_DONE);
             dialog.getDialogPane().getButtonTypes().addAll(createButton, ButtonType.CANCEL);
-            
+
             GridPane grid = new GridPane();
             grid.setHgap(10);
             grid.setVgap(10);
             grid.setPadding(new Insets(20, 150, 10, 10));
-            
+
             TextField titleField = new TextField();
-            titleField.setPromptText("Note title");
+            titleField.setPromptText(tr("templates.field.title.prompt", "Note title"));
             titleField.setText(template.getName());
-            
-            grid.add(new Label("Title:"), 0, 0);
+
+            grid.add(new Label(tr("templates.field.title.label", "Title:")), 0, 0);
             grid.add(titleField, 1, 0);
             
             dialog.getDialogPane().setContent(grid);
@@ -442,7 +454,7 @@ public class TemplatesPlugin implements Plugin {
             context.log("Created note from template '" + template.getName() + "': " + title);
         } catch (Exception e) {
             context.logError("Failed to create note from template", e);
-            context.showError("Template Error", "Failed to create note: " + e.getMessage());
+            context.showError(tr("templates.error.title", "Template Error"), tr("templates.error.createFailed", "Failed to create note: %s").formatted(e.getMessage()));
         }
     }
     

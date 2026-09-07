@@ -1965,6 +1965,22 @@
     -fx-text-fill: -fx-accent-contrast;
 }
 
+/* A selected/focused ToggleButton was drawing a SQUARE outline around its rounded fill:
+   the rules above only ever set -fx-background-radius on the base state, so the extra
+   background layers JavaFX's own default stylesheet stacks on for :selected/:focused
+   (the focus ring) kept their default square-ish radii and insets and poked out past the
+   rounded body. Pin radius and insets on every state so the whole stack takes the same
+   shape as a plain .button. */
+.toggle-button,
+.toggle-button:selected,
+.toggle-button:focused,
+.toggle-button:selected:focused,
+.toggle-button:hover {
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-background-insets: 0;
+}
+
 /* ========================================
    SEPARATORS
    ======================================== */
@@ -2267,6 +2283,16 @@
 .tab-pane:focused {
     -fx-focus-color: -fx-accent;
     -fx-faint-focus-color: -fx-focus-ring;
+}
+
+/* See modern-theme.css's own copy of this rule for why: the default focus-indicator
+   region has its own -fx-background-radius, independent of the button's — left at the
+   JavaFX default it renders as a visibly square ring stacked on an otherwise rounded
+   button (most noticeable on a :selected ToggleButton's solid accent fill). */
+.button:focused > .focus-indicator,
+.toggle-button:focused > .focus-indicator,
+.menu-button:focused > .focus-indicator {
+    -fx-background-radius: 7, 6, 5;
 }
 
 .notes-list .list-cell {
@@ -4012,6 +4038,13 @@
 .dialog-pane .button-bar .button:focused {
     -fx-focus-color: -fx-accent;
     -fx-faint-focus-color: -fx-focus-ring;
+}
+
+.button:focused > .focus-indicator,
+.toggle-button:focused > .focus-indicator,
+.menu-button:focused > .focus-indicator,
+.dialog-pane .button-bar .button:focused > .focus-indicator {
+    -fx-background-radius: 7, 6, 5;
 }
 
 .drag-over-target {

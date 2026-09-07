@@ -14,6 +14,7 @@ import java.util.Set;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginContext;
+import com.example.jylos.plugin.PluginI18n;
 import org.kordamp.ikonli.javafx.FontIcon;
 
 import javafx.application.Platform;
@@ -64,58 +65,69 @@ public class CalendarPlugin implements Plugin {
     private Label monthLabel;
     private GridPane calendarGrid;
     private Set<LocalDate> datesWithNotes = new HashSet<>();
-    
+
+    // Loaded once, lazily — getDescription() can be called by the Plugin Manager before
+    // initialize() ever runs, so this cannot wait for that.
+    private static java.util.ResourceBundle bundle;
+
+    private static String tr(String key, String fallback) {
+        if (bundle == null) {
+            bundle = PluginI18n.bundle(CalendarPlugin.class);
+        }
+        return PluginI18n.tr(bundle, key, fallback);
+    }
+
     @Override
     public String getId() { return ID; }
-    
+
     @Override
     public String getName() { return NAME; }
-    
+
     @Override
     public String getVersion() { return VERSION; }
-    
+
     @Override
-    public String getDescription() { return DESCRIPTION; }
-    
+    public String getDescription() { return tr("calendar.plugin.description", DESCRIPTION); }
+
     @Override
     public String getAuthor() { return AUTHOR; }
-    
+
     @Override
     public void initialize(PluginContext context) {
         this.context = context;
         this.currentMonth = YearMonth.now();
-        
+
         // Register commands
         context.registerCommand(
             "Calendar: Show/Hide Panel",
-            "Toggle calendar panel visibility",
+            tr("calendar.command.togglePanel.description", "Toggle calendar panel visibility"),
             "Ctrl+Shift+C",
             this::toggleCalendarPanel
         );
-        
+
         context.registerCommand(
             "Calendar: Go to Today",
-            "Navigate calendar to current month",
+            tr("calendar.command.goToToday.description", "Navigate calendar to current month"),
             null,
             this::goToToday
         );
-        
+
         context.registerCommand(
             "Calendar: Refresh",
-            "Refresh calendar to show notes with dates",
+            tr("calendar.command.refresh.description", "Refresh calendar to show notes with dates"),
             null,
             this::refreshCalendar
         );
-        
+
         // Register menu items
-        context.registerMenuItem("Calendar", "Show/Hide Calendar", "Ctrl+Shift+C", this::toggleCalendarPanel);
-        context.registerMenuItem("Calendar", "Go to Today", this::goToToday);
-        context.registerMenuItem("Calendar", "Refresh", this::refreshCalendar);
-        
+        context.registerMenuItem(tr("calendar.title", "Calendar"), tr("calendar.menu.togglePanel", "Show/Hide Calendar"), "Ctrl+Shift+C", this::toggleCalendarPanel);
+        context.registerMenuItem(tr("calendar.title", "Calendar"), tr("calendar.menu.goToToday", "Go to Today"), this::goToToday);
+        context.registerMenuItem(tr("calendar.title", "Calendar"), tr("calendar.menu.refresh", "Refresh"), this::refreshCalendar);
+
         // Create and register the side panel
         Platform.runLater(() -> {
             createCalendarPanel();
-            context.registerSidePanel(PANEL_ID, "Calendar", calendarContent, "fth-calendar");
+            context.registerSidePanel(PANEL_ID, tr("calendar.title", "Calendar"), calendarContent, "fth-calendar");
         });
         
         context.log("Calendar Plugin initialized");
@@ -199,7 +211,11 @@ public class CalendarPlugin implements Plugin {
         calendarGrid.getChildren().clear();
         
         // Add day headers
-        String[] dayNames = {"Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"};
+        String[] dayNames = {
+            tr("calendar.day.mon", "Mo"), tr("calendar.day.tue", "Tu"), tr("calendar.day.wed", "We"),
+            tr("calendar.day.thu", "Th"), tr("calendar.day.fri", "Fr"), tr("calendar.day.sat", "Sa"),
+            tr("calendar.day.sun", "Su")
+        };
         for (int i = 0; i < 7; i++) {
             Label dayLabel = new Label(dayNames[i]);
             dayLabel.getStyleClass().add("calendar-day-name");
@@ -309,7 +325,8 @@ public class CalendarPlugin implements Plugin {
             }
         } catch (Exception e) {
             context.logError("Failed to open/create daily note", e);
-            context.showError("Calendar Plugin", "Failed to open daily note: " + e.getMessage());
+            context.showError(tr("calendar.error.title", "Calendar Plugin"),
+                    tr("calendar.error.openNote", "Failed to open daily note: %s").formatted(e.getMessage()));
         }
     }
     
@@ -353,7 +370,7 @@ public class CalendarPlugin implements Plugin {
      */
     private void refreshCalendar() {
         Platform.runLater(this::updateCalendar);
-        context.showInfo("Calendar", null, "Calendar refreshed!");
+        context.showInfo(tr("calendar.title", "Calendar"), null, tr("calendar.info.refreshed", "Calendar refreshed!"));
     }
     
     /**

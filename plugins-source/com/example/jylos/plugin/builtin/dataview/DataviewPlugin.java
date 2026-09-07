@@ -7,6 +7,7 @@ import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginContext;
+import com.example.jylos.plugin.PluginI18n;
 
 /**
  * Dataview for Jylos: query your notes' metadata from inside a note.
@@ -53,6 +54,15 @@ public class DataviewPlugin implements Plugin {
     private PluginContext context;
     private DataviewIndex index;
 
+    private static java.util.ResourceBundle bundle;
+
+    private static String tr(String key, String fallback) {
+        if (bundle == null) {
+            bundle = PluginI18n.bundle(DataviewPlugin.class);
+        }
+        return PluginI18n.tr(bundle, key, fallback);
+    }
+
     @Override
     public String getId() {
         return "dataview";
@@ -70,7 +80,7 @@ public class DataviewPlugin implements Plugin {
 
     @Override
     public String getDescription() {
-        return "Query note metadata with TABLE/LIST/TASK blocks rendered in the preview.";
+        return tr("plugin.description", "Query note metadata with TABLE/LIST/TASK blocks rendered in the preview.");
     }
 
     @Override
@@ -89,22 +99,22 @@ public class DataviewPlugin implements Plugin {
         subscribeToInvalidationEvents(context);
 
         context.registerCommand("Dataview: Rebuild index",
-                "Re-reads every note so queries pick up external changes",
+                tr("command.rebuild.description", "Re-reads every note so queries pick up external changes"),
                 () -> {
                     index.clear();
-                    context.showInfo("Dataview", "Index cleared",
-                            "The next query re-reads the vault.");
+                    context.showInfo(tr("title", "Dataview"), tr("indexCleared.header", "Index cleared"),
+                            tr("indexCleared.body", "The next query re-reads the vault."));
                 });
 
         context.registerCommand("Dataview: Query reference",
-                "Shows the supported query syntax",
-                () -> context.showInfo("Dataview", "Query syntax", REFERENCE));
+                tr("command.reference.description", "Shows the supported query syntax"),
+                () -> context.showInfo(tr("title", "Dataview"), tr("reference.header", "Query syntax"), REFERENCE));
 
-        context.registerMenuItem("Dataview", "Query reference",
-                () -> context.showInfo("Dataview", "Query syntax", REFERENCE));
+        context.registerMenuItem("Dataview", tr("menu.reference", "Query reference"),
+                () -> context.showInfo(tr("title", "Dataview"), tr("reference.header", "Query syntax"), REFERENCE));
 
-        context.registerMenuItem("Dataview", "Insert Dataview Template", () -> {
-            context.showInfo("Dataview Template", "Copy this to your note:",
+        context.registerMenuItem("Dataview", tr("menu.insertTemplate", "Insert Dataview Template"), () -> {
+            context.showCopyableInfo(tr("template.title", "Dataview Template"), tr("template.header", "Copy this to your note:"),
                     "```dataview\n" +
                             "TABLE rating AS \"Score\", file.mtime AS \"Updated\"\n" +
                             "FROM #tag\n" +

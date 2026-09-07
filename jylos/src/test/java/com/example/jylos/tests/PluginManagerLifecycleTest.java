@@ -22,11 +22,13 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.example.jylos.plugin.EditorHook;
 import com.example.jylos.plugin.EditorHookRegistry;
+import com.example.jylos.plugin.NoteContextMenuEntry;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginContext;
 import com.example.jylos.plugin.PluginLoader;
 import com.example.jylos.plugin.PluginManager;
 import com.example.jylos.plugin.PluginMenuRegistry;
+import com.example.jylos.plugin.PluginNoteContextMenuRegistry;
 import com.example.jylos.plugin.PreviewEnhancer;
 import com.example.jylos.plugin.PreviewEnhancerRegistry;
 import com.example.jylos.plugin.SidePanelRegistry;
@@ -46,9 +48,10 @@ class PluginManagerLifecycleTest {
         RecordingPreviewRegistry preview = new RecordingPreviewRegistry();
         RecordingHookRegistry hooks = new RecordingHookRegistry();
         RecordingToolbarRegistry toolbar = new RecordingToolbarRegistry();
+        RecordingNoteContextMenuRegistry noteContextMenu = new RecordingNoteContextMenuRegistry();
         PluginManager manager = new PluginManager(null, null, null, null, null, menu, side, preview, hooks, toolbar,
                 null, note -> {
-                }, null);
+                }, null, noteContextMenu);
         CountingPlugin plugin = new CountingPlugin("alpha");
 
         assertTrue(manager.registerPlugin(plugin));
@@ -62,6 +65,7 @@ class PluginManagerLifecycleTest {
         assertEquals(1, side.removeAllCalls);
         assertEquals(1, hooks.removeCalls);
         assertEquals(1, toolbar.removeCalls);
+        assertEquals(1, noteContextMenu.removeCalls);
         assertFalse(manager.isPluginEnabled("alpha"));
 
         assertTrue(manager.enablePlugin("alpha"));
@@ -72,12 +76,57 @@ class PluginManagerLifecycleTest {
         assertFalse(manager.getPlugin("alpha").isPresent());
     }
 
+    /**
+     * Not just "was removePluginNoteContextMenuItems called" (the recording-call-count
+     * style used above) — checks the actual observable state: the registered item is
+     * really there, with the right label, then really gone after the plugin is disabled.
+     *
+     * <p><b>Pick this test's plugin id carefully:</b> {@code disablePlugin}/{@code
+     * enablePlugin} write to {@code Preferences.userNodeForPackage(PluginManager.class)}
+     * — a real, machine-persistent store shared with the actual running app, not
+     * anything test-isolated. Using a real built-in plugin's id here (this test
+     * originally used {@code "publish"}) silently disabled that plugin for real, in
+     * this developer's actual Jylos install, the moment this test ran — caught only
+     * because the id happened to collide with one that mattered.</p>
+     */
+    @Test
+    void noteContextMenuItemRegisteredByAPluginIsVisibleThenRemovedOnDisable() {
+        RecordingNoteContextMenuRegistry noteContextMenu = new RecordingNoteContextMenuRegistry();
+        PluginManager manager = new PluginManager(null, null, null, null, null, null, null, null, null, null,
+                null, note -> {
+                }, null, noteContextMenu);
+        String id = "test-note-context-menu-plugin";
+        NoteContextMenuPlugin plugin = new NoteContextMenuPlugin(id);
+
+        // try/finally: disablePlugin below writes to the same real, persistent
+        // Preferences store discussed above — if a mid-test assertion failed
+        // before re-enabling, THIS id (unlike "publish") would only break this
+        // test's own next run, not the real app, but it would still make the
+        // test permanently red on every subsequent run until someone noticed
+        // and cleared it by hand. Guarantee the reset happens either way.
+        try {
+            manager.registerPlugin(plugin);
+            assertTrue(manager.initializePlugin(id));
+
+            java.util.List<NoteContextMenuEntry> registered = noteContextMenu.getNoteContextMenuItems();
+            assertEquals(1, registered.size(), "expected exactly one registered entry, found: " + registered);
+            assertEquals("Publish this note", registered.get(0).label());
+            assertEquals(id, registered.get(0).pluginId());
+
+            assertTrue(manager.disablePlugin(id));
+            assertTrue(noteContextMenu.getNoteContextMenuItems().isEmpty(),
+                    "entry should be gone after disable, found: " + noteContextMenu.getNoteContextMenuItems());
+        } finally {
+            manager.enablePlugin(id);
+        }
+    }
+
     @Test
     void shutdownAllCallsShutdownOnRegisteredPlugins() {
         PluginManager manager = new PluginManager(null, null, null, null, null,
                 new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry(),
                 new RecordingHookRegistry(), new RecordingToolbarRegistry(), null, note -> {
-                }, null);
+                }, null, null);
         CountingPlugin one = new CountingPlugin("one");
         CountingPlugin two = new CountingPlugin("two");
 
@@ -97,7 +146,7 @@ class PluginManagerLifecycleTest {
         PluginManager firstSession = new PluginManager(null, null, null, null, null,
                 new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry(),
                 new RecordingHookRegistry(), new RecordingToolbarRegistry(), null, note -> {
-                }, null);
+                }, null, null);
         CountingPlugin firstPlugin = new CountingPlugin(pluginId);
         firstSession.registerPlugin(firstPlugin);
         firstSession.initializeAll();
@@ -106,7 +155,7 @@ class PluginManagerLifecycleTest {
         PluginManager secondSession = new PluginManager(null, null, null, null, null,
                 new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry(),
                 new RecordingHookRegistry(), new RecordingToolbarRegistry(), null, note -> {
-                }, null);
+                }, null, null);
         CountingPlugin secondPlugin = new CountingPlugin(pluginId);
         secondSession.registerPlugin(secondPlugin);
 
@@ -127,7 +176,7 @@ class PluginManagerLifecycleTest {
         PluginManager manager = new PluginManager(null, null, null, null, null,
                 new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry(),
                 new RecordingHookRegistry(), new RecordingToolbarRegistry(), null, note -> {
-                }, null);
+                }, null, null);
         FailingPlugin plugin = new FailingPlugin("broken");
 
         assertFalse(manager.initializePlugin("broken"));
@@ -151,7 +200,7 @@ class PluginManagerLifecycleTest {
             PluginManager manager = new PluginManager(null, null, null, null, null,
                     new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry(),
                     new RecordingHookRegistry(), new RecordingToolbarRegistry(), null, note -> {
-                    }, null);
+                    }, null, null);
 
             Plugin installed = manager.installPluginJar(sourceJar);
 
@@ -227,6 +276,40 @@ class PluginManagerLifecycleTest {
             jar.closeEntry();
         } catch (IOException e) {
             throw new IllegalStateException("Could not add class to plugin JAR", e);
+        }
+    }
+
+    /** Registers exactly one note context menu item on initialize, for
+     *  {@link #noteContextMenuItemRegisteredByAPluginIsVisibleThenRemovedOnDisable}. */
+    private static final class NoteContextMenuPlugin implements Plugin {
+        private final String id;
+
+        private NoteContextMenuPlugin(String id) {
+            this.id = id;
+        }
+
+        @Override
+        public String getId() {
+            return id;
+        }
+
+        @Override
+        public String getName() {
+            return id;
+        }
+
+        @Override
+        public String getVersion() {
+            return "1.0.0";
+        }
+
+        @Override
+        public void initialize(PluginContext context) {
+            context.registerNoteContextMenuItem("Publish this note", note -> { });
+        }
+
+        @Override
+        public void shutdown() {
         }
     }
 
@@ -323,6 +406,28 @@ class PluginManagerLifecycleTest {
         @Override
         public boolean isPluginEnabled(String pluginId) {
             return true;
+        }
+    }
+
+    private static final class RecordingNoteContextMenuRegistry implements PluginNoteContextMenuRegistry {
+        private final java.util.List<NoteContextMenuEntry> entries = new java.util.ArrayList<>();
+        private int removeCalls = 0;
+
+        @Override
+        public void registerNoteContextMenuItem(String pluginId, String label,
+                java.util.function.Consumer<com.example.jylos.data.models.Note> action) {
+            entries.add(new NoteContextMenuEntry(pluginId, label, action));
+        }
+
+        @Override
+        public void removePluginNoteContextMenuItems(String pluginId) {
+            removeCalls++;
+            entries.removeIf(e -> e.pluginId().equals(pluginId));
+        }
+
+        @Override
+        public java.util.List<NoteContextMenuEntry> getNoteContextMenuItems() {
+            return entries;
         }
     }
 
