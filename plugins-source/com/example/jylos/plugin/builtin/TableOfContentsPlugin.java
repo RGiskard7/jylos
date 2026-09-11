@@ -9,6 +9,7 @@ import java.util.regex.Pattern;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginContext;
+import com.example.jylos.plugin.PluginI18n;
 import com.example.jylos.util.MarkdownProcessor;
 
 import javafx.application.Platform;
@@ -69,51 +70,62 @@ public class TableOfContentsPlugin implements Plugin {
         }
     }
     
+    // Loaded once, lazily — getDescription() can be called by the Plugin Manager before
+    // initialize() ever runs, so this cannot wait for that.
+    private static java.util.ResourceBundle bundle;
+
+    private static String tr(String key, String fallback) {
+        if (bundle == null) {
+            bundle = PluginI18n.bundle(TableOfContentsPlugin.class);
+        }
+        return PluginI18n.tr(bundle, key, fallback);
+    }
+
     @Override
     public String getId() { return ID; }
-    
+
     @Override
     public String getName() { return NAME; }
-    
+
     @Override
     public String getVersion() { return VERSION; }
-    
+
     @Override
-    public String getDescription() { return DESCRIPTION; }
-    
+    public String getDescription() { return tr("toc.plugin.description", DESCRIPTION); }
+
     @Override
     public String getAuthor() { return AUTHOR; }
-    
+
     @Override
     public void initialize(PluginContext context) {
         this.context = context;
-        
+
         // Register commands
         context.registerCommand(
             "TOC: Generate Table of Contents",
-            "Generate a table of contents from headers in the current note",
+            tr("toc.command.generate.description", "Generate a table of contents from headers in the current note"),
             "Ctrl+Shift+O",
             this::generateTocForCurrentNote
         );
-        
+
         context.registerCommand(
             "TOC: Preview Table of Contents",
-            "Preview the table of contents without inserting",
+            tr("toc.command.preview.description", "Preview the table of contents without inserting"),
             null,
             this::previewToc
         );
-        
+
         context.registerCommand(
             "TOC: Generate Numbered TOC",
-            "Generate a numbered table of contents",
+            tr("toc.command.numbered.description", "Generate a numbered table of contents"),
             null,
             this::generateNumberedToc
         );
-        
+
         // Register menu items (dynamic plugin menu)
-        context.registerMenuItem("Productivity", "Generate TOC", "Ctrl+Shift+O", this::generateTocForCurrentNote);
-        context.registerMenuItem("Productivity", "Preview TOC", this::previewToc);
-        context.registerMenuItem("Productivity", "Numbered TOC", this::generateNumberedToc);
+        context.registerMenuItem(tr("menuCategory.productivity", "Productivity"), tr("toc.menu.generate", "Generate TOC"), "Ctrl+Shift+O", this::generateTocForCurrentNote);
+        context.registerMenuItem(tr("menuCategory.productivity", "Productivity"), tr("toc.menu.preview", "Preview TOC"), this::previewToc);
+        context.registerMenuItem(tr("menuCategory.productivity", "Productivity"), tr("toc.menu.numbered", "Numbered TOC"), this::generateNumberedToc);
         
         context.log("Table of Contents Plugin initialized");
     }
@@ -130,21 +142,21 @@ public class TableOfContentsPlugin implements Plugin {
      * Generates TOC for the current note and shows it in a dialog.
      */
     private void generateTocForCurrentNote() {
-        showNoteSelectionDialog("Generate Table of Contents", false);
+        showNoteSelectionDialog(tr("toc.dialog.generate.title", "Generate Table of Contents"), false);
     }
-    
+
     /**
      * Previews the TOC without inserting.
      */
     private void previewToc() {
-        showNoteSelectionDialog("Preview Table of Contents", false);
+        showNoteSelectionDialog(tr("toc.dialog.preview.title", "Preview Table of Contents"), false);
     }
-    
+
     /**
      * Generates a numbered TOC.
      */
     private void generateNumberedToc() {
-        showNoteSelectionDialog("Generate Numbered TOC", true);
+        showNoteSelectionDialog(tr("toc.dialog.numbered.title", "Generate Numbered TOC"), true);
     }
     
     /**
@@ -154,8 +166,8 @@ public class TableOfContentsPlugin implements Plugin {
         List<Note> allNotes = context.getNoteService().getAllNotes();
         
         if (allNotes.isEmpty()) {
-            context.showInfo("Table of Contents", "No Notes", 
-                "Create a note first to generate a table of contents.");
+            context.showInfo(tr("toc.title", "Table of Contents"), tr("toc.noNotes.header", "No Notes"),
+                tr("toc.noNotes.body", "Create a note first to generate a table of contents."));
             return;
         }
         
@@ -163,10 +175,10 @@ public class TableOfContentsPlugin implements Plugin {
             // Create custom dialog
             Dialog<Note> dialog = new Dialog<>();
             dialog.setTitle(title);
-            dialog.setHeaderText("Select a note to generate TOC for:");
-            
+            dialog.setHeaderText(tr("toc.dialog.selectNote.header", "Select a note to generate TOC for:"));
+
             // Set up buttons
-            ButtonType generateButton = new ButtonType("Generate", ButtonBar.ButtonData.OK_DONE);
+            ButtonType generateButton = new ButtonType(tr("toc.button.generate", "Generate"), ButtonBar.ButtonData.OK_DONE);
             dialog.getDialogPane().getButtonTypes().addAll(generateButton, ButtonType.CANCEL);
             
             // Create ComboBox with proper cell factory
@@ -181,9 +193,9 @@ public class TableOfContentsPlugin implements Plugin {
                 public String toString(Note note) {
                     if (note == null) return "";
                     String noteTitle = note.getTitle();
-                    return noteTitle != null ? noteTitle : "Untitled";
+                    return noteTitle != null ? noteTitle : tr("toc.note.untitled", "Untitled");
                 }
-                
+
                 @Override
                 public Note fromString(String string) {
                     return null;
@@ -199,7 +211,7 @@ public class TableOfContentsPlugin implements Plugin {
                         setText("");
                     } else {
                         String noteTitle = note.getTitle();
-                        setText(noteTitle != null ? noteTitle : "Untitled");
+                        setText(noteTitle != null ? noteTitle : tr("toc.note.untitled", "Untitled"));
                     }
                 }
             });
@@ -211,7 +223,7 @@ public class TableOfContentsPlugin implements Plugin {
                         setText("");
                     } else {
                         String noteTitle = note.getTitle();
-                        setText(noteTitle != null ? noteTitle : "Untitled");
+                        setText(noteTitle != null ? noteTitle : tr("toc.note.untitled", "Untitled"));
                     }
                 }
             });
@@ -221,7 +233,7 @@ public class TableOfContentsPlugin implements Plugin {
             grid.setHgap(10);
             grid.setVgap(10);
             grid.setPadding(new Insets(20, 20, 10, 20));
-            grid.add(new Label("Note:"), 0, 0);
+            grid.add(new Label(tr("toc.field.note.label", "Note:")), 0, 0);
             grid.add(noteCombo, 1, 0);
             
             dialog.getDialogPane().setContent(grid);
@@ -236,14 +248,14 @@ public class TableOfContentsPlugin implements Plugin {
             });
             
             // Show and process result
-            com.example.jylos.ui.UiDialogs.apply(dialog);
-            Optional<Note> result = com.example.jylos.ui.UiDialogs.show(dialog);
+            context.applyTheme(dialog);
+            Optional<Note> result = context.showThemed(dialog);
             result.ifPresent(note -> {
                 String toc = generateToc(note.getContent(), numbered);
                 if (toc.isEmpty()) {
-                    showAlert("No Headers Found", 
-                        "No Markdown headers (# to ######) found in this note.\n\n" +
-                        "Headers must be on their own line starting with # symbols.");
+                    showAlert(tr("toc.noHeaders.header", "No Headers Found"),
+                        tr("toc.noHeaders.body", "No Markdown headers (# to ######) found in this note.\n\n"
+                            + "Headers must be on their own line starting with # symbols."));
                 } else {
                     showTocResult(note.getTitle(), toc);
                 }
@@ -256,10 +268,10 @@ public class TableOfContentsPlugin implements Plugin {
      */
     private void showAlert(String header, String content) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Table of Contents");
+        alert.setTitle(tr("toc.title", "Table of Contents"));
         alert.setHeaderText(header);
         alert.setContentText(content);
-        com.example.jylos.ui.UiDialogs.show(alert);
+        context.showThemed(alert);
     }
     
     /**
@@ -341,23 +353,23 @@ public class TableOfContentsPlugin implements Plugin {
     private void showTocResult(String noteTitle, String toc) {
         Platform.runLater(() -> {
             Dialog<Void> dialog = new Dialog<>();
-            dialog.setTitle("Generated Table of Contents");
-            dialog.setHeaderText("TOC for: " + noteTitle);
-            
-            ButtonType copyButton = new ButtonType("Copy to Clipboard", ButtonBar.ButtonData.OK_DONE);
+            dialog.setTitle(tr("toc.result.title", "Generated Table of Contents"));
+            dialog.setHeaderText(tr("toc.result.header", "TOC for: %s").formatted(noteTitle));
+
+            ButtonType copyButton = new ButtonType(tr("toc.button.copy", "Copy to Clipboard"), ButtonBar.ButtonData.OK_DONE);
             dialog.getDialogPane().getButtonTypes().addAll(copyButton, ButtonType.CLOSE);
-            
+
             TextArea textArea = new TextArea(toc);
             textArea.setEditable(false);
             textArea.setWrapText(true);
             textArea.setPrefRowCount(15);
             textArea.setPrefColumnCount(50);
             textArea.getStyleClass().add("dialog-monospace-area");
-            
+
             VBox content = new VBox(10);
             content.setPadding(new Insets(10));
             content.getChildren().addAll(
-                new Label("Copy this TOC and paste it at the top of your note:"),
+                new Label(tr("toc.result.instructions", "Copy this TOC and paste it at the top of your note:")),
                 textArea
             );
             
@@ -375,7 +387,7 @@ public class TableOfContentsPlugin implements Plugin {
                 return null;
             });
             
-            com.example.jylos.ui.UiDialogs.show(dialog);
+            context.showThemed(dialog);
         });
     }
 }

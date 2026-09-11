@@ -156,6 +156,12 @@ plugin out of the JAR mechanism (no independent enable/disable-by-file, no
 | `requestOpenNote(note)` | Ask the shell owner to open a note directly in the editor UI |
 | `requestRefreshNotes()` | Ask the shell to fan out a notes refresh event |
 | `subscribe(...)` / `publish(...)` | Typed `EventBus` access; subscriptions are cancelled automatically on disable |
+| `showInfo(title, header, content)` / `showError(title, message)` | A themed, read-only info/error `Alert` — the content renders as plain text, not selectable |
+| `showCopyableInfo(title, header, content)` | Same as `showInfo`, but the content is a real, selectable/copyable text area (plus a "Copy" button) — use this instead of `showInfo` for anything meant to be pasted elsewhere (a template snippet, a URL) |
+| `applyTheme(DialogPane \| Dialog<?> \| Scene)` | Applies the app's current theme to a dialog/window **you** build yourself. A plugin that needs more than `showInfo`/`showCopyableInfo`/`showError` offer (a custom form, its own `Alert` subtype, a borderless `Stage`) still needs this — it is what those three helpers call internally, and the only supported way to theme custom plugin UI. Reaching for `com.example.jylos.ui.UiDialogs` directly instead is refused at load time (see [Classloader boundary](#classloader-boundary) below) — it is an internal class, not part of this API, and every built-in plugin that used to do exactly that has since been migrated to `applyTheme` |
+| `showThemed(Dialog<T>)` | `applyTheme(dialog)` followed by `dialog.showAndWait()`, for the common case where nothing else needs to happen in between |
+| `runWithProgress(title, header, Task<T>, onSuccess, onFailure)` | Runs a `Task` on a background thread behind a themed, indeterminate-turned-determinate progress dialog — the ceremony a plugin doing real I/O (exporting a vault, a backup) needs: build the dialog, bind the progress bar, start a daemon thread, close the dialog, then hand off to `onSuccess`/`onFailure` (each already deferred past the nested-modal-goes-blank JavaFX quirk, so it is safe to open another dialog from either). See `PublishPlugin` for a real example |
+| `getPluginPreferences()` | This plugin's own, namespaced `java.util.prefs.Preferences` node — for settings that must survive a restart (an API key, a "last folder used"). Use this instead of `Preferences.userNodeForPackage(YourOwnClass.class)`: the node returned here is keyed by your plugin id under the host's own preferences subtree, guaranteed not to collide with another plugin's (or, worse, with the host's own bookkeeping keys for enabling/disabling plugins) |
 
 ### Preview enhancers
 
@@ -218,13 +224,51 @@ requests explicit while preserving the public plugin API.
 ## Lifecycle
 
 1. Discover JARs in plugin directories.
-2. Load with a dedicated `URLClassLoader` per plugin, so plugin dependency
-   JARs don't collide with each other. This is namespace isolation, **not** a
-   security sandbox: each classloader's parent is the app's own classloader,
-   so plugin code can reflectively reach any internal Jylos class. Plugins run
-   with the full privileges of the JVM process.
+2. Load with a dedicated, boundary-enforcing `URLClassLoader` per plugin
+   (below), then check `Plugin.getHostApiVersion()` against what this build
+   supports — an incompatible plugin is rejected with a message naming the
+   mismatch, not a generic failure.
 3. Register metadata, menu entries, preview enhancers, side panels; initialize enabled plugins.
 4. Disable: unregister UI hooks, commands and event subscriptions; shut down classloaders on app exit.
+
+### Classloader boundary
+
+Each plugin gets its own `PluginClassLoader` (a `URLClassLoader`), so plugin
+dependency JARs don't collide with each other — but unlike a plain
+`URLClassLoader`, a request for a `com.example.jylos.*` class outside
+[`PluginApiSurface`](https://github.com/RGiskard7/jylos/blob/develop/jylos/src/main/java/com/example/jylos/plugin/PluginApiSurface.java)
+never reaches the app's own classloader (its parent) at all, even though that
+parent could resolve it — it fails immediately with a `ClassNotFoundException`
+naming the exact class and pointing back at this table, instead of loading and
+breaking in some later release once that internal class moves or changes
+shape. `PluginApiSurface` is the single source of truth for the allowed list:
+the same one `PluginClassLoader` enforces at load time is what
+`PluginContractGuardTest` scans every built-in plugin's source against at
+build time, so the two cannot silently drift apart.
+
+This is a compiler/loader-enforced **contract boundary**, not a security
+**sandbox** — the distinction still matters, and is still honest to draw: a
+plugin is not confined to a restricted set of *operations* (file I/O, network,
+reflection into the JDK itself, …), only to a restricted set of *app-internal
+classes* it may reach by name. Once loaded, a plugin still runs with the full
+privileges of the JVM process — nothing here stops a determined plugin from
+reaching an unlisted class via more exotic reflection than a plain
+`Class.forName`. What this buys is honest, not absolute: an ordinary plugin
+(built-in or third-party, written against the documented API) fails fast and
+clearly the moment it drifts outside that API, rather than silently working
+today and breaking without warning on some future internal refactor.
+
+**Considered and rejected: a checksum sidecar per JAR** (recording a hash at
+install time, refusing to load a JAR whose bytes later changed). Dropped
+after actually building and testing it: this plugin system's own first,
+literal capability is *"add or remove a plugin by placing or deleting a JAR
+file"* — a developer (or a user testing their own build) routinely recompiles
+and drops in an updated JAR at the same filename, which is exactly indistinguishable,
+byte-checksum-wise, from tampering. A hash recorded once has no way to tell
+those apart, and there is no signature or trust model here to fall back on
+that would (see the classloader boundary above for what integrity guarantee
+*is* worth keeping instead — narrowing *what a plugin can reach*, which does
+not conflict with rebuilding one).
 
 Teardown does not depend on the plugin cooperating. `PluginManager` calls the plugin's
 `shutdown()`, then removes every contribution it registered — menu entries, side panels,

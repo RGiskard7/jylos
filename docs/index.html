@@ -183,6 +183,18 @@
     .feature-card h3 { font-size: 0.92rem; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.01em; }
     .feature-card p { font-size: 0.81rem; color: var(--text-secondary); line-height: 1.5; }
 
+    /* auto-fit (not auto-fill, like .features-grid above): with only three cards,
+       auto-fill would keep reserving empty tracks on a wide screen instead of letting
+       the three stretch to fill the row — auto-fit collapses those empty tracks. */
+    .plugins-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; max-width: 940px; margin: 0 auto; }
+    .plugin-card { padding: 28px 26px; }
+    .plugin-card svg { width: 30px; height: 30px; color: var(--accent-violet-light); margin-bottom: 16px; }
+    .plugin-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.01em; }
+    .plugin-card p { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 14px; }
+    .plugin-card ul { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+    .plugin-card li { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; padding-left: 18px; position: relative; }
+    .plugin-card li::before { content: ""; position: absolute; left: 0; top: 0.5em; width: 6px; height: 6px; border-radius: 50%; background: var(--accent-violet-light); opacity: 0.7; }
+
     .shots-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
     .shot-card { cursor: pointer; overflow: hidden; border-radius: var(--radius); border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); position: relative; transition: border-color var(--transition), box-shadow var(--transition); }
     .shot-card:hover { border-color: var(--glass-border-hover); box-shadow: var(--shadow-lg), 0 0 48px rgba(124,58,237,0.1); }
@@ -337,7 +349,7 @@
           </div>
         </div>
         <div class="hero-img-wrap">
-          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-17.png" alt="Jylos editor and preview" loading="eager">
+          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-24.png" alt="Jylos editor and preview" loading="eager">
         </div>
       </div>
     </div>
@@ -349,7 +361,7 @@
     <div class="container">
       <div class="social-row">
         <div class="social-stat">
-          <div class="social-stat__num" id="latest-release-version">v2.4.7</div>
+          <div class="social-stat__num" id="latest-release-version">v2.5.5</div>
           <div class="social-stat__label" data-i18n="statRelease">Release</div>
         </div>
         <div class="social-stat">
@@ -498,6 +510,48 @@
 
   <div class="divider"></div>
 
+  <section class="section" id="plugins">
+    <div class="container">
+      <div class="section-label" data-i18n="pluginsLabel">Built-in plugins</div>
+      <h2 class="section-title" data-i18n="pluginsTitle">Three plugins that go further than a toggle</h2>
+      <p class="section-subtitle" data-i18n="pluginsSubtitle">Bundled with Jylos, on by default, doing real work rather than just adding a menu item. See docs/PLUGINS.md for the full built-in list.</p>
+      <div class="plugins-grid">
+        <div class="plugin-card glass-card">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 3h18v18H3z"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/></svg>
+          <h3 data-i18n="pluginDataviewTitle">Dataview</h3>
+          <p data-i18n="pluginDataviewDesc">Query your notes' metadata like a database. A ```dataview block is replaced, live in the preview, by the result of running the query.</p>
+          <ul>
+            <li data-i18n="pluginDataviewBullet1">TABLE / LIST / TASK queries, with FROM, WHERE, SORT, GROUP BY, FLATTEN and LIMIT</li>
+            <li data-i18n="pluginDataviewBullet2">Reads frontmatter, inline key:: value fields, tags and the implicit file.* attributes</li>
+            <li data-i18n="pluginDataviewBullet3">Inline `= expression` results anywhere in a note's text</li>
+          </ul>
+        </div>
+        <div class="plugin-card glass-card">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="20" height="8" rx="2"/><rect x="2" y="13" width="20" height="8" rx="2"/><line x1="6" y1="7" x2="6.01" y2="7"/><line x1="6" y1="17" x2="6.01" y2="17"/></svg>
+          <h3 data-i18n="pluginMcpTitle">MCP Server</h3>
+          <p data-i18n="pluginMcpDesc">Exposes your vault to Claude Desktop, Claude Code and any Streamable HTTP MCP client over a local server, while Jylos is running.</p>
+          <ul>
+            <li data-i18n="pluginMcpBullet1">Search notes, read full content, create notes and replace a note's body</li>
+            <li data-i18n="pluginMcpBullet2">Runs entirely on your machine — no cloud round-trip, no vault upload</li>
+            <li data-i18n="pluginMcpBullet3">Read-mostly by design: no delete or trash exposed to clients</li>
+          </ul>
+        </div>
+        <div class="plugin-card glass-card">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+          <h3 data-i18n="pluginPublishTitle">Publish</h3>
+          <p data-i18n="pluginPublishDesc">Exports the whole vault to a self-contained static site — ready to push to GitHub Pages, Vercel or any static host as-is.</p>
+          <ul>
+            <li data-i18n="pluginPublishBullet1">Wiki-links become real relative links; an interactive graph, full and per-note</li>
+            <li data-i18n="pluginPublishBullet2">Folder tree, live search and a picker to choose exactly what gets included</li>
+            <li data-i18n="pluginPublishBullet3">Publish just one changed note to update an already-live site, no full re-export</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
   <section class="section" id="screenshots">
     <div class="container">
       <div class="section-label" data-i18n="screenshotsLabel">Screenshots</div>
@@ -505,34 +559,44 @@
       <p class="section-subtitle" data-i18n="screenshotsSubtitle">Click any image to expand it.</p>
       <div class="shots-grid">
         <figure class="shot-card" onclick="openLightbox(this.querySelector('img').src)">
-          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-18.png" alt="Mermaid diagrams" loading="lazy">
+          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-26.png" alt="Mermaid diagrams" loading="lazy">
           <div class="shot-overlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div>
           <figcaption data-i18n="shot1">Write notes in Markdown and visualize Mermaid diagrams in real time</figcaption>
         </figure>
         <figure class="shot-card" onclick="openLightbox(this.querySelector('img').src)">
-          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-19.png" alt="Knowledge graph" loading="lazy">
+          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-27.png" alt="Knowledge graph" loading="lazy">
           <div class="shot-overlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div>
           <figcaption data-i18n="shot2">Interactive knowledge graph with customizable visualization settings</figcaption>
         </figure>
         <figure class="shot-card" onclick="openLightbox(this.querySelector('img').src)">
-          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-20.png" alt="Knowledge graph 2" loading="lazy">
+          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-28.png" alt="Knowledge graph 2" loading="lazy">
           <div class="shot-overlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div>
           <figcaption data-i18n="shot3">Navigate thousands of connected notes through a scalable graph view</figcaption>
         </figure>
         <figure class="shot-card" onclick="openLightbox(this.querySelector('img').src)">
-          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-17.png" alt="Workspace layout" loading="lazy">
+          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-25.png" alt="Workspace layout" loading="lazy">
           <div class="shot-overlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div>
           <figcaption data-i18n="shot4">Customizable workspace with notes, navigation and live preview</figcaption>
         </figure>
         <figure class="shot-card" onclick="openLightbox(this.querySelector('img').src)">
-          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-21.png" alt="Kanban board" loading="lazy">
+          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-29.png" alt="Kanban board" loading="lazy">
           <div class="shot-overlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div>
           <figcaption data-i18n="shot5">Organize tasks and projects with built-in Kanban boards</figcaption>
         </figure>
         <figure class="shot-card" onclick="openLightbox(this.querySelector('img').src)">
-          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-22.png" alt="Canvas editor" loading="lazy">
+          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-32.png" alt="Canvas editor" loading="lazy">
           <div class="shot-overlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div>
           <figcaption data-i18n="shot6">Organize your notes visually with the canvas editor</figcaption>
+        </figure>
+        <figure class="shot-card" onclick="openLightbox(this.querySelector('img').src)">
+          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-31.png" alt="Plugins" loading="lazy">
+          <div class="shot-overlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div>
+          <figcaption data-i18n="shot7">Create and install plugins for whatever you want.</figcaption>
+        </figure>
+        <figure class="shot-card" onclick="openLightbox(this.querySelector('img').src)">
+          <img src="https://github.com/RGiskard7/jylos/raw/main/resources/images/interfaz-30.png" alt="Dataview plugin" loading="lazy">
+          <div class="shot-overlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div>
+          <figcaption data-i18n="shot8">Organize your notes with the Dataview plugin: generate dynamic views and tables in seconds</figcaption>
         </figure>
       </div>
     </div>
@@ -727,6 +791,25 @@
         featureSearchDesc: "Operators, date shorthands, command palette and quick switcher.",
         featureWorkspacesTitle: "Workspaces",
         featureWorkspacesDesc: "Save and restore open tabs, view state and layout per context.",
+
+        pluginsLabel: "Built-in plugins",
+        pluginsTitle: "Three plugins that go further than a toggle",
+        pluginsSubtitle: "Bundled with Jylos, on by default, doing real work rather than just adding a menu item. See docs/PLUGINS.md for the full built-in list.",
+        pluginDataviewTitle: "Dataview",
+        pluginDataviewDesc: "Query your notes' metadata like a database. A ```dataview block is replaced, live in the preview, by the result of running the query.",
+        pluginDataviewBullet1: "TABLE / LIST / TASK queries, with FROM, WHERE, SORT, GROUP BY, FLATTEN and LIMIT",
+        pluginDataviewBullet2: "Reads frontmatter, inline key:: value fields, tags and the implicit file.* attributes",
+        pluginDataviewBullet3: "Inline `= expression` results anywhere in a note's text",
+        pluginMcpTitle: "MCP Server",
+        pluginMcpDesc: "Exposes your vault to Claude Desktop, Claude Code and any Streamable HTTP MCP client over a local server, while Jylos is running.",
+        pluginMcpBullet1: "Search notes, read full content, create notes and replace a note's body",
+        pluginMcpBullet2: "Runs entirely on your machine — no cloud round-trip, no vault upload",
+        pluginMcpBullet3: "Read-mostly by design: no delete or trash exposed to clients",
+        pluginPublishTitle: "Publish",
+        pluginPublishDesc: "Exports the whole vault to a self-contained static site — ready to push to GitHub Pages, Vercel or any static host as-is.",
+        pluginPublishBullet1: "Wiki-links become real relative links; an interactive graph, full and per-note",
+        pluginPublishBullet2: "Folder tree, live search and a picker to choose exactly what gets included",
+        pluginPublishBullet3: "Publish just one changed note to update an already-live site, no full re-export",
         screenshotsLabel: "Screenshots",
         screenshotsTitle: "Interface overview",
         screenshotsSubtitle: "Click any image to expand it.",
@@ -736,6 +819,8 @@
         shot4: "Customizable workspace with notes, navigation and live preview",
         shot5: "Organize tasks and projects with built-in Kanban boards",
         shot6: "Organize your notes visually with the canvas editor",
+        shot7: "Create and install plugins for whatever you want",
+        shot8: "Organize your notes with the Dataview plugin: generate dynamic views and tables in seconds",
         whyLabel: "Design choices",
         whyTitle: "Practical decisions",
         whySubtitle: "The app is built around local storage, open formats and a desktop workflow.",
@@ -824,6 +909,25 @@
         featureSearchDesc: "Operadores, atajos de fecha, command palette y quick switcher.",
         featureWorkspacesTitle: "Workspaces",
         featureWorkspacesDesc: "Guarda y restaura pestañas abiertas, estado de vistas y layout por contexto.",
+
+        pluginsLabel: "Plugins integrados",
+        pluginsTitle: "Tres plugins que van más allá de un interruptor",
+        pluginsSubtitle: "Incluidos con Jylos, activados por defecto, que hacen trabajo de verdad en vez de solo añadir un elemento de menú. Ver docs/PLUGINS.md para la lista completa de plugins integrados.",
+        pluginDataviewTitle: "Dataview",
+        pluginDataviewDesc: "Consulta los metadatos de tus notas como si fueran una base de datos. Un bloque ```dataview se sustituye, en vivo en la vista previa, por el resultado de ejecutar la consulta.",
+        pluginDataviewBullet1: "Consultas TABLE / LIST / TASK, con FROM, WHERE, SORT, GROUP BY, FLATTEN y LIMIT",
+        pluginDataviewBullet2: "Lee frontmatter, campos inline key:: value, etiquetas y los atributos implícitos file.*",
+        pluginDataviewBullet3: "Resultados inline con `= expresión` en cualquier parte del texto de una nota",
+        pluginMcpTitle: "Servidor MCP",
+        pluginMcpDesc: "Expone tu vault a Claude Desktop, Claude Code y cualquier cliente MCP con Streamable HTTP mediante un servidor local, mientras Jylos está en marcha.",
+        pluginMcpBullet1: "Busca notas, lee su contenido completo, crea notas y reemplaza el cuerpo de una nota",
+        pluginMcpBullet2: "Se ejecuta enteramente en tu máquina — sin ida y vuelta a la nube, sin subir el vault",
+        pluginMcpBullet3: "Pensado para ser mayormente de lectura: no expone borrar ni mover a la papelera",
+        pluginPublishTitle: "Publish",
+        pluginPublishDesc: "Exporta todo el vault a un sitio web estático autocontenido — listo para subir tal cual a GitHub Pages, Vercel o cualquier hosting estático.",
+        pluginPublishBullet1: "Los wiki-links se convierten en enlaces relativos reales; grafo interactivo, completo y por nota",
+        pluginPublishBullet2: "Árbol de carpetas, búsqueda en vivo y un selector para elegir exactamente qué se incluye",
+        pluginPublishBullet3: "Publica solo la nota que has cambiado para actualizar un sitio ya publicado, sin re-exportar todo",
         screenshotsLabel: "Capturas",
         screenshotsTitle: "Vista general de la interfaz",
         screenshotsSubtitle: "Haz clic en cualquier imagen para ampliarla.",
@@ -833,6 +937,8 @@
         shot4: "Espacio de trabajo personalizable con notas, navegación y vista previa en vivo",
         shot5: "Organiza tareas y proyectos con tableros Kanban integrados",
         shot6: "Organiza tus notas visualmente con el editor de canvas",
+        shot7: "Crea e instala plugins para lo que necesites",
+        shot8: "Organiza tus notas con el plugin Dataview: genera vistas y tablas dinámicas en segundos",
         whyLabel: "Decisiones de diseño",
         whyTitle: "Elecciones prácticas",
         whySubtitle: "La aplicación está construida alrededor de almacenamiento local, formatos abiertos y un flujo de trabajo de escritorio.",
@@ -932,7 +1038,7 @@
         });
         if (!response.ok) return;
         var payload = await response.json();
-        if (payload && typeof payload.tag_name === 'string' && /^v\\d+\\.\\d+\\.\\d+$/.test(payload.tag_name)) {
+        if (payload && typeof payload.tag_name === 'string' && /^v\d+\.\d+\.\d+$/.test(payload.tag_name)) {
           releaseNode.textContent = payload.tag_name;
         }
       } catch (error) {

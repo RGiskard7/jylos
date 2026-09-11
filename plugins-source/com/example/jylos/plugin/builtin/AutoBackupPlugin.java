@@ -10,6 +10,7 @@ import java.util.List;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginContext;
+import com.example.jylos.plugin.PluginI18n;
 import com.example.jylos.service.DatabaseBackupService;
 
 import javafx.application.Platform;
@@ -40,61 +41,72 @@ public class AutoBackupPlugin implements Plugin {
     private static final String DB_PATH = "data/database.db";
     
     private PluginContext context;
-    
+
+    // Loaded once, lazily — getDescription() can be called by the Plugin Manager before
+    // initialize() ever runs, so this cannot wait for that.
+    private static java.util.ResourceBundle bundle;
+
+    private static String tr(String key, String fallback) {
+        if (bundle == null) {
+            bundle = PluginI18n.bundle(AutoBackupPlugin.class);
+        }
+        return PluginI18n.tr(bundle, key, fallback);
+    }
+
     @Override
     public String getId() { return ID; }
-    
+
     @Override
     public String getName() { return NAME; }
-    
+
     @Override
     public String getVersion() { return VERSION; }
-    
+
     @Override
-    public String getDescription() { return DESCRIPTION; }
-    
+    public String getDescription() { return tr("autobackup.plugin.description", DESCRIPTION); }
+
     @Override
     public String getAuthor() { return AUTHOR; }
-    
+
     @Override
     public void initialize(PluginContext context) {
         this.context = context;
-        
+
         // Register commands
         context.registerCommand(
             "Backup: Export All Notes",
-            "Export all notes as Markdown files to a folder",
+            tr("autobackup.command.exportAll.description", "Export all notes as Markdown files to a folder"),
             "Ctrl+Shift+B",
             this::exportAllNotes
         );
-        
+
         context.registerCommand(
             "Backup: Database Backup",
-            "Create a backup copy of the database file",
+            tr("autobackup.command.database.description", "Create a backup copy of the database file"),
             null,
             this::backupDatabase
         );
-        
+
         context.registerCommand(
             "Backup: Full Backup",
-            "Export notes and backup database",
+            tr("autobackup.command.full.description", "Export notes and backup database"),
             null,
             this::fullBackup
         );
-        
+
         context.registerCommand(
             "Backup: Export Current Note",
-            "Export the current note as a Markdown file",
+            tr("autobackup.command.exportCurrent.description", "Export the current note as a Markdown file"),
             null,
             this::exportCurrentNote
         );
-        
+
         // Register menu items (dynamic plugin menu)
-        context.registerMenuItem("Utilities", "Export All Notes...", "Ctrl+Shift+B", this::exportAllNotes);
-        context.registerMenuItem("Utilities", "Export Current Note...", this::exportCurrentNote);
-        context.addMenuSeparator("Utilities");
-        context.registerMenuItem("Utilities", "Database Backup...", this::backupDatabase);
-        context.registerMenuItem("Utilities", "Full Backup...", this::fullBackup);
+        context.registerMenuItem(tr("menuCategory.utilities", "Utilities"), tr("autobackup.menu.exportAll", "Export All Notes..."), "Ctrl+Shift+B", this::exportAllNotes);
+        context.registerMenuItem(tr("menuCategory.utilities", "Utilities"), tr("autobackup.menu.exportCurrent", "Export Current Note..."), this::exportCurrentNote);
+        context.addMenuSeparator(tr("menuCategory.utilities", "Utilities"));
+        context.registerMenuItem(tr("menuCategory.utilities", "Utilities"), tr("autobackup.menu.database", "Database Backup..."), this::backupDatabase);
+        context.registerMenuItem(tr("menuCategory.utilities", "Utilities"), tr("autobackup.menu.full", "Full Backup..."), this::fullBackup);
         
         context.log("Auto Backup Plugin initialized");
     }
@@ -114,20 +126,21 @@ public class AutoBackupPlugin implements Plugin {
     private void exportAllNotes() {
         Platform.runLater(() -> {
             DirectoryChooser chooser = new DirectoryChooser();
-            chooser.setTitle("Select Backup Folder");
+            chooser.setTitle(tr("autobackup.chooser.folder.title", "Select Backup Folder"));
             chooser.setInitialDirectory(new File(System.getProperty("user.home")));
-            
+
             File selectedDir = chooser.showDialog(null);
             if (selectedDir == null) {
                 return;
             }
-            
+
             // Create backup subfolder with timestamp
             String timestamp = LocalDateTime.now().format(TIMESTAMP_FORMAT);
             File backupDir = new File(selectedDir, "jylos-backup-" + timestamp);
-            
+
             if (!backupDir.mkdirs()) {
-                context.showError("Backup Error", "Failed to create backup folder: " + backupDir.getPath());
+                context.showError(tr("autobackup.error.title", "Backup Error"),
+                        tr("autobackup.error.createFolder", "Failed to create backup folder: %s").formatted(backupDir.getPath()));
                 return;
             }
             
@@ -156,14 +169,15 @@ public class AutoBackupPlugin implements Plugin {
             
             // Show result
             String message = String.format(
-                "Backup completed!\n\n" +
-                "Location: %s\n" +
-                "Notes exported: %d\n" +
-                "Failed: %d",
+                tr("autobackup.exportAll.body",
+                    "Backup completed!\n\n" +
+                    "Location: %s\n" +
+                    "Notes exported: %d\n" +
+                    "Failed: %d"),
                 backupDir.getPath(), exported, failed
             );
-            
-            context.showInfo("Backup Complete", "Notes Exported", message);
+
+            context.showInfo(tr("autobackup.exportAll.title", "Backup Complete"), tr("autobackup.exportAll.header", "Notes Exported"), message);
             context.log("Exported " + exported + " notes to " + backupDir.getPath());
         });
     }
@@ -174,17 +188,18 @@ public class AutoBackupPlugin implements Plugin {
     private void backupDatabase() {
         Platform.runLater(() -> {
             DirectoryChooser chooser = new DirectoryChooser();
-            chooser.setTitle("Select Backup Location");
+            chooser.setTitle(tr("autobackup.chooser.location.title", "Select Backup Location"));
             chooser.setInitialDirectory(new File(System.getProperty("user.home")));
-            
+
             File selectedDir = chooser.showDialog(null);
             if (selectedDir == null) {
                 return;
             }
-            
+
             File sourceDb = new File(DB_PATH);
             if (!sourceDb.exists()) {
-                context.showError("Backup Error", "Database file not found: " + DB_PATH);
+                context.showError(tr("autobackup.error.title", "Backup Error"),
+                        tr("autobackup.error.dbNotFound", "Database file not found: %s").formatted(DB_PATH));
                 return;
             }
 
@@ -193,12 +208,12 @@ public class AutoBackupPlugin implements Plugin {
             File targetDb = new File(selectedDir, backupName);
 
             if (!DatabaseBackupService.backupDatabaseFile(sourceDb, targetDb)) {
-                context.showError("Backup Error", "Failed to backup database.");
+                context.showError(tr("autobackup.error.title", "Backup Error"), tr("autobackup.error.dbFailed", "Failed to backup database."));
                 return;
             }
 
-            context.showInfo("Database Backup", "Backup Created",
-                    "Database backed up to:\n" + targetDb.getPath());
+            context.showInfo(tr("autobackup.database.title", "Database Backup"), tr("autobackup.database.header", "Backup Created"),
+                    tr("autobackup.database.body", "Database backed up to:\n%s").formatted(targetDb.getPath()));
             context.log("Database backed up to " + targetDb.getPath());
         });
     }
@@ -209,28 +224,28 @@ public class AutoBackupPlugin implements Plugin {
     private void fullBackup() {
         Platform.runLater(() -> {
             DirectoryChooser chooser = new DirectoryChooser();
-            chooser.setTitle("Select Backup Folder");
+            chooser.setTitle(tr("autobackup.chooser.folder.title", "Select Backup Folder"));
             chooser.setInitialDirectory(new File(System.getProperty("user.home")));
-            
+
             File selectedDir = chooser.showDialog(null);
             if (selectedDir == null) {
                 return;
             }
-            
+
             // Create backup folder
             String timestamp = LocalDateTime.now().format(TIMESTAMP_FORMAT);
             File backupDir = new File(selectedDir, "jylos-full-backup-" + timestamp);
             File notesDir = new File(backupDir, "notes");
-            
+
             if (!notesDir.mkdirs()) {
-                context.showError("Backup Error", "Failed to create backup folders");
+                context.showError(tr("autobackup.error.title", "Backup Error"), tr("autobackup.error.createFolders", "Failed to create backup folders"));
                 return;
             }
-            
+
             StringBuilder report = new StringBuilder();
-            report.append("Full Backup Report\n");
+            report.append(tr("autobackup.report.title", "Full Backup Report")).append("\n");
             report.append("==================\n\n");
-            report.append("Location: ").append(backupDir.getPath()).append("\n\n");
+            report.append(tr("autobackup.report.location", "Location:")).append(" ").append(backupDir.getPath()).append("\n\n");
             
             // Export notes
             List<Note> allNotes = context.getNoteService().getAllNotes();
@@ -253,35 +268,35 @@ public class AutoBackupPlugin implements Plugin {
                 }
             }
             
-            report.append("Notes exported: ").append(exported).append("\n");
-            
+            report.append(tr("autobackup.report.notesExported", "Notes exported:")).append(" ").append(exported).append("\n");
+
             File sourceDb = new File(DB_PATH);
             if (sourceDb.exists()) {
                 File targetDb = new File(backupDir, "database.db");
                 if (DatabaseBackupService.backupDatabaseFile(sourceDb, targetDb)) {
-                    report.append("Database: backed up\n");
+                    report.append(tr("autobackup.report.database.backedUp", "Database: backed up")).append("\n");
                 } else {
-                    report.append("Database: backup failed\n");
+                    report.append(tr("autobackup.report.database.failed", "Database: backup failed")).append("\n");
                 }
             } else {
-                report.append("Database: not found\n");
+                report.append(tr("autobackup.report.database.notFound", "Database: not found")).append("\n");
             }
-            
+
             // Write report
             try {
                 File reportFile = new File(backupDir, "backup-report.txt");
                 try (FileWriter writer = new FileWriter(reportFile)) {
                     writer.write(report.toString());
-                    writer.write("\nBackup created: " + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+                    writer.write("\n" + tr("autobackup.report.createdAt", "Backup created:") + " "
+                            + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
                 }
             } catch (IOException e) {
                 context.logError("Failed to write backup report", e);
             }
-            
-            context.showInfo("Full Backup", "Backup Complete", 
-                "Full backup created at:\n" + backupDir.getPath() + "\n\n" +
-                "Notes: " + exported + "\n" +
-                "Database: included");
+
+            context.showInfo(tr("autobackup.full.title", "Full Backup"), tr("autobackup.full.header", "Backup Complete"),
+                tr("autobackup.full.body", "Full backup created at:\n%s\n\nNotes: %d\nDatabase: included")
+                        .formatted(backupDir.getPath(), exported));
             
             context.log("Full backup completed: " + backupDir.getPath());
         });
@@ -294,37 +309,39 @@ public class AutoBackupPlugin implements Plugin {
         List<Note> allNotes = context.getNoteService().getAllNotes();
         
         if (allNotes.isEmpty()) {
-            context.showInfo("Export Note", "No Notes", "Create a note first.");
+            context.showInfo(tr("autobackup.exportNote.title", "Export Note"), tr("autobackup.exportNote.noNotes.header", "No Notes"),
+                    tr("autobackup.exportNote.noNotes.body", "Create a note first."));
             return;
         }
-        
+
         Platform.runLater(() -> {
             javafx.scene.control.ChoiceDialog<Note> dialog = new javafx.scene.control.ChoiceDialog<>(
                 allNotes.get(0), allNotes
             );
-            dialog.setTitle("Export Note");
-            dialog.setHeaderText("Select a note to export:");
-            dialog.setContentText("Note:");
-            
-            com.example.jylos.ui.UiDialogs.show(dialog).ifPresent(note -> {
+            dialog.setTitle(tr("autobackup.exportNote.title", "Export Note"));
+            dialog.setHeaderText(tr("autobackup.exportNote.header", "Select a note to export:"));
+            dialog.setContentText(tr("autobackup.exportNote.content", "Note:"));
+
+            context.showThemed(dialog).ifPresent(note -> {
                 javafx.stage.FileChooser fileChooser = new javafx.stage.FileChooser();
-                fileChooser.setTitle("Save Note As");
+                fileChooser.setTitle(tr("autobackup.saveNote.title", "Save Note As"));
                 fileChooser.setInitialFileName(sanitizeFileName(note.getTitle()) + ".md");
                 fileChooser.getExtensionFilters().addAll(
                     new javafx.stage.FileChooser.ExtensionFilter("Markdown", "*.md"),
-                    new javafx.stage.FileChooser.ExtensionFilter("Text", "*.txt")
+                    new javafx.stage.FileChooser.ExtensionFilter(tr("autobackup.filter.text", "Text"), "*.txt")
                 );
-                
+
                 File file = fileChooser.showSaveDialog(null);
                 if (file != null) {
                     try (FileWriter writer = new FileWriter(file)) {
                         writer.write(buildExportContent(note));
-                        context.showInfo("Export Complete", "Note Exported", 
-                            "Note saved to:\n" + file.getPath());
+                        context.showInfo(tr("autobackup.exportComplete.title", "Export Complete"), tr("autobackup.exportComplete.header", "Note Exported"),
+                            tr("autobackup.exportComplete.body", "Note saved to:\n%s").formatted(file.getPath()));
                         context.log("Exported note to " + file.getPath());
                     } catch (IOException e) {
                         context.logError("Failed to export note", e);
-                        context.showError("Export Error", "Failed to save note: " + e.getMessage());
+                        context.showError(tr("autobackup.exportError.title", "Export Error"),
+                                tr("autobackup.exportError.body", "Failed to save note: %s").formatted(e.getMessage()));
                     }
                 }
             });

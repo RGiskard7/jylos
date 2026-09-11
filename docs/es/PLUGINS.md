@@ -155,6 +155,12 @@ fichero independiente, sin `isPluginRemovable`) a cambio de disponibilidad incon
 | `requestOpenNote(note)` | Pedir al shell abrir nota |
 | `requestRefreshNotes()` | Pedir refresh fan-out |
 | `subscribe(...)` / `publish(...)` | Eventos tipados; las suscripciones se cancelan solas al deshabilitar |
+| `showInfo(title, header, content)` / `showError(title, message)` | Un `Alert` de información/error, con tema aplicado, de solo lectura — el contenido se muestra como texto plano, no seleccionable |
+| `showCopyableInfo(title, header, content)` | Igual que `showInfo`, pero el contenido es un área de texto real, seleccionable/copiable (más un botón "Copy") — úsalo en vez de `showInfo` para cualquier cosa pensada para pegarse en otro sitio (un fragmento de plantilla, una URL) |
+| `applyTheme(DialogPane \| Dialog<?> \| Scene)` | Aplica el tema actual de la app a un diálogo o ventana que construyes **tú**. Un plugin que necesite más de lo que ofrecen `showInfo`/`showCopyableInfo`/`showError` (un formulario propio, su propio subtipo de `Alert`, un `Stage` sin bordes) sigue necesitando esto — es lo que esos tres helpers llaman internamente, y la única forma soportada de dar tema a UI propia de un plugin. Alcanzar `com.example.jylos.ui.UiDialogs` directamente en su lugar se rechaza al cargar (ver [Límite del classloader](#límite-del-classloader) más abajo) — es una clase interna, no forma parte de este API, y todo plugin integrado que hacía justo eso ya está migrado a `applyTheme` |
+| `showThemed(Dialog<T>)` | `applyTheme(dialog)` seguido de `dialog.showAndWait()`, para el caso común donde no hace falta nada más entre medias |
+| `runWithProgress(title, header, Task<T>, onSuccess, onFailure)` | Ejecuta un `Task` en segundo plano detrás de un diálogo de progreso con tema aplicado — la ceremonia que necesita un plugin haciendo E/S real (exportar una bóveda, una copia de seguridad): construir el diálogo, enlazar la barra de progreso, arrancar un hilo daemon, cerrar el diálogo y entregar el resultado a `onSuccess`/`onFailure` (cada uno ya diferido más allá del conocido bug de JavaFX de diálogo modal en blanco). Ver `PublishPlugin` para un ejemplo real |
+| `getPluginPreferences()` | El nodo `java.util.prefs.Preferences` propio de este plugin, namespaced por su id — para ajustes que deben sobrevivir a un reinicio (una clave de API, "última carpeta usada"). Úsalo en vez de `Preferences.userNodeForPackage(TuPropiaClase.class)`: el nodo que devuelve está bajo el subárbol de preferencias del propio host, con garantía de no colisionar con el de otro plugin (ni, peor, con las claves de activado/desactivado que usa el propio host) |
 
 ## Preview enhancers
 
@@ -206,10 +212,55 @@ Deben ser rápidos, se ejecutan en JavaFX Application Thread y se eliminan al de
 
 ## Ciclo de vida
 
-1. Descubrir JARs.
-2. Cargar con classloaders dedicados.
-3. Registrar metadata, comandos, menús, preview enhancers y paneles.
-4. Deshabilitar limpia UI/hooks/comandos/suscripciones.
+1. Descubrir JARs en los directorios de plugins.
+2. Cargar con un `URLClassLoader` dedicado por plugin, que además acota el
+   límite descrito abajo, y luego comprobar `Plugin.getHostApiVersion()`
+   contra lo que soporta este build — un plugin incompatible se rechaza con
+   un mensaje que nombra el desajuste, no un fallo genérico.
+3. Registrar metadata, comandos, menús, preview enhancers y paneles; inicializar los plugins activados.
+4. Deshabilitar: retirar hooks de UI, comandos y suscripciones a eventos; cerrar classloaders al salir de la app.
+
+### Límite del classloader
+
+Cada plugin tiene su propio `PluginClassLoader` (un `URLClassLoader`), para
+que los JAR de dependencias de un plugin no choquen con los de otro — pero, a
+diferencia de un `URLClassLoader` normal, una petición de una clase
+`com.example.jylos.*` fuera de
+[`PluginApiSurface`](https://github.com/RGiskard7/jylos/blob/develop/jylos/src/main/java/com/example/jylos/plugin/PluginApiSurface.java)
+nunca llega al classloader de la propia app (su padre), aunque ese padre
+pudiera resolverla — falla de inmediato con un `ClassNotFoundException` que
+nombra la clase exacta y apunta de vuelta a esta tabla, en vez de cargar y
+romperse en algún release futuro en cuanto esa clase interna cambie de forma
+o de sitio. `PluginApiSurface` es la única fuente de verdad de la lista
+permitida: la misma que `PluginClassLoader` impone en tiempo de carga es la
+que `PluginContractGuardTest` usa para escanear el código fuente de cada
+plugin integrado en tiempo de build, así que las dos no pueden desincronizarse.
+
+Esto es un **límite de contrato** impuesto por el compilador/cargador, no un
+**sandbox** de seguridad — la distinción sigue importando, y sigue siendo
+honesto trazarla: un plugin no está confinado a un conjunto restringido de
+*operaciones* (E/S de fichero, red, reflexión sobre el propio JDK, …), solo a
+un conjunto restringido de *clases internas de la app* que puede alcanzar por
+nombre. Una vez cargado, un plugin sigue corriendo con los privilegios
+completos del proceso de la JVM — nada de esto impide a un plugin decidido
+alcanzar una clase no listada por una vía de reflexión más exótica que un
+`Class.forName` simple. Lo que esto da es honesto, no absoluto: un plugin
+normal (integrado o de terceros, escrito contra el API documentado) falla
+rápido y con claridad en cuanto se sale de ese API, en vez de funcionar en
+silencio hoy y romperse sin aviso en algún refactor interno futuro.
+
+**Considerado y descartado: un checksum por JAR** (grabar un hash al
+instalar, rechazar cargar un JAR cuyos bytes cambiaran después). Se retiró
+tras construirlo y probarlo de verdad: la primera capacidad, literal, de este
+sistema de plugins es *"añadir o quitar un plugin colocando o borrando un
+fichero JAR"* — un desarrollador (o un usuario probando su propio build)
+recompila y suelta un JAR actualizado con el mismo nombre habitualmente, y
+eso es exactamente indistinguible, en bytes, de una manipulación. Un hash
+grabado una vez no tiene forma de diferenciar ambos casos, y aquí no hay
+firma ni modelo de confianza al que recurrir que sí pudiera (ver el límite
+del classloader de arriba para la garantía de integridad que sí merece la
+pena mantener en su lugar — acotar *qué puede alcanzar* un plugin, que no
+choca con recompilarlo).
 
 El desmontaje no depende de que el plugin colabore. `PluginManager` llama a su
 `shutdown()` y después retira todas sus aportaciones —entradas de menú, paneles, preview

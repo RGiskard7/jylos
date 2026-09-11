@@ -321,7 +321,7 @@ public class PluginLoader {
         URLClassLoader classLoader = null;
         try {
             URL jarUrl = jarPath.toUri().toURL();
-            classLoader = new URLClassLoader(
+            classLoader = new PluginClassLoader(
                     new URL[] { jarUrl },
                     PluginLoader.class.getClassLoader());
 

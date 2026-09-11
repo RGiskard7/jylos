@@ -76,6 +76,8 @@ public class NotesListController {
     };
     private Consumer<String> statusUpdateAction = message -> {
     };
+    private Supplier<List<com.example.jylos.plugin.NoteContextMenuEntry>> noteContextMenuItemsSupplier =
+            java.util.Collections::emptyList;
 
     private String currentFilterType = "all";
     private Folder currentFolder;
@@ -384,6 +386,7 @@ public class NotesListController {
                 contextMenu.getItems().addAll(openItem, pinItem, favoriteItem, privateItem, renameItem, moveItem,
                         revealItem, exportItem,
                         new SeparatorMenuItem(), deleteItem);
+                appendPluginNoteContextMenuItems(contextMenu, this::getItem);
 
                 addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
                     if (event.getButton() == MouseButton.SECONDARY && !isEmpty()) {
@@ -699,6 +702,25 @@ public class NotesListController {
             Consumer<Note> notePrivacyToggleAction,
             BiConsumer<List<Note>, String> notesLoadedAction,
             Consumer<String> statusUpdateAction) {
+        wire(eventBus, noteService, tagService, folderService, bundle, noteSelectionAction, noteExportAction,
+                notePrivacyToggleAction, notesLoadedAction, statusUpdateAction, null);
+    }
+
+    /**
+     * Same as the ten-argument {@link #wire}, plus a supplier for plugin-
+     * contributed note context menu items ({@link
+     * com.example.jylos.plugin.PluginNoteContextMenuRegistry}) — a separate
+     * overload rather than growing that one further, since most callers (tests
+     * in particular) have no need for it.
+     */
+    public void wire(EventBus eventBus, NoteService noteService, TagService tagService,
+            FolderService folderService, ResourceBundle bundle,
+            Consumer<Note> noteSelectionAction,
+            Consumer<Note> noteExportAction,
+            Consumer<Note> notePrivacyToggleAction,
+            BiConsumer<List<Note>, String> notesLoadedAction,
+            Consumer<String> statusUpdateAction,
+            Supplier<List<com.example.jylos.plugin.NoteContextMenuEntry>> noteContextMenuItemsSupplier) {
         setServices(noteService, tagService, folderService);
         setBundle(bundle);
         this.noteSelectionAction = noteSelectionAction != null ? noteSelectionAction : note -> {
@@ -711,7 +733,35 @@ public class NotesListController {
         };
         this.statusUpdateAction = statusUpdateAction != null ? statusUpdateAction : message -> {
         };
+        this.noteContextMenuItemsSupplier =
+                noteContextMenuItemsSupplier != null ? noteContextMenuItemsSupplier : java.util.Collections::emptyList;
         setEventBus(eventBus);
+    }
+
+    /**
+     * Appends every plugin-registered note context menu item to {@code menu},
+     * behind a separator — used by both the list-view cell (built once per
+     * cell, {@code noteSupplier} re-resolves {@code getItem()} at click time
+     * since the cell is reused across notes) and the grid-view card (rebuilt
+     * fresh per right-click, so {@code noteSupplier} can just close over the
+     * one note it already knows). A no-op when no plugin has registered anything.
+     */
+    private void appendPluginNoteContextMenuItems(ContextMenu menu, Supplier<Note> noteSupplier) {
+        List<com.example.jylos.plugin.NoteContextMenuEntry> entries = noteContextMenuItemsSupplier.get();
+        if (entries == null || entries.isEmpty()) {
+            return;
+        }
+        menu.getItems().add(new SeparatorMenuItem());
+        for (com.example.jylos.plugin.NoteContextMenuEntry entry : entries) {
+            MenuItem item = new MenuItem(entry.label());
+            item.setOnAction(e -> {
+                Note note = noteSupplier.get();
+                if (note != null) {
+                    entry.action().accept(note);
+                }
+            });
+            menu.getItems().add(item);
+        }
     }
 
     private void subscribeToEvents() {
@@ -1828,6 +1878,7 @@ public class NotesListController {
         }
 
         menu.getItems().addAll(exportItem, new SeparatorMenuItem(), deleteItem);
+        appendPluginNoteContextMenuItems(menu, () -> note);
         return menu;
     }
 

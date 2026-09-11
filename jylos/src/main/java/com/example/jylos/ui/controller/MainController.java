@@ -90,7 +90,8 @@ import javafx.util.Duration;
  * where possible; this class focuses on UI state and command routing.
  */
 public class MainController implements PluginMenuRegistry, SidePanelRegistry, PreviewEnhancerRegistry,
-        com.example.jylos.plugin.ToolbarRegistry, com.example.jylos.plugin.EditorBlockRendererRegistry {
+        com.example.jylos.plugin.ToolbarRegistry, com.example.jylos.plugin.EditorBlockRendererRegistry,
+        com.example.jylos.plugin.PluginNoteContextMenuRegistry {
 
     private static final Logger logger = LoggerConfig.getLogger(MainController.class);
 
@@ -246,6 +247,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     private final Map<String, Menu> pluginCategoryMenus = new HashMap<>();
     private final Map<String, List<MenuItem>> pluginMenuItems = new HashMap<>();
+    /** pluginId → note context menu entries via {@link com.example.jylos.plugin.PluginNoteContextMenuRegistry}. */
+    private final Map<String, List<com.example.jylos.plugin.NoteContextMenuEntry>> pluginNoteContextMenuItems =
+            new HashMap<>();
 
     @FXML
     private VBox pluginPanelsContainer;
@@ -542,7 +546,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (notesListController != null) {
             notesListController.wire(eventBus, noteService, tagService, folderService, resources,
                     this::loadNoteInEditor, this::exportNote, this::toggleNotePrivacy,
-                    this::handleUiNotesLoaded, this::updateStatus);
+                    this::handleUiNotesLoaded, this::updateStatus, this::getNoteContextMenuItems);
             notesPanel = notesListController.getNotesPanel();
             sortComboBox = notesListController.getSortComboBox();
             notesListView = notesListController.getNotesListView();
@@ -904,7 +908,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
             pluginManager = new PluginManager(noteService, folderService, tagService, eventBus, commandPalette, this,
                     this, this, editorHooks, this, this, this::handleUiNoteOpenRequest,
-                    this::handleUiHeadingNavigationRequest);
+                    this::handleUiHeadingNavigationRequest, this);
 
             PluginLifecycle.LoadResult pluginLoadResult = pluginLifecycle
                     .registerCoreAndExternalPlugins(pluginManager);
@@ -1355,6 +1359,26 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 toolbarController,
                 pluginCategoryMenus,
                 pluginMenuItems);
+    }
+
+    @Override
+    public void registerNoteContextMenuItem(String pluginId, String label, java.util.function.Consumer<Note> action) {
+        pluginNoteContextMenuItems.computeIfAbsent(pluginId, k -> new ArrayList<>())
+                .add(new com.example.jylos.plugin.NoteContextMenuEntry(pluginId, label, action));
+    }
+
+    @Override
+    public void removePluginNoteContextMenuItems(String pluginId) {
+        pluginNoteContextMenuItems.remove(pluginId);
+    }
+
+    @Override
+    public List<com.example.jylos.plugin.NoteContextMenuEntry> getNoteContextMenuItems() {
+        List<com.example.jylos.plugin.NoteContextMenuEntry> all = new ArrayList<>();
+        for (List<com.example.jylos.plugin.NoteContextMenuEntry> entries : pluginNoteContextMenuItems.values()) {
+            all.addAll(entries);
+        }
+        return all;
     }
 
     @Override

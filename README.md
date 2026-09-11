@@ -207,18 +207,15 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 ## Screenshots
 
 <div align="center">
-  <img src="resources/images/interfaz-17.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-18.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-21.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-22.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-8.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-9.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-10.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-11.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-12.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-13.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-14.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-15.png" alt="" style="width: 100%; max-width: 100%; display: block;">
+  <img src="resources/images/interfaz-24.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-25.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-26.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-27.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-28.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-29.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-30.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-31.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
+  <img src="resources/images/interfaz-32.png" alt="" style="width: 100%; max-width: 100%; display: block;">
 </div>
 
 ## Technology Stack

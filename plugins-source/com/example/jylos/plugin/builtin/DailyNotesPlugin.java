@@ -9,6 +9,7 @@ import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginContext;
+import com.example.jylos.plugin.PluginI18n;
 
 /**
  * Daily Notes Plugin - Creates and manages daily notes.
@@ -44,70 +45,81 @@ public class DailyNotesPlugin implements Plugin {
     private static final DateTimeFormatter DISPLAY_FORMATTER = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy");
     
     private PluginContext context;
-    
+
+    // Loaded once, lazily — getDescription() can be called by the Plugin Manager before
+    // initialize() ever runs, so this cannot wait for that.
+    private static java.util.ResourceBundle bundle;
+
+    private static String tr(String key, String fallback) {
+        if (bundle == null) {
+            bundle = PluginI18n.bundle(DailyNotesPlugin.class);
+        }
+        return PluginI18n.tr(bundle, key, fallback);
+    }
+
     @Override
     public String getId() {
         return ID;
     }
-    
+
     @Override
     public String getName() {
         return NAME;
     }
-    
+
     @Override
     public String getVersion() {
         return VERSION;
     }
-    
+
     @Override
     public String getDescription() {
-        return DESCRIPTION;
+        return tr("dailynotes.plugin.description", DESCRIPTION);
     }
-    
+
     @Override
     public String getAuthor() {
         return AUTHOR;
     }
-    
+
     @Override
     public void initialize(PluginContext context) {
         this.context = context;
-        
+
         // Register commands in Command Palette
         context.registerCommand(
             "Daily Notes: Open Today",
-            "Open or create today's daily note",
+            tr("dailynotes.command.today.description", "Open or create today's daily note"),
             "Ctrl+Alt+D",
             () -> openDailyNote(LocalDate.now())
         );
-        
+
         context.registerCommand(
             "Daily Notes: Open Yesterday",
-            "Open yesterday's daily note",
+            tr("dailynotes.command.yesterday.description", "Open yesterday's daily note"),
             null,
             () -> openDailyNote(LocalDate.now().minusDays(1))
         );
-        
+
         context.registerCommand(
             "Daily Notes: Open Tomorrow",
-            "Open or create tomorrow's daily note",
+            tr("dailynotes.command.tomorrow.description", "Open or create tomorrow's daily note"),
             null,
             () -> openDailyNote(LocalDate.now().plusDays(1))
         );
-        
+
         context.registerCommand(
             "Daily Notes: This Week",
-            "Show all daily notes from this week",
+            tr("dailynotes.command.thisWeek.description", "Show all daily notes from this week"),
             null,
             this::showThisWeekNotes
         );
-        
+
         // Register menu items (dynamic plugin menu)
-        context.registerMenuItem("Productivity", "Open Today's Note", "Ctrl+Alt+D", () -> openDailyNote(LocalDate.now()));
-        context.registerMenuItem("Productivity", "Open Yesterday's Note", () -> openDailyNote(LocalDate.now().minusDays(1)));
-        context.registerMenuItem("Productivity", "Open Tomorrow's Note", () -> openDailyNote(LocalDate.now().plusDays(1)));
-        context.registerMenuItem("Productivity", "This Week Overview", this::showThisWeekNotes);
+        context.registerMenuItem(tr("menuCategory.productivity", "Productivity"), tr("dailynotes.menu.today", "Open Today's Note"), "Ctrl+Alt+D", () -> openDailyNote(LocalDate.now()));
+        context.registerMenuItem(tr("menuCategory.productivity", "Productivity"), tr("dailynotes.menu.yesterday", "Open Yesterday's Note"), () -> openDailyNote(LocalDate.now().minusDays(1)));
+        context.registerMenuItem(tr("menuCategory.productivity", "Productivity"), tr("dailynotes.menu.tomorrow", "Open Tomorrow's Note"), () -> openDailyNote(LocalDate.now().plusDays(1)));
+        context.registerMenuItem(tr("menuCategory.productivity", "Productivity"), tr("dailynotes.menu.thisWeek", "This Week Overview"), this::showThisWeekNotes);
         
         context.log("Daily Notes Plugin initialized");
     }
@@ -171,7 +183,8 @@ public class DailyNotesPlugin implements Plugin {
             context.log("Created and opened daily note: " + title);
         } catch (Exception e) {
             context.logError("Failed to create daily note", e);
-            context.showError("Daily Notes Error", "Failed to create daily note: " + e.getMessage());
+            context.showError(tr("dailynotes.error.title", "Daily Notes Error"),
+                    tr("dailynotes.error.create", "Failed to create daily note: %s").formatted(e.getMessage()));
         }
     }
     
@@ -183,26 +196,26 @@ public class DailyNotesPlugin implements Plugin {
         LocalDate startOfWeek = today.minusDays(today.getDayOfWeek().getValue() - 1);
         
         StringBuilder sb = new StringBuilder();
-        sb.append("Daily Notes This Week:\n\n");
-        
+        sb.append(tr("dailynotes.thisWeek.header", "Daily Notes This Week:")).append("\n\n");
+
         int foundCount = 0;
         for (int i = 0; i < 7; i++) {
             LocalDate date = startOfWeek.plusDays(i);
             String title = formatDailyNoteTitle(date);
             Optional<Note> note = findNoteByTitle(title);
-            
+
             String status = note.isPresent() ? "[x]" : "[ ]";
             String dayName = date.getDayOfWeek().toString();
             sb.append(String.format("%s %s - %s\n", status, dayName.substring(0, 3), date.format(DATE_FORMATTER)));
-            
+
             if (note.isPresent()) {
                 foundCount++;
             }
         }
-        
-        sb.append(String.format("\nNotes found: %d/7", foundCount));
-        
-        context.showInfo("Daily Notes - This Week", null, sb.toString());
+
+        sb.append(String.format(tr("dailynotes.thisWeek.found", "%nNotes found: %d/7"), foundCount));
+
+        context.showInfo(tr("dailynotes.thisWeek.title", "Daily Notes - This Week"), null, sb.toString());
     }
     
     /**

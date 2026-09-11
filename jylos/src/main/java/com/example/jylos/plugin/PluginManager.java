@@ -65,6 +65,7 @@ public class PluginManager {
     private final EventBus eventBus;
     private final CommandPalette commandPalette;
     private final PluginMenuRegistry menuRegistry;
+    private final PluginNoteContextMenuRegistry noteContextMenuRegistry;
     private final SidePanelRegistry sidePanelRegistry;
     private final PreviewEnhancerRegistry previewEnhancerRegistry;
     private final EditorHookRegistry editorHookRegistry;
@@ -95,6 +96,7 @@ public class PluginManager {
      * @param editorBlockRendererRegistry The editor fenced-block renderer registry (nullable)
      * @param noteOpenAction     Owner callback for plugin note-open requests
      * @param editorNavigateAction Owner callback for plugin heading-navigation requests (nullable)
+     * @param noteContextMenuRegistry The note context menu registry (nullable)
      */
     public PluginManager(
             NoteService noteService,
@@ -109,7 +111,8 @@ public class PluginManager {
             ToolbarRegistry toolbarRegistry,
             EditorBlockRendererRegistry editorBlockRendererRegistry,
             Consumer<Note> noteOpenAction,
-            BiConsumer<Integer, String> editorNavigateAction) {
+            BiConsumer<Integer, String> editorNavigateAction,
+            PluginNoteContextMenuRegistry noteContextMenuRegistry) {
         this.noteService = noteService;
         this.folderService = folderService;
         this.tagService = tagService;
@@ -123,6 +126,7 @@ public class PluginManager {
         this.editorBlockRendererRegistry = editorBlockRendererRegistry;
         this.noteOpenAction = noteOpenAction;
         this.editorNavigateAction = editorNavigateAction;
+        this.noteContextMenuRegistry = noteContextMenuRegistry;
     }
 
     /**
@@ -177,6 +181,9 @@ public class PluginManager {
         // Remove UI components
         if (menuRegistry != null) {
             menuRegistry.removePluginMenuItems(pluginId);
+        }
+        if (noteContextMenuRegistry != null) {
+            noteContextMenuRegistry.removePluginNoteContextMenuItems(pluginId);
         }
         if (sidePanelRegistry != null) {
             sidePanelRegistry.removeAllSidePanels(pluginId);
@@ -242,7 +249,8 @@ public class PluginManager {
                     toolbarRegistry,
                     editorBlockRendererRegistry,
                     noteOpenAction,
-                    editorNavigateAction);
+                    editorNavigateAction,
+                    noteContextMenuRegistry);
             pluginContexts.put(pluginId, context);
 
             // Initialize plugin
@@ -503,6 +511,9 @@ public class PluginManager {
     private void cleanupPluginRuntime(String pluginId) {
         if (menuRegistry != null) {
             menuRegistry.removePluginMenuItems(pluginId);
+        }
+        if (noteContextMenuRegistry != null) {
+            noteContextMenuRegistry.removePluginNoteContextMenuItems(pluginId);
         }
         if (sidePanelRegistry != null) {
             sidePanelRegistry.removeAllSidePanels(pluginId);

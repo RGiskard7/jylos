@@ -81,7 +81,7 @@ public final class McpServerPluginTest {
 
             PluginContext context = new PluginContext(
                     plugin.getId(), noteService, folderService, tagService, eventBus,
-                    null, null, null, null, null, null, null, note -> { }, null);
+                    null, null, null, null, null, null, null, note -> { }, null, null);
 
             plugin.initialize(context);
 

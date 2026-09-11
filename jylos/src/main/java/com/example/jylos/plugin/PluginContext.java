@@ -2,10 +2,12 @@ package com.example.jylos.plugin;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.function.BiConsumer;
 import java.util.logging.Logger;
+import java.util.prefs.Preferences;
 
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.models.Note;
@@ -15,11 +17,17 @@ import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
+import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.ui.components.CommandPalette;
 
 import javafx.application.Platform;
+import javafx.concurrent.Task;
 import javafx.scene.Node;
 import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.DialogPane;
+import javafx.scene.control.ProgressBar;
 
 /**
  * Context provided to plugins during initialization.
@@ -39,6 +47,7 @@ public class PluginContext {
     private final EventBus eventBus;
     private final CommandPalette commandPalette;
     private final PluginMenuRegistry menuRegistry;
+    private final PluginNoteContextMenuRegistry noteContextMenuRegistry;
     private final SidePanelRegistry sidePanelRegistry;
     private final PreviewEnhancerRegistry previewEnhancerRegistry;
     private final EditorHookRegistry editorHookRegistry;
@@ -71,6 +80,7 @@ public class PluginContext {
      * @param noteOpenAction     Owner callback for opening a note from plugin code
      * @param editorNavigateAction Owner callback for plugin heading-navigation requests
      *                             (may be {@code null})
+     * @param noteContextMenuRegistry The note context menu registry (may be null in tests)
      */
     public PluginContext(
             String pluginId,
@@ -86,7 +96,8 @@ public class PluginContext {
             ToolbarRegistry toolbarRegistry,
             EditorBlockRendererRegistry editorBlockRendererRegistry,
             Consumer<Note> noteOpenAction,
-            BiConsumer<Integer, String> editorNavigateAction) {
+            BiConsumer<Integer, String> editorNavigateAction,
+            PluginNoteContextMenuRegistry noteContextMenuRegistry) {
         this.pluginId = pluginId;
         this.noteService = noteService;
         this.folderService = folderService;
@@ -101,6 +112,7 @@ public class PluginContext {
         this.editorBlockRendererRegistry = editorBlockRendererRegistry;
         this.noteOpenAction = noteOpenAction;
         this.editorNavigateAction = editorNavigateAction;
+        this.noteContextMenuRegistry = noteContextMenuRegistry;
     }
 
     /**
@@ -242,12 +254,27 @@ public class PluginContext {
 
     /**
      * Adds a separator in a menu category.
-     * 
+     *
      * @param category The menu category
      */
     public void addMenuSeparator(String category) {
         if (menuRegistry != null) {
             menuRegistry.addMenuSeparator(pluginId, category);
+        }
+    }
+
+    /**
+     * Registers an item in every note's right-click context menu (the notes
+     * list, both list-view and grid-view) — e.g. a plugin action that operates
+     * on one specific note, rather than {@link #registerCommand} or {@link
+     * #registerMenuItem}, which have no note to act on until the user picks one.
+     *
+     * @param label  The menu item's visible text
+     * @param action Invoked with the right-clicked note when chosen
+     */
+    public void registerNoteContextMenuItem(String label, Consumer<Note> action) {
+        if (noteContextMenuRegistry != null) {
+            noteContextMenuRegistry.registerNoteContextMenuItem(pluginId, label, action);
         }
     }
 
@@ -410,8 +437,59 @@ public class PluginContext {
     }
 
     /**
+     * Applies the app's current theme to a plugin's own {@link DialogPane} — a plain
+     * JavaFX dialog does not inherit the main window's stylesheets on its own, so
+     * without this it renders with the platform default (light) look, illegible over a
+     * dark theme. Call this on any {@link Alert}/{@link Dialog} a plugin builds itself
+     * (a custom form, a confirmation with extra content, …) before showing it; {@link
+     * #showInfo}, {@link #showCopyableInfo} and {@link #showError} already do this for
+     * the dialogs they build.
+     *
+     * @param dialogPane the dialog pane to theme (usually {@code dialog.getDialogPane()})
+     */
+    public void applyTheme(DialogPane dialogPane) {
+        UiDialogs.apply(dialogPane);
+    }
+
+    /**
+     * Convenience overload of {@link #applyTheme(DialogPane)} taking the {@link Dialog}
+     * itself.
+     *
+     * @param dialog the dialog to theme
+     */
+    public void applyTheme(Dialog<?> dialog) {
+        UiDialogs.apply(dialog);
+    }
+
+    /**
+     * Applies the app's current theme to a plugin's own custom {@link
+     * javafx.stage.Stage}-based window (a popup that is not a {@link Dialog} at all —
+     * for example, a borderless progress indicator) — same reasoning as {@link
+     * #applyTheme(DialogPane)}, but for a plugin that builds its own {@link
+     * javafx.scene.Scene} instead of going through {@code Dialog}/{@code Alert}.
+     *
+     * @param scene the scene to theme
+     */
+    public void applyTheme(javafx.scene.Scene scene) {
+        UiDialogs.apply(scene);
+    }
+
+    /**
+     * Themes a plugin's own {@link Dialog} and shows it modally, returning its result —
+     * {@link #applyTheme(Dialog)} followed by {@code dialog.showAndWait()} in one call,
+     * for the common case where nothing else needs to happen between the two.
+     *
+     * @param <T>    the dialog's result type
+     * @param dialog the dialog to theme and show
+     * @return the dialog's result, as {@link Dialog#showAndWait()} returns it
+     */
+    public <T> Optional<T> showThemed(Dialog<T> dialog) {
+        return UiDialogs.show(dialog);
+    }
+
+    /**
      * Shows an information dialog.
-     * 
+     *
      * @param title   The dialog title
      * @param header  The dialog header
      * @param content The dialog content
@@ -422,9 +500,79 @@ public class PluginContext {
             alert.setTitle(title);
             alert.setHeaderText(header);
             alert.setContentText(content);
-            com.example.jylos.ui.UiDialogs.apply(alert.getDialogPane());
+            UiDialogs.apply(alert.getDialogPane());
             alert.showAndWait();
         });
+    }
+
+    /**
+     * Shows an information dialog whose content the user can actually select and copy —
+     * for anything meant to be pasted elsewhere (a template snippet, a connection URL),
+     * as opposed to {@link #showInfo}, which is for a message that is just read. {@code
+     * setContentText} on a plain {@link Alert} renders the content as a {@code Label},
+     * and JavaFX {@code Label}s are not selectable at all — no drag-select, no Ctrl+C,
+     * nothing copies out of one no matter how the user tries. This swaps that content
+     * area for a read-only, wrapped {@link javafx.scene.control.TextArea} instead (a
+     * real text control, so normal text selection and copy shortcuts work exactly as
+     * they would anywhere else in the app), plus an explicit "Copy" button as a second,
+     * more discoverable way to get the same text onto the clipboard.
+     *
+     * @param title   The dialog title
+     * @param header  The dialog header
+     * @param content The copyable content
+     */
+    public void showCopyableInfo(String title, String header, String content) {
+        Platform.runLater(() -> {
+            Alert alert = buildCopyableInfoAlert(title, header, content);
+            UiDialogs.apply(alert.getDialogPane());
+            alert.showAndWait();
+        });
+    }
+
+    /** Builds the {@link Alert} {@link #showCopyableInfo} shows, minus the app-theme styling and the
+     *  blocking {@code showAndWait()} — split out so a test can inspect the real widgets (that the
+     *  content is a real, read-only {@link javafx.scene.control.TextArea} carrying the exact text
+     *  passed in, not a {@code Label}, and that the "Copy" button is wired to the clipboard) without
+     *  ever popping an actual modal window. Package-private: {@link #showCopyableInfo} is the public
+     *  entry point plugins use. */
+    static Alert buildCopyableInfoAlert(String title, String header, String content) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(title);
+        alert.setHeaderText(header);
+
+        javafx.scene.control.TextArea textArea = new javafx.scene.control.TextArea(content);
+        textArea.setEditable(false);
+        // Sized to the content, so a snippet that fits shows whole with no scrollbar at all.
+        // wrapText stays OFF on purpose: this is pre-formatted text (a fenced code block, a
+        // URL), wrapping it both misrepresents it and makes the visible line count larger
+        // than the real one, which is what forced a scrollbar onto dialogs that fit fine.
+        // The caps only kick in for genuinely huge content, where scrolling is the right
+        // answer rather than a dialog taller than the screen.
+        List<String> lines = content.lines().toList();
+        int longestLine = lines.stream().mapToInt(String::length).max().orElse(20);
+        textArea.setWrapText(false);
+        textArea.setPrefRowCount(Math.min(30, Math.max(2, lines.size())));
+        textArea.setPrefColumnCount(Math.min(100, Math.max(20, longestLine)));
+        javafx.scene.layout.VBox.setVgrow(textArea, javafx.scene.layout.Priority.ALWAYS);
+        alert.getDialogPane().setContent(textArea);
+        alert.getDialogPane().setExpandableContent(null);
+
+        javafx.scene.control.ButtonType copyButtonType =
+                new javafx.scene.control.ButtonType("Copy", javafx.scene.control.ButtonBar.ButtonData.LEFT);
+        alert.getDialogPane().getButtonTypes().add(0, copyButtonType);
+        // A plain ButtonType closes the dialog on click by default — consume the event
+        // on this one so "Copy" copies and leaves the dialog open (the user may want
+        // to re-read the content, or copy again after scrolling).
+        javafx.scene.control.Button copyButton =
+                (javafx.scene.control.Button) alert.getDialogPane().lookupButton(copyButtonType);
+        copyButton.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
+            javafx.scene.input.ClipboardContent clipboardContent = new javafx.scene.input.ClipboardContent();
+            clipboardContent.putString(content);
+            javafx.scene.input.Clipboard.getSystemClipboard().setContent(clipboardContent);
+            event.consume();
+        });
+
+        return alert;
     }
 
     /**
@@ -439,9 +587,74 @@ public class PluginContext {
             alert.setTitle(title);
             alert.setHeaderText(null);
             alert.setContentText(message);
-            com.example.jylos.ui.UiDialogs.apply(alert.getDialogPane());
+            UiDialogs.apply(alert.getDialogPane());
             alert.showAndWait();
         });
+    }
+
+    /**
+     * Runs a long operation on a background thread with a themed, indeterminate-turned-
+     * determinate progress dialog — the ceremony a plugin doing real work (exporting a
+     * vault, an I/O-bound backup, …) already needs today: build the dialog, bind a
+     * progress bar to the task, start a daemon thread, close the dialog and hand off to a
+     * follow-up callback on success or failure.
+     *
+     * <p>{@code onSuccess}/{@code onFailure} run <b>after</b> the progress dialog has
+     * closed, each deferred one more {@link Platform#runLater} tick past that — opening
+     * another modal {@link Alert} directly from a {@link Task}'s {@code setOnSucceeded}/
+     * {@code setOnFailed} (which fire while the progress dialog's own {@code
+     * showAndWait()} nested event loop is still unwinding) renders as a blank window on
+     * JavaFX; deferring one tick is the established fix already used everywhere else in
+     * this codebase that chains a modal after another. {@code task} should call {@link
+     * Task#updateProgress} from its {@code call()} — {@link Task} marshals that back to
+     * the FX thread itself, so it is safe to call from the background thread {@code
+     * call()} runs on.</p>
+     *
+     * <p>Must be called on the FX thread (it builds and shows UI); safe to call it from
+     * inside your own {@code Platform.runLater} if you are not already on it.</p>
+     *
+     * @param <T>       the task's result type
+     * @param title     the progress dialog's title
+     * @param header    the progress dialog's header text
+     * @param task      the work to run — not yet started
+     * @param onSuccess called with the task's result once it finishes successfully, or
+     *                  {@code null} to ignore success
+     * @param onFailure called with the task's exception if it fails, or {@code null} to
+     *                  ignore failure (the exception is still logged nowhere by this
+     *                  method itself — log it in the callback if you want it recorded)
+     */
+    public <T> void runWithProgress(String title, String header, Task<T> task,
+            Consumer<T> onSuccess, Consumer<Throwable> onFailure) {
+        Alert progressDialog = new Alert(Alert.AlertType.INFORMATION);
+        progressDialog.setTitle(title);
+        progressDialog.setHeaderText(header);
+        ProgressBar progressBar = new ProgressBar(0);
+        progressBar.setPrefWidth(320);
+        progressDialog.getDialogPane().setContent(progressBar);
+        progressDialog.getButtonTypes().setAll(ButtonType.CANCEL);
+        UiDialogs.apply(progressDialog.getDialogPane());
+        progressBar.progressProperty().bind(task.progressProperty());
+
+        task.setOnSucceeded(e -> {
+            progressDialog.close();
+            T result = task.getValue();
+            if (onSuccess != null) {
+                Platform.runLater(() -> onSuccess.accept(result));
+            }
+        });
+        task.setOnFailed(e -> {
+            progressDialog.close();
+            Throwable ex = task.getException();
+            if (onFailure != null) {
+                Platform.runLater(() -> onFailure.accept(ex));
+            }
+        });
+
+        Thread thread = new Thread(task, "jylos-plugin-" + pluginId + "-task");
+        thread.setDaemon(true);
+        thread.start();
+
+        UiDialogs.show(progressDialog);
     }
 
     /**
@@ -468,11 +681,35 @@ public class PluginContext {
 
     /**
      * Gets the plugin ID.
-     * 
+     *
      * @return The plugin ID
      */
     public String getPluginId() {
         return pluginId;
+    }
+
+    /**
+     * A {@link Preferences} node reserved for this plugin's own settings — a stable,
+     * namespaced key/value store that survives restarts, instead of every plugin that
+     * needs one calling {@code Preferences.userNodeForPackage(SomeOwnClass.class)} by
+     * hand. Two problems that reaching for the JDK API directly invites: first, a plugin
+     * choosing its own arbitrary node (or reusing a class name that collides with another
+     * plugin's, or with a core class's) has no guarantee of not colliding with anything
+     * else on the same machine; second, a test that happens to construct a real instance
+     * of that DAO/service class off this exact node touches whatever the live app has
+     * persisted there — this actually happened once in this project's own history, with a
+     * plugin id colliding with a real plugin's disabled/enabled flag.
+     *
+     * <p>The node returned here is scoped under the same {@code Preferences} subtree the
+     * host itself uses for plugin bookkeeping ({@link PluginManager}'s own node), keyed by
+     * this plugin's id — guaranteed distinct per plugin, and never the same node the host
+     * uses for enable/disable state (that lives directly on the parent, this is a child of
+     * it), so a plugin cannot accidentally read or corrupt it.</p>
+     *
+     * @return this plugin's own {@link Preferences} node
+     */
+    public Preferences getPluginPreferences() {
+        return Preferences.userNodeForPackage(PluginManager.class).node(pluginId);
     }
 
     /**

@@ -8,6 +8,7 @@ import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginContext;
+import com.example.jylos.plugin.PluginI18n;
 
 /**
  * Reading Time Plugin - Estimates reading time for notes.
@@ -53,61 +54,72 @@ public class ReadingTimePlugin implements Plugin {
     private PluginContext context;
     private Note currentNote;
     private List<EventBus.Subscription> subscriptions = new ArrayList<>();
-    
+
+    // Loaded once, lazily — getDescription() can be called by the Plugin Manager before
+    // initialize() ever runs, so this cannot wait for that.
+    private static java.util.ResourceBundle bundle;
+
+    private static String tr(String key, String fallback) {
+        if (bundle == null) {
+            bundle = PluginI18n.bundle(ReadingTimePlugin.class);
+        }
+        return PluginI18n.tr(bundle, key, fallback);
+    }
+
     @Override
     public String getId() {
         return ID;
     }
-    
+
     @Override
     public String getName() {
         return NAME;
     }
-    
+
     @Override
     public String getVersion() {
         return VERSION;
     }
-    
+
     @Override
     public String getDescription() {
-        return DESCRIPTION;
+        return tr("readingtime.plugin.description", DESCRIPTION);
     }
-    
+
     @Override
     public String getAuthor() {
         return AUTHOR;
     }
-    
+
     @Override
     public void initialize(PluginContext context) {
         this.context = context;
-        
+
         // Register commands in Command Palette
         context.registerCommand(
             "Reading Time: Current Note",
-            "Show estimated reading time for current note",
+            tr("readingtime.command.current.description", "Show estimated reading time for current note"),
             "Ctrl+Shift+R",
             this::showCurrentNoteReadingTime
         );
-        
+
         context.registerCommand(
             "Reading Time: All Notes",
-            "Show total reading time across all notes",
+            tr("readingtime.command.all.description", "Show total reading time across all notes"),
             null,
             this::showAllNotesReadingTime
         );
-        
+
         context.registerCommand(
             "Reading Time: Quick Estimate",
-            "Show quick time estimate for current note",
+            tr("readingtime.command.quick.description", "Show quick time estimate for current note"),
             null,
             this::showQuickEstimate
         );
-        
+
         // Register menu items (dynamic plugin menu)
-        context.registerMenuItem("Core", "Reading Time", "Ctrl+Shift+R", this::showCurrentNoteReadingTime);
-        context.registerMenuItem("Core", "Quick Estimate", this::showQuickEstimate);
+        context.registerMenuItem(tr("menuCategory.core", "Core"), tr("readingtime.menu.current", "Reading Time"), "Ctrl+Shift+R", this::showCurrentNoteReadingTime);
+        context.registerMenuItem(tr("menuCategory.core", "Core"), tr("readingtime.menu.quickEstimate", "Quick Estimate"), this::showQuickEstimate);
         
         // Subscribe to note selection events
         EventBus.Subscription sub = context.subscribe(NoteEvents.NoteSelectedEvent.class, event -> {
@@ -139,27 +151,29 @@ public class ReadingTimePlugin implements Plugin {
      */
     private void showCurrentNoteReadingTime() {
         if (currentNote == null) {
-            showAlert("Reading Time", "No note selected", "Please select a note first.");
+            showAlert(tr("readingtime.title", "Reading Time"), tr("readingtime.alert.noNote.header", "No note selected"),
+                    tr("readingtime.alert.noNote.body", "Please select a note first."));
             return;
         }
-        
+
         String content = currentNote.getContent();
         if (content == null) {
             content = "";
         }
-        
+
         int wordCount = countWords(content);
-        
+
         String message = String.format(
-            "Note: %s\n" +
-            "Words: %,d\n\n" +
-            "═══════════════════════════\n" +
-            "READING TIME ESTIMATES\n" +
-            "═══════════════════════════\n\n" +
-            "Slow Reading (%d wpm):\n  %s\n\n" +
-            "Average Reading (%d wpm):\n  %s\n\n" +
-            "Speed Reading (%d wpm):\n  %s\n\n" +
-            "Speaking Time (%d wpm):\n  %s",
+            tr("readingtime.report.body",
+                "Note: %s\n" +
+                "Words: %,d\n\n" +
+                "═══════════════════════════\n" +
+                "READING TIME ESTIMATES\n" +
+                "═══════════════════════════\n\n" +
+                "Slow Reading (%d wpm):\n  %s\n\n" +
+                "Average Reading (%d wpm):\n  %s\n\n" +
+                "Speed Reading (%d wpm):\n  %s\n\n" +
+                "Speaking Time (%d wpm):\n  %s"),
             currentNote.getTitle(),
             wordCount,
             SLOW_WPM, formatTime(calculateMinutes(wordCount, SLOW_WPM)),
@@ -167,8 +181,8 @@ public class ReadingTimePlugin implements Plugin {
             FAST_WPM, formatTime(calculateMinutes(wordCount, FAST_WPM)),
             SPEAKING_WPM, formatTime(calculateMinutes(wordCount, SPEAKING_WPM))
         );
-        
-        showAlert("Reading Time - " + currentNote.getTitle(), null, message);
+
+        showAlert(tr("readingtime.title", "Reading Time") + " - " + currentNote.getTitle(), null, message);
     }
     
     /**
@@ -176,24 +190,24 @@ public class ReadingTimePlugin implements Plugin {
      */
     private void showQuickEstimate() {
         if (currentNote == null) {
-            showAlert("Reading Time", "No note selected", "Please select a note first.");
+            showAlert(tr("readingtime.title", "Reading Time"), tr("readingtime.alert.noNote.header", "No note selected"),
+                    tr("readingtime.alert.noNote.body", "Please select a note first."));
             return;
         }
-        
+
         String content = currentNote.getContent();
         int wordCount = content != null ? countWords(content) : 0;
         double minutes = calculateMinutes(wordCount, AVERAGE_WPM);
-        
+
         String timeStr = formatTimeShort(minutes);
         String message = String.format(
-            "%s\n\n" +
-            "📖 %s read (%,d words)",
+            tr("readingtime.quickEstimate.body", "%s\n\n📖 %s read (%,d words)"),
             currentNote.getTitle(),
             timeStr,
             wordCount
         );
-        
-        showAlert("Quick Estimate", null, message);
+
+        showAlert(tr("readingtime.quickEstimate.title", "Quick Estimate"), null, message);
     }
     
     /**
@@ -211,22 +225,23 @@ public class ReadingTimePlugin implements Plugin {
         }
         
         String message = String.format(
-            "Total Notes: %,d\n" +
-            "Total Words: %,d\n\n" +
-            "═══════════════════════════\n" +
-            "TOTAL READING TIME\n" +
-            "═══════════════════════════\n\n" +
-            "Average Reading (%d wpm):\n  %s\n\n" +
-            "Speed Reading (%d wpm):\n  %s\n\n" +
-            "If read aloud (%d wpm):\n  %s",
+            tr("readingtime.allNotes.body",
+                "Total Notes: %,d\n" +
+                "Total Words: %,d\n\n" +
+                "═══════════════════════════\n" +
+                "TOTAL READING TIME\n" +
+                "═══════════════════════════\n\n" +
+                "Average Reading (%d wpm):\n  %s\n\n" +
+                "Speed Reading (%d wpm):\n  %s\n\n" +
+                "If read aloud (%d wpm):\n  %s"),
             allNotes.size(),
             totalWords,
             AVERAGE_WPM, formatTime(calculateMinutes(totalWords, AVERAGE_WPM)),
             FAST_WPM, formatTime(calculateMinutes(totalWords, FAST_WPM)),
             SPEAKING_WPM, formatTime(calculateMinutes(totalWords, SPEAKING_WPM))
         );
-        
-        showAlert("Reading Time - All Notes", null, message);
+
+        showAlert(tr("readingtime.allNotes.title", "Reading Time - All Notes"), null, message);
     }
     
     /**
@@ -252,22 +267,22 @@ public class ReadingTimePlugin implements Plugin {
     private String formatTime(double totalMinutes) {
         if (totalMinutes < 1) {
             int seconds = (int) Math.round(totalMinutes * 60);
-            return seconds + " seconds";
+            return seconds + " " + tr("readingtime.unit.seconds", "seconds");
         }
-        
+
         int hours = (int) (totalMinutes / 60);
         int minutes = (int) (totalMinutes % 60);
         int seconds = (int) Math.round((totalMinutes - Math.floor(totalMinutes)) * 60);
-        
+
         StringBuilder sb = new StringBuilder();
         if (hours > 0) {
-            sb.append(hours).append(hours == 1 ? " hour " : " hours ");
+            sb.append(hours).append(hours == 1 ? " " + tr("readingtime.unit.hour", "hour") + " " : " " + tr("readingtime.unit.hours", "hours") + " ");
         }
         if (minutes > 0 || hours > 0) {
-            sb.append(minutes).append(minutes == 1 ? " minute" : " minutes");
+            sb.append(minutes).append(minutes == 1 ? " " + tr("readingtime.unit.minute", "minute") : " " + tr("readingtime.unit.minutes", "minutes"));
         }
         if (hours == 0 && minutes < 5 && seconds > 0) {
-            sb.append(" ").append(seconds).append(" seconds");
+            sb.append(" ").append(seconds).append(" ").append(tr("readingtime.unit.seconds", "seconds"));
         }
         
         return sb.toString().trim();
@@ -278,16 +293,16 @@ public class ReadingTimePlugin implements Plugin {
      */
     private String formatTimeShort(double totalMinutes) {
         if (totalMinutes < 1) {
-            return "< 1 min";
+            return tr("readingtime.unit.lessThanMin", "< 1 min");
         }
-        
+
         int hours = (int) (totalMinutes / 60);
         int minutes = (int) Math.ceil(totalMinutes % 60);
-        
+
         if (hours > 0) {
-            return String.format("%dh %dm", hours, minutes);
+            return String.format(tr("readingtime.unit.hoursMinutesShort", "%dh %dm"), hours, minutes);
         }
-        return String.format("%d min", minutes);
+        return String.format(tr("readingtime.unit.minutesShort", "%d min"), minutes);
     }
     
     /**
@@ -301,7 +316,7 @@ public class ReadingTimePlugin implements Plugin {
             alert.setTitle(title);
             alert.setHeaderText(header);
             alert.setContentText(content);
-            com.example.jylos.ui.UiDialogs.show(alert);
+            context.showThemed(alert);
         });
     }
 }

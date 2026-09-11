@@ -147,6 +147,12 @@
             <version>0.21.0</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.commonmark</groupId>
+            <artifactId>commonmark-ext-task-list-items</artifactId>
+            <version>0.21.0</version>
+        </dependency>
+
         <!-- Ikonli Icon Pack -->
         <dependency>
             <groupId>org.kordamp.ikonli</groupId>
