@@ -1,7 +1,7 @@
 import process from "node:process";
 import { defineConfig } from "vitepress";
 
-const base = process.env.VITEPRESS_BASE ?? "/jylos/";
+const base = process.env.VITEPRESS_BASE ?? "/";
 
 const githubUrl = "https://github.com/RGiskard7/jylos";
 const releasesUrl = `${githubUrl}/releases/latest`;
@@ -14,7 +14,7 @@ export default defineConfig({
   cleanUrls: false,
   ignoreDeadLinks: [/^\.\//],
   sitemap: {
-    hostname: "https://RGiskard7.github.io/jylos/",
+    hostname: "https://jylos.es/",
   },
   head: [
     ["link", { rel: "icon", type: "image/png", href: `${base}landing/logo.png` }],

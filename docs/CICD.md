@@ -164,7 +164,7 @@ It does:
 - repository checkout;
 - Node.js 22 setup;
 - `npm ci` inside `site/`;
-- `vitepress build` with `VITEPRESS_BASE=/jylos/`;
+- `vitepress build` with `VITEPRESS_BASE=/`;
 - upload of `site/.vitepress/dist` and deployment to GitHub Pages.
 
 The website source lives in `site/` and is a self-contained Node project

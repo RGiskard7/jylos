@@ -499,7 +499,7 @@ Coloca ficheros `.css` en la carpeta `snippets/` para retocar la interfaz sobre 
 - [docs/es/GRAPH.md](docs/es/GRAPH.md)
 - [docs/es/SEARCH.md](docs/es/SEARCH.md)
 - [docs/es/WORKSPACES.md](docs/es/WORKSPACES.md)
-- [Sitio web](https://RGiskard7.github.io/jylos/) — sitio web del proyecto y guías de usuario (fuente en `site/`)
+- [Sitio web](https://jylos.es/) — sitio web del proyecto y guías de usuario (fuente en `site/`)
 - [AGENTS.md](AGENTS.md)
 - [changelog.md](changelog.md)
 
