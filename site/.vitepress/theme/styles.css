@@ -1,0 +1,247 @@
+@font-face {
+  font-family: "JylosSans";
+  src: local("Inter"), local("Segoe UI"), local("system-ui");
+  font-display: swap;
+}
+
+:root {
+  --vp-font-family-base:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --vp-font-family-mono: "JetBrains Mono", "SF Mono", "Fira Code", ui-monospace,
+    monospace;
+  --jylos-font-brand:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  --jylos-bg: #f7f8fa;
+  --jylos-surface: #ffffff;
+  --jylos-surface-muted: #f1f3f6;
+  --jylos-text: #191a1f;
+  --jylos-text-secondary: #525762;
+  --jylos-text-muted: #828896;
+  --jylos-border: #e5e8ee;
+  --jylos-purple: #5563d6;
+  --jylos-purple-hover: #4755c2;
+  --jylos-purple-light: #8ea0ff;
+  --jylos-purple-soft: #eceefb;
+  --jylos-blue: #4755c2;
+
+  --vp-c-bg: var(--jylos-surface);
+  --vp-c-bg-alt: var(--jylos-surface-muted);
+  --vp-c-bg-elv: var(--jylos-surface);
+  --vp-c-bg-soft: var(--jylos-surface-muted);
+  --vp-c-text-1: var(--jylos-text);
+  --vp-c-text-2: var(--jylos-text-secondary);
+  --vp-c-text-3: var(--jylos-text-muted);
+  --vp-c-border: var(--jylos-border);
+  --vp-c-divider: var(--jylos-border);
+  --vp-c-brand-1: var(--jylos-purple);
+  --vp-c-brand-2: var(--jylos-purple-hover);
+  --vp-c-brand-3: var(--jylos-purple);
+  --vp-c-brand-soft: var(--jylos-purple-soft);
+  --vp-button-brand-bg: var(--jylos-purple);
+  --vp-button-brand-hover-bg: var(--jylos-purple-hover);
+  --vp-button-brand-border: var(--jylos-purple);
+  --vp-code-bg: #f0f2f5;
+  --vp-code-color: var(--jylos-text-secondary);
+}
+
+.dark {
+  --jylos-bg: #0c0c22;
+  --jylos-surface: #11112a;
+  --jylos-surface-muted: #0a0a1a;
+  --jylos-text: #eaecf3;
+  --jylos-text-secondary: #969bbd;
+  --jylos-text-muted: #646a8e;
+  --jylos-border: rgba(255, 255, 255, 0.09);
+  --jylos-purple: #8ea0ff;
+  --jylos-purple-hover: #a3b3ff;
+  --jylos-purple-light: #b4c0ff;
+  --jylos-purple-soft: rgba(85, 99, 214, 0.24);
+  --jylos-blue: #8ea0ff;
+
+  --vp-c-bg: #11112a;
+  --vp-c-bg-alt: #0a0a1a;
+  --vp-c-bg-elv: #14142e;
+  --vp-c-bg-soft: #14142e;
+  --vp-c-text-1: #eaecf3;
+  --vp-c-text-2: #969bbd;
+  --vp-c-text-3: #646a8e;
+  --vp-c-border: rgba(255, 255, 255, 0.09);
+  --vp-c-divider: rgba(255, 255, 255, 0.09);
+  --vp-c-brand-1: #8ea0ff;
+  --vp-c-brand-2: #a3b3ff;
+  --vp-c-brand-3: #8ea0ff;
+  --vp-c-brand-soft: rgba(85, 99, 214, 0.24);
+  --vp-code-bg: #191936;
+  --vp-code-color: #d6dbea;
+}
+
+html,
+body,
+#app {
+  background: var(--vp-c-bg);
+}
+
+html.jylos-landing-page,
+html.jylos-landing-page body,
+html.jylos-landing-page #app {
+  background: var(--jylos-bg);
+}
+
+.VPNavBarTitle .logo {
+  width: auto;
+  height: 26px;
+  border-radius: 6px;
+}
+
+.VPNavBarTitle .title {
+  color: var(--vp-c-text-1);
+  font-family: var(--jylos-font-brand);
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.jylos-landing-shell {
+  --vp-c-bg: var(--jylos-bg);
+  --vp-nav-bg-color: var(--jylos-bg);
+}
+
+.jylos-landing-shell .VPNav,
+.jylos-landing-shell .VPNavBar,
+.jylos-landing-shell .VPNavBar:not(.has-sidebar, .home.top),
+.jylos-landing-shell .VPNavBar:not(.home.top) .content-body,
+.jylos-landing-shell .VPNavBar .content-body {
+  background: var(--jylos-bg);
+  background-color: var(--jylos-bg);
+  backdrop-filter: blur(14px);
+}
+
+.jylos-landing-shell .VPNavBar .wrapper,
+.jylos-landing-shell .VPNavBar .container {
+  width: min(100%, 1280px);
+  max-width: 1280px;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.jylos-landing-shell .VPNavBar .wrapper {
+  padding-right: 20px;
+  padding-left: 20px;
+}
+
+.jylos-landing-shell .landing-container {
+  width: min(100%, 1280px);
+}
+
+@media (min-width: 768px) {
+  .jylos-landing-shell .VPNavBar .wrapper {
+    padding-right: 40px;
+    padding-left: 40px;
+  }
+}
+
+.jylos-landing-shell .VPNavBar .divider,
+.jylos-landing-shell .VPNavBar .divider-line {
+  display: none;
+  background-color: transparent;
+}
+
+.jylos-landing-shell .VPNavBar .divider-line {
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.VPNavBar {
+  position: relative;
+  z-index: calc(var(--vp-z-index-nav) + 2);
+}
+
+.jylos-landing-shell .VPLocalNav {
+  display: none;
+}
+
+.VPNavScreen {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  bottom: auto !important;
+  height: calc(100vh - var(--vp-nav-height) - var(--vp-layout-top-height, 0px)) !important;
+  z-index: calc(var(--vp-z-index-nav) + 1);
+  background: var(--vp-c-bg);
+}
+
+.jylos-scrolled .jylos-landing-shell .VPNav {
+  box-shadow: 0 10px 24px rgba(26, 23, 48, 0.08);
+}
+
+.jylos-scrolled .jylos-landing-shell .VPNavBar .divider-line {
+  opacity: 1;
+}
+
+.DocSearch-Button {
+  border-radius: 999px;
+}
+
+.jylos-landing-shell .DocSearch-Button {
+  border: 1px solid var(--jylos-border);
+  background: var(--jylos-surface);
+}
+
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3 {
+  letter-spacing: 0;
+}
+
+.vp-doc a,
+.VPNavBarMenuLink.active,
+.VPLink.active {
+  color: var(--vp-c-brand-1);
+}
+
+.vp-doc table {
+  display: table;
+  width: 100%;
+}
+
+.vp-doc th {
+  color: var(--vp-c-text-1);
+  background: var(--vp-c-bg-soft);
+}
+
+.vp-doc td,
+.vp-doc th {
+  border-color: var(--vp-c-divider);
+}
+
+.jylos-landing-shell .VPContent,
+.jylos-landing-shell .VPPage,
+.jylos-landing-shell .VPDoc,
+.jylos-landing-shell .VPDoc .container,
+.jylos-landing-shell .VPDoc .content,
+.jylos-landing-shell .VPDoc .content-container,
+.jylos-landing-shell .VPDoc .main,
+.jylos-landing-shell .vp-doc {
+  max-width: none;
+  padding: 0;
+  margin: 0;
+}
+
+@media (min-width: 960px) {
+  .jylos-landing-shell .VPContent {
+    padding-top: var(--vp-nav-height);
+  }
+}
+
+.jylos-landing-shell .vp-doc > div {
+  width: 100%;
+}
+
+.jylos-landing-shell .vp-doc a {
+  text-decoration: none;
+}
+
+.jylos-landing-shell .VPFooter {
+  display: none;
+}

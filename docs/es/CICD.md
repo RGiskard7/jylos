@@ -150,6 +150,32 @@ Necesita secreto:
 OPENAI_API_KEY
 ```
 
+### `deploy-pages.yml`
+
+Compila y publica el sitio web VitePress (página de aterrizaje + docs) en GitHub Pages.
+
+Se ejecuta en:
+
+- `push` a `main`, limitado a cambios bajo `site/**` y al propio workflow;
+- `workflow_dispatch`.
+
+Hace:
+
+- checkout del repositorio;
+- configuración de Node.js 22;
+- `npm ci` dentro de `site/`;
+- `vitepress build` con `VITEPRESS_BASE=/jylos/`;
+- subida de `site/.vitepress/dist` y despliegue a GitHub Pages.
+
+El código fuente del sitio vive en `site/` y es un proyecto Node autocontenido
+(`site/package.json`). Desarrollo local:
+
+```bash
+cd site
+npm install
+npm run docs:dev
+```
+
 ## Flujo normal de desarrollo
 
 Trabajar en `develop`:
