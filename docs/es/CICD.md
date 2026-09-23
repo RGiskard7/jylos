@@ -164,7 +164,7 @@ Hace:
 - checkout del repositorio;
 - configuración de Node.js 22;
 - `npm ci` dentro de `site/`;
-- `vitepress build` con `VITEPRESS_BASE=/jylos/`;
+- `vitepress build` con `VITEPRESS_BASE=/`;
 - subida de `site/.vitepress/dist` y despliegue a GitHub Pages.
 
 El código fuente del sitio vive en `site/` y es un proyecto Node autocontenido

@@ -742,8 +742,7 @@ const copyJbang = async () => {
 }
 
 .hero-right {
-  display: flex;
-  justify-content: center;
+  display: none;
 }
 
 .hero-right img {
@@ -1426,6 +1425,11 @@ const copyJbang = async () => {
 
   .hero-grid {
     grid-template-columns: 1fr auto;
+  }
+
+  .hero-right {
+    display: flex;
+    justify-content: center;
   }
 
   .hero-right img {

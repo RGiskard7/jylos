@@ -25,6 +25,12 @@
   <strong>Local-first desktop knowledge management: Markdown notes, wiki-links, backlinks, an interactive knowledge graph, Kanban, canvas files, per-note encryption, plugins, and SQLite or Markdown-vault storage.</strong>
 </div>
 
+<br>
+
+<div align="center">
+  <a href="https://jylos.es/">jylos.es</a>
+</div>
+
 ## Download
 
 Prebuilt packages for all major platforms are available on the [Releases page](../../releases/latest):
@@ -499,7 +505,7 @@ Drop plain `.css` files into the `snippets/` folder to tweak the interface on to
 - [docs/GRAPH.md](docs/GRAPH.md)
 - [docs/SEARCH.md](docs/SEARCH.md)
 - [docs/WORKSPACES.md](docs/WORKSPACES.md)
-- [Website](https://RGiskard7.github.io/jylos/) — project website and user guides (source in `site/`)
+- [Website](https://jylos.es/) — project website and user guides (source in `site/`)
 - [AGENTS.md](AGENTS.md)
 - [changelog.md](changelog.md)
 

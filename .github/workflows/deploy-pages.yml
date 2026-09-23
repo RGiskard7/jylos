@@ -42,7 +42,7 @@ jobs:
         working-directory: site
         run: npm run docs:build
         env:
-          VITEPRESS_BASE: /jylos/
+          VITEPRESS_BASE: /
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
