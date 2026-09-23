@@ -25,6 +25,12 @@
   <strong>Gestión del conocimiento local-first de escritorio: notas Markdown, wiki-links, backlinks, grafo de conocimiento interactivo, Kanban, archivos canvas, cifrado por nota, plugins y almacenamiento SQLite o bóveda Markdown.</strong>
 </div>
 
+<br>
+
+<div align="center">
+  <a href="https://jylos.es/">jylos.es</a>
+</div>
+
 ## Descarga
 
 Los paquetes precompilados para las principales plataformas están disponibles en la [página de Releases](../../releases/latest):

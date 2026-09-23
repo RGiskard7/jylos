@@ -25,6 +25,12 @@
   <strong>Local-first desktop knowledge management: Markdown notes, wiki-links, backlinks, an interactive knowledge graph, Kanban, canvas files, per-note encryption, plugins, and SQLite or Markdown-vault storage.</strong>
 </div>
 
+<br>
+
+<div align="center">
+  <a href="https://jylos.es/">jylos.es</a>
+</div>
+
 ## Download
 
 Prebuilt packages for all major platforms are available on the [Releases page](../../releases/latest):
