@@ -499,6 +499,7 @@ Drop plain `.css` files into the `snippets/` folder to tweak the interface on to
 - [docs/GRAPH.md](docs/GRAPH.md)
 - [docs/SEARCH.md](docs/SEARCH.md)
 - [docs/WORKSPACES.md](docs/WORKSPACES.md)
+- [Website](https://RGiskard7.github.io/jylos/) — project website and user guides (source in `site/`)
 - [AGENTS.md](AGENTS.md)
 - [changelog.md](changelog.md)
 

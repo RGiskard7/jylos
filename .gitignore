@@ -133,6 +133,11 @@ jylos/updates/
 
 history/
 
+# VitePress site build output and cache
+site/node_modules/
+site/.vitepress/dist/
+site/.vitepress/cache/
+
 # Local-only clone of RGiskard7/testing-kit — has its own .git, must never be
 # tracked as a gitlink/submodule of this repo (no .gitmodules exists here; a
 # bare `git add` on this folder gets recorded as a gitlink and breaks any CI
