@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- **Seguridad — ids fuera de la bóveda.** En modo bóveda (filesystem), un id de nota o carpeta como `../fichero.md` resolvía fuera de la bóveda: se podía leer, sobrescribir, mover o borrar cualquier fichero accesible para el usuario. El servidor MCP pasaba esos ids de clientes externos directamente al almacenamiento, de modo que un agente de IA (por ejemplo, víctima de prompt injection) podía alcanzar ficheros como `~/.ssh/config`. Ahora el almacenamiento rechaza cualquier id que salga de la bóveda (las lecturas lo tratan como "no encontrado" y las modificaciones fallan sin tocar el disco), y las herramientas MCP lo rechazan antes con un mensaje explícito. Un `..` que se queda dentro de la bóveda sigue funcionando.
+
+- **Seguridad — imágenes y scripts en la vista previa.** Una imagen relativa en una nota (`![](../../.ssh/id_rsa)`) podía leer cualquier fichero del disco e incrustarlo en la vista previa y en la exportación HTML; ahora solo se incrustan imágenes que estén dentro de la bóveda. Además, la vista de lectura y la exportación HTML usan una Content-Security-Policy con un nonce nuevo en cada render: el HTML crudo de las notas se sigue mostrando, pero un `<script>` o un `onerror=` escrito en una nota ya no se ejecuta, y la página no puede abrir conexiones de red. Los scripts propios (resaltado de código, KaTeX, enlaces) y los de plugins (Mermaid, Dataview) siguen funcionando. Afecta a autores de plugins: los manejadores de eventos inline en el HTML inyectado dejan de ejecutarse; usar `addEventListener` (ver `docs/PLUGINS.md`).
+
+- **Plugin de IA.** Ya no envía notas privadas a proveedores externos, aunque estén desbloqueadas. Además, resumir, traducir y mejorar ahora envían la nota completa: en modo bóveda solo se enviaban los primeros ~900 caracteres (la vista previa de la lista de notas).
+
 ## [2.5.6] - 2026-09-07
 
 - Nuevo plugin **Publish**: exporta toda la bóveda a un sitio web estático (HTML/CSS/JS) autocontenido, con un diseño inspirado en Obsidian Publish/Quartz en vez de una lista plana de páginas — una página por nota, wiki-links convertidos en enlaces relativos reales (reutilizando el mismo resolutor de wiki-links que usa la vista previa, no una reimplementación aparte), listo para subir tal cual a GitHub Pages, Vercel o cualquier hosting estático. `Tools → Publish Vault as Static Site...` o desde la paleta de comandos.

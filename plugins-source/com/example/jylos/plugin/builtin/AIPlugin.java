@@ -13,6 +13,7 @@ import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginContext;
 import com.example.jylos.plugin.PluginI18n;
+import com.example.jylos.service.NoteService;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -220,10 +221,10 @@ public class AIPlugin implements Plugin {
         Platform.runLater(() -> {
             Note selectedNote = showNoteSelector(tr("ai.selector.summarize.title", "Summarize Note"),
                     tr("ai.selector.summarize.header", "Select a note to summarize:"));
-            if (selectedNote == null) return;
+            if (selectedNote == null || refusePrivate(selectedNote)) return;
 
-            String content = selectedNote.getContent();
-            if (content == null || content.trim().isEmpty()) {
+            String content = contentToSend(selectedNote, context.getNoteService()).orElse("");
+            if (content.trim().isEmpty()) {
                 context.showInfo(tr("ai.title", "AI Assistant"), tr("ai.emptyNote.header", "Empty Note"),
                         tr("ai.emptyNote.body", "The selected note has no content."));
                 return;
@@ -278,7 +279,7 @@ public class AIPlugin implements Plugin {
         Platform.runLater(() -> {
             Note selectedNote = showNoteSelector(tr("ai.selector.translate.title", "Translate Note"),
                     tr("ai.selector.translate.header", "Select a note to translate:"));
-            if (selectedNote == null) return;
+            if (selectedNote == null || refusePrivate(selectedNote)) return;
 
             // Language selector — the combo's items stay the canonical English names (used
             // as-is in the AI prompt and in the resulting note's title); only their on-screen
@@ -325,9 +326,9 @@ public class AIPlugin implements Plugin {
             if (langResult.isEmpty()) return;
             
             String targetLang = langResult.get();
-            String content = selectedNote.getContent();
-            
-            if (content == null || content.trim().isEmpty()) {
+            String content = contentToSend(selectedNote, context.getNoteService()).orElse("");
+
+            if (content.trim().isEmpty()) {
                 context.showInfo(tr("ai.title", "AI Assistant"), tr("ai.emptyNote.header", "Empty Note"),
                         tr("ai.emptyNote.body", "The selected note has no content."));
                 return;
@@ -381,10 +382,10 @@ public class AIPlugin implements Plugin {
         Platform.runLater(() -> {
             Note selectedNote = showNoteSelector(tr("ai.selector.improve.title", "Improve Writing"),
                     tr("ai.selector.improve.header", "Select a note to improve:"));
-            if (selectedNote == null) return;
+            if (selectedNote == null || refusePrivate(selectedNote)) return;
 
-            String content = selectedNote.getContent();
-            if (content == null || content.trim().isEmpty()) {
+            String content = contentToSend(selectedNote, context.getNoteService()).orElse("");
+            if (content.trim().isEmpty()) {
                 context.showInfo(tr("ai.title", "AI Assistant"), tr("ai.emptyNote.header", "Empty Note"),
                         tr("ai.emptyNote.body", "The selected note has no content."));
                 return;
@@ -838,6 +839,39 @@ public class AIPlugin implements Plugin {
         return true;
     }
     
+    /**
+     * Text of {@code note} that may be sent to the configured AI provider, or empty when it
+     * must not leave the machine.
+     *
+     * <p>A private note is never sent — not even while it is unlocked in the desktop app:
+     * a remote AI provider is a different trust boundary from the app the user unlocked it
+     * in. A normal note is sent in full: the entry {@code getAllNotes()} returns for a
+     * filesystem vault only holds the head of the file shown in the notes list.</p>
+     */
+    static Optional<String> contentToSend(Note note, NoteService noteService) {
+        if (note == null || note.isPrivate()) {
+            return Optional.empty();
+        }
+        Note full = note;
+        if (noteService != null && note.getId() != null) {
+            full = noteService.getNoteById(note.getId()).orElse(note);
+        }
+        if (full.isPrivate()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(full.getContent());
+    }
+
+    /** Tells the user a private note is not sent, and returns {@code true} when it was refused. */
+    private boolean refusePrivate(Note note) {
+        if (note == null || !note.isPrivate()) {
+            return false;
+        }
+        context.showInfo(tr("ai.title", "AI Assistant"), tr("ai.privateNote.header", "Private Note"),
+                tr("ai.privateNote.body", "Private notes are never sent to an AI provider."));
+        return true;
+    }
+
     /**
      * Shows a note selector dialog.
      */

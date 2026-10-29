@@ -196,4 +196,14 @@ public interface NoteDAO {
     default java.util.Optional<java.nio.file.Path> resolveFilePath(String id) {
         return java.util.Optional.empty();
     }
+
+    /**
+     * Root directory of a file-backed store (the vault), used to bound which local files
+     * a note may reference (e.g. inlined images).
+     *
+     * @return the storage root, or empty for backends without files (e.g. SQLite)
+     */
+    default java.util.Optional<java.nio.file.Path> storageRoot() {
+        return java.util.Optional.empty();
+    }
 }

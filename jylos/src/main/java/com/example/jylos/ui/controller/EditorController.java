@@ -559,7 +559,8 @@ public class EditorController {
                 }
             }, SystemBrowser::open);
             noteContentArea.setImageSourceResolver(
-                    source -> MarkdownPreview.resolveImageSource(source, previewBaseDir()));
+                    source -> MarkdownPreview.resolveImageSource(source, previewBaseDir(),
+                            previewContainmentRoot()));
             noteContentArea.setTextChangeListener(content -> {
                 if (currentNote != null) {
                     reevaluateModifiedState();
@@ -1745,6 +1746,7 @@ public class EditorController {
         java.util.Collection<PreviewEnhancer> enhancers =
                 new java.util.ArrayList<>(previewEnhancers.values());
         java.nio.file.Path baseDir = previewBaseDir();
+        java.nio.file.Path containmentRoot = previewContainmentRoot();
         // Captured on the FX thread so an enhancer post-processing this render always
         // sees the note this HTML came from, even if the user switches note mid-render.
         com.example.jylos.plugin.PreviewContext previewContext =
@@ -1757,7 +1759,8 @@ public class EditorController {
             protected String call() {
                 if (content != null && !content.trim().isEmpty()) {
                     return MarkdownPreview.buildPreviewHtml(content, darkTheme, enhancers, baseDir,
-                            EditorController.this::resolveEmbedContentByTitle, previewContext, readable, fontSize);
+                            EditorController.this::resolveEmbedContentByTitle, previewContext, readable, fontSize,
+                            containmentRoot);
                 }
                 return MarkdownPreview.buildEmptyHtml(darkTheme);
             }
@@ -1823,6 +1826,14 @@ public class EditorController {
         return noteService.getNoteFilePath(currentNote.getId())
                 .map(java.nio.file.Path::getParent)
                 .orElse(null);
+    }
+
+    /**
+     * Vault root that bounds which local images a note may inline; {@code null} (SQLite)
+     * lets the preview fall back to containing lookups in {@link #previewBaseDir()}.
+     */
+    private java.nio.file.Path previewContainmentRoot() {
+        return noteService != null ? noteService.getStorageRoot().orElse(null) : null;
     }
 
     public void clearPreview() {

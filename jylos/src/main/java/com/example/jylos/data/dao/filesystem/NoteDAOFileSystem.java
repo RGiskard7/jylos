@@ -480,6 +480,11 @@ public class NoteDAOFileSystem implements NoteDAO {
     }
 
     @Override
+    public java.util.Optional<Path> storageRoot() {
+        return java.util.Optional.of(rootPath.toAbsolutePath().normalize());
+    }
+
+    @Override
     public java.util.Optional<Path> resolveFilePath(String id) {
         if (id == null || !isInsideVault(id)) {
             return java.util.Optional.empty();

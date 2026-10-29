@@ -171,6 +171,11 @@ public class NoteService {
         return noteDAO.resolveFilePath(id);
     }
 
+    /** Vault root for file-backed storage; empty in SQLite mode. */
+    public Optional<java.nio.file.Path> getStorageRoot() {
+        return noteDAO.storageRoot();
+    }
+
     /**
      * Updates an existing note.
      * 

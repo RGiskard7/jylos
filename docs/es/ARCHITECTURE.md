@@ -60,6 +60,8 @@ El shell expone dos estados semánticos mediante una única acción libro/lápiz
 
 Las dependencias npm están fijadas, se empaquetan con esbuild y el bundle se incluye como recurso local, por lo que el editor no necesita red. `MarkdownPreview` sigue siendo el pipeline CommonMark de lectura separado y renderizado fuera del hilo FX; conserva la responsabilidad del render completo de transclusiones recursivas, highlight.js, KaTeX y enhancers de plugins. No es editable deliberadamente, evitando conversiones HTML-a-Markdown y estados de documento duplicados.
 
+Las notas pueden contener HTML crudo, que `MarkdownProcessor` deja pasar sin escapar por compatibilidad con otras apps de bóvedas Markdown. Como las notas también pueden venir de fuera (bóvedas importadas, `git pull`, un cliente MCP), la vista de lectura y la exportación HTML se sirven con una Content-Security-Policy con un nonce nuevo en cada render: solo los scripts que emite Jylos y los que inyectan los preview enhancers llevan el nonce, así que un `<script>` o un manejador de eventos inline escrito en una nota no se ejecuta, y la página no puede abrir conexiones, frames ni formularios. Las referencias relativas a imágenes solo se incrustan si resuelven dentro de la raíz de la bóveda (`PathContainment`); una referencia que sale de la bóveda se deja sin resolver.
+
 ## Grafo y backlinks
 
 `GraphBuilder` carga notas y tags por servicios. Los enlaces se resuelven con `WikiLinkResolver`. `BacklinkService` mantiene índices forward/inverse para no reescanear todo el vault en cada consulta.

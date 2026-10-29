@@ -69,6 +69,8 @@ The shell exposes two semantic states through one book/pencil action: editing (L
 
 The pinned npm dependencies are bundled with esbuild and committed as a local resource, so editing never requires network access. `MarkdownPreview` remains a separate CommonMark reading pipeline rendered off the FX thread and loaded in JavaFX `WebView`; it is the full-render owner for recursive transclusion, highlight.js, KaTeX and preview plugin enhancers. It is deliberately not editable, avoiding HTML-to-Markdown round trips and duplicate document state.
 
+Notes may contain raw HTML, which `MarkdownProcessor` passes through unescaped for parity with other Markdown vault apps. Because notes can also come from outside the user's own hands (imported vaults, `git pull`, an MCP client), the reading preview and HTML export are served under a Content-Security-Policy with a fresh nonce per render: only the scripts Jylos emits and those preview enhancers inject carry the nonce, so a `<script>` or inline event handler written in a note does not run, and the page cannot open connections, frames or forms. Relative image references are inlined only when they resolve inside the vault root (`PathContainment`); a reference that climbs out of the vault is left unresolved.
+
 ## Knowledge graph
 
 1. `GraphBuilder` loads notes via `NoteService` / `TagService`.

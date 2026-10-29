@@ -198,6 +198,12 @@ El id de una nota es su ruta dentro de la bóveda, así que `rename_note` y `mov
 cambian. Ambas devuelven el id nuevo — úsalo en las llamadas siguientes o dejarán de
 resolver.
 
+Un id siempre es relativo a la bóveda. Cualquier herramienta que reciba un id (o un
+`folderId` / `parentId`) absoluto o que salga de la bóveda con `..` lo rechaza con un error
+que lo explica, antes de consultar el almacenamiento; el propio almacenamiento también
+rechaza esos ids, así que ninguna herramienta puede leer, escribir, mover ni borrar un
+fichero fuera de la bóveda.
+
 El contenido de una nota privada nunca se devuelve ni es editable vía MCP, aunque esté
 desbloqueada en la sesión actual de la app de escritorio. Eso cubre todas las vías: leer,
 buscar, editar, renombrar, mover, etiquetar y borrar la rechazan por igual.
