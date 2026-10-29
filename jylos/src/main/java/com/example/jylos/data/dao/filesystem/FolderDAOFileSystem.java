@@ -66,8 +66,9 @@ public class FolderDAOFileSystem implements FolderDAO {
             try (Stream<Path> walk = Files.walk(rootPath)) {
                 walk.filter(Files::isDirectory)
                         .filter(p -> !p.equals(rootPath))
-                        // Exclude any directory that is inside a hidden folder (e.g. .trash, .git)
-                        .filter(p -> !p.toString().contains(File.separator + "."))
+                        // Exclude hidden directories inside the vault (.trash, .git); a hidden
+                        // directory *above* the vault (e.g. ~/.config) must not hide it all.
+                        .filter(p -> !FileSystemNames.isHiddenWithinVault(rootPath, p))
                         .forEach(path -> {
                             String relativePath = normalizeId(rootPath.relativize(path).toString());
                             idToPathMap.put(relativePath, path);
@@ -741,7 +742,7 @@ public class FolderDAOFileSystem implements FolderDAO {
     }
 
     private String sanitizeFilename(String title) {
-        return title.replaceAll("[^a-zA-Z0-9\\.\\-_ ]", "_");
+        return FileSystemNames.sanitize(title, "folder");
     }
 
     private String normalizeId(String id) {

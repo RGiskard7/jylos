@@ -176,7 +176,9 @@ public class NoteDAOFileSystem implements NoteDAO {
                         // lists them alongside notes (Obsidian-style).
                         .filter(p -> p.toString().endsWith(".md")
                                 || com.example.jylos.util.AttachmentType.isAttachment(p.getFileName().toString()))
-                        .filter(p -> !p.toString().contains(File.separator + ".")) // Exclude hidden (.trash, .git)
+                        // Exclude hidden entries inside the vault (.trash, .git); a hidden
+                        // directory *above* the vault (e.g. ~/.config) must not hide it all.
+                        .filter(p -> !FileSystemNames.isHiddenWithinVault(rootPath, p))
                         .parallel()
                         .forEach(path -> {
                             String relativePath = normalizeId(rootPath.relativize(path).toString());
@@ -1172,8 +1174,7 @@ public class NoteDAOFileSystem implements NoteDAO {
 
     /** Replaces characters that are illegal in filenames with underscores while preserving Unicode letters and digits. */
     private String sanitizeFilename(String title) {
-        String sanitized = title.replaceAll("[^\\p{L}\\p{N}\\.\\-_ ]", "_").trim();
-        return sanitized.isBlank() ? "note" : sanitized;
+        return FileSystemNames.sanitize(title, "note");
     }
 
     private boolean isAttachmentNote(Path path, Note note) {

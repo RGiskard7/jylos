@@ -6,6 +6,14 @@
 
 - **Seguridad — imágenes y scripts en la vista previa.** Una imagen relativa en una nota (`![](../../.ssh/id_rsa)`) podía leer cualquier fichero del disco e incrustarlo en la vista previa y en la exportación HTML; ahora solo se incrustan imágenes que estén dentro de la bóveda. Además, la vista de lectura y la exportación HTML usan una Content-Security-Policy con un nonce nuevo en cada render: el HTML crudo de las notas se sigue mostrando, pero un `<script>` o un `onerror=` escrito en una nota ya no se ejecuta, y la página no puede abrir conexiones de red. Los scripts propios (resaltado de código, KaTeX, enlaces) y los de plugins (Mermaid, Dataview) siguen funcionando. Afecta a autores de plugins: los manejadores de eventos inline en el HTML inyectado dejan de ejecutarse; usar `addEventListener` (ver `docs/PLUGINS.md`).
 
+- **Bóveda dentro de una carpeta oculta.** Una bóveda situada bajo cualquier carpeta cuyo nombre empieza por punto (por ejemplo `~/.config/Jylos/data`, la ubicación por defecto de la app instalada en Linux, o `~/.notas/`) aparecía completamente vacía: sin notas ni carpetas. Ahora solo se ignoran las entradas ocultas *dentro* de la bóveda (`.trash`, `.git`, `.obsidian`…).
+
+- **Nombres de carpeta con acentos.** Crear o renombrar una carpeta desde Jylos sustituía por `_` cualquier carácter fuera del alfabeto inglés ("Diseño" acababa como "Dise_o"; "日本" como "__"). Ahora las carpetas aceptan letras de cualquier idioma, igual que las notas. Además, notas y carpetas conservan los acentos escritos como carácter combinante (forma NFD, la que generan macOS y algunas fuentes al pegar), que antes también se convertían en `_`. Las carpetas ya existentes no cambian de nombre.
+
+- **Búsqueda del servicio en notas largas.** La búsqueda que usan el servidor MCP (`search_notes`) y los plugins no encontraba texto más allá de los primeros ~900 caracteres de cada nota en modo bóveda. La búsqueda de la interfaz no estaba afectada.
+
+- **Rich links.** Al pegar una URL, la página se descargaba entera en memoria antes de quedarse con los primeros 512 KB; una respuesta enorme o infinita podía bloquear la tarjeta o agotar la memoria. Ahora se deja de leer al llegar al límite.
+
 - **Plugin de IA.** Ya no envía notas privadas a proveedores externos, aunque estén desbloqueadas. Además, resumir, traducir y mejorar ahora envían la nota completa: en modo bóveda solo se enviaban los primeros ~900 caracteres (la vista previa de la lista de notas).
 
 ## [2.5.6] - 2026-09-07

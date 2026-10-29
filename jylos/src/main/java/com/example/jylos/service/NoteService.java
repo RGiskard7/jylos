@@ -574,8 +574,21 @@ public class NoteService {
      */
     private boolean matchesSearch(Note note, String searchLower) {
         String title = note.getTitle() != null ? note.getTitle().toLowerCase() : "";
+        if (title.contains(searchLower)) {
+            return true;
+        }
         String content = note.getContent() != null ? note.getContent().toLowerCase() : "";
-        return title.contains(searchLower) || content.contains(searchLower);
+        if (content.contains(searchLower)) {
+            return true;
+        }
+        // A filesystem vault's list entries only hold the head of each file; read the rest
+        // before deciding it does not match. Private bodies are ciphertext — never searched.
+        if (!note.isContentComplete() && !note.isPrivate() && note.getId() != null) {
+            Note full = noteDAO.getNoteById(note.getId());
+            String fullContent = full != null && full.getContent() != null ? full.getContent().toLowerCase() : "";
+            return fullContent.contains(searchLower);
+        }
+        return false;
     }
 
     // ==================== Sorting Methods ====================
