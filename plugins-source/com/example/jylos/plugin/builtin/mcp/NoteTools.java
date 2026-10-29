@@ -2,6 +2,7 @@ package com.example.jylos.plugin.builtin.mcp;
 
 import static com.example.jylos.plugin.builtin.mcp.McpSupport.displayTitle;
 import static com.example.jylos.plugin.builtin.mcp.McpSupport.errorResult;
+import static com.example.jylos.plugin.builtin.mcp.McpSupport.refuseUnsafeId;
 import static com.example.jylos.plugin.builtin.mcp.McpSupport.intArgument;
 import static com.example.jylos.plugin.builtin.mcp.McpSupport.noteSummary;
 import static com.example.jylos.plugin.builtin.mcp.McpSupport.objectSchema;
@@ -163,6 +164,10 @@ final class NoteTools {
                 .tool(tool)
                 .callHandler((exchange, request) -> {
                     String id = stringArgument(request.arguments(), "id");
+                    CallToolResult unsafeId = refuseUnsafeId(id, "id");
+                    if (unsafeId != null) {
+                        return unsafeId;
+                    }
                     String title = stringArgument(request.arguments(), "title");
                     Optional<Note> found = (id != null && !id.isBlank())
                             ? noteService.getNoteById(id)
@@ -236,6 +241,10 @@ final class NoteTools {
                 .tool(tool)
                 .callHandler((exchange, request) -> {
                     String id = requiredArgument(request.arguments(), "id");
+                    CallToolResult unsafeId = refuseUnsafeId(id, "id");
+                    if (unsafeId != null) {
+                        return unsafeId;
+                    }
                     String content = stringArgument(request.arguments(), "content");
                     if (id == null || content == null) {
                         return errorResult("Both 'id' and 'content' are required.");
@@ -280,6 +289,10 @@ final class NoteTools {
                 .tool(tool)
                 .callHandler((exchange, request) -> {
                     String id = requiredArgument(request.arguments(), "id");
+                    CallToolResult unsafeId = refuseUnsafeId(id, "id");
+                    if (unsafeId != null) {
+                        return unsafeId;
+                    }
                     String title = requiredArgument(request.arguments(), "title");
                     if (id == null || title == null) {
                         return errorResult("Both 'id' and 'title' are required.");
@@ -328,6 +341,10 @@ final class NoteTools {
                 .tool(tool)
                 .callHandler((exchange, request) -> {
                     String id = requiredArgument(request.arguments(), "id");
+                    CallToolResult unsafeId = refuseUnsafeId(id, "id");
+                    if (unsafeId != null) {
+                        return unsafeId;
+                    }
                     if (id == null) {
                         return errorResult("The 'id' argument is required.");
                     }
@@ -344,6 +361,10 @@ final class NoteTools {
                     // An absent or blank folderId means the vault root, which the service
                     // expresses as a null destination.
                     String folderId = requiredArgument(request.arguments(), "folderId");
+                    CallToolResult unsafeFolderId = refuseUnsafeId(folderId, "folderId");
+                    if (unsafeFolderId != null) {
+                        return unsafeFolderId;
+                    }
                     Folder destination = null;
                     if (folderId != null) {
                         Optional<Folder> target = folderService.getFolderById(folderId);
@@ -383,6 +404,10 @@ final class NoteTools {
                 .tool(tool)
                 .callHandler((exchange, request) -> {
                     String id = requiredArgument(request.arguments(), "id");
+                    CallToolResult unsafeId = refuseUnsafeId(id, "id");
+                    if (unsafeId != null) {
+                        return unsafeId;
+                    }
                     if (id == null) {
                         return errorResult("The 'id' argument is required.");
                     }
@@ -424,6 +449,10 @@ final class NoteTools {
                 .tool(tool)
                 .callHandler((exchange, request) -> {
                     String id = requiredArgument(request.arguments(), "id");
+                    CallToolResult unsafeId = refuseUnsafeId(id, "id");
+                    if (unsafeId != null) {
+                        return unsafeId;
+                    }
                     if (id == null) {
                         return errorResult("The 'id' argument is required.");
                     }
