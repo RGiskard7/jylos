@@ -171,6 +171,17 @@ public class NoteService {
         return noteDAO.resolveFilePath(id);
     }
 
+    /**
+     * Fingerprint of the file backing note {@code id}, used to detect changes made outside
+     * Jylos between opening and saving; empty in SQLite mode or when there is no file.
+     */
+    public Optional<FileFingerprint> fingerprint(String id) {
+        if (id == null) {
+            return Optional.empty();
+        }
+        return noteDAO.resolveFilePath(id).flatMap(FileFingerprint::of);
+    }
+
     /** Vault root for file-backed storage; empty in SQLite mode. */
     public Optional<java.nio.file.Path> getStorageRoot() {
         return noteDAO.storageRoot();
