@@ -4,6 +4,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Optional;
+import java.util.function.BooleanSupplier;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 
@@ -15,6 +17,8 @@ import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.data.dao.interfaces.EncryptionKeyDAO;
+import com.example.jylos.data.models.KeyMaterial;
 
 /**
  * Per-note encryption for "private" notes, secured by a single <b>master password</b>.
@@ -71,7 +75,17 @@ public final class EncryptionService {
 
     private static final EncryptionService INSTANCE = new EncryptionService();
 
-    private final Preferences prefs;
+    /**
+     * Where the key material lives: the vault or database of the open session, wired by
+     * {@link #wire}. Until then (and in tests) an in-memory store, so nothing ever reaches
+     * the real user preferences by accident.
+     */
+    private volatile EncryptionKeyDAO store;
+    /** Location used by earlier versions (user preferences), only ever read, as a migration source. */
+    private volatile EncryptionKeyDAO legacyStore;
+    /** Whether the wired storage already holds encrypted notes (decides the migration). */
+    private volatile BooleanSupplier hasEncryptedNotes = () -> false;
+    private volatile boolean migrationChecked;
     private final SecureRandom random = new SecureRandom();
 
     /** Derived key; non-null once a correct password has been entered this session. */
@@ -82,11 +96,13 @@ public final class EncryptionService {
     private final java.util.Set<String> revealedNoteIds = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     private EncryptionService() {
-        this.prefs = Preferences.userNodeForPackage(EncryptionService.class);
+        this.store = new InMemoryKeyStore();
     }
 
-    private EncryptionService(Preferences prefs) {
-        this.prefs = prefs;
+    private EncryptionService(EncryptionKeyDAO store, EncryptionKeyDAO legacyStore, BooleanSupplier hasEncryptedNotes) {
+        this.store = store;
+        this.legacyStore = legacyStore;
+        this.hasEncryptedNotes = hasEncryptedNotes != null ? hasEncryptedNotes : () -> false;
     }
 
     public static EncryptionService getInstance() {
@@ -98,7 +114,93 @@ public final class EncryptionService {
      * <b>For testing only</b> — production code must use {@link #getInstance()}.
      */
     public static EncryptionService createForTesting(Preferences prefs) {
-        return new EncryptionService(prefs);
+        return new EncryptionService(preferencesKeyStore(prefs), null, null);
+    }
+
+    /**
+     * Creates a fresh, independent instance with explicit storage. <b>For testing only</b>
+     * — production code must use {@link #getInstance()} and {@link #wire}.
+     */
+    public static EncryptionService createForTesting(EncryptionKeyDAO store, EncryptionKeyDAO legacyStore,
+            BooleanSupplier hasEncryptedNotes) {
+        return new EncryptionService(store, legacyStore, hasEncryptedNotes);
+    }
+
+    /**
+     * Points the service at the key material of the session being opened (vault or
+     * database) and locks it, so nothing unlocked for one vault carries over to another.
+     *
+     * <p>Migration: earlier versions kept the salt and verifier in the user preferences. They
+     * are copied into {@code store} only if {@code store} has none <em>and</em> the notes
+     * there are already encrypted — such notes can only have been encrypted with that salt.
+     * Preferences that protect nothing here (another vault's, or leftovers written by a
+     * test run) are never propagated. The preferences themselves are left untouched.</p>
+     */
+    public synchronized void wire(EncryptionKeyDAO store, EncryptionKeyDAO legacyStore,
+            BooleanSupplier hasEncryptedNotes) {
+        lock();
+        this.store = store != null ? store : new InMemoryKeyStore();
+        this.legacyStore = legacyStore;
+        this.hasEncryptedNotes = hasEncryptedNotes != null ? hasEncryptedNotes : () -> false;
+        this.migrationChecked = false;
+    }
+
+    /** The key material location of earlier versions, the real user preferences. Read for migration only. */
+    public static EncryptionKeyDAO legacyUserPreferencesStore() {
+        return preferencesKeyStore(Preferences.userNodeForPackage(EncryptionService.class));
+    }
+
+    /** Key material kept in a {@code Preferences} node (the format of earlier versions). */
+    public static EncryptionKeyDAO preferencesKeyStore(Preferences prefs) {
+        return new EncryptionKeyDAO() {
+            @Override
+            public Optional<KeyMaterial> load() {
+                String salt = prefs.get(SALT_KEY, "");
+                String verifier = prefs.get(VERIFIER_KEY, "");
+                return salt.isEmpty() || verifier.isEmpty()
+                        ? Optional.empty()
+                        : Optional.of(new KeyMaterial(salt, verifier, ITERATIONS));
+            }
+
+            @Override
+            public void save(KeyMaterial material) {
+                prefs.put(SALT_KEY, material.salt());
+                prefs.put(VERIFIER_KEY, material.verifier());
+            }
+        };
+    }
+
+    /** The stored key material, migrating it from the legacy location when appropriate. */
+    private synchronized Optional<KeyMaterial> keyMaterial() {
+        Optional<KeyMaterial> material = store.load();
+        if (material.isPresent() || migrationChecked) {
+            return material;
+        }
+        migrationChecked = true;
+        if (legacyStore == null || !hasEncryptedNotes.getAsBoolean()) {
+            return Optional.empty();
+        }
+        Optional<KeyMaterial> legacy = legacyStore.load();
+        if (legacy.isPresent()) {
+            store.save(legacy.get());
+            logger.info("Migrated master-password key material into the vault/database.");
+        }
+        return legacy;
+    }
+
+    /** Ephemeral storage used until a session is wired, e.g. in tests. */
+    private static final class InMemoryKeyStore implements EncryptionKeyDAO {
+        private volatile KeyMaterial material;
+
+        @Override
+        public Optional<KeyMaterial> load() {
+            return Optional.ofNullable(material);
+        }
+
+        @Override
+        public void save(KeyMaterial material) {
+            this.material = material;
+        }
     }
 
     // ------------------------------------------------------------------
@@ -107,7 +209,7 @@ public final class EncryptionService {
 
     /** True once a master password has been set up (salt + verifier stored). */
     public boolean isConfigured() {
-        return !prefs.get(SALT_KEY, "").isEmpty() && !prefs.get(VERIFIER_KEY, "").isEmpty();
+        return keyMaterial().isPresent();
     }
 
     /** True while every private note is readable (global unlock is active). */
@@ -135,15 +237,14 @@ public final class EncryptionService {
     public void configure(char[] password) {
         byte[] salt = new byte[SALT_BYTES];
         random.nextBytes(salt);
-        SecretKey key = deriveKey(password, salt);
+        SecretKey key = deriveKey(password, salt, ITERATIONS);
         String verifier;
         try {
             verifier = encryptWith(key, VERIFIER_PLAINTEXT);
         } catch (Exception e) {
             throw new IllegalStateException("Could not initialise encryption", e);
         }
-        prefs.put(SALT_KEY, Base64.getEncoder().encodeToString(salt));
-        prefs.put(VERIFIER_KEY, verifier);
+        store.save(new KeyMaterial(Base64.getEncoder().encodeToString(salt), verifier, ITERATIONS));
         this.sessionKey = key;
         this.globallyUnlocked = true;
         logger.info("Master password configured; encryption unlocked.");
@@ -156,13 +257,15 @@ public final class EncryptionService {
      * private. Returns whether the password was correct.
      */
     private boolean holdKey(char[] password) {
-        if (!isConfigured()) {
+        Optional<KeyMaterial> material = keyMaterial();
+        if (material.isEmpty()) {
             return false;
         }
-        byte[] salt = Base64.getDecoder().decode(prefs.get(SALT_KEY, ""));
-        SecretKey key = deriveKey(password, salt);
+        byte[] salt = Base64.getDecoder().decode(material.get().salt());
+        int iterations = material.get().iterations() > 0 ? material.get().iterations() : ITERATIONS;
+        SecretKey key = deriveKey(password, salt, iterations);
         try {
-            byte[] check = decryptWith(key, prefs.get(VERIFIER_KEY, ""));
+            byte[] check = decryptWith(key, material.get().verifier());
             if (Arrays.equals(check, VERIFIER_PLAINTEXT)) {
                 this.sessionKey = key;
                 return true;
@@ -273,11 +376,11 @@ public final class EncryptionService {
     // Internals
     // ------------------------------------------------------------------
 
-    private SecretKey deriveKey(char[] password, byte[] salt) {
+    private SecretKey deriveKey(char[] password, byte[] salt, int iterations) {
         PBEKeySpec spec = null;
         try {
             SecretKeyFactory factory = SecretKeyFactory.getInstance(PBKDF2);
-            spec = new PBEKeySpec(password, salt, ITERATIONS, KEY_BITS);
+            spec = new PBEKeySpec(password, salt, iterations, KEY_BITS);
             byte[] keyBytes = factory.generateSecret(spec).getEncoded();
             return new SecretKeySpec(keyBytes, "AES");
         } catch (java.security.NoSuchAlgorithmException | java.security.spec.InvalidKeySpecException e) {

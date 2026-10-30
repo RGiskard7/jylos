@@ -2,6 +2,7 @@ package com.example.jylos.data.dao.sqlite;
 
 import java.sql.Connection;
 
+import com.example.jylos.data.dao.interfaces.EncryptionKeyDAO;
 import com.example.jylos.data.dao.interfaces.FactoryDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
@@ -55,6 +56,16 @@ public class FactoryDAOSQLite extends FactoryDAO {
 	@Override
 	public TagDAO getLabelDAO() {
 		return new TagDAOSQLite(connection);
+	}
+
+    /**
+     * Retrieves the SQLite storage for the private-notes key material.
+     *
+     * @return An instance of EncryptionKeyDAOSQLite.
+     */
+	@Override
+	public EncryptionKeyDAO getEncryptionKeyDAO() {
+		return new EncryptionKeyDAOSQLite(connection);
 	}
 
 }

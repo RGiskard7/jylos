@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+- **Notas privadas en otro equipo.** El salt y el verificador de la contraseña maestra se guardaban en las preferencias del sistema, no con las notas: una bóveda sincronizada o copiada a otro equipo (o tras reinstalar) no se podía desbloquear ni con la contraseña correcta. Ahora se guardan con las notas: `.jylos/encryption.json` en modo bóveda, una tabla en la base de datos en modo SQLite. Si una bóveda o base de datos ya tiene notas privadas, su material se migra automáticamente desde las preferencias la primera vez; las preferencias no se modifican. **Aviso:** si sincronizas la bóveda (Git, nube), quien tenga una copia puede intentar adivinar la contraseña maestra sin conexión; usa una contraseña larga y única.
+
+- **Notas privadas tras bloquear.** Una nota privada guardada durante la sesión seguía mostrando su texto en la lista de notas (vista previa) después de bloquear las notas privadas, y la búsqueda podía seguir encontrándola por su contenido. Ahora bloquear oculta ambas cosas.
+
+- **Los tests ya no tocan tu contraseña maestra.** Ejecutar la suite de tests (`mvn test`) sobrescribía el salt y el verificador de la contraseña maestra guardados en las preferencias del usuario de esa máquina; si ese usuario tenía notas privadas en Jylos, dejaban de poder desbloquearse. Afectaba a quien desarrolla, no a la app instalada.
+
+- `Note.toString()` ya no incluye el cuerpo de la nota, para que ningún log o mensaje de error pueda mostrar el texto en claro de una nota privada.
+
 - **Cambios externos ya no se pierden al guardar.** Si una nota abierta se modificaba fuera de Jylos (desde otra app como Obsidian, por un servicio de sincronización o con `git pull`), el siguiente guardado —incluido el autoguardado— sobrescribía esos cambios sin avisar. Ahora Jylos lo detecta comparando el contenido del fichero con el que tenía al abrir o guardar la nota (un fichero que solo cambia de fecha no cuenta). Un guardado manual pregunta qué hacer: sobrescribir con tu versión, descartarla y recargar la del disco, o guardar la tuya como copia aparte ("… - copia en conflicto"). El autoguardado nunca sobrescribe: se pausa y lo indica en la barra de estado. No aplica a ficheros canvas ni al modo SQLite.
 
 - **Bóveda no encontrada al arrancar.** Si la carpeta de la bóveda configurada no estaba disponible (disco desconectado, carpeta en la nube sin montar, carpeta movida o renombrada), Jylos abría en silencio la carpeta de datos por defecto: parecía que las notas habían desaparecido y las nuevas acababan en otro sitio. Ahora aparece un diálogo para reintentar, elegir otra carpeta, usar la carpeta por defecto solo en esa sesión o salir.

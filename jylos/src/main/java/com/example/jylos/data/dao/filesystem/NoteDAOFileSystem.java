@@ -486,6 +486,31 @@ public class NoteDAOFileSystem implements NoteDAO {
         return java.util.Optional.of(rootPath.toAbsolutePath().normalize());
     }
 
+    /**
+     * Scans the Markdown files themselves (trash included): during the deferred startup
+     * load the note cache holds metadata only, so it cannot tell private notes apart.
+     */
+    @Override
+    public boolean hasPrivateNotes() {
+        try (Stream<Path> walk = Files.walk(rootPath)) {
+            return walk.filter(Files::isRegularFile)
+                    .filter(p -> p.getFileName().toString().endsWith(".md"))
+                    .anyMatch(this::isPrivateNoteFile);
+        } catch (IOException | java.io.UncheckedIOException e) {
+            logger.log(Level.WARNING, "Could not scan vault for private notes", e);
+            return false;
+        }
+    }
+
+    private boolean isPrivateNoteFile(Path path) {
+        try {
+            // Every encrypted note carries the private flag in its frontmatter.
+            return FrontmatterHandler.parseLightweight(readFileHead(path, LIGHTWEIGHT_READ_BYTES), 0).isPrivate();
+        } catch (IOException | RuntimeException e) {
+            return false;
+        }
+    }
+
     @Override
     public java.util.Optional<Path> resolveFilePath(String id) {
         if (id == null || !isInsideVault(id)) {

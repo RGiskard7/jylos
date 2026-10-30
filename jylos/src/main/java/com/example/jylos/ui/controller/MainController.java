@@ -465,6 +465,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             folderDAO = factory.getFolderDAO();
             noteDAO = factory.getNoteDAO();
             tagDAO = factory.getLabelDAO();
+            // The master-password key material lives with the notes it protects (vault or
+            // database); this also locks anything unlocked in a previous vault session.
+            NoteDAO sessionNoteDAO = noteDAO;
+            EncryptionService.getInstance().wire(factory.getEncryptionKeyDAO(),
+                    EncryptionService.legacyUserPreferencesStore(), sessionNoteDAO::hasPrivateNotes);
             noteService = new NoteService(noteDAO, folderDAO);
             noteService.setHistoryService(new com.example.jylos.service.NoteHistoryService(
                     java.nio.file.Path.of(com.example.jylos.AppDataDirectory.getBaseDirectory(), "history")));
@@ -3301,6 +3306,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         Note current = getCurrentNote();
         if (current != null && current.isPrivate() && current.getId() != null) {
             noteService.getNoteById(current.getId()).ifPresent(editorController::loadNote);
+        }
+        // Full-text search keeps decrypted bodies cached while unlocked; this event makes
+        // every listener drop them, so a locked note can no longer be found by its text.
+        if (eventBus != null) {
+            eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
         }
         refreshNotesList();
         updateStatus(getString("status.notes_locked"));

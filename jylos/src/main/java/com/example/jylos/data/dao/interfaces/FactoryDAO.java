@@ -38,6 +38,13 @@ public abstract class FactoryDAO {
     public abstract TagDAO getLabelDAO();
 
     /**
+     * Retrieves the storage for the private-notes key material, kept with the notes.
+     *
+     * @return An EncryptionKeyDAO instance.
+     */
+    public abstract EncryptionKeyDAO getEncryptionKeyDAO();
+
+    /**
      * Factory method to obtain a concrete implementation of FactoryDAO based on the
      * given key.
      *

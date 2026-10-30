@@ -450,8 +450,16 @@ public class NoteService {
         if (notes == null) {
             return new ArrayList<>();
         }
+        EncryptionService encryption = EncryptionService.getInstance();
         for (Note n : notes) {
-            if (n != null && EncryptionService.isEncrypted(n.getContent())) {
+            if (n == null) {
+                continue;
+            }
+            // A vault's list cache shares the object a save just wrote, which holds the
+            // plaintext again once the save returns. A private note the session can no
+            // longer read is hidden like a still-encrypted one, so locking really hides it.
+            boolean unreadable = n.isPrivate() && (n.getId() == null || !encryption.canRead(n.getId()));
+            if (EncryptionService.isEncrypted(n.getContent()) || unreadable) {
                 n.setContent(LOCKED_PLACEHOLDER);
             }
         }

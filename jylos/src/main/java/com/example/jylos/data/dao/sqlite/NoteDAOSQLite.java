@@ -289,6 +289,19 @@ public class NoteDAOSQLite implements NoteDAO {
 	}
 
 	@Override
+	public boolean hasPrivateNotes() {
+		synchronized (connection) {
+			try (Statement stmt = connection.createStatement();
+					ResultSet rs = stmt.executeQuery("SELECT 1 FROM notes WHERE is_private = 1 LIMIT 1")) {
+				return rs.next();
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error hasPrivateNotes(): " + e.getMessage(), e);
+				return false;
+			}
+		}
+	}
+
+	@Override
 	public List<Note> fetchTrashNotes() {
 		List<Note> list = new ArrayList<>();
 		synchronized (connection) {

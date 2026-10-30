@@ -206,4 +206,14 @@ public interface NoteDAO {
     default java.util.Optional<java.nio.file.Path> storageRoot() {
         return java.util.Optional.empty();
     }
+
+    /**
+     * Whether any note here (trash included) is private, i.e. was encrypted. Read from
+     * storage, not from whatever a list cache happens to hold, because it decides whether
+     * existing key material belongs to these notes.
+     */
+    default boolean hasPrivateNotes() {
+        return fetchAllNotes().stream().anyMatch(Note::isPrivate)
+                || fetchTrashNotes().stream().anyMatch(Note::isPrivate);
+    }
 }

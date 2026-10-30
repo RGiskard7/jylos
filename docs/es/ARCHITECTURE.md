@@ -99,6 +99,10 @@ Un tablero es una nota normal con cuerpo Markdown serializado por `KanbanModel`.
 
 `EncryptionService` cifra solo cuerpo de nota con AES-256-GCM y clave derivada por PBKDF2. Metadata sigue legible para listar. Guardar nota privada bloqueada está protegido para no sobrescribir ciphertext.
 
+El salt y el verificador (`KeyMaterial`) viven con las notas que protegen, a través de `EncryptionKeyDAO`: `.jylos/encryption.json` en una bóveda de ficheros y la tabla `app_settings` en SQLite. Una bóveda copiada o sincronizada a otro equipo se desbloquea allí con la misma contraseña. `MainController` conecta el `EncryptionService` compartido al almacenamiento de la sesión cada vez que se abre una bóveda o base de datos (y de paso lo bloquea); hasta entonces guarda el material solo en memoria, así que los tests nunca tocan las preferencias reales del usuario. En versiones anteriores el material vivía en las preferencias del usuario; se migra a la bóveda o base de datos solo si esta no tiene material propio y ya contiene notas privadas, que solo pudieron cifrarse con él. Las preferencias no se modifican.
+
+**Nota de seguridad.** El verificador permite un ataque offline de adivinación de la contraseña, igual que cuando estaba en las preferencias. Ahora que viaja con la bóveda, cualquiera con una copia de ella (un remoto Git, una carpeta en la nube) puede intentarlo. PBKDF2 con 210.000 iteraciones encarece cada intento, pero solo una contraseña maestra larga y única hace el ataque impracticable.
+
 ## Plugins y eventos
 
 Core no importa clases concretas de plugins. `PluginLoader` escanea `plugins/`. `PluginContext.requestOpenNote(...)` usa callback directo del shell.

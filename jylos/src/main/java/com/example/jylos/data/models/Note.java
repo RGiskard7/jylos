@@ -389,10 +389,13 @@ public class Note extends LeafModel implements Serializable {
 
 	@Override
 	public String toString() {
+		// The body is deliberately left out: toString() reaches logs and assertion
+		// messages, and the body may be the plaintext of a private note.
 		return "Note{"
-				+ "id='" + getId() + '\'' +
-				"title='" + getTitle() + '\'' +
-				"content='" + content + '\'' +
-				'}';
+				+ "id='" + getId() + '\''
+				+ ", title='" + getTitle() + '\''
+				+ ", private=" + isPrivate
+				+ ", contentLength=" + (content != null ? content.length() : 0)
+				+ '}';
 	}
 }
