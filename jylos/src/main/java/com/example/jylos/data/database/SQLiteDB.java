@@ -268,8 +268,6 @@ public class SQLiteDB {
                     logger.info("Adding deleted_date column to folders table...");
                     stmt.executeUpdate("ALTER TABLE folders ADD COLUMN deleted_date TEXT DEFAULT NULL");
                 }
-            } catch (SQLException e) {
-                logger.warning("Could not check/add columns to tables: " + e.getMessage());
             }
 
             createPerformanceIndexes(connection);
@@ -285,6 +283,9 @@ public class SQLiteDB {
                             rollbackEx);
                 }
             }
+            // Never continue on a schema the app cannot use: every later query would fail
+            // quietly and the user would face an empty app with no explanation.
+            throw new DataAccessException("Could not initialise the database schema: " + e.getMessage(), e);
         } finally {
             if (connection != null) {
                 closeConnection(connection);

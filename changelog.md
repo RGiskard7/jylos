@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+- **Modo SQLite: campos que se perdían al guardar.** Al actualizar una nota solo se guardaban título, contenido, favorito, fijado, estado y privado: autor, URL de origen, fuente, aplicación de origen, coordenadas y las fechas de las tareas se ignoraban (en modo bóveda sí se guardaban). Ahora se guardan todos.
+
+- **Modo SQLite: notas que saltaban a la raíz.** Guardar una nota a partir de un objeto que no llevaba su carpeta (por ejemplo, desde un plugin) la sacaba de su carpeta y la movía a la raíz. Guardar ya no cambia la carpeta; solo la mueven las operaciones de mover.
+
+- **Modo SQLite: base de datos que no se puede preparar.** Si al arrancar no se podía completar el esquema de la base de datos, Jylos arrancaba igualmente y todo fallaba en silencio (la app aparecía vacía). Ahora muestra un error explicando el motivo y dónde están las copias de seguridad automáticas, y se cierra sin escribir nada.
+
+- **Modo SQLite: errores al renombrar o borrar etiquetas.** Un renombrado que la base de datos rechazaba (por ejemplo, a un nombre que ya existe) parecía haberse aplicado. Ahora se informa del error.
+
 - **Notas privadas en otro equipo.** El salt y el verificador de la contraseña maestra se guardaban en las preferencias del sistema, no con las notas: una bóveda sincronizada o copiada a otro equipo (o tras reinstalar) no se podía desbloquear ni con la contraseña correcta. Ahora se guardan con las notas: `.jylos/encryption.json` en modo bóveda, una tabla en la base de datos en modo SQLite. Si una bóveda o base de datos ya tiene notas privadas, su material se migra automáticamente desde las preferencias la primera vez; las preferencias no se modifican. **Aviso:** si sincronizas la bóveda (Git, nube), quien tenga una copia puede intentar adivinar la contraseña maestra sin conexión; usa una contraseña larga y única.
 
 - **Notas privadas tras bloquear.** Una nota privada guardada durante la sesión seguía mostrando su texto en la lista de notas (vista previa) después de bloquear las notas privadas, y la búsqueda podía seguir encontrándola por su contenido. Ahora bloquear oculta ambas cosas.

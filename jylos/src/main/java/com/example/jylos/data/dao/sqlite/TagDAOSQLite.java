@@ -120,6 +120,7 @@ public class TagDAOSQLite implements TagDAO {
 				} catch (SQLException rollbackEx) {
 					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
 				}
+				throw new DataAccessException("Failed to update tag: " + tag.getId(), e);
 			}
 		}
 	}
@@ -143,6 +144,7 @@ public class TagDAOSQLite implements TagDAO {
 				} catch (SQLException rollbackEx) {
 					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
 				}
+				throw new DataAccessException("Failed to delete tag: " + id, e);
 			}
 		}
 	}
