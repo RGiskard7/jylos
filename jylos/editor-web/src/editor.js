@@ -4,7 +4,7 @@ import { bracketMatching, defaultHighlightStyle, HighlightStyle, indentOnInput, 
 import { languages } from "@codemirror/language-data";
 import { markdown } from "@codemirror/lang-markdown";
 import { highlightSelectionMatches, openSearchPanel, search, searchKeymap } from "@codemirror/search";
-import { Compartment, EditorSelection, EditorState } from "@codemirror/state";
+import { Compartment, EditorSelection, EditorState, Prec } from "@codemirror/state";
 import {
   Decoration,
   dropCursor,
@@ -180,28 +180,55 @@ const emojiDecorations = ViewPlugin.fromClass(class {
   }
 }, { decorations: value => value.decorations });
 
+// CodeMirror filters (fuzzily) and ranks the options itself, against the text
+// between `from` and the caret. So `from` must be where the title starts, after
+// the `[[`: matching titles against "[[al" would discard every one of them.
 function wikiLinkCompletion(context) {
   const before = context.matchBefore(/\[\[[^\]\[\n]*$/);
   if (!before) return null;
-  const query = before.text.slice(2).toLocaleLowerCase();
-  const options = autocompleteTitles
-    .filter(title => !query || title.toLocaleLowerCase().includes(query))
-    .slice(0, 50)
-    .map(title => ({
-      label: title,
-      type: "text",
-      apply(editorView, _completion, from, to) {
-        if (editorView.state.readOnly) return;
-        const raw = `[[${title}]]`;
-        const inserted = window.javaEditor?.transformInsertion(raw) || raw;
-        editorView.dispatch({
-          changes: { from, to, insert: inserted },
-          selection: { anchor: from + inserted.length },
-          userEvent: "input.complete"
-        });
-      }
-    }));
-  return { from: before.from, options, validFor: /^\[\[[^\]\[\n]*$/ };
+  const options = autocompleteTitles.map(title => ({
+    label: title,
+    type: "text",
+    apply(editorView, _completion, from, to) {
+      if (editorView.state.readOnly) return;
+      // Replace the whole link: the opening `[[` and, when closeBrackets already
+      // inserted it, the `]]` after the caret.
+      const linkFrom = from - 2;
+      const linkTo = editorView.state.sliceDoc(to, to + 2) === "]]" ? to + 2 : to;
+      const raw = `[[${title}]]`;
+      const inserted = window.javaEditor?.transformInsertion(raw) || raw;
+      editorView.dispatch({
+        changes: { from: linkFrom, to: linkTo, insert: inserted },
+        selection: { anchor: linkFrom + inserted.length },
+        userEvent: "input.complete"
+      });
+    }
+  }));
+  return { from: before.from + 2, options, validFor: /^[^\]\[\n]*$/ };
+}
+
+// JavaFX's WebKit leaves KeyboardEvent.key empty, so CodeMirror names keys from
+// keyCode as if the keyboard were US. On a Spanish Mac, Option + the key right of P
+// types "[" but arrives as "Alt-`", the completion shortcut: CodeMirror cancels the
+// keydown and the "[" is never typed. On macOS Option+key is how symbols are typed
+// in any layout, so bindings on Option + a character are dropped there.
+const IS_MAC = /Mac/.test(navigator.platform);
+
+function isOptionCharacterKey(key) {
+  const parts = key.split(/-(?!$)/);
+  const name = parts.pop();
+  const modifiers = parts.map(part => part.toLowerCase());
+  return [...name].length === 1
+    && modifiers.some(part => part === "alt" || part === "a")
+    && !modifiers.some(part => ["mod", "cmd", "meta", "m", "ctrl", "control", "c"].includes(part));
+}
+
+function typingSafeKeymap(bindings) {
+  if (!IS_MAC) return bindings;
+  return bindings.filter(binding => {
+    const key = binding.mac || binding.key;
+    return !key || !isOptionCharacterKey(key);
+  });
 }
 
 // Centered content column width (Obsidian's own default), shared with the preview
@@ -388,9 +415,12 @@ function createState(doc, config) {
     editableCompartment.of(editableExtensions(editable)),
     wikiLinkDecorations,
     emojiDecorations,
-    autocompletion({ override: [wikiLinkCompletion], activateOnTyping: true }),
+    // Its own keymap is registered below, filtered, at the same highest precedence
+    // the default would get (so Enter/arrows act on an open list first).
+    autocompletion({ override: [wikiLinkCompletion], activateOnTyping: true, defaultKeymap: false }),
+    Prec.highest(keymap.of(typingSafeKeymap(completionKeymap))),
     sourceLinkNavigation(),
-    keymap.of([indentWithTab, ...closeBracketsKeymap, ...defaultKeymap, ...searchKeymap, ...historyKeymap, ...completionKeymap]),
+    keymap.of(typingSafeKeymap([indentWithTab, ...closeBracketsKeymap, ...defaultKeymap, ...searchKeymap, ...historyKeymap])),
     EditorView.lineWrapping,
     EditorView.updateListener.of(notifyDocumentChanged),
     EditorView.exceptionSink.of(error => window.javaEditor?.onEditorError(String(error?.stack || error))),

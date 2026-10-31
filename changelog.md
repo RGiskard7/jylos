@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2.5.7] - 2026-10-31
+
+- **Autocompletado de enlaces wiki.** Al escribir `[[` no aparecía nunca la lista de notas, en ningún sistema operativo: el editor comparaba los títulos con el texto escrito incluyendo los propios `[[`, así que ninguno coincidía. Ahora la lista aparece al escribir `[[`, se va filtrando según escribes, y al elegir una nota el enlace queda como `[[Nota]]` sin `]]` duplicados. Fixes #63.
+
+- **macOS: símbolos que no se podían escribir en el editor.** Con teclados como el español, `[` (Option + la tecla a la derecha de la P) no se escribía, y tampoco otros símbolos que se escriben con Option: el editor confundía esas combinaciones con atajos propios (por ejemplo, abrir el autocompletado) porque el navegador interno de JavaFX no le dice qué carácter produce cada tecla. En macOS el editor ya no usa atajos de Option + letra o símbolo; el autocompletado se puede abrir a mano con Ctrl+Espacio.
+
 - **Versión coherente en todos los builds.** Al sacar una versión, solo los paquetes del release llevaban el número correcto: el `pom.xml` seguía en `2.4.5` (así que cualquier build local, del IDE o del CI se identificaba como 2.4.5 en "Acerca de") y el badge del README seguía en `2.4.11`. Ahora `scripts/prepare-release.sh X.Y.Z` actualiza la versión del `pom.xml` y crea la sección del changelog en un paso, el workflow de release se niega a publicar si el tag no coincide con el `pom.xml` o falta la sección del changelog (falla en segundos, antes de empaquetar), y el badge del README muestra el último release de GitHub sin tener que editarlo. Además, los JAR llevan `Implementation-Version` en el manifest. Ver `docs/CICD.md`.
 
 - **CI más completo.** Los pull requests ejecutan también los tests de los plugins (Dataview, MCP, Publish, IA…) y los del editor CodeMirror, que antes solo se ejecutaban a mano.
