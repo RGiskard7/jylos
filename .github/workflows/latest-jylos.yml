@@ -39,3 +39,34 @@ jobs:
 
       - name: Compile and run tests
         run: xvfb-run -a mvn -B -f jylos/pom.xml clean test
+
+      # Plugin sources are compiled against the app like third-party plugins, so the
+      # Maven run above never sees them; this builds the plugin JARs and runs their tests
+      # (Dataview, MCP, Publish, AI…). Some open JavaFX dialogs, hence xvfb.
+      - name: Build and test plugins
+        run: xvfb-run -a bash ./scripts/test-plugins.sh
+
+  editor-web:
+    name: Editor (CodeMirror) tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: jylos/editor-web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: jylos/editor-web/package-lock.json
+
+      - name: Install pinned dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test

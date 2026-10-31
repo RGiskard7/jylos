@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- **Versión coherente en todos los builds.** Al sacar una versión, solo los paquetes del release llevaban el número correcto: el `pom.xml` seguía en `2.4.5` (así que cualquier build local, del IDE o del CI se identificaba como 2.4.5 en "Acerca de") y el badge del README seguía en `2.4.11`. Ahora `scripts/prepare-release.sh X.Y.Z` actualiza la versión del `pom.xml` y crea la sección del changelog en un paso, el workflow de release se niega a publicar si el tag no coincide con el `pom.xml` o falta la sección del changelog (falla en segundos, antes de empaquetar), y el badge del README muestra el último release de GitHub sin tener que editarlo. Además, los JAR llevan `Implementation-Version` en el manifest. Ver `docs/CICD.md`.
+
+- **CI más completo.** Los pull requests ejecutan también los tests de los plugins (Dataview, MCP, Publish, IA…) y los del editor CodeMirror, que antes solo se ejecutaban a mano.
+
 - **Modo SQLite: campos que se perdían al guardar.** Al actualizar una nota solo se guardaban título, contenido, favorito, fijado, estado y privado: autor, URL de origen, fuente, aplicación de origen, coordenadas y las fechas de las tareas se ignoraban (en modo bóveda sí se guardaban). Ahora se guardan todos.
 
 - **Modo SQLite: notas que saltaban a la raíz.** Guardar una nota a partir de un objeto que no llevaba su carpeta (por ejemplo, desde un plugin) la sacaba de su carpeta y la movía a la raíz. Guardar ya no cambia la carpeta; solo la mueven las operaciones de mover.

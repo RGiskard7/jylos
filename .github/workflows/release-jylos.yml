@@ -13,8 +13,24 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate:
+    name: Validate version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # The tag must match jylos/pom.xml <revision> and have a changelog section, so
+      # every build of the tagged commit — not only these packages — reports the same
+      # version. Fails in seconds instead of after an hour of packaging.
+      # Fix with: scripts/prepare-release.sh X.Y.Z, commit, re-tag.
+      - name: Check pom.xml and changelog.md match the tag
+        run: bash ./scripts/check-release-version.sh "${GITHUB_REF_NAME}"
+
   package:
     name: Package ${{ matrix.os }}
+    needs: validate
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:

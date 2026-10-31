@@ -38,8 +38,14 @@ It does:
 xvfb-run -a mvn -B -f jylos/pom.xml clean test
 ```
 
+- build the plugin JARs and run the plugin tests (`scripts/test-plugins.sh`, also
+  under `xvfb`) — plugin sources are compiled like third-party plugins, so the
+  Maven run never sees them;
+- in a separate `editor-web` job, Node 22 + `npm ci && npm test` in
+  `jylos/editor-web` (the CodeMirror editor's own tests).
+
 It does not build installers. Its purpose is to verify that the branch still
-compiles and the test suite passes.
+compiles and every test suite passes.
 
 ### `mutacion.yml`
 
@@ -89,6 +95,9 @@ v3.0.0
 
 It does:
 
+- **`validate` job, first and in seconds:** `scripts/check-release-version.sh`
+  checks that `jylos/pom.xml` `<revision>` equals the tag and that `changelog.md`
+  has a non-empty section for it. Nothing is built if they disagree;
 - validates that the tag is semantic;
 - derives `JYLOS_RELEASE_VERSION` by removing the leading `v`;
 - sets up Java 21 Temurin;
@@ -201,13 +210,16 @@ git pull origin main
 
 ## Normal Release Flow
 
-Before tagging, make sure `changelog.md` contains a section for the version:
+Prepare the version in one step, on the branch that will be merged to `main`:
 
-```markdown
-## [2.4.1] - 2026-07-16
+```bash
+scripts/prepare-release.sh 2.4.1          # date defaults to today
 ```
 
-Create and push the tag:
+It sets `jylos/pom.xml` `<revision>` to `2.4.1` and turns the current
+`## [Unreleased]` bullets into `## [2.4.1] - <date>` (leaving an empty
+`## [Unreleased]` on top), then runs `scripts/check-release-version.sh`. It does
+not commit, tag or push. Review the diff, commit, merge to `main`, then:
 
 ```bash
 git checkout main
@@ -216,10 +228,14 @@ git tag v2.4.1
 git push origin v2.4.1
 ```
 
-Replace `v2.4.1` with the real version.
+Why the `pom.xml` bump matters: the release packages take their version from the
+tag, but every other build (IDE, `build_all`, the pull-request CI, `mvn package`)
+takes it from `<revision>`. Without the bump those builds identify themselves with
+an older version. The release workflow's `validate` job refuses a tag that does not
+match `<revision>` or has no changelog section, so the two can no longer drift.
 
-No extra commit is required only to bump `pom.xml`. The release workflow uses the
-tag as the source of truth during packaging.
+The README version badge reads the latest GitHub Release, and the landing page
+(`docs/index.html`) fetches it at load time: neither needs editing per release.
 
 ## Application Version
 
@@ -243,6 +259,7 @@ Result:
 - Maven produces `jylos-2.4.1.jar` and `jylos-2.4.1-uber.jar`;
 - the release publishes those files as stable assets: `jylos.jar` and `jylos-uber.jar`;
 - packaged `version.properties` contains `2.4.1`;
+- both JARs' `META-INF/MANIFEST.MF` carry `Implementation-Version: 2.4.1`;
 - `About Jylos` shows `v2.4.1`;
 - the update checker compares against GitHub Releases.
 
@@ -362,15 +379,19 @@ the GitHub Release.
 
 ## Common Failures
 
-### Release Fails Because Notes Are Missing
+### Release Fails in the `validate` Job
 
-Check `changelog.md`:
+The tag does not match `jylos/pom.xml` `<revision>`, or `changelog.md` has no
+`## [X.Y.Z] - YYYY-MM-DD` section for it — usually because
+`scripts/prepare-release.sh` was not run before tagging. Nothing was built or
+published, so the tag can be moved safely:
 
-```markdown
-## [X.Y.Z] - YYYY-MM-DD
+```bash
+git push origin --delete vX.Y.Z && git tag -d vX.Y.Z
+scripts/prepare-release.sh X.Y.Z    # then commit and merge to main
+git checkout main && git pull
+git tag vX.Y.Z && git push origin vX.Y.Z
 ```
-
-It must match tag `vX.Y.Z`.
 
 ### Linux Fails Because of Script Permissions
 
@@ -393,9 +414,10 @@ It means no runner is available. That is why macOS is disabled.
 
 ## Pre-Release Checklist
 
-- `main` contains the final merge.
+- `main` contains the final merge, including the `scripts/prepare-release.sh` commit.
 - `latest-jylos.yml` is green on the pull request or `main`.
-- `changelog.md` has a section for the version.
+- `scripts/check-release-version.sh X.Y.Z` passes locally (the release workflow
+  runs it again and stops on mismatch).
 - The chosen version follows semver.
 - If asset names changed, update `docs/index.html`.
 - If macOS remains disabled, do not promise a new DMG in release notes.

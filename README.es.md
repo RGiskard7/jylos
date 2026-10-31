@@ -12,7 +12,7 @@
 <div align="center">
 
 [![Licencia: MIT](https://img.shields.io/badge/Licencia-MIT-yellow.svg)](LICENSE)
-[![Versión](https://img.shields.io/badge/versión-2.4.11-success.svg)](changelog.md)
+[![Versión](https://img.shields.io/github/v/release/RGiskard7/jylos?label=versi%C3%B3n&color=success)](https://github.com/RGiskard7/jylos/releases/latest)
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/)
 [![JavaFX](https://img.shields.io/badge/JavaFX-23-blue.svg)](https://openjfx.io/)
 [![SQLite](https://img.shields.io/badge/SQLite-3-lightgrey.svg)](https://www.sqlite.org/)
@@ -545,7 +545,7 @@ Warnings del tipo `Failed to build parent project for org.openjfx:javafx-*` son 
 ### Convenio del changelog
 
 - Mantén `## [Unreleased]` arriba sin fecha; úsalo solo para cambios todavía no asignados a una release.
-- Al preparar una release, mueve los puntos correspondientes a `## [x.y.z] - YYYY-MM-DD`, usando la fecha de publicación de la release, no necesariamente la fecha en la que se hizo cada cambio.
+- Al preparar una release, ejecuta `scripts/prepare-release.sh x.y.z` en lugar de editar a mano: mueve los puntos de `[Unreleased]` a `## [x.y.z] - YYYY-MM-DD` (por defecto con la fecha de hoy) y pone la misma versión en `jylos/pom.xml`. Haz commit, merge a `main` y después sube el tag `vx.y.z`; el workflow de release rechaza un tag que no coincida. Pasos completos: [docs/es/CICD.md](docs/es/CICD.md#release-normal).
 - Una misma sección de release puede incluir trabajo hecho durante varios días. No crees secciones duplicadas para la misma versión.
 - Escribe los puntos desde el punto de vista del usuario: fixes, cambios de comportamiento, compatibilidad, migraciones y documentación.
 - Si un PR corrige un issue de GitHub, pon `Fixes #123` en la descripción del PR para que GitHub lo cierre al hacer merge.

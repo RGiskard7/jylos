@@ -27,6 +27,13 @@ All paths are relative to the **repository root** unless noted.
 | `smoke-phase-gate.sh` / `.ps1` | Smoke checks |
 | `hardening-storage-matrix.sh` / `.ps1` | SQLite vs filesystem contract tests |
 
+## Release
+
+| Script | Purpose |
+|--------|---------|
+| `prepare-release.sh X.Y.Z [date]` | Sets `jylos/pom.xml` `<revision>` and moves the `[Unreleased]` changelog bullets into `## [X.Y.Z] - date`. Does not commit or tag |
+| `check-release-version.sh X.Y.Z` | Fails unless `<revision>` is `X.Y.Z` and `changelog.md` has a non-empty section for it; run by the release workflow before packaging |
+
 ## Packaging
 
 | Script | Purpose |
