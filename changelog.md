@@ -4,6 +4,8 @@
 
 ## [2.5.7] - 2026-10-31
 
+- **La vista previa mostraba la nota anterior.** Al abrir otra nota (por ejemplo, desde un enlace) en modo vista previa, a veces se veía el contenido de la nota anterior, aunque el editor mostraba la nueva. Pasaba sobre todo al arrancar con la bóveda en una carpeta en la nube (iCloud, OneDrive): si un render se quedaba esperando a un fichero que aún no estaba descargado (una imagen o una nota incrustada), los siguientes esperaban detrás. Ahora un render lento no retrasa al de la nota nueva, y si la nota nueva tarda en pintarse, la vista previa se queda en blanco en lugar de mostrar otra nota.
+
 - **Autocompletado de enlaces wiki.** Al escribir `[[` no aparecía nunca la lista de notas, en ningún sistema operativo: el editor comparaba los títulos con el texto escrito incluyendo los propios `[[`, así que ninguno coincidía. Ahora la lista aparece al escribir `[[`, se va filtrando según escribes, y al elegir una nota el enlace queda como `[[Nota]]` sin `]]` duplicados. Fixes #63.
 
 - **macOS: símbolos que no se podían escribir en el editor.** Con teclados como el español, `[` (Option + la tecla a la derecha de la P) no se escribía, y tampoco otros símbolos que se escriben con Option: el editor confundía esas combinaciones con atajos propios (por ejemplo, abrir el autocompletado) porque el navegador interno de JavaFX no le dice qué carácter produce cada tecla. En macOS el editor ya no usa atajos de Option + letra o símbolo; el autocompletado se puede abrir a mano con Ctrl+Espacio.

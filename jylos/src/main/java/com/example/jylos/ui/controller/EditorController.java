@@ -128,14 +128,19 @@ public class EditorController {
     /** Cancels any in-flight preview render so FX thread is never blocked by markdown parsing. */
     private volatile Task<String> currentPreviewTask;
 
+    /** How long a newly opened note's render may take before the previous note's preview is cleared. */
+    private static final javafx.util.Duration STALE_PREVIEW_GRACE = javafx.util.Duration.millis(200);
+
     /**
-     * Runs preview renders off the FX thread. A single thread, reused: renders are already
-     * debounced and only the newest one matters, so there is nothing to gain from running
-     * two at once — and spawning a fresh thread per render, as this used to, meant paying
-     * for thread creation on every pause in typing.
+     * Runs preview renders off the FX thread, on reused threads (no thread creation on
+     * every pause in typing). Not a single thread: a render can block for a long time on
+     * file I/O — an image or embedded note in a cloud folder (iCloud, OneDrive) that is
+     * not downloaded yet — and cancelling it does not interrupt that read. Queued behind
+     * it, the next note's render would wait too, leaving the previous note on screen.
+     * Only the newest render is ever shown (see the {@code currentPreviewTask} checks).
      */
     private final java.util.concurrent.ExecutorService previewRenderExecutor =
-            java.util.concurrent.Executors.newSingleThreadExecutor(runnable -> {
+            java.util.concurrent.Executors.newCachedThreadPool(runnable -> {
                 Thread thread = new Thread(runnable, "preview-render");
                 thread.setDaemon(true);
                 return thread;
@@ -1886,6 +1891,26 @@ public class EditorController {
         });
         currentPreviewTask = task;
         previewRenderExecutor.execute(task);
+        if (noteId == null || !noteId.equals(renderedPreviewNoteId)) {
+            blankPreviewIfStillRendering(task, darkTheme);
+        }
+    }
+
+    /**
+     * On switching notes the WebView still holds the previous note's page until the new
+     * render lands. Renders are normally a few milliseconds, so that is invisible; when
+     * one is slow (files still downloading from a cloud folder), show an empty page rather
+     * than the previous note's content under the new note's title.
+     */
+    private void blankPreviewIfStillRendering(Task<String> task, boolean darkTheme) {
+        javafx.animation.PauseTransition grace = new javafx.animation.PauseTransition(STALE_PREVIEW_GRACE);
+        grace.setOnFinished(e -> {
+            if (task == currentPreviewTask && !task.isDone() && isPreviewVisible()) {
+                renderedPreviewNoteId = null;
+                previewWebView.getEngine().loadContent(MarkdownPreview.buildEmptyHtml(darkTheme), "text/html");
+            }
+        });
+        grace.play();
     }
 
     private double currentPreviewScrollY() {
