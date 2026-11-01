@@ -194,6 +194,11 @@ calling it.
 A note's id is its path inside the vault, so `rename_note` and `move_note` change it.
 Both return the new id — use it for any further call, or the next one will not resolve.
 
+An id is always relative to the vault. Any tool given an id (or `folderId` / `parentId`)
+that is absolute or climbs out of the vault with `..` refuses it with an error saying so,
+before storage is consulted; storage itself refuses such ids too, so no tool can read,
+write, move or delete a file outside the vault.
+
 A private note's content is never returned or editable over MCP, even if it happens to
 be unlocked in the desktop app's current session. That covers every route: reading,
 searching, editing, renaming, moving, tagging and deleting all refuse it.

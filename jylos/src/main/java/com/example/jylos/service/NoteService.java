@@ -172,6 +172,22 @@ public class NoteService {
     }
 
     /**
+     * Fingerprint of the file backing note {@code id}, used to detect changes made outside
+     * Jylos between opening and saving; empty in SQLite mode or when there is no file.
+     */
+    public Optional<FileFingerprint> fingerprint(String id) {
+        if (id == null) {
+            return Optional.empty();
+        }
+        return noteDAO.resolveFilePath(id).flatMap(FileFingerprint::of);
+    }
+
+    /** Vault root for file-backed storage; empty in SQLite mode. */
+    public Optional<java.nio.file.Path> getStorageRoot() {
+        return noteDAO.storageRoot();
+    }
+
+    /**
      * Updates an existing note.
      * 
      * @param note The note with updated data
@@ -434,8 +450,16 @@ public class NoteService {
         if (notes == null) {
             return new ArrayList<>();
         }
+        EncryptionService encryption = EncryptionService.getInstance();
         for (Note n : notes) {
-            if (n != null && EncryptionService.isEncrypted(n.getContent())) {
+            if (n == null) {
+                continue;
+            }
+            // A vault's list cache shares the object a save just wrote, which holds the
+            // plaintext again once the save returns. A private note the session can no
+            // longer read is hidden like a still-encrypted one, so locking really hides it.
+            boolean unreadable = n.isPrivate() && (n.getId() == null || !encryption.canRead(n.getId()));
+            if (EncryptionService.isEncrypted(n.getContent()) || unreadable) {
                 n.setContent(LOCKED_PLACEHOLDER);
             }
         }
@@ -569,8 +593,21 @@ public class NoteService {
      */
     private boolean matchesSearch(Note note, String searchLower) {
         String title = note.getTitle() != null ? note.getTitle().toLowerCase() : "";
+        if (title.contains(searchLower)) {
+            return true;
+        }
         String content = note.getContent() != null ? note.getContent().toLowerCase() : "";
-        return title.contains(searchLower) || content.contains(searchLower);
+        if (content.contains(searchLower)) {
+            return true;
+        }
+        // A filesystem vault's list entries only hold the head of each file; read the rest
+        // before deciding it does not match. Private bodies are ciphertext — never searched.
+        if (!note.isContentComplete() && !note.isPrivate() && note.getId() != null) {
+            Note full = noteDAO.getNoteById(note.getId());
+            String fullContent = full != null && full.getContent() != null ? full.getContent().toLowerCase() : "";
+            return fullContent.contains(searchLower);
+        }
+        return false;
     }
 
     // ==================== Sorting Methods ====================

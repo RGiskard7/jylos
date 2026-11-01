@@ -43,13 +43,21 @@ public class Main extends Application {
     public void start(Stage primaryStage) {
         try {
             ensureDirectoriesExist();
-            prepareSqliteInfrastructureIfNeeded();
 
             Preferences prefs = Preferences.userNodeForPackage(MainController.class);
             String lang = prefs.get("language", Locale.getDefault().getLanguage());
             Locale locale = Locale.forLanguageTag(lang);
             Locale.setDefault(locale);
             ResourceBundle bundle = ResourceBundle.getBundle("com.example.jylos.i18n.messages", locale);
+
+            try {
+                prepareSqliteInfrastructureIfNeeded();
+            } catch (RuntimeException e) {
+                showStartupDatabaseError(bundle, e);
+                Platform.exit();
+                return;
+            }
+
             FXMLLoader loader = new FXMLLoader(getClass()
                     .getResource("/com/example/jylos/ui/view/MainView.fxml"), bundle);
             Scene scene = new Scene(loader.load(), 1200, 800);
@@ -90,6 +98,23 @@ public class Main extends Application {
             logger.severe("Failed to load main view: " + e.getMessage());
             throw new RuntimeException("Failed to start application", e);
         }
+    }
+
+    /**
+     * The database could not be opened or brought to the required schema. Tell the user
+     * why the app is closing and where the automatic backups are, instead of exiting with
+     * only a stack trace in the log.
+     */
+    private void showStartupDatabaseError(ResourceBundle bundle, RuntimeException error) {
+        Throwable cause = error.getCause() != null ? error.getCause() : error;
+        String detail = cause.getMessage() != null ? cause.getMessage() : cause.toString();
+        javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.ERROR);
+        alert.setTitle(bundle.getString("startup.database_error.title"));
+        alert.setHeaderText(bundle.getString("startup.database_error.header"));
+        alert.setContentText(java.text.MessageFormat.format(bundle.getString("startup.database_error.content"),
+                detail, AppDataDirectory.getBackupsDirectory()));
+        AppIconLoader.load().ifPresent(img -> ((Stage) alert.getDialogPane().getScene().getWindow()).getIcons().add(img));
+        alert.showAndWait();
     }
 
     private void prepareSqliteInfrastructureIfNeeded() {

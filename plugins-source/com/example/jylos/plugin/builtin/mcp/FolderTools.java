@@ -1,6 +1,7 @@
 package com.example.jylos.plugin.builtin.mcp;
 
 import static com.example.jylos.plugin.builtin.mcp.McpSupport.errorResult;
+import static com.example.jylos.plugin.builtin.mcp.McpSupport.refuseUnsafeId;
 import static com.example.jylos.plugin.builtin.mcp.McpSupport.objectSchema;
 import static com.example.jylos.plugin.builtin.mcp.McpSupport.readOnly;
 import static com.example.jylos.plugin.builtin.mcp.McpSupport.requiredArgument;
@@ -91,6 +92,10 @@ final class FolderTools {
                         return errorResult("The 'name' argument is required.");
                     }
                     String parentId = requiredArgument(request.arguments(), "parentId");
+                    CallToolResult unsafeParentId = refuseUnsafeId(parentId, "parentId");
+                    if (unsafeParentId != null) {
+                        return unsafeParentId;
+                    }
                     Folder parent = null;
                     if (parentId != null) {
                         Optional<Folder> found = folderService.getFolderById(parentId);
@@ -136,6 +141,10 @@ final class FolderTools {
                 .tool(tool)
                 .callHandler((exchange, request) -> {
                     String id = requiredArgument(request.arguments(), "id");
+                    CallToolResult unsafeId = refuseUnsafeId(id, "id");
+                    if (unsafeId != null) {
+                        return unsafeId;
+                    }
                     if (id == null) {
                         return errorResult("The 'id' argument is required.");
                     }

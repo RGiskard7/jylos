@@ -55,7 +55,13 @@ public class NoteDAOSQLite implements NoteDAO {
 	private static final String SELECT_NOTES_BY_TAG_ID_SQL = "SELECT DISTINCT notes.* FROM notes "
 			+ "INNER JOIN tagsNotes ON notes.note_id = tagsNotes.note_id WHERE tagsNotes.tag_id = ? AND notes.is_deleted = 0";
 
-	private static final String UPDATE_NOTE_SQL = "UPDATE notes SET title = ?, content = ?, modified_date = ?, is_favorite = ?, is_pinned = ?, status = ?, is_private = ?, parent_id = ? WHERE note_id = ?";
+	// parent_id is deliberately absent: the folder a note lives in is changed only by the
+	// folder operations (FolderDAO.addNote / moveNoteToRoot). Saving a Note object that
+	// does not carry its folder must not move the note to the root.
+	private static final String UPDATE_NOTE_SQL = "UPDATE notes SET title = ?, content = ?, modified_date = ?, is_favorite = ?, is_pinned = ?, status = ?, is_private = ?, "
+			+ "author = ?, source_url = ?, source = ?, source_application = ?, latitude = ?, longitude = ? WHERE note_id = ?";
+	// Only written for a ToDoNote, so a plain Note rebuilt for a to-do keeps its to-do fields.
+	private static final String UPDATE_TODO_SQL = "UPDATE notes SET is_todo = 1, todo_due = ?, todo_completed = ? WHERE note_id = ?";
 
 	private static final String SOFT_DELETE_NOTE_SQL = "UPDATE notes SET is_deleted = 1, deleted_date = ? WHERE note_id = ?";
 
@@ -181,11 +187,22 @@ public class NoteDAOSQLite implements NoteDAO {
 				pstmt.setInt(5, note.isPinned() ? 1 : 0);
 				pstmt.setString(6, note.getStatus());
 				pstmt.setInt(7, note.isPrivate() ? 1 : 0);
-				pstmt.setString(8,
-						(note.getParent() != null && !"ROOT".equals(note.getParent().getId())) ? note.getParent().getId()
-								: null);
-				pstmt.setString(9, note.getId());
+				pstmt.setString(8, note.getAuthor());
+				pstmt.setString(9, note.getSourceUrl());
+				pstmt.setString(10, note.getSource());
+				pstmt.setString(11, note.getSourceApplication());
+				pstmt.setDouble(12, note.getLatitude() != null ? note.getLatitude() : 0.0);
+				pstmt.setDouble(13, note.getLongitude() != null ? note.getLongitude() : 0.0);
+				pstmt.setString(14, note.getId());
 				pstmt.executeUpdate();
+				if (note instanceof ToDoNote todo) {
+					try (PreparedStatement todoStmt = connection.prepareStatement(UPDATE_TODO_SQL)) {
+						todoStmt.setString(1, todo.getToDoDue());
+						todoStmt.setString(2, todo.getToDoCompleted());
+						todoStmt.setString(3, note.getId());
+						todoStmt.executeUpdate();
+					}
+				}
 				connection.commit();
 			} catch (SQLException e) {
 				logger.log(Level.SEVERE, "Error updateNote(): " + e.getMessage(), e);
@@ -284,6 +301,19 @@ public class NoteDAOSQLite implements NoteDAO {
 					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
 				}
 				throw new DataAccessException("Failed to restore note: " + id, e);
+			}
+		}
+	}
+
+	@Override
+	public boolean hasPrivateNotes() {
+		synchronized (connection) {
+			try (Statement stmt = connection.createStatement();
+					ResultSet rs = stmt.executeQuery("SELECT 1 FROM notes WHERE is_private = 1 LIMIT 1")) {
+				return rs.next();
+			} catch (SQLException e) {
+				logger.log(Level.SEVERE, "Error hasPrivateNotes(): " + e.getMessage(), e);
+				return false;
 			}
 		}
 	}

@@ -69,6 +69,8 @@ The shell exposes two semantic states through one book/pencil action: editing (L
 
 The pinned npm dependencies are bundled with esbuild and committed as a local resource, so editing never requires network access. `MarkdownPreview` remains a separate CommonMark reading pipeline rendered off the FX thread and loaded in JavaFX `WebView`; it is the full-render owner for recursive transclusion, highlight.js, KaTeX and preview plugin enhancers. It is deliberately not editable, avoiding HTML-to-Markdown round trips and duplicate document state.
 
+Notes may contain raw HTML, which `MarkdownProcessor` passes through unescaped for parity with other Markdown vault apps. Because notes can also come from outside the user's own hands (imported vaults, `git pull`, an MCP client), the reading preview and HTML export are served under a Content-Security-Policy with a fresh nonce per render: only the scripts Jylos emits and those preview enhancers inject carry the nonce, so a `<script>` or inline event handler written in a note does not run, and the page cannot open connections, frames or forms. Relative image references are inlined only when they resolve inside the vault root (`PathContainment`); a reference that climbs out of the vault is left unresolved.
+
 ## Knowledge graph
 
 1. `GraphBuilder` loads notes via `NoteService` / `TagService`.
@@ -109,6 +111,8 @@ App icons: `src/main/resources/icons/` — see [icons README](../jylos/src/main/
 - **SQLite** (default) — `SQLiteDB.initDatabase()`; DAOs in `data.dao.sqlite`.
 - **Filesystem vault** — Markdown + YAML frontmatter (`FrontmatterHandler`); lightweight list cache (`parseLightweight`); full body on open/export/graph/backlinks.
 - In filesystem mode, **external edits are not reconciled continuously** while navigating. Global sync with out-of-process changes remains **explicit refresh**; heavyweight viewers that are temporarily reused in the UI (for example `.canvas`) must invalidate themselves against the backing file before being reused.
+- Saving a Markdown note never silently overwrites an edit made outside Jylos. `EditorController` keeps a `FileFingerprint` (modification time, size and SHA-256) of the note's file from when it was loaded or last saved; before writing, `SaveConflictSupport` compares it with the file on disk. Content decides, so a file merely touched by a sync client is not a conflict. On a real change a manual save asks whether to overwrite, reload the disk version, or save the editor's text as a separate conflict copy; an autosave does not write and reports the conflict instead. Canvas files and SQLite notes are not covered.
+- If the configured vault directory cannot be found at startup (unplugged drive, unmounted cloud folder, moved directory), `VaultLocationSupport` asks the user to retry, pick another folder, open the default data directory for that session only, or quit — it never silently falls back to the default directory.
 - Document and folder moves are owned by `FolderService`. The UI only asks for a target and refreshes visible state; the active DAO adapts the operation to its backend.
 - In filesystem mode, moving a document is a `Files.move` of the real vault file; moving a folder is a directory move. Name conflicts preserve document extensions, and binary attachment metadata is moved with the document through the private sidecar.
 - In SQLite mode, moving a document updates the note-folder relationship and moving a folder updates the parent relationship. Moving to root clears the relationship according to the SQLite schema instead of creating filesystem paths.
@@ -125,6 +129,10 @@ session generation). Switching between `sqlite` and `filesystem` still requires 
 ## Private notes (encryption)
 
 `EncryptionService` (singleton) encrypts the **body only** of notes flagged `isPrivate`, behind a single **master password**: an AES-256 key is derived with PBKDF2-HMAC-SHA256 over a random salt; only the salt and a verifier are stored (never the password). Bodies are AES-GCM (random IV per note) and persisted as `JENC1:base64(iv‖ciphertext)`. `NoteService` encrypts on write and decrypts on read when the session is unlocked; while locked, list previews and the editor show a 🔒 placeholder and private-note saves are blocked (so ciphertext is never overwritten with plaintext). Vault frontmatter (title, dates) stays readable so locked notes still list.
+
+The salt and verifier (`KeyMaterial`) live with the notes they protect, through `EncryptionKeyDAO`: `.jylos/encryption.json` in a filesystem vault, the `app_settings` table in SQLite. A vault copied or synced to another machine therefore unlocks there with the same password. `MainController` wires the shared `EncryptionService` to the session's storage on every vault/database open (which also locks it); until then it keeps key material in memory only, so tests never touch the real user preferences. In earlier versions the material lived in the user preferences; it is migrated into the vault/database only if that storage has none and already contains private notes — notes that can only have been encrypted with it. The preferences themselves are left untouched.
+
+**Security note.** The verifier allows an offline password-guessing attack, as it did from the preferences. Now that it travels with the vault, anyone with a copy of the vault (a Git remote, a cloud folder) can attempt one. PBKDF2 with 210,000 iterations slows each guess down, but only a long, unique master password makes the attack impractical.
 
 ## Git (filesystem vault)
 

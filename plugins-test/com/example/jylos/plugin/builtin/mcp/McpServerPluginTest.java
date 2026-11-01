@@ -263,6 +263,53 @@ public final class McpServerPluginTest {
                         Files.readString(vault.resolve("Secret.md"), StandardCharsets.UTF_8)
                                 .contains("sensitivemarkerword"), vault.toString());
 
+                System.out.println("\n-- vault boundary --");
+                // Ids come from the MCP client, i.e. potentially from a prompt-injected agent.
+                // An id that climbs out of the vault must be refused by the tool itself, before
+                // it reaches storage, and nothing outside the vault may be read or changed.
+                Path outsideDir = Files.createTempDirectory("mcp-plugin-test-outside-");
+                Path outsideFile = outsideDir.resolve("outside-secret.md");
+                Files.writeString(outsideFile, "outsidemarkerword\n", StandardCharsets.UTF_8);
+                String escapingId = vault.relativize(outsideFile).toString().replace('\\', '/');
+                String escapingFolder = vault.relativize(outsideDir).toString().replace('\\', '/');
+                HttpResponse<String> readOutside = call(http, sessionId, 30, "read_note",
+                        "\"id\":\"" + escapingId + "\"");
+                check("read_note refuses an id outside the vault",
+                        readOutside.body().contains("\"isError\":true")
+                                && readOutside.body().contains("outside the vault"), readOutside.body());
+                check("read_note never returns the content of a file outside the vault",
+                        !readOutside.body().contains("outsidemarkerword"), readOutside.body());
+                HttpResponse<String> updateOutside = call(http, sessionId, 31, "update_note",
+                        "\"id\":\"" + escapingId + "\",\"content\":\"overwritten\"");
+                check("update_note refuses an id outside the vault",
+                        updateOutside.body().contains("outside the vault"), updateOutside.body());
+                HttpResponse<String> deleteOutside = call(http, sessionId, 32, "delete_note",
+                        "\"id\":\"" + escapingId + "\"");
+                check("delete_note refuses an id outside the vault",
+                        deleteOutside.body().contains("outside the vault"), deleteOutside.body());
+                HttpResponse<String> tagOutside = call(http, sessionId, 33, "add_tag",
+                        "\"id\":\"" + escapingId + "\",\"tag\":\"x\"");
+                check("add_tag refuses an id outside the vault",
+                        tagOutside.body().contains("outside the vault"), tagOutside.body());
+                HttpResponse<String> moveOutside = call(http, sessionId, 34, "move_note",
+                        "\"id\":\"Existing.md\",\"folderId\":\"" + escapingFolder + "\"");
+                check("move_note refuses a target folder outside the vault",
+                        moveOutside.body().contains("outside the vault"), moveOutside.body());
+                HttpResponse<String> folderOutside = call(http, sessionId, 35, "create_folder",
+                        "\"name\":\"evil\",\"parentId\":\"" + escapingFolder + "\"");
+                check("create_folder refuses a parent outside the vault",
+                        folderOutside.body().contains("outside the vault"), folderOutside.body());
+                check("the file outside the vault is untouched",
+                        "outsidemarkerword\n".equals(Files.readString(outsideFile, StandardCharsets.UTF_8)),
+                        outsideFile.toString());
+                check("nothing was created next to the file outside the vault",
+                        !Files.exists(outsideDir.resolve("evil")), outsideDir.toString());
+                HttpResponse<String> readInside = call(http, sessionId, 36, "read_note",
+                        "\"id\":\"Existing.md\"");
+                check("a plain vault-relative id still reads normally",
+                        readInside.body().contains("\"isError\":false")
+                                && readInside.body().contains("Has a #project tag"), readInside.body());
+
                 System.out.println("\n-- error paths --");
                 HttpResponse<String> ghost = call(http, sessionId, 21, "delete_note", "\"id\":\"nope.md\"");
                 check("deleting a note that does not exist is a tool error",

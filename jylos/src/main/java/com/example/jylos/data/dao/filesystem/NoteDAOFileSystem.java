@@ -31,6 +31,7 @@ import com.example.jylos.data.models.Tag;
 import com.example.jylos.exceptions.DataAccessException;
 import com.example.jylos.exceptions.InvalidParameterException;
 import com.example.jylos.util.AttachmentType;
+import com.example.jylos.util.PathContainment;
 import com.example.jylos.util.WikiLinkResolver;
 
 /**
@@ -175,7 +176,9 @@ public class NoteDAOFileSystem implements NoteDAO {
                         // lists them alongside notes (Obsidian-style).
                         .filter(p -> p.toString().endsWith(".md")
                                 || com.example.jylos.util.AttachmentType.isAttachment(p.getFileName().toString()))
-                        .filter(p -> !p.toString().contains(File.separator + ".")) // Exclude hidden (.trash, .git)
+                        // Exclude hidden entries inside the vault (.trash, .git); a hidden
+                        // directory *above* the vault (e.g. ~/.config) must not hide it all.
+                        .filter(p -> !FileSystemNames.isHiddenWithinVault(rootPath, p))
                         .parallel()
                         .forEach(path -> {
                             String relativePath = normalizeId(rootPath.relativize(path).toString());
@@ -409,9 +412,12 @@ public class NoteDAOFileSystem implements NoteDAO {
                 if (suggestedId.contains("/")) {
                     int lastSeparator = suggestedId.lastIndexOf('/');
                     String folderPath = suggestedId.substring(0, lastSeparator);
-                    Path potentialDir = rootPath.resolve(folderPath.replace("/", File.separator));
-                    if (Files.exists(potentialDir) && Files.isDirectory(potentialDir)) {
-                        parentDir = potentialDir;
+                    // A suggested parent outside the vault is ignored: the note goes to the root.
+                    if (isInsideVault(folderPath)) {
+                        Path potentialDir = rootPath.resolve(folderPath.replace("/", File.separator));
+                        if (Files.exists(potentialDir) && Files.isDirectory(potentialDir)) {
+                            parentDir = potentialDir;
+                        }
                     }
                 }
             }
@@ -476,8 +482,38 @@ public class NoteDAOFileSystem implements NoteDAO {
     }
 
     @Override
+    public java.util.Optional<Path> storageRoot() {
+        return java.util.Optional.of(rootPath.toAbsolutePath().normalize());
+    }
+
+    /**
+     * Scans the Markdown files themselves (trash included): during the deferred startup
+     * load the note cache holds metadata only, so it cannot tell private notes apart.
+     */
+    @Override
+    public boolean hasPrivateNotes() {
+        try (Stream<Path> walk = Files.walk(rootPath)) {
+            return walk.filter(Files::isRegularFile)
+                    .filter(p -> p.getFileName().toString().endsWith(".md"))
+                    .anyMatch(this::isPrivateNoteFile);
+        } catch (IOException | java.io.UncheckedIOException e) {
+            logger.log(Level.WARNING, "Could not scan vault for private notes", e);
+            return false;
+        }
+    }
+
+    private boolean isPrivateNoteFile(Path path) {
+        try {
+            // Every encrypted note carries the private flag in its frontmatter.
+            return FrontmatterHandler.parseLightweight(readFileHead(path, LIGHTWEIGHT_READ_BYTES), 0).isPrivate();
+        } catch (IOException | RuntimeException e) {
+            return false;
+        }
+    }
+
+    @Override
     public java.util.Optional<Path> resolveFilePath(String id) {
-        if (id == null) {
+        if (id == null || !isInsideVault(id)) {
             return java.util.Optional.empty();
         }
         Path path = idToPathMap.get(id);
@@ -496,7 +532,7 @@ public class NoteDAOFileSystem implements NoteDAO {
     /** Reads and fully parses the Markdown file for {@code id}, resolving the path from the cache or disk. */
     @Override
     public Note getNoteById(String id) {
-        if (id == null)
+        if (id == null || !isInsideVault(id))
             return null;
 
         String normalizedId = normalizeId(id);
@@ -587,6 +623,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         try {
             if (note == null || note.getId() == null)
                 throw new InvalidParameterException("Invalid note");
+            requireInsideVault(note.getId());
 
             String normalizedId = normalizeId(note.getId());
             note.setId(normalizedId);
@@ -764,6 +801,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         if (id == null || id.isBlank()) {
             return;
         }
+        requireInsideVault(id);
         String normalizedId = normalizeId(id);
 
         Path sourcePath = idToPathMap.get(id);
@@ -891,6 +929,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         if (id == null || id.isBlank()) {
             return;
         }
+        requireInsideVault(id);
         String normalizedId = id.replace("\\", "/");
         // ID is relative path like .trash/note.md or .trash/Folder/note.md
         try {
@@ -959,6 +998,10 @@ public class NoteDAOFileSystem implements NoteDAO {
     /** Irrecoverably deletes the file (typically under {@code .trash}) and removes it from all caches. */
     @Override
     public void permanentlyDeleteNote(String id) {
+        if (id == null || id.isBlank()) {
+            return;
+        }
+        requireInsideVault(id);
         FileSystemIoLock.LOCK.lock();
         try {
         try {
@@ -1156,8 +1199,7 @@ public class NoteDAOFileSystem implements NoteDAO {
 
     /** Replaces characters that are illegal in filenames with underscores while preserving Unicode letters and digits. */
     private String sanitizeFilename(String title) {
-        String sanitized = title.replaceAll("[^\\p{L}\\p{N}\\.\\-_ ]", "_").trim();
-        return sanitized.isBlank() ? "note" : sanitized;
+        return FileSystemNames.sanitize(title, "note");
     }
 
     private boolean isAttachmentNote(Path path, Note note) {
@@ -1190,6 +1232,18 @@ public class NoteDAOFileSystem implements NoteDAO {
         String base = dot > 0 ? filename.substring(0, dot) : filename;
         String extension = dot > 0 ? filename.substring(dot) : "";
         return targetPath.getParent().resolve(base + suffix + extension);
+    }
+
+    /** Whether {@code id} resolves to a path inside the vault root (see {@link PathContainment}). */
+    private boolean isInsideVault(String id) {
+        return PathContainment.resolveInside(rootPath, normalizeId(id)).isPresent();
+    }
+
+    /** Rejects ids that would resolve outside the vault before any mutation touches the disk. */
+    private void requireInsideVault(String id) {
+        if (!isInsideVault(id)) {
+            throw new InvalidParameterException("Note id resolves outside the vault: " + id);
+        }
     }
 
     /** Normalizes a note ID to use forward slashes and returns an empty string for null input. */

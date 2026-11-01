@@ -62,7 +62,9 @@ final class FileSystemDocumentMetadataStore {
         if (note == null || note.getId() == null || note.getId().isBlank()) {
             return;
         }
-        Map<String, DocumentMetadata> index = new LinkedHashMap<>(documentIndex());
+        // Every write re-reads the sidecar first: the note and folder DAOs each hold their own
+        // store over the same file, so a cached copy may predate the other's last write.
+        Map<String, DocumentMetadata> index = new LinkedHashMap<>(reloadDocumentIndex());
         DocumentMetadata metadata = DocumentMetadata.fromNote(note);
         String normalizedId = normalizeId(note.getId());
         if (metadata.isEmpty()) {
@@ -92,7 +94,7 @@ final class FileSystemDocumentMetadataStore {
         if (normalizedId.isBlank()) {
             return;
         }
-        Map<String, DocumentMetadata> index = new LinkedHashMap<>(documentIndex());
+        Map<String, DocumentMetadata> index = new LinkedHashMap<>(reloadDocumentIndex());
         if (index.remove(normalizedId) != null) {
             writeBinaryIndex(index);
         }

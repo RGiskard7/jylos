@@ -60,6 +60,8 @@ El shell expone dos estados semánticos mediante una única acción libro/lápiz
 
 Las dependencias npm están fijadas, se empaquetan con esbuild y el bundle se incluye como recurso local, por lo que el editor no necesita red. `MarkdownPreview` sigue siendo el pipeline CommonMark de lectura separado y renderizado fuera del hilo FX; conserva la responsabilidad del render completo de transclusiones recursivas, highlight.js, KaTeX y enhancers de plugins. No es editable deliberadamente, evitando conversiones HTML-a-Markdown y estados de documento duplicados.
 
+Las notas pueden contener HTML crudo, que `MarkdownProcessor` deja pasar sin escapar por compatibilidad con otras apps de bóvedas Markdown. Como las notas también pueden venir de fuera (bóvedas importadas, `git pull`, un cliente MCP), la vista de lectura y la exportación HTML se sirven con una Content-Security-Policy con un nonce nuevo en cada render: solo los scripts que emite Jylos y los que inyectan los preview enhancers llevan el nonce, así que un `<script>` o un manejador de eventos inline escrito en una nota no se ejecuta, y la página no puede abrir conexiones, frames ni formularios. Las referencias relativas a imágenes solo se incrustan si resuelven dentro de la raíz de la bóveda (`PathContainment`); una referencia que sale de la bóveda se deja sin resolver.
+
 ## Grafo y backlinks
 
 `GraphBuilder` carga notas y tags por servicios. Los enlaces se resuelven con `WikiLinkResolver`. `BacklinkService` mantiene índices forward/inverse para no reescanear todo el vault en cada consulta.
@@ -84,6 +86,8 @@ Un tablero es una nota normal con cuerpo Markdown serializado por `KanbanModel`.
 - SQLite por defecto, DAOs en `data.dao.sqlite`.
 - Vault filesystem con Markdown + frontmatter YAML.
 - Cambios externos del vault no se reconcilian continuamente; se usan refresh explícitos y validaciones al reabrir documentos pesados como `.canvas`.
+- Guardar una nota Markdown nunca sobrescribe en silencio un cambio hecho fuera de Jylos. `EditorController` guarda un `FileFingerprint` (fecha de modificación, tamaño y SHA-256) del fichero de la nota al cargarla o guardarla; antes de escribir, `SaveConflictSupport` lo compara con el fichero en disco. Decide el contenido, así que un fichero que un cliente de sincronización solo ha tocado no es un conflicto. Ante un cambio real, un guardado manual pregunta si sobrescribir, recargar la versión del disco o guardar el texto del editor como una copia aparte; un autoguardado no escribe y avisa del conflicto. No cubre ficheros canvas ni notas SQLite.
+- Si al arrancar no se encuentra la carpeta del vault configurado (disco desconectado, carpeta en la nube sin montar, carpeta movida), `VaultLocationSupport` pide reintentar, elegir otra carpeta, abrir la carpeta de datos por defecto solo durante esa sesión o salir; nunca recurre en silencio a la carpeta por defecto.
 - El movimiento de documentos y carpetas lo coordina `FolderService`. La UI solo pide destino y refresca estado visible; el DAO activo adapta la operación a su backend.
 - En filesystem, mover un documento es mover el fichero real del vault con `Files.move`; mover una carpeta es mover el directorio completo. Las colisiones conservan la extensión del documento y la metadata de adjuntos binarios se mueve mediante el sidecar privado.
 - En SQLite, mover un documento actualiza la relación nota-carpeta y mover una carpeta actualiza la relación padre-hijo. Mover a raíz limpia la relación según el esquema SQLite, sin simular rutas de filesystem.
@@ -94,6 +98,10 @@ Un tablero es una nota normal con cuerpo Markdown serializado por `KanbanModel`.
 ## Notas privadas
 
 `EncryptionService` cifra solo cuerpo de nota con AES-256-GCM y clave derivada por PBKDF2. Metadata sigue legible para listar. Guardar nota privada bloqueada está protegido para no sobrescribir ciphertext.
+
+El salt y el verificador (`KeyMaterial`) viven con las notas que protegen, a través de `EncryptionKeyDAO`: `.jylos/encryption.json` en una bóveda de ficheros y la tabla `app_settings` en SQLite. Una bóveda copiada o sincronizada a otro equipo se desbloquea allí con la misma contraseña. `MainController` conecta el `EncryptionService` compartido al almacenamiento de la sesión cada vez que se abre una bóveda o base de datos (y de paso lo bloquea); hasta entonces guarda el material solo en memoria, así que los tests nunca tocan las preferencias reales del usuario. En versiones anteriores el material vivía en las preferencias del usuario; se migra a la bóveda o base de datos solo si esta no tiene material propio y ya contiene notas privadas, que solo pudieron cifrarse con él. Las preferencias no se modifican.
+
+**Nota de seguridad.** El verificador permite un ataque offline de adivinación de la contraseña, igual que cuando estaba en las preferencias. Ahora que viaja con la bóveda, cualquiera con una copia de ella (un remoto Git, una carpeta en la nube) puede intentarlo. PBKDF2 con 210.000 iteraciones encarece cada intento, pero solo una contraseña maestra larga y única hace el ataque impracticable.
 
 ## Plugins y eventos
 

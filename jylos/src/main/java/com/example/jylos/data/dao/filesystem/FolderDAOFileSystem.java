@@ -21,6 +21,7 @@ import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.exceptions.DataAccessException;
 import com.example.jylos.exceptions.InvalidParameterException;
+import com.example.jylos.util.PathContainment;
 
 /**
  * File System implementation of FolderDAO.
@@ -65,8 +66,9 @@ public class FolderDAOFileSystem implements FolderDAO {
             try (Stream<Path> walk = Files.walk(rootPath)) {
                 walk.filter(Files::isDirectory)
                         .filter(p -> !p.equals(rootPath))
-                        // Exclude any directory that is inside a hidden folder (e.g. .trash, .git)
-                        .filter(p -> !p.toString().contains(File.separator + "."))
+                        // Exclude hidden directories inside the vault (.trash, .git); a hidden
+                        // directory *above* the vault (e.g. ~/.config) must not hide it all.
+                        .filter(p -> !FileSystemNames.isHiddenWithinVault(rootPath, p))
                         .forEach(path -> {
                             String relativePath = normalizeId(rootPath.relativize(path).toString());
                             idToPathMap.put(relativePath, path);
@@ -165,6 +167,7 @@ public class FolderDAOFileSystem implements FolderDAO {
         if (id == null || id.isBlank()) {
             return;
         }
+        requireInsideVault(id);
         String normalizedId = id.replace("\\", "/");
 
         Path path = idToPathMap.get(id);
@@ -277,6 +280,7 @@ public class FolderDAOFileSystem implements FolderDAO {
         if (id == null || id.isBlank()) {
             return;
         }
+        requireInsideVault(id);
         String normalizedId = id.replace("\\", "/");
         // ID is relative path like .trash/MyFolder or .trash/Sub/MyFolder
         Path srcPath = rootPath.resolve(normalizedId.replace("/", File.separator));
@@ -332,6 +336,7 @@ public class FolderDAOFileSystem implements FolderDAO {
         if (id == null || id.isBlank()) {
             return;
         }
+        requireInsideVault(id);
         String normalizedId = id.replace("\\", "/");
         Path path = rootPath.resolve(normalizedId.replace("/", File.separator)); // Should be in .trash
         if (Files.exists(path)) {
@@ -411,6 +416,7 @@ public class FolderDAOFileSystem implements FolderDAO {
             if (folder == null || note == null) {
                 return;
             }
+            requireInsideVault(note.getId());
 
             String normalizedNoteId = normalizeId(note.getId());
             Path sourcePath = rootPath.resolve(normalizedNoteId.replace("/", File.separator));
@@ -462,6 +468,7 @@ public class FolderDAOFileSystem implements FolderDAO {
             if (note == null || note.getId() == null) {
                 return;
             }
+            requireInsideVault(note.getId());
 
             String normalizedNoteId = normalizeId(note.getId());
             Path sourcePath = rootPath.resolve(normalizedNoteId.replace("/", File.separator));
@@ -499,6 +506,7 @@ public class FolderDAOFileSystem implements FolderDAO {
             if (folder == null || note == null || note.getId() == null) {
                 return;
             }
+            requireInsideVault(note.getId());
 
             String normalizedNoteId = normalizeId(note.getId());
             Path sourcePath = rootPath.resolve(normalizedNoteId.replace("/", File.separator));
@@ -734,7 +742,7 @@ public class FolderDAOFileSystem implements FolderDAO {
     }
 
     private String sanitizeFilename(String title) {
-        return title.replaceAll("[^a-zA-Z0-9\\.\\-_ ]", "_");
+        return FileSystemNames.sanitize(title, "folder");
     }
 
     private String normalizeId(String id) {
@@ -744,8 +752,18 @@ public class FolderDAOFileSystem implements FolderDAO {
         return id.replace("\\", "/");
     }
 
+    /** Rejects ids that would resolve outside the vault before any mutation touches the disk. */
+    private void requireInsideVault(String id) {
+        if (PathContainment.resolveInside(rootPath, normalizeId(id)).isEmpty()) {
+            throw new InvalidParameterException("Id resolves outside the vault: " + id);
+        }
+    }
+
     private Path resolveFolderPath(String id) {
         if (id == null || id.isBlank()) {
+            return null;
+        }
+        if (PathContainment.resolveInside(rootPath, normalizeId(id)).isEmpty()) {
             return null;
         }
         Path path = idToPathMap.get(id);

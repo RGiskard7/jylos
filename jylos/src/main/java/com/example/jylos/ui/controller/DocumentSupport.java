@@ -97,7 +97,8 @@ class DocumentSupport {
             java.nio.file.Path baseDir = resolveBaseDir(note);
             if (name.endsWith(".html") || name.endsWith(".htm")) {
                 com.example.jylos.util.NoteExporter.exportHtml(note, targetFile, baseDir,
-                        this::resolveEmbedContentByTitle);
+                        this::resolveEmbedContentByTitle,
+                        noteService != null ? noteService.getStorageRoot().orElse(null) : null);
                 return new ExportResult(true, null);
             }
             if (name.endsWith(".pdf")) {

@@ -47,7 +47,19 @@ public final class NoteExporter {
      */
     public static void exportHtml(Note note, File target, java.nio.file.Path baseDir,
             Function<String, String> embeddedContentResolver) throws Exception {
-        String html = MarkdownPreview.buildPreviewHtml(content(note), false, null, baseDir, embeddedContentResolver);
+        exportHtml(note, target, baseDir, embeddedContentResolver, null);
+    }
+
+    /**
+     * Same as {@link #exportHtml(Note, File, java.nio.file.Path, Function)}, with
+     * {@code imageContainmentRoot} (normally the vault root) bounding which local images
+     * get embedded; {@code null} contains them to {@code baseDir}.
+     */
+    public static void exportHtml(Note note, File target, java.nio.file.Path baseDir,
+            Function<String, String> embeddedContentResolver, java.nio.file.Path imageContainmentRoot)
+            throws Exception {
+        String html = MarkdownPreview.buildPreviewHtml(content(note), false, null, baseDir, embeddedContentResolver,
+                null, false, 0, imageContainmentRoot);
         Files.writeString(target.toPath(), html, StandardCharsets.UTF_8);
     }
 

@@ -2,6 +2,54 @@
 
 ## [Unreleased]
 
+## [2.5.7] - 2026-10-31
+
+- **La vista previa mostraba la nota anterior.** Al abrir otra nota (por ejemplo, desde un enlace) en modo vista previa, a veces se veía el contenido de la nota anterior, aunque el editor mostraba la nueva. Pasaba sobre todo al arrancar con la bóveda en una carpeta en la nube (iCloud, OneDrive): si un render se quedaba esperando a un fichero que aún no estaba descargado (una imagen o una nota incrustada), los siguientes esperaban detrás. Ahora un render lento no retrasa al de la nota nueva, y si la nota nueva tarda en pintarse, la vista previa se queda en blanco en lugar de mostrar otra nota.
+
+- **Autocompletado de enlaces wiki.** Al escribir `[[` no aparecía nunca la lista de notas, en ningún sistema operativo: el editor comparaba los títulos con el texto escrito incluyendo los propios `[[`, así que ninguno coincidía. Ahora la lista aparece al escribir `[[`, se va filtrando según escribes, y al elegir una nota el enlace queda como `[[Nota]]` sin `]]` duplicados. Fixes #63.
+
+- **macOS: símbolos que no se podían escribir en el editor.** Con teclados como el español, `[` (Option + la tecla a la derecha de la P) no se escribía, y tampoco otros símbolos que se escriben con Option: el editor confundía esas combinaciones con atajos propios (por ejemplo, abrir el autocompletado) porque el navegador interno de JavaFX no le dice qué carácter produce cada tecla. En macOS el editor ya no usa atajos de Option + letra o símbolo; el autocompletado se puede abrir a mano con Ctrl+Espacio.
+
+- **Versión coherente en todos los builds.** Al sacar una versión, solo los paquetes del release llevaban el número correcto: el `pom.xml` seguía en `2.4.5` (así que cualquier build local, del IDE o del CI se identificaba como 2.4.5 en "Acerca de") y el badge del README seguía en `2.4.11`. Ahora `scripts/prepare-release.sh X.Y.Z` actualiza la versión del `pom.xml` y crea la sección del changelog en un paso, el workflow de release se niega a publicar si el tag no coincide con el `pom.xml` o falta la sección del changelog (falla en segundos, antes de empaquetar), y el badge del README muestra el último release de GitHub sin tener que editarlo. Además, los JAR llevan `Implementation-Version` en el manifest. Ver `docs/CICD.md`.
+
+- **CI más completo.** Los pull requests ejecutan también los tests de los plugins (Dataview, MCP, Publish, IA…) y los del editor CodeMirror, que antes solo se ejecutaban a mano.
+
+- **Modo SQLite: campos que se perdían al guardar.** Al actualizar una nota solo se guardaban título, contenido, favorito, fijado, estado y privado: autor, URL de origen, fuente, aplicación de origen, coordenadas y las fechas de las tareas se ignoraban (en modo bóveda sí se guardaban). Ahora se guardan todos.
+
+- **Modo SQLite: notas que saltaban a la raíz.** Guardar una nota a partir de un objeto que no llevaba su carpeta (por ejemplo, desde un plugin) la sacaba de su carpeta y la movía a la raíz. Guardar ya no cambia la carpeta; solo la mueven las operaciones de mover.
+
+- **Modo SQLite: base de datos que no se puede preparar.** Si al arrancar no se podía completar el esquema de la base de datos, Jylos arrancaba igualmente y todo fallaba en silencio (la app aparecía vacía). Ahora muestra un error explicando el motivo y dónde están las copias de seguridad automáticas, y se cierra sin escribir nada.
+
+- **Modo SQLite: errores al renombrar o borrar etiquetas.** Un renombrado que la base de datos rechazaba (por ejemplo, a un nombre que ya existe) parecía haberse aplicado. Ahora se informa del error.
+
+- **Notas privadas en otro equipo.** El salt y el verificador de la contraseña maestra se guardaban en las preferencias del sistema, no con las notas: una bóveda sincronizada o copiada a otro equipo (o tras reinstalar) no se podía desbloquear ni con la contraseña correcta. Ahora se guardan con las notas: `.jylos/encryption.json` en modo bóveda, una tabla en la base de datos en modo SQLite. Si una bóveda o base de datos ya tiene notas privadas, su material se migra automáticamente desde las preferencias la primera vez; las preferencias no se modifican. **Aviso:** si sincronizas la bóveda (Git, nube), quien tenga una copia puede intentar adivinar la contraseña maestra sin conexión; usa una contraseña larga y única.
+
+- **Notas privadas tras bloquear.** Una nota privada guardada durante la sesión seguía mostrando su texto en la lista de notas (vista previa) después de bloquear las notas privadas, y la búsqueda podía seguir encontrándola por su contenido. Ahora bloquear oculta ambas cosas.
+
+- **Los tests ya no tocan tu contraseña maestra.** Ejecutar la suite de tests (`mvn test`) sobrescribía el salt y el verificador de la contraseña maestra guardados en las preferencias del usuario de esa máquina; si ese usuario tenía notas privadas en Jylos, dejaban de poder desbloquearse. Afectaba a quien desarrolla, no a la app instalada.
+
+- `Note.toString()` ya no incluye el cuerpo de la nota, para que ningún log o mensaje de error pueda mostrar el texto en claro de una nota privada.
+
+- **Cambios externos ya no se pierden al guardar.** Si una nota abierta se modificaba fuera de Jylos (desde otra app como Obsidian, por un servicio de sincronización o con `git pull`), el siguiente guardado —incluido el autoguardado— sobrescribía esos cambios sin avisar. Ahora Jylos lo detecta comparando el contenido del fichero con el que tenía al abrir o guardar la nota (un fichero que solo cambia de fecha no cuenta). Un guardado manual pregunta qué hacer: sobrescribir con tu versión, descartarla y recargar la del disco, o guardar la tuya como copia aparte ("… - copia en conflicto"). El autoguardado nunca sobrescribe: se pausa y lo indica en la barra de estado. No aplica a ficheros canvas ni al modo SQLite.
+
+- **Bóveda no encontrada al arrancar.** Si la carpeta de la bóveda configurada no estaba disponible (disco desconectado, carpeta en la nube sin montar, carpeta movida o renombrada), Jylos abría en silencio la carpeta de datos por defecto: parecía que las notas habían desaparecido y las nuevas acababan en otro sitio. Ahora aparece un diálogo para reintentar, elegir otra carpeta, usar la carpeta por defecto solo en esa sesión o salir.
+
+- **Metadatos de adjuntos.** Marcar un PDF o una imagen como favorito o fijado podía perderse tras mover, enviar a la papelera o borrar definitivamente una carpeta con otros adjuntos: cada parte de la app guardaba su propia copia en memoria de `.jylos/document-metadata.json` y una podía sobrescribir lo que acababa de escribir la otra. Ahora cada escritura parte del fichero en disco.
+
+- **Seguridad — ids fuera de la bóveda.** En modo bóveda (filesystem), un id de nota o carpeta como `../fichero.md` resolvía fuera de la bóveda: se podía leer, sobrescribir, mover o borrar cualquier fichero accesible para el usuario. El servidor MCP pasaba esos ids de clientes externos directamente al almacenamiento, de modo que un agente de IA (por ejemplo, víctima de prompt injection) podía alcanzar ficheros como `~/.ssh/config`. Ahora el almacenamiento rechaza cualquier id que salga de la bóveda (las lecturas lo tratan como "no encontrado" y las modificaciones fallan sin tocar el disco), y las herramientas MCP lo rechazan antes con un mensaje explícito. Un `..` que se queda dentro de la bóveda sigue funcionando.
+
+- **Seguridad — imágenes y scripts en la vista previa.** Una imagen relativa en una nota (`![](../../.ssh/id_rsa)`) podía leer cualquier fichero del disco e incrustarlo en la vista previa y en la exportación HTML; ahora solo se incrustan imágenes que estén dentro de la bóveda. Además, la vista de lectura y la exportación HTML usan una Content-Security-Policy con un nonce nuevo en cada render: el HTML crudo de las notas se sigue mostrando, pero un `<script>` o un `onerror=` escrito en una nota ya no se ejecuta, y la página no puede abrir conexiones de red. Los scripts propios (resaltado de código, KaTeX, enlaces) y los de plugins (Mermaid, Dataview) siguen funcionando. Afecta a autores de plugins: los manejadores de eventos inline en el HTML inyectado dejan de ejecutarse; usar `addEventListener` (ver `docs/PLUGINS.md`).
+
+- **Bóveda dentro de una carpeta oculta.** Una bóveda situada bajo cualquier carpeta cuyo nombre empieza por punto (por ejemplo `~/.config/Jylos/data`, la ubicación por defecto de la app instalada en Linux, o `~/.notas/`) aparecía completamente vacía: sin notas ni carpetas. Ahora solo se ignoran las entradas ocultas *dentro* de la bóveda (`.trash`, `.git`, `.obsidian`…).
+
+- **Nombres de carpeta con acentos.** Crear o renombrar una carpeta desde Jylos sustituía por `_` cualquier carácter fuera del alfabeto inglés ("Diseño" acababa como "Dise_o"; "日本" como "__"). Ahora las carpetas aceptan letras de cualquier idioma, igual que las notas. Además, notas y carpetas conservan los acentos escritos como carácter combinante (forma NFD, la que generan macOS y algunas fuentes al pegar), que antes también se convertían en `_`. Las carpetas ya existentes no cambian de nombre.
+
+- **Búsqueda del servicio en notas largas.** La búsqueda que usan el servidor MCP (`search_notes`) y los plugins no encontraba texto más allá de los primeros ~900 caracteres de cada nota en modo bóveda. La búsqueda de la interfaz no estaba afectada.
+
+- **Rich links.** Al pegar una URL, la página se descargaba entera en memoria antes de quedarse con los primeros 512 KB; una respuesta enorme o infinita podía bloquear la tarjeta o agotar la memoria. Ahora se deja de leer al llegar al límite.
+
+- **Plugin de IA.** Ya no envía notas privadas a proveedores externos, aunque estén desbloqueadas. Además, resumir, traducir y mejorar ahora envían la nota completa: en modo bóveda solo se enviaban los primeros ~900 caracteres (la vista previa de la lista de notas).
+
 ## [2.5.6] - 2026-09-07
 
 - Nuevo plugin **Publish**: exporta toda la bóveda a un sitio web estático (HTML/CSS/JS) autocontenido, con un diseño inspirado en Obsidian Publish/Quartz en vez de una lista plana de páginas — una página por nota, wiki-links convertidos en enlaces relativos reales (reutilizando el mismo resolutor de wiki-links que usa la vista previa, no una reimplementación aparte), listo para subir tal cual a GitHub Pages, Vercel o cualquier hosting estático. `Tools → Publish Vault as Static Site...` o desde la paleta de comandos.

@@ -72,6 +72,37 @@ final class McpSupport {
         return null;
     }
 
+    /**
+     * Refuses an id that is not a plain vault-relative path. A note or folder id is its
+     * path inside the vault, and every id here comes from the MCP client — potentially a
+     * prompt-injected agent. Storage already refuses ids that resolve outside the vault;
+     * this is the second barrier, so a tool never even asks storage about one, and the
+     * client learns why instead of a misleading "not found".
+     *
+     * @param argumentName the argument the id arrived in, for the error message
+     * @return the refusal to return to the client, or {@code null} when the id is fine
+     *         (including {@code null}, which each tool already handles on its own)
+     */
+    static CallToolResult refuseUnsafeId(String id, String argumentName) {
+        if (id == null) {
+            return null;
+        }
+        String path = id.replace('\\', '/');
+        boolean absolute = path.startsWith("/") || path.matches("^[A-Za-z]:.*");
+        boolean climbs = false;
+        for (String segment : path.split("/")) {
+            if ("..".equals(segment)) {
+                climbs = true;
+                break;
+            }
+        }
+        if (absolute || climbs) {
+            return errorResult("'" + argumentName + "' must be an id inside the vault, as returned by the "
+                    + "list tools; '" + id + "' points outside the vault.");
+        }
+        return null;
+    }
+
     // ── Arguments ────────────────────────────────────────────────────────────
 
     static String stringArgument(Map<String, Object> arguments, String key) {

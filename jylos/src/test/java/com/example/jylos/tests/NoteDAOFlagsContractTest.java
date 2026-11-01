@@ -155,4 +155,20 @@ abstract class NoteDAOFlagsContractTest {
         assertEquals(true, restaurada.isFavorite(), "favorite también debía seguir intacto tras todo el ciclo");
         assertEquals(true, restaurada.isPinned(), "pinned también debía seguir intacto tras todo el ciclo");
     }
+
+    @Test
+    void autorYUrlDeOrigenSobrevivenAUnUpdateTrasReleerDelBackendReal() {
+        NoteDAO dao = createNoteDAO();
+        Note note = createAndPersist(dao, "ConOrigen");
+
+        note.setAuthor("Ada Lovelace");
+        note.setSourceUrl("https://example.com/origen");
+        dao.updateNote(note);
+
+        Note releida = dao.getNoteById(note.getId());
+        assertNotNull(releida);
+        assertEquals("Ada Lovelace", releida.getAuthor(), "author debe persistir al actualizar, no solo al crear");
+        assertEquals("https://example.com/origen", releida.getSourceUrl(),
+                "source_url debe persistir al actualizar, no solo al crear");
+    }
 }

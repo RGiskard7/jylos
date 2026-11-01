@@ -38,7 +38,14 @@ Hace:
 xvfb-run -a mvn -B -f jylos/pom.xml clean test
 ```
 
-No genera instaladores. Sirve para confirmar que la rama no rompe build ni tests.
+- construye los JAR de plugins y ejecuta sus tests (`scripts/test-plugins.sh`,
+  también con `xvfb`): los plugins se compilan como plugins de terceros, así que la
+  ejecución de Maven no los ve;
+- en un job aparte, `editor-web`, Node 22 + `npm ci && npm test` en
+  `jylos/editor-web` (los tests propios del editor CodeMirror).
+
+No genera instaladores. Sirve para confirmar que la rama no rompe build ni ninguna
+suite de tests.
 
 ### `mutacion.yml`
 
@@ -88,6 +95,10 @@ v3.0.0
 
 Hace:
 
+- **job `validate`, primero y en segundos:** `scripts/check-release-version.sh`
+  comprueba que la `<revision>` de `jylos/pom.xml` es igual al tag y que
+  `changelog.md` tiene una sección no vacía para él. Si no coinciden, no se
+  construye nada;
 - valida que el tag sea semantico;
 - obtiene `JYLOS_RELEASE_VERSION` quitando la `v`;
 - configura Java 21 Temurin;
@@ -201,13 +212,16 @@ git pull origin main
 
 ## Release normal
 
-Antes de taggear, comprobar que `changelog.md` tiene seccion de version:
+Preparar la versión en un solo paso, en la rama que se mergeará a `main`:
 
-```markdown
-## [2.4.1] - 2026-07-16
+```bash
+scripts/prepare-release.sh 2.4.1          # la fecha por defecto es hoy
 ```
 
-Crear y subir tag:
+Pone la `<revision>` de `jylos/pom.xml` a `2.4.1` y convierte las entradas de
+`## [Unreleased]` en `## [2.4.1] - <fecha>` (dejando un `## [Unreleased]` vacío
+arriba), y después ejecuta `scripts/check-release-version.sh`. No hace commit, ni
+tag, ni push. Revisar el diff, commitear, mergear a `main` y entonces:
 
 ```bash
 git checkout main
@@ -216,10 +230,15 @@ git tag v2.4.1
 git push origin v2.4.1
 ```
 
-Cambiar `v2.4.1` por la version real.
+Por qué importa actualizar el `pom.xml`: los paquetes del release toman la versión
+del tag, pero cualquier otro build (IDE, `build_all`, el CI de pull requests,
+`mvn package`) la toma de `<revision>`. Sin actualizarla, esos builds se identifican
+con una versión antigua. El job `validate` del workflow de release rechaza un tag
+que no coincida con `<revision>` o sin sección en el changelog, así que ya no pueden
+desincronizarse.
 
-No hace falta subir otro commit solo para versionar `pom.xml`. El workflow usa el
-tag como fuente de verdad durante release.
+El badge de versión del README lee el último GitHub Release, y la landing
+(`docs/index.html`) la consulta al cargar: ninguno hay que tocarlo en cada release.
 
 ## Version de la app
 
@@ -243,6 +262,7 @@ Resultado:
 - Maven genera `jylos-2.4.1.jar` y `jylos-2.4.1-uber.jar`;
 - la release publica esos archivos como assets estables: `jylos.jar` y `jylos-uber.jar`;
 - `version.properties` empaquetado con `2.4.1`;
+- el `META-INF/MANIFEST.MF` de ambos JAR lleva `Implementation-Version: 2.4.1`;
 - panel `Acerca de Jylos` muestra `v2.4.1`;
 - update checker compara contra GitHub Releases.
 
@@ -361,15 +381,19 @@ en GitHub Release.
 
 ## Fallos habituales
 
-### Release falla porque no encuentra notas
+### Release falla en el job `validate`
 
-Revisar `changelog.md`:
+El tag no coincide con la `<revision>` de `jylos/pom.xml`, o `changelog.md` no tiene
+sección `## [X.Y.Z] - YYYY-MM-DD` para él; normalmente porque no se ejecutó
+`scripts/prepare-release.sh` antes de crear el tag. No se ha construido ni publicado
+nada, así que el tag se puede mover sin problema:
 
-```markdown
-## [X.Y.Z] - YYYY-MM-DD
+```bash
+git push origin --delete vX.Y.Z && git tag -d vX.Y.Z
+scripts/prepare-release.sh X.Y.Z    # después commit y merge a main
+git checkout main && git pull
+git tag vX.Y.Z && git push origin vX.Y.Z
 ```
-
-Debe coincidir con tag `vX.Y.Z`.
 
 ### Linux falla por permisos de script
 
@@ -391,9 +415,10 @@ Es falta de runner disponible. Por eso macOS esta apagado.
 
 ## Checklist antes de release
 
-- `main` contiene merge final.
+- `main` contiene merge final, incluido el commit de `scripts/prepare-release.sh`.
 - `latest-jylos.yml` verde en PR o `main`.
-- `changelog.md` tiene seccion de version.
+- `scripts/check-release-version.sh X.Y.Z` pasa en local (el workflow de release
+  lo vuelve a ejecutar y se detiene si no coincide).
 - Version elegida sigue semver.
 - Si se cambian nombres de assets, actualizar `docs/index.html`.
 - Si macOS sigue apagado, no prometer DMG nuevo en release notes.

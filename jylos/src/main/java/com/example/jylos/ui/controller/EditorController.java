@@ -28,6 +28,7 @@ import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.plugin.PreviewEnhancer;
+import com.example.jylos.service.FileFingerprint;
 import com.example.jylos.service.NoteTitleIndex;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.RichLinkService;
@@ -117,6 +118,9 @@ public class EditorController {
 
     private Note currentNote;
     private boolean isModified = false;
+    /** The note's file as it was when the editor loaded or last saved it; null without a file. */
+    private FileFingerprint persistedFingerprint;
+    private final SaveConflictSupport saveConflictSupport = new SaveConflictSupport();
     private String persistedTitle = "";
     private String persistedContent = "";
     private Map<String, String> persistedCustomProperties = new LinkedHashMap<>();
@@ -124,14 +128,19 @@ public class EditorController {
     /** Cancels any in-flight preview render so FX thread is never blocked by markdown parsing. */
     private volatile Task<String> currentPreviewTask;
 
+    /** How long a newly opened note's render may take before the previous note's preview is cleared. */
+    private static final javafx.util.Duration STALE_PREVIEW_GRACE = javafx.util.Duration.millis(200);
+
     /**
-     * Runs preview renders off the FX thread. A single thread, reused: renders are already
-     * debounced and only the newest one matters, so there is nothing to gain from running
-     * two at once — and spawning a fresh thread per render, as this used to, meant paying
-     * for thread creation on every pause in typing.
+     * Runs preview renders off the FX thread, on reused threads (no thread creation on
+     * every pause in typing). Not a single thread: a render can block for a long time on
+     * file I/O — an image or embedded note in a cloud folder (iCloud, OneDrive) that is
+     * not downloaded yet — and cancelling it does not interrupt that read. Queued behind
+     * it, the next note's render would wait too, leaving the previous note on screen.
+     * Only the newest render is ever shown (see the {@code currentPreviewTask} checks).
      */
     private final java.util.concurrent.ExecutorService previewRenderExecutor =
-            java.util.concurrent.Executors.newSingleThreadExecutor(runnable -> {
+            java.util.concurrent.Executors.newCachedThreadPool(runnable -> {
                 Thread thread = new Thread(runnable, "preview-render");
                 thread.setDaemon(true);
                 return thread;
@@ -284,6 +293,7 @@ public class EditorController {
         };
         this.statusAction = statusAction != null ? statusAction : message -> {
         };
+        saveConflictSupport.wire(key -> getString(key, key));
         this.autocompleteTitlesSupplier = autocompleteTitlesSupplier != null
                 ? autocompleteTitlesSupplier
                 : () -> NoteTitleIndex.getInstance().titlesSorted();
@@ -559,7 +569,8 @@ public class EditorController {
                 }
             }, SystemBrowser::open);
             noteContentArea.setImageSourceResolver(
-                    source -> MarkdownPreview.resolveImageSource(source, previewBaseDir()));
+                    source -> MarkdownPreview.resolveImageSource(source, previewBaseDir(),
+                            previewContainmentRoot()));
             noteContentArea.setTextChangeListener(content -> {
                 if (currentNote != null) {
                     reevaluateModifiedState();
@@ -1144,6 +1155,100 @@ public class EditorController {
     }
 
     public void handleSave() {
+        handleSave(false);
+    }
+
+    /**
+     * Saves the current note unless its file changed on disk since it was opened or last
+     * saved (another app, a sync client, {@code git pull}): then a manual save asks what to
+     * do and an autosave does not write at all, so external edits are never overwritten
+     * silently.
+     *
+     * @param autosave whether this save was triggered by the autosave timer
+     * @return {@code true} when the editor has no unsaved changes left afterwards
+     */
+    public boolean handleSave(boolean autosave) {
+        boolean markdownEdit = currentNote != null && isModified && noteService != null
+                && !viewingAttachment && currentAttachmentType != AttachmentType.CANVAS;
+        if (markdownEdit && !confirmNoExternalChange(autosave)) {
+            return !isModified;
+        }
+        saveNow();
+        return !isModified;
+    }
+
+    /**
+     * Checks the note's file against the fingerprint taken when it was opened or saved.
+     *
+     * @return {@code true} when the save may go ahead
+     */
+    private boolean confirmNoExternalChange(boolean autosave) {
+        SaveConflictSupport.Decision decision = SaveConflictSupport.decide(persistedFingerprint,
+                noteService.fingerprint(currentNote.getId()), autosave);
+        if (decision == SaveConflictSupport.Decision.PROCEED) {
+            return true;
+        }
+        if (decision == SaveConflictSupport.Decision.CONFLICT_PAUSE) {
+            reportStatus(safeI18n("status.save_conflict_paused"));
+            updateSaveIndicator(true);
+            return false;
+        }
+        switch (saveConflictSupport.askResolution(currentNote.getTitle())) {
+            case OVERWRITE:
+                return true;
+            case RELOAD:
+                reloadCurrentNoteFromDisk();
+                return false;
+            case SAVE_COPY:
+                if (saveConflictCopy()) {
+                    reloadCurrentNoteFromDisk();
+                }
+                return false;
+            default:
+                updateSaveIndicator(true);
+                return false;
+        }
+    }
+
+    /** Replaces the editor's version with the note as it is on disk now. */
+    private void reloadCurrentNoteFromDisk() {
+        noteService.getNoteById(currentNote.getId()).ifPresent(fresh -> {
+            loadNote(fresh);
+            if (eventBus != null) {
+                eventBus.publish(new NoteEvents.NoteUpdatedEvent(fresh));
+            }
+        });
+    }
+
+    /**
+     * Saves the editor's text as a new note next to the conflicting one, leaving the file on
+     * disk untouched.
+     *
+     * @return {@code true} when the copy was written
+     */
+    private boolean saveConflictCopy() {
+        String text = noteContentArea != null ? noteContentArea.getText() : currentNote.getContent();
+        String baseTitle = noteTitleField != null ? noteTitleField.getText() : currentNote.getTitle();
+        String title = orEmpty(baseTitle) + " " + safeI18n("note.conflict_copy_suffix");
+        String id = currentNote.getId();
+        int slash = id.lastIndexOf('/');
+        String folderPrefix = slash >= 0 ? id.substring(0, slash + 1) : "";
+        Note copy = new Note(folderPrefix + title, title, text);
+        copy.setPrivate(currentNote.isPrivate());
+        try {
+            Note created = noteService.createNote(copy);
+            if (eventBus != null) {
+                eventBus.publish(new NoteEvents.NoteCreatedEvent(created));
+            }
+            reportStatus(java.text.MessageFormat.format(safeI18n("status.save_conflict_copy"), created.getTitle()));
+            return true;
+        } catch (RuntimeException e) {
+            reportSaveFailure(e);
+            return false;
+        }
+    }
+
+    private void saveNow() {
         if (currentNote == null) return;
         if (currentAttachmentType == AttachmentType.CANVAS && currentCanvasView != null) {
             if (isModified || currentCanvasView.hasUnsavedChanges()) {
@@ -1745,6 +1850,7 @@ public class EditorController {
         java.util.Collection<PreviewEnhancer> enhancers =
                 new java.util.ArrayList<>(previewEnhancers.values());
         java.nio.file.Path baseDir = previewBaseDir();
+        java.nio.file.Path containmentRoot = previewContainmentRoot();
         // Captured on the FX thread so an enhancer post-processing this render always
         // sees the note this HTML came from, even if the user switches note mid-render.
         com.example.jylos.plugin.PreviewContext previewContext =
@@ -1757,7 +1863,8 @@ public class EditorController {
             protected String call() {
                 if (content != null && !content.trim().isEmpty()) {
                     return MarkdownPreview.buildPreviewHtml(content, darkTheme, enhancers, baseDir,
-                            EditorController.this::resolveEmbedContentByTitle, previewContext, readable, fontSize);
+                            EditorController.this::resolveEmbedContentByTitle, previewContext, readable, fontSize,
+                            containmentRoot);
                 }
                 return MarkdownPreview.buildEmptyHtml(darkTheme);
             }
@@ -1784,6 +1891,26 @@ public class EditorController {
         });
         currentPreviewTask = task;
         previewRenderExecutor.execute(task);
+        if (noteId == null || !noteId.equals(renderedPreviewNoteId)) {
+            blankPreviewIfStillRendering(task, darkTheme);
+        }
+    }
+
+    /**
+     * On switching notes the WebView still holds the previous note's page until the new
+     * render lands. Renders are normally a few milliseconds, so that is invisible; when
+     * one is slow (files still downloading from a cloud folder), show an empty page rather
+     * than the previous note's content under the new note's title.
+     */
+    private void blankPreviewIfStillRendering(Task<String> task, boolean darkTheme) {
+        javafx.animation.PauseTransition grace = new javafx.animation.PauseTransition(STALE_PREVIEW_GRACE);
+        grace.setOnFinished(e -> {
+            if (task == currentPreviewTask && !task.isDone() && isPreviewVisible()) {
+                renderedPreviewNoteId = null;
+                previewWebView.getEngine().loadContent(MarkdownPreview.buildEmptyHtml(darkTheme), "text/html");
+            }
+        });
+        grace.play();
     }
 
     private double currentPreviewScrollY() {
@@ -1823,6 +1950,14 @@ public class EditorController {
         return noteService.getNoteFilePath(currentNote.getId())
                 .map(java.nio.file.Path::getParent)
                 .orElse(null);
+    }
+
+    /**
+     * Vault root that bounds which local images a note may inline; {@code null} (SQLite)
+     * lets the preview fall back to containing lookups in {@link #previewBaseDir()}.
+     */
+    private java.nio.file.Path previewContainmentRoot() {
+        return noteService != null ? noteService.getStorageRoot().orElse(null) : null;
     }
 
     public void clearPreview() {
@@ -2118,6 +2253,9 @@ public class EditorController {
     }
 
     private void capturePersistedBaseline(Note note) {
+        persistedFingerprint = note != null && note.getId() != null && noteService != null
+                ? noteService.fingerprint(note.getId()).orElse(null)
+                : null;
         persistedTitle = note != null ? orEmpty(note.getTitle()) : "";
         persistedContent = note != null ? orEmpty(note.getContent()) : "";
         persistedCustomProperties = snapshotCustomProperties(note != null ? note.getCustomProperties() : null);

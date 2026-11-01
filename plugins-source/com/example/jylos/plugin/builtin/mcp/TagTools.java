@@ -2,6 +2,7 @@ package com.example.jylos.plugin.builtin.mcp;
 
 import static com.example.jylos.plugin.builtin.mcp.McpSupport.displayTitle;
 import static com.example.jylos.plugin.builtin.mcp.McpSupport.errorResult;
+import static com.example.jylos.plugin.builtin.mcp.McpSupport.refuseUnsafeId;
 import static com.example.jylos.plugin.builtin.mcp.McpSupport.noteSummary;
 import static com.example.jylos.plugin.builtin.mcp.McpSupport.objectSchema;
 import static com.example.jylos.plugin.builtin.mcp.McpSupport.readOnly;
@@ -90,6 +91,10 @@ final class TagTools {
                 .tool(tool)
                 .callHandler((exchange, request) -> {
                     String id = requiredArgument(request.arguments(), "id");
+                    CallToolResult unsafeId = refuseUnsafeId(id, "id");
+                    if (unsafeId != null) {
+                        return unsafeId;
+                    }
                     String tagName = normalizeTagName(requiredArgument(request.arguments(), "tag"));
                     if (id == null || tagName == null) {
                         return errorResult("Both 'id' and 'tag' are required.");
@@ -136,6 +141,10 @@ final class TagTools {
                 .tool(tool)
                 .callHandler((exchange, request) -> {
                     String id = requiredArgument(request.arguments(), "id");
+                    CallToolResult unsafeId = refuseUnsafeId(id, "id");
+                    if (unsafeId != null) {
+                        return unsafeId;
+                    }
                     String tagName = normalizeTagName(requiredArgument(request.arguments(), "tag"));
                     if (id == null || tagName == null) {
                         return errorResult("Both 'id' and 'tag' are required.");

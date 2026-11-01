@@ -144,3 +144,8 @@ site/.vitepress/cache/
 # checkout that uses submodules: recursive — "No url found for submodule
 # path 'testing-kit' in .gitmodules").
 testing-kit/
+
+# Local companion repo (jylos-mobile: Capacitor iOS/Android app, JS/TS, its
+# own .git and its own GitHub remote) — same reasoning as testing-kit/ above,
+# never track it as a gitlink of this repo.
+jylos-mobile/

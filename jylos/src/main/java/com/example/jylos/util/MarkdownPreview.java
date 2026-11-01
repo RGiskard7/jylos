@@ -110,12 +110,27 @@ public class MarkdownPreview {
             Collection<PreviewEnhancer> enhancers, java.nio.file.Path baseDir,
             Function<String, String> embeddedContentResolver, PreviewContext context,
             boolean readableLineLength, int contentFontSize) {
+        return buildPreviewHtml(markdownContent, isDarkTheme, enhancers, baseDir, embeddedContentResolver, context,
+                readableLineLength, contentFontSize, null);
+    }
+
+    /**
+     * Full form: {@code imageContainmentRoot} bounds which local files a relative image
+     * reference may inline — normally the vault root, so {@code ../attachments/x.png}
+     * works while {@code ../../.ssh/id_rsa} does not. {@code null} falls back to
+     * {@code baseDir} (the note's own folder), the narrowest safe choice.
+     */
+    public static String buildPreviewHtml(String markdownContent, boolean isDarkTheme,
+            Collection<PreviewEnhancer> enhancers, java.nio.file.Path baseDir,
+            Function<String, String> embeddedContentResolver, PreviewContext context,
+            boolean readableLineLength, int contentFontSize, java.nio.file.Path imageContainmentRoot) {
         String raw = markdownContent == null ? "" : markdownContent;
 
-        // Resolve [[WikiLinks]] in the raw Markdown source FIRST, then pass
-        // through CommonMark.  Because escapeHtml is enabled in
-        // MarkdownProcessor, the injected <a> tags would be escaped.
-        // Solution: resolve WikiLinks as Markdown link syntax instead.
+        // Resolve [[WikiLinks]] in the raw Markdown source FIRST, then pass the result
+        // (including the generated <a> anchors) through CommonMark, which leaves raw HTML
+        // untouched — MarkdownProcessor deliberately does not escape it. Script that a note
+        // carries in that raw HTML is neutralised by the page's Content-Security-Policy
+        // below, not by escaping.
         //
         // The set of known titles comes from NoteTitleIndex, a warm cache invalidated
         // by note events. This avoids re-scanning the whole note store on every
@@ -137,7 +152,7 @@ public class MarkdownPreview {
 
         String html = MarkdownProcessor.markdownToHtml(raw);
         html = Transclusion.restore(html, embeds.embeds());
-        html = embedLocalImages(html, baseDir);
+        html = embedLocalImages(html, baseDir, imageContainmentRoot);
         html = emojifyToImages(html, isDarkTheme);
         // Per-note post-processing runs before code-block detection below: an enhancer
         // that replaces a fenced block with generated markup (e.g. a query result table)
@@ -162,12 +177,21 @@ public class MarkdownPreview {
         }
         String mathScript = math ? katexScriptBlock() : "";
 
+        // Only scripts Jylos itself emits — and those plugins inject, which are trusted
+        // code — carry this per-render nonce. Script written into a note does not, so the
+        // CSP below keeps it from running (inline handlers such as onerror= included).
+        String nonce = newNonce();
+        mathScript = withNonce(mathScript, nonce);
+        String headInjections = withNonce(injections.head(), nonce);
+        String bodyInjections = withNonce(injections.body(), nonce);
+
         return """
                 <!DOCTYPE html>
                 <html>
                 <head>
                     <meta charset="UTF-8">
                     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+                    <meta http-equiv="Content-Security-Policy" content="%s">
                     %s
                     <style>
                         %s
@@ -176,7 +200,7 @@ public class MarkdownPreview {
                 </head>
                 <body>
                 %s
-                <script>
+                <script nonce="%s">
                     %s
                     %s
                     
@@ -219,8 +243,37 @@ public class MarkdownPreview {
                 %s
                 </body>
                 </html>
-                """.formatted(injections.head(), highlightCss, styleBlock, html, highlightAsset,
-                highlightScript, mathScript, injections.body());
+                """.formatted(previewContentSecurityPolicy(nonce), headInjections, highlightCss, styleBlock, html,
+                nonce, highlightAsset, highlightScript, mathScript, bodyInjections);
+    }
+
+    private static final java.security.SecureRandom NONCE_RANDOM = new java.security.SecureRandom();
+
+    /** A fresh, unguessable CSP nonce for one rendered page. */
+    private static String newNonce() {
+        byte[] bytes = new byte[18];
+        NONCE_RANDOM.nextBytes(bytes);
+        return java.util.Base64.getEncoder().encodeToString(bytes);
+    }
+
+    /**
+     * Policy for the reading preview and HTML export. Scripts run only with the page's
+     * nonce; the page cannot open connections, frames, objects or forms, so even an
+     * injected script would have no channel to exfiltrate note content. Inline styles and
+     * remote images (a normal part of Markdown notes) stay allowed.
+     */
+    private static String previewContentSecurityPolicy(String nonce) {
+        return "default-src 'none'; script-src 'nonce-" + nonce + "'; style-src 'unsafe-inline'; "
+                + "img-src data: https: http:; font-src data:; media-src data: https: http:; "
+                + "connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'";
+    }
+
+    /** Adds {@code nonce} to every {@code <script>} tag of trusted, Jylos- or plugin-generated markup. */
+    private static String withNonce(String trustedHtml, String nonce) {
+        if (trustedHtml == null || trustedHtml.isEmpty()) {
+            return trustedHtml;
+        }
+        return trustedHtml.replaceAll("(?i)<script(?=[\\s>])", "<script nonce=\"" + nonce + "\"");
     }
 
     /**
@@ -565,6 +618,17 @@ public class MarkdownPreview {
      * @return a WebView-safe URI, or an empty string when it cannot be resolved
      */
     public static String resolveImageSource(String source, java.nio.file.Path baseDir) {
+        return resolveImageSource(source, baseDir, null);
+    }
+
+    /**
+     * Same as {@link #resolveImageSource(String, java.nio.file.Path)}, but a local file is
+     * only inlined when it lies inside {@code containmentRoot} (normally the vault root).
+     * A {@code null} root contains the lookup to {@code baseDir}. The note's Markdown picks
+     * the path, so without this bound {@code ../../.ssh/id_rsa} would be read into the page.
+     */
+    public static String resolveImageSource(String source, java.nio.file.Path baseDir,
+            java.nio.file.Path containmentRoot) {
         String value = source != null ? source.trim() : "";
         if (value.isEmpty()) {
             return "";
@@ -578,6 +642,11 @@ public class MarkdownPreview {
         try {
             String decoded = java.net.URLDecoder.decode(value, StandardCharsets.UTF_8);
             java.nio.file.Path imagePath = baseDir.resolve(decoded).normalize();
+            java.nio.file.Path bound = containmentRoot != null ? containmentRoot : baseDir;
+            if (!PathContainment.isInside(bound, imagePath)) {
+                logger.fine("Refusing to inline image outside the vault: " + value);
+                return "";
+            }
             if (!java.nio.file.Files.isRegularFile(imagePath)
                     || java.nio.file.Files.size(imagePath) > MAX_INLINE_IMAGE_BYTES) {
                 return "";
@@ -596,7 +665,8 @@ public class MarkdownPreview {
      * URIs resolved against {@code baseDir}. Remote ({@code http(s)}), {@code data:}
      * and {@code file:} sources are left untouched.
      */
-    private static String embedLocalImages(String bodyHtml, java.nio.file.Path baseDir) {
+    private static String embedLocalImages(String bodyHtml, java.nio.file.Path baseDir,
+            java.nio.file.Path containmentRoot) {
         if (baseDir == null || bodyHtml == null || !bodyHtml.contains("<img")) {
             return bodyHtml;
         }
@@ -610,7 +680,7 @@ public class MarkdownPreview {
                     continue;
                 }
                 try {
-                    String resolved = resolveImageSource(src, baseDir);
+                    String resolved = resolveImageSource(src, baseDir, containmentRoot);
                     if (resolved.isEmpty()) {
                         continue;
                     }

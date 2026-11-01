@@ -182,6 +182,14 @@ the pipeline decides whether to ship syntax-highlighting assets, so a plugin tha
 the note's only code block does not leave highlight.js behind. Example: `DataviewPlugin`
 (see [DATAVIEW.md](DATAVIEW.md)).
 
+The preview runs under a nonce-based Content-Security-Policy. Every `<script>` tag in
+`getHeadInjections()` / `getBodyInjections()` gets the page's nonce automatically, so
+injected scripts keep working; what does **not** run is script that lacks the nonce: inline
+event handlers (`onclick="…"`, `onload="…"`) and any `<script>` produced by
+`transformHtml`, whose output is treated like note content. Attach behaviour with
+`addEventListener` from an injected script instead. The page also cannot open network
+connections (`connect-src 'none'`), frames or forms.
+
 ### Editor block renderers
 
 `registerEditorBlockRenderer(String language, EditorBlockRenderer renderer)` displays a

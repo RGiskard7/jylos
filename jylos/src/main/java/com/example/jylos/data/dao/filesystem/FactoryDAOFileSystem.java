@@ -1,5 +1,6 @@
 package com.example.jylos.data.dao.filesystem;
 
+import com.example.jylos.data.dao.interfaces.EncryptionKeyDAO;
 import com.example.jylos.data.dao.interfaces.FactoryDAO;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
@@ -17,12 +18,19 @@ public class FactoryDAOFileSystem extends FactoryDAO {
     private NoteDAOFileSystem noteDAO;
     private FolderDAOFileSystem folderDAO;
     private TagDAOFileSystem tagDAO;
+    private EncryptionKeyDAOFileSystem encryptionKeyDAO;
 
     public FactoryDAOFileSystem(String rootDirectory) {
         // Deferred loading keeps large or cloud-backed vaults responsive at startup.
         this.noteDAO = new NoteDAOFileSystem(rootDirectory, true);
         this.folderDAO = new FolderDAOFileSystem(rootDirectory);
         this.tagDAO = new TagDAOFileSystem(this.noteDAO);
+        this.encryptionKeyDAO = new EncryptionKeyDAOFileSystem(java.nio.file.Path.of(rootDirectory));
+    }
+
+    @Override
+    public EncryptionKeyDAO getEncryptionKeyDAO() {
+        return encryptionKeyDAO;
     }
 
     @Override

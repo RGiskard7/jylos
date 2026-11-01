@@ -12,7 +12,7 @@
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.4.11-success.svg)](changelog.md)
+[![Version](https://img.shields.io/github/v/release/RGiskard7/jylos?label=version&color=success)](https://github.com/RGiskard7/jylos/releases/latest)
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/)
 [![JavaFX](https://img.shields.io/badge/JavaFX-23-blue.svg)](https://openjfx.io/)
 [![SQLite](https://img.shields.io/badge/SQLite-3-lightgrey.svg)](https://www.sqlite.org/)
@@ -545,7 +545,7 @@ Warnings such as `Failed to build parent project for org.openjfx:javafx-*` are k
 ### Changelog convention
 
 - Keep `## [Unreleased]` at the top without a date; use it only for changes not assigned to a release yet.
-- When preparing a release, move the relevant bullets into `## [x.y.z] - YYYY-MM-DD`, using the release publication date, not necessarily the date each change was made.
+- When preparing a release, run `scripts/prepare-release.sh x.y.z` instead of editing by hand: it moves the `[Unreleased]` bullets into `## [x.y.z] - YYYY-MM-DD` (today's date by default) and sets the same version in `jylos/pom.xml`. Commit that, merge to `main`, then push the tag `vx.y.z`; the release workflow refuses a tag that does not match. Full steps: [docs/CICD.md](docs/CICD.md#normal-release-flow).
 - One release section may include work done across multiple days. Do not create duplicate sections for the same version.
 - Write bullets from the user's point of view: fixes, behavior changes, compatibility notes, migration notes and documentation updates.
 - If a PR fixes a GitHub issue, put `Fixes #123` in the PR description so GitHub closes it when the PR is merged.

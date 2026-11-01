@@ -181,6 +181,14 @@ ejecutan *antes* de decidir si se inyectan los recursos de resaltado de sintaxis
 que un plugin que elimina el único bloque de código de la nota no deja highlight.js
 cargado. Ejemplo: `DataviewPlugin` (ver [DATAVIEW.md](DATAVIEW.md)).
 
+La vista previa se ejecuta con una Content-Security-Policy basada en nonce. Cada etiqueta
+`<script>` de `getHeadInjections()` / `getBodyInjections()` recibe automáticamente el nonce
+de la página, así que los scripts inyectados siguen funcionando; lo que **no** se ejecuta
+es el script sin nonce: los manejadores de eventos inline (`onclick="…"`, `onload="…"`) y
+cualquier `<script>` que produzca `transformHtml`, cuya salida se trata como contenido de la
+nota. Añade el comportamiento con `addEventListener` desde un script inyectado. La página
+tampoco puede abrir conexiones de red (`connect-src 'none'`), frames ni formularios.
+
 ## Renderizadores de bloque del editor
 
 `registerEditorBlockRenderer(String language, EditorBlockRenderer renderer)` muestra un
