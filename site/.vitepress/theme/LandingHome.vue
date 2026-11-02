@@ -86,9 +86,12 @@ const downloadPlatforms: DownloadPlatform[] = [
   },
   {
     platform: "macOS",
-    subtitle: "no native installer yet",
+    subtitle: "Apple Silicon · dmg",
     icon: "apple",
-    links: [{ label: "uber-JAR (Java 21 + JavaFX)", href: `${releasesBase}/jylos-uber.jar` }],
+    links: [
+      { label: ".dmg installer (Apple Silicon)", href: `${releasesBase}/jylos-macos-arm64.dmg` },
+      { label: "uber-JAR for Intel Macs (Java 21 + JavaFX)", href: `${releasesBase}/jylos-uber.jar` },
+    ],
   },
 ];
 
@@ -266,9 +269,12 @@ const es: Copy = {
     },
     {
       platform: "macOS",
-      subtitle: "sin instalador nativo todavía",
+      subtitle: "Apple Silicon · dmg",
       icon: "apple",
-      links: [{ label: "uber-JAR (Java 21 + JavaFX)", href: `${releasesBase}/jylos-uber.jar` }],
+      links: [
+        { label: "Instalador .dmg (Apple Silicon)", href: `${releasesBase}/jylos-macos-arm64.dmg` },
+        { label: "uber-JAR para Mac Intel (Java 21 + JavaFX)", href: `${releasesBase}/jylos-uber.jar` },
+      ],
     },
   ],
   jbangLabel: "Ejecútalo al instante con JBang",

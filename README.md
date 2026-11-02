@@ -37,7 +37,7 @@ Prebuilt packages for all major platforms are available on the [Releases page](.
 
 - **Windows** — `.exe` installer, `.msi` installer, portable ZIP
 - **Linux** — DEB/RPM (via `jpackage`)
-- **macOS** — DMG when macOS packaging is enabled; otherwise use JBang, the uber-JAR, or build from source
+- **macOS** — `.dmg` installer for Apple Silicon; on Intel Macs use JBang, the uber-JAR, or build from source
 - **Any platform** — uber-JAR (requires Java 21 + JavaFX 23 on `PATH`)
 - **Via [JBang](https://www.jbang.dev/)** — single command, no build needed:
   ```bash

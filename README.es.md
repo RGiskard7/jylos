@@ -37,7 +37,7 @@ Los paquetes precompilados para las principales plataformas están disponibles e
 
 - **Windows** — instalador `.exe`, instalador `.msi`, ZIP portable
 - **Linux** — DEB/RPM (vía `jpackage`)
-- **macOS** — DMG cuando el empaquetado macOS esté activado; mientras tanto usa JBang, el uber-JAR o compila desde fuente
+- **macOS** — instalador `.dmg` para Apple Silicon; en Mac con Intel usa JBang, el uber-JAR o compila desde fuente
 - **Cualquier plataforma** — uber-JAR (requiere Java 21 + JavaFX 23 en `PATH`)
 - **Vía [JBang](https://www.jbang.dev/)** — un solo comando, sin compilar:
   ```bash
