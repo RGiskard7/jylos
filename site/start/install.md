@@ -10,7 +10,7 @@ Prebuilt packages for the current release are available on the [GitHub Releases]
 | --- | --- |
 | Windows | `.exe` installer, `.msi` installer, portable ZIP |
 | Linux | `.deb`, `.rpm` (via `jpackage`) |
-| macOS | No native installer yet — use JBang, the uber-JAR, or build from source |
+| macOS | `.dmg` installer for Apple Silicon (`jylos-macos-arm64.dmg`); on Intel Macs use JBang, the uber-JAR, or build from source |
 | Any platform | uber-JAR (requires Java 21 + JavaFX 23 on `PATH`) |
 
 ## Run with JBang

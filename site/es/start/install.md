@@ -10,7 +10,7 @@ Los paquetes compilados de la versión actual están en la página de [GitHub Re
 | --- | --- |
 | Windows | instalador `.exe`, instalador `.msi`, ZIP portable |
 | Linux | `.deb`, `.rpm` (vía `jpackage`) |
-| macOS | Sin instalador nativo todavía — usa JBang, el uber-JAR o compila desde el código fuente |
+| macOS | Instalador `.dmg` para Apple Silicon (`jylos-macos-arm64.dmg`); en Mac con Intel usa JBang, el uber-JAR o compila desde el código fuente |
 | Cualquier plataforma | uber-JAR (requiere Java 21 + JavaFX 23 en el `PATH`) |
 
 ## Ejecutar con JBang
