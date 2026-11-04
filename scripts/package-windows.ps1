@@ -304,6 +304,11 @@ try {
     }
 
     Write-Host "Running jpackage --type $jpackageType (this can take a few minutes)..." -ForegroundColor Cyan
+    # JYLOS_JPACKAGE_VERBOSE=1 makes jpackage print WiX's own output (candle/light
+    # errors such as CNDL#### or ICE##), which its exception message leaves out.
+    if ($env:JYLOS_JPACKAGE_VERBOSE -eq '1') {
+        $jpackageArgs += @('--verbose')
+    }
     & $jpackagePath $jpackageArgs
     $jpackageExit = $LASTEXITCODE
 
