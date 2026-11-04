@@ -268,7 +268,8 @@ try {
     if ($Type -ne 'portable') {
         # Installer UX: dir chooser, Start-menu group, desktop shortcut prompt,
         # a stable upgrade UUID (upgrades in place instead of installing side by
-        # side, regardless of per-user/per-machine), MIT license page.
+        # side; only between installs of the same scope, per-machine or per-user),
+        # MIT license page.
         $jpackageArgs += @(
             '--win-dir-chooser',
             '--win-menu',
@@ -282,13 +283,16 @@ try {
             $jpackageArgs += @('--license-file', $licenseFile)
         }
 
-        # Installs to the current user's profile — no admin/UAC prompt — in jpackage's
-        # default %LOCALAPPDATA%\Jylos. Not %LOCALAPPDATA%\Programs\Jylos: with
-        # --install-dir 'Programs\Jylos' WiX's light.exe fails validation (ICE64, the
-        # intermediate Programs folder is not in the RemoveFile table) and jpackage offers
-        # no way to add it. The app keeps its data in %APPDATA%\Jylos (AppDirectories),
-        # never in the install folder, so uninstalling or upgrading cannot touch it.
-        $jpackageArgs += @('--win-per-user-install')
+        # Installs for the whole machine, in C:\Program Files\Jylos (asks for admin
+        # rights), not per-user. Up to 2.5.7 Jylos installed per-user in
+        # %LOCALAPPDATA%\Jylos and kept its data inside that folder; the uninstaller
+        # jpackage generates for per-user installs deletes the whole folder, and an
+        # upgrade runs it before the new version starts, so the data was lost. Windows
+        # Installer does not upgrade a per-user install from a per-machine one, so the old
+        # install survives the upgrade: on first start the new version moves its data to
+        # %APPDATA%\Jylos and then uninstalls it (LegacyWindowsInstall).
+        # (A per-user install in %LOCALAPPDATA%\Programs\Jylos is not an option either:
+        # WiX's light.exe rejects it, ICE64, and jpackage offers no way around it.)
 
         # DISABLED — real Windows build, candle.exe itself now failing to
         # compile (exit 104) with --resource-dir scripts\wix-resources in

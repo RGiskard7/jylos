@@ -86,9 +86,10 @@ Dónde están depende de cómo se ejecute Jylos:
 
 "Instalado" significa que el lanzador de jpackage definió `jpackage.app-path`. Una versión
 instalada nunca usa el directorio de trabajo, así que desinstalar o actualizar no toca los datos.
-(Los instaladores de Windows mantienen la carpeta de instalación de jpackage, `%LOCALAPPDATA%\Jylos`:
-`%LOCALAPPDATA%\Programs\Jylos` no pasa la validación de WiX, ICE64. Ahí solo quedan, junto al
-programa, los logs y la caché de actualizaciones.) Las versiones
+Los instaladores de Windows instalan
+para todo el equipo en `C:\Program Files\Jylos`; una instalación antigua por usuario en
+`%LOCALAPPDATA%\Jylos` se migra y después la desinstala `LegacyWindowsInstall`
+(ver `docs/PACKAGING.md`). Las versiones
 instaladas anteriores usaban el directorio de trabajo (la carpeta de instalación en Windows,
 normalmente `~` en Linux): al arrancar, `LegacyDataMigration` mueve lo que dejaron allí, solo
 ficheros que crea Jylos, y lo registra en el log. Si la carpeta nueva ya tiene datos de una ejecución anterior, gana la copia usada más recientemente y la otra se renombra `<nombre>.before-migration-<fecha>`, nunca se borra; una base de datos SQLite se mueve o se queda siempre junto a sus `-wal`/`-shm`.

@@ -61,18 +61,26 @@ format (`package-windows-exe.ps1` / `package-windows-msi.ps1` are thin wrappers)
 - The installers are **unsigned**: SmartScreen may warn on first run. For public
   releases, sign with `signtool` and a code-signing certificate.
 
-#### Per-user install
+#### Per-machine install (since 2.5.8)
 
-`--win-per-user-install` makes the exe/msi install to the current user's own
-profile instead of system-wide — no admin/UAC prompt, matching how VS Code,
-Discord, Slack etc. behave. Always on.
+The exe/msi install for the whole machine, in `C:\Program Files\Jylos`, and ask for
+admin rights. Up to 2.5.7 they installed per-user (`--win-per-user-install`) in
+`%LOCALAPPDATA%\Jylos`, and Jylos kept its data inside that folder. The uninstaller
+jpackage generates for per-user installs deletes the whole install folder, and an
+upgrade runs the old uninstaller before the new version starts, so upgrading a per-user
+install lost that data.
 
-Note for anyone with an existing **per-machine** Jylos install from an
-earlier release: Windows Installer can fail to cleanly upgrade a
-per-machine install once the scope changes to per-user (mismatched install
-context is a known MSI major-upgrade failure mode). Worst case is a
-side-by-side second entry or an install error, not data loss (user data
-lives outside the installer's reach either way).
+Windows Installer only upgrades an install of the same scope, so a per-machine install
+leaves an old per-user one in place. On its first start the new version moves the old
+install's data to `%APPDATA%\Jylos` (`LegacyDataMigration`) and then uninstalls it
+silently (`LegacyWindowsInstall`, `msiexec /x`), but only if nothing of the user's is
+left in the folder. Data now lives outside the install folder, so later upgrades and
+uninstalls never touch it.
+
+A per-user install in `%LOCALAPPDATA%\Programs\Jylos` was tried and does not build:
+`light.exe` fails validation ICE64 (the intermediate `Programs` folder is not in the
+RemoveFile table) and jpackage offers no way to add it. To see WiX's own errors, run the
+script with `JYLOS_JPACKAGE_VERBOSE=1`.
 
 #### Windows installer branding (disabled — candle.exe fails to compile it)
 

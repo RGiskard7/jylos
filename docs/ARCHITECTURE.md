@@ -104,9 +104,10 @@ machine. Where they live depends on how Jylos runs:
 | Installed, Linux | `$XDG_DATA_HOME/jylos` (`~/.local/share/jylos`) | `$XDG_STATE_HOME/jylos/logs` | `$XDG_CACHE_HOME/jylos` |
 
 "Installed" means jpackage's launcher set `jpackage.app-path`. An installed build never uses
-the working directory, so uninstalling or upgrading never touches the data. (The Windows
-installers keep jpackage's install folder `%LOCALAPPDATA%\Jylos`: `%LOCALAPPDATA%\Programs\Jylos`
-fails WiX validation, ICE64. Only logs and the update cache sit next to the program there.) Older installed builds used the working
+the working directory, so uninstalling or upgrading never touches the data. The Windows installers install
+for the whole machine in `C:\Program Files\Jylos`; an old per-user install in
+`%LOCALAPPDATA%\Jylos` is migrated and then uninstalled by `LegacyWindowsInstall`
+(see `docs/PACKAGING.md`). Older installed builds used the working
 directory (the install folder on Windows, usually `~` on Linux): on startup `LegacyDataMigration`
 moves what they left there, only files Jylos creates, and logs what it did. When the new folder already holds data from an older run, the copy used most recently wins and the other is renamed `<name>.before-migration-<date>`, never deleted; a SQLite database always moves or stays together with its `-wal`/`-shm` files.
 

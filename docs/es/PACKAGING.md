@@ -37,17 +37,28 @@ CI establece `JYLOS_RELEASE_VERSION` desde el tag. El workflow ajusta Maven con 
 
 Los instaladores tienen UUID de upgrade estable. No cambiarlo. Paquetes sin firma pueden mostrar SmartScreen.
 
-### Instalación por-usuario
+### Instalación para todo el equipo (desde 2.5.8)
 
-`--win-per-user-install` instala en el perfil del usuario actual en vez de
-para toda la máquina — sin UAC/admin, como VS Code/Discord/Slack. Activado.
+El exe/msi instalan para toda la máquina, en `C:\Program Files\Jylos`, y piden permisos
+de administrador. Hasta la 2.5.7 instalaban por usuario (`--win-per-user-install`) en
+`%LOCALAPPDATA%\Jylos`, y Jylos guardaba sus datos dentro de esa carpeta. El
+desinstalador que genera jpackage para instalaciones por usuario borra la carpeta de
+instalación entera, y una actualización ejecuta el desinstalador viejo antes de que
+arranque la versión nueva, así que actualizar una instalación por usuario perdía esos
+datos.
 
-Nota para quien tenga una instalación **per-máquina** previa de una release
-anterior: Windows Installer puede no actualizarla limpiamente si el ámbito
-cambia a per-usuario (contexto de instalación distinto es un fallo conocido
-de mayor actualización de MSI). El peor caso es una segunda entrada en
-paralelo o un error de instalación, no pérdida de datos (las notas viven
-fuera del alcance del instalador en cualquier caso).
+Windows Installer solo actualiza instalaciones del mismo ámbito, así que una instalación
+para todo el equipo deja en su sitio la antigua por usuario. Al arrancar por primera vez,
+la versión nueva mueve los datos de la instalación antigua a `%APPDATA%\Jylos`
+(`LegacyDataMigration`) y después la desinstala en silencio (`LegacyWindowsInstall`,
+`msiexec /x`), solo si en la carpeta no queda nada del usuario. Los datos ya viven fuera
+de la carpeta de instalación, así que las actualizaciones y desinstalaciones posteriores
+no los tocan.
+
+Se probó instalar por usuario en `%LOCALAPPDATA%\Programs\Jylos` y no compila:
+`light.exe` falla la validación ICE64 (la carpeta intermedia `Programs` no está en la
+tabla RemoveFile) y jpackage no permite añadirla. Para ver los errores de WiX, ejecuta el
+script con `JYLOS_JPACKAGE_VERBOSE=1`.
 
 ### Personalización del instalador Windows (desactivada — candle.exe no la compila)
 
