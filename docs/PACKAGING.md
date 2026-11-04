@@ -22,6 +22,7 @@ Run with JavaFX module-path via `scripts/launch-jylos.*`, not plain `java -jar` 
 |----|--------|------------------|
 | macOS | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-<version>.dmg` |
 | Linux | `./scripts/package-linux.sh` | `jylos/target/installers/` (deb/rpm) |
+| Arch Linux | `./scripts/package-linux-arch.sh` | `jylos/target/installers/jylos-linux-amd64.pkg.tar.zst` |
 | Windows portable | `.\scripts\package-windows.ps1` | `jylos\target\installers\Jylos\` (app-image folder) |
 | Windows .exe installer | `.\scripts\package-windows-exe.ps1` | `jylos\target\installers\Jylos-<version>.exe` |
 | Windows .msi installer | `.\scripts\package-windows-msi.ps1` | `jylos\target\installers\Jylos-<version>.msi` |
@@ -62,16 +63,29 @@ format (`package-windows-exe.ps1` / `package-windows-msi.ps1` are thin wrappers)
 
 #### Per-user install
 
-`--win-per-user-install` makes the exe/msi install to the current user's own
-profile instead of system-wide — no admin/UAC prompt, matching how VS Code,
-Discord, Slack etc. behave. Always on.
+`--win-per-user-install` makes the exe/msi install to the current user's own profile, in
+`%LOCALAPPDATA%\Jylos`, instead of system-wide: no admin/UAC prompt, like VS Code,
+Discord or Slack. Always on.
 
-Note for anyone with an existing **per-machine** Jylos install from an
-earlier release: Windows Installer can fail to cleanly upgrade a
-per-machine install once the scope changes to per-user (mismatched install
-context is a known MSI major-upgrade failure mode). Worst case is a
-side-by-side second entry or an install error, not data loss (user data
-lives outside the installer's reach either way).
+The uninstaller jpackage generates for per-user installs **deletes the whole install
+folder**, and an upgrade runs the previous version's uninstaller first. Since 2.5.8 Jylos
+keeps its data in `%APPDATA%\Jylos` (`AppDirectories`), outside that folder, so upgrades
+and uninstalls never touch it; only logs and the update cache live next to the program
+and are recreated.
+
+**Upgrading from 2.5.5–2.5.7 loses what those versions kept in `%LOCALAPPDATA%\Jylos`**
+(`data`, including the SQLite database, `backups`, `themes`, `snippets`): the old
+uninstaller deletes it before 2.5.8 starts, so its migration (`LegacyDataMigration`)
+finds nothing. It already happened on every upgrade since 2.5.5. The 2.5.8 release notes
+ask Windows users to copy those folders to `%APPDATA%\Jylos` before installing. Doing it
+automatically was tried and dropped: it needs either a custom WiX action (the
+`--resource-dir` mechanism below fails) or a per-machine install with a new upgrade
+UUID, which left two Jylos installs until the new one was first opened.
+
+A per-user install in `%LOCALAPPDATA%\Programs\Jylos` does not build: `light.exe` fails
+validation ICE64 (the intermediate `Programs` folder is not in the RemoveFile table) and
+jpackage offers no way to add it. To see WiX's own errors, run the script with
+`JYLOS_JPACKAGE_VERBOSE=1`.
 
 #### Windows installer branding (disabled — candle.exe fails to compile it)
 
@@ -165,7 +179,9 @@ Jylos downloads the release asset for their platform directly (not via the
 browser, so it never gets the marker above), verifies it against the SHA-256
 `digest` GitHub itself computed when the asset was uploaded, and — only after
 one more explicit confirmation — closes itself and hands off to the native
-installer.
+installer. The first confirmation shows the release notes (the release body,
+i.e. the version's `changelog.md` section), so anything users must know or do
+before updating reaches those who never open the release page.
 
 **What the checksum verification does and does not prove:** it catches
 transport corruption and man-in-the-middle tampering between GitHub and the

@@ -37,7 +37,7 @@ where java >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo Error: Java not found in PATH
     echo.
-    echo Please install Java 17 or higher from:
+    echo Please install Java 21 or higher from:
     echo   https://adoptium.net/
     echo.
     echo And make sure it's added to your system PATH.

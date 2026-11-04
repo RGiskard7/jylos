@@ -176,9 +176,51 @@ jobs:
           path: dist-assets/*
           if-no-files-found: error
 
+  # jpackage has no pacman target: scripts/package-linux-arch.sh wraps a jpackage
+  # app-image with makepkg, which only exists on Arch, hence the container.
+  package-arch:
+    name: Package Arch Linux
+    needs: validate
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    timeout-minutes: 60
+    steps:
+      # --disable-sandbox: pacman 7's downloader sandbox (seccomp + an unprivileged
+      # 'alpm' user) is not always available inside containers; packages are still
+      # verified against their signatures.
+      - name: Install build tools
+        run: pacman -Syu --disable-sandbox --noconfirm --needed base-devel jdk21-openjdk maven git
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # makepkg refuses to run as root, and the container runs as root.
+      - name: Package Arch Linux .pkg.tar.zst
+        run: |
+          useradd -m builder
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+          runuser -u builder -- env HOME=/home/builder JYLOS_RELEASE_VERSION="${GITHUB_REF_NAME#v}" \
+            bash ./scripts/package-linux-arch.sh
+          mkdir -p dist-assets
+          cp jylos/target/installers/jylos-linux-amd64.pkg.tar.zst dist-assets/
+
+      - name: Check the package installs
+        run: |
+          pacman -U --disable-sandbox --noconfirm dist-assets/jylos-linux-amd64.pkg.tar.zst
+          pacman -Qkk jylos
+          test -x /opt/jylos/bin/Jylos
+          test -L /usr/bin/jylos
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-Arch
+          path: dist-assets/*
+          if-no-files-found: error
+
   publish:
     name: Publish GitHub Release
-    needs: package
+    needs: [package, package-arch]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

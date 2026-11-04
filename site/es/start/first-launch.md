@@ -13,11 +13,10 @@ Puedes cambiar entre ambos desde **Herramientas → Cambiar almacenamiento**. Ca
 
 ## Directorios de runtime
 
-Jylos crea algunos directorios junto a su directorio de trabajo:
+Jylos guarda sus ficheros en la carpeta estándar de cada sistema: `%APPDATA%\Jylos` en Windows, `~/Library/Application Support/Jylos` en macOS y `~/.local/share/jylos` en Linux. Los logs van a `%LOCALAPPDATA%\Jylos\logs`, `~/Library/Logs/Jylos` y `~/.local/state/jylos/logs`. El ZIP portable de Windows lo guarda todo junto a `Jylos.exe`. Dentro de la carpeta de datos:
 
 ```text
 data/       # la base de datos SQLite o tu vault
-logs/       # logs de la aplicación
 backups/    # copias de seguridad automáticas de SQLite
 plugins/    # JARs de plugins externos
 themes/     # temas externos instalados

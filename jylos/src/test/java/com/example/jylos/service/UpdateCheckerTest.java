@@ -75,4 +75,19 @@ class UpdateCheckerTest {
         var json = JsonParser.parseString("{}").getAsJsonObject();
         assertTrue(UpdateChecker.parseAssets(json).isEmpty());
     }
+
+    @Test
+    void readsTheReleaseNotesSoTheUpdateDialogCanShowThem() {
+        var json = JsonParser.parseString("""
+                { "tag_name": "v2.5.8", "body": "- **Arreglo importante.** Copia tus datos antes." }
+                """).getAsJsonObject();
+
+        assertEquals("- **Arreglo importante.** Copia tus datos antes.", UpdateChecker.parseNotes(json));
+    }
+
+    @Test
+    void aReleaseWithoutNotesHasEmptyNotesNotNull() {
+        assertEquals("", UpdateChecker.parseNotes(JsonParser.parseString("{}").getAsJsonObject()));
+        assertEquals("", UpdateChecker.parseNotes(JsonParser.parseString("{\"body\": null}").getAsJsonObject()));
+    }
 }

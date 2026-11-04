@@ -20,12 +20,13 @@ else
       brew install maven
       brew install temurin
     elif command -v apt-get >/dev/null 2>&1; then
-      echo "Using apt-get to install OpenJDK 17 and Maven (requires sudo)..."
+      echo "Using apt-get to install OpenJDK 21 and Maven (requires sudo)..."
       sudo apt-get update
-      sudo apt-get install -y openjdk-17-jdk maven
+      sudo apt-get install -y openjdk-21-jdk maven
     elif command -v dnf >/dev/null 2>&1; then
-      echo "Using dnf to install OpenJDK 17 and Maven (requires sudo)..."
-      sudo dnf install -y java-17-openjdk maven
+      echo "Using dnf to install OpenJDK 21 and Maven (requires sudo)..."
+      # -devel: the plain package is only the runtime, without javac.
+      sudo dnf install -y java-21-openjdk-devel maven
     else
       echo "No supported package manager detected. Trying SDKMAN..."
       if [ -d "$HOME/.sdkman" ]; then
@@ -35,7 +36,8 @@ else
         curl -s "https://get.sdkman.io" | bash
         source "$HOME/.sdkman/bin/sdkman-init.sh"
       fi
-      sdk install java 17.0.21-tem
+      # Newest Temurin 21 SDKMAN offers (exact identifiers change with each update).
+      sdk install java "$(sdk list java | grep -o '21\.[0-9.]*-tem' | head -n1)"
       sdk install maven
     fi
   else

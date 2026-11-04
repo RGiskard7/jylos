@@ -268,7 +268,7 @@ try {
     if ($Type -ne 'portable') {
         # Installer UX: dir chooser, Start-menu group, desktop shortcut prompt,
         # a stable upgrade UUID (upgrades in place instead of installing side by
-        # side, regardless of per-user/per-machine), MIT license page.
+        # side), MIT license page.
         $jpackageArgs += @(
             '--win-dir-chooser',
             '--win-menu',
@@ -282,7 +282,12 @@ try {
             $jpackageArgs += @('--license-file', $licenseFile)
         }
 
-        # Installs to the current user's profile — no admin/UAC prompt.
+        # Installs to the current user's profile — no admin/UAC prompt — in jpackage's
+        # default %LOCALAPPDATA%\Jylos. Not %LOCALAPPDATA%\Programs\Jylos: with
+        # --install-dir 'Programs\Jylos' WiX's light.exe fails validation (ICE64, the
+        # intermediate Programs folder is not in the RemoveFile table) and jpackage offers
+        # no way to add it. The app keeps its data in %APPDATA%\Jylos (AppDirectories),
+        # never in the install folder, so uninstalling or upgrading cannot touch it.
         $jpackageArgs += @('--win-per-user-install')
 
         # DISABLED — real Windows build, candle.exe itself now failing to
@@ -300,6 +305,11 @@ try {
     }
 
     Write-Host "Running jpackage --type $jpackageType (this can take a few minutes)..." -ForegroundColor Cyan
+    # JYLOS_JPACKAGE_VERBOSE=1 makes jpackage print WiX's own output (candle/light
+    # errors such as CNDL#### or ICE##), which its exception message leaves out.
+    if ($env:JYLOS_JPACKAGE_VERBOSE -eq '1') {
+        $jpackageArgs += @('--verbose')
+    }
     & $jpackagePath $jpackageArgs
     $jpackageExit = $LASTEXITCODE
 
@@ -316,6 +326,10 @@ try {
 
     if ($Type -eq 'portable') {
         $appImagePath = Join-Path $outputDir $APP_NAME
+        # Marks this app-image as portable: Jylos then keeps its data next to Jylos.exe
+        # instead of in %APPDATA% (AppDirectories.PORTABLE_MARKER). The CI release zips
+        # this same folder, so its portable ZIP carries the marker too.
+        Set-Content -Path (Join-Path $appImagePath 'jylos.portable') -Value 'Jylos keeps its data in this folder.' -Encoding UTF8
         # JDK 17 fallback: copy plugin JARs into the image when --app-content was unavailable.
         if (-not $pluginsViaAppContent -and (Test-Path $sourcePluginsDir)) {
             $pluginJars = @(Get-ChildItem -Path $sourcePluginsDir -Filter '*.jar' -ErrorAction SilentlyContinue)

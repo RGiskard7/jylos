@@ -45,11 +45,10 @@ if (-not (Test-Path $PluginsSource)) {
 $JavaHome = $env:JAVA_HOME
 if (-not $JavaHome) {
     # Try common locations
-    $CommonJavaPaths = @(
-        "C:\Program Files\Java\jdk-17",
-        "C:\Program Files\Java\jdk-21",
-        "C:\Program Files\Java\jdk-11"
-    )
+    # Java 21 only: the plugins are compiled against the core, which targets Java 21.
+    $CommonJavaPaths = @("C:\Program Files\Java\jdk-21") + @(
+        Get-ChildItem 'C:\Program Files\Eclipse Adoptium\jdk-21*' -Directory -ErrorAction SilentlyContinue |
+            ForEach-Object { $_.FullName })
     foreach ($path in $CommonJavaPaths) {
         if (Test-Path (Join-Path $path "bin\java.exe")) {
             $JavaHome = $path

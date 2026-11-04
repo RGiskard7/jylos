@@ -12,6 +12,7 @@ import java.util.Set;
 import java.util.logging.Logger;
 
 import com.example.jylos.AppDataDirectory;
+import com.example.jylos.AppDirectories;
 import com.example.jylos.config.LoggerConfig;
 
 /**
@@ -84,6 +85,11 @@ public final class CssSnippetCatalog {
     }
 
     private List<Path> snippetDirectories() {
+        // The working-directory folder is the repo's snippets/ when developing; a packaged
+        // build only reads the user's snippets folder.
+        if (AppDataDirectory.layout().mode() != AppDirectories.Mode.DEVELOPMENT) {
+            return List.of(Paths.get(AppDataDirectory.getSnippetsDirectory()));
+        }
         return List.of(
                 Paths.get(AppDataDirectory.getSnippetsDirectory()),
                 Paths.get(System.getProperty("user.dir", "."), "snippets"));

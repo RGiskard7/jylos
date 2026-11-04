@@ -32,7 +32,7 @@ Copy the theme folder into `themes/` under Jylos' app data:
 | --- | --- |
 | macOS | `~/Library/Application Support/Jylos/themes/<id>/` |
 | Windows | `%APPDATA%\Jylos\themes\<id>\` |
-| Linux | `~/.config/Jylos/themes/<id>/` |
+| Linux | `~/.local/share/jylos/themes/<id>/` |
 
 Then activate it in **Tools → Preferences → External theme** (restart if it does not appear in the list).
 

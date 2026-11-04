@@ -77,11 +77,12 @@ const downloadPlatforms: DownloadPlatform[] = [
   },
   {
     platform: "Linux",
-    subtitle: "x64 · deb · rpm",
+    subtitle: "x64 · deb · rpm · pacman",
     icon: "linux",
     links: [
       { label: ".deb (Debian / Ubuntu)", href: `${releasesBase}/jylos-linux-amd64.deb` },
       { label: ".rpm (Fedora / RHEL / openSUSE)", href: `${releasesBase}/jylos-linux-amd64.rpm` },
+      { label: ".pkg.tar.zst (Arch Linux)", href: `${releasesBase}/jylos-linux-amd64.pkg.tar.zst` },
     ],
   },
   {
@@ -90,7 +91,7 @@ const downloadPlatforms: DownloadPlatform[] = [
     icon: "apple",
     links: [
       { label: ".dmg installer (Apple Silicon)", href: `${releasesBase}/jylos-macos-arm64.dmg` },
-      { label: "uber-JAR for Intel Macs (Java 21 + JavaFX)", href: `${releasesBase}/jylos-uber.jar` },
+      { label: "Intel Mac: run it with JBang", href: "/start/install#run-with-jbang" },
     ],
   },
 ];
@@ -260,11 +261,12 @@ const es: Copy = {
     },
     {
       platform: "Linux",
-      subtitle: "x64 · deb · rpm",
+      subtitle: "x64 · deb · rpm · pacman",
       icon: "linux",
       links: [
         { label: ".deb (Debian / Ubuntu)", href: `${releasesBase}/jylos-linux-amd64.deb` },
         { label: ".rpm (Fedora / RHEL / openSUSE)", href: `${releasesBase}/jylos-linux-amd64.rpm` },
+        { label: ".pkg.tar.zst (Arch Linux)", href: `${releasesBase}/jylos-linux-amd64.pkg.tar.zst` },
       ],
     },
     {
@@ -273,7 +275,7 @@ const es: Copy = {
       icon: "apple",
       links: [
         { label: "Instalador .dmg (Apple Silicon)", href: `${releasesBase}/jylos-macos-arm64.dmg` },
-        { label: "uber-JAR para Mac Intel (Java 21 + JavaFX)", href: `${releasesBase}/jylos-uber.jar` },
+        { label: "Mac con Intel: ejecútalo con JBang", href: "/es/start/install#ejecutar-con-jbang" },
       ],
     },
   ],

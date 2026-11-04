@@ -36,9 +36,9 @@
 Prebuilt packages for all major platforms are available on the [Releases page](../../releases/latest):
 
 - **Windows** — `.exe` installer, `.msi` installer, portable ZIP
-- **Linux** — DEB/RPM (via `jpackage`)
-- **macOS** — `.dmg` installer for Apple Silicon; on Intel Macs use JBang, the uber-JAR, or build from source
-- **Any platform** — uber-JAR (requires Java 21 + JavaFX 23 on `PATH`)
+- **Linux** — DEB/RPM (via `jpackage`), `.pkg.tar.zst` for Arch Linux (pacman)
+- **macOS** — `.dmg` installer for Apple Silicon; on Intel Macs use JBang or build from source
+- **Linux x64** — uber-JAR (requires Java 21). It bundles JavaFX for Linux only: on other systems use JBang, which adds JavaFX for yours
 - **Via [JBang](https://www.jbang.dev/)** — single command, no build needed:
   ```bash
   jbang jylos@RGiskard7/jylos
@@ -374,6 +374,7 @@ Each `package-*` script builds the uber-JAR, optionally runs `build-plugins.sh`,
 |---|---|---|
 | macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-<version>.dmg` |
 | Linux (deb/rpm) | `./scripts/package-linux.sh` | `jylos/target/installers/` |
+| Arch Linux (pacman) | `./scripts/package-linux-arch.sh` (on Arch, as a regular user) | `jylos/target/installers/jylos-linux-amd64.pkg.tar.zst` |
 | Windows portable (app-image) | `.\scripts\package-windows.ps1` | `jylos\target\installers\Jylos\` |
 | Windows .exe installer (WiX) | `.\scripts\package-windows-exe.ps1` | `jylos\target\installers\Jylos-<version>.exe` |
 | Windows .msi installer (WiX) | `.\scripts\package-windows-msi.ps1` | `jylos\target\installers\Jylos-<version>.msi` |
@@ -477,7 +478,7 @@ Toolbar/sidebar icons are **Feather** and **Bootstrap Icons** glyphs via Ikonli 
 
 ### Themes
 
-Source packs live in `themes/<id>/` (`theme.properties` + `theme.css`). Development: `./scripts/build-themes.sh` (copies to `jylos/themes/`). **Packaged app:** copy the theme folder to `~/Library/Application Support/Jylos/themes/<id>/` (macOS), `%APPDATA%\Jylos\themes\<id>\` (Windows), or `~/.config/Jylos/themes/<id>/` (Linux). See [themes/README.md](themes/README.md).
+Source packs live in `themes/<id>/` (`theme.properties` + `theme.css`). Development: `./scripts/build-themes.sh` (copies to `jylos/themes/`). **Packaged app:** copy the theme folder to `~/Library/Application Support/Jylos/themes/<id>/` (macOS), `%APPDATA%\Jylos\themes\<id>\` (Windows), or `~/.local/share/jylos/themes/<id>/` (Linux). See [themes/README.md](themes/README.md).
 
 ### CSS snippets
 

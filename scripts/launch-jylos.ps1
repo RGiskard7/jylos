@@ -39,7 +39,7 @@ try {
 } catch {
     Write-Host "Error: Java not found in PATH" -ForegroundColor Red
     Write-Host ""
-    Write-Host "Please install Java 17 or higher from:"
+    Write-Host "Please install Java 21 or higher from:"
     Write-Host "  https://adoptium.net/"
     Write-Host ""
     Write-Host "And make sure it's added to your system PATH."

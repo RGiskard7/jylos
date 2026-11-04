@@ -23,7 +23,7 @@ Los instaladores **no incluyen** temas externos. Copia la carpeta del tema (desd
 |---------|-------------------------------------|
 | **macOS** | `~/Library/Application Support/Jylos/themes/<id>/` |
 | **Windows** | `%APPDATA%\Jylos\themes\<id>\` |
-| **Linux** | `~/.config/Jylos/themes/<id>/` (o `$XDG_CONFIG_HOME/Jylos/themes/<id>/`) |
+| **Linux** | `~/.local/share/jylos/themes/<id>/` (o `$XDG_DATA_HOME/jylos/themes/<id>/`) |
 
 Ejemplo (Retro Phosphor en macOS):
 

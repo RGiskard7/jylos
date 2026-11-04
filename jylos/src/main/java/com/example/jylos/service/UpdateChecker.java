@@ -49,8 +49,9 @@ public final class UpdateChecker {
      * @param tagName release tag, usually prefixed with {@code v}
      * @param htmlUrl browser URL for the GitHub release page
      * @param assets downloadable files attached to the release (installers, JARs, …)
+     * @param notes the release notes in Markdown (the version's changelog section); empty if none
      */
-    public record ReleaseInfo(String tagName, String htmlUrl, List<AssetInfo> assets) {
+    public record ReleaseInfo(String tagName, String htmlUrl, List<AssetInfo> assets, String notes) {
     }
 
     /**
@@ -143,7 +144,15 @@ public final class UpdateChecker {
         JsonObject json = JsonParser.parseString(response.body()).getAsJsonObject();
         String tagName = getRequiredString(json, "tag_name");
         String htmlUrl = getRequiredString(json, "html_url");
-        return new ReleaseInfo(tagName, htmlUrl, parseAssets(json));
+        return new ReleaseInfo(tagName, htmlUrl, parseAssets(json), parseNotes(json));
+    }
+
+    /** The release's notes (its changelog section, in Markdown); empty when it has none. */
+    static String parseNotes(JsonObject releaseJson) {
+        if (!releaseJson.has("body") || releaseJson.get("body").isJsonNull()) {
+            return "";
+        }
+        return releaseJson.get("body").getAsString();
     }
 
     /** Package-private (not private) so {@code UpdateCheckerTest} can exercise it directly against a hand-built JSON payload, without a real network call. */
