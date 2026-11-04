@@ -9,7 +9,7 @@ Prebuilt packages for the current release are available on the [GitHub Releases]
 | Platform | Assets |
 | --- | --- |
 | Windows | `.exe` installer, `.msi` installer, portable ZIP |
-| Linux | `.deb`, `.rpm` (via `jpackage`) |
+| Linux | `.deb`, `.rpm` (via `jpackage`), `.pkg.tar.zst` for Arch Linux (`sudo pacman -U jylos-linux-amd64.pkg.tar.zst`) |
 | macOS | `.dmg` installer for Apple Silicon (`jylos-macos-arm64.dmg`); on Intel Macs use JBang, the uber-JAR, or build from source |
 | Any platform | uber-JAR (requires Java 21 + JavaFX 23 on `PATH`) |
 

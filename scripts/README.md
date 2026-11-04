@@ -39,6 +39,7 @@ All paths are relative to the **repository root** unless noted.
 | Script | Purpose |
 |--------|---------|
 | `package-linux.sh` | Linux package |
+| `package-linux-arch.sh` | Arch Linux package (`.pkg.tar.zst` for pacman): jpackage app-image wrapped with `makepkg`. Run on Arch as a regular user |
 | `package-macos.sh` | macOS package |
 | `package-windows.ps1` | Windows portable app-image (core; `-Type portable|exe|msi`) |
 | `package-windows-exe.ps1` | Windows .exe installer (WiX required) |

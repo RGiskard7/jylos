@@ -104,7 +104,7 @@ Hace:
 - configura Java 21 Temurin;
 - pasa la version del tag a Maven mediante la propiedad estandar `revision`;
 - ejecuta tests;
-- empaqueta Windows y Linux;
+- empaqueta Windows y Linux (`.deb`/`.rpm` en Ubuntu; el `.pkg.tar.zst` de Arch Linux en un contenedor `archlinux`, porque `makepkg` solo existe en Arch);
 - recoge el JAR normal y el uber-JAR generados por Maven;
 - sube artefactos intermedios;
 - extrae release notes desde `changelog.md`;
@@ -117,6 +117,7 @@ Assets publicados actualmente:
 - `jylos-windows-portable.zip`
 - `jylos-linux-amd64.deb`
 - `jylos-linux-amd64.rpm`
+- `jylos-linux-amd64.pkg.tar.zst`
 - `jylos.jar`
 - `jylos-uber.jar`
 
@@ -368,7 +369,7 @@ Estado actual:
 
 - Windows sin firma de codigo;
 - macOS desactivado en CI y sin firma/notarizacion automatica;
-- Linux genera `.deb` y `.rpm`, pero no repositorio firmado.
+- Linux genera `.deb`, `.rpm` y `.pkg.tar.zst` de Arch, pero no repositorio firmado (ni paquete en AUR).
 
 Consecuencias:
 

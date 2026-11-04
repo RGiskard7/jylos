@@ -20,6 +20,7 @@ Usa `scripts/launch-jylos.*` para ejecutar con module-path JavaFX correcto.
 |----|--------|---------------|
 | macOS | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-<version>.dmg` |
 | Linux | `./scripts/package-linux.sh` | `jylos/target/installers/` (`deb`/`rpm`) |
+| Arch Linux | `./scripts/package-linux-arch.sh` | `jylos/target/installers/jylos-linux-amd64.pkg.tar.zst` |
 | Windows portable | `.\scripts\package-windows.ps1` | `jylos\target\installers\Jylos\` |
 | Windows `.exe` | `.\scripts\package-windows-exe.ps1` | `Jylos-<version>.exe` |
 | Windows `.msi` | `.\scripts\package-windows-msi.ps1` | `Jylos-<version>.msi` |

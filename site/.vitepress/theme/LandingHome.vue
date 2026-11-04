@@ -77,11 +77,12 @@ const downloadPlatforms: DownloadPlatform[] = [
   },
   {
     platform: "Linux",
-    subtitle: "x64 · deb · rpm",
+    subtitle: "x64 · deb · rpm · pacman",
     icon: "linux",
     links: [
       { label: ".deb (Debian / Ubuntu)", href: `${releasesBase}/jylos-linux-amd64.deb` },
       { label: ".rpm (Fedora / RHEL / openSUSE)", href: `${releasesBase}/jylos-linux-amd64.rpm` },
+      { label: ".pkg.tar.zst (Arch Linux)", href: `${releasesBase}/jylos-linux-amd64.pkg.tar.zst` },
     ],
   },
   {
@@ -260,11 +261,12 @@ const es: Copy = {
     },
     {
       platform: "Linux",
-      subtitle: "x64 · deb · rpm",
+      subtitle: "x64 · deb · rpm · pacman",
       icon: "linux",
       links: [
         { label: ".deb (Debian / Ubuntu)", href: `${releasesBase}/jylos-linux-amd64.deb` },
         { label: ".rpm (Fedora / RHEL / openSUSE)", href: `${releasesBase}/jylos-linux-amd64.rpm` },
+        { label: ".pkg.tar.zst (Arch Linux)", href: `${releasesBase}/jylos-linux-amd64.pkg.tar.zst` },
       ],
     },
     {

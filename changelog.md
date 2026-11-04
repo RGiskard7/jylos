@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- **Paquete para Arch Linux.** Cada release incluye `jylos-linux-amd64.pkg.tar.zst`, instalable con `sudo pacman -U jylos-linux-amd64.pkg.tar.zst`. Instala la app en `/opt/jylos` con su propio Java, el comando `jylos` y la entrada en el menú de aplicaciones, igual que los paquetes `.deb` y `.rpm`. Se genera con `scripts/package-linux-arch.sh` y la web lo enlaza en las descargas de Linux.
+
 ## [2.5.7] - 2026-10-31
 
 - **La vista previa mostraba la nota anterior.** Al abrir otra nota (por ejemplo, desde un enlace) en modo vista previa, a veces se veía el contenido de la nota anterior, aunque el editor mostraba la nueva. Pasaba sobre todo al arrancar con la bóveda en una carpeta en la nube (iCloud, OneDrive): si un render se quedaba esperando a un fichero que aún no estaba descargado (una imagen o una nota incrustada), los siguientes esperaban detrás. Ahora un render lento no retrasa al de la nota nueva, y si la nota nueva tarda en pintarse, la vista previa se queda en blanco en lugar de mostrar otra nota.

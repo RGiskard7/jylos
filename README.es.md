@@ -36,7 +36,7 @@
 Los paquetes precompilados para las principales plataformas están disponibles en la [página de Releases](../../releases/latest):
 
 - **Windows** — instalador `.exe`, instalador `.msi`, ZIP portable
-- **Linux** — DEB/RPM (vía `jpackage`)
+- **Linux** — DEB/RPM (vía `jpackage`), `.pkg.tar.zst` para Arch Linux (pacman)
 - **macOS** — instalador `.dmg` para Apple Silicon; en Mac con Intel usa JBang, el uber-JAR o compila desde fuente
 - **Cualquier plataforma** — uber-JAR (requiere Java 21 + JavaFX 23 en `PATH`)
 - **Vía [JBang](https://www.jbang.dev/)** — un solo comando, sin compilar:
@@ -374,6 +374,7 @@ Cada script `package-*` compila el uber-JAR, opcionalmente `build-plugins.sh`, y
 |---|---|---|
 | macOS (DMG) | `./scripts/package-macos.sh` | `jylos/target/installers/Jylos-<versión>.dmg` |
 | Linux (deb/rpm) | `./scripts/package-linux.sh` | `jylos/target/installers/` |
+| Arch Linux (pacman) | `./scripts/package-linux-arch.sh` (en Arch, como usuario normal) | `jylos/target/installers/jylos-linux-amd64.pkg.tar.zst` |
 | Windows portable (app-image) | `.\scripts\package-windows.ps1` | `jylos\target\installers\Jylos\` |
 | Windows instalador .exe (WiX) | `.\scripts\package-windows-exe.ps1` | `jylos\target\installers\Jylos-<versión>.exe` |
 | Windows instalador .msi (WiX) | `.\scripts\package-windows-msi.ps1` | `jylos\target\installers\Jylos-<versión>.msi` |
