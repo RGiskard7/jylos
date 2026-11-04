@@ -80,10 +80,16 @@ fi
 echo -e "${GRAY}Building classpath with Maven...${NC}"
 cd "$JYLOS_DIR"
 
-# Try to get classpath from Maven (more reliable method)
-MVN_CLASSPATH_OUTPUT=$(mvn dependency:build-classpath -DincludeScope=compile 2>&1)
-# The classpath is on the line AFTER "[INFO] Dependencies classpath:"
-MVN_CLASSPATH=$(echo "$MVN_CLASSPATH_OUTPUT" | grep -A 1 "^\[INFO\] Dependencies classpath:" | tail -n 1 | sed 's/^\[INFO\] //' | tr -d '\r' | xargs)
+# Ask Maven to write the classpath to a file instead of parsing its console output:
+# where Maven colours that output (GitHub's Linux runners, Docker) the "[INFO]
+# Dependencies classpath:" line carries ANSI codes, the parse silently failed and
+# every plugin then compiled without JavaFX.
+MVN_CLASSPATH_FILE="$JYLOS_DIR/target/plugin-build-classpath.txt"
+mkdir -p "$JYLOS_DIR/target"
+MVN_CLASSPATH=""
+if mvn -q dependency:build-classpath -DincludeScope=compile "-Dmdep.outputFile=$MVN_CLASSPATH_FILE" >/dev/null 2>&1; then
+    MVN_CLASSPATH=$(tr -d '\r\n' < "$MVN_CLASSPATH_FILE")
+fi
 
 if [ -z "$MVN_CLASSPATH" ] || [ "$MVN_CLASSPATH" = "" ]; then
     echo -e "${YELLOW}WARNING: Could not get Maven classpath, using manual construction${NC}"
@@ -117,7 +123,7 @@ if [ -z "$MVN_CLASSPATH" ] || [ "$MVN_CLASSPATH" = "" ]; then
     
     # Add JavaFX modules from Maven repo
     M2_REPO="$HOME/.m2/repository"
-    JAVAFX_VERSION="21"
+    JAVAFX_VERSION=$(grep -m1 "<javafx.version>" "$JYLOS_DIR/pom.xml" | sed -E 's/.*<javafx.version>([^<]+)<.*/\1/')
     
     for module in javafx-base javafx-controls javafx-fxml javafx-graphics javafx-web javafx-media; do
         MODULE_PATH="$M2_REPO/org/openjfx/$module/$JAVAFX_VERSION"
@@ -191,6 +197,7 @@ if [ -z "$PLUGIN_FILES" ] && [ -z "$BUNDLE_DIRS" ]; then
 fi
 
 PLUGIN_COUNT=$(echo "$PLUGIN_FILES" | grep -c . || true)
+BUNDLE_COUNT=$(echo "$BUNDLE_DIRS" | wc -w | tr -d ' ')
 echo -e "${CYAN}Found $PLUGIN_COUNT single-file plugin(s)${NC}"
 echo ""
 
@@ -446,4 +453,12 @@ for plugin in "${COMPILED_PLUGINS[@]}"; do
 done
 echo ""
 echo -e "${CYAN}Plugins location: $PLUGINS_OUTPUT${NC}"
+
+# A plugin that fails to compile must fail the build: otherwise packages ship
+# without it and nothing says so (the errors above scroll by unnoticed).
+EXPECTED_COUNT=$((PLUGIN_COUNT + BUNDLE_COUNT))
+if [ "${#COMPILED_PLUGINS[@]}" -lt "$EXPECTED_COUNT" ]; then
+    echo -e "${RED}ERROR: built ${#COMPILED_PLUGINS[@]} of $EXPECTED_COUNT plugin(s); see the errors above.${NC}" >&2
+    exit 1
+fi
 echo -e "${GREEN}Done!${NC}"

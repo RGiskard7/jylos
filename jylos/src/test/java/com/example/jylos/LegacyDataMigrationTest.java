@@ -266,13 +266,15 @@ class LegacyDataMigrationTest {
 
     @Test
     void candidatesPerPlatform() {
-        Path home = Path.of("/home/ana");
-        Environment windows = new Environment(Os.WINDOWS, "Jylos", home, home, Map.of("LOCALAPPDATA", "/l"),
-                "/l/Jylos/Jylos.exe", null, dir -> true, path -> false);
+        // Absolute on any system ("/home/ana" alone is not absolute on Windows).
+        Path root = Path.of("").toAbsolutePath().getRoot();
+        Path home = root.resolve("home").resolve("ana");
+        Environment windows = new Environment(Os.WINDOWS, "Jylos", home, home, Map.of("LOCALAPPDATA", root.resolve("l").toString()),
+                root.resolve("l/Jylos/Jylos.exe").toString(), null, dir -> true, path -> false);
         Environment linux = new Environment(Os.LINUX, "Jylos", home, home, Map.of(),
-                "/opt/jylos/bin/Jylos", null, dir -> true, path -> false);
+                root.resolve("opt/jylos/bin/Jylos").toString(), null, dir -> true, path -> false);
         Environment mac = new Environment(Os.MAC, "Jylos", home, home, Map.of(),
-                "/Applications/Jylos.app/Contents/MacOS/Jylos", null, dir -> true, path -> false);
+                root.resolve("Applications/Jylos.app/Contents/MacOS/Jylos").toString(), null, dir -> true, path -> false);
         Environment dev = new Environment(Os.LINUX, "Jylos", home, home, Map.of(), null, null,
                 dir -> true, path -> false);
 
