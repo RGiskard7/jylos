@@ -66,15 +66,9 @@ public final class LegacyDataMigration {
         Path home = env.userHome();
         switch (env.os()) {
             case WINDOWS -> {
-                // The launcher's own folder: launched from the Start menu, the working
-                // directory was the install folder, which per-user installs could write to.
-                Path launcherDir = Path.of(env.jpackageAppPath()).toAbsolutePath().getParent();
-                if (launcherDir != null) {
-                    candidates.add(new Candidate(launcherDir, true));
-                }
-                // jpackage's default per-user install folder before it moved to Programs\.
-                Path local = AppDirectories.envDir(env, "LOCALAPPDATA", home.resolve("AppData").resolve("Local"));
-                candidates.add(new Candidate(local.resolve(env.appName()), true));
+                // Older builds kept their data in the per-user install folder, but upgrading
+                // runs the old uninstaller first and it deletes that folder: by the time this
+                // version starts there is nothing left to move (docs/PACKAGING.md).
             }
             case LINUX -> {
                 // The folder older builds documented (but only used when the working

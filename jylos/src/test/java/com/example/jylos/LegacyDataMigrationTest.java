@@ -234,38 +234,6 @@ class LegacyDataMigrationTest {
     }
 
     @Test
-    void theWindowsInstallFolderKeepsTheProgramItsPluginsAndTheNewLogs() throws IOException {
-        // jpackage installs per-user apps in %LOCALAPPDATA%\Jylos, which is also the parent of
-        // the new logs folder: only the user's data may leave it, on every start.
-        Path local = tmp.resolve("Local");
-        Path install = local.resolve("Jylos");
-        write(install.resolve("Jylos.exe"), "exe");
-        write(install.resolve("app/jylos-2.5.8-uber.jar"), "jar");
-        write(install.resolve("runtime/release"), "jdk");
-        writePluginJar(install.resolve("plugins/AIPlugin.jar"), true);
-        write(install.resolve("logs/app.log.0"), "log");
-        write(install.resolve("data/workspaces.dat"), "ws");
-        Layout windows = new Layout(Mode.INSTALLED, tmp.resolve("Roaming/Jylos"), install.resolve("logs"),
-                install.resolve("cache"));
-        Environment env = new Environment(Os.WINDOWS, "Jylos", tmp, tmp, Map.of("LOCALAPPDATA", local.toString()),
-                install.resolve("Jylos.exe").toString(), null, dir -> true, path -> false);
-        List<Candidate> candidates = LegacyDataMigration.candidates(env, windows);
-        assertEquals(List.of(new Candidate(install, true)), candidates, "the same folder, once");
-
-        LegacyDataMigration.migrate(candidates, windows, Set.of("AIPlugin.jar"));
-        Report second = LegacyDataMigration.migrate(candidates, windows, Set.of("AIPlugin.jar"));
-
-        assertEquals("ws", Files.readString(windows.dataRoot().resolve("data/workspaces.dat")));
-        assertTrue(Files.exists(install.resolve("Jylos.exe")));
-        assertTrue(Files.exists(install.resolve("app/jylos-2.5.8-uber.jar")));
-        assertTrue(Files.exists(install.resolve("runtime/release")));
-        assertTrue(Files.exists(install.resolve("plugins/AIPlugin.jar")));
-        assertEquals("log", Files.readString(install.resolve("logs/app.log.0")));
-        assertFalse(Files.exists(windows.dataRoot().resolve("plugins/AIPlugin.jar")));
-        assertTrue(second.messages().isEmpty(), "later starts find nothing to move: " + second.messages());
-    }
-
-    @Test
     void pluginsThatShipWithTheAppAreNotMigrated() throws IOException {
         Path old = tmp.resolve("Local/Jylos");
         write(old.resolve("logs/app.log"), "log");
@@ -300,7 +268,7 @@ class LegacyDataMigrationTest {
     void candidatesPerPlatform() {
         Path home = Path.of("/home/ana");
         Environment windows = new Environment(Os.WINDOWS, "Jylos", home, home, Map.of("LOCALAPPDATA", "/l"),
-                "/l/Programs/Jylos/Jylos.exe", null, dir -> true, path -> false);
+                "/l/Jylos/Jylos.exe", null, dir -> true, path -> false);
         Environment linux = new Environment(Os.LINUX, "Jylos", home, home, Map.of(),
                 "/opt/jylos/bin/Jylos", null, dir -> true, path -> false);
         Environment mac = new Environment(Os.MAC, "Jylos", home, home, Map.of(),
@@ -308,8 +276,9 @@ class LegacyDataMigrationTest {
         Environment dev = new Environment(Os.LINUX, "Jylos", home, home, Map.of(), null, null,
                 dir -> true, path -> false);
 
-        assertEquals(List.of(new Candidate(Path.of("/l/Programs/Jylos"), true), new Candidate(Path.of("/l/Jylos"), true)),
-                LegacyDataMigration.candidates(windows, AppDirectories.resolve(windows)));
+        // The per-user uninstaller deletes the old install folder, data included, before the
+        // new version starts: there is nothing left to migrate there (see docs/PACKAGING.md).
+        assertEquals(List.of(), LegacyDataMigration.candidates(windows, AppDirectories.resolve(windows)));
         assertEquals(List.of(new Candidate(home.resolve(".config/Jylos"), true), new Candidate(home, false)),
                 LegacyDataMigration.candidates(linux, AppDirectories.resolve(linux)));
         assertEquals(List.of(), LegacyDataMigration.candidates(mac, AppDirectories.resolve(mac)));

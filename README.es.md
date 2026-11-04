@@ -37,8 +37,8 @@ Los paquetes precompilados para las principales plataformas están disponibles e
 
 - **Windows** — instalador `.exe`, instalador `.msi`, ZIP portable
 - **Linux** — DEB/RPM (vía `jpackage`), `.pkg.tar.zst` para Arch Linux (pacman)
-- **macOS** — instalador `.dmg` para Apple Silicon; en Mac con Intel usa JBang, el uber-JAR o compila desde fuente
-- **Cualquier plataforma** — uber-JAR (requiere Java 21 + JavaFX 23 en `PATH`)
+- **macOS** — instalador `.dmg` para Apple Silicon; en Mac con Intel usa JBang o compila desde fuente
+- **Linux x64** — uber-JAR (requiere Java 21). Incluye JavaFX solo para Linux: en otros sistemas usa JBang, que añade el JavaFX de tu sistema
 - **Vía [JBang](https://www.jbang.dev/)** — un solo comando, sin compilar:
   ```bash
   jbang jylos@RGiskard7/jylos

@@ -14,12 +14,14 @@ import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 
 import com.example.jylos.AppConfig;
+import com.example.jylos.AppLinks;
 import com.example.jylos.ui.AppIconLoader;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.service.TagService;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
 import com.example.jylos.ui.theme.CssSnippetCatalog;
 import com.example.jylos.ui.theme.ThemeCatalog;
+import com.example.jylos.util.SystemBrowser;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -30,10 +32,13 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
+import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
@@ -400,7 +405,7 @@ class DialogSupport {
         Label versionLabel = new Label(MessageFormat.format(i18n("about.version"), AppConfig.getAppVersion()));
         versionLabel.getStyleClass().add("about-version");
 
-        Label descLabel = new Label(AppConfig.getAppDescription());
+        Label descLabel = new Label(i18n("about.description"));
         descLabel.getStyleClass().add("about-description");
         descLabel.setWrapText(true);
         descLabel.setMaxWidth(350);
@@ -409,22 +414,42 @@ class DialogSupport {
         Separator separator = new Separator();
         separator.setPrefWidth(300);
 
-        Label techLabel = new Label(i18n("about.tech_stack"));
-        techLabel.getStyleClass().add("about-meta");
-
         Label copyrightLabel = new Label(AppConfig.getAppCopyright());
         copyrightLabel.getStyleClass().add("about-meta");
 
-        Label developerLabel = new Label(i18n("about.developer_credit"));
-        developerLabel.getStyleClass().add("about-credit");
+        HBox links = new HBox(4,
+                aboutLink(i18n("about.license"), AppLinks.LICENSE), new Label("·"),
+                aboutLink(i18n("about.website"), AppLinks.WEBSITE), new Label("·"),
+                aboutLink(i18n("about.repository"), AppLinks.REPOSITORY), new Label("·"),
+                aboutLink(i18n("about.report_issue"), AppLinks.ISSUES));
+        links.setAlignment(Pos.CENTER);
+
+        // What is actually running, not a hardcoded stack: the details asked for in a bug
+        // report, copyable in one click.
+        List<String> runtime = AppLinks.runtimeDetails(AppConfig.getAppVersion(), System::getProperty);
+        Label runtimeLabel = new Label(String.join(" · ", runtime.subList(1, runtime.size())));
+        runtimeLabel.getStyleClass().add("about-meta");
+        runtimeLabel.setWrapText(true);
+        runtimeLabel.setMaxWidth(380);
+        runtimeLabel.setAlignment(Pos.CENTER);
+        runtimeLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+        Button copyButton = new Button(i18n("about.copy_info"));
+        copyButton.setOnAction(e -> {
+            ClipboardContent clip = new ClipboardContent();
+            clip.putString(String.join("\n", runtime));
+            Clipboard.getSystemClipboard().setContent(clip);
+            copyButton.setText(i18n("about.copied"));
+        });
 
         content.getChildren().addAll(
                 titleLabel, versionLabel, descLabel,
                 separator,
-                techLabel, developerLabel, copyrightLabel);
+                copyrightLabel, links,
+                new Separator(),
+                runtimeLabel, copyButton);
 
         dialog.getDialogPane().setContent(content);
-        dialog.getDialogPane().setPrefSize(400, 380);
+        dialog.getDialogPane().setPrefWidth(460);
         dialog.setOnShown(e -> {
             if (dialog.getDialogPane().getScene() != null
                     && dialog.getDialogPane().getScene().getWindow() instanceof Stage stage) {
@@ -432,6 +457,12 @@ class DialogSupport {
             }
         });
         com.example.jylos.ui.UiDialogs.show(dialog);
+    }
+
+    private static Hyperlink aboutLink(String text, String url) {
+        Hyperlink link = new Hyperlink(text);
+        link.setOnAction(e -> SystemBrowser.open(url));
+        return link;
     }
 
     void handleNewTag(Runnable refreshTagsAction) {

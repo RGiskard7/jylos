@@ -91,7 +91,7 @@ const downloadPlatforms: DownloadPlatform[] = [
     icon: "apple",
     links: [
       { label: ".dmg installer (Apple Silicon)", href: `${releasesBase}/jylos-macos-arm64.dmg` },
-      { label: "uber-JAR for Intel Macs (Java 21 + JavaFX)", href: `${releasesBase}/jylos-uber.jar` },
+      { label: "Intel Mac: run it with JBang", href: "/start/install#run-with-jbang" },
     ],
   },
 ];
@@ -275,7 +275,7 @@ const es: Copy = {
       icon: "apple",
       links: [
         { label: "Instalador .dmg (Apple Silicon)", href: `${releasesBase}/jylos-macos-arm64.dmg` },
-        { label: "uber-JAR para Mac Intel (Java 21 + JavaFX)", href: `${releasesBase}/jylos-uber.jar` },
+        { label: "Mac con Intel: ejecútalo con JBang", href: "/es/start/install#ejecutar-con-jbang" },
       ],
     },
   ],

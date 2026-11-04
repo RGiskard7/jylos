@@ -8,6 +8,7 @@ import java.text.MessageFormat;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -16,6 +17,7 @@ import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.service.UpdateChecker;
 import com.example.jylos.service.UpdateInstaller;
 import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.util.MarkdownPreview;
 
 import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
@@ -23,7 +25,11 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
+import javafx.scene.web.WebView;
 
 /**
  * REMOVABLE: in-app updater — see {@link UpdateInstaller}'s class docs ("Removing
@@ -53,8 +59,11 @@ final class UpdateInstallSupport {
     private Supplier<Boolean> requestApplicationClose;
     private Runnable exitApplication;
 
+    private BooleanSupplier darkTheme = () -> false;
+
     void wire(Function<String, String> i18n, Consumer<String> status, Consumer<String> openBrowser,
-            Supplier<Boolean> requestApplicationClose, Runnable exitApplication) {
+            Supplier<Boolean> requestApplicationClose, Runnable exitApplication, BooleanSupplier darkTheme) {
+        this.darkTheme = darkTheme != null ? darkTheme : () -> false;
         this.i18n = i18n;
         this.status = status;
         this.openBrowser = openBrowser;
@@ -80,17 +89,37 @@ final class UpdateInstallSupport {
             return;
         }
         UpdateChecker.AssetInfo asset = assetOpt.get();
-        if (!confirmDownload(release.tagName(), asset)) {
+        if (!confirmDownload(release, asset)) {
             return;
         }
         runDownloadAndVerify(release, asset);
     }
 
-    private boolean confirmDownload(String tagName, UpdateChecker.AssetInfo asset) {
+    private boolean confirmDownload(UpdateChecker.ReleaseInfo release, UpdateChecker.AssetInfo asset) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle(getString("update.install.confirm.title"));
-        alert.setHeaderText(MessageFormat.format(getString("update.install.confirm.header"), tagName));
-        alert.setContentText(MessageFormat.format(getString("update.install.confirm.content"), asset.name()));
+        alert.setHeaderText(MessageFormat.format(getString("update.install.confirm.header"), release.tagName()));
+        String content = MessageFormat.format(getString("update.install.confirm.content"), asset.name());
+        if (release.notes() == null || release.notes().isBlank()) {
+            alert.setContentText(content);
+        } else {
+            // The release notes are the version's changelog section: what changed and,
+            // when needed, what to do before updating. Shown here because this is the
+            // last thing someone updating from inside the app sees before installing.
+            Label notesTitle = new Label(getString("update.install.release_notes"));
+            notesTitle.setStyle("-fx-font-weight: bold;");
+            WebView notes = new WebView();
+            notes.setPrefSize(560, 320);
+            notes.getEngine().loadContent(
+                    MarkdownPreview.buildPreviewHtml(release.notes(), darkTheme.getAsBoolean(), java.util.List.of()),
+                    "text/html");
+            Label contentLabel = new Label(content);
+            contentLabel.setWrapText(true);
+            VBox box = new VBox(8, contentLabel, notesTitle, notes);
+            VBox.setVgrow(notes, Priority.ALWAYS);
+            alert.getDialogPane().setContent(box);
+            alert.setResizable(true);
+        }
         ButtonType downloadButton = new ButtonType(getString("update.install.confirm.button"));
         ButtonType cancelButton = new ButtonType(getString("action.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
         alert.getButtonTypes().setAll(downloadButton, cancelButton);

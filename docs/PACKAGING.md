@@ -57,36 +57,35 @@ format (`package-windows-exe.ps1` / `package-windows-msi.ps1` are thin wrappers)
   auto-selects JDK 21+ and bundled WiX — no manual `JAVA_HOME` or PATH edits.
 - Upgrades: installers carry a **stable `--win-upgrade-uuid`**, so a newer MSI/EXE
   upgrades the previous install instead of installing side by side. Never change
-  that UUID in `package-windows.ps1`. It was changed once, on purpose, in 2.5.8: see
-  "Per-machine install" below.
+  that UUID in `package-windows.ps1`.
 - The installers are **unsigned**: SmartScreen may warn on first run. For public
   releases, sign with `signtool` and a code-signing certificate.
 
-#### Per-machine install (since 2.5.8)
+#### Per-user install
 
-The exe/msi install for the whole machine, in `C:\Program Files\Jylos`, and ask for
-admin rights. Up to 2.5.7 they installed per-user (`--win-per-user-install`) in
-`%LOCALAPPDATA%\Jylos`, and Jylos kept its data inside that folder. The uninstaller
-jpackage generates for per-user installs deletes the whole install folder, and an
-upgrade runs the old uninstaller before the new version starts, so upgrading a per-user
-install lost that data.
+`--win-per-user-install` makes the exe/msi install to the current user's own profile, in
+`%LOCALAPPDATA%\Jylos`, instead of system-wide: no admin/UAC prompt, like VS Code,
+Discord or Slack. Always on.
 
-2.5.8 therefore uses a new upgrade UUID: with the old one, Windows Installer upgraded the
-per-user install (tested: the per-machine 2.5.8 removed a per-user 2.5.7 and its data
-before Jylos started). With the new one the old install stays. On its first start the new
-version moves the old install's data to `%APPDATA%\Jylos` (`LegacyDataMigration`) and then uninstalls it
-silently (`LegacyWindowsInstall`, `msiexec /x`), but only if nothing of the user's is
-left in the folder. Data now lives outside the install folder, so later upgrades and
-uninstalls never touch it.
+The uninstaller jpackage generates for per-user installs **deletes the whole install
+folder**, and an upgrade runs the previous version's uninstaller first. Since 2.5.8 Jylos
+keeps its data in `%APPDATA%\Jylos` (`AppDirectories`), outside that folder, so upgrades
+and uninstalls never touch it; only logs and the update cache live next to the program
+and are recreated.
 
-Trade-off: per-machine installs of 2.5.4 or earlier (old UUID, data already in
-`%APPDATA%\Jylos`) are not upgraded either. Their users see two Jylos entries and must
-uninstall the old one by hand (it needs admin rights, so Jylos cannot do it).
+**Upgrading from 2.5.5–2.5.7 loses what those versions kept in `%LOCALAPPDATA%\Jylos`**
+(`data`, including the SQLite database, `backups`, `themes`, `snippets`): the old
+uninstaller deletes it before 2.5.8 starts, so its migration (`LegacyDataMigration`)
+finds nothing. It already happened on every upgrade since 2.5.5. The 2.5.8 release notes
+ask Windows users to copy those folders to `%APPDATA%\Jylos` before installing. Doing it
+automatically was tried and dropped: it needs either a custom WiX action (the
+`--resource-dir` mechanism below fails) or a per-machine install with a new upgrade
+UUID, which left two Jylos installs until the new one was first opened.
 
-A per-user install in `%LOCALAPPDATA%\Programs\Jylos` was tried and does not build:
-`light.exe` fails validation ICE64 (the intermediate `Programs` folder is not in the
-RemoveFile table) and jpackage offers no way to add it. To see WiX's own errors, run the
-script with `JYLOS_JPACKAGE_VERBOSE=1`.
+A per-user install in `%LOCALAPPDATA%\Programs\Jylos` does not build: `light.exe` fails
+validation ICE64 (the intermediate `Programs` folder is not in the RemoveFile table) and
+jpackage offers no way to add it. To see WiX's own errors, run the script with
+`JYLOS_JPACKAGE_VERBOSE=1`.
 
 #### Windows installer branding (disabled — candle.exe fails to compile it)
 
@@ -180,7 +179,9 @@ Jylos downloads the release asset for their platform directly (not via the
 browser, so it never gets the marker above), verifies it against the SHA-256
 `digest` GitHub itself computed when the asset was uploaded, and — only after
 one more explicit confirmation — closes itself and hands off to the native
-installer.
+installer. The first confirmation shows the release notes (the release body,
+i.e. the version's `changelog.md` section), so anything users must know or do
+before updating reaches those who never open the release page.
 
 **What the checksum verification does and does not prove:** it catches
 transport corruption and man-in-the-middle tampering between GitHub and the

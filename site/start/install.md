@@ -10,8 +10,8 @@ Prebuilt packages for the current release are available on the [GitHub Releases]
 | --- | --- |
 | Windows | `.exe` installer, `.msi` installer, portable ZIP |
 | Linux | `.deb`, `.rpm` (via `jpackage`), `.pkg.tar.zst` for Arch Linux (`sudo pacman -U jylos-linux-amd64.pkg.tar.zst`) |
-| macOS | `.dmg` installer for Apple Silicon (`jylos-macos-arm64.dmg`); on Intel Macs use JBang, the uber-JAR, or build from source |
-| Any platform | uber-JAR (requires Java 21 + JavaFX 23 on `PATH`) |
+| macOS | `.dmg` installer for Apple Silicon (`jylos-macos-arm64.dmg`); on Intel Macs use JBang or build from source |
+| Linux x64 | uber-JAR (`jylos-uber.jar`, requires Java 21): it bundles JavaFX for Linux only, so on other systems use JBang, which adds JavaFX for yours |
 
 ## Run with JBang
 

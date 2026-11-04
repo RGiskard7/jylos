@@ -54,7 +54,7 @@ echo ""
 
 # Check if Java is installed
 if ! command -v java &> /dev/null; then
-    echo "Error: Java not found. Please install JDK 17 or higher."
+    echo "Error: Java not found. Please install JDK 21 or higher."
     echo "Download from: https://adoptium.net/"
     exit 1
 fi
@@ -65,7 +65,7 @@ echo ""
 
 # Check if jpackage is available
 if ! command -v jpackage &> /dev/null; then
-    echo "Error: jpackage not found. jpackage is included in JDK 17+."
+    echo "Error: jpackage not found. It comes with the JDK (21 or higher), not with a JRE."
     echo "Please install JDK (not JRE) from: https://adoptium.net/"
     exit 1
 fi

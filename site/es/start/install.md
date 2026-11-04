@@ -10,8 +10,8 @@ Los paquetes compilados de la versión actual están en la página de [GitHub Re
 | --- | --- |
 | Windows | instalador `.exe`, instalador `.msi`, ZIP portable |
 | Linux | `.deb`, `.rpm` (vía `jpackage`), `.pkg.tar.zst` para Arch Linux (`sudo pacman -U jylos-linux-amd64.pkg.tar.zst`) |
-| macOS | Instalador `.dmg` para Apple Silicon (`jylos-macos-arm64.dmg`); en Mac con Intel usa JBang, el uber-JAR o compila desde el código fuente |
-| Cualquier plataforma | uber-JAR (requiere Java 21 + JavaFX 23 en el `PATH`) |
+| macOS | Instalador `.dmg` para Apple Silicon (`jylos-macos-arm64.dmg`); en Mac con Intel usa JBang o compila desde el código fuente |
+| Linux x64 | uber-JAR (`jylos-uber.jar`, requiere Java 21): incluye JavaFX solo para Linux, así que en otros sistemas usa JBang, que añade el JavaFX de tu sistema |
 
 ## Ejecutar con JBang
 

@@ -25,15 +25,15 @@ if (-not (Get-Command $mvn -ErrorAction SilentlyContinue)) {
     # Try Chocolatey
     if (Get-Command choco -ErrorAction SilentlyContinue) {
         Write-Host "Installing with Chocolatey..."
-        choco install -y temurin17 maven
+        choco install -y temurin21 maven
     }
     elseif (Get-Command scoop -ErrorAction SilentlyContinue) {
         Write-Host "Installing with Scoop..."
-        scoop install openjdk17 maven
+        scoop install openjdk21 maven
     }
     elseif (Get-Command winget -ErrorAction SilentlyContinue) {
         Write-Host "Installing with winget... (may prompt for confirmation)"
-        winget install --id EclipseAdoptium.Temurin.17 -e --source winget
+        winget install --id EclipseAdoptium.Temurin.21.JDK -e --source winget
         winget install --id Apache.Maven -e --source winget
     }
     else {

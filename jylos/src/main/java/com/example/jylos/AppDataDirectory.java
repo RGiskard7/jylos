@@ -46,19 +46,9 @@ public final class AppDataDirectory {
      */
     public static synchronized LegacyDataMigration.Report migrateLegacyData() {
         AppDirectories.Environment env = currentEnvironment();
-        Set<String> bundled = bundledPluginJarNames();
         List<LegacyDataMigration.Candidate> candidates = LegacyDataMigration.candidates(env, layout());
         if (!candidates.isEmpty()) {
-            migrationReport = LegacyDataMigration.migrate(candidates, layout(), bundled);
-        }
-        // Only after the migration, and before the logger opens its files: the old
-        // per-user install's uninstaller deletes %LOCALAPPDATA%\Jylos, the logs' parent.
-        List<String> uninstall = LegacyWindowsInstall.removeIfMigrated(env, layout(), bundled);
-        if (!uninstall.isEmpty()) {
-            List<String> messages = new java.util.ArrayList<>(migrationReport.messages());
-            messages.addAll(uninstall);
-            migrationReport = new LegacyDataMigration.Report(List.copyOf(messages),
-                    migrationReport.leftoverDefaultVault());
+            migrationReport = LegacyDataMigration.migrate(candidates, layout(), bundledPluginJarNames());
         }
         return migrationReport;
     }

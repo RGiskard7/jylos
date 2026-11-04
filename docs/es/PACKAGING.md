@@ -35,37 +35,33 @@ CI establece `JYLOS_RELEASE_VERSION` desde el tag. El workflow ajusta Maven con 
 
 `package-windows.ps1` es el núcleo; `-Type portable|exe|msi` selecciona formato. `.exe` y `.msi` requieren WiX. `setup-packaging-windows.ps1` instala JDK 21 y WiX 3.14 localmente.
 
-Los instaladores tienen UUID de upgrade estable. No cambiarlo. Se cambió una vez, a propósito, en la 2.5.8: ver "Instalación para todo el equipo". Paquetes sin firma pueden mostrar SmartScreen.
+Los instaladores tienen UUID de upgrade estable. No cambiarlo. Paquetes sin firma pueden mostrar SmartScreen.
 
-### Instalación para todo el equipo (desde 2.5.8)
+### Instalación por-usuario
 
-El exe/msi instalan para toda la máquina, en `C:\Program Files\Jylos`, y piden permisos
-de administrador. Hasta la 2.5.7 instalaban por usuario (`--win-per-user-install`) en
-`%LOCALAPPDATA%\Jylos`, y Jylos guardaba sus datos dentro de esa carpeta. El
-desinstalador que genera jpackage para instalaciones por usuario borra la carpeta de
-instalación entera, y una actualización ejecuta el desinstalador viejo antes de que
-arranque la versión nueva, así que actualizar una instalación por usuario perdía esos
-datos.
+`--win-per-user-install` instala en el perfil del usuario actual, en `%LOCALAPPDATA%\Jylos`,
+en vez de para toda la máquina: sin UAC/admin, como VS Code, Discord o Slack. Activado.
 
-Por eso la 2.5.8 usa un UUID de actualización nuevo: con el antiguo, Windows Installer
-actualizaba la instalación por usuario (probado: la 2.5.8 para todo el equipo eliminó una
-2.5.7 por usuario y sus datos antes de que Jylos arrancara). Con el nuevo, la instalación
-antigua se queda. Al arrancar por primera vez,
-la versión nueva mueve los datos de la instalación antigua a `%APPDATA%\Jylos`
-(`LegacyDataMigration`) y después la desinstala en silencio (`LegacyWindowsInstall`,
-`msiexec /x`), solo si en la carpeta no queda nada del usuario. Los datos ya viven fuera
-de la carpeta de instalación, así que las actualizaciones y desinstalaciones posteriores
-no los tocan.
+El desinstalador que genera jpackage para instalaciones por usuario **borra la carpeta de
+instalación entera**, y una actualización ejecuta antes el desinstalador de la versión
+anterior. Desde la 2.5.8 Jylos guarda sus datos en `%APPDATA%\Jylos` (`AppDirectories`),
+fuera de esa carpeta, así que actualizar o desinstalar no los toca; junto al programa solo
+quedan los logs y la caché de actualizaciones, que se recrean.
 
-Contrapartida: las instalaciones para todo el equipo de la 2.5.4 o anterior (UUID antiguo,
-datos ya en `%APPDATA%\Jylos`) tampoco se actualizan. Quien las tenga verá dos Jylos y
-tendrá que desinstalar el viejo a mano (necesita permisos de administrador, así que Jylos
-no puede hacerlo).
+**Actualizar desde la 2.5.5–2.5.7 pierde lo que esas versiones guardaban en
+`%LOCALAPPDATA%\Jylos`** (`data`, incluida la base de datos SQLite, `backups`, `themes`,
+`snippets`): el desinstalador viejo lo borra antes de que arranque la 2.5.8, y su migración
+(`LegacyDataMigration`) ya no encuentra nada. Ha pasado en cada actualización desde la
+2.5.5. Las notas de la 2.5.8 piden a los usuarios de Windows copiar esas carpetas a
+`%APPDATA%\Jylos` antes de instalar. Hacerlo automático se probó y se descartó: exige una
+acción propia de WiX (el mecanismo `--resource-dir` de más abajo falla) o instalar para
+todo el equipo con un UUID nuevo, lo que dejaba dos Jylos instalados hasta abrir el nuevo.
 
-Se probó instalar por usuario en `%LOCALAPPDATA%\Programs\Jylos` y no compila:
-`light.exe` falla la validación ICE64 (la carpeta intermedia `Programs` no está en la
-tabla RemoveFile) y jpackage no permite añadirla. Para ver los errores de WiX, ejecuta el
-script con `JYLOS_JPACKAGE_VERBOSE=1`.
+Instalar por usuario en `%LOCALAPPDATA%\Programs\Jylos` no compila: `light.exe` falla la
+validación ICE64 (la carpeta intermedia `Programs` no está en la tabla RemoveFile) y
+jpackage no permite añadirla. Para ver los errores de WiX, ejecuta el script con
+`JYLOS_JPACKAGE_VERBOSE=1`.
+
 
 ### Personalización del instalador Windows (desactivada — candle.exe no la compila)
 
@@ -140,7 +136,10 @@ el aviso de actualización, Jylos descarga el asset de la release para la
 plataforma actual directamente (no por el navegador, así que nunca lleva esa
 marca), lo verifica contra el `digest` SHA-256 que el propio GitHub calculó
 al subir el asset, y — solo tras una confirmación explícita más — se cierra
-y entrega el control al instalador nativo.
+y entrega el control al instalador nativo. La primera confirmación muestra
+las notas de la versión (el texto de la release, es decir, su sección de
+`changelog.md`), para que lo que haya que saber o hacer antes de actualizar
+llegue también a quien nunca abre la página de la release.
 
 **Qué demuestra la verificación de checksum y qué no:** detecta corrupción en
 el transporte o manipulación por el camino entre GitHub y la máquina del

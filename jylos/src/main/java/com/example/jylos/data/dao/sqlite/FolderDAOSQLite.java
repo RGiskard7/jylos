@@ -584,11 +584,14 @@ public class FolderDAOSQLite implements FolderDAO {
 	private void loadSubFoldersHelper(Folder folder, int currentDepth, int maxDepth) {
 		if (currentDepth > maxDepth) return;
 
-		String query = (folder.getId() != null && !folder.getId().isEmpty()) ? SELECT_SUBFOLDERS_SQL
-				: SELECT_SUBFOLDERS_ROOT_SQL;
+		// The vault root reaches here with a null id (fetchAllFoldersAsTree) or with the
+		// sidebar's "ROOT" id; either way its subfolders are the ones with no parent,
+		// exactly as NoteDAOSQLite.fetchNotesByFolderId treats the root's notes.
+		boolean root = folder.getId() == null || folder.getId().isEmpty() || "ROOT".equals(folder.getId());
+		String query = root ? SELECT_SUBFOLDERS_ROOT_SQL : SELECT_SUBFOLDERS_SQL;
 
 		try (PreparedStatement pstmt = connection.prepareStatement(query)) {
-			if (folder.getId() != null && !folder.getId().isEmpty()) {
+			if (!root) {
 				pstmt.setString(1, folder.getId());
 			}
 			try (ResultSet rs = pstmt.executeQuery()) {

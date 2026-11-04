@@ -648,7 +648,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 this::requestApplicationClose, () -> {
                     Platform.exit();
                     System.exit(0);
-                });
+                }, this::isDarkThemeActive);
         updateStorageLabel();
         installVaultContentLoadedCallback(beginBackendSessionGeneration());
     }
