@@ -282,12 +282,13 @@ try {
             $jpackageArgs += @('--license-file', $licenseFile)
         }
 
-        # Installs to the current user's profile — no admin/UAC prompt — under
-        # %LOCALAPPDATA%\Programs\Jylos, where per-user apps go on Windows (jpackage's
-        # default would be %LOCALAPPDATA%\Jylos). The app keeps its data in
-        # %APPDATA%\Jylos and its logs in %LOCALAPPDATA%\Jylos (AppDirectories), never in
-        # the install folder, so uninstalling or upgrading cannot touch it.
-        $jpackageArgs += @('--win-per-user-install', '--install-dir', 'Programs\Jylos')
+        # Installs to the current user's profile — no admin/UAC prompt — in jpackage's
+        # default %LOCALAPPDATA%\Jylos. Not %LOCALAPPDATA%\Programs\Jylos: with
+        # --install-dir 'Programs\Jylos' WiX's light.exe fails validation (ICE64, the
+        # intermediate Programs folder is not in the RemoveFile table) and jpackage offers
+        # no way to add it. The app keeps its data in %APPDATA%\Jylos (AppDirectories),
+        # never in the install folder, so uninstalling or upgrading cannot touch it.
+        $jpackageArgs += @('--win-per-user-install')
 
         # DISABLED — real Windows build, candle.exe itself now failing to
         # compile (exit 104) with --resource-dir scripts\wix-resources in
