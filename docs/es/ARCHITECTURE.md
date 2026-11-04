@@ -72,6 +72,27 @@ Un tablero es una nota normal con cuerpo Markdown serializado por `KanbanModel`.
 
 ## Directorios runtime
 
+Los resuelve una vez `AppDataDirectory`, que aplica `AppDirectories.resolve` a la máquina real.
+Dónde están depende de cómo se ejecute Jylos:
+
+| Modo (cómo se detecta) | Datos del usuario | Logs | Caché (`updates/`) |
+|---|---|---|---|
+| Override (`-Djylos.data.dir=X`) | `X` | `X/logs` | `X/updates` |
+| Desarrollo / uber-JAR (sin `jpackage.app-path`) | directorio de trabajo (`jylos/` con los scripts del proyecto); si no se puede escribir, las rutas de instalado | igual | igual |
+| ZIP portable de Windows (`jylos.portable` junto a `Jylos.exe`) | la carpeta de `Jylos.exe` | `…/logs` | `…/updates` |
+| Instalado, Windows | `%APPDATA%\Jylos` | `%LOCALAPPDATA%\Jylos\logs` | `%LOCALAPPDATA%\Jylos\cache` |
+| Instalado, macOS | `~/Library/Application Support/Jylos` | `~/Library/Logs/Jylos` | `~/Library/Caches/Jylos` |
+| Instalado, Linux | `$XDG_DATA_HOME/jylos` (`~/.local/share/jylos`) | `$XDG_STATE_HOME/jylos/logs` | `$XDG_CACHE_HOME/jylos` |
+
+"Instalado" significa que el lanzador de jpackage definió `jpackage.app-path`. Una versión
+instalada nunca usa el directorio de trabajo, y los instaladores de Windows ponen la app en
+`%LOCALAPPDATA%\Programs\Jylos`, así que desinstalar o actualizar no toca los datos. Las versiones
+instaladas anteriores usaban el directorio de trabajo (la carpeta de instalación en Windows,
+normalmente `~` en Linux): al arrancar, `LegacyDataMigration` mueve lo que dejaron allí, solo
+ficheros que crea Jylos, y lo registra en el log. Si la carpeta nueva ya tiene datos de una ejecución anterior, gana la copia usada más recientemente y la otra se renombra `<nombre>.before-migration-<fecha>`, nunca se borra; una base de datos SQLite se mueve o se queda siempre junto a sus `-wal`/`-shm`.
+
+Dentro de la carpeta de datos del usuario:
+
 | Ruta | Uso |
 |------|-----|
 | `data/` | SQLite `database.db` o raíz de vault filesystem |

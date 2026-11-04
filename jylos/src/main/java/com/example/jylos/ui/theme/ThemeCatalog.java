@@ -14,6 +14,7 @@ import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 import com.example.jylos.AppDataDirectory;
+import com.example.jylos.AppDirectories;
 
 /**
  * Scans built-in and external theme descriptors.
@@ -65,10 +66,14 @@ public final class ThemeCatalog {
         out.add(new ThemeDescriptor("system", "System", "builtin",
                 "/com/example/jylos/ui/css/modern-theme.css", false, "system"));
 
-        List<Path> baseDirs = List.of(
-                Paths.get(AppDataDirectory.getBaseDirectory(), "themes"),
-                Paths.get(System.getProperty("user.dir", "."), "themes"),
-                Paths.get(System.getProperty("user.dir", "."), "..", "themes").normalize());
+        // The working-directory folders are the repo's themes/ when developing; a packaged
+        // build only reads the user's themes folder.
+        List<Path> baseDirs = AppDataDirectory.layout().mode() == AppDirectories.Mode.DEVELOPMENT
+                ? List.of(
+                        Paths.get(AppDataDirectory.getBaseDirectory(), "themes"),
+                        Paths.get(System.getProperty("user.dir", "."), "themes"),
+                        Paths.get(System.getProperty("user.dir", "."), "..", "themes").normalize())
+                : List.of(Paths.get(AppDataDirectory.getBaseDirectory(), "themes"));
 
         Map<String, ThemeDescriptor> unique = new LinkedHashMap<>();
         for (Path baseDir : baseDirs) {

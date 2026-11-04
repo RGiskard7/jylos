@@ -91,7 +91,25 @@ A board is a normal **note** whose Markdown body is parsed/serialised by `Kanban
 
 ## Runtime directories
 
-Resolved by `AppDataDirectory` (typically `jylos/` when launched via project scripts):
+Resolved once by `AppDataDirectory`, which applies `AppDirectories.resolve` to the real
+machine. Where they live depends on how Jylos runs:
+
+| Mode (detected by) | User data | Logs | Cache (`updates/`) |
+|---|---|---|---|
+| Override (`-Djylos.data.dir=X`) | `X` | `X/logs` | `X/updates` |
+| Development / uber-JAR (no `jpackage.app-path`) | working directory (`jylos/` via project scripts); if read-only, the installed paths | same | same |
+| Windows portable ZIP (`jylos.portable` next to `Jylos.exe`) | the `Jylos.exe` folder | `…/logs` | `…/updates` |
+| Installed, Windows | `%APPDATA%\Jylos` | `%LOCALAPPDATA%\Jylos\logs` | `%LOCALAPPDATA%\Jylos\cache` |
+| Installed, macOS | `~/Library/Application Support/Jylos` | `~/Library/Logs/Jylos` | `~/Library/Caches/Jylos` |
+| Installed, Linux | `$XDG_DATA_HOME/jylos` (`~/.local/share/jylos`) | `$XDG_STATE_HOME/jylos/logs` | `$XDG_CACHE_HOME/jylos` |
+
+"Installed" means jpackage's launcher set `jpackage.app-path`. An installed build never uses
+the working directory, and the Windows installers put the app in `%LOCALAPPDATA%\Programs\Jylos`,
+so uninstalling or upgrading never touches the data. Older installed builds used the working
+directory (the install folder on Windows, usually `~` on Linux): on startup `LegacyDataMigration`
+moves what they left there, only files Jylos creates, and logs what it did. When the new folder already holds data from an older run, the copy used most recently wins and the other is renamed `<name>.before-migration-<date>`, never deleted; a SQLite database always moves or stays together with its `-wal`/`-shm` files.
+
+Inside the user-data folder:
 
 | Path | Use |
 |------|-----|
@@ -102,7 +120,7 @@ Resolved by `AppDataDirectory` (typically `jylos/` when launched via project scr
 | `snippets/` | User CSS snippets layered after the active theme |
 | `backups/` | SQLite auto-backups on startup (gitignored; `DatabaseBackupService`) |
 
-External theme sources: repo `themes/` → `scripts/build-themes.sh` → `jylos/themes/`. Catalog also scans AppData and cwd.
+External theme sources: repo `themes/` → `scripts/build-themes.sh` → `jylos/themes/`. When developing, the catalog also scans the working directory.
 
 App icons: `src/main/resources/icons/` — see [icons README](../jylos/src/main/resources/icons/README.md).
 

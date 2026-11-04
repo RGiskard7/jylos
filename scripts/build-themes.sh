@@ -77,10 +77,11 @@ if [ "$COPY_TO_APPDATA" = true ]; then
   if [ "$os_name" = "Darwin" ]; then
     appdata_base="$HOME/Library/Application Support/Jylos"
   elif [ "$os_name" = "Linux" ]; then
-    if [ -n "${XDG_CONFIG_HOME:-}" ]; then
-      appdata_base="$XDG_CONFIG_HOME/Jylos"
+    # Same folder an installed Jylos reads (AppDirectories, XDG data home).
+    if [ -n "${XDG_DATA_HOME:-}" ]; then
+      appdata_base="$XDG_DATA_HOME/jylos"
     else
-      appdata_base="$HOME/.config/Jylos"
+      appdata_base="$HOME/.local/share/jylos"
     fi
   else
     appdata_base=""

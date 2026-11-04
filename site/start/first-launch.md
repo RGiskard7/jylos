@@ -13,11 +13,10 @@ You can switch between the two from **Tools → Switch storage**. Changing from 
 
 ## Runtime directories
 
-Jylos creates a few directories next to its working directory:
+Jylos keeps its files in the standard folder of each system: `%APPDATA%\Jylos` on Windows, `~/Library/Application Support/Jylos` on macOS and `~/.local/share/jylos` on Linux. Logs go to `%LOCALAPPDATA%\Jylos\logs`, `~/Library/Logs/Jylos` and `~/.local/state/jylos/logs`. The Windows portable ZIP keeps everything next to `Jylos.exe`. Inside the data folder:
 
 ```text
 data/       # the SQLite database or your vault
-logs/       # application logs
 backups/    # automatic SQLite backups
 plugins/    # external plugin JARs
 themes/     # installed external themes

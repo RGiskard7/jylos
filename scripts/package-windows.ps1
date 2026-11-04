@@ -282,8 +282,12 @@ try {
             $jpackageArgs += @('--license-file', $licenseFile)
         }
 
-        # Installs to the current user's profile — no admin/UAC prompt.
-        $jpackageArgs += @('--win-per-user-install')
+        # Installs to the current user's profile — no admin/UAC prompt — under
+        # %LOCALAPPDATA%\Programs\Jylos, where per-user apps go on Windows (jpackage's
+        # default would be %LOCALAPPDATA%\Jylos). The app keeps its data in
+        # %APPDATA%\Jylos and its logs in %LOCALAPPDATA%\Jylos (AppDirectories), never in
+        # the install folder, so uninstalling or upgrading cannot touch it.
+        $jpackageArgs += @('--win-per-user-install', '--install-dir', 'Programs\Jylos')
 
         # DISABLED — real Windows build, candle.exe itself now failing to
         # compile (exit 104) with --resource-dir scripts\wix-resources in
@@ -316,6 +320,10 @@ try {
 
     if ($Type -eq 'portable') {
         $appImagePath = Join-Path $outputDir $APP_NAME
+        # Marks this app-image as portable: Jylos then keeps its data next to Jylos.exe
+        # instead of in %APPDATA% (AppDirectories.PORTABLE_MARKER). The CI release zips
+        # this same folder, so its portable ZIP carries the marker too.
+        Set-Content -Path (Join-Path $appImagePath 'jylos.portable') -Value 'Jylos keeps its data in this folder.' -Encoding UTF8
         # JDK 17 fallback: copy plugin JARs into the image when --app-content was unavailable.
         if (-not $pluginsViaAppContent -and (Test-Path $sourcePluginsDir)) {
             $pluginJars = @(Get-ChildItem -Path $sourcePluginsDir -Filter '*.jar' -ErrorAction SilentlyContinue)

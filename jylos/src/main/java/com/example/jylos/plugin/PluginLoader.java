@@ -22,6 +22,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.example.jylos.AppDataDirectory;
+import com.example.jylos.AppDirectories;
 import com.example.jylos.config.LoggerConfig;
 
 /**
@@ -154,21 +155,15 @@ public class PluginLoader {
 
     /**
      * Gets all paths where plugins may be located.
-     * Order: 1) explicit property, 2) app bundle (jpackage), 3) AppData, 4)
-     * relative.
+     * Order: 1) app bundle (jpackage), 2) the user's plugins folder (which honours
+     * -Djylos.data.dir), 3) relative.
      * 
      * @return List of plugin directory paths to search
      */
     private static List<Path> getPluginSearchPaths() {
         List<Path> paths = new ArrayList<>();
 
-        // 1. Explicit system property (highest priority)
-        String dataDir = System.getProperty("jylos.data.dir");
-        if (dataDir != null && !dataDir.isEmpty()) {
-            paths.add(Paths.get(dataDir, PLUGINS_DIR));
-        }
-
-        // 2. App bundle directory (jpackage) - plugins alongside main JAR or in
+        // 1. App bundle directory (jpackage) - plugins alongside main JAR or in
         // plugins/ subdir
         Path appDir = getApplicationDirectory();
         if (appDir != null) {
@@ -181,11 +176,14 @@ public class PluginLoader {
             }
         }
 
-        // 3. AppData directory (user data, works for packaged apps)
+        // 2. The user's plugins folder (AppDataDirectory, including -Djylos.data.dir)
         paths.add(Paths.get(AppDataDirectory.getBaseDirectory(), PLUGINS_DIR));
 
-        // 4. Relative to CWD (development)
-        paths.add(Paths.get(PLUGINS_DIR));
+        // 3. Relative to CWD: the repo's jylos/plugins when developing. Never for a
+        // packaged build, where the working directory is just wherever it was launched.
+        if (AppDataDirectory.layout().mode() == AppDirectories.Mode.DEVELOPMENT) {
+            paths.add(Paths.get(PLUGINS_DIR));
+        }
 
         // Normalize all paths and remove duplicates
         List<Path> uniquePaths = new ArrayList<>();
@@ -233,10 +231,6 @@ public class PluginLoader {
      * Uses AppData so users can add plugins in a known location.
      */
     private static Path getPluginsDirectory() {
-        String dataDir = System.getProperty("jylos.data.dir");
-        if (dataDir != null && !dataDir.isEmpty()) {
-            return Paths.get(dataDir, PLUGINS_DIR);
-        }
         return Paths.get(AppDataDirectory.getBaseDirectory(), PLUGINS_DIR);
     }
 

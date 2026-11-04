@@ -1,47 +1,126 @@
 package com.example.jylos;
 
 import java.io.File;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Stream;
 
 /**
- * Resolves the writable runtime directory for the application.
+ * Where Jylos keeps its files at runtime: the layout {@link AppDirectories} resolves for
+ * the real machine, resolved once.
  *
- * <p>Development and portable builds prefer the current working directory when it
- * is writable. Packaged installs fall back to the platform's standard app-data
- * location: {@code %APPDATA%\Jylos} on Windows,
- * {@code ~/Library/Application Support/Jylos} on macOS, and
- * {@code ~/.config/Jylos} on Linux.</p>
+ * <p>An installed build follows each platform's convention: user data in
+ * {@code %APPDATA%\Jylos}, {@code ~/Library/Application Support/Jylos} or
+ * {@code ~/.local/share/jylos}; logs and caches in their own system folders. Development
+ * runs and the uber-JAR keep using the working directory, the Windows portable ZIP the
+ * folder it was unpacked to, and {@code -Djylos.data.dir} overrides all of them.</p>
  */
 public final class AppDataDirectory {
 
-    private static String baseDir = null;
+    private static AppDirectories.Layout layout;
+    private static LegacyDataMigration.Report migrationReport =
+            new LegacyDataMigration.Report(List.of(), Optional.empty());
 
     private AppDataDirectory() {
     }
 
+    /** The resolved layout (resolved on first use). */
+    public static synchronized AppDirectories.Layout layout() {
+        if (layout == null) {
+            layout = AppDirectories.resolve(currentEnvironment());
+        }
+        return layout;
+    }
+
     /**
-     * Gets the base directory for application data.
-     * First tries relative path, falls back to platform-specific directory.
+     * Moves files an older installed Jylos left in the wrong place (its install folder, the
+     * home folder) into the current layout. Runs once, before anything creates the new
+     * folders; does nothing outside an installed build.
+     *
+     * @return what happened, to log once the logger is configured
+     */
+    public static synchronized LegacyDataMigration.Report migrateLegacyData() {
+        AppDirectories.Environment env = currentEnvironment();
+        List<LegacyDataMigration.Candidate> candidates = LegacyDataMigration.candidates(env, layout());
+        if (!candidates.isEmpty()) {
+            migrationReport = LegacyDataMigration.migrate(candidates, layout(), bundledPluginJarNames());
+        }
+        return migrationReport;
+    }
+
+    /**
+     * Tests only: forgets the resolved layout so the next call re-reads the environment,
+     * such as a {@code jylos.data.dir} set by the test. A running app resolves it once.
+     */
+    public static synchronized void resetForTesting() {
+        layout = null;
+        migrationReport = new LegacyDataMigration.Report(List.of(), Optional.empty());
+    }
+
+    /** An old default vault whose notes stayed in an older location, if the migration found one. */
+    public static Optional<Path> legacyDefaultVault() {
+        return migrationReport.leftoverDefaultVault();
+    }
+
+    /**
+     * Gets the base directory for user data: the folder holding data/, backups/, plugins/,
+     * themes/, snippets/ and history/.
      *
      * @return absolute base directory used for runtime data
      */
     public static String getBaseDirectory() {
-        if (baseDir != null) {
-            return baseDir;
+        return layout().dataRoot().toAbsolutePath().toString();
+    }
+
+    private static AppDirectories.Environment currentEnvironment() {
+        return new AppDirectories.Environment(
+                AppDirectories.Os.from(System.getProperty("os.name", "")),
+                AppConfig.getAppName(),
+                Path.of(System.getProperty("user.home", ".")),
+                Path.of(System.getProperty("user.dir", ".")).toAbsolutePath(),
+                System.getenv(),
+                System.getProperty("jpackage.app-path"),
+                System.getProperty("jylos.data.dir"),
+                path -> canWriteToDirectory(path.toFile()),
+                Files::exists);
+    }
+
+    /** Names of the plugin JARs that ship with this installation, next to the app JAR. */
+    private static Set<String> bundledPluginJarNames() {
+        Set<String> names = new HashSet<>();
+        Path appDir;
+        try {
+            Path location = Path.of(AppDataDirectory.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+            appDir = Files.isRegularFile(location) ? location.getParent() : location;
+        } catch (URISyntaxException | RuntimeException e) {
+            return names;
         }
-
-        // Strategy 1: Try relative path (works for development and portable apps)
-        String userDir = System.getProperty("user.dir", ".");
-        File testDir = new File(userDir, "data");
-
-        if (canWriteToDirectory(testDir)) {
-            baseDir = userDir;
-            return baseDir;
+        if (appDir == null) {
+            return names;
         }
-
-        // Strategy 2: Use platform-specific directory (for packaged apps in read-only
-        // locations)
-        baseDir = getPlatformAppDataDirectory();
-        return baseDir;
+        // jpackage --app-content lands next to the app folder (Windows: <install>\plugins,
+        // Linux: /opt/jylos/lib/plugins); older layouts used the app folder itself.
+        List<Path> folders = appDir.getParent() == null
+                ? List.of(appDir, appDir.resolve("plugins"))
+                : List.of(appDir, appDir.resolve("plugins"), appDir.getParent().resolve("plugins"));
+        for (Path folder : folders) {
+            if (!Files.isDirectory(folder)) {
+                continue;
+            }
+            try (Stream<Path> jars = Files.list(folder)) {
+                jars.map(p -> p.getFileName().toString())
+                        .filter(n -> n.toLowerCase().endsWith(".jar") && !n.contains("jylos") && !n.contains("uber"))
+                        .forEach(names::add);
+            } catch (java.io.IOException ignored) {
+                // An unreadable folder only means fewer names to exclude.
+            }
+        }
+        return names;
     }
 
     /**
@@ -65,40 +144,6 @@ public final class AppDataDirectory {
     }
 
     /**
-     * Gets the platform-specific application data directory.
-     */
-    private static String getPlatformAppDataDirectory() {
-        String osName = System.getProperty("os.name", "").toLowerCase();
-        String home = System.getProperty("user.home");
-        File appDataDir;
-
-        String appName = AppConfig.getAppName();
-
-        if (osName.contains("win")) {
-            // Windows: %APPDATA%\AppName
-            String appData = System.getenv("APPDATA");
-            if (appData != null && !appData.isEmpty()) {
-                appDataDir = new File(appData, appName);
-            } else {
-                appDataDir = new File(home, "AppData\\Roaming\\" + appName);
-            }
-        } else if (osName.contains("mac")) {
-            // macOS: ~/Library/Application Support/AppName
-            appDataDir = new File(home, "Library/Application Support/" + appName);
-        } else {
-            // Linux: ~/.config/AppName (XDG Base Directory)
-            String xdgConfig = System.getenv("XDG_CONFIG_HOME");
-            if (xdgConfig != null && !xdgConfig.isEmpty()) {
-                appDataDir = new File(xdgConfig, appName);
-            } else {
-                appDataDir = new File(home, ".config/" + appName);
-            }
-        }
-
-        return appDataDir.getAbsolutePath();
-    }
-
-    /**
      * Gets the data directory path (baseDir/data).
      *
      * @return absolute path to the data directory
@@ -108,12 +153,12 @@ public final class AppDataDirectory {
     }
 
     /**
-     * Gets the logs directory path (baseDir/logs).
+     * Gets the logs directory: the system's log folder for an installed build, baseDir/logs otherwise.
      *
      * @return absolute path to the logs directory
      */
     public static String getLogsDirectory() {
-        return new File(getBaseDirectory(), "logs").getAbsolutePath();
+        return layout().logsDir().toAbsolutePath().toString();
     }
 
     /**
@@ -137,7 +182,7 @@ public final class AppDataDirectory {
     /**
      * REMOVABLE: in-app updater — see {@link com.example.jylos.service.UpdateInstaller}'s
      * class docs ("Removing this later") for the removal checklist; this method is
-     * on that list. Directory path (baseDir/updates) where downloaded update
+     * on that list. Directory path (cacheDir/updates) where downloaded update
      * installers are staged before the user runs them. Not created eagerly by
      * {@link #ensureDirectoriesExist()} — only needed while an update is in flight,
      * so {@code UpdateInstaller} creates it on demand.
@@ -145,7 +190,7 @@ public final class AppDataDirectory {
      * @return absolute path to the updates directory
      */
     public static String getUpdatesDirectory() {
-        return new File(getBaseDirectory(), "updates").getAbsolutePath();
+        return layout().cacheDir().resolve("updates").toAbsolutePath().toString();
     }
 
     /**

@@ -478,7 +478,7 @@ Toolbar/sidebar icons are **Feather** and **Bootstrap Icons** glyphs via Ikonli 
 
 ### Themes
 
-Source packs live in `themes/<id>/` (`theme.properties` + `theme.css`). Development: `./scripts/build-themes.sh` (copies to `jylos/themes/`). **Packaged app:** copy the theme folder to `~/Library/Application Support/Jylos/themes/<id>/` (macOS), `%APPDATA%\Jylos\themes\<id>\` (Windows), or `~/.config/Jylos/themes/<id>/` (Linux). See [themes/README.md](themes/README.md).
+Source packs live in `themes/<id>/` (`theme.properties` + `theme.css`). Development: `./scripts/build-themes.sh` (copies to `jylos/themes/`). **Packaged app:** copy the theme folder to `~/Library/Application Support/Jylos/themes/<id>/` (macOS), `%APPDATA%\Jylos\themes\<id>\` (Windows), or `~/.local/share/jylos/themes/<id>/` (Linux). See [themes/README.md](themes/README.md).
 
 ### CSS snippets
 

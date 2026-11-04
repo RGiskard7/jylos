@@ -47,4 +47,23 @@ class VaultLocationSupportTest {
         assertEquals(VaultLocationSupport.Kind.MISSING,
                 VaultLocationSupport.resolve(file.toString(), Files::isDirectory).kind());
     }
+
+    @Test
+    void notesLeftInAnOldDefaultVaultKeepOpeningWhenNoVaultIsConfigured(@TempDir Path dir) {
+        Path oldVault = dir.resolve("data");
+        assertEquals(java.util.Optional.of(oldVault.toString()),
+                VaultLocationSupport.legacyVaultToAdopt("", java.util.Optional.of(oldVault), path -> true));
+    }
+
+    @Test
+    void aConfiguredVaultIsNeverReplacedByAnOldDefaultOne(@TempDir Path dir) {
+        Path oldVault = dir.resolve("data");
+        assertEquals(java.util.Optional.empty(),
+                VaultLocationSupport.legacyVaultToAdopt("/vaults/mine", java.util.Optional.of(oldVault), path -> true));
+        assertEquals(java.util.Optional.empty(),
+                VaultLocationSupport.legacyVaultToAdopt("", java.util.Optional.empty(), path -> true));
+        assertEquals(java.util.Optional.empty(),
+                VaultLocationSupport.legacyVaultToAdopt("", java.util.Optional.of(oldVault), path -> false),
+                "an old vault that no longer exists");
+    }
 }

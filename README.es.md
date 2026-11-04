@@ -478,7 +478,7 @@ Los iconos de barra y menús son glifos **Feather** y **Bootstrap Icons** vía I
 
 ### Temas
 
-Paquetes en `themes/<id>/` (`theme.properties` + `theme.css`). En desarrollo: `./scripts/build-themes.sh` (copia a `jylos/themes/`). **App instalada:** copia la carpeta del tema a `~/Library/Application Support/Jylos/themes/<id>/` (macOS), `%APPDATA%\Jylos\themes\<id>\` (Windows) o `~/.config/Jylos/themes/<id>/` (Linux); detalle en [themes/README.md](themes/README.md).
+Paquetes en `themes/<id>/` (`theme.properties` + `theme.css`). En desarrollo: `./scripts/build-themes.sh` (copia a `jylos/themes/`). **App instalada:** copia la carpeta del tema a `~/Library/Application Support/Jylos/themes/<id>/` (macOS), `%APPDATA%\Jylos\themes\<id>\` (Windows) o `~/.local/share/jylos/themes/<id>/` (Linux); detalle en [themes/README.md](themes/README.md).
 
 ### Snippets CSS
 

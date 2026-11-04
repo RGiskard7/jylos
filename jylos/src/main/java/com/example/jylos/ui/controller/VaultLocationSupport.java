@@ -47,6 +47,18 @@ final class VaultLocationSupport {
         this.i18n = i18n != null ? i18n : key -> key;
     }
 
+    /**
+     * Pure decision: the old default vault to keep using, when no vault is configured and
+     * the data migration left notes in an older location (e.g. {@code ~/data}).
+     */
+    static Optional<String> legacyVaultToAdopt(String configuredPath, Optional<Path> legacyDefaultVault,
+            Predicate<Path> isDirectory) {
+        if (configuredPath != null && !configuredPath.isBlank()) {
+            return Optional.empty();
+        }
+        return legacyDefaultVault.filter(isDirectory).map(Path::toString);
+    }
+
     /** Pure decision: what the configured path means, given how to test that a directory exists. */
     static Resolution resolve(String configuredPath, Predicate<Path> isDirectory) {
         if (configuredPath == null || configuredPath.isBlank()) {
@@ -73,8 +85,17 @@ final class VaultLocationSupport {
             switch (resolution.kind()) {
                 case CONFIGURED:
                     return resolution.path();
-                case DEFAULT:
+                case DEFAULT: {
+                    // An older installed build kept its default vault where it was launched
+                    // from (e.g. ~/data); keep opening it there as an explicitly chosen vault.
+                    Optional<String> legacy = legacyVaultToAdopt(prefs.get(FILESYSTEM_PATH_KEY, ""),
+                            com.example.jylos.AppDataDirectory.legacyDefaultVault(), Files::isDirectory);
+                    if (legacy.isPresent()) {
+                        prefs.put(FILESYSTEM_PATH_KEY, legacy.get());
+                        return legacy.get();
+                    }
                     return defaultDirectory;
+                }
                 default:
                     break;
             }

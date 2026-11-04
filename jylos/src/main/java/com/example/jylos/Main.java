@@ -30,8 +30,19 @@ import com.example.jylos.ui.controller.MainController;
  */
 public class Main extends Application {
 
-    // Create directories BEFORE logger loads (logger needs logs/ to exist)
+    // Before the logger loads (it needs logs/ to exist): first move what an older
+    // installed build left in the wrong place, then create the folders.
+    private static final LegacyDataMigration.Report LEGACY_MIGRATION;
+
     static {
+        LegacyDataMigration.Report report;
+        try {
+            report = AppDataDirectory.migrateLegacyData();
+        } catch (RuntimeException e) {
+            report = new LegacyDataMigration.Report(
+                    java.util.List.of("Legacy data migration failed: " + e), java.util.Optional.empty());
+        }
+        LEGACY_MIGRATION = report;
         if (!AppDataDirectory.ensureDirectoriesExist()) {
             System.err.println("Warning: Could not create data/logs directories");
         }
@@ -92,7 +103,9 @@ public class Main extends Application {
                 });
             }
 
-            logger.info("Jylos started. Data: " + AppDataDirectory.getDataDirectory());
+            LEGACY_MIGRATION.messages().forEach(message -> logger.info("Data migration: " + message));
+            logger.info("Jylos started. Data: " + AppDataDirectory.getDataDirectory()
+                    + " | Logs: " + AppDataDirectory.getLogsDirectory());
 
         } catch (IOException e) {
             logger.severe("Failed to load main view: " + e.getMessage());

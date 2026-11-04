@@ -20,6 +20,7 @@ import javax.tools.ToolProvider;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.example.jylos.AppDataDirectory;
 import com.example.jylos.plugin.EditorHook;
 import com.example.jylos.plugin.EditorHookRegistry;
 import com.example.jylos.plugin.NoteContextMenuEntry;
@@ -193,6 +194,7 @@ class PluginManagerLifecycleTest {
     void uninstallInstalledPluginShouldShutdownRemoveJarAndState() throws Exception {
         String previousDataDir = System.getProperty("jylos.data.dir");
         System.setProperty("jylos.data.dir", tempDir.toString());
+        AppDataDirectory.resetForTesting();
         try {
             String pluginId = "remove-me-" + System.nanoTime();
             Path sourceJar = createPluginJar(pluginId);
@@ -219,6 +221,7 @@ class PluginManagerLifecycleTest {
             } else {
                 System.setProperty("jylos.data.dir", previousDataDir);
             }
+            AppDataDirectory.resetForTesting();
             PluginLoader.closeAllClassLoaders();
         }
     }

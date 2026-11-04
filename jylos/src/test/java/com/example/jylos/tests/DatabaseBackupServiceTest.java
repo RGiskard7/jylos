@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
-import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -112,7 +111,7 @@ class DatabaseBackupServiceTest {
     // ── createStartupBackupIfNeeded / pruneOldBackups: vía AppDataDirectory ─
 
     @AfterEach
-    void restaurarAppDataDirectory() throws Exception {
+    void restaurarAppDataDirectory() {
         establecerBaseDir(null);
     }
 
@@ -213,9 +212,17 @@ class DatabaseBackupServiceTest {
         return destino.toFile();
     }
 
-    private static void establecerBaseDir(String valor) throws Exception {
-        Field campo = AppDataDirectory.class.getDeclaredField("baseDir");
-        campo.setAccessible(true);
-        campo.set(null, valor);
+    private static final String PROPIEDAD_DATOS = "jylos.data.dir";
+    private static final String VALOR_PREVIO = System.getProperty(PROPIEDAD_DATOS);
+
+    /** Apunta AppDataDirectory a {@code valor} (null: restaura lo que hubiera antes). */
+    private static void establecerBaseDir(String valor) {
+        String nuevo = valor != null ? valor : VALOR_PREVIO;
+        if (nuevo != null) {
+            System.setProperty(PROPIEDAD_DATOS, nuevo);
+        } else {
+            System.clearProperty(PROPIEDAD_DATOS);
+        }
+        AppDataDirectory.resetForTesting();
     }
 }

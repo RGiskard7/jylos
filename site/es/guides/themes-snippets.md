@@ -32,7 +32,7 @@ Copia la carpeta del tema en `themes/` dentro de los datos de Jylos:
 | --- | --- |
 | macOS | `~/Library/Application Support/Jylos/themes/<id>/` |
 | Windows | `%APPDATA%\Jylos\themes\<id>\` |
-| Linux | `~/.config/Jylos/themes/<id>/` |
+| Linux | `~/.local/share/jylos/themes/<id>/` |
 
 Luego actívalo en **Herramientas → Preferencias → Tema externo** (reinicia si no aparece en la lista).
 

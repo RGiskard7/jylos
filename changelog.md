@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [2.5.8] - 2026-11-04
+
+- **Los datos de Jylos, en la carpeta estándar de cada sistema.** Las versiones instaladas guardaban la base de datos, los espacios de trabajo, el historial, las copias de seguridad, los logs y los plugins y temas añadidos en la carpeta desde la que se lanzaba la app: en Windows, dentro de la carpeta de instalación (`AppData\Local\Jylos`), donde una desinstalación podía borrarlos; en Linux, sueltos en la carpeta personal (`~/data`, `~/logs`…), y en otra carpeta distinta si se abría desde una terminal, con lo que la app aparecía vacía. Ahora siguen el estándar de cada sistema: datos en `%APPDATA%\Jylos`, `~/Library/Application Support/Jylos` o `~/.local/share/jylos`; logs en `%LOCALAPPDATA%\Jylos\logs`, `~/Library/Logs/Jylos` o `~/.local/state/jylos/logs`. En Windows la app se instala en `%LOCALAPPDATA%\Programs\Jylos`. Al primer arranque se mueve automáticamente lo que había en la ubicación antigua: solo ficheros que crea Jylos, y queda constancia en el log. Si la carpeta nueva ya tenía datos de alguna ejecución anterior, se queda la copia usada más recientemente y la otra se conserva renombrada (`… .before-migration-<fecha>`): nunca se borra nada; si había notas de la bóveda por defecto en `~/data`, se siguen abriendo desde allí. El ZIP portable de Windows sigue guardándolo todo junto a `Jylos.exe`. Ver `docs/ARCHITECTURE.md`.
+
 - **Paquete para Arch Linux.** Cada release incluye `jylos-linux-amd64.pkg.tar.zst`, instalable con `sudo pacman -U jylos-linux-amd64.pkg.tar.zst`. Instala la app en `/opt/jylos` con su propio Java, el comando `jylos` y la entrada en el menú de aplicaciones, igual que los paquetes `.deb` y `.rpm`. Se genera con `scripts/package-linux-arch.sh` y la web lo enlaza en las descargas de Linux.
 
 ## [2.5.7] - 2026-10-31
