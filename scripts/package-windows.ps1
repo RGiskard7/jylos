@@ -33,7 +33,13 @@ Set-StrictMode -Version Latest
 
 # Stable MSI upgrade GUID: MUST NEVER CHANGE between releases, or Windows will treat
 # new versions as a different product and install them side by side instead of upgrading.
-$UPGRADE_UUID = '6f1d2f7e-9b3a-4c5d-8e2f-3a7b1c9d4e60'
+#
+# Changed once, in 2.5.8 (it was 6f1d2f7e-9b3a-4c5d-8e2f-3a7b1c9d4e60), on purpose: with
+# the old one, installing 2.5.8 upgraded the per-user 2.5.5-2.5.7 install, which runs its
+# uninstaller first, and that uninstaller deletes %LOCALAPPDATA%\Jylos together with the
+# data those versions kept there. With a new UUID the old install is left in place until
+# Jylos has moved its data out and uninstalled it (LegacyWindowsInstall).
+$UPGRADE_UUID = '68f54061-cf1a-4b74-9987-b56c8ee6bd36'
 
 $root = Split-Path -Parent $PSScriptRoot
 
@@ -268,8 +274,7 @@ try {
     if ($Type -ne 'portable') {
         # Installer UX: dir chooser, Start-menu group, desktop shortcut prompt,
         # a stable upgrade UUID (upgrades in place instead of installing side by
-        # side; only between installs of the same scope, per-machine or per-user),
-        # MIT license page.
+        # side), MIT license page.
         $jpackageArgs += @(
             '--win-dir-chooser',
             '--win-menu',
@@ -287,9 +292,9 @@ try {
         # rights), not per-user. Up to 2.5.7 Jylos installed per-user in
         # %LOCALAPPDATA%\Jylos and kept its data inside that folder; the uninstaller
         # jpackage generates for per-user installs deletes the whole folder, and an
-        # upgrade runs it before the new version starts, so the data was lost. Windows
-        # Installer does not upgrade a per-user install from a per-machine one, so the old
-        # install survives the upgrade: on first start the new version moves its data to
+        # upgrade runs it before the new version starts, so the data was lost. Since
+        # 2.5.8 uses a new upgrade UUID (see $UPGRADE_UUID), installing it does not touch
+        # the old install: on first start the new version moves its data to
         # %APPDATA%\Jylos and then uninstalls it (LegacyWindowsInstall).
         # (A per-user install in %LOCALAPPDATA%\Programs\Jylos is not an option either:
         # WiX's light.exe rejects it, ICE64, and jpackage offers no way around it.)

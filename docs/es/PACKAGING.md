@@ -35,7 +35,7 @@ CI establece `JYLOS_RELEASE_VERSION` desde el tag. El workflow ajusta Maven con 
 
 `package-windows.ps1` es el núcleo; `-Type portable|exe|msi` selecciona formato. `.exe` y `.msi` requieren WiX. `setup-packaging-windows.ps1` instala JDK 21 y WiX 3.14 localmente.
 
-Los instaladores tienen UUID de upgrade estable. No cambiarlo. Paquetes sin firma pueden mostrar SmartScreen.
+Los instaladores tienen UUID de upgrade estable. No cambiarlo. Se cambió una vez, a propósito, en la 2.5.8: ver "Instalación para todo el equipo". Paquetes sin firma pueden mostrar SmartScreen.
 
 ### Instalación para todo el equipo (desde 2.5.8)
 
@@ -47,13 +47,20 @@ instalación entera, y una actualización ejecuta el desinstalador viejo antes d
 arranque la versión nueva, así que actualizar una instalación por usuario perdía esos
 datos.
 
-Windows Installer solo actualiza instalaciones del mismo ámbito, así que una instalación
-para todo el equipo deja en su sitio la antigua por usuario. Al arrancar por primera vez,
+Por eso la 2.5.8 usa un UUID de actualización nuevo: con el antiguo, Windows Installer
+actualizaba la instalación por usuario (probado: la 2.5.8 para todo el equipo eliminó una
+2.5.7 por usuario y sus datos antes de que Jylos arrancara). Con el nuevo, la instalación
+antigua se queda. Al arrancar por primera vez,
 la versión nueva mueve los datos de la instalación antigua a `%APPDATA%\Jylos`
 (`LegacyDataMigration`) y después la desinstala en silencio (`LegacyWindowsInstall`,
 `msiexec /x`), solo si en la carpeta no queda nada del usuario. Los datos ya viven fuera
 de la carpeta de instalación, así que las actualizaciones y desinstalaciones posteriores
 no los tocan.
+
+Contrapartida: las instalaciones para todo el equipo de la 2.5.4 o anterior (UUID antiguo,
+datos ya en `%APPDATA%\Jylos`) tampoco se actualizan. Quien las tenga verá dos Jylos y
+tendrá que desinstalar el viejo a mano (necesita permisos de administrador, así que Jylos
+no puede hacerlo).
 
 Se probó instalar por usuario en `%LOCALAPPDATA%\Programs\Jylos` y no compila:
 `light.exe` falla la validación ICE64 (la carpeta intermedia `Programs` no está en la

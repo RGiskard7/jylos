@@ -57,7 +57,8 @@ format (`package-windows-exe.ps1` / `package-windows-msi.ps1` are thin wrappers)
   auto-selects JDK 21+ and bundled WiX — no manual `JAVA_HOME` or PATH edits.
 - Upgrades: installers carry a **stable `--win-upgrade-uuid`**, so a newer MSI/EXE
   upgrades the previous install instead of installing side by side. Never change
-  that UUID in `package-windows.ps1`.
+  that UUID in `package-windows.ps1`. It was changed once, on purpose, in 2.5.8: see
+  "Per-machine install" below.
 - The installers are **unsigned**: SmartScreen may warn on first run. For public
   releases, sign with `signtool` and a code-signing certificate.
 
@@ -70,12 +71,17 @@ jpackage generates for per-user installs deletes the whole install folder, and a
 upgrade runs the old uninstaller before the new version starts, so upgrading a per-user
 install lost that data.
 
-Windows Installer only upgrades an install of the same scope, so a per-machine install
-leaves an old per-user one in place. On its first start the new version moves the old
-install's data to `%APPDATA%\Jylos` (`LegacyDataMigration`) and then uninstalls it
+2.5.8 therefore uses a new upgrade UUID: with the old one, Windows Installer upgraded the
+per-user install (tested: the per-machine 2.5.8 removed a per-user 2.5.7 and its data
+before Jylos started). With the new one the old install stays. On its first start the new
+version moves the old install's data to `%APPDATA%\Jylos` (`LegacyDataMigration`) and then uninstalls it
 silently (`LegacyWindowsInstall`, `msiexec /x`), but only if nothing of the user's is
 left in the folder. Data now lives outside the install folder, so later upgrades and
 uninstalls never touch it.
+
+Trade-off: per-machine installs of 2.5.4 or earlier (old UUID, data already in
+`%APPDATA%\Jylos`) are not upgraded either. Their users see two Jylos entries and must
+uninstall the old one by hand (it needs admin rights, so Jylos cannot do it).
 
 A per-user install in `%LOCALAPPDATA%\Programs\Jylos` was tried and does not build:
 `light.exe` fails validation ICE64 (the intermediate `Programs` folder is not in the
