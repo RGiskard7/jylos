@@ -31,8 +31,17 @@ import com.example.jylos.AppDirectories.Os;
  */
 public final class LegacyWindowsInstall {
 
-    private static final String UNINSTALL_KEY = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall";
-    private static final Pattern PRODUCT_CODE = Pattern.compile("\\\\(\\{[0-9A-Fa-f-]{36}\\})\\s*$");
+    /**
+     * The upgrade code of every installer up to 2.5.7 (scripts/package-windows.ps1 changed
+     * it in 2.5.8). Windows Installer lists the products installed with it; the per-user
+     * ones are not in the registry's Uninstall keys, so they are looked up through its API.
+     */
+    private static final String LEGACY_UPGRADE_CODE = "{6F1D2F7E-9B3A-4C5D-8E2F-3A7B1C9D4E60}";
+    private static final String RELATED_PRODUCTS_QUERY = "$i = New-Object -ComObject WindowsInstaller.Installer; "
+            + "foreach ($p in $i.RelatedProducts('" + LEGACY_UPGRADE_CODE + "')) { "
+            + "$p + \"`t\" + $i.ProductInfo($p, 'AssignmentType') }";
+    /** {@code <product code><TAB><assignment type>}; 0 = per-user, 1 = per-machine. */
+    private static final Pattern RELATED_PRODUCT = Pattern.compile("(\\{[0-9A-Fa-f-]{36}\\})\\s+([01])");
     private static final Set<String> PROGRAM_ENTRIES = Set.of("app", "runtime", "logs", "cache", "plugins");
 
     private LegacyWindowsInstall() {
@@ -60,8 +69,12 @@ public final class LegacyWindowsInstall {
         }
         List<String> messages = new ArrayList<>();
         try {
-            for (String productCode : productCodes(run(List.of("reg", "query", UNINSTALL_KEY, "/s", "/f",
-                    env.appName(), "/d", "/e"), 30), env.appName())) {
+            List<String> productCodes = perUserProductCodes(run(List.of("powershell", "-NoProfile",
+                    "-NonInteractive", "-Command", RELATED_PRODUCTS_QUERY), 60));
+            if (productCodes.isEmpty()) {
+                messages.add("No old per-user install is registered with Windows Installer; leaving " + oldInstall);
+            }
+            for (String productCode : productCodes) {
                 run(List.of("msiexec", "/x", productCode, "/qn", "/norestart"), 300);
                 messages.add("Uninstalled the old per-user install " + productCode + " in " + oldInstall);
             }
@@ -74,25 +87,13 @@ public final class LegacyWindowsInstall {
         return messages;
     }
 
-    /**
-     * Product codes of the uninstall entries named exactly {@code appName} in the output of
-     * {@code reg query HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall /s /f <appName> /d /e}.
-     */
-    static List<String> productCodes(String regQueryOutput, String appName) {
+    /** Product codes of the related products installed for this user (assignment type 0). */
+    static List<String> perUserProductCodes(String relatedProducts) {
         List<String> codes = new ArrayList<>();
-        String currentCode = null;
-        for (String line : regQueryOutput.split("\\R")) {
-            if (line.startsWith("HKEY_")) {
-                Matcher matcher = PRODUCT_CODE.matcher(line);
-                // Only MSI installs are keyed by their product code.
-                currentCode = matcher.find() ? matcher.group(1) : null;
-                continue;
-            }
-            String[] fields = line.trim().split("\\s{2,}");
-            if (currentCode != null && fields.length == 3 && fields[0].equals("DisplayName")
-                    && fields[2].equals(appName)) {
-                codes.add(currentCode);
-                currentCode = null;
+        for (String line : relatedProducts.split("\\R")) {
+            Matcher matcher = RELATED_PRODUCT.matcher(line.trim());
+            if (matcher.matches() && matcher.group(2).equals("0")) {
+                codes.add(matcher.group(1));
             }
         }
         return codes;

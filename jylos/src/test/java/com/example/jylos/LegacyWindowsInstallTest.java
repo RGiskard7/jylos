@@ -18,32 +18,27 @@ class LegacyWindowsInstallTest {
     @TempDir
     Path tmp;
 
-    /** What `reg query ... /s /f Jylos /d /e` prints on a Spanish Windows. */
-    private static final String REG_OUTPUT = """
-
-            HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{0A1B2C3D-4E5F-6071-8293-A4B5C6D7E8F9}
-                DisplayName    REG_SZ    Jylos
-
-            HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\JylosHelper
-                DisplayName    REG_SZ    Jylos
-
-            HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{11111111-2222-3333-4444-555555555555}
-                DisplayName    REG_SZ    Jylos Companion
-
-            Fin de la búsqueda: 3 coincidencia(s) encontrada(s).
+    /**
+     * What the Windows Installer query prints: one related product per line, its product
+     * code and assignment type (0 = installed for this user, 1 = for the whole machine).
+     */
+    private static final String RELATED_PRODUCTS = """
+            {0A1B2C3D-4E5F-6071-8293-A4B5C6D7E8F9}	0
+            {11111111-2222-3333-4444-555555555555}	1
+            not a product line
             """;
 
     @Test
-    void findsOnlyMsiProductCodesOfEntriesNamedExactlyLikeTheApp() {
+    void uninstallsOnlyTheRelatedProductsInstalledForThisUser() {
         assertEquals(List.of("{0A1B2C3D-4E5F-6071-8293-A4B5C6D7E8F9}"),
-                LegacyWindowsInstall.productCodes(REG_OUTPUT, "Jylos"));
+                LegacyWindowsInstall.perUserProductCodes(RELATED_PRODUCTS));
     }
 
     @Test
-    void noEntriesMeansNothingToUninstall() {
-        assertEquals(List.of(), LegacyWindowsInstall.productCodes("", "Jylos"));
-        assertEquals(List.of(), LegacyWindowsInstall.productCodes(
-                "ERROR: The system was unable to find the specified registry key or value.", "Jylos"));
+    void noRelatedProductsMeansNothingToUninstall() {
+        assertEquals(List.of(), LegacyWindowsInstall.perUserProductCodes(""));
+        assertEquals(List.of(), LegacyWindowsInstall.perUserProductCodes(
+                "New-Object : Retrieving the COM class factory failed"));
     }
 
     private Path oldInstall() throws IOException {
