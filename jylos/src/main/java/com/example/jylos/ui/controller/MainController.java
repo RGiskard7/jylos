@@ -206,6 +206,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     @FXML
     private Label charCountLabel;
     @FXML
+    private HBox editorIndicatorsBox;
+    @FXML
+    private Label saveStateLabel;
+    @FXML
+    private Label editorModeLabel;
+    @FXML
     private Separator statsSeparator;
     @FXML
     private Separator wordCharSeparator;
@@ -586,6 +592,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
         statusBarSupport.wire(storageLabel, wordCountLabel, charCountLabel, statsSeparator,
                 wordCharSeparator, prefs, this::getString);
+        statusBarSupport.wireEditorIndicators(saveStateLabel, editorModeLabel, editorIndicatorsBox,
+                this::applyEditorMode);
         java.util.function.Supplier<javafx.scene.Scene> sceneSupplier =
                 () -> mainSplitPane != null ? mainSplitPane.getScene() : null;
         gitController.wire(gitSeparator, gitBar, gitInitLabel, gitRemoteLabel, gitChangesLabel,
@@ -1148,6 +1156,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (editorTabs != null) {
             editorTabs.setDirty(note.getId(), dirty);
         }
+        refreshEditorIndicators();
         if (!dirty) {
             pendingModifiedNoteId = null;
             noteModifiedDebounce.stop();
@@ -1261,6 +1270,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         applyEditorControlsPresentation();
         applyUiZoom();
         applyEditorZoom();
+        refreshEditorIndicators();
         Platform.runLater(this::applyThemeAndRefreshDependents);
     }
 
@@ -1994,6 +2004,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             editorController.setReadOnlyView(currentViewMode == UiLayout.ViewMode.PREVIEW_ONLY);
             editorController.updateReadingModeControl(currentViewMode == UiLayout.ViewMode.EDITOR_ONLY);
         }
+        refreshEditorIndicators();
     }
 
     private void applyEditorControlsPresentation() {
@@ -2028,6 +2039,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             applyViewMode();
         }
         editorController.toggleLivePreview();
+        refreshEditorIndicators();
     }
 
     @FXML
@@ -2176,6 +2188,32 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     /** Delegates note word/character count display to {@link StatusBarSupport}. */
     private void updateNoteStats(Note note) {
         statusBarSupport.updateNoteStats(note);
+        refreshEditorIndicators();
+    }
+
+    /** Shows the open note's save state and the editor mode in the status bar. */
+    private void refreshEditorIndicators() {
+        boolean livePreview = editorController == null || editorController.isLivePreviewEnabled();
+        statusBarSupport.updateEditorIndicators(getCurrentNote() != null, isModified(),
+                StatusBarSupport.EditorMode.of(currentViewMode, livePreview), autosaveEnabled, autosaveIdleMs);
+    }
+
+    /** Switches the editor to the mode picked from the status bar. */
+    private void applyEditorMode(StatusBarSupport.EditorMode mode) {
+        if (editorController == null || mode == null) {
+            return;
+        }
+        switch (mode) {
+            case READING -> currentViewMode = UiLayout.ViewMode.PREVIEW_ONLY;
+            case SPLIT -> currentViewMode = UiLayout.ViewMode.SPLIT;
+            case LIVE_PREVIEW, SOURCE -> {
+                currentViewMode = UiLayout.ViewMode.EDITOR_ONLY;
+                if (editorController.isLivePreviewEnabled() != (mode == StatusBarSupport.EditorMode.LIVE_PREVIEW)) {
+                    editorController.toggleLivePreview();
+                }
+            }
+        }
+        applyViewMode();
     }
 
     /** Updates the storage-type indicator label in the status bar. */

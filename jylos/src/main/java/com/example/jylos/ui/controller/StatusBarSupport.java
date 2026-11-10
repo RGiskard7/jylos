@@ -2,13 +2,20 @@ package com.example.jylos.ui.controller;
 
 import java.io.File;
 import java.text.MessageFormat;
+import java.util.EnumMap;
+import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.prefs.Preferences;
 
 import com.example.jylos.data.models.Note;
 
+import javafx.geometry.Side;
 import javafx.scene.Node;
+import javafx.scene.control.CheckMenuItem;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.Tooltip;
 
 /**
  * Status-bar presentation: the live word/character counts for the open note and the
@@ -37,6 +44,100 @@ final class StatusBarSupport {
         this.wordCharSeparator = wordCharSeparator;
         this.prefs = prefs;
         this.i18n = i18n;
+    }
+
+    /** What the editor shows: the four modes a user can pick from the status bar. */
+    enum EditorMode {
+        LIVE_PREVIEW("status.mode.live_preview"),
+        SOURCE("status.mode.source"),
+        READING("status.mode.reading"),
+        SPLIT("status.mode.split");
+
+        final String labelKey;
+
+        EditorMode(String labelKey) {
+            this.labelKey = labelKey;
+        }
+
+        /** Reading and split render the note, so the editing preference only matters in the editor. */
+        static EditorMode of(UiLayout.ViewMode viewMode, boolean livePreview) {
+            if (viewMode == UiLayout.ViewMode.PREVIEW_ONLY) {
+                return READING;
+            }
+            if (viewMode == UiLayout.ViewMode.SPLIT) {
+                return SPLIT;
+            }
+            return livePreview ? LIVE_PREVIEW : SOURCE;
+        }
+    }
+
+    private Label saveStateLabel;
+    private Label editorModeLabel;
+    private Node editorIndicatorsGroup;
+    private final ContextMenu editorModeMenu = new ContextMenu();
+    private final Map<EditorMode, CheckMenuItem> editorModeItems = new EnumMap<>(EditorMode.class);
+
+    /**
+     * Wires the save-state and editor-mode labels. Both stay hidden until a note is open;
+     * clicking the mode label opens a menu that reports the picked mode to {@code onModeChosen}.
+     */
+    void wireEditorIndicators(Label saveStateLabel, Label editorModeLabel, Node group,
+            Consumer<EditorMode> onModeChosen) {
+        this.saveStateLabel = saveStateLabel;
+        this.editorModeLabel = editorModeLabel;
+        this.editorIndicatorsGroup = group;
+        editorModeMenu.getItems().clear();
+        editorModeItems.clear();
+        for (EditorMode mode : EditorMode.values()) {
+            CheckMenuItem item = new CheckMenuItem(getString(mode.labelKey));
+            item.setOnAction(e -> {
+                if (onModeChosen != null) {
+                    onModeChosen.accept(mode);
+                }
+            });
+            editorModeItems.put(mode, item);
+            editorModeMenu.getItems().add(item);
+        }
+        if (editorModeLabel != null) {
+            editorModeLabel.setTooltip(new Tooltip(getString("status.mode.tooltip")));
+            editorModeLabel.setOnMouseClicked(e -> editorModeMenu.show(editorModeLabel, Side.TOP, 0, 0));
+        }
+        if (saveStateLabel != null) {
+            saveStateLabel.setTooltip(new Tooltip());
+        }
+        setShown(saveStateLabel, false);
+        setShown(editorModeLabel, false);
+        setShown(group, false);
+    }
+
+    /** Names the save state ("Saved"/"Unsaved", with the autosave rule as tooltip) and the editor mode. */
+    void updateEditorIndicators(boolean noteOpen, boolean modified, EditorMode mode, boolean autosaveEnabled,
+            int autosaveIdleMs) {
+        setShown(saveStateLabel, noteOpen);
+        setShown(editorModeLabel, noteOpen);
+        setShown(editorIndicatorsGroup, noteOpen);
+        if (!noteOpen) {
+            return;
+        }
+        if (saveStateLabel != null) {
+            saveStateLabel.setText(getString(modified ? "status.save.unsaved" : "status.save.saved"));
+            saveStateLabel.getStyleClass().removeAll("status-save-dirty", "status-save-clean");
+            saveStateLabel.getStyleClass().add(modified ? "status-save-dirty" : "status-save-clean");
+            if (saveStateLabel.getTooltip() != null) {
+                saveStateLabel.getTooltip().setText(autosaveEnabled
+                        ? MessageFormat.format(getString("status.save.autosave_on"), autosaveIdleMs / 1000.0)
+                        : getString("status.save.autosave_off"));
+            }
+        }
+        if (editorModeLabel != null && mode != null) {
+            editorModeLabel.setText(getString(mode.labelKey));
+        }
+        editorModeItems.forEach((itemMode, item) -> item.setSelected(itemMode == mode));
+    }
+
+    /** The menu the mode label opens (package-private for tests). */
+    ContextMenu editorModeMenu() {
+        return editorModeMenu;
     }
 
     /** Updates the status-bar word/character counts for the current note (or hides them). */

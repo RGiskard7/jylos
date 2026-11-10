@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- **Autoguardado y modo del editor, visibles en la barra de estado.** Varios usuarios no sabían que Jylos guarda solo ni que el editor tiene vista previa en vivo, porque lo único visible era un punto de color junto al título. Con una nota abierta, la barra de estado muestra a la derecha "Guardado" o "Sin guardar" (al pasar el ratón explica cada cuánto se autoguarda, o que está desactivado y dónde activarlo) y el modo del editor: vista previa en vivo, fuente, lectura o lectura enlazada. Al hacer clic en el modo aparece un menú para cambiarlo.
+
+- **Barra de estado con títulos largos.** Al abrir una nota con un título muy largo, el mensaje "Nota cargada: …" ocupaba toda la barra de estado y el resto (bóveda, número de notas, palabras, caracteres) quedaba reducido a "…". Ahora el mensaje solo usa el espacio que sobra y es él el que se recorta.
+
 - **Filas vacías que se resaltaban y barra superior más baja.** Las listas y los árboles (carpetas, notas, recientes, favoritas, papelera, diálogos) rellenan su altura con filas vacías, y al pasar el ratón por ellas se resaltaban como si fueran una nota o una carpeta; ahora solo reaccionan las filas con contenido, en los dos temas. La barra de botones superior ocupa 8 px menos de alto, y la barra de menús de Windows y Linux, 2 px menos. El botón de la barra lateral que muestra las etiquetas usa ahora el icono de etiqueta en lugar de `#`, que se confundía con el `#` de la barra superior, que sirve para crear una etiqueta.
 
 ## [2.5.8] - 2026-11-04

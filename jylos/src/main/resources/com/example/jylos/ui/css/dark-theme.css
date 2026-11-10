@@ -2772,6 +2772,20 @@
     -fx-background-color: -fx-hover-bg;
     -fx-text-fill: -fx-accent;
 }
+/* Status-bar labels that open a menu on click (editor mode). */
+.status-clickable {
+    -fx-cursor: hand;
+    -fx-padding: 1 6;
+    -fx-background-radius: 4;
+}
+.status-clickable:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-accent;
+}
+/* Save state: same colours as the dot next to the note title. */
+.status-text-muted.status-save-dirty {
+    -fx-text-fill: -fx-warning;
+}
 
 /* ── ComboBox / dropdown legibility (theme-variable driven) ───────── */
 .combo-box .list-cell {

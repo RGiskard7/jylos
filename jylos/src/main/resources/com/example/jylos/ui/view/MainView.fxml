@@ -146,7 +146,7 @@
             <!-- Flexible filler: takes remaining width and truncates long messages
                  (e.g. git errors) with an ellipsis instead of squeezing the git bar. -->
             <Label fx:id="statusLabel" text="Ready" styleClass="status-text"
-                   maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                   minWidth="0" prefWidth="0" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
             <Label fx:id="updateIndicator" text="!" styleClass="update-indicator"
                    visible="false" managed="false" onMouseClicked="#handleUpdateIndicatorClick"/>
 
@@ -157,6 +157,14 @@
             <Label fx:id="wordCountLabel" text="" styleClass="status-text-muted" visible="false" managed="false"/>
             <Separator fx:id="wordCharSeparator" orientation="VERTICAL" styleClass="status-separator" visible="false" managed="false"/>
             <Label fx:id="charCountLabel" text="" styleClass="status-text-muted" visible="false" managed="false"/>
+            <!-- Save state and editor mode of the open note (hidden without one). Users did not
+                 find autosave or Live Preview: these name them, and the mode label switches it. -->
+            <HBox fx:id="editorIndicatorsBox" spacing="10" alignment="CENTER_LEFT" visible="false" managed="false">
+                <Separator orientation="VERTICAL" styleClass="status-separator"/>
+                <Label fx:id="saveStateLabel" styleClass="status-text-muted"/>
+                <Separator orientation="VERTICAL" styleClass="status-separator"/>
+                <Label fx:id="editorModeLabel" styleClass="status-text-muted, status-clickable"/>
+            </HBox>
         </HBox>
     </bottom>
 </BorderPane>

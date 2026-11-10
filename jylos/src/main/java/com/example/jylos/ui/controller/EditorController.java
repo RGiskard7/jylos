@@ -584,6 +584,11 @@ public class EditorController {
         }
     }
 
+    /** Whether the editor renders Markdown inline (Live Preview) rather than showing raw source. */
+    public boolean isLivePreviewEnabled() {
+        return noteContentArea == null || noteContentArea.isLivePreviewEnabled();
+    }
+
     /** Toggles between Markdown source and source-backed Live Preview. */
     public void toggleLivePreview() {
         boolean enabled = noteContentArea == null || !noteContentArea.isLivePreviewEnabled();
