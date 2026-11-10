@@ -126,10 +126,11 @@
         </Menu>
     </MenuBar>
 
-    <!-- Toolbar -->
+    <!-- Toolbar. Vertical padding kept small (4 + 28px buttons + 4): users found the
+         top bar too tall. Left/right 16 stays: the sidebar nav row aligns to it. -->
     <HBox fx:id="toolbarHBox" styleClass="toolbar" spacing="6" alignment="CENTER_LEFT">
         <padding>
-            <Insets top="8" right="16" bottom="8" left="16"/>
+            <Insets top="4" right="16" bottom="4" left="16"/>
         </padding>
 
         <Button fx:id="graphViewBtn" onAction="#handleGraphView" styleClass="toolbar-btn">

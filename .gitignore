@@ -149,3 +149,4 @@ testing-kit/
 # own .git and its own GitHub remote) — same reasoning as testing-kit/ above,
 # never track it as a gitlink of this repo.
 jylos-mobile/
+recreation/

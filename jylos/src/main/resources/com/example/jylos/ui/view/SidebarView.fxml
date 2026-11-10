@@ -23,7 +23,8 @@
         </Button>
         <Button fx:id="navTagsBtn" onAction="#handleNavTags" styleClass="sidebar-nav-btn">
             <tooltip><Tooltip text="%tab.tags"/></tooltip>
-            <graphic><FontIcon iconLiteral="fth-hash" iconSize="16" styleClass="feather-icon"/></graphic>
+            <!-- fth-tag, not fth-hash: the top toolbar's "#" creates a tag; this one lists them. -->
+            <graphic><FontIcon iconLiteral="fth-tag" iconSize="16" styleClass="feather-icon"/></graphic>
         </Button>
         <Button fx:id="navRecentBtn" onAction="#handleNavRecent" styleClass="sidebar-nav-btn">
             <tooltip><Tooltip text="%tab.recent"/></tooltip>

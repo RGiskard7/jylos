@@ -118,8 +118,8 @@
 .menu-bar {
     -fx-background-color: -fx-header-bg;
     background-color: -fx-header-bg;
-    -fx-padding: 2 8;
-    padding: 2px 8px;
+    -fx-padding: 1 6;
+    padding: 1px 6px;
 }
 
 .menu-bar .menu {
@@ -598,8 +598,8 @@
     color: -fx-accent-contrast;
 }
 
-.tree-cell:hover,
-.list-cell:hover {
+.tree-cell:filled:hover,
+.list-cell:filled:hover {
     -fx-background-color: -fx-hover-bg;
     background-color: -fx-hover-bg;
 }
@@ -840,7 +840,7 @@
     background-color: -fx-base-bg;
 }
 
-.sort-combo .list-view .list-cell:hover {
+.sort-combo .list-view .list-cell:filled:hover {
     -fx-background-color: -fx-hover-bg;
     background-color: -fx-hover-bg;
 }
@@ -871,7 +871,7 @@
     padding: 8px 12px;
 }
 
-.combo-box-popup .list-view .list-cell:hover {
+.combo-box-popup .list-view .list-cell:filled:hover {
     -fx-background-color: -fx-hover-bg;
     background-color: -fx-hover-bg;
 }
@@ -2538,9 +2538,9 @@
     -fx-text-fill: -fx-text-main;
 }
 
-.sidebar-tree .tree-cell:hover,
-.sidebar-list .list-cell:hover,
-.sidebar-list .tree-cell:hover {
+.sidebar-tree .tree-cell:filled:hover,
+.sidebar-list .list-cell:filled:hover,
+.sidebar-list .tree-cell:filled:hover {
     -fx-background-color: -fx-hover-bg;
 }
 
@@ -2761,7 +2761,7 @@
     -fx-text-fill: white;
 }
 
-.autocomplete-list .list-cell:hover {
+.autocomplete-list .list-cell:filled:hover {
     -fx-background-color: -fx-hover-bg;
 }
 
@@ -3122,7 +3122,7 @@
     -fx-background-radius: 8;
     -fx-padding: 2;
 }
-.overlay-list-view .list-cell:hover {
+.overlay-list-view .list-cell:filled:hover {
     -fx-background-color: -fx-hover-bg;
 }
 .overlay-list-view .list-cell:selected {
@@ -3252,7 +3252,7 @@
     -fx-background-color: transparent;
     -fx-text-fill: -fx-text-main;
 }
-.dialog-pane .list-cell:hover {
+.dialog-pane .list-cell:filled:hover {
     -fx-background-color: -fx-hover-bg;
 }
 .dialog-pane .list-cell:selected {

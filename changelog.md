@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- **Filas vacías que se resaltaban y barra superior más baja.** Las listas y los árboles (carpetas, notas, recientes, favoritas, papelera, diálogos) rellenan su altura con filas vacías, y al pasar el ratón por ellas se resaltaban como si fueran una nota o una carpeta; ahora solo reaccionan las filas con contenido, en los dos temas. La barra de botones superior ocupa 8 px menos de alto, y la barra de menús de Windows y Linux, 2 px menos. El botón de la barra lateral que muestra las etiquetas usa ahora el icono de etiqueta en lugar de `#`, que se confundía con el `#` de la barra superior, que sirve para crear una etiqueta.
+
 ## [2.5.8] - 2026-11-04
 
 - **Java 21 en todos los scripts.** Jylos requiere Java 21, pero varios scripts seguían en Java 17: `build_all` instalaba Java 17 si no encontraba Java (con lo que luego no compilaba), los lanzadores y empaquetadores pedían "Java 17 o superior", y `build-plugins.ps1` usaba un JDK 17 antes que uno 21 si estaban los dos. Ahora todos piden e instalan Java 21. La web y los README dejan de ofrecer el uber-JAR para Mac con Intel o "cualquier plataforma": solo incluye JavaFX para Linux, así que fuera de Linux x64 la opción es JBang, que añade el JavaFX de cada sistema.
