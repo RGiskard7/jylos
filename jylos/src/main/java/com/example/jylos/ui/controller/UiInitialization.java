@@ -154,12 +154,6 @@ class UiInitialization {
 
         toolbarController.setResponsiveState(showSearch, showLayoutToggles, showFileActions);
 
-        toolbarController.getSidebarToggleBtn().setVisible(showLayoutToggles);
-        toolbarController.getSidebarToggleBtn().setManaged(showLayoutToggles);
-        toolbarController.getNotesPanelToggleBtn().setVisible(showLayoutToggles);
-        toolbarController.getNotesPanelToggleBtn().setManaged(showLayoutToggles);
-        toolbarController.getLayoutSwitchBtn().setVisible(showLayoutToggles);
-        toolbarController.getLayoutSwitchBtn().setManaged(showLayoutToggles);
 
         toolbarController.getToolbarOverflowBtn().getItems().clear();
         boolean needsOverflow = !showFileActions || !showSearch || !showLayoutToggles;

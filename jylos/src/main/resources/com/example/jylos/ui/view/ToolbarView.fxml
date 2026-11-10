@@ -198,12 +198,18 @@
                 <FontIcon iconLiteral="fth-list" styleClass="feather-icon"/>
             </graphic>
         </ToggleButton>
-        <Button fx:id="layoutSwitchBtn" onAction="#handleViewLayoutSwitch" styleClass="toolbar-btn">
+        <!-- Layout: Explorer (one tree), classic columns or classic stacked. -->
+        <MenuButton fx:id="layoutSwitchBtn" styleClass="toolbar-btn, layout-menu-btn">
             <tooltip><Tooltip text="%action.switch_layout"/></tooltip>
             <graphic>
                 <FontIcon iconLiteral="fth-layout" styleClass="feather-icon"/>
             </graphic>
-        </Button>
+            <items>
+                <RadioMenuItem fx:id="layoutExplorerItem" text="%layout.mode.explorer" onAction="#handleLayoutExplorer"/>
+                <RadioMenuItem fx:id="layoutColumnsItem" text="%layout.mode.columns" onAction="#handleLayoutColumns"/>
+                <RadioMenuItem fx:id="layoutStackedItem" text="%layout.mode.stacked" onAction="#handleLayoutStacked"/>
+            </items>
+        </MenuButton>
         <ToggleButton fx:id="rightPanelToggleBtn" onAction="#handleToggleRightPanel" styleClass="modern-toggle-btn">
             <tooltip><Tooltip text="%tooltip.toggle_right_panel"/></tooltip>
             <graphic>

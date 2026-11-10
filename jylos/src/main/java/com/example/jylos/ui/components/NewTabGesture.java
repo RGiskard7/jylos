@@ -1,4 +1,4 @@
-package com.example.jylos.ui.controller;
+package com.example.jylos.ui.components;
 
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
@@ -7,12 +7,12 @@ import javafx.scene.input.MouseEvent;
  * The mouse gestures that open a note in a new editor tab instead of the current one,
  * as in VS Code and Obsidian: Cmd+click on macOS / Ctrl+click elsewhere, and middle click.
  */
-final class NewTabGestureSupport {
+public final class NewTabGesture {
 
-    private NewTabGestureSupport() {
+    private NewTabGesture() {
     }
 
-    static boolean opensInNewTab(MouseEvent event) {
+    public static boolean opensInNewTab(MouseEvent event) {
         if (event == null) {
             return false;
         }

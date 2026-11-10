@@ -24,6 +24,7 @@ public final class UiPreferencesStore {
     public static final String CONTENT_FONT_SIZE_KEY = "ui.content.font_size";
     public static final String SHOW_FOLDER_NOTE_COUNTS_KEY = "ui.sidebar.show_folder_note_counts";
     public static final String ALWAYS_OPEN_IN_NEW_TAB_KEY = "ui.tabs.always_new_tab";
+    public static final String LAYOUT_MODE_KEY = "ui.layout.mode";
     public static final String SPLIT_MAIN_KEY = "ui.split.main";
     public static final String SPLIT_CONTENT_KEY = "ui.split.content";
     public static final double DEFAULT_SPLIT_MAIN = 0.22;
@@ -209,5 +210,34 @@ public final class UiPreferencesStore {
 
     public static int clampContentFontSize(int size) {
         return Math.max(MIN_CONTENT_FONT_SIZE, Math.min(MAX_CONTENT_FONT_SIZE, size));
+    }
+
+    /**
+     * Decides the layout on the first start of a version that has the setting, and stores
+     * it, so the guess happens once. Call it before anything else writes preferences: a node
+     * that already holds keys means Jylos ran before (an upgrade), an empty one a new install.
+     */
+    public LayoutMode initLayoutMode(Preferences prefs) {
+        String stored = prefs.get(LAYOUT_MODE_KEY, null);
+        boolean existingInstall;
+        try {
+            existingInstall = prefs.keys().length > 0;
+        } catch (java.util.prefs.BackingStoreException e) {
+            existingInstall = true;
+        }
+        LayoutMode mode = LayoutMode.resolveDefault(stored, existingInstall);
+        if (!mode.key().equals(stored)) {
+            prefs.put(LAYOUT_MODE_KEY, mode.key());
+        }
+        return mode;
+    }
+
+    /** The stored layout; classic columns if none was stored (see {@link #initLayoutMode}). */
+    public LayoutMode loadLayoutMode(Preferences prefs) {
+        return LayoutMode.resolveDefault(prefs.get(LAYOUT_MODE_KEY, null), true);
+    }
+
+    public void saveLayoutMode(Preferences prefs, LayoutMode mode) {
+        prefs.put(LAYOUT_MODE_KEY, (mode != null ? mode : LayoutMode.CLASSIC_COLUMNS).key());
     }
 }

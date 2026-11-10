@@ -56,6 +56,8 @@ public class Main extends Application {
             ensureDirectoriesExist();
 
             Preferences prefs = Preferences.userNodeForPackage(MainController.class);
+            // Before anything else writes preferences: an empty node means a new install.
+            new com.example.jylos.ui.preferences.UiPreferencesStore().initLayoutMode(prefs);
             String lang = prefs.get("language", Locale.getDefault().getLanguage());
             Locale locale = Locale.forLanguageTag(lang);
             Locale.setDefault(locale);

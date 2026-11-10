@@ -48,6 +48,7 @@ import com.example.jylos.ui.components.CommandPalette;
 import com.example.jylos.ui.components.EditorTabsModel;
 import com.example.jylos.ui.components.PluginManagerDialog;
 import com.example.jylos.ui.components.QuickSwitcher;
+import com.example.jylos.ui.preferences.LayoutMode;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
 import com.example.jylos.ui.theme.CssSnippetCatalog;
 import com.example.jylos.ui.theme.SystemThemeMonitor;
@@ -142,6 +143,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private ListView<Note> notesListView;
 
     private boolean isStackedLayout = false;
+    /** Current layout (Explorer, classic columns or classic stacked), stored in the preferences. */
+    private LayoutMode layoutMode = LayoutMode.CLASSIC_COLUMNS;
+    /** Explorer layout only: whether the notes panel is open to show tag or search results. */
+    private boolean resultsPanelShown = false;
     private final CommandRouting commandRouting = new CommandRouting();
     private final Map<SystemActionEvent.ActionType, Runnable> systemActionHandlers = new EnumMap<>(
             SystemActionEvent.ActionType.class);
@@ -406,6 +411,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                         () -> handleDarkTheme(null),
                         () -> handleSystemTheme(null),
                         () -> handleToggleRightPanel(null));
+                toolbarController.setLayoutModeAction(this::setLayoutMode);
             }
             initializeCommandRouting();
             initializeSystemActionHandlers();
@@ -427,6 +433,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             applyUiPreferencesFromStore();
             initializeThemeMenu();
             installSystemThemeFocusRefresh();
+            applyLayoutMode(uiPreferences.loadLayoutMode(prefs), false);
             setupSplitPanePersistence();
 
             refreshBackendSessionViews(false);
@@ -551,12 +558,18 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                     noteCreationSupport::createNewCanvasInFolder,
                     this::updateStatus);
             sidebarController.setOpenInNewTabAction(this::openNoteInNewTab);
+            sidebarController.setExplorerOpenAction(this::loadNoteInEditor);
+            sidebarController.setExplorerFolderContextAction(folder -> currentFolder = folder);
         }
         if (notesListController != null) {
             notesListController.wire(eventBus, noteService, tagService, folderService, resources,
                     this::loadNoteInEditor, this::exportNote, this::toggleNotePrivacy,
                     this::handleUiNotesLoaded, this::updateStatus, this::getNoteContextMenuItems);
             notesListController.setOpenInNewTabAction(this::openNoteInNewTab);
+            notesListController.setCloseResultsAction(this::closeResultsPanel);
+            if (sidebarController != null) {
+                sidebarController.setExplorerNoteMenu(notesListController::noteContextMenu);
+            }
             notesPanel = notesListController.getNotesPanel();
             sortComboBox = notesListController.getSortComboBox();
             notesListView = notesListController.getNotesListView();
@@ -1099,6 +1112,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (notesListController != null) {
             notesListController.loadNotesForTag(tag.getTitle());
         }
+        showResultsPanel();
     }
 
     void handleUiNoteOpenRequest(Note note) {
@@ -2143,6 +2157,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             if (folder == null) {
                 return;
             }
+            if (layoutMode.isExplorer()) {
+                // The Explorer tree browses folders itself; the notes panel only shows results.
+                currentFolder = folder;
+                return;
+            }
             currentFolder = folder;
             currentTag = null;
             currentFilterType = "folder";
@@ -2315,6 +2334,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             editorTabs.open(activeNote.getId(), activeNote.getTitle(), target);
             editorTabs.setDirty(activeNote.getId(), false);
         }
+        if (sidebarController != null) {
+            sidebarController.setExplorerActiveNote(activeNote.getId());
+        }
 
         publishNoteSelected(activeNote);
         updateNoteMetadata(activeNote);
@@ -2396,6 +2418,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     /** Resets the editor to the empty state (no note open). */
     private void clearEditorToEmpty() {
+        if (sidebarController != null) {
+            sidebarController.setExplorerActiveNote(null);
+        }
         if (editorController != null) {
             editorController.loadNote(null);
             editorController.clearPreview();
@@ -2434,6 +2459,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (notesListController != null) {
             notesListController.loadNotesForTag(tagName);
         }
+        showResultsPanel();
     }
 
     /** Sets the filter type to "search" and delegates full-text search to {@link NotesListController}. */
@@ -2441,6 +2467,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (notesListController != null) {
             currentFilterType = "search";
             notesListController.performSearch(searchText);
+            if (searchText != null && !searchText.isBlank()) {
+                showResultsPanel();
+            }
         }
     }
 
@@ -3039,6 +3068,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     @FXML
     void handleToggleNotesPanel(ActionEvent event) {
+        if (layoutMode.isExplorer()) {
+            closeResultsPanel();
+            return;
+        }
         navigationCommand.toggleNotesPanel(
                 isStackedLayout,
                 notesPanel,
@@ -3121,17 +3154,68 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         uiPreferences.saveContentFontSize(prefs, (int) Math.round(editorFontSize));
     }
 
+    /** Layout command and menu: moves on to the next layout. */
     @FXML
     void handleViewLayoutSwitch(ActionEvent event) {
-        isStackedLayout = navigationCommand.switchLayout(
-                isStackedLayout,
-                mainSplitPane,
-                contentSplitPane,
-                navSplitPane,
-                sidebarController.getSidebarPane(),
-                notesPanel,
-                editor,
-                toolbarController);
+        setLayoutMode(layoutMode.next());
+    }
+
+    /** Switches to {@code mode}, stores it and says so in the status bar. */
+    void setLayoutMode(LayoutMode mode) {
+        if (mode == null) {
+            return;
+        }
+        uiPreferences.saveLayoutMode(prefs, mode);
+        applyLayoutMode(mode, false);
+        updateStatus(getString(switch (mode) {
+            case EXPLORER -> "status.layout_explorer";
+            case CLASSIC_STACKED -> "status.layout_stacked";
+            case CLASSIC_COLUMNS -> "status.layout_column";
+        }));
+    }
+
+    /** Rearranges the window for {@code mode}; in the Explorer, with or without the results panel. */
+    private void applyLayoutMode(LayoutMode mode, boolean showResults) {
+        layoutMode = mode != null ? mode : LayoutMode.CLASSIC_COLUMNS;
+        isStackedLayout = layoutMode.isStacked();
+        resultsPanelShown = layoutMode.isExplorer() && showResults;
+        if (layoutMode.isExplorer() && notesListController != null && notesListController.isGridViewActive()
+                && eventBus != null) {
+            // Results are a list; the grid belongs to browsing a folder.
+            eventBus.publish(new SystemActionEvent(SystemActionEvent.ActionType.LIST_VIEW));
+        }
+        navigationCommand.arrangeLayout(layoutMode, resultsPanelShown, mainSplitPane, contentSplitPane,
+                navSplitPane, sidebarController != null ? sidebarController.getSidebarPane() : null,
+                notesPanel, editor);
+        if (sidebarController != null) {
+            sidebarController.setExplorerMode(layoutMode.isExplorer());
+        }
+        if (notesListController != null) {
+            notesListController.setResultsPanelMode(layoutMode.isExplorer());
+        }
+        if (toolbarController != null) {
+            toolbarController.showLayoutMode(layoutMode);
+            if (toolbarController.getSidebarToggleBtn() != null) {
+                toolbarController.getSidebarToggleBtn().setSelected(true);
+            }
+            if (toolbarController.getNotesPanelToggleBtn() != null) {
+                toolbarController.getNotesPanelToggleBtn().setSelected(true);
+            }
+        }
+    }
+
+    /** Explorer layout: opens the notes panel next to the editor to show tag or search results. */
+    private void showResultsPanel() {
+        if (layoutMode.isExplorer() && !resultsPanelShown) {
+            applyLayoutMode(LayoutMode.EXPLORER, true);
+        }
+    }
+
+    /** Explorer layout: closes the results panel. */
+    void closeResultsPanel() {
+        if (layoutMode.isExplorer() && resultsPanelShown) {
+            applyLayoutMode(LayoutMode.EXPLORER, false);
+        }
     }
 
     @FXML
@@ -3434,7 +3518,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 currentUiPrefs,
                 themes,
                 cssSnippetCatalog,
-                enabledSnippets);
+                enabledSnippets,
+                layoutMode);
         if (result.isEmpty()) {
             return;
         }
@@ -3457,6 +3542,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         applyUiPreferencesFromStore();
         updateThemeMenuSelection();
         syncSystemThemeMonitoring();
+        if (values.layoutMode() != null && values.layoutMode() != layoutMode) {
+            setLayoutMode(values.layoutMode());
+        }
         updateStatus(getString("status.preferences_saved"));
     }
 

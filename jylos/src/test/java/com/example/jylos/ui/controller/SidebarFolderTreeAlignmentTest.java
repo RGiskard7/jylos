@@ -3,7 +3,6 @@ package com.example.jylos.ui.controller;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.lang.reflect.Method;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -32,7 +31,7 @@ import javafx.stage.Stage;
  * disclosure node" (javafx-controls 23.0.2 source). Left to JavaFX's own default arrow,
  * whichever rows render before the first expandable item gets measured use the stale
  * 18px offset while later rows use the corrected, larger one — siblings at the same
- * depth end up indented differently. {@code SidebarController.buildFixedSizeDisclosureArrow()}
+ * depth end up indented differently. {@code TreeDisclosureArrow.create()}
  * fixes this by giving every cell a custom arrow locked at exactly 18px (matching the
  * fallback exactly, not merely staying under it — a branch row uses this arrow's own
  * real measured width while a leaf row uses the cache, so the two must land on the
@@ -268,13 +267,7 @@ class SidebarFolderTreeAlignmentTest {
     }
 
     private static StackPane invokeBuildFixedSizeDisclosureArrow() {
-        try {
-            Method m = SidebarController.class.getDeclaredMethod("buildFixedSizeDisclosureArrow");
-            m.setAccessible(true);
-            return (StackPane) m.invoke(null);
-        } catch (ReflectiveOperationException e) {
-            throw new RuntimeException(e);
-        }
+        return com.example.jylos.ui.components.TreeDisclosureArrow.create();
     }
 
     /** Walks the tree's real rendered cells looking for the graphic Label with this text,

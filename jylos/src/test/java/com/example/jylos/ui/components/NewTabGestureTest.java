@@ -1,4 +1,4 @@
-package com.example.jylos.ui.controller;
+package com.example.jylos.ui.components;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -9,21 +9,21 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 
 /** Which clicks open a note in a new tab: Cmd/Ctrl+click (the platform shortcut) and middle click. */
-class NewTabGestureSupportTest {
+class NewTabGestureTest {
 
     @Test
     void shortcutClickAndMiddleClickOpenANewTab() {
-        assertTrue(NewTabGestureSupport.opensInNewTab(click(MouseButton.PRIMARY, true)));
-        assertTrue(NewTabGestureSupport.opensInNewTab(click(MouseButton.MIDDLE, false)));
+        assertTrue(NewTabGesture.opensInNewTab(click(MouseButton.PRIMARY, true)));
+        assertTrue(NewTabGesture.opensInNewTab(click(MouseButton.MIDDLE, false)));
     }
 
     @Test
     void plainAndSecondaryClicksDoNot() {
-        assertFalse(NewTabGestureSupport.opensInNewTab(click(MouseButton.PRIMARY, false)));
-        assertFalse(NewTabGestureSupport.opensInNewTab(click(MouseButton.SECONDARY, false)));
+        assertFalse(NewTabGesture.opensInNewTab(click(MouseButton.PRIMARY, false)));
+        assertFalse(NewTabGesture.opensInNewTab(click(MouseButton.SECONDARY, false)));
         // Cmd/Ctrl + right click is a context-menu request, not "open".
-        assertFalse(NewTabGestureSupport.opensInNewTab(click(MouseButton.SECONDARY, true)));
-        assertFalse(NewTabGestureSupport.opensInNewTab(null));
+        assertFalse(NewTabGesture.opensInNewTab(click(MouseButton.SECONDARY, true)));
+        assertFalse(NewTabGesture.opensInNewTab(null));
     }
 
     /** {@code shortcut} sets the platform shortcut modifier (Cmd on macOS, Ctrl elsewhere). */

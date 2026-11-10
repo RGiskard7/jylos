@@ -57,7 +57,19 @@ public class ToolbarController {
     @FXML
     private ToggleButton notesPanelToggleBtn;
     @FXML
-    private Button layoutSwitchBtn;
+    private MenuButton layoutSwitchBtn;
+    @FXML
+    private RadioMenuItem layoutExplorerItem;
+    @FXML
+    private RadioMenuItem layoutColumnsItem;
+    @FXML
+    private RadioMenuItem layoutStackedItem;
+    private final ToggleGroup layoutGroup = new ToggleGroup();
+    private java.util.function.Consumer<com.example.jylos.ui.preferences.LayoutMode> layoutModeAction = mode -> {
+    };
+    /** In the Explorer layout the notes panel only shows results, so its toggle is hidden. */
+    private boolean notesToggleAvailable = true;
+    private boolean layoutTogglesShown = true;
     @FXML
     private Button newNoteBtn;
     @FXML
@@ -108,6 +120,11 @@ public class ToolbarController {
     private void initialize() {
         if (menuBar != null) {
             menuBar.setUseSystemMenuBar(true);
+        }
+        if (layoutExplorerItem != null) {
+            layoutExplorerItem.setToggleGroup(layoutGroup);
+            layoutColumnsItem.setToggleGroup(layoutGroup);
+            layoutStackedItem.setToggleGroup(layoutGroup);
         }
         if (searchField != null) {
             searchField.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
@@ -170,7 +187,7 @@ public class ToolbarController {
         return rightPanelToggleBtn;
     }
 
-    public Button getLayoutSwitchBtn() {
+    public MenuButton getLayoutSwitchBtn() {
         return layoutSwitchBtn;
     }
 
@@ -333,9 +350,44 @@ public class ToolbarController {
         publishEvent(SystemActionEvent.ActionType.NOTE_HISTORY);
     }
 
+    /** What choosing a layout in the layout menu does. */
+    public void setLayoutModeAction(java.util.function.Consumer<com.example.jylos.ui.preferences.LayoutMode> action) {
+        this.layoutModeAction = action != null ? action : mode -> {
+        };
+    }
+
+    /** Ticks {@code mode} in the layout menu and shows the notes-panel toggle only where it applies. */
+    public void showLayoutMode(com.example.jylos.ui.preferences.LayoutMode mode) {
+        if (layoutExplorerItem != null) {
+            layoutExplorerItem.setSelected(mode == com.example.jylos.ui.preferences.LayoutMode.EXPLORER);
+            layoutColumnsItem.setSelected(mode == com.example.jylos.ui.preferences.LayoutMode.CLASSIC_COLUMNS);
+            layoutStackedItem.setSelected(mode == com.example.jylos.ui.preferences.LayoutMode.CLASSIC_STACKED);
+        }
+        notesToggleAvailable = mode != com.example.jylos.ui.preferences.LayoutMode.EXPLORER;
+        applyNotesToggleVisibility();
+    }
+
+    private void applyNotesToggleVisibility() {
+        if (notesPanelToggleBtn != null) {
+            boolean show = layoutTogglesShown && notesToggleAvailable;
+            notesPanelToggleBtn.setVisible(show);
+            notesPanelToggleBtn.setManaged(show);
+        }
+    }
+
     @FXML
-    private void handleViewLayoutSwitch(ActionEvent event) {
-        publishEvent(SystemActionEvent.ActionType.SWITCH_LAYOUT);
+    private void handleLayoutExplorer(ActionEvent event) {
+        layoutModeAction.accept(com.example.jylos.ui.preferences.LayoutMode.EXPLORER);
+    }
+
+    @FXML
+    private void handleLayoutColumns(ActionEvent event) {
+        layoutModeAction.accept(com.example.jylos.ui.preferences.LayoutMode.CLASSIC_COLUMNS);
+    }
+
+    @FXML
+    private void handleLayoutStacked(ActionEvent event) {
+        layoutModeAction.accept(com.example.jylos.ui.preferences.LayoutMode.CLASSIC_STACKED);
     }
 
     @FXML
@@ -574,8 +626,8 @@ public class ToolbarController {
         if (sidebarToggleBtn != null) {
             sidebarToggleBtn.setVisible(showLayoutToggles);
             sidebarToggleBtn.setManaged(showLayoutToggles);
-            notesPanelToggleBtn.setVisible(showLayoutToggles);
-            notesPanelToggleBtn.setManaged(showLayoutToggles);
+            layoutTogglesShown = showLayoutToggles;
+            applyNotesToggleVisibility();
             layoutSwitchBtn.setVisible(showLayoutToggles);
             layoutSwitchBtn.setManaged(showLayoutToggles);
             if (rightPanelToggleBtn != null) {

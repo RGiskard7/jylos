@@ -248,49 +248,60 @@ class NavigationCommand {
         }
     }
 
-    boolean switchLayout(boolean currentStackedLayout, SplitPane mainSplitPane, SplitPane contentSplitPane,
-            SplitPane navSplitPane, VBox sidebarPane, VBox notesPanel, Node editorArea,
-            ToolbarController toolbarController) {
+    /**
+     * Puts the sidebar, the notes panel and the editor where {@code mode} wants them:
+     * <ul>
+     * <li>classic columns: sidebar | notes | editor;</li>
+     * <li>classic stacked: (sidebar above notes) | editor;</li>
+     * <li>Explorer: sidebar | editor, with the notes panel before the editor only while it
+     * shows results ({@code resultsShown}).</li>
+     * </ul>
+     * Panels collapsed with their toggle are shown again, since the toggle state does not
+     * carry over to a different arrangement.
+     */
+    void arrangeLayout(com.example.jylos.ui.preferences.LayoutMode mode, boolean resultsShown, SplitPane mainSplitPane,
+            SplitPane contentSplitPane, SplitPane navSplitPane, Node sidebarPane, Node notesPanel, Node editorArea) {
         if (mainSplitPane == null || contentSplitPane == null || navSplitPane == null || sidebarPane == null
                 || notesPanel == null || editorArea == null) {
-            return currentStackedLayout;
+            return;
         }
-
-        boolean isStackedLayout = !currentStackedLayout;
-
         mainSplitPane.getItems().clear();
         contentSplitPane.getItems().clear();
         navSplitPane.getItems().clear();
+        expand(sidebarPane, 200);
+        expand(notesPanel, 180);
 
-        sidebarPane.setMinWidth(200);
-        sidebarPane.setMaxWidth(Double.MAX_VALUE);
-        notesPanel.setMinWidth(180);
-        notesPanel.setMaxWidth(Double.MAX_VALUE);
-
-        if (isStackedLayout) {
-            navSplitPane.getItems().addAll(sidebarPane, notesPanel);
-            navSplitPane.setDividerPositions(0.5);
-
-            mainSplitPane.getItems().addAll(navSplitPane, editorArea);
-            mainSplitPane.setDividerPositions(0.25);
-            updateStatus.accept(i18n("status.layout_stacked"));
-        } else {
-            contentSplitPane.getItems().addAll(notesPanel, editorArea);
-            contentSplitPane.setDividerPositions(0.3);
-
-            mainSplitPane.getItems().addAll(sidebarPane, contentSplitPane);
-            mainSplitPane.setDividerPositions(0.22);
-            updateStatus.accept(i18n("status.layout_column"));
+        switch (mode) {
+            case CLASSIC_STACKED -> {
+                navSplitPane.getItems().addAll(sidebarPane, notesPanel);
+                navSplitPane.setDividerPositions(0.5);
+                mainSplitPane.getItems().addAll(navSplitPane, editorArea);
+                mainSplitPane.setDividerPositions(0.25);
+            }
+            case EXPLORER -> {
+                if (resultsShown) {
+                    contentSplitPane.getItems().addAll(notesPanel, editorArea);
+                    contentSplitPane.setDividerPositions(0.3);
+                } else {
+                    contentSplitPane.getItems().add(editorArea);
+                }
+                mainSplitPane.getItems().addAll(sidebarPane, contentSplitPane);
+                mainSplitPane.setDividerPositions(0.22);
+            }
+            default -> {
+                contentSplitPane.getItems().addAll(notesPanel, editorArea);
+                contentSplitPane.setDividerPositions(0.3);
+                mainSplitPane.getItems().addAll(sidebarPane, contentSplitPane);
+                mainSplitPane.setDividerPositions(0.22);
+            }
         }
+    }
 
-        if (toolbarController != null && toolbarController.getSidebarToggleBtn() != null) {
-            toolbarController.getSidebarToggleBtn().setSelected(true);
+    private static void expand(Node pane, double minWidth) {
+        if (pane instanceof javafx.scene.layout.Region region) {
+            region.setMinWidth(minWidth);
+            region.setMaxWidth(Double.MAX_VALUE);
         }
-        if (toolbarController != null && toolbarController.getNotesPanelToggleBtn() != null) {
-            toolbarController.getNotesPanelToggleBtn().setSelected(true);
-        }
-
-        return isStackedLayout;
     }
 
     private void setSidebarToggle(ToolbarController toolbarController, boolean selected) {

@@ -11,6 +11,7 @@ import com.example.jylos.exceptions.DataAccessException;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
+import com.example.jylos.ui.components.NewTabGesture;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
@@ -19,8 +20,6 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.event.ActionEvent;
 import javafx.scene.control.ContextMenu;
-import javafx.scene.control.MenuItem;
-import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.ListCell;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
@@ -122,6 +121,10 @@ public class NotesListController {
     private Button refreshBtn;
     @FXML
     private ToggleButton peekRecursiveBtn;
+    @FXML
+    private Button closeResultsBtn;
+    private Runnable closeResultsAction = () -> {
+    };
     @FXML
     private ListView<Note> notesListView;
 
@@ -252,16 +255,6 @@ public class NotesListController {
             private final Label modifiedLabel = new Label();
             private final Label createdLabel = new Label();
             private final Rectangle clip = new Rectangle();
-            private final ContextMenu contextMenu = new ContextMenu();
-            private final MenuItem openItem = new MenuItem(getString("action.open"));
-            private final MenuItem openInNewTabItem = new MenuItem(getString("action.open_in_new_tab"));
-            private final MenuItem pinItem = new MenuItem();
-            private final MenuItem favoriteItem = new MenuItem();
-            private final MenuItem privateItem = new MenuItem();
-            private final MenuItem renameItem = new MenuItem(getString("action.rename"));
-            private final MenuItem revealItem = new MenuItem(getString("action.reveal_in_files"));
-            private final MenuItem exportItem = new MenuItem(getString("action.export_note"));
-            private final MenuItem deleteItem = new MenuItem(getString("action.move_to_trash"));
 
             {
                 container.getStyleClass().add("note-cell-container");
@@ -330,78 +323,11 @@ public class NotesListController {
 
                 container.widthProperty().addListener((obs, oldW, newW) -> layoutCellContent(newW.doubleValue()));
 
-                openItem.setOnAction(e -> {
-                    Note note = getItem();
-                    if (note != null) {
-                        noteSelectionAction.accept(note);
-                    }
-                });
-                openInNewTabItem.setOnAction(e -> {
-                    Note note = getItem();
-                    if (note != null) {
-                        openInNewTabAction.accept(note);
-                    }
-                });
-                pinItem.setOnAction(e -> {
-                    Note note = getItem();
-                    if (note != null) {
-                        togglePin(note);
-                    }
-                });
-                favoriteItem.setOnAction(e -> {
-                    Note note = getItem();
-                    if (note != null) {
-                        toggleFavorite(note);
-                    }
-                });
-                privateItem.setOnAction(e -> {
-                    Note note = getItem();
-                    if (note != null) {
-                        notePrivacyToggleAction.accept(note);
-                    }
-                });
-                revealItem.setOnAction(e -> {
-                    Note note = getItem();
-                    if (note != null) {
-                        revealInFileManager(note);
-                    }
-                });
-                // "Reveal in file manager" only applies to file (vault) storage.
-                revealItem.setVisible(isFileSystemStorage());
-                exportItem.setOnAction(e -> {
-                    Note note = getItem();
-                    if (note != null) {
-                        noteExportAction.accept(note);
-                    }
-                });
-                renameItem.setOnAction(e -> {
-                    Note note = getItem();
-                    if (note != null) {
-                        renameNote(note);
-                    }
-                });
-                MenuItem moveItem = new MenuItem(getString("action.move_to"));
-                moveItem.setOnAction(e -> {
-                    Note note = getItem();
-                    if (note != null) {
-                        moveNote(note);
-                    }
-                });
-                deleteItem.setOnAction(e -> {
-                    Note note = getItem();
-                    if (note != null) {
-                        deleteNote(note);
-                    }
-                });
-                contextMenu.getItems().addAll(openItem, openInNewTabItem, pinItem, favoriteItem, privateItem, renameItem, moveItem,
-                        revealItem, exportItem,
-                        new SeparatorMenuItem(), deleteItem);
-                appendPluginNoteContextMenuItems(contextMenu, this::getItem);
 
                 // Cmd/Ctrl+click or middle click opens the note in a new tab. Consumed so the
                 // list does not also select it (which would open it in the current tab).
                 addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
-                    if (!isEmpty() && getItem() != null && NewTabGestureSupport.opensInNewTab(event)) {
+                    if (!isEmpty() && getItem() != null && NewTabGesture.opensInNewTab(event)) {
                         event.consume();
                         openInNewTabAction.accept(getItem());
                     }
@@ -529,18 +455,9 @@ public class NotesListController {
                     }
                     layoutCellContent(contentWidth);
 
-                    pinItem.setText(note.isPinned() ? getString("action.unpin_note")
-                            : getString("action.pin_note"));
-                    favoriteItem.setText(note.isFavorite() ? getString("action.remove_favorite")
-                            : getString("action.add_favorite"));
-                    privateItem.setText(note.isPrivate() ? getString("action.make_normal")
-                            : getString("action.make_private"));
-                    // Private notes cannot be trashed; they must be turned normal first.
-                    deleteItem.setDisable(note.isPrivate());
-
                     setGraphic(container);
                     setText(null);
-                    setContextMenu(contextMenu);
+                    setContextMenu(createNoteContextMenu(note, noteMenuActions()));
                 }
             }
         };
@@ -760,32 +677,6 @@ public class NotesListController {
         this.noteContextMenuItemsSupplier =
                 noteContextMenuItemsSupplier != null ? noteContextMenuItemsSupplier : java.util.Collections::emptyList;
         setEventBus(eventBus);
-    }
-
-    /**
-     * Appends every plugin-registered note context menu item to {@code menu},
-     * behind a separator — used by both the list-view cell (built once per
-     * cell, {@code noteSupplier} re-resolves {@code getItem()} at click time
-     * since the cell is reused across notes) and the grid-view card (rebuilt
-     * fresh per right-click, so {@code noteSupplier} can just close over the
-     * one note it already knows). A no-op when no plugin has registered anything.
-     */
-    private void appendPluginNoteContextMenuItems(ContextMenu menu, Supplier<Note> noteSupplier) {
-        List<com.example.jylos.plugin.NoteContextMenuEntry> entries = noteContextMenuItemsSupplier.get();
-        if (entries == null || entries.isEmpty()) {
-            return;
-        }
-        menu.getItems().add(new SeparatorMenuItem());
-        for (com.example.jylos.plugin.NoteContextMenuEntry entry : entries) {
-            MenuItem item = new MenuItem(entry.label());
-            item.setOnAction(e -> {
-                Note note = noteSupplier.get();
-                if (note != null) {
-                    entry.action().accept(note);
-                }
-            });
-            menu.getItems().add(item);
-        }
     }
 
     private void subscribeToEvents() {
@@ -1258,6 +1149,35 @@ public class NotesListController {
     @FXML
     private void handleToggleNotesPanel(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.TOGGLE_NOTES_LIST);
+    }
+
+    /** What the close button of the results panel does (Explorer layout). */
+    public void setCloseResultsAction(Runnable action) {
+        this.closeResultsAction = action != null ? action : () -> {
+        };
+    }
+
+    /**
+     * Results panel mode (Explorer layout): the panel shows the notes of a tag or a search,
+     * with a close button, and without the grid view or the "notes of subfolders" toggle,
+     * which only make sense when browsing a folder.
+     */
+    public void setResultsPanelMode(boolean resultsOnly) {
+        setShown(viewModeToggleBtn, !resultsOnly);
+        setShown(peekRecursiveBtn, !resultsOnly);
+        setShown(closeResultsBtn, resultsOnly);
+    }
+
+    private static void setShown(javafx.scene.Node node, boolean shown) {
+        if (node != null) {
+            node.setVisible(shown);
+            node.setManaged(shown);
+        }
+    }
+
+    @FXML
+    private void handleCloseResults(ActionEvent event) {
+        closeResultsAction.run();
     }
 
     @FXML
@@ -1837,7 +1757,7 @@ public class NotesListController {
             if (noteDragInProgress) {
                 return;
             }
-            if (NewTabGestureSupport.opensInNewTab(e)) {
+            if (NewTabGesture.opensInNewTab(e)) {
                 openInNewTabAction.accept(note);
                 return;
             }
@@ -1868,49 +1788,32 @@ public class NotesListController {
         if (note == null) {
             return null;
         }
+        return createNoteContextMenu(note, noteMenuActions().withOpen(n -> openAction.run()));
+    }
 
-        MenuItem openItem = new MenuItem(getString("action.open"));
-        openItem.setOnAction(e -> openAction.run());
+    /** The note context menu, as the list shows it; the Explorer tree uses it for its note rows. */
+    public ContextMenu noteContextMenu(Note note) {
+        return note == null ? null : createNoteContextMenu(note, noteMenuActions());
+    }
 
-        MenuItem openInNewTabItem = new MenuItem(getString("action.open_in_new_tab"));
-        openInNewTabItem.setOnAction(e -> openInNewTabAction.accept(note));
+    private ContextMenu createNoteContextMenu(Note note, NoteContextMenuSupport.Actions actions) {
+        return NoteContextMenuSupport.create(note, actions, isFileSystemStorage(), this::getString,
+                noteContextMenuItemsSupplier.get());
+    }
 
-        MenuItem pinItem = new MenuItem(
-                note.isPinned() ? getString("action.unpin_note") : getString("action.pin_note"));
-        pinItem.setOnAction(e -> togglePin(note));
-
-        MenuItem favoriteItem = new MenuItem(
-                note.isFavorite() ? getString("action.remove_favorite") : getString("action.add_favorite"));
-        favoriteItem.setOnAction(e -> toggleFavorite(note));
-
-        MenuItem privateItem = new MenuItem(
-                note.isPrivate() ? getString("action.make_normal") : getString("action.make_private"));
-        privateItem.setOnAction(e -> notePrivacyToggleAction.accept(note));
-
-        MenuItem renameItem = new MenuItem(getString("action.rename"));
-        renameItem.setOnAction(e -> renameNote(note));
-
-        MenuItem moveItem = new MenuItem(getString("action.move_to"));
-        moveItem.setOnAction(e -> moveNote(note));
-
-        MenuItem exportItem = new MenuItem(getString("action.export_note"));
-        exportItem.setOnAction(e -> noteExportAction.accept(note));
-
-        MenuItem deleteItem = new MenuItem(getString("action.move_to_trash"));
-        deleteItem.setOnAction(e -> deleteNote(note));
-
-        ContextMenu menu = new ContextMenu();
-        menu.getItems().addAll(openItem, openInNewTabItem, pinItem, favoriteItem, privateItem, renameItem, moveItem);
-
-        if (isFileSystemStorage()) {
-            MenuItem revealItem = new MenuItem(getString("action.reveal_in_files"));
-            revealItem.setOnAction(e -> revealInFileManager(note));
-            menu.getItems().add(revealItem);
-        }
-
-        menu.getItems().addAll(exportItem, new SeparatorMenuItem(), deleteItem);
-        appendPluginNoteContextMenuItems(menu, () -> note);
-        return menu;
+    /** What the note context menu entries do, shared by the list rows and the grid cards. */
+    private NoteContextMenuSupport.Actions noteMenuActions() {
+        return new NoteContextMenuSupport.Actions(
+                note -> noteSelectionAction.accept(note),
+                note -> openInNewTabAction.accept(note),
+                this::togglePin,
+                this::toggleFavorite,
+                note -> notePrivacyToggleAction.accept(note),
+                this::renameNote,
+                this::moveNote,
+                this::revealInFileManager,
+                note -> noteExportAction.accept(note),
+                this::deleteNote);
     }
 
     private void setupNoteCardDrag(

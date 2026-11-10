@@ -93,6 +93,7 @@ class DialogSupport {
             int contentFontSize,
             boolean showFolderNoteCounts,
             boolean alwaysOpenInNewTab,
+            com.example.jylos.ui.preferences.LayoutMode layoutMode,
             Set<String> enabledSnippets) {
     }
 
@@ -100,7 +101,8 @@ class DialogSupport {
             UiPreferencesStore.UiPreferencesData current,
             List<ThemeCatalog.ThemeDescriptor> themes,
             CssSnippetCatalog snippetCatalog,
-            Set<String> enabledSnippets) {
+            Set<String> enabledSnippets,
+            com.example.jylos.ui.preferences.LayoutMode currentLayout) {
         Dialog<PreferencesDialogResult> dialog = new Dialog<>();
         dialog.setTitle(i18n("dialog.preferences.title"));
         dialog.setHeaderText(i18n("dialog.preferences.header"));
@@ -153,6 +155,28 @@ class DialogSupport {
 
         CheckBox alwaysOpenInNewTabCheck = new CheckBox(i18n("dialog.preferences.always_open_in_new_tab"));
         alwaysOpenInNewTabCheck.setSelected(current.alwaysOpenInNewTab());
+
+        // Same three layouts as the toolbar's layout menu.
+        Label layoutLabel = new Label(i18n("dialog.preferences.layout"));
+        ComboBox<com.example.jylos.ui.preferences.LayoutMode> layoutCombo = new ComboBox<>();
+        layoutCombo.getItems().setAll(com.example.jylos.ui.preferences.LayoutMode.values());
+        layoutCombo.setConverter(new javafx.util.StringConverter<>() {
+            @Override
+            public String toString(com.example.jylos.ui.preferences.LayoutMode mode) {
+                return mode == null ? "" : i18n(switch (mode) {
+                    case EXPLORER -> "layout.mode.explorer";
+                    case CLASSIC_COLUMNS -> "layout.mode.columns";
+                    case CLASSIC_STACKED -> "layout.mode.stacked";
+                });
+            }
+
+            @Override
+            public com.example.jylos.ui.preferences.LayoutMode fromString(String text) {
+                return null;
+            }
+        });
+        layoutCombo.setValue(currentLayout != null ? currentLayout
+                : com.example.jylos.ui.preferences.LayoutMode.CLASSIC_COLUMNS);
 
         Label fontSizeLabel = new Label(i18n("dialog.preferences.font_size"));
         ComboBox<Integer> fontSizeCombo = new ComboBox<>();
@@ -265,6 +289,7 @@ class DialogSupport {
                 autosaveEnabledCheck,
                 new HBox(8, autosaveIntervalLabel, autosaveIntervalCombo),
                 new Separator(),
+                new HBox(8, layoutLabel, layoutCombo),
                 editingModeLabel, editingModeCombo,
                 readableLineLengthCheck,
                 showFolderNoteCountsCheck,
@@ -341,6 +366,7 @@ class DialogSupport {
                     contentFontSize != null ? contentFontSize : UiPreferencesStore.DEFAULT_CONTENT_FONT_SIZE,
                     showFolderNoteCountsCheck.isSelected(),
                     alwaysOpenInNewTabCheck.isSelected(),
+                    layoutCombo.getValue(),
                     new LinkedHashSet<>(selectedSnippets));
         });
         return com.example.jylos.ui.UiDialogs.show(dialog);

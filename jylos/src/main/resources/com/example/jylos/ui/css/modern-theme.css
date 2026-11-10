@@ -4482,3 +4482,34 @@
 .update-indicator:hover {
     -fx-background-color: -fx-accent-hover;
 }
+
+/* Explorer tree (folders and notes in one tree, ExplorerTree) */
+.explorer-tree .tree-cell.explorer-active-note:filled {
+    -fx-background-color: -fx-accent-soft;
+}
+
+.explorer-tree .tree-cell.explorer-active-note:filled:selected {
+    -fx-background-color: -fx-selected-bg;
+}
+
+.explorer-tree .tree-cell.explorer-loading-row {
+    -fx-text-fill: -fx-text-faint;
+    -fx-font-style: italic;
+}
+
+.explorer-tree .explorer-cell-name {
+    -fx-text-fill: -fx-text-main;
+}
+
+.explorer-tree .tree-cell:filled:selected .explorer-cell-name {
+    -fx-text-fill: -fx-selected-text;
+}
+
+/* Layout menu button in the toolbar: an icon button, without MenuButton's dropdown arrow. */
+.layout-menu-btn > .arrow-button,
+.layout-menu-btn > .arrow-button > .arrow {
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+    -fx-shape: null;
+    visibility: hidden;
+}

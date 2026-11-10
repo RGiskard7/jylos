@@ -40,6 +40,13 @@
                 <FontIcon iconLiteral="fth-refresh-cw" styleClass="feather-icon"/>
             </graphic>
         </Button>
+        <!-- Explorer layout: the panel only shows tag or search results and closes here. -->
+        <Button fx:id="closeResultsBtn" onAction="#handleCloseResults" styleClass="icon-btn" visible="false" managed="false">
+            <tooltip><Tooltip text="%panel.results.close"/></tooltip>
+            <graphic>
+                <FontIcon iconLiteral="fth-x" styleClass="feather-icon"/>
+            </graphic>
+        </Button>
     </HBox>
     
     <ListView fx:id="notesListView" VBox.vgrow="ALWAYS" maxWidth="Infinity" styleClass="notes-list"/>
