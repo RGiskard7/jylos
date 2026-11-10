@@ -45,6 +45,7 @@ import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
 import com.example.jylos.service.UpdateChecker;
 import com.example.jylos.ui.components.CommandPalette;
+import com.example.jylos.ui.components.EditorTabsModel;
 import com.example.jylos.ui.components.PluginManagerDialog;
 import com.example.jylos.ui.components.QuickSwitcher;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
@@ -549,11 +550,13 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                     noteCreationSupport::createNewNoteInFolder,
                     noteCreationSupport::createNewCanvasInFolder,
                     this::updateStatus);
+            sidebarController.setOpenInNewTabAction(this::openNoteInNewTab);
         }
         if (notesListController != null) {
             notesListController.wire(eventBus, noteService, tagService, folderService, resources,
                     this::loadNoteInEditor, this::exportNote, this::toggleNotePrivacy,
                     this::handleUiNotesLoaded, this::updateStatus, this::getNoteContextMenuItems);
+            notesListController.setOpenInNewTabAction(this::openNoteInNewTab);
             notesPanel = notesListController.getNotesPanel();
             sortComboBox = notesListController.getSortComboBox();
             notesListView = notesListController.getNotesListView();
@@ -578,6 +581,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                             @Override public void onClose(String noteId) { closeTab(noteId); }
                         },
                         this::getString);
+                editorTabs.setAlwaysNewTab(uiPreferences.load(prefs).alwaysOpenInNewTab());
             }
         }
         overlaySupport.wire(centerStack, graphView, graphViewController, noteService,
@@ -610,7 +614,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 () -> !"sqlite".equals(prefs.get("storage_type", "sqlite")),
                 this::getString, this::updateStatus,
                 this::getMainWindow,
-                () -> currentFolder, this::loadNoteInEditor,
+                () -> currentFolder, this::openNoteInNewTab,
                 note -> {
                     if (eventBus != null) {
                         eventBus.publish(new NoteEvents.NoteCreatedEvent(note));
@@ -1262,6 +1266,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
         if (notesListController != null) {
             notesListController.setPreviewLines(notesListPreviewLines);
+        }
+        if (editorTabs != null) {
+            editorTabs.setAlwaysNewTab(uiPrefs.alwaysOpenInNewTab());
         }
         if (editorController != null) {
             editorController.applyLivePreviewPreference(uiPrefs.livePreviewEnabled());
@@ -2254,7 +2261,22 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         com.example.jylos.ui.UiDialogs.apply(dialog);
     }
 
+    /** Opens {@code note} in the active tab (or activates its tab when it is already open). */
     void loadNoteInEditor(Note note) {
+        loadNoteInEditor(note, EditorTabsModel.OpenTarget.CURRENT_TAB);
+    }
+
+    /** Opens {@code note} in a new tab right after the active one (Cmd/Ctrl+click, middle click). */
+    void openNoteInNewTab(Note note) {
+        loadNoteInEditor(note, EditorTabsModel.OpenTarget.NEW_TAB);
+    }
+
+    /**
+     * Loads {@code note} into the editor. {@code target} decides its tab: the active tab's
+     * note is replaced ({@code CURRENT_TAB}) or a tab is added ({@code NEW_TAB}); a note
+     * that already has a tab just activates it. See {@link EditorTabsModel}.
+     */
+    void loadNoteInEditor(Note note, EditorTabsModel.OpenTarget target) {
         if (note != null && note.getId() != null && noteService != null) {
             note = noteService.getNoteById(note.getId()).orElse(note);
         }
@@ -2290,8 +2312,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
 
         if (editorTabs != null) {
-            editorTabs.ensureTab(activeNote.getId(), activeNote.getTitle());
-            editorTabs.setActive(activeNote.getId());
+            editorTabs.open(activeNote.getId(), activeNote.getTitle(), target);
             editorTabs.setDirty(activeNote.getId(), false);
         }
 
@@ -2944,7 +2965,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         for (String id : ws.openNoteIds()) {
             java.util.Optional<Note> note = noteService.getNoteById(id);
             if (note.isPresent()) {
-                loadNoteInEditor(note.get());
+                // Each saved tab gets its own tab (a plain open would replace the previous one).
+                loadNoteInEditor(note.get(), EditorTabsModel.OpenTarget.NEW_TAB);
                 lastOpened = id;
             } else {
                 missing++;
@@ -3405,7 +3427,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 uiPreferences.loadLivePreviewEnabled(prefs),
                 uiPreferences.loadReadableLineLength(prefs),
                 (int) Math.round(editorFontSize),
-                uiPreferences.loadShowFolderNoteCounts(prefs));
+                uiPreferences.loadShowFolderNoteCounts(prefs),
+                uiPreferences.load(prefs).alwaysOpenInNewTab());
         List<ThemeCatalog.ThemeDescriptor> themes = themeCatalog.getAvailableThemes();
         Optional<DialogSupport.PreferencesDialogResult> result = dialogSupport.showPreferences(
                 currentUiPrefs,
@@ -3427,7 +3450,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 values.livePreviewEnabled(),
                 values.readableLineLength(),
                 values.contentFontSize(),
-                values.showFolderNoteCounts());
+                values.showFolderNoteCounts(),
+                values.alwaysOpenInNewTab());
         uiPreferences.save(prefs, newPrefs);
         uiPreferences.saveEnabledSnippets(prefs, values.enabledSnippets());
         applyUiPreferencesFromStore();

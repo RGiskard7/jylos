@@ -92,6 +92,7 @@ class DialogSupport {
             boolean readableLineLength,
             int contentFontSize,
             boolean showFolderNoteCounts,
+            boolean alwaysOpenInNewTab,
             Set<String> enabledSnippets) {
     }
 
@@ -149,6 +150,9 @@ class DialogSupport {
 
         CheckBox showFolderNoteCountsCheck = new CheckBox(i18n("dialog.preferences.show_folder_note_counts"));
         showFolderNoteCountsCheck.setSelected(current.showFolderNoteCounts());
+
+        CheckBox alwaysOpenInNewTabCheck = new CheckBox(i18n("dialog.preferences.always_open_in_new_tab"));
+        alwaysOpenInNewTabCheck.setSelected(current.alwaysOpenInNewTab());
 
         Label fontSizeLabel = new Label(i18n("dialog.preferences.font_size"));
         ComboBox<Integer> fontSizeCombo = new ComboBox<>();
@@ -264,6 +268,7 @@ class DialogSupport {
                 editingModeLabel, editingModeCombo,
                 readableLineLengthCheck,
                 showFolderNoteCountsCheck,
+                alwaysOpenInNewTabCheck,
                 notesPreviewLinesLabel, notesPreviewLinesCombo,
                 fontSizeLabel, fontSizeCombo,
                 contentFontSizeLabel, contentFontSizeCombo,
@@ -335,6 +340,7 @@ class DialogSupport {
                     readableLineLengthCheck.isSelected(),
                     contentFontSize != null ? contentFontSize : UiPreferencesStore.DEFAULT_CONTENT_FONT_SIZE,
                     showFolderNoteCountsCheck.isSelected(),
+                    alwaysOpenInNewTabCheck.isSelected(),
                     new LinkedHashSet<>(selectedSnippets));
         });
         return com.example.jylos.ui.UiDialogs.show(dialog);

@@ -68,6 +68,9 @@ public class NotesListController {
     private ResourceBundle bundle;
     private Consumer<Note> noteSelectionAction = note -> {
     };
+    /** Opens a note in a new editor tab (Cmd/Ctrl+click, middle click, "Open in new tab"). */
+    private Consumer<Note> openInNewTabAction = note -> {
+    };
     private Consumer<Note> noteExportAction = note -> {
     };
     private Consumer<Note> notePrivacyToggleAction = note -> {
@@ -251,6 +254,7 @@ public class NotesListController {
             private final Rectangle clip = new Rectangle();
             private final ContextMenu contextMenu = new ContextMenu();
             private final MenuItem openItem = new MenuItem(getString("action.open"));
+            private final MenuItem openInNewTabItem = new MenuItem(getString("action.open_in_new_tab"));
             private final MenuItem pinItem = new MenuItem();
             private final MenuItem favoriteItem = new MenuItem();
             private final MenuItem privateItem = new MenuItem();
@@ -332,6 +336,12 @@ public class NotesListController {
                         noteSelectionAction.accept(note);
                     }
                 });
+                openInNewTabItem.setOnAction(e -> {
+                    Note note = getItem();
+                    if (note != null) {
+                        openInNewTabAction.accept(note);
+                    }
+                });
                 pinItem.setOnAction(e -> {
                     Note note = getItem();
                     if (note != null) {
@@ -383,11 +393,19 @@ public class NotesListController {
                         deleteNote(note);
                     }
                 });
-                contextMenu.getItems().addAll(openItem, pinItem, favoriteItem, privateItem, renameItem, moveItem,
+                contextMenu.getItems().addAll(openItem, openInNewTabItem, pinItem, favoriteItem, privateItem, renameItem, moveItem,
                         revealItem, exportItem,
                         new SeparatorMenuItem(), deleteItem);
                 appendPluginNoteContextMenuItems(contextMenu, this::getItem);
 
+                // Cmd/Ctrl+click or middle click opens the note in a new tab. Consumed so the
+                // list does not also select it (which would open it in the current tab).
+                addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+                    if (!isEmpty() && getItem() != null && NewTabGestureSupport.opensInNewTab(event)) {
+                        event.consume();
+                        openInNewTabAction.accept(getItem());
+                    }
+                });
                 addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
                     if (event.getButton() == MouseButton.SECONDARY && !isEmpty()) {
                         restoringNotesSelection = true;
@@ -693,6 +711,12 @@ public class NotesListController {
         subscriptions.clear();
         this.eventBus = eventBus;
         subscribeToEvents();
+    }
+
+    /** What Cmd/Ctrl+click, middle click and "Open in new tab" do with a note. */
+    public void setOpenInNewTabAction(Consumer<Note> action) {
+        this.openInNewTabAction = action != null ? action : note -> {
+        };
     }
 
     public void wire(EventBus eventBus, NoteService noteService, TagService tagService,
@@ -1810,10 +1834,14 @@ public class NotesListController {
         card.getChildren().addAll(titleRow, previewLabel, dateLabel);
 
         card.setOnMouseClicked(e -> {
-            if (e.getButton() != MouseButton.PRIMARY) {
+            if (noteDragInProgress) {
                 return;
             }
-            if (noteDragInProgress) {
+            if (NewTabGestureSupport.opensInNewTab(e)) {
+                openInNewTabAction.accept(note);
+                return;
+            }
+            if (e.getButton() != MouseButton.PRIMARY) {
                 return;
             }
             notesListView.getSelectionModel().select(note);
@@ -1844,6 +1872,9 @@ public class NotesListController {
         MenuItem openItem = new MenuItem(getString("action.open"));
         openItem.setOnAction(e -> openAction.run());
 
+        MenuItem openInNewTabItem = new MenuItem(getString("action.open_in_new_tab"));
+        openInNewTabItem.setOnAction(e -> openInNewTabAction.accept(note));
+
         MenuItem pinItem = new MenuItem(
                 note.isPinned() ? getString("action.unpin_note") : getString("action.pin_note"));
         pinItem.setOnAction(e -> togglePin(note));
@@ -1869,7 +1900,7 @@ public class NotesListController {
         deleteItem.setOnAction(e -> deleteNote(note));
 
         ContextMenu menu = new ContextMenu();
-        menu.getItems().addAll(openItem, pinItem, favoriteItem, privateItem, renameItem, moveItem);
+        menu.getItems().addAll(openItem, openInNewTabItem, pinItem, favoriteItem, privateItem, renameItem, moveItem);
 
         if (isFileSystemStorage()) {
             MenuItem revealItem = new MenuItem(getString("action.reveal_in_files"));

@@ -142,6 +142,9 @@ public class SidebarController {
     };
     private Consumer<Note> openNoteAction = note -> {
     };
+    /** Opens a note in a new editor tab (Cmd/Ctrl+click or middle click on Recent/Favorites). */
+    private Consumer<Note> openInNewTabAction = note -> {
+    };
     private Consumer<Folder> createNoteInFolderAction = folder -> {
     };
     private Consumer<Folder> createCanvasInFolderAction = folder -> {
@@ -193,6 +196,36 @@ public class SidebarController {
             this.filtering = filtering;
             this.sortAscending = sortAscending;
         }
+    }
+
+    /** What Cmd/Ctrl+click and middle click on a Recent/Favorites entry do with the note. */
+    public void setOpenInNewTabAction(Consumer<Note> action) {
+        this.openInNewTabAction = action != null ? action : note -> {
+        };
+    }
+
+    /**
+     * Cmd/Ctrl+click or middle click on an entry of a title list (Recent, Favorites) opens
+     * that note in a new tab. The press is consumed so the list does not also select the
+     * entry, which would open it in the current tab.
+     */
+    private void installNewTabGesture(ListView<String> list, java.util.function.Supplier<List<Note>> notes) {
+        list.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+            if (!NewTabGestureSupport.opensInNewTab(event)) {
+                return;
+            }
+            javafx.scene.Node node = event.getPickResult().getIntersectedNode();
+            while (node != null && !(node instanceof ListCell<?>)) {
+                node = node.getParent();
+            }
+            if (!(node instanceof ListCell<?> cell) || cell.isEmpty() || cell.getItem() == null) {
+                return;
+            }
+            Object title = cell.getItem();
+            event.consume();
+            notes.get().stream().filter(n -> title.equals(n.getTitle())).findFirst()
+                    .ifPresent(openInNewTabAction);
+        });
     }
 
     // Setters for MainController
@@ -294,6 +327,9 @@ public class SidebarController {
                 });
             }
         });
+
+        installNewTabGesture(recentNotesListView, () -> cachedRecentNotes);
+        installNewTabGesture(favoritesListView, () -> cachedFavoriteNotes);
 
         favoritesListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
