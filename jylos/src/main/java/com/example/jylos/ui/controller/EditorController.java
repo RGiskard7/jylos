@@ -213,6 +213,7 @@ public class EditorController {
     @FXML private VBox  propertiesSection;   // outer, shown when note has custom props
     @FXML private HBox  propertiesHeader;    // always-visible header row
     @FXML private Label propertiesCollapseIcon;
+    @FXML private VBox  propertiesBody;      // rows + "add property" line, collapsible
     @FXML private VBox  propertiesContent;   // rows, toggleable via header click
     @FXML private Button addPropertyBtn;
     @FXML private Button addPropertyHeaderBtn;
@@ -469,9 +470,10 @@ public class EditorController {
     }
 
     private void applyPropertiesExpandedState() {
-        if (propertiesContent != null) {
-            propertiesContent.setVisible(propertiesExpanded);
-            propertiesContent.setManaged(propertiesExpanded);
+        Node body = propertiesBody != null ? propertiesBody : propertiesContent;
+        if (body != null) {
+            body.setVisible(propertiesExpanded);
+            body.setManaged(propertiesExpanded);
         }
         if (propertiesCollapseIcon != null) {
             propertiesCollapseIcon.setText(propertiesExpanded ? "▼" : "▶");
@@ -1395,7 +1397,9 @@ public class EditorController {
         boolean sectionVisible = currentNote != null && hasProps;
 
         setNodeVisible(propertiesSection, sectionVisible);
-        setNodeVisible(addPropertyHeaderBtn, currentNote != null && !readOnlyView && !viewingAttachment);
+        // One way to add at a time: the title row's button while the note has no properties,
+        // the panel's own "+ Add property" line once the panel shows.
+        setNodeVisible(addPropertyHeaderBtn, currentNote != null && !hasProps && !readOnlyView && !viewingAttachment);
         if (addPropertyBtn != null) {
             addPropertyBtn.setVisible(!readOnlyView);
             addPropertyBtn.setManaged(!readOnlyView);

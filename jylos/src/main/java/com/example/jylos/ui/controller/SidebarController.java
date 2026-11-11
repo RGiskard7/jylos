@@ -37,6 +37,7 @@ import com.example.jylos.ui.components.EditorTabsModel;
 import com.example.jylos.ui.components.ExplorerOrdering;
 import com.example.jylos.ui.components.ExplorerTree;
 import com.example.jylos.ui.components.TreeDisclosureArrow;
+import com.example.jylos.ui.components.TreeIndentGuides;
 import com.example.jylos.ui.components.NewTabGesture;
 
 /**
@@ -661,6 +662,7 @@ public class SidebarController {
         folderTreeView.setCellFactory(tv -> new TreeCell<Folder>() {
             private final ChangeListener<Boolean> expandedListener = (obs, wasExpanded, isExpanded) -> refreshFolderIcon();
             private final StackPane disclosureArrow = TreeDisclosureArrow.create();
+            private final TreeIndentGuides guides = new TreeIndentGuides();
             private TreeItem<Folder> observedFolderItem;
             private Label folderIconLabel;
             private Folder shownFolder;
@@ -755,6 +757,12 @@ public class SidebarController {
                 }
             }
 
+            @Override
+            protected void layoutChildren() {
+                super.layoutChildren();
+                guides.layout(this, getChildren());
+            }
+
             private void refreshFolderIcon() {
                 refreshDisclosureArrowRotation();
                 Folder folder = getItem();
@@ -784,6 +792,7 @@ public class SidebarController {
             // (branch) and deleted notes (leaf) too, so it needs the same fix. Its icons are
             // the Explorer's (folder and document), since it is the same kind of mixed tree.
             private final StackPane arrow = TreeDisclosureArrow.create();
+            private final TreeIndentGuides guides = new TreeIndentGuides();
             private final ChangeListener<Boolean> expandedListener = (obs, was, now) -> rotateArrow();
             private TreeItem<Component> observed;
             private Component shown;
@@ -845,6 +854,12 @@ public class SidebarController {
 
             private void rotateArrow() {
                 arrow.setRotate(observed != null && observed.isExpanded() ? 90 : 0);
+            }
+
+            @Override
+            protected void layoutChildren() {
+                super.layoutChildren();
+                guides.layout(this, getChildren());
             }
         });
 

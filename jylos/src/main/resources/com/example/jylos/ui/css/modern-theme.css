@@ -4575,3 +4575,58 @@
     -fx-text-fill: -fx-accent;
     -fx-underline: true;
 }
+
+/* Properties panel: part of the document, as in Obsidian. No band of its own, no line under
+   it, a plain title, values without a box until hovered or edited, and "+ Add property" as
+   a plain text line under the rows. */
+.root .properties-panel,
+.root .properties-header,
+.root .properties-content {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+}
+
+.root .properties-header:hover {
+    -fx-background-color: transparent;
+}
+
+.root .properties-title {
+    -fx-font-weight: normal;
+    -fx-text-fill: -fx-text-faint;
+}
+
+.root .property-value {
+    -fx-background-color: transparent;
+    -fx-control-inner-background: transparent;
+    -fx-border-color: transparent;
+}
+
+.root .property-row:hover .property-value,
+.root .property-value:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+
+.root .property-value:focused {
+    -fx-background-color: -fx-base-bg;
+    -fx-control-inner-background: -fx-base-bg;
+    -fx-border-color: -fx-accent;
+}
+
+.root .add-property-btn {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-text-fill: -fx-text-faint;
+    -fx-padding: 2 4;
+}
+
+.root .add-property-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-text-main;
+}
+
+/* Indent guides in the trees (TreeIndentGuides): a thin line under each open folder. */
+.tree-indent-guide {
+    -fx-background-color: -fx-fn-border-color;
+}

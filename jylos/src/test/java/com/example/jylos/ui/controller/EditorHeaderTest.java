@@ -98,11 +98,20 @@ class EditorHeaderTest {
             withProps.setCustomProperties(Map.of("estado", "borrador"));
             f.controller.loadNote(withProps);
             f.layout();
-            out.add("with properties: section " + f.shown("properties-panel"));
+            // The panel may start collapsed; open it (rows and the add line show together).
+            if (!f.shown("properties-content")) {
+                click(f.root.lookup(".properties-header"));
+                f.layout();
+            }
+            out.add("with properties: section " + f.shown("properties-panel") + ", title-row add "
+                    + f.shownById("addPropertyHeaderBtn") + ", panel add below the rows " + f.addBelowRows());
             return out;
         });
 
-        assertEquals(List.of("empty note: section false, add true", "with properties: section true"), seen);
+        // One way to add at a time: the title row's button only while the note has none;
+        // once the panel shows, its own "+ Add property" line under the rows.
+        assertEquals(List.of("empty note: section false, add true",
+                "with properties: section true, title-row add false, panel add below the rows true"), seen);
     }
 
     @Test
@@ -126,6 +135,52 @@ class EditorHeaderTest {
         });
 
         assertEquals(List.of(true, false, false, true), seen);
+    }
+
+    @Test
+    void thePropertiesPanelLooksLikeTheRestOfTheEditor() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        for (String theme : List.of("modern-theme.css", "dark-theme.css")) {
+            List<String> offenders = onFx(() -> {
+                Fixture f = new Fixture();
+                f.host.getScene().getStylesheets().add(
+                        EditorHeaderTest.class.getResource("/com/example/jylos/ui/css/" + theme).toExternalForm());
+                Note withProps = new Note("b.md", "B", "x");
+                withProps.setCustomProperties(Map.of("estado", "borrador"));
+                f.controller.loadNote(withProps);
+                f.layout();
+                List<String> out = new ArrayList<>();
+                javafx.scene.layout.Region panel = (javafx.scene.layout.Region) f.root.lookup(".properties-panel");
+                if (painted(panel.getBackground())) {
+                    out.add("panel has its own background band");
+                }
+                if (panel.getBorder() != null && !panel.getBorder().getStrokes().isEmpty()
+                        && panel.getBorder().getStrokes().stream().anyMatch(st -> st.getWidths().getBottom() > 0
+                                && !(st.getBottomStroke() instanceof javafx.scene.paint.Color c && c.getOpacity() == 0))) {
+                    out.add("panel has a border line");
+                }
+                javafx.scene.control.Button add = (javafx.scene.control.Button) f.root.lookup("#addPropertyBtn");
+                if (add.getBorder() != null && add.getBorder().getStrokes().stream()
+                        .anyMatch(st -> st.getWidths().getTop() > 0
+                                && !(st.getTopStroke() instanceof javafx.scene.paint.Color c && c.getOpacity() == 0))) {
+                    out.add("add button has a border");
+                }
+                for (Node node : f.root.lookupAll(".property-value")) {
+                    if (node instanceof javafx.scene.layout.Region r && painted(r.getBackground())) {
+                        out.add("value field is a filled box at rest");
+                        break;
+                    }
+                }
+                return out;
+            });
+            assertEquals(List.of(), offenders, theme);
+        }
+    }
+
+    private static boolean painted(javafx.scene.layout.Background background) {
+        return background != null && background.getFills().stream()
+                .anyMatch(fill -> !(fill.getFill() instanceof javafx.scene.paint.Color c && c.getOpacity() == 0));
     }
 
     private static final class Fixture {
@@ -172,6 +227,17 @@ class EditorHeaderTest {
         boolean shownById(String id) {
             Node node = root.lookup("#" + id);
             return node != null && node.isVisible() && node.isManaged() && ancestorsShown(node);
+        }
+
+        /** The panel's add button is shown and comes after the property rows. */
+        boolean addBelowRows() {
+            Node add = root.lookup("#addPropertyBtn");
+            Node rows = root.lookup(".properties-content");
+            if (add == null || rows == null || !add.isVisible() || !add.isManaged() || !ancestorsShown(add)) {
+                return false;
+            }
+            return add.localToScene(add.getBoundsInLocal()).getMinY()
+                    >= rows.localToScene(rows.getBoundsInLocal()).getMaxY() - 0.5;
         }
 
         private boolean ancestorsShown(Node node) {

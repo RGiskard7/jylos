@@ -123,15 +123,21 @@
             <Label fx:id="propertiesCollapseIcon" text="▼" styleClass="properties-collapse-icon"/>
             <Label text="%panel.properties.title" styleClass="properties-title"/>
             <Region HBox.hgrow="ALWAYS"/>
-            <Button fx:id="addPropertyBtn" text="%action.add_property"
-                    onAction="#handleAddProperty" styleClass="add-property-btn">
-                <tooltip><Tooltip text="%tooltip.add_property"/></tooltip>
-            </Button>
         </HBox>
 
-        <!-- Property rows — populated programmatically. No maxHeight, no scroll. -->
-        <VBox fx:id="propertiesContent" styleClass="properties-content" spacing="1">
-            <padding><Insets top="2" right="12" bottom="8" left="16"/></padding>
+        <!-- Rows plus "+ Add property" under them, as in Obsidian; collapses with the header. -->
+        <VBox fx:id="propertiesBody">
+            <!-- Property rows — populated programmatically. No maxHeight, no scroll. -->
+            <VBox fx:id="propertiesContent" styleClass="properties-content" spacing="1">
+                <padding><Insets top="2" right="12" bottom="2" left="16"/></padding>
+            </VBox>
+            <HBox alignment="CENTER_LEFT">
+                <padding><Insets top="0" right="12" bottom="8" left="16"/></padding>
+                <Button fx:id="addPropertyBtn" text="%action.add_property_line"
+                        onAction="#handleAddProperty" styleClass="add-property-btn">
+                    <tooltip><Tooltip text="%tooltip.add_property"/></tooltip>
+                </Button>
+            </HBox>
         </VBox>
     </VBox>
 

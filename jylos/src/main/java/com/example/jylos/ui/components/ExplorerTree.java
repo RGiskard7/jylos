@@ -537,6 +537,7 @@ public final class ExplorerTree {
     /** A row: a folder (name only, the arrow is its affordance) or a note (type icon and name). */
     private final class ExplorerCell extends TreeCell<Component> {
         private final StackPane arrow = TreeDisclosureArrow.create();
+        private final TreeIndentGuides guides = new TreeIndentGuides();
         private final ChangeListener<Boolean> expandedListener = (obs, was, now) -> rotateArrow();
         private final FontIcon noteIcon = new FontIcon("fth-file-text");
         /** Folders get an icon too, so folder and note names start at the same column. */
@@ -586,6 +587,12 @@ public final class ExplorerTree {
                 }
             });
             cellDecorator.accept(this);
+        }
+
+        @Override
+        protected void layoutChildren() {
+            super.layoutChildren();
+            guides.layout(this, getChildren());
         }
 
         private boolean onArrow(MouseEvent event) {
