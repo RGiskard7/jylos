@@ -21,11 +21,11 @@ ui/ (FXML, controllers, components, GraphCanvas)
 
 | Paquete | Rol |
 |---------|-----|
-| `ui.controller` | Shell y controladores: `MainController`, sidebar, lista, editor, toolbar, grafo y helpers (`GitController`, `PrivacySupport`, `OverlaySupport`, etc.) |
+| `ui.controller` | Shell y controladores: `MainController`, sidebar, lista, editor, toolbar, grafo y helpers (`GitController`, `PrivacySupport`, `OverlaySupport`, etc.); piezas compartidas por los árboles y la lista clásicos y el árbol Explorador: `NoteContextMenuSupport`, `FolderContextMenuSupport` y `FolderDropSupport` |
 | `ui.theme` | Aplicación/detección de temas y catálogos de temas/snippets |
-| `ui.preferences` | Persistencia de preferencias UI serializadas |
+| `ui.preferences` | Persistencia de preferencias UI serializadas y del diseño de la ventana (`LayoutMode`: Explorador, clásico en columnas, clásico apilado) |
 | `ui.graph` | `GraphCanvas`, render nativo del grafo |
-| `ui.components` | Paleta, quick switcher, diálogos, visores, canvas, tabs, Kanban |
+| `ui.components` | Paleta, quick switcher, diálogos, visores, canvas, pestañas (`EditorTabs` sobre `EditorTabsModel`), árbol Explorador (`ExplorerTree`, `ExplorerOrdering`), Kanban |
 | `graph` | Construcción del grafo desde notas, wiki-links y tags |
 | `insights` | Métricas y DTOs de salud del grafo |
 | `git` | `GitService`, integración Git acotada a la bóveda |
@@ -46,9 +46,11 @@ ui/ (FXML, controllers, components, GraphCanvas)
 ## Composición UI
 
 - `MainView.fxml`: toolbar, centro con split principal, overlays de grafo/Kanban, panel derecho y status bar.
-- Split central: sidebar, lista de notas, editor/preview.
+- Split central según `LayoutMode` (guardado en `ui.layout.mode`; se decide una sola vez en `Main.start`: instalación nueva, Explorador; actualización, clásico en columnas). `NavigationCommand.arrangeLayout` coloca los paneles: columnas `sidebar | lista | editor`; apilado `(sidebar sobre lista) | editor`; Explorador `sidebar | editor`, con la lista delante del editor solo mientras muestra resultados de búsqueda o etiqueta.
+- Barra lateral: en el diseño Explorador la pestaña de carpetas muestra `ExplorerTree` en lugar del árbol clásico. Cada carpeta lee su contenido (`FolderService.getSubfolders`, `NoteService.getNotesByFolder`) en el hilo de carga de la barra lateral al desplegarse por primera vez, y descarta resultados más antiguos que la última lectura. El filtro y "revelar la nota abierta" leen la bóveda entera una vez y la guardan hasta el siguiente refresco.
+- Lista de notas: en el diseño Explorador es un panel de resultados (botón de cerrar, sin cuadrícula ni "notas de subcarpetas").
 - Overlays: grafo (`GraphView.fxml`) y Kanban (`KanbanBoard`) se gestionan por `OverlaySupport`.
-- Editor: `EditorTabs`, `MarkdownEditorView` como frontera JavaFX para CodeMirror 6 offline en modo fuente/vista previa en vivo, `WebView` de lectura separado y autocompletado `[[`.
+- Editor: `EditorTabs` (reglas en `EditorTabsModel`: abrir en la pestaña actual sustituye su nota, una nota ya abierta activa su pestaña, una pestaña nueva va justo después de la activa), `MarkdownEditorView` como frontera JavaFX para CodeMirror 6 offline en modo fuente/vista previa en vivo, `WebView` de lectura separado y autocompletado `[[`.
 - Panel derecho: metadata, backlinks y paneles de plugins.
 - Focus mode: oculta chrome de UI y deja solo editor.
 

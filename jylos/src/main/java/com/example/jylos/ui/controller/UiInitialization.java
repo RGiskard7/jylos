@@ -191,8 +191,11 @@ class UiInitialization {
                 toggleNotes.setOnAction(e -> overflowActions.toggleNotesPanel().run());
                 MenuItem toggleRightPanel = new MenuItem(i18n("action.toggle_right_panel"));
                 toggleRightPanel.setOnAction(e -> overflowActions.toggleRightPanel().run());
-                MenuItem switchLayout = new MenuItem(i18n("action.switch_layout"));
-                switchLayout.setOnAction(e -> overflowActions.viewLayoutSwitch().run());
+                // Same three layouts as the toolbar's layout button, rebuilt on each opening so
+                // the tick follows the current layout.
+                javafx.scene.control.Menu switchLayout = new javafx.scene.control.Menu(i18n("action.switch_layout"));
+                switchLayout.getItems().setAll(toolbarController.layoutMenu().getItems());
+                switchLayout.setOnShowing(e -> switchLayout.getItems().setAll(toolbarController.layoutMenu().getItems()));
                 toolbarController.getToolbarOverflowBtn().getItems().addAll(
                         toggleSidebar, toggleNotes, toggleRightPanel, switchLayout);
             }

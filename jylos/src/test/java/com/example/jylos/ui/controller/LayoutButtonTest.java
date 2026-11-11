@@ -79,6 +79,39 @@ class LayoutButtonTest {
         assertEquals(List.of(LayoutMode.EXPLORER), chosen);
     }
 
+    @Test
+    void inANarrowWindowTheOverflowMenuOffersTheSameThreeLayouts() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        List<LayoutMode> chosen = new ArrayList<>();
+
+        List<String> items = onFx(() -> {
+            Fixture f = new Fixture("modern-theme.css");
+            f.controller.setLayoutModeAction(chosen::add);
+            f.controller.showLayoutMode(LayoutMode.EXPLORER);
+            ResourceBundle bundle = ResourceBundle.getBundle("com.example.jylos.i18n.messages",
+                    Locale.forLanguageTag("es"));
+            UiInitialization ui = new UiInitialization();
+            Runnable none = () -> { };
+            ui.wire(bundle::getString, new UiInitialization.OverflowActions(none, none, none, none, none, none,
+                    none, none, none, none));
+            ui.updateToolbarOverflow(f.controller, 350);
+            javafx.scene.control.Menu layouts = f.controller.getToolbarOverflowBtn().getItems().stream()
+                    .filter(i -> i instanceof javafx.scene.control.Menu).map(i -> (javafx.scene.control.Menu) i)
+                    .findFirst().orElseThrow(() -> new AssertionError("no layout submenu in the overflow menu"));
+            List<String> out = new ArrayList<>();
+            out.add(layouts.getText());
+            for (MenuItem item : layouts.getItems()) {
+                out.add(item.getText() + (item instanceof RadioMenuItem r && r.isSelected() ? " ✓" : ""));
+            }
+            layouts.getItems().get(2).fire();
+            return out;
+        });
+
+        assertEquals(List.of("Diseño", "Explorador (carpetas y notas en un solo árbol) ✓", "Clásico: columnas",
+                "Clásico: apilado"), items);
+        assertEquals(List.of(LayoutMode.CLASSIC_STACKED), chosen);
+    }
+
     private static double iconOffset(ButtonBase button) {
         Node icon = button.getGraphic();
         Bounds b = button.localToScene(button.getBoundsInLocal());

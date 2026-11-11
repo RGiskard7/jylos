@@ -111,7 +111,8 @@ In concrete terms:
 Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like workflows:
 
 - CodeMirror 6 Markdown editor with Live Preview by default, a dedicated reading view, optional source mode and a linked side-by-side reading view (GFM, KaTeX math, emoji)
-- **Tabs** for multiple open notes, with an inline saved/unsaved indicator
+- **Two layouts**: an **Explorer** tree with folders and notes together, in the style of Obsidian, or the **classic** folders | notes | editor columns (side by side or stacked). Pick one from the toolbar's layout button or in Preferences
+- **Tabs that work like VS Code**: a click opens the note in the current tab; Cmd/Ctrl+click, middle click or "Open in new tab" opens another
 - Folder hierarchy + tags + favorites + recent + trash
 - **Obsidian-compatible internal links** (`[[wiki-links]]`, `[label](note.md)`) with click-to-open in preview
 - **Knowledge graph** (global vault view or local neighbourhood around the open note)
@@ -129,16 +130,18 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 
 - Create, edit, save, delete, and restore notes
 - Hierarchical folders and subfolders
+- **Explorer layout**: one tree with folders and notes, read folder by folder as you expand it; a filter that searches names across the whole vault (case and accents ignored), note order by name, edit or creation date, and a button to show the open note in the tree. The notes panel only appears for search and tag results
 - Tags with assignment/removal workflows (SQLite and vault modes)
 - Favorites and recent notes
 - Trash with restore for notes and nested folders
 - **Full-text search** across note titles and bodies (with navigation from results)
-- Sorting and list/grid note views (title, preview lines, dates)
+- Sorting and list/grid note views (title, preview lines, dates) in the classic layout
 
 ### Editor & Preview
 
 - Markdown editor built on an offline CodeMirror 6 bundle, with theme-aware syntax highlighting, source/Live Preview presentation, selection, undo/redo, search/replace, clipboard actions, context menu, and `[[` autocomplete
-- **Tabs** for multiple open notes; **inline save indicator** (amber = unsaved, green = saved)
+- **Tabs** like VS Code: a click replaces the note in the current tab, an already open note switches to its tab, and Cmd/Ctrl+click, middle click or the context menu open a new tab ("Always open notes in a new tab" in Preferences restores one tab per note)
+- **Save state and editor mode in the status bar**: "Saved" / "Unsaved" (the tooltip says how often autosave runs) and the current mode, which opens a menu to switch between Live Preview, source, reading and linked reading
 - **`[[` autocomplete** for note titles; formatting toolbar (bold, lists, links, …)
 - Source-backed **Live Preview** hides Markdown punctuation outside the active block while preserving one editable document and one undo history
 - A single book/pencil action switches between editing and reading; source mode is configurable in Preferences, while the linked side-by-side reading view is an independent View command
@@ -199,6 +202,7 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 - Sample external theme: Retro Phosphor (`themes/retro-phosphor/`)
 - Configurable sidebar/editor button presentation (text/icons/auto)
 - Centered sidebar navigation (folders, tags, recent, favorites, trash)
+- Layout menu in the toolbar: Explorer, classic columns or classic stacked; the choice is remembered
 - UI strings in **English** and **Spanish** (`i18n/messages*.properties`)
 - Toolbar uses **Feather** and **Bootstrap** icons via Ikonli (`fth-*` / `bi-*` in FXML — not separate image files)
 

@@ -111,7 +111,8 @@ En concreto:
 Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 - Editor Markdown CodeMirror 6 con vista previa en vivo por defecto, vista de lectura dedicada, modo fuente opcional y vista de lectura enlazada lado a lado (GFM, matemáticas KaTeX, emoji)
-- **Pestañas** para varias notas abiertas, con indicador de guardado en línea
+- **Dos diseños**: un árbol **Explorador** con carpetas y notas juntas, al estilo de Obsidian, o el **clásico** en columnas carpetas | notas | editor (lado a lado o apiladas). Se elige con el botón de diseño de la barra superior o en Preferencias
+- **Pestañas como en VS Code**: un clic abre la nota en la pestaña actual; Cmd/Ctrl+clic, clic central o "Abrir en pestaña nueva" abren otra
 - Jerarquía de carpetas + etiquetas + favoritos + recientes + papelera
 - **Enlaces internos compatibles con Obsidian** (`[[wiki-links]]`, `[texto](nota.md)`) con clic en la vista previa
 - **Grafo de conocimiento** (vista global de la bóveda o grafo local alrededor de la nota abierta)
@@ -129,16 +130,18 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 - Crear, editar, guardar, eliminar y restaurar notas
 - Carpetas y subcarpetas jerárquicas
+- **Diseño Explorador**: un solo árbol con carpetas y notas, que lee cada carpeta al desplegarla; un filtro que busca por nombre en toda la bóveda (sin distinguir mayúsculas ni acentos), orden de notas por nombre, edición o creación, y un botón para mostrar en el árbol la nota abierta. El panel de notas solo aparece para los resultados de búsquedas y etiquetas
 - Etiquetas con asignación/eliminación (SQLite y bóveda)
 - Favoritos y notas recientes
 - Papelera con restauración de notas y carpetas anidadas
 - **Búsqueda de texto completo** en títulos y cuerpos (navegación desde resultados)
-- Ordenación y vistas lista/cuadrícula (título, preview, fechas)
+- Ordenación y vistas lista/cuadrícula (título, preview, fechas) en el diseño clásico
 
 ### Editor y vista previa
 
 - Editor Markdown basado en un bundle offline de CodeMirror 6, con resaltado de sintaxis adaptado al tema, presentación fuente/vista previa en vivo, selección, deshacer/rehacer, búsqueda/reemplazo, portapapeles, menú contextual y autocompletado `[[`
-- **Pestañas** para varias notas abiertas; **indicador de guardado en línea** (ámbar = sin guardar, verde = guardado)
+- **Pestañas** como en VS Code: un clic sustituye la nota de la pestaña actual, una nota ya abierta activa su pestaña, y Cmd/Ctrl+clic, clic central o el menú contextual abren una pestaña nueva ("Abrir siempre las notas en una pestaña nueva" en Preferencias vuelve a una pestaña por nota)
+- **Estado de guardado y modo del editor en la barra de estado**: "Guardado" / "Sin guardar" (el tooltip indica cada cuánto se autoguarda) y el modo actual, que abre un menú para cambiar entre vista previa en vivo, fuente, lectura y lectura enlazada
 - **Autocompletado de `[[`** para títulos de nota; barra de formato (negrita, listas, enlaces, …)
 - La **vista previa en vivo** oculta la puntuación Markdown fuera del bloque activo manteniendo un único documento editable y un único historial de deshacer
 - Una única acción libro/lápiz alterna entre edición y lectura; el modo fuente se configura en Preferencias y la vista de lectura enlazada lado a lado es un comando independiente de Ver
@@ -199,6 +202,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 - Tema de ejemplo: Retro Phosphor (`themes/retro-phosphor/`)
 - Preferencias de botones lateral/editor (texto/iconos/auto)
 - Barra lateral centrada (carpetas, etiquetas, recientes, favoritos, papelera)
+- Menú de diseño en la barra superior: Explorador, clásico en columnas o clásico apilado; la elección se recuerda
 - Interfaz en **inglés** y **español** (`i18n/messages*.properties`)
 - Iconos de barra/menús: fuente **Feather** y **Bootstrap Icons** vía Ikonli (`fth-*` / `bi-*` en FXML)
 

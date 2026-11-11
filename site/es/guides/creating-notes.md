@@ -13,8 +13,10 @@ Las notas son el corazón de Jylos. Aquí está todo lo relacionado con crearlas
 El editor es CodeMirror 6 y WYSIWYG por defecto: escribes Markdown y se renderiza en vivo mientras tecleas — tablas GFM, fórmulas KaTeX, emoji y embebidos aparecen en su sitio.
 
 - **Live Preview** (por defecto) — la vista WYSIWYG. La puntuación se oculta mientras escribes, manteniendo un único documento y un único historial de deshacer.
-- **Modo fuente** — Markdown plano, en Preferencias, cuando quieres el texto sin formato.
+- **Modo fuente** — Markdown plano, cuando quieres el texto sin formato.
 - **Vista de lectura** — el render completo para leer con comodidad; si lo prefieres, sigue existiendo una vista dividida lado a lado como comando **Ver** aparte.
+
+Se cambia entre ellos con un clic en el modo del editor, a la derecha de la barra de estado.
 
 El **modo concentración / escritura** (**Ctrl/Cmd+Shift+F**) oculta todo salvo el editor.
 
@@ -28,9 +30,20 @@ El **modo concentración / escritura** (**Ctrl/Cmd+Shift+F**) oculta todo salvo 
 - Transclusión con `![[Nota]]` o `![[Nota#Encabezado]]`, con detección de ciclos.
 - Enlaces enriquecidos: pega una URL para insertarla como tarjeta visual (los metadatos se obtienen en segundo plano).
 
-## Pestañas e indicador de guardado
+## Pestañas y estado de guardado
 
-Abre varias notas en pestañas. Cada pestaña muestra un indicador inline: ámbar significa sin guardar, verde significa guardado.
+Las pestañas funcionan como en VS Code:
+
+- Un clic en una nota la abre en la **pestaña actual**, sustituyendo la nota que había. Si la nota ya está abierta en otra pestaña, se activa esa pestaña en lugar de abrirla dos veces.
+- Para abrir una nota en una **pestaña nueva** (justo a la derecha de la actual): **Cmd+clic** en macOS o **Ctrl+clic** en Windows y Linux, **clic central**, o **Abrir en pestaña nueva** en el menú contextual de la nota. Funciona en el árbol Explorador, la lista de notas, la cuadrícula, Recientes y Favoritas.
+- Las notas nuevas y las de un espacio de trabajo se abren cada una en su pestaña.
+- El clic central sobre una pestaña la cierra.
+
+Si prefieres una pestaña por nota, activa **Abrir siempre las notas en una pestaña nueva** en **Herramientas → Preferencias**.
+
+Los enlaces entre notas se abren en la pestaña actual: en modo fuente, Cmd/Ctrl+clic es el gesto para seguir un enlace.
+
+La barra de estado muestra **Guardado** o **Sin guardar** según el estado de la nota abierta; su tooltip dice cada cuánto se autoguarda, o cómo activarlo. Cada pestaña muestra además un punto: ámbar significa sin guardar, verde significa guardado.
 
 ## Historial de versiones
 
@@ -44,7 +57,16 @@ Abre varias notas en pestañas. Cada pestaña muestra un indicador inline: ámba
 
 ## Organiza
 
-Mueve notas entre carpetas, añade etiquetas y marca favoritas desde la barra lateral. Borrar mueve las notas a la papelera, desde donde se pueden restaurar.
+Mueve notas entre carpetas, añade etiquetas y marca favoritas desde la barra lateral. Las notas y las carpetas tienen un menú contextual (clic derecho) con las mismas opciones en los dos diseños, incluido **Mover a Carpeta...**; también puedes arrastrar una nota o una carpeta sobre otra carpeta. Borrar mueve las notas a la papelera, desde donde se pueden restaurar.
+
+En el diseño **Explorador**, la cabecera sobre el árbol tiene:
+
+- un **filtro** que busca por nombre entre todas las notas y carpetas de la bóveda (sin distinguir mayúsculas ni acentos) y muestra las coincidencias dentro de sus carpetas;
+- el **orden de las notas** (nombre, última edición o creación);
+- un botón que muestra en el árbol la **nota abierta**, desplegando sus carpetas;
+- **expandir** y **plegar**.
+
+**Mostrar el número de notas junto a cada carpeta** (Preferencias) se aplica a los dos diseños.
 
 ## Relacionado
 
