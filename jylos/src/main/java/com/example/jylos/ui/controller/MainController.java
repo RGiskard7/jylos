@@ -598,6 +598,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                         this::getString);
                 editorTabs.setAlwaysNewTab(uiPreferences.load(prefs).alwaysOpenInNewTab());
             }
+            editorController.setFormatToolbarVisible(uiPreferences.loadShowFormatToolbar(prefs));
         }
         overlaySupport.wire(centerStack, graphView, graphViewController, noteService,
                 this::isDarkThemeActive, this::getString, this::updateStatus, this::handleUiNoteOpenRequest,
@@ -1876,6 +1877,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         systemActionHandlers.put(SystemActionEvent.ActionType.GIT_SYNC, gitController::sync);
         systemActionHandlers.put(SystemActionEvent.ActionType.GIT_COMMIT_PUSH, gitController::commitPush);
         systemActionHandlers.put(SystemActionEvent.ActionType.GIT_PULL, gitController::pull);
+        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_HISTORY, gitController::showHistoryDialog);
         systemActionHandlers.put(SystemActionEvent.ActionType.GIT_INIT, gitController::init);
         systemActionHandlers.put(SystemActionEvent.ActionType.GIT_ADD_REMOTE, gitController::addRemote);
     }
@@ -2261,6 +2263,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     // ------------------------------------------------------------------
 
     @FXML private void handleGitStatusClick(javafx.scene.input.MouseEvent event)  {
+        // Right click opens the entry's context menu (changes, commit, history), not the panel.
+        if (event != null && event.getButton() != javafx.scene.input.MouseButton.PRIMARY) {
+            return;
+        }
         gitController.showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget.BRANCH);
     }
     @FXML private void handleGitInitClick(javafx.scene.input.MouseEvent event)    { gitController.init(); }
@@ -3199,6 +3205,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (sidebarController != null) {
             sidebarController.setExplorerMode(layoutMode.isExplorer());
         }
+        if (editorController != null) {
+            // The folder path in the title row reveals the note where there is a tree of notes.
+            editorController.setPathRevealAction(layoutMode.isExplorer() && sidebarController != null
+                    ? sidebarController::revealExplorerActiveNote : null);
+        }
         if (notesListController != null) {
             notesListController.setResultsPanelMode(layoutMode.isExplorer());
         }
@@ -3528,7 +3539,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 themes,
                 cssSnippetCatalog,
                 enabledSnippets,
-                layoutMode);
+                layoutMode,
+                uiPreferences.loadShowFormatToolbar(prefs));
         if (result.isEmpty()) {
             return;
         }
@@ -3551,6 +3563,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         applyUiPreferencesFromStore();
         updateThemeMenuSelection();
         syncSystemThemeMonitoring();
+        uiPreferences.saveShowFormatToolbar(prefs, values.showFormatToolbar());
+        if (editorController != null) {
+            editorController.setFormatToolbarVisible(values.showFormatToolbar());
+        }
         if (values.layoutMode() != null && values.layoutMode() != layoutMode) {
             setLayoutMode(values.layoutMode());
         }

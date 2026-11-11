@@ -18,16 +18,6 @@
         <HBox fx:id="editorTabBar" styleClass="editor-tab-bar"/>
     </ScrollPane>
 
-    <!-- ── Breadcrumb path bar (folder/.../note.md) ───────────────────────── -->
-    <!-- Closing a note is done from its tab (×) or Close Note; no duplicate close here. -->
-    <HBox fx:id="editorPathBar" alignment="CENTER_LEFT" spacing="6" styleClass="editor-path-bar">
-        <padding>
-            <Insets top="5" right="12" bottom="5" left="16"/>
-        </padding>
-        <FontIcon iconLiteral="fth-file-text" styleClass="feather-icon-faint"/>
-        <Label fx:id="notePathLabel" text="" styleClass="note-path" HBox.hgrow="ALWAYS"/>
-    </HBox>
-
     <!-- ── Editor Header ─────────────────────────────────────────────────── -->
     <HBox fx:id="editorHeaderBar" alignment="CENTER_LEFT" spacing="6" styleClass="editor-header">
         <padding>
@@ -47,10 +37,10 @@
         <Separator orientation="VERTICAL" styleClass="header-separator"/>
 
         <!-- Inline save indicator: amber dot = unsaved, green = saved. -->
-        <Label fx:id="dirtySaveIndicator" text="●" styleClass="save-indicator-dot"
-               visible="false" managed="false">
-            <tooltip><Tooltip fx:id="dirtySaveIndicatorTip" text="%tooltip.unsaved_changes"/></tooltip>
-        </Label>
+        <!-- Folders of the open note (folder / sub /); the title follows. Clicking reveals
+             the note in the Explorer tree. Replaces the separate path row. The save state is
+             shown in the status bar and on the tab, so there is no dot here. -->
+        <Label fx:id="notePathLabel" styleClass="note-path" minWidth="0" visible="false" managed="false"/>
 
         <!-- Private note indicator: closed lock = locked, open lock = unlocked this session. -->
         <Label fx:id="privateIndicator" styleClass="editor-private-indicator"
@@ -79,6 +69,11 @@
             </Button>
 
             <!-- Tags toggle -->
+            <!-- Add a property (the properties section only shows when the note has some). -->
+            <Button fx:id="addPropertyHeaderBtn" onAction="#handleAddProperty" styleClass="modern-toggle-btn">
+                <tooltip><Tooltip text="%action.add_property"/></tooltip>
+                <graphic><FontIcon iconLiteral="fth-sliders" styleClass="feather-icon"/></graphic>
+            </Button>
             <ToggleButton fx:id="toggleTagsBtn" onAction="#handleToggleTags" styleClass="modern-toggle-btn" selected="false">
                 <tooltip><Tooltip text="%tooltip.toggle_tags"/></tooltip>
                 <graphic><FontIcon iconLiteral="fth-hash" styleClass="feather-icon"/></graphic>

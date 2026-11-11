@@ -101,6 +101,7 @@
                 <MenuItem text="%action.git_sync" onAction="#handleGitSync" accelerator="Shortcut+Shift+S"/>
                 <MenuItem text="%action.git_commit_push" onAction="#handleGitCommitPush"/>
                 <MenuItem text="%action.git_pull" onAction="#handleGitPull"/>
+                <MenuItem text="%action.git_history" onAction="#handleGitHistory"/>
                 <SeparatorMenuItem/>
                 <MenuItem text="%action.git_init" onAction="#handleGitInit"/>
                 <MenuItem text="%action.git_add_remote" onAction="#handleGitAddRemote"/>

@@ -136,15 +136,16 @@ class UiPresentationFxmlGuardTest {
     }
 
     @Test
-    void editorExposesTabBarAndSaveIndicator() throws Exception {
+    void editorExposesTabBarWithoutASecondSaveIndicator() throws Exception {
         Assumptions.assumeTrue(fxRuntimeAvailable);
 
         Map<String, Object> nodes = loadNamespace("/com/example/jylos/ui/view/EditorView.fxml");
 
         assertTrue(nodes.containsKey("editorTabBar"),
                 "EditorView should host the open-note tab strip.");
-        assertTrue(nodes.containsKey("dirtySaveIndicator"),
-                "EditorView should host the inline save indicator dot.");
+        // The save state moved to the status bar and the tab's dot; the header has no dot.
+        assertTrue(!nodes.containsKey("dirtySaveIndicator"),
+                "EditorView should not host a second save indicator next to the title.");
     }
 
     @Test

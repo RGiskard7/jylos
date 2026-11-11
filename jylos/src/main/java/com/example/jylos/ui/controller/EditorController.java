@@ -183,7 +183,6 @@ public class EditorController {
     @FXML private VBox editorContainer;
     @FXML private ScrollPane editorTabScroll;
     @FXML private HBox editorTabBar;
-    @FXML private HBox editorPathBar;
     @FXML private Label notePathLabel;
     @FXML private HBox editorHeaderBar;
     @FXML private StackPane editorContentStack;
@@ -192,8 +191,6 @@ public class EditorController {
     @FXML private Button navForwardBtn;
     @FXML private TextField noteTitleField;
     @FXML private Label noteTitleLabel;
-    @FXML private Label dirtySaveIndicator;
-    @FXML private Tooltip dirtySaveIndicatorTip;
     @FXML private Label privateIndicator;
     @FXML private FontIcon privateIndicatorIcon;
     @FXML private Tooltip privateIndicatorTip;
@@ -218,6 +215,7 @@ public class EditorController {
     @FXML private Label propertiesCollapseIcon;
     @FXML private VBox  propertiesContent;   // rows, toggleable via header click
     @FXML private Button addPropertyBtn;
+    @FXML private Button addPropertyHeaderBtn;
 
     // ── FXML — editor / preview ─────────────────────────────────────────────
     @FXML private SplitPane editorPreviewSplitPane;
@@ -596,6 +594,32 @@ public class EditorController {
     }
 
     /** Applies the persisted default editing mode without writing the preference again. */
+    /** Runs when the folder path in the title row is clicked (null: the path is plain text). */
+    private Runnable pathRevealAction;
+    /** Preference: whether the format bar under the editor is shown. */
+    private boolean formatToolbarVisible = true;
+
+    /**
+     * What clicking the note's folder path in the title row does (the Explorer layout reveals
+     * the note in its tree). {@code null} makes the path plain text, not a link.
+     */
+    public void setPathRevealAction(Runnable action) {
+        this.pathRevealAction = action;
+        if (notePathLabel != null) {
+            notePathLabel.getStyleClass().remove("note-path-link");
+            if (action != null) {
+                notePathLabel.getStyleClass().add("note-path-link");
+            }
+            notePathLabel.setCursor(action != null ? javafx.scene.Cursor.HAND : javafx.scene.Cursor.DEFAULT);
+        }
+    }
+
+    /** Shows or hides the format bar under the editor (Preferences). */
+    public void setFormatToolbarVisible(boolean visible) {
+        this.formatToolbarVisible = visible;
+        setNodeVisible(formatToolbarContainer, visible);
+    }
+
     public void applyLivePreviewPreference(boolean enabled) {
         setLivePreviewEnabled(enabled, false);
     }
@@ -638,7 +662,6 @@ public class EditorController {
      */
     private void setNoteOpen(boolean open) {
         hideAttachmentViewer();
-        setNodeVisible(editorPathBar, open);
         setNodeVisible(editorHeaderBar, open);
         setNodeVisible(noteOnlyControls, open);
         setNodeVisible(editorPreviewSplitPane, open);
@@ -656,7 +679,10 @@ public class EditorController {
         }
     }
 
-    /** Builds the {@code folder/sub/note.md} breadcrumb for the path bar. */
+    /**
+     * Shows the note's folders ({@code folder / sub /}) in the title row, before the title;
+     * hidden for a note at the root of the vault. The tooltip has the full file path.
+     */
     private void updateBreadcrumb(Note note) {
         if (notePathLabel == null) return;
         String id = note.getId();
@@ -671,7 +697,23 @@ public class EditorController {
             String title = note.getTitle() != null ? note.getTitle() : "";
             path = title.isBlank() ? "" : (AttachmentType.extensionOf(title).isEmpty() ? title + ".md" : title);
         }
-        notePathLabel.setText(path);
+        int lastSlash = path.lastIndexOf('/');
+        String folders = lastSlash > 0 ? path.substring(0, lastSlash).replace("/", " / ") + " /" : "";
+        notePathLabel.setText(folders);
+        notePathLabel.setTextOverrun(javafx.scene.control.OverrunStyle.LEADING_ELLIPSIS);
+        if (editorHeaderBar != null && !notePathLabel.maxWidthProperty().isBound()) {
+            // A deep path never takes more than 40% of the row; the title keeps the rest.
+            notePathLabel.maxWidthProperty().bind(editorHeaderBar.widthProperty().multiply(0.4));
+        }
+        notePathLabel.setTooltip(path.isBlank() ? null : new Tooltip(path));
+        if (notePathLabel.getOnMouseClicked() == null) {
+            notePathLabel.setOnMouseClicked(e -> {
+                if (pathRevealAction != null) {
+                    pathRevealAction.run();
+                }
+            });
+        }
+        setNodeVisible(notePathLabel, !folders.isEmpty());
     }
 
 
@@ -819,7 +861,6 @@ public class EditorController {
         }
         attachmentViewer.getChildren().setAll(attachmentContent);
 
-        setNodeVisible(editorPathBar, true);
         setNodeVisible(editorHeaderBar, true);
         setNodeVisible(noteOnlyControls, false);
         if (noteTitleField != null) {
@@ -939,7 +980,6 @@ public class EditorController {
         currentCanvasFingerprint = fingerprint(currentCanvasPath);
         isModified = false;
         updateBreadcrumb(currentNote);
-        updateSaveIndicator(false);
         if (eventBus != null) {
             eventBus.publish(new NoteEvents.NoteSavedEvent(currentNote, previousNoteId));
         }
@@ -1195,7 +1235,6 @@ public class EditorController {
         }
         if (decision == SaveConflictSupport.Decision.CONFLICT_PAUSE) {
             reportStatus(safeI18n("status.save_conflict_paused"));
-            updateSaveIndicator(true);
             return false;
         }
         switch (saveConflictSupport.askResolution(currentNote.getTitle())) {
@@ -1210,7 +1249,6 @@ public class EditorController {
                 }
                 return false;
             default:
-                updateSaveIndicator(true);
                 return false;
         }
     }
@@ -1323,7 +1361,6 @@ public class EditorController {
     private void reportSaveFailure(RuntimeException error) {
         logger.log(Level.WARNING, "Could not save current note", error);
         statusAction.accept(safeI18n("status.error_saving"));
-        updateSaveIndicator(true);
     }
 
     private void reportStatus(String message) {
@@ -1353,9 +1390,12 @@ public class EditorController {
 
         Map<String, String> props = currentNote != null ? currentNote.getCustomProperties() : null;
         boolean hasProps = props != null && !props.isEmpty();
-        boolean sectionVisible = currentNote != null && (readOnlyView ? hasProps : true);
+        // Shown only when the note has properties, in every view; new ones are added from the
+        // title row's button (or this section's own button, once it is shown).
+        boolean sectionVisible = currentNote != null && hasProps;
 
         setNodeVisible(propertiesSection, sectionVisible);
+        setNodeVisible(addPropertyHeaderBtn, currentNote != null && !readOnlyView && !viewingAttachment);
         if (addPropertyBtn != null) {
             addPropertyBtn.setVisible(!readOnlyView);
             addPropertyBtn.setManaged(!readOnlyView);
@@ -2254,7 +2294,6 @@ public class EditorController {
         if (currentNote != null) {
             noteModifiedAction.accept(currentNote);
         }
-        updateSaveIndicator(isModified);
     }
 
     private void capturePersistedBaseline(Note note) {
@@ -2314,31 +2353,8 @@ public class EditorController {
     private void setModifiedState(boolean dirty) {
         boolean changed = isModified != dirty;
         isModified = dirty;
-        updateSaveIndicator(dirty);
         if (changed || dirty) {
             publishModified();
-        }
-    }
-
-    /**
-     * Updates the inline save-indicator dot next to the title: amber while there are
-     * unsaved changes, green once saved, hidden when no editable note is open.
-     */
-    private void updateSaveIndicator(boolean dirty) {
-        if (dirtySaveIndicator == null) {
-            return;
-        }
-        boolean show = currentNote != null;
-        setNodeVisible(dirtySaveIndicator, show);
-        if (!show) {
-            return;
-        }
-        dirtySaveIndicator.getStyleClass().removeAll("dirty", "saved");
-        dirtySaveIndicator.getStyleClass().add(dirty ? "dirty" : "saved");
-        if (dirtySaveIndicatorTip != null) {
-            dirtySaveIndicatorTip.setText(dirty
-                    ? getString("tooltip.unsaved_changes", "Unsaved changes")
-                    : getString("tooltip.saved", "All changes saved"));
         }
     }
 

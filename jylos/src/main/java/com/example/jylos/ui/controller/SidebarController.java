@@ -304,6 +304,11 @@ public class SidebarController {
 
     @FXML
     private void handleRevealActiveNote(ActionEvent e) {
+        revealExplorerActiveNote();
+    }
+
+    /** Shows the note open in the editor in the Explorer tree (clearing a filter first). */
+    public void revealExplorerActiveNote() {
         if (explorerMode && explorerTree != null) {
             if (explorerTree.isFiltering() && filterFoldersField != null) {
                 filterFoldersField.clear();

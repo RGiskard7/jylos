@@ -63,6 +63,22 @@ class LayoutModeTest {
         }
     }
 
+    /** The format bar under the editor is shown unless the user turned it off. */
+    @Test
+    void theFormatBarIsShownByDefaultAndTheChoiceIsKept() throws Exception {
+        UiPreferencesStore store = new UiPreferencesStore();
+        Preferences prefs = Preferences.userRoot().node("/com/example/jylos/test/" + UUID.randomUUID());
+        try {
+            assertEquals(true, store.loadShowFormatToolbar(prefs));
+            store.saveShowFormatToolbar(prefs, false);
+            assertEquals(false, store.loadShowFormatToolbar(prefs));
+            store.saveShowFormatToolbar(prefs, true);
+            assertEquals(true, store.loadShowFormatToolbar(prefs));
+        } finally {
+            prefs.removeNode();
+        }
+    }
+
     @Test
     void theLayoutButtonCyclesThroughTheThreeModes() {
         assertEquals(LayoutMode.CLASSIC_COLUMNS, LayoutMode.EXPLORER.next());

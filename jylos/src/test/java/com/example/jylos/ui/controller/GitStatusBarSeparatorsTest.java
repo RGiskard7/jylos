@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -56,7 +57,50 @@ class GitStatusBarSeparatorsTest {
             return List.of(withoutRepo, withRepo);
         });
 
-        assertEquals(List.of(0L, 4L), visibleSeparators);
+        // A repository shows one compact entry (see the next test), so no separators either.
+        assertEquals(List.of(0L, 0L), visibleSeparators);
+    }
+
+    /**
+     * In a repository the Git part of the status bar is one entry: the branch with its sync
+     * state and the number of changes. A click opens the Git panel (unchanged), and its
+     * context menu keeps one-click access to changes, commit, history and adding a remote.
+     */
+    @Test
+    void aRepositoryShowsOneCompactEntryWithTheOtherActionsInItsMenu() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            Label init = new Label();
+            Label remote = new Label();
+            Label changes = new Label();
+            Label commit = new Label();
+            Label sync = new Label();
+            Label history = new Label();
+            HBox bar = new HBox(init, remote, new Separator(), changes, new Separator(), commit, new Separator(),
+                    sync, new Separator(), history);
+            GitController git = new GitController();
+            git.wire(new Separator(), bar, init, remote, changes, commit, sync, history, null, key -> key,
+                    message -> { }, () -> null, () -> { });
+            Method apply = GitController.class.getDeclaredMethod("applyGitStatus", GitStatus.class);
+            apply.setAccessible(true);
+            apply.invoke(git, new GitStatus(true, false, false, "", "master", 107, 0, 0));
+
+            List<String> out = new ArrayList<>();
+            for (javafx.scene.Node node : bar.getChildren()) {
+                if (node.isVisible() && node.isManaged()) {
+                    out.add(node instanceof Label l ? l.getText() : "|");
+                }
+            }
+            out.add("tooltip: " + (sync.getTooltip() != null ? sync.getTooltip().getText().replace("\n", " / ") : ""));
+            for (javafx.scene.control.MenuItem item : sync.getContextMenu().getItems()) {
+                out.add("menu: " + item.getText());
+            }
+            return out;
+        });
+
+        assertEquals(List.of("master  ✓ · 107", "tooltip: git.no_remote / git.changes / git.tooltip_compact",
+                "menu: git.changes", "menu: git.commit", "menu: git.history", "menu: action.git_add_remote"), seen);
     }
 
     private static long shownSeparators(HBox bar) {

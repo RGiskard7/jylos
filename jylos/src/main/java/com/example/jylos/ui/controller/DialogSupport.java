@@ -94,6 +94,7 @@ class DialogSupport {
             boolean showFolderNoteCounts,
             boolean alwaysOpenInNewTab,
             com.example.jylos.ui.preferences.LayoutMode layoutMode,
+            boolean showFormatToolbar,
             Set<String> enabledSnippets) {
     }
 
@@ -102,7 +103,8 @@ class DialogSupport {
             List<ThemeCatalog.ThemeDescriptor> themes,
             CssSnippetCatalog snippetCatalog,
             Set<String> enabledSnippets,
-            com.example.jylos.ui.preferences.LayoutMode currentLayout) {
+            com.example.jylos.ui.preferences.LayoutMode currentLayout,
+            boolean currentShowFormatToolbar) {
         Dialog<PreferencesDialogResult> dialog = new Dialog<>();
         dialog.setTitle(i18n("dialog.preferences.title"));
         dialog.setHeaderText(i18n("dialog.preferences.header"));
@@ -155,6 +157,9 @@ class DialogSupport {
 
         CheckBox alwaysOpenInNewTabCheck = new CheckBox(i18n("dialog.preferences.always_open_in_new_tab"));
         alwaysOpenInNewTabCheck.setSelected(current.alwaysOpenInNewTab());
+
+        CheckBox showFormatToolbarCheck = new CheckBox(i18n("dialog.preferences.show_format_toolbar"));
+        showFormatToolbarCheck.setSelected(currentShowFormatToolbar);
 
         // Same three layouts as the toolbar's layout menu.
         Label layoutLabel = new Label(i18n("dialog.preferences.layout"));
@@ -292,6 +297,7 @@ class DialogSupport {
                 new HBox(8, layoutLabel, layoutCombo),
                 editingModeLabel, editingModeCombo,
                 readableLineLengthCheck,
+                showFormatToolbarCheck,
                 showFolderNoteCountsCheck,
                 alwaysOpenInNewTabCheck,
                 notesPreviewLinesLabel, notesPreviewLinesCombo,
@@ -367,6 +373,7 @@ class DialogSupport {
                     showFolderNoteCountsCheck.isSelected(),
                     alwaysOpenInNewTabCheck.isSelected(),
                     layoutCombo.getValue(),
+                    showFormatToolbarCheck.isSelected(),
                     new LinkedHashSet<>(selectedSnippets));
         });
         return com.example.jylos.ui.UiDialogs.show(dialog);

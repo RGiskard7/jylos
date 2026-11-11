@@ -521,6 +521,11 @@ public class ToolbarController {
     }
 
     @FXML
+    private void handleGitHistory(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.GIT_HISTORY);
+    }
+
+    @FXML
     private void handleGitInit(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.GIT_INIT);
     }

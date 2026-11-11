@@ -25,6 +25,7 @@ public final class UiPreferencesStore {
     public static final String SHOW_FOLDER_NOTE_COUNTS_KEY = "ui.sidebar.show_folder_note_counts";
     public static final String ALWAYS_OPEN_IN_NEW_TAB_KEY = "ui.tabs.always_new_tab";
     public static final String LAYOUT_MODE_KEY = "ui.layout.mode";
+    public static final String SHOW_FORMAT_TOOLBAR_KEY = "ui.editor.format_toolbar";
     public static final String SPLIT_MAIN_KEY = "ui.split.main";
     public static final String SPLIT_CONTENT_KEY = "ui.split.content";
     public static final double DEFAULT_SPLIT_MAIN = 0.22;
@@ -239,5 +240,14 @@ public final class UiPreferencesStore {
 
     public void saveLayoutMode(Preferences prefs, LayoutMode mode) {
         prefs.put(LAYOUT_MODE_KEY, (mode != null ? mode : LayoutMode.CLASSIC_COLUMNS).key());
+    }
+
+    /** Whether the format bar under the editor is shown; on unless the user turned it off. */
+    public boolean loadShowFormatToolbar(Preferences prefs) {
+        return prefs.getBoolean(SHOW_FORMAT_TOOLBAR_KEY, true);
+    }
+
+    public void saveShowFormatToolbar(Preferences prefs, boolean show) {
+        prefs.putBoolean(SHOW_FORMAT_TOOLBAR_KEY, show);
     }
 }

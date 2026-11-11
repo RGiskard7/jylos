@@ -100,6 +100,7 @@ public class SystemActionEvent extends AppEvent {
         GIT_SYNC,
         GIT_COMMIT_PUSH,
         GIT_PULL,
+        GIT_HISTORY,
         GIT_INIT,
         GIT_ADD_REMOTE,
         DAILY_NOTE,

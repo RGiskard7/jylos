@@ -24,7 +24,9 @@ import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Dialog;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Separator;
@@ -263,17 +265,18 @@ public final class GitController {
         setNodeVisible(gitSeparator, true);
 
         boolean repo = status.repository();
+        // Compact: without a repository only "Initialize Git"; with one, a single entry (branch,
+        // sync state and number of changes) that opens the Git panel, whose context menu keeps
+        // one-click access to changes, commit, history and adding a remote.
         setNodeVisible(gitInitLabel, !repo);
-        setNodeVisible(gitRemoteLabel, repo);
-        setNodeVisible(gitChangesLabel, repo);
-        setNodeVisible(gitCommitLabel, repo);
+        setNodeVisible(gitRemoteLabel, false);
+        setNodeVisible(gitChangesLabel, false);
+        setNodeVisible(gitCommitLabel, false);
+        setNodeVisible(gitHistoryLabel, false);
         setNodeVisible(gitSyncLabel, repo);
-        setNodeVisible(gitHistoryLabel, repo);
-        // The separators between those entries go with them; otherwise a vault without Git
-        // shows "Initialize Git" followed by a row of stray "| | | |".
         for (javafx.scene.Node child : gitBar.getChildren()) {
             if (child instanceof Separator) {
-                setNodeVisible(child, repo);
+                setNodeVisible(child, false);
             }
         }
 
@@ -282,15 +285,6 @@ public final class GitController {
             gitInitLabel.setTooltip(new Tooltip(getString("git.tooltip_init")));
             return;
         }
-
-        gitRemoteLabel.setText(status.hasRemote() ? getString("git.remote") : getString("git.no_remote"));
-        gitRemoteLabel.setTooltip(new Tooltip(getString("git.tooltip_remote")));
-
-        gitChangesLabel.setText(MessageFormat.format(getString("git.changes"), status.modified()));
-        gitChangesLabel.setTooltip(new Tooltip(getString("git.tooltip_changes")));
-
-        gitCommitLabel.setText(getString("git.commit"));
-        gitCommitLabel.setTooltip(new Tooltip(getString("git.tooltip_commit")));
 
         StringBuilder sync = new StringBuilder(status.branch().isBlank() ? "git" : status.branch());
         if (status.ahead() > 0) {
@@ -302,11 +296,32 @@ public final class GitController {
         if (!status.needsSync()) {
             sync.append("  ✓");
         }
+        if (status.modified() > 0) {
+            sync.append(" · ").append(status.modified());
+        }
         gitSyncLabel.setText(sync.toString());
-        gitSyncLabel.setTooltip(new Tooltip(getString("git.tooltip_sync")));
+        gitSyncLabel.setTooltip(new Tooltip(String.join("\n",
+                status.hasRemote() ? getString("git.remote") : getString("git.no_remote"),
+                MessageFormat.format(getString("git.changes"), status.modified()),
+                getString("git.tooltip_compact"))));
+        gitSyncLabel.setContextMenu(compactMenu(status));
+    }
 
-        gitHistoryLabel.setText(getString("git.history"));
-        gitHistoryLabel.setTooltip(new Tooltip(getString("git.tooltip_history")));
+    /** The compact Git entry's context menu: what the separate entries used to offer. */
+    private ContextMenu compactMenu(GitStatus status) {
+        MenuItem changes = new MenuItem(MessageFormat.format(getString("git.changes"), status.modified()));
+        changes.setOnAction(e -> showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget.CHANGES));
+        MenuItem commit = new MenuItem(getString("git.commit"));
+        commit.setOnAction(e -> showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget.COMMIT));
+        MenuItem history = new MenuItem(getString("git.history"));
+        history.setOnAction(e -> showHistoryDialog());
+        ContextMenu menu = new ContextMenu(changes, commit, history);
+        if (!status.hasRemote()) {
+            MenuItem remote = new MenuItem(getString("action.git_add_remote"));
+            remote.setOnAction(e -> addRemote());
+            menu.getItems().add(remote);
+        }
+        return menu;
     }
 
     /** Applies the active theme stylesheet to a dialog and sets its owner window. */

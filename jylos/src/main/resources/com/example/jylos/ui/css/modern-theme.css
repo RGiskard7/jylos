@@ -4504,3 +4504,74 @@
 .explorer-tree .tree-cell:filled:selected .explorer-cell-name {
     -fx-text-fill: -fx-selected-text;
 }
+
+/* ------------------------------------------------------------------------------------
+   Flat icon buttons (top bar, sidebar, notes list header, editor header, format bar).
+   As in Obsidian: no border and no background at rest; a soft background on hover; a
+   toggled-on button keeps that background and shows its icon in the accent colour.
+   Kept last, with a .root prefix, so it wins over the older per-area button rules.
+   ------------------------------------------------------------------------------------ */
+.root .toolbar-btn,
+.root .modern-toggle-btn,
+.root .icon-btn,
+.root .icon-btn-small,
+.root .sidebar-nav-btn,
+.root .nav-btn,
+.root .format-btn {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-background-insets: 0;
+    -fx-background-radius: 6;
+    -fx-effect: null;
+}
+
+.root .toolbar-btn:hover,
+.root .modern-toggle-btn:hover,
+.root .icon-btn:hover,
+.root .icon-btn-small:hover,
+.root .sidebar-nav-btn:hover,
+.root .nav-btn:hover,
+.root .format-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-border-color: transparent;
+}
+
+.root .toolbar-btn:selected,
+.root .modern-toggle-btn:selected,
+.root .sidebar-nav-btn:selected,
+.root .sidebar-nav-btn-selected {
+    -fx-background-color: -fx-hover-bg;
+    -fx-border-color: transparent;
+}
+
+.root .toolbar-btn:selected .feather-icon,
+.root .modern-toggle-btn:selected .feather-icon,
+.root .sidebar-nav-btn:selected .feather-icon,
+.root .sidebar-nav-btn-selected .feather-icon {
+    -fx-icon-color: -fx-accent;
+    -fx-fill: -fx-accent;
+}
+
+.root .toolbar-btn:selected:hover,
+.root .modern-toggle-btn:selected:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+
+.root .toolbar-btn:disabled,
+.root .nav-btn:disabled,
+.root .format-btn:disabled {
+    -fx-background-color: transparent;
+}
+
+/* Folder path of the open note, in the title row before the title. */
+.editor-header .note-path {
+    -fx-text-fill: -fx-text-faint;
+    -fx-font-size: 0.92em;
+    -fx-padding: 0 2 0 4;
+}
+
+.editor-header .note-path-link:hover {
+    -fx-text-fill: -fx-accent;
+    -fx-underline: true;
+}
