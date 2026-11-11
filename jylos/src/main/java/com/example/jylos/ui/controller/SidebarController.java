@@ -34,6 +34,7 @@ import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
 import com.example.jylos.ui.components.EditorTabsModel;
+import com.example.jylos.ui.components.ExplorerOrdering;
 import com.example.jylos.ui.components.ExplorerTree;
 import com.example.jylos.ui.components.TreeDisclosureArrow;
 import com.example.jylos.ui.components.NewTabGesture;
@@ -363,6 +364,11 @@ public class SidebarController {
         explorerTree = new ExplorerTree(source, sidebarLoadExecutor, this::getString);
         explorerTree.getView().getStyleClass().add("sidebar-tree");
         explorerTree.setNoteSort(storedExplorerSort());
+        // Same count as the classic tree (the folder's notes plus its subfolders'), same preference.
+        explorerTree.setFolderBadge(folder -> {
+            int count = showFolderNoteCounts ? getNoteCountForFolder(folder) : 0;
+            return count > 0 ? String.valueOf(count) : null;
+        });
         explorerTree.setOnOpenNote((note, target) -> explorerOpenAction.accept(note, target));
         explorerTree.setNoteMenu(explorerNoteMenu);
         explorerTree.setFolderMenu(folder -> FolderContextMenuSupport.create(folder, folderMenuActions(),
@@ -652,6 +658,7 @@ public class SidebarController {
             private final StackPane disclosureArrow = TreeDisclosureArrow.create();
             private TreeItem<Folder> observedFolderItem;
             private Label folderIconLabel;
+            private Folder shownFolder;
 
             {
                 setDisclosureNode(disclosureArrow);
@@ -669,6 +676,12 @@ public class SidebarController {
             @Override
             protected void updateItem(Folder folder, boolean empty) {
                 super.updateItem(folder, empty);
+                // JavaFX updates :hover only on mouse moves; a row reused for another item
+                // while scrolling under a still mouse would keep highlighting it.
+                if (shownFolder != (empty ? null : folder) && isHover()) {
+                    setHover(false);
+                }
+                shownFolder = empty ? null : folder;
                 TreeItem<Folder> currentItem = getTreeItem();
                 if (observedFolderItem != currentItem) {
                     if (observedFolderItem != null) {
@@ -763,48 +776,70 @@ public class SidebarController {
         trashTreeView.setCellFactory(tv -> new TreeCell<Component>() {
             // Same disclosure-arrow cache bug as folderTreeView above (each TreeView has
             // its own independent cache entry) — the trash tree mixes deleted folders
-            // (branch) and deleted notes (leaf) too, so it needs the same fix.
+            // (branch) and deleted notes (leaf) too, so it needs the same fix. Its icons are
+            // the Explorer's (folder and document), since it is the same kind of mixed tree.
+            private final StackPane arrow = TreeDisclosureArrow.create();
+            private final ChangeListener<Boolean> expandedListener = (obs, was, now) -> rotateArrow();
+            private TreeItem<Component> observed;
+            private Component shown;
+
             {
-                setDisclosureNode(TreeDisclosureArrow.create());
+                setDisclosureNode(arrow);
             }
 
             @Override
             protected void updateItem(Component item, boolean empty) {
                 super.updateItem(item, empty);
+                // JavaFX updates :hover only on mouse moves; a row reused for another item
+                // while scrolling under a still mouse would keep highlighting it.
+                if (shown != (empty ? null : item) && isHover()) {
+                    setHover(false);
+                }
+                shown = empty ? null : item;
+                TreeItem<Component> current = empty ? null : getTreeItem();
+                if (observed != current) {
+                    if (observed != null) {
+                        observed.expandedProperty().removeListener(expandedListener);
+                    }
+                    observed = current;
+                    if (observed != null) {
+                        observed.expandedProperty().addListener(expandedListener);
+                    }
+                }
                 if (empty || item == null) {
                     setText(null);
                     setGraphic(null);
-                } else {
-                    HBox container = new HBox(6);
-                    container.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
-                    if (item instanceof Folder) {
-                        Label iconLabel = new Label("");
-                        iconLabel.getStyleClass().setAll("folder-cell-icon");
-                        TreeItem<Component> ti = getTreeItem();
-                        boolean isExp = ti != null && ti.isExpanded();
-                        iconLabel.setText(isExp ? "[/]" : "[+]");
-                        iconLabel.getStyleClass().add(isExp ? "folder-expanded" : "folder-collapsed");
-                        String title = item.getTitle();
-                        if (title != null && title.equals(".trash"))
-                            title = getString("tab.trash");
-                        else if (title != null) {
-                            int idx = title.lastIndexOf('/');
-                            if (idx != -1)
-                                title = title.substring(idx + 1);
-                        }
-                        Label nameLabel = new Label(title);
-                        nameLabel.getStyleClass().add("folder-cell-name");
-                        container.getChildren().addAll(iconLabel, nameLabel);
-                    } else {
-                        FontIcon noteIcon = new FontIcon("fth-file-text");
-                        noteIcon.getStyleClass().add("feather-icon");
-                        Label nameLabel = new Label(item.getTitle());
-                        nameLabel.getStyleClass().add("folder-cell-name");
-                        container.getChildren().addAll(noteIcon, nameLabel);
-                    }
-                    setGraphic(container);
-                    setText(null);
+                    return;
                 }
+                HBox container = new HBox(6);
+                container.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+                String title = item.getTitle();
+                FontIcon icon;
+                if (item instanceof Folder) {
+                    icon = new FontIcon("fth-folder");
+                    if (title != null && title.equals(".trash")) {
+                        title = getString("tab.trash");
+                    } else if (title != null) {
+                        int idx = title.lastIndexOf('/');
+                        if (idx != -1) {
+                            title = title.substring(idx + 1);
+                        }
+                    }
+                } else {
+                    icon = new FontIcon("fth-file-text");
+                }
+                icon.setIconSize(13);
+                icon.getStyleClass().add("feather-icon");
+                Label nameLabel = new Label(title);
+                nameLabel.getStyleClass().add("folder-cell-name");
+                container.getChildren().addAll(icon, nameLabel);
+                setGraphic(container);
+                setText(null);
+                rotateArrow();
+            }
+
+            private void rotateArrow() {
+                arrow.setRotate(observed != null && observed.isExpanded() ? 90 : 0);
             }
         });
 
@@ -1015,7 +1050,8 @@ public class SidebarController {
                 childrenByParent.computeIfAbsent(parentId, k -> new ArrayList<>()).add(f);
             }
         }
-        Comparator<Folder> comp = (f1, f2) -> f1.getTitle().compareToIgnoreCase(f2.getTitle());
+        // Same order as the Explorer: accents and case do not matter, numbers by value.
+        Comparator<Folder> comp = Comparator.comparing(Folder::getTitle, ExplorerOrdering.NAME_ORDER);
         if (!sortAscending) {
             comp = comp.reversed();
         }
@@ -1033,7 +1069,8 @@ public class SidebarController {
         if (vaultRootItem == null || buildResult == null) {
             return;
         }
-        Comparator<Folder> comp = (f1, f2) -> f1.getTitle().compareToIgnoreCase(f2.getTitle());
+        // Same order as the Explorer: accents and case do not matter, numbers by value.
+        Comparator<Folder> comp = Comparator.comparing(Folder::getTitle, ExplorerOrdering.NAME_ORDER);
         if (!folderSortAscending) {
             comp = comp.reversed();
         }
@@ -1793,6 +1830,9 @@ public class SidebarController {
         if (vaultRootItem != null) {
             sumRecursiveNoteCount(vaultRootItem);
         }
+        if (explorerTree != null) {
+            explorerTree.refreshDecorations();
+        }
     }
 
     private int sumRecursiveNoteCount(TreeItem<Folder> item) {
@@ -1898,6 +1938,9 @@ public class SidebarController {
         showFolderNoteCounts = enabled;
         if (folderTreeView != null) {
             folderTreeView.refresh();
+        }
+        if (explorerTree != null) {
+            explorerTree.refreshDecorations();
         }
     }
 

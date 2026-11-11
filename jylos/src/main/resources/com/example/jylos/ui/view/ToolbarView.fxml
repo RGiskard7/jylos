@@ -198,18 +198,14 @@
                 <FontIcon iconLiteral="fth-list" styleClass="feather-icon"/>
             </graphic>
         </ToggleButton>
-        <!-- Layout: Explorer (one tree), classic columns or classic stacked. -->
-        <MenuButton fx:id="layoutSwitchBtn" styleClass="toolbar-btn, layout-menu-btn">
+        <!-- Layout: opens a menu with Explorer, classic columns and classic stacked. A plain
+             Button (not a MenuButton) so it is sized and centred like its neighbours. -->
+        <Button fx:id="layoutSwitchBtn" onAction="#handleLayoutMenu" styleClass="toolbar-btn">
             <tooltip><Tooltip text="%action.switch_layout"/></tooltip>
             <graphic>
                 <FontIcon iconLiteral="fth-layout" styleClass="feather-icon"/>
             </graphic>
-            <items>
-                <RadioMenuItem fx:id="layoutExplorerItem" text="%layout.mode.explorer" onAction="#handleLayoutExplorer"/>
-                <RadioMenuItem fx:id="layoutColumnsItem" text="%layout.mode.columns" onAction="#handleLayoutColumns"/>
-                <RadioMenuItem fx:id="layoutStackedItem" text="%layout.mode.stacked" onAction="#handleLayoutStacked"/>
-            </items>
-        </MenuButton>
+        </Button>
         <ToggleButton fx:id="rightPanelToggleBtn" onAction="#handleToggleRightPanel" styleClass="modern-toggle-btn">
             <tooltip><Tooltip text="%tooltip.toggle_right_panel"/></tooltip>
             <graphic>

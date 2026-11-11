@@ -1,6 +1,5 @@
 package com.example.jylos.ui.controller;
 
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -93,8 +92,8 @@ final class NoteCreationSupport {
         String title = com.example.jylos.util.NoteTemplates.dailyNoteTitle();
         Note existing = noteService.findNoteByTitle(title).orElse(null);
         if (existing != null) {
+            // Opening the note clears the status bar (see MainController), so no "loaded" message.
             publishOpen(noteService.getNoteById(existing.getId()).orElse(existing));
-            updateStatus(MessageFormat.format(getString("status.note_loaded"), title));
             return;
         }
         String template = templateContentByName("daily");

@@ -203,6 +203,46 @@ class SidebarExplorerModeTest {
         assertFalse(onFx(() -> f.revealButton().isVisible()));
     }
 
+    @Test
+    void theNoteCountPreferenceAlsoAppliesToTheExplorer() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        Fixture f = onFx(() -> new Fixture(folders, notes, new ArrayList<>()));
+        onFx(() -> {
+            f.sidebar.applyShowFolderNoteCountsPreference(true);
+            f.sidebar.setExplorerMode(true);
+            f.sidebar.loadFolders();
+            return null;
+        });
+        TreeView<Component> explorer = onFx(() -> f.sidebar.getExplorerTree().getView());
+
+        waitUntil(() -> "1".equals(badgeOf(explorer, "Trabajo")));
+        Thread.sleep(600); // let any pending count rebuild finish, so it cannot mask the check below
+        String afterTurningOff = onFx(() -> {
+            f.sidebar.applyShowFolderNoteCountsPreference(false);
+            return badgeOf(explorer, "Trabajo");
+        });
+
+        assertEquals(null, afterTurningOff, "turning the preference off hides the counts right away");
+    }
+
+    /** The count shown on a folder row of the Explorer, or null. */
+    private static String badgeOf(TreeView<Component> explorer, String folder) {
+        explorer.getScene().getRoot().applyCss();
+        explorer.getScene().getRoot().layout();
+        for (Node node : explorer.lookupAll(".tree-cell")) {
+            if (node instanceof javafx.scene.control.TreeCell<?> cell && !cell.isEmpty()
+                    && cell.getItem() instanceof Component c && folder.equals(c.getTitle())) {
+                for (Node label : cell.lookupAll(".folder-cell-count")) {
+                    if (label.isVisible() && label instanceof javafx.scene.control.Label l) {
+                        return l.getText().replace("(", "").replace(")", "");
+                    }
+                }
+                return null;
+            }
+        }
+        return "no row";
+    }
+
     private static final class Fixture {
         final SidebarController sidebar;
 

@@ -417,6 +417,81 @@ class ExplorerTreeTest {
         assertTrue(settle(() -> h.tree.getView().getRoot().getChildren().get(1).isExpanded()));
     }
 
+    @Test
+    void scrollingUnderAStillMouseDoesNotCarryTheHoverToAnotherRow() throws Exception {
+        assumeFx();
+        FakeVault vault = new FakeVault();
+        for (int i = 10; i < 70; i++) {
+            vault.note("ROOT", "Nota " + i);
+        }
+        Holder h = shown(vault, new ArrayList<>());
+
+        onFx(() -> {
+            setHover(h.cell("Nota 10"), true);
+            h.tree.getView().scrollTo(40);
+            h.layout();
+            return null;
+        });
+        List<String> hovered = settle(() -> {
+            h.layout();
+            List<String> out = new ArrayList<>();
+            for (Node node : h.tree.getView().lookupAll(".tree-cell")) {
+                if (node instanceof TreeCell<?> cell && cell.isVisible() && cell.isHover() && !cell.isEmpty()
+                        && cell.getItem() instanceof Component c && !"Nota 10".equals(c.getTitle())) {
+                    out.add(c.getTitle());
+                }
+            }
+            return out;
+        });
+
+        assertEquals(List.of(), hovered, "a reused row must not keep the hover of the item it showed before");
+    }
+
+    @Test
+    void markingTheActiveNoteDoesNotRebuildTheRows() throws Exception {
+        assumeFx();
+        FakeVault vault = new FakeVault();
+        vault.note("ROOT", "Uno");
+        vault.note("ROOT", "Dos");
+        Holder h = shown(vault, new ArrayList<>());
+
+        boolean sameCell = onFx(() -> {
+            TreeCell<Component> before = h.cell("Uno");
+            h.tree.setActiveNoteId("id-Uno");
+            h.layout();
+            TreeCell<Component> after = h.cell("Uno");
+            return before == after && after.getStyleClass().contains("explorer-active-note");
+        });
+
+        assertTrue(sameCell, "the row is restyled in place, not replaced (a replaced row loses the mouse hover)");
+    }
+
+    @Test
+    void foldersShowTheBadgeTheOwnerProvidesAndUpdateWhenAsked() throws Exception {
+        assumeFx();
+        FakeVault vault = new FakeVault();
+        vault.folder("ROOT", "Trabajo", "t");
+        vault.note("ROOT", "Uno");
+        Holder h = shown(vault, new ArrayList<>());
+        int[] count = { 3 };
+
+        List<String> badges = onFx(() -> {
+            h.tree.setFolderBadge(folder -> "t".equals(folder.getId()) ? String.valueOf(count[0]) : null);
+            h.layout();
+            String first = badge(h.cell("Trabajo"));
+            String note = badge(h.cell("Uno"));
+            count[0] = 4;
+            h.tree.refreshDecorations();
+            h.layout();
+            String second = badge(h.cell("Trabajo"));
+            h.tree.setFolderBadge(null);
+            h.layout();
+            return java.util.Arrays.asList(first, note, second, badge(h.cell("Trabajo")));
+        });
+
+        assertEquals(java.util.Arrays.asList("3", null, "4", null), badges);
+    }
+
     // ------------------------------------------------------------------ fixtures
 
     private static final class Holder {
@@ -555,6 +630,21 @@ class ExplorerTreeTest {
             }
         }
         return out;
+    }
+
+    private static String badge(TreeCell<Component> cell) {
+        for (Node node : cell.lookupAll(".folder-cell-count")) {
+            if (node.isVisible() && node instanceof javafx.scene.control.Label label) {
+                return label.getText().replace("(", "").replace(")", "");
+            }
+        }
+        return null;
+    }
+
+    private static void setHover(Node node, boolean hover) throws Exception {
+        java.lang.reflect.Method m = Node.class.getDeclaredMethod("setHover", boolean.class);
+        m.setAccessible(true);
+        m.invoke(node, hover);
     }
 
     private static double nameX(TreeCell<Component> cell) {

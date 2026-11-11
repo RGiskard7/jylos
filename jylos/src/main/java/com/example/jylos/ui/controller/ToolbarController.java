@@ -57,14 +57,12 @@ public class ToolbarController {
     @FXML
     private ToggleButton notesPanelToggleBtn;
     @FXML
-    private MenuButton layoutSwitchBtn;
+    private Button layoutSwitchBtn;
     @FXML
-    private RadioMenuItem layoutExplorerItem;
-    @FXML
-    private RadioMenuItem layoutColumnsItem;
-    @FXML
-    private RadioMenuItem layoutStackedItem;
-    private final ToggleGroup layoutGroup = new ToggleGroup();
+    private java.util.ResourceBundle resources;
+    /** The layout ticked in the layout menu. */
+    private com.example.jylos.ui.preferences.LayoutMode currentLayout =
+            com.example.jylos.ui.preferences.LayoutMode.CLASSIC_COLUMNS;
     private java.util.function.Consumer<com.example.jylos.ui.preferences.LayoutMode> layoutModeAction = mode -> {
     };
     /** In the Explorer layout the notes panel only shows results, so its toggle is hidden. */
@@ -120,11 +118,6 @@ public class ToolbarController {
     private void initialize() {
         if (menuBar != null) {
             menuBar.setUseSystemMenuBar(true);
-        }
-        if (layoutExplorerItem != null) {
-            layoutExplorerItem.setToggleGroup(layoutGroup);
-            layoutColumnsItem.setToggleGroup(layoutGroup);
-            layoutStackedItem.setToggleGroup(layoutGroup);
         }
         if (searchField != null) {
             searchField.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
@@ -187,7 +180,7 @@ public class ToolbarController {
         return rightPanelToggleBtn;
     }
 
-    public MenuButton getLayoutSwitchBtn() {
+    public Button getLayoutSwitchBtn() {
         return layoutSwitchBtn;
     }
 
@@ -350,6 +343,33 @@ public class ToolbarController {
         publishEvent(SystemActionEvent.ActionType.NOTE_HISTORY);
     }
 
+    /** The menu the layout button opens: the three layouts, the current one ticked. */
+    ContextMenu layoutMenu() {
+        ContextMenu menu = new ContextMenu();
+        ToggleGroup group = new ToggleGroup();
+        for (com.example.jylos.ui.preferences.LayoutMode mode : com.example.jylos.ui.preferences.LayoutMode.values()) {
+            String key = switch (mode) {
+                case EXPLORER -> "layout.mode.explorer";
+                case CLASSIC_COLUMNS -> "layout.mode.columns";
+                case CLASSIC_STACKED -> "layout.mode.stacked";
+            };
+            RadioMenuItem item = new RadioMenuItem(resources != null && resources.containsKey(key)
+                    ? resources.getString(key) : key);
+            item.setToggleGroup(group);
+            item.setSelected(mode == currentLayout);
+            item.setOnAction(e -> layoutModeAction.accept(mode));
+            menu.getItems().add(item);
+        }
+        return menu;
+    }
+
+    @FXML
+    private void handleLayoutMenu(ActionEvent event) {
+        if (layoutSwitchBtn != null) {
+            layoutMenu().show(layoutSwitchBtn, javafx.geometry.Side.BOTTOM, 0, 0);
+        }
+    }
+
     /** What choosing a layout in the layout menu does. */
     public void setLayoutModeAction(java.util.function.Consumer<com.example.jylos.ui.preferences.LayoutMode> action) {
         this.layoutModeAction = action != null ? action : mode -> {
@@ -358,10 +378,8 @@ public class ToolbarController {
 
     /** Ticks {@code mode} in the layout menu and shows the notes-panel toggle only where it applies. */
     public void showLayoutMode(com.example.jylos.ui.preferences.LayoutMode mode) {
-        if (layoutExplorerItem != null) {
-            layoutExplorerItem.setSelected(mode == com.example.jylos.ui.preferences.LayoutMode.EXPLORER);
-            layoutColumnsItem.setSelected(mode == com.example.jylos.ui.preferences.LayoutMode.CLASSIC_COLUMNS);
-            layoutStackedItem.setSelected(mode == com.example.jylos.ui.preferences.LayoutMode.CLASSIC_STACKED);
+        if (mode != null) {
+            currentLayout = mode;
         }
         notesToggleAvailable = mode != com.example.jylos.ui.preferences.LayoutMode.EXPLORER;
         applyNotesToggleVisibility();
@@ -375,20 +393,6 @@ public class ToolbarController {
         }
     }
 
-    @FXML
-    private void handleLayoutExplorer(ActionEvent event) {
-        layoutModeAction.accept(com.example.jylos.ui.preferences.LayoutMode.EXPLORER);
-    }
-
-    @FXML
-    private void handleLayoutColumns(ActionEvent event) {
-        layoutModeAction.accept(com.example.jylos.ui.preferences.LayoutMode.CLASSIC_COLUMNS);
-    }
-
-    @FXML
-    private void handleLayoutStacked(ActionEvent event) {
-        layoutModeAction.accept(com.example.jylos.ui.preferences.LayoutMode.CLASSIC_STACKED);
-    }
 
     @FXML
     private void handleZoomIn(ActionEvent event) {

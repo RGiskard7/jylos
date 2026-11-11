@@ -27,6 +27,23 @@ import javafx.scene.control.Tooltip;
  */
 final class StatusBarSupport {
 
+    /**
+     * Shows {@code message} in the status bar's message area. With no message the separator
+     * in front of it is hidden too, so the bar does not end in a dangling "|". A long message
+     * (the label truncates it when narrow) gets its full text as a tooltip.
+     */
+    static void showMessage(javafx.scene.control.Label label, javafx.scene.control.Separator separator,
+            String message) {
+        String text = message != null ? message : "";
+        label.setText(text);
+        label.setTooltip(text.length() > 40 ? new javafx.scene.control.Tooltip(text) : null);
+        if (separator != null) {
+            boolean shown = !text.isBlank();
+            separator.setVisible(shown);
+            separator.setManaged(shown);
+        }
+    }
+
     private Label storageLabel;
     private Label wordCountLabel;
     private Label charCountLabel;

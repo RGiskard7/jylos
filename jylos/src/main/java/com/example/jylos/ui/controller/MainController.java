@@ -226,6 +226,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     @FXML
     private HBox gitBar;
     @FXML
+    private Separator statusMessageSeparator;
+    @FXML
     private Label gitInitLabel;
     @FXML
     private Label gitRemoteLabel;
@@ -2346,7 +2348,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         // Attachments (PDF/images) show a native viewer — skip the Markdown-only work
         // (tags, preview render, word stats, favorite/pin toggles).
         if (editorController.isViewingAttachment()) {
-            updateStatus(java.text.MessageFormat.format(getString("status.note_loaded"), activeNote.getTitle()));
+            clearStatusOnNoteOpen();
             return;
         }
 
@@ -2355,7 +2357,16 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         editorController.ensurePreviewWebViewThemeClass();
         refreshEditorPreview();
 
-        updateStatus(java.text.MessageFormat.format(getString("status.note_loaded"), activeNote.getTitle()));
+        clearStatusOnNoteOpen();
+    }
+
+    /**
+     * Opening a note clears the status message instead of saying "Note loaded: title": the
+     * title is already in the tab, the title field and the path above the editor, and the old
+     * message (a search, an error) no longer applies to what is on screen.
+     */
+    private void clearStatusOnNoteOpen() {
+        updateStatus("");
     }
 
     // ============================================================
@@ -2525,9 +2536,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     }
 
     void updateStatus(String message) {
-        statusLabel.setText(message);
-        // The label truncates with an ellipsis when narrow; expose the full text on hover.
-        statusLabel.setTooltip(message != null && message.length() > 40 ? new Tooltip(message) : null);
+        StatusBarSupport.showMessage(statusLabel, statusMessageSeparator, message);
     }
 
     private void checkForUpdatesAtStartup() {

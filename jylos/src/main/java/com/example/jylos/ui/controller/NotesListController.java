@@ -407,9 +407,18 @@ public class NotesListController {
                 return computePrefWidth(height);
             }
 
+            /** The note this row showed last, to notice when it is reused for another one. */
+            private Note shownNote;
+
             @Override
             protected void updateItem(Note note, boolean empty) {
                 super.updateItem(note, empty);
+                // JavaFX updates :hover only on mouse moves; a row reused for another note
+                // while scrolling under a still mouse would keep highlighting it.
+                if (shownNote != (empty ? null : note) && isHover()) {
+                    setHover(false);
+                }
+                shownNote = empty ? null : note;
                 if (empty || note == null) {
                     setText(null);
                     setGraphic(null);

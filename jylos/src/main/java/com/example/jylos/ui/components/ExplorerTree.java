@@ -100,6 +100,14 @@ public final class ExplorerTree {
     private Consumer<TreeCell<Component>> cellDecorator = cell -> {
     };
     private String activeNoteId;
+    private Function<Folder, String> folderBadge = folder -> null;
+    /**
+     * Bumped when the active note or the badges change; every row listens and restyles itself
+     * in place. {@code view.refresh()} would recreate the rows instead, and a recreated row
+     * under a still mouse loses its hover while a reused one may keep a stale hover.
+     */
+    private final javafx.beans.property.IntegerProperty decorationsRevision =
+            new javafx.beans.property.SimpleIntegerProperty();
     /** The tree of the whole vault, read lazily; kept while a filter shows another root. */
     private FolderItem lazyRoot;
     private String filterQuery = "";
@@ -177,10 +185,24 @@ public final class ExplorerTree {
         view.setCellFactory(tv -> new ExplorerCell());
     }
 
+    /**
+     * Text shown at the right of each folder row (the sidebar shows its note count there);
+     * {@code null}, or a function returning {@code null}, shows nothing.
+     */
+    public void setFolderBadge(Function<Folder, String> badge) {
+        this.folderBadge = badge != null ? badge : folder -> null;
+        refreshDecorations();
+    }
+
+    /** Re-applies the active-note mark and the folder badges to the rows already shown. */
+    public void refreshDecorations() {
+        decorationsRevision.set(decorationsRevision.get() + 1);
+    }
+
     /** Marks the row of the note open in the editor ({@code null}: none). */
     public void setActiveNoteId(String id) {
         this.activeNoteId = id;
-        view.refresh();
+        refreshDecorations();
     }
 
     /**
@@ -520,6 +542,9 @@ public final class ExplorerTree {
         /** Folders get an icon too, so folder and note names start at the same column. */
         private final FontIcon folderIcon = new FontIcon("fth-folder");
         private final Label name = new Label();
+        private final Label badge = new Label();
+        /** Which item this row showed last, to notice when it is reused for another one. */
+        private String shownKey;
         private final HBox content = new HBox(6);
         private TreeItem<Component> observed;
 
@@ -537,6 +562,9 @@ public final class ExplorerTree {
             name.setMaxWidth(Double.MAX_VALUE);
             HBox.setHgrow(name, Priority.ALWAYS);
             content.setAlignment(Pos.CENTER_LEFT);
+            badge.getStyleClass().add("folder-cell-count");
+            badge.setMinWidth(Label.USE_PREF_SIZE);
+            decorationsRevision.addListener((obs, was, now) -> decorate());
 
             // Consumed so the press does not also select the row.
             addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
@@ -575,6 +603,13 @@ public final class ExplorerTree {
         protected void updateItem(Component item, boolean empty) {
             super.updateItem(item, empty);
             observe(empty ? null : getTreeItem());
+            String key = empty || item == null ? null : key(item);
+            if (!java.util.Objects.equals(key, shownKey) && isHover()) {
+                // JavaFX only updates :hover on mouse moves, so a row reused for another item
+                // (scrolling under a still mouse) would keep highlighting the wrong item.
+                setHover(false);
+            }
+            shownKey = key;
             getStyleClass().removeAll(ACTIVE_NOTE_STYLE, LOADING_STYLE, FOLDER_STYLE, NOTE_STYLE);
             if (empty) {
                 setText(null);
@@ -599,18 +634,32 @@ public final class ExplorerTree {
                 });
                 content.getChildren().setAll(noteIcon, name);
                 getStyleClass().add(NOTE_STYLE);
-                if (activeNoteId != null && activeNoteId.equals(note.getId())) {
-                    getStyleClass().add(ACTIVE_NOTE_STYLE);
-                }
                 setContextMenu(noteMenu.apply(note));
             } else {
-                content.getChildren().setAll(folderIcon, name);
+                content.getChildren().setAll(folderIcon, name, badge);
                 getStyleClass().add(FOLDER_STYLE);
                 setContextMenu(item instanceof Folder folder ? folderMenu.apply(folder) : null);
             }
             setText(null);
             setGraphic(content);
             rotateArrow();
+            decorate();
+        }
+
+        /** The parts that change without the item changing: the active-note mark and the badge. */
+        private void decorate() {
+            Component item = isEmpty() ? null : getItem();
+            boolean active = item instanceof Note note && activeNoteId != null && activeNoteId.equals(note.getId());
+            if (active && !getStyleClass().contains(ACTIVE_NOTE_STYLE)) {
+                getStyleClass().add(ACTIVE_NOTE_STYLE);
+            } else if (!active) {
+                getStyleClass().remove(ACTIVE_NOTE_STYLE);
+            }
+            String text = item instanceof Folder folder ? folderBadge.apply(folder) : null;
+            boolean show = text != null && !text.isBlank();
+            badge.setText(show ? "(" + text + ")" : "");
+            badge.setVisible(show);
+            badge.setManaged(show);
         }
 
         private void observe(TreeItem<Component> item) {

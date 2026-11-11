@@ -142,7 +142,7 @@
                     <graphic><FontIcon iconLiteral="fth-activity" styleClass="feather-icon-faint"/></graphic>
                 </Label>
             </HBox>
-            <Separator orientation="VERTICAL" styleClass="status-separator"/>
+            <Separator fx:id="statusMessageSeparator" orientation="VERTICAL" styleClass="status-separator"/>
             <!-- Flexible filler: takes remaining width and truncates long messages
                  (e.g. git errors) with an ellipsis instead of squeezing the git bar. -->
             <Label fx:id="statusLabel" text="Ready" styleClass="status-text"
