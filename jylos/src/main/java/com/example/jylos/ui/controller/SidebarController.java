@@ -215,6 +215,10 @@ public class SidebarController {
 
     @FXML
     private Button sortFoldersBtn;
+    @FXML
+    private Button revealActiveNoteBtn;
+    /** Preference: the note order of the Explorer tree (a {@code NoteService.SortOption} name). */
+    private static final String EXPLORER_NOTE_SORT_KEY = "ui.explorer.note_sort";
     private ExplorerTree explorerTree;
     private boolean explorerMode;
     private String explorerActiveNoteId;
@@ -242,8 +246,16 @@ public class SidebarController {
             parent.getChildren().set(parent.getChildren().indexOf(from), to);
             VBox.setVgrow(to, Priority.ALWAYS);
         }
-        setShown(filterFoldersField, !on);
-        setShown(sortFoldersBtn, !on);
+        // One header row for both trees: the filter, the sort button and expand/collapse act on
+        // whichever tree is shown; "reveal the open note" only exists in the Explorer.
+        setShown(revealActiveNoteBtn, on);
+        if (filterFoldersField != null) {
+            filterFoldersField.clear();
+            filterFoldersField.setPromptText(getString(on ? "tab.explorer.filter" : "tab.folders.filter"));
+        }
+        if (sortFoldersBtn != null) {
+            sortFoldersBtn.setTooltip(new Tooltip(getString(on ? "action.sort_notes" : "action.sort_folders")));
+        }
         if (on) {
             explorerTree.setRoot(explorerRootFolder());
         }
@@ -289,6 +301,49 @@ public class SidebarController {
         }
     }
 
+    @FXML
+    private void handleRevealActiveNote(ActionEvent e) {
+        if (explorerMode && explorerTree != null) {
+            if (explorerTree.isFiltering() && filterFoldersField != null) {
+                filterFoldersField.clear();
+                explorerTree.setFilter("");
+            }
+            explorerTree.reveal(explorerActiveNoteId);
+        }
+    }
+
+    /** The Explorer's note order, as a menu under the sort button; the choice is remembered. */
+    private void showExplorerSortMenu() {
+        ContextMenu menu = new ContextMenu();
+        ToggleGroup group = new ToggleGroup();
+        String[][] options = {
+                { "TITLE_ASC", "sort.title_az" }, { "TITLE_DESC", "sort.title_za" },
+                { "MODIFIED_NEWEST", "sort.modified_newest" }, { "MODIFIED_OLDEST", "sort.modified_oldest" },
+                { "CREATED_NEWEST", "sort.created_newest" }, { "CREATED_OLDEST", "sort.created_oldest" } };
+        for (String[] option : options) {
+            NoteService.SortOption sort = NoteService.SortOption.valueOf(option[0]);
+            RadioMenuItem item = new RadioMenuItem(getString(option[1]));
+            item.setToggleGroup(group);
+            item.setSelected(explorerTree.getNoteSort() == sort);
+            item.setOnAction(ev -> {
+                explorerTree.setNoteSort(sort);
+                Preferences.userNodeForPackage(SidebarController.class).put(EXPLORER_NOTE_SORT_KEY, sort.name());
+            });
+            menu.getItems().add(item);
+        }
+        menu.show(sortFoldersBtn, javafx.geometry.Side.BOTTOM, 0, 0);
+    }
+
+    private static NoteService.SortOption storedExplorerSort() {
+        String stored = Preferences.userNodeForPackage(SidebarController.class).get(EXPLORER_NOTE_SORT_KEY, "");
+        for (NoteService.SortOption option : NoteService.SortOption.values()) {
+            if (option.name().equals(stored)) {
+                return option;
+            }
+        }
+        return NoteService.SortOption.TITLE_ASC;
+    }
+
     private ExplorerTree ensureExplorerTree() {
         if (explorerTree != null) {
             return explorerTree;
@@ -307,6 +362,7 @@ public class SidebarController {
         };
         explorerTree = new ExplorerTree(source, sidebarLoadExecutor, this::getString);
         explorerTree.getView().getStyleClass().add("sidebar-tree");
+        explorerTree.setNoteSort(storedExplorerSort());
         explorerTree.setOnOpenNote((note, target) -> explorerOpenAction.accept(note, target));
         explorerTree.setNoteMenu(explorerNoteMenu);
         explorerTree.setFolderMenu(folder -> FolderContextMenuSupport.create(folder, folderMenuActions(),
@@ -512,7 +568,13 @@ public class SidebarController {
             }
         });
 
-        foldersFilterDebounce.setOnFinished(e -> loadFolders());
+        foldersFilterDebounce.setOnFinished(e -> {
+            if (explorerMode && explorerTree != null) {
+                explorerTree.setFilter(filterFoldersField.getText());
+            } else {
+                loadFolders();
+            }
+        });
         trashFilterDebounce.setOnFinished(e -> loadTrashTree());
         foldersReloadDebounce.setOnFinished(e -> loadFolders());
         trashReloadDebounce.setOnFinished(e -> loadTrashTree());
@@ -1343,6 +1405,10 @@ public class SidebarController {
 
     @FXML
     public void handleSortFolders(ActionEvent e) {
+        if (explorerMode && explorerTree != null) {
+            showExplorerSortMenu();
+            return;
+        }
         folderSortAscending = !folderSortAscending;
         loadFolders();
     }

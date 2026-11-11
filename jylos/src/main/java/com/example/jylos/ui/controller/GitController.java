@@ -269,6 +269,13 @@ public final class GitController {
         setNodeVisible(gitCommitLabel, repo);
         setNodeVisible(gitSyncLabel, repo);
         setNodeVisible(gitHistoryLabel, repo);
+        // The separators between those entries go with them; otherwise a vault without Git
+        // shows "Initialize Git" followed by a row of stray "| | | |".
+        for (javafx.scene.Node child : gitBar.getChildren()) {
+            if (child instanceof Separator) {
+                setNodeVisible(child, repo);
+            }
+        }
 
         if (!repo) {
             gitInitLabel.setText(getString("git.initialize"));

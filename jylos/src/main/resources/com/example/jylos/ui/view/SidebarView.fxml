@@ -50,6 +50,11 @@
                          <tooltip><Tooltip text="%action.sort_folders"/></tooltip>
                          <graphic><FontIcon iconLiteral="fth-filter" iconSize="14" styleClass="feather-icon"/></graphic>
                     </Button>
+                    <!-- Explorer layout only: show the open note in the tree. -->
+                    <Button fx:id="revealActiveNoteBtn" onAction="#handleRevealActiveNote" styleClass="icon-btn" visible="false" managed="false">
+                          <tooltip><Tooltip text="%action.reveal_active_note"/></tooltip>
+                         <graphic><FontIcon iconLiteral="fth-crosshair" iconSize="14" styleClass="feather-icon"/></graphic>
+                    </Button>
                     <Button onAction="#handleExpandAllFolders" styleClass="icon-btn">
                           <tooltip><Tooltip text="%action.expand_all"/></tooltip>
                          <graphic><FontIcon iconLiteral="fth-maximize-2" iconSize="14" styleClass="feather-icon"/></graphic>

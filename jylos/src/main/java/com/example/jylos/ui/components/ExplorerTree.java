@@ -100,6 +100,13 @@ public final class ExplorerTree {
     private Consumer<TreeCell<Component>> cellDecorator = cell -> {
     };
     private String activeNoteId;
+    /** The tree of the whole vault, read lazily; kept while a filter shows another root. */
+    private FolderItem lazyRoot;
+    private String filterQuery = "";
+    private long filterGeneration;
+    /** Whole-vault listing for the filter and reveal; dropped on refresh. */
+    private List<Entry> index;
+    private long indexGeneration;
 
     /**
      * @param source where folder contents are read from
@@ -123,6 +130,11 @@ public final class ExplorerTree {
     /** Shows the contents of {@code root} (the vault root itself is not a row) and reads it. */
     public void setRoot(Folder root) {
         FolderItem item = new FolderItem(root);
+        lazyRoot = item;
+        index = null;
+        indexGeneration++;
+        filterQuery = "";
+        filterGeneration++;
         view.setRoot(item);
         item.setExpanded(true);
     }
@@ -176,9 +188,191 @@ public final class ExplorerTree {
      * folders and notes that are still there, so expansion and selection survive.
      */
     public void refresh() {
-        if (view.getRoot() instanceof FolderItem root) {
-            refresh(root);
+        index = null;
+        indexGeneration++;
+        if (lazyRoot != null) {
+            refresh(lazyRoot);
         }
+        if (!filterQuery.isEmpty()) {
+            setFilter(filterQuery);
+        }
+    }
+
+    /**
+     * Shows only the notes and folders whose name contains {@code query} (ignoring case and
+     * accents), each under its folders, which are shown open. A matching folder is shown
+     * closed and can be opened to see everything in it. A blank query brings back the tree
+     * exactly as it was, with the same folders open.
+     *
+     * <p>The first filter reads the whole vault once, off the FX thread; the result is kept
+     * until the next {@link #refresh()}.</p>
+     */
+    public void setFilter(String query) {
+        String normalized = normalize(query);
+        filterQuery = normalized;
+        long thisFilter = ++filterGeneration;
+        if (normalized.isEmpty()) {
+            if (lazyRoot != null && view.getRoot() != lazyRoot) {
+                view.setRoot(lazyRoot);
+            }
+            return;
+        }
+        withIndex(entries -> {
+            if (thisFilter == filterGeneration) {
+                view.setRoot(buildFiltered(entries, normalized));
+            }
+        });
+    }
+
+    /** Whether a filter is active. */
+    public boolean isFiltering() {
+        return !filterQuery.isEmpty();
+    }
+
+    /**
+     * Opens the folders that contain the note {@code noteId}, reading them if needed, then
+     * selects the note and scrolls to it. Does nothing while a filter is active or if the
+     * note is not in the vault.
+     */
+    public void reveal(String noteId) {
+        if (noteId == null || lazyRoot == null || view.getRoot() != lazyRoot) {
+            return;
+        }
+        Consumer<List<Entry>> revealIn = entries -> entries.stream()
+                .filter(e -> e.item() instanceof Note note && noteId.equals(note.getId()))
+                .findFirst()
+                .ifPresent(e -> revealPath(lazyRoot, e.path(), 0, noteId));
+        boolean cached = index != null;
+        withIndex(entries -> {
+            boolean found = entries.stream().anyMatch(e -> e.item() instanceof Note n && noteId.equals(n.getId()));
+            if (!found && cached) {
+                // A note created since the vault was last read: read it again once.
+                index = null;
+                withIndex(revealIn);
+            } else {
+                revealIn.accept(entries);
+            }
+        });
+    }
+
+    private void revealPath(FolderItem parent, List<Folder> path, int step, String noteId) {
+        parent.whenLoaded(() -> {
+            if (step == path.size()) {
+                for (TreeItem<Component> child : parent.getChildren()) {
+                    if (child.getValue() instanceof Note note && noteId.equals(note.getId())) {
+                        view.getSelectionModel().select(child);
+                        int row = view.getRow(child);
+                        if (row >= 0) {
+                            view.scrollTo(Math.max(0, row - 3));
+                        }
+                        return;
+                    }
+                }
+                return;
+            }
+            String wanted = key(path.get(step));
+            for (TreeItem<Component> child : parent.getChildren()) {
+                if (child instanceof FolderItem folder && child.getValue() != null
+                        && wanted.equals(key(child.getValue()))) {
+                    folder.setExpanded(true);
+                    revealPath(folder, path, step + 1, noteId);
+                    return;
+                }
+            }
+        });
+    }
+
+    /** One item of the vault with the folders above it (outermost first, the root excluded). */
+    private record Entry(Component item, List<Folder> path) {
+    }
+
+    /** Runs {@code onFx} with the whole-vault listing, reading it first if it is not cached. */
+    private void withIndex(Consumer<List<Entry>> onFx) {
+        if (index != null) {
+            onFx.accept(index);
+            return;
+        }
+        Folder root = lazyRoot != null ? (Folder) lazyRoot.getValue() : null;
+        if (root == null) {
+            return;
+        }
+        SortOption sort = noteSort;
+        long thisRead = ++indexGeneration;
+        try {
+            loader.execute(() -> {
+                List<Entry> entries = new ArrayList<>();
+                try {
+                    walk(root, new ArrayList<>(), entries, sort, new java.util.HashSet<>());
+                } catch (RuntimeException e) {
+                    logger.log(Level.WARNING, "Failed to read the vault for the Explorer filter", e);
+                }
+                Platform.runLater(() -> {
+                    if (thisRead == indexGeneration) {
+                        index = List.copyOf(entries);
+                    }
+                    onFx.accept(entries);
+                });
+            });
+        } catch (RejectedExecutionException e) {
+            logger.log(Level.FINE, "Explorer loader is shut down", e);
+        }
+    }
+
+    private void walk(Folder folder, List<Folder> path, List<Entry> out, SortOption sort,
+            java.util.Set<String> seen) {
+        List<Component> ordered = ExplorerOrdering.order(source.subfolders(folder), source.notes(folder), sort);
+        for (Component child : ordered) {
+            out.add(new Entry(child, List.copyOf(path)));
+            if (child instanceof Folder sub && seen.add(key(sub))) {
+                path.add(sub);
+                walk(sub, path, out, sort, seen);
+                path.remove(path.size() - 1);
+            }
+        }
+    }
+
+    /** The filtered tree: each match under its folders (shown open), in vault order. */
+    private TreeItem<Component> buildFiltered(List<Entry> entries, String query) {
+        TreeItem<Component> root = new TreeItem<>(lazyRoot != null ? lazyRoot.getValue() : null);
+        root.setExpanded(true);
+        Map<String, TreeItem<Component>> folders = new HashMap<>();
+        for (Entry entry : entries) {
+            Component item = entry.item();
+            if (!normalize(item.getTitle()).contains(query)) {
+                continue;
+            }
+            TreeItem<Component> parent = root;
+            for (Folder ancestor : entry.path()) {
+                TreeItem<Component> existing = folders.get(key(ancestor));
+                if (existing == null) {
+                    existing = new TreeItem<>(ancestor);
+                    folders.put(key(ancestor), existing);
+                    parent.getChildren().add(existing);
+                }
+                existing.setExpanded(true);
+                parent = existing;
+            }
+            if (item instanceof Folder folder) {
+                if (!folders.containsKey(key(folder))) {
+                    FolderItem match = new FolderItem(folder);
+                    folders.put(key(folder), match);
+                    parent.getChildren().add(match);
+                }
+            } else {
+                parent.getChildren().add(new TreeItem<>(item));
+            }
+        }
+        return root;
+    }
+
+    private static String normalize(String text) {
+        if (text == null) {
+            return "";
+        }
+        return java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase(java.util.Locale.ROOT)
+                .trim();
     }
 
     private void refresh(FolderItem item) {
@@ -223,6 +417,8 @@ public final class ExplorerTree {
         private boolean loaded;
         /** Bumped on every read; only the newest read may apply its result. */
         private long generation;
+        /** Run once the folder's contents are read (see {@link #whenLoaded}). */
+        private final List<Runnable> afterLoad = new ArrayList<>();
 
         FolderItem(Folder folder) {
             super(folder);
@@ -237,6 +433,18 @@ public final class ExplorerTree {
         @Override
         public boolean isLeaf() {
             return loaded && getChildren().isEmpty();
+        }
+
+        /** Runs {@code action} now if the folder was read, otherwise once it is (starting the read). */
+        void whenLoaded(Runnable action) {
+            if (loaded) {
+                action.run();
+                return;
+            }
+            afterLoad.add(action);
+            if (!requested) {
+                load();
+            }
         }
 
         void load() {
@@ -288,6 +496,9 @@ public final class ExplorerTree {
             }
             loaded = true;
             getChildren().setAll(next);
+            List<Runnable> pending = List.copyOf(afterLoad);
+            afterLoad.clear();
+            pending.forEach(Runnable::run);
         }
 
         private void failed(long read) {
@@ -306,6 +517,8 @@ public final class ExplorerTree {
         private final StackPane arrow = TreeDisclosureArrow.create();
         private final ChangeListener<Boolean> expandedListener = (obs, was, now) -> rotateArrow();
         private final FontIcon noteIcon = new FontIcon("fth-file-text");
+        /** Folders get an icon too, so folder and note names start at the same column. */
+        private final FontIcon folderIcon = new FontIcon("fth-folder");
         private final Label name = new Label();
         private final HBox content = new HBox(6);
         private TreeItem<Component> observed;
@@ -315,6 +528,8 @@ public final class ExplorerTree {
             getStyleClass().add("explorer-cell");
             noteIcon.setIconSize(13);
             noteIcon.getStyleClass().addAll("feather-icon", "explorer-note-icon");
+            folderIcon.setIconSize(13);
+            folderIcon.getStyleClass().addAll("feather-icon", "explorer-folder-icon");
             name.getStyleClass().add("explorer-cell-name");
             // Let the name shrink instead of widening the row (see SidebarController's folder cells).
             name.setMinWidth(0);
@@ -389,7 +604,7 @@ public final class ExplorerTree {
                 }
                 setContextMenu(noteMenu.apply(note));
             } else {
-                content.getChildren().setAll(name);
+                content.getChildren().setAll(folderIcon, name);
                 getStyleClass().add(FOLDER_STYLE);
                 setContextMenu(item instanceof Folder folder ? folderMenu.apply(folder) : null);
             }

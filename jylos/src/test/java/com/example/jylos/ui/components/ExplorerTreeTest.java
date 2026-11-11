@@ -325,6 +325,98 @@ class ExplorerTreeTest {
         assertNull(loadingMenu);
     }
 
+    @Test
+    void folderAndNoteNamesStartAtTheSameColumn() throws Exception {
+        assumeFx();
+        FakeVault vault = new FakeVault();
+        vault.folder("ROOT", "Trabajo", "t");
+        vault.note("ROOT", "Uno");
+        Holder h = shown(vault, new ArrayList<>());
+
+        double[] x = onFx(() -> new double[] { nameX(h.cell("Trabajo")), nameX(h.cell("Uno")) });
+
+        assertEquals(x[0], x[1], 0.5, "folder and note names must line up");
+    }
+
+    @Test
+    void theFilterShowsMatchingNotesAndFoldersWithTheirFoldersOpen() throws Exception {
+        assumeFx();
+        FakeVault vault = nestedVault();
+        Holder h = new Holder();
+        onFx(() -> {
+            h.tree = new ExplorerTree(vault, Runnable::run, key -> key);
+            h.tree.setRoot(new Folder("ROOT", "Vault"));
+            h.tree.setFilter("acta");
+            return null;
+        });
+
+        assertEquals(List.of("Trabajo", "  Reuniones", "    Acta semanal", "  Acta 2", "  Acta 10"),
+                settle(() -> outline(h.tree.getView().getRoot(), "")));
+
+        onFx(() -> {
+            h.tree.setFilter("arbol");
+            return null;
+        });
+        assertEquals(List.of("Árbol genealógico"), settle(() -> outline(h.tree.getView().getRoot(), "")),
+                "accents and case do not matter; a folder matches by its name");
+    }
+
+    @Test
+    void clearingTheFilterBringsBackTheTreeAsItWas() throws Exception {
+        assumeFx();
+        FakeVault vault = nestedVault();
+        Holder h = new Holder();
+        onFx(() -> {
+            h.tree = new ExplorerTree(vault, Runnable::run, key -> key);
+            h.tree.setRoot(new Folder("ROOT", "Vault"));
+            return null;
+        });
+        settle(() -> null);
+        TreeItem<Component> rootBefore = onFx(() -> {
+            h.tree.getView().getRoot().getChildren().get(0).setExpanded(true);
+            return h.tree.getView().getRoot();
+        });
+        settle(() -> null);
+
+        onFx(() -> {
+            h.tree.setFilter("acta");
+            return null;
+        });
+        settle(() -> null);
+        onFx(() -> {
+            h.tree.setFilter("  ");
+            return null;
+        });
+
+        assertSame(rootBefore, settle(() -> h.tree.getView().getRoot()));
+        assertTrue(settle(() -> h.tree.getView().getRoot().getChildren().get(0).isExpanded()));
+    }
+
+    @Test
+    void revealOpensTheFoldersOfANoteNotReadYetAndSelectsIt() throws Exception {
+        assumeFx();
+        FakeVault vault = nestedVault();
+        Holder h = new Holder();
+        onFx(() -> {
+            h.tree = new ExplorerTree(vault, Runnable::run, key -> key);
+            h.tree.setRoot(new Folder("ROOT", "Vault"));
+            return null;
+        });
+        settle(() -> null);
+
+        onFx(() -> {
+            h.tree.reveal("id-Acta semanal");
+            return null;
+        });
+        String selected = settle(() -> {
+            TreeItem<Component> item = h.tree.getView().getSelectionModel().getSelectedItem();
+            return item == null ? null : item.getValue().getTitle();
+        });
+
+        assertEquals("Acta semanal", selected);
+        assertTrue(settle(() -> h.tree.getView().getRoot().getChildren().get(1).isExpanded()));
+    }
+
     // ------------------------------------------------------------------ fixtures
 
     private static final class Holder {
@@ -437,6 +529,39 @@ class ExplorerTreeTest {
         private synchronized Runnable poll() {
             return tasks.pollFirst();
         }
+    }
+
+    private static FakeVault nestedVault() {
+        FakeVault vault = new FakeVault();
+        vault.folder("ROOT", "Árbol genealógico", "a");
+        vault.folder("ROOT", "Trabajo", "t");
+        vault.note("ROOT", "Inicio");
+        vault.folder("t", "Reuniones", "t/r");
+        vault.note("t", "Acta 10");
+        vault.note("t", "Acta 2");
+        vault.note("t", "Presupuesto");
+        vault.note("t/r", "Acta semanal");
+        vault.note("a", "Abuelos");
+        return vault;
+    }
+
+    /** The tree as indented titles: only expanded folders show their children. */
+    private static List<String> outline(TreeItem<Component> parent, String indent) {
+        List<String> out = new ArrayList<>();
+        for (TreeItem<Component> child : parent.getChildren()) {
+            out.add(indent + (child.getValue() != null ? child.getValue().getTitle() : "explorer.loading"));
+            if (child.isExpanded()) {
+                out.addAll(outline(child, indent + "  "));
+            }
+        }
+        return out;
+    }
+
+    private static double nameX(TreeCell<Component> cell) {
+        for (Node node : cell.lookupAll(".explorer-cell-name")) {
+            return node.localToScene(node.getBoundsInLocal()).getMinX();
+        }
+        throw new AssertionError("row has no name label");
     }
 
     private static List<String> titles(TreeItem<Component> parent) {

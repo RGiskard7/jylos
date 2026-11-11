@@ -94,7 +94,8 @@ class SidebarExplorerModeTest {
 
         assertTrue(onFx(() -> explorer.getParent() != null && f.classicTree().getParent() == null),
                 "the Explorer tree takes the classic folder tree's place");
-        assertFalse(onFx(() -> f.filterField().isVisible()), "the classic folder filter is hidden");
+        assertEquals("Filtrar notas y carpetas…", onFx(() -> f.filterField().getPromptText()),
+                "the header filter now filters the Explorer tree");
 
         onFx(() -> {
             explorer.getSelectionModel().select(explorer.getRoot().getChildren().get(1));
@@ -109,7 +110,7 @@ class SidebarExplorerModeTest {
             return null;
         });
         assertTrue(onFx(() -> explorer.getParent() == null && f.classicTree().getParent() != null));
-        assertTrue(onFx(() -> f.filterField().isVisible()));
+        assertEquals("Filtrar carpetas...", onFx(() -> f.filterField().getPromptText()));
     }
 
     @Test
@@ -171,6 +172,37 @@ class SidebarExplorerModeTest {
         assertEquals(List.of("Nueva Nota", "nota Inicio"), menus.get());
     }
 
+    @Test
+    void theHeaderFiltersTheExplorerAndOffersRevealOnlyThere() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        Fixture f = onFx(() -> new Fixture(folders, notes, new ArrayList<>()));
+        boolean revealBeforeExplorer = onFx(() -> f.revealButton().isVisible());
+        onFx(() -> {
+            f.sidebar.setExplorerMode(true);
+            return null;
+        });
+        TreeView<Component> explorer = onFx(() -> f.sidebar.getExplorerTree().getView());
+        waitUntil(() -> titles(explorer.getRoot()).equals(List.of("Trabajo", "Inicio")));
+
+        boolean shownInExplorer = onFx(() -> f.revealButton().isVisible() && f.filterField().isVisible());
+        onFx(() -> {
+            f.filterField().setText("act");
+            return null;
+        });
+        waitUntil(() -> titles(explorer.getRoot()).equals(List.of("Trabajo"))
+                && titles(explorer.getRoot().getChildren().get(0)).equals(List.of("Acta")));
+
+        onFx(() -> {
+            f.sidebar.setExplorerMode(false);
+            return null;
+        });
+
+        assertFalse(revealBeforeExplorer, "reveal only makes sense in the Explorer");
+        assertTrue(shownInExplorer, "the Explorer header has the filter and the reveal button");
+        assertEquals("", onFx(() -> f.filterField().getText()), "a filter does not carry over to the other tree");
+        assertFalse(onFx(() -> f.revealButton().isVisible()));
+    }
+
     private static final class Fixture {
         final SidebarController sidebar;
 
@@ -192,6 +224,10 @@ class SidebarExplorerModeTest {
 
         TreeView<?> classicTree() throws Exception {
             return (TreeView<?>) field("folderTreeView");
+        }
+
+        javafx.scene.control.Button revealButton() throws Exception {
+            return (javafx.scene.control.Button) field("revealActiveNoteBtn");
         }
 
         TextField filterField() throws Exception {
