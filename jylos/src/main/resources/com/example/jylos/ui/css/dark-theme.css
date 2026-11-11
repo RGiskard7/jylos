@@ -4463,3 +4463,47 @@
 .tree-indent-guide {
     -fx-background-color: -fx-fn-border-color;
 }
+
+/* Flat buttons also in the PDF/image viewers and the Kanban board's "+ Add card/column". */
+.root .viewer-btn,
+.root .kanban-add-card {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-background-insets: 0;
+    -fx-background-radius: 6;
+    -fx-effect: null;
+}
+
+.root .viewer-btn:hover,
+.root .kanban-add-card:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-border-color: transparent;
+}
+
+.root .viewer-btn:selected {
+    -fx-background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-accent;
+}
+
+.root .kanban-add-card {
+    -fx-text-fill: -fx-text-faint;
+}
+
+.root .kanban-add-card:hover {
+    -fx-text-fill: -fx-text-main;
+}
+
+/* Tags bar: "+ Add tag" as plain text, like "+ Add property". */
+.root .add-tag-button {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-text-fill: -fx-text-faint;
+    -fx-padding: 2 4;
+}
+
+.root .add-tag-button:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-text-main;
+}

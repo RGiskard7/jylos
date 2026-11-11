@@ -1795,15 +1795,15 @@ public class EditorController {
             for (Tag tag : tags) {
                 HBox box = new HBox(4); box.setAlignment(Pos.CENTER_LEFT); box.getStyleClass().add("tag-container");
                 Label lbl = new Label(tag.getTitle()); lbl.getStyleClass().add("tag-label");
-                lbl.setTooltip(new Tooltip("Double-click to remove"));
+                lbl.setTooltip(new Tooltip(getString("tooltip.tag_double_click_remove", "Double-click to remove")));
                 lbl.setOnMouseClicked(e -> { if (e.getClickCount() == 2) onRemove.accept(new Tag(tag.getId(), tag.getTitle(), null, null)); });
                 Button rm = new Button("×"); rm.getStyleClass().add("tag-remove-btn");
-                rm.setTooltip(new Tooltip("Remove tag from note"));
+                rm.setTooltip(new Tooltip(getString("tooltip.remove_tag_from_note", "Remove tag from note")));
                 rm.setOnAction(e -> onRemove.accept(new Tag(tag.getId(), tag.getTitle(), null, null)));
                 box.getChildren().addAll(lbl, rm);
                 fp.getChildren().add(box);
             }
-            Button addBtn = new Button("+ Add Tag"); addBtn.getStyleClass().add("add-tag-button");
+            Button addBtn = new Button(getString("action.add_tag_line", "+ Add tag")); addBtn.getStyleClass().add("add-tag-button");
             addBtn.setOnAction(e -> onAdd.run());
             fp.getChildren().add(addBtn);
         } catch (Exception e) {
