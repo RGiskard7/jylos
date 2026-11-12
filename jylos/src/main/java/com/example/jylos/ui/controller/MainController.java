@@ -583,11 +583,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                     com.example.jylos.service.NoteTitleIndex.getInstance()::titlesSorted,
                     uiPreferences.loadLivePreviewEnabled(prefs),
                     enabled -> uiPreferences.saveLivePreviewEnabled(prefs, enabled));
-            // A link opens the note it names by path, resolved from the note it is written in.
-            editorController.setWikiLinkHandler(link -> noteService.resolveLink(link,
-                    getCurrentNote() != null ? getCurrentNote().getId() : null).ifPresentOrElse(
-                    this::handleUiNoteOpenRequest,
-                    () -> updateStatus("Note not found: " + link)));
+            // A link opens the note it names by path, resolved from the note it is written in,
+            // and scrolls to its heading or block when it names one.
+            editorController.setWikiLinkHandler(this::openLink);
+            editorController.setTagLinkHandler(this::loadNotesForTag);
             editorController.setEditorHooks(editorHooks);
             if (editorTabs == null) {
                 editorController.initializeTagsBarCollapsed();
@@ -2502,6 +2501,32 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     }
 
     /** Recomputes (off the FX thread) and renders the backlinks for {@code note}. */
+    /**
+     * Follows a link clicked in the editor or the reading view: opens the note it names
+     * (resolved by path from the open note; a link with only {@code #section} stays in the
+     * open note) and, when the link names a heading or a block, scrolls there.
+     */
+    private void openLink(String link) {
+        Note current = getCurrentNote();
+        String subpath = com.example.jylos.util.WikiLinkResolver.subpathOf(link);
+        boolean sameNote = link != null && link.strip().startsWith("#") && current != null;
+        java.util.Optional<Note> target = sameNote ? java.util.Optional.of(current)
+                : noteService.resolveLink(link, current != null ? current.getId() : null);
+        if (target.isEmpty()) {
+            updateStatus("Note not found: " + link);
+            return;
+        }
+        if (!sameNote) {
+            handleUiNoteOpenRequest(target.get());
+        }
+        Note opened = getCurrentNote();
+        if (subpath == null || opened == null || !java.util.Objects.equals(opened.getId(), target.get().getId())) {
+            return;
+        }
+        com.example.jylos.util.NoteAnchors.locate(opened.getContent(), subpath)
+                .ifPresent(anchor -> editorController.navigateToHeading(anchor.offset(), anchor.elementId()));
+    }
+
     private void refreshBacklinks(Note note) {
         backlinksSupport.refresh(note);
     }

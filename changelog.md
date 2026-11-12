@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+- **Sintaxis de Obsidian en la vista de lectura.** Lo que antes salía como texto literal ahora se ve como en Obsidian:
+  - **Callouts:** `> [!tip] Título` dibuja un recuadro de color con icono y título. Los tipos y sus alias son los de Obsidian (nota, resumen, info, tarea, consejo, éxito, pregunta, aviso, fallo, peligro, error, ejemplo, cita); un tipo desconocido se ve como una nota. Con `[!tipo]-` empieza plegado y con `[!tipo]+` es plegable pero empieza abierto. Se pueden anidar.
+  - **`==resaltado==`** se marca en amarillo.
+  - **Comentarios `%%…%%`**, en línea o de varias líneas, no se muestran.
+  - **Notas al pie:** `[^1]` con su definición `[^1]: texto` (las líneas sangradas que siguen forman parte de ella) y las notas en línea `^[texto]`. Se numeran por orden de aparición y se listan al final con un enlace de vuelta. Antes, la definición desaparecía y la referencia se convertía en un enlace roto.
+  - **Referencias a bloque:** `^id` al final de un párrafo, de un elemento de lista o en la línea siguiente a una tabla o cita marca ese bloque y no se muestra. `![[Nota#^id]]` incrusta solo ese bloque.
+  - **Enlaces a una sección:** `[[Nota#Encabezado]]` y `[[Nota#^id]]` abren la nota en ese punto, con un clic en la vista de lectura y con Cmd/Ctrl+clic en el editor (antes abrían la nota por arriba). `[[#Encabezado]]` y `[[#^id]]` saltan dentro de la propia nota (antes salían como texto).
+  - **Etiquetas clicables:** un `#etiqueta` en el texto es un enlace que muestra las notas con esa etiqueta, igual que elegirla en la barra lateral.
+
+  Nada de esto se aplica dentro de código (bloques o código en línea), y también funciona en las notas incrustadas y al exportar a HTML. En el PDF los comentarios tampoco salen, las notas al pie se listan y los callouts se imprimen con su contenido, aunque estén plegados; las etiquetas quedan como texto. La vista previa en vivo del editor todavía no lo muestra así.
+
 - **Panel de enlaces completo: menciones con contexto, menciones sin enlace y enlaces salientes.** La sección del panel derecho, que ahora se llama "Enlaces" (antes "Enlaces entrantes"), tenía solo una lista de títulos de las notas que enlazan a la abierta. Ahora tiene tres apartados plegables con su contador:
   - **Menciones con enlaces:** las notas que enlazan a la abierta, agrupadas por nota, con la línea de cada enlace y el enlace resaltado (varios enlaces de una misma línea comparten fila). Un clic abre la nota.
   - **Menciones sin enlace:** las notas que nombran la abierta (su título o cualquiera de sus alias) en texto normal, sin `[[ ]]`. Se buscan al desplegar el apartado, para no leer toda la bóveda cada vez que cambias de nota. Cada mención tiene un botón **Enlazar**, que la reescribe como `[[Nota]]` (o `[[Nota|texto]]` si dice otra cosa, por ejemplo un alias o una mayúscula distinta; con `[[Carpeta/Nota|texto]]` si hay otra nota con el mismo nombre que ganaría el enlace desde esa carpeta). Cuenta solo palabras completas y no cuenta lo que está dentro de enlaces, de código, de direcciones web ni de las propiedades.

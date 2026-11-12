@@ -297,8 +297,9 @@ class MarkdownEditorViewTest {
                                 "window.javaEditor.openMarkdownLink('https://example.com')");
                         Platform.runLater(() -> {
                             try {
-                                // The folder is kept so the handler can tell same-named notes apart.
-                                assertEquals(List.of("folder/Target Note", "folder/Wiki Target"), internal);
+                                // The folder is kept so the handler can tell same-named notes apart,
+                                // and the heading so the note opens there.
+                                assertEquals(List.of("folder/Target Note", "folder/Wiki Target#Heading"), internal);
                                 assertEquals("https://example.com", external.get());
                             } catch (AssertionError error) {
                                 failure[0] = error;

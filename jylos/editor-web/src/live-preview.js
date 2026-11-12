@@ -382,7 +382,8 @@ function wikiReplacement(match, from) {
   const embed = match.startsWith("!");
   const inner = match.slice(embed ? 3 : 2, -2);
   const [targetPart, aliasPart] = inner.split("|", 2);
-  const target = targetPart.split("#", 1)[0].trim();
+  // The heading or block stays in the link, so the note opens there.
+  const target = targetPart.trim();
   const label = (aliasPart || targetPart).trim();
   const className = embed ? "cm-live-embed" : "cm-live-wikilink";
   const text = embed ? `▣ ${label}` : label;

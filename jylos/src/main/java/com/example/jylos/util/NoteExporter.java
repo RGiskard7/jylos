@@ -98,7 +98,14 @@ public final class NoteExporter {
         String title = note != null && note.getTitle() != null ? escape(note.getTitle()) : "";
         // Emojis as inline images (same approach as the preview): openhtmltopdf renders
         // <img> fine, and this avoids the emoji font's oversized space glyph issue.
-        String body = MarkdownPreview.emojifyToImages(MarkdownProcessor.markdownToHtml(content(note)), false);
+        // The same Obsidian syntax as the reading view: comments stay hidden (they may hold
+        // what the author never meant to share), footnotes are listed, ^block ids hidden.
+        // Tags stay plain text: a link to the app means nothing on paper.
+        String markdown = ReadingSyntax.stripComments(content(note));
+        ReadingSyntax.Footnotes footnotes = ReadingSyntax.footnotes(markdown);
+        String rendered = MarkdownProcessor.markdownToHtml(ReadingSyntax.blockAnchors(footnotes.markdown()))
+                + footnotes.html();
+        String body = MarkdownPreview.emojifyToImages(rendered, false);
         return """
                 <!DOCTYPE html>
                 <html lang="en">
@@ -131,6 +138,13 @@ public final class NoteExporter {
                         img { max-width: 100%%; height: auto; }
                         img.emoji { height: 1.05em; width: auto; max-width: none; vertical-align: -0.12em; }
                         hr { border: none; border-top: 1px solid #ddd; margin: 1.2em 0; }
+                        .callout { border-left: 3px solid #888; background: #f5f5f5; margin: 0.6em 0;
+                                   padding: 6px 12px; display: block; }
+                        .callout-title { font-weight: bold; display: block; }
+                        .callout-icon, .footnote-backref { display: none; }
+                        details, summary { display: block; }
+                        .footnotes { font-size: 9pt; color: #444; }
+                        mark { background: #fff3a3; }
                     </style>
                 </head>
                 <body>

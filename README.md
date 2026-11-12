@@ -150,7 +150,8 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 - **KaTeX** for `$…$`, `$$…$$`, and LaTeX delimiters (offline assets bundled in the JAR)
 - Emoji in preview via rasterized glyphs (reliable in the JavaFX WebView)
 - **Wiki-link resolution** shared with the graph and backlinks (`WikiLinkResolver`)
-- **Transclusion / embeds**: `![[Note]]` (or `![[Note#Heading]]`) embeds another note's rendered content inline in the preview, with a click-to-open header; bounded recursion with cycle detection
+- **Transclusion / embeds**: `![[Note]]` (or `![[Note#Heading]]`, or a single block with `![[Note#^id]]`) embeds another note's rendered content inline in the preview, with a click-to-open header; bounded recursion with cycle detection
+- **Obsidian syntax in the reading view**: callouts (`> [!tip] Title`, foldable with `+`/`-`), `==highlight==`, hidden `%%comments%%`, footnotes (`[^1]` and inline `^[…]`), block ids (`^id`) that `[[Note#^id]]` links and embeds point to, and clickable `#tags` that list the notes with that tag; none of it applies inside code. Links to a heading or block open the note there, and `[[#Heading]]` jumps within the note
 - **Rich links**: paste a URL to insert it as a visual card (title, description, thumbnail, site) — metadata fetched in the background; external links open in the system browser
 - **Focus / writing mode** (`Ctrl/Cmd+Shift+F`): hides everything but the editor
 - Split-pane proportions are remembered between sessions

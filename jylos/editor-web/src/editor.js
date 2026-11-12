@@ -350,7 +350,8 @@ function sourceLinkNavigation() {
         const from = line.from + match.index;
         const to = from + match[0].length;
         if (position >= from && position <= to) {
-          window.javaEditor?.openNote(match[1].split("|", 1)[0].split("#", 1)[0].trim());
+          // The heading or block stays in the link, so the note opens there.
+          window.javaEditor?.openNote(match[1].split("|", 1)[0].trim());
           event.preventDefault();
           return true;
         }

@@ -167,14 +167,16 @@ public final class Transclusion {
 
         Set<String> nextVisited = new HashSet<>(visited);
         nextVisited.add(link.toLowerCase());
-        String inner = expand(section, resolver, titles, depth + 1, nextVisited, embeds, counter);
+        // Comments, block anchors and tags inside the embedded note, as in the note itself.
+        String inner = expand(ReadingSyntax.inline(section), resolver, titles, depth + 1, nextVisited, embeds, counter);
         inner = WikiLinkResolver.resolve(inner, titles);
         String innerHtml = MarkdownProcessor.markdownToHtml(inner);
         innerHtml = restore(innerHtml, embeds);
 
         return "<div class=\"embed\">"
                 + "<a class=\"embed-title\" href=\"" + WikiLinkResolver.PROTOCOL + urlEncode(link)
-                + "\" data-target=\"" + escape(link) + "\">"
+                + "\" data-target=\"" + escape(link)
+                + (heading != null && !heading.isEmpty() ? "\" data-subpath=\"" + escape(heading) : "") + "\">"
                 + escape(display) + "</a>"
                 + "<div class=\"embed-body\">" + innerHtml + "</div>"
                 + "</div>";
@@ -186,6 +188,9 @@ public final class Transclusion {
      * if no such heading exists.
      */
     static String extractSection(String content, String heading) {
+        if (heading != null && heading.strip().startsWith("^")) {
+            return extractBlock(content, heading.strip().substring(1));
+        }
         String[] lines = content.split("\n", -1);
         int start = -1;
         int level = 0;
@@ -210,6 +215,58 @@ public final class Transclusion {
             sb.append(lines[j]).append('\n');
         }
         return sb.toString();
+    }
+
+    private static final Pattern LIST_ITEM = Pattern.compile("^\\s*([-*+]|\\d+[.)])\\s.*");
+
+    /**
+     * The block marked {@code ^id}, without the marker: the paragraph whose line ends with it,
+     * just the list item when that line is one, or the block above when the id stands on its
+     * own line (how tables and quotes are marked). {@code null} when no block has that id.
+     */
+    static String extractBlock(String content, String id) {
+        if (id.isEmpty()) {
+            return null;
+        }
+        String[] lines = content.split("\n", -1);
+        Pattern marker = Pattern.compile("(?:^|[ \\t]+)\\^" + Pattern.quote(id) + "[ \\t]*$");
+        for (int i = 0; i < lines.length; i++) {
+            Matcher m = marker.matcher(lines[i]);
+            if (!m.find()) {
+                continue;
+            }
+            String rest = lines[i].substring(0, m.start());
+            int from;
+            int to;
+            if (rest.isBlank()) {
+                to = i - 1;
+                while (to >= 0 && lines[to].isBlank()) {
+                    to--;
+                }
+                if (to < 0) {
+                    return null;
+                }
+                from = to;
+                while (from - 1 >= 0 && !lines[from - 1].isBlank()) {
+                    from--;
+                }
+            } else if (LIST_ITEM.matcher(lines[i]).matches()) {
+                from = i;
+                to = i;
+            } else {
+                from = i;
+                while (from - 1 >= 0 && !lines[from - 1].isBlank()) {
+                    from--;
+                }
+                to = i;
+            }
+            StringBuilder sb = new StringBuilder();
+            for (int j = from; j <= to; j++) {
+                sb.append(j == i ? rest : lines[j]).append('\n');
+            }
+            return sb.toString();
+        }
+        return null;
     }
 
     private static String notice(String cssClass, String display, String reason) {

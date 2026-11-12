@@ -139,6 +139,13 @@ public class MarkdownPreview {
         String sourceId = context != null && context.note() != null ? context.note().getId() : null;
         java.util.function.Predicate<String> exists = link -> links.exists(link, sourceId);
 
+        // Obsidian syntax resolved on the source (outside code): comments hidden, footnotes
+        // numbered (their list is appended after rendering), ^block anchors, #tags as links.
+        // Callouts and ==highlights== are handled inside CommonMark (CalloutsAndHighlights).
+        raw = ReadingSyntax.stripComments(raw);
+        ReadingSyntax.Footnotes footnotes = ReadingSyntax.footnotes(raw);
+        raw = ReadingSyntax.tags(ReadingSyntax.blockAnchors(footnotes.markdown()));
+
         // Expand ![[transclusions]] FIRST: ![[X]] contains a [[X]] that WikiLinkResolver
         // would otherwise rewrite. Each embed is rendered now and parked behind a token,
         // re-injected after CommonMark (see Transclusion).
@@ -152,7 +159,7 @@ public class MarkdownPreview {
         // an HTML block, which CommonMark passes through verbatim).
         raw = RichLinks.render(raw);
 
-        String html = MarkdownProcessor.markdownToHtml(raw);
+        String html = MarkdownProcessor.markdownToHtml(raw) + footnotes.html();
         html = Transclusion.restore(html, embeds.embeds());
         html = embedLocalImages(html, baseDir, imageContainmentRoot);
         html = emojifyToImages(html, isDarkTheme);
@@ -218,8 +225,18 @@ public class MarkdownPreview {
                                 // fallback for pure markdown links [Note](jylos://...)
                                 title = decodeURIComponent(href.substring('jylos://open-note/'.length));
                             }
+                            // A link to a heading or block opens the note there.
+                            let subpath = target.getAttribute('data-subpath');
+                            if (subpath) {
+                                title = title + '#' + subpath;
+                            }
                             if (window.javaApp) {
                                 window.javaApp.openNote(title);
+                            }
+                        } else if (href.startsWith('jylos://tag/')) {
+                            e.preventDefault();
+                            if (window.javaApp && window.javaApp.openTag) {
+                                window.javaApp.openTag(decodeURIComponent(href.substring('jylos://tag/'.length)));
                             }
                         } else if (href.startsWith('http://') || href.startsWith('https://')) {
                             // Open external links (incl. rich-link cards) in the system browser
@@ -445,6 +462,7 @@ public class MarkdownPreview {
                 .embed-missing, .embed-cycle, .embed-too-deep { border-left-color: #ef4444; background-color: #2a1f1f; }
                 """;
         return base
+                + readingSyntaxStyles(true)
                 + (readableLineLength ? readableLineLengthRule() : "")
                 + contentFontSizeRule(contentFontSize);
     }
@@ -502,8 +520,51 @@ public class MarkdownPreview {
                 .embed-missing, .embed-cycle, .embed-too-deep { border-left-color: #d1242f; background-color: #fff0f0; }
                 """;
         return base
+                + readingSyntaxStyles(false)
                 + (readableLineLength ? readableLineLengthRule() : "")
                 + contentFontSizeRule(contentFontSize);
+    }
+
+    /**
+     * Callouts, footnotes, tags, block anchors and links within the note. Callout colours
+     * follow Obsidian's (RGB per family), as a tinted background and a coloured title.
+     */
+    private static String readingSyntaxStyles(boolean dark) {
+        String[][] colours = {
+                { "blue", "8, 109, 221" }, { "cyan", "0, 191, 188" }, { "green", "8, 185, 78" },
+                { "orange", "236, 117, 0" }, { "red", "233, 49, 71" }, { "purple", "120, 82, 238" },
+                { "gray", "158, 158, 158" } };
+        StringBuilder css = new StringBuilder();
+        css.append(".callout { margin: 1em 0; padding: 10px 14px; border-radius: 6px; overflow: hidden; ")
+                .append("--callout-rgb: 8, 109, 221; background-color: rgba(var(--callout-rgb), ")
+                .append(dark ? "0.12" : "0.08").append("); border-left: 3px solid rgb(var(--callout-rgb)); }\n");
+        for (String[] colour : colours) {
+            css.append(".callout-").append(colour[0]).append(" { --callout-rgb: ").append(colour[1]).append("; }\n");
+        }
+        css.append(".callout-title { display: flex; align-items: center; gap: 6px; font-weight: 600; ")
+                .append("color: rgb(var(--callout-rgb)); }\n")
+                .append("summary.callout-title { cursor: pointer; list-style: none; }\n")
+                .append("summary.callout-title::-webkit-details-marker { display: none; }\n")
+                .append("summary.callout-title::after { content: '\\203A'; margin-left: 4px; transition: transform 0.15s; }\n")
+                .append("details.callout[open] > summary.callout-title::after { transform: rotate(90deg); }\n")
+                .append(".callout-icon { display: inline-flex; }\n")
+                .append(".callout-content { margin-top: 6px; }\n")
+                .append(".callout-content > :first-child { margin-top: 0; }\n")
+                .append(".callout-content > :last-child { margin-bottom: 0; }\n")
+                .append(".footnotes { font-size: 0.9em; margin-top: 2em; color: ").append(dark ? "#B3B3B3" : "#57606a")
+                .append("; }\n")
+                .append(".footnotes hr { border: none; border-top: 1px solid ").append(dark ? "#3a3a3a" : "#d0d7de")
+                .append("; }\n")
+                .append("sup.footnote-ref a, a.footnote-backref { text-decoration: none; color: ")
+                .append(dark ? "#818CF8" : "#6366F1").append("; }\n")
+                .append("a.tag { text-decoration: none; padding: 1px 8px; border-radius: 10px; font-size: 0.9em; ")
+                .append(dark ? "color: #A5B4FC; background-color: rgba(129, 140, 248, 0.15);"
+                        : "color: #4F46E5; background-color: rgba(99, 102, 241, 0.1);")
+                .append(" }\n")
+                .append("a.tag:hover { text-decoration: underline; }\n")
+                .append("a.wikilink-local { border-bottom-style: dotted; }\n")
+                .append(".block-anchor { display: inline-block; width: 0; height: 0; }\n");
+        return css.toString();
     }
 
     private record Injections(String head, String body) {

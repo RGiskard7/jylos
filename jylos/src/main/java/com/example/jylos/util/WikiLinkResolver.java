@@ -68,6 +68,9 @@ public final class WikiLinkResolver {
      * <p>Negative lookahead excludes http, https, ftp, file, mailto, and any
      * URL that contains {@code ://}.</p>
      */
+    /** A link within the same note: {@code [[#Heading]]}, {@code [[#^block|label]]}. */
+    private static final Pattern LOCAL_LINK = Pattern.compile("\\[\\[#([^\\[\\]|\\n]+?)(?:\\|([^\\[\\]\\n]+?))?\\]\\]");
+
     private static final Pattern MARKDOWN_INTERNAL = Pattern.compile(
             "\\[([^\\[\\]]+)\\]\\((?!(?:https?|ftp|file|mailto):)([^()\\n]+?)\\)");
 
@@ -104,8 +107,9 @@ public final class WikiLinkResolver {
             return markdown != null ? markdown : "";
         }
 
-        // 1. Resolve [[wiki-links]] first
+        // 1. Resolve [[wiki-links]] first, then [[#links]] within the note
         String result = resolveWikiLinks(markdown, exists);
+        result = resolveLocalLinks(result);
 
         // 2. Then resolve Markdown internal links [label](path). The code ranges are
         //    recomputed: the first pass changed the text.
@@ -273,6 +277,27 @@ public final class WikiLinkResolver {
     }
 
     /**
+     * The heading or block part of a link ({@code Nota#Sección|texto} → {@code Sección},
+     * {@code Nota#^id} → {@code ^id}), or {@code null} when it names the whole note.
+     */
+    public static String subpathOf(String rawLink) {
+        if (rawLink == null) {
+            return null;
+        }
+        String link = rawLink;
+        int pipe = link.indexOf('|');
+        if (pipe >= 0) {
+            link = link.substring(0, pipe);
+        }
+        int hash = link.indexOf('#');
+        if (hash < 0) {
+            return null;
+        }
+        String subpath = link.substring(hash + 1).strip();
+        return subpath.isEmpty() ? null : subpath;
+    }
+
+    /**
      * The characters of {@code markdown} that are code: fenced blocks ({@code ```} or
      * {@code ~~~}, fence lines included; an unclosed fence runs to the end) and inline
      * code spans (a run of backticks up to the next run of the same length).
@@ -414,8 +439,38 @@ public final class WikiLinkResolver {
             String href = PROTOCOL + encodeTitle(path)
                     + (heading != null && !heading.isEmpty() ? "|" + encodeTitle(heading) : "");
 
-            String replacement = buildAnchor(cssClass, href, path, label);
+            String replacement = buildAnchor(cssClass, href, path, heading, label);
             m.appendReplacement(sb, Matcher.quoteReplacement(replacement));
+        }
+        m.appendTail(sb);
+        return sb.toString();
+    }
+
+    /**
+     * {@code [[#Heading]]} and {@code [[#^block]]}: a jump within the rendered note, to the
+     * heading's id ({@link MarkdownProcessor#slugifyHeading}) or the block's anchor
+     * ({@link ReadingSyntax#blockAnchors}).
+     */
+    private static String resolveLocalLinks(String markdown) {
+        if (!markdown.contains("[[#")) {
+            return markdown;
+        }
+        BitSet code = codeRanges(markdown);
+        Matcher m = LOCAL_LINK.matcher(markdown);
+        StringBuilder sb = new StringBuilder();
+        while (m.find()) {
+            String target = m.group(1).trim();
+            if (code.get(m.start()) || target.isEmpty()) {
+                m.appendReplacement(sb, Matcher.quoteReplacement(m.group(0)));
+                continue;
+            }
+            String alias = m.group(2) != null ? m.group(2).trim() : "";
+            String anchor = target.startsWith("^")
+                    ? ReadingSyntax.BLOCK_ID_PREFIX + target.substring(1)
+                    : MarkdownProcessor.slugifyHeading(target);
+            String label = alias.isEmpty() ? target : alias;
+            m.appendReplacement(sb, Matcher.quoteReplacement("<a class=\"wikilink wikilink-local\" href=\"#"
+                    + escapeHtml(anchor) + "\">" + escapeHtml(label) + "</a>"));
         }
         m.appendTail(sb);
         return sb.toString();
@@ -449,7 +504,9 @@ public final class WikiLinkResolver {
             }
 
             String href = PROTOCOL + encodeTitle(path);
-            String replacement = buildAnchor("wikilink", href, path, label);
+            int hash = url.indexOf('#');
+            String subpath = hash >= 0 ? urlDecode(url.substring(hash + 1)).trim() : null;
+            String replacement = buildAnchor("wikilink", href, path, subpath, label);
             m.appendReplacement(sb, Matcher.quoteReplacement(replacement));
         }
         m.appendTail(sb);
@@ -494,10 +551,16 @@ public final class WikiLinkResolver {
         return knownTitles.stream().anyMatch(t -> t.equalsIgnoreCase(title));
     }
 
-    private static String buildAnchor(String cssClass, String href, String dataTarget, String label) {
+    /**
+     * The anchor of a link to another note. {@code data-target} is the note as written;
+     * {@code data-subpath}, when the link names a heading or a block ({@code ^id}), is that
+     * part, so a click opens the note there.
+     */
+    private static String buildAnchor(String cssClass, String href, String dataTarget, String subpath, String label) {
         return "<a class=\"" + cssClass
                 + "\" href=\"" + href
                 + "\" data-target=\"" + escapeHtml(dataTarget)
+                + (subpath != null && !subpath.isBlank() ? "\" data-subpath=\"" + escapeHtml(subpath) : "")
                 + "\">" + escapeHtml(label) + "</a>";
     }
 

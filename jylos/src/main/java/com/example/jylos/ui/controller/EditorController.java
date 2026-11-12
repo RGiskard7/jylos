@@ -162,7 +162,11 @@ public class EditorController {
     private Double pendingPreviewScrollY;
     private String pendingPreviewNoteId;
     private String renderedPreviewNoteId;
+    /** A heading or block to scroll to once the page of {@link #pendingPreviewAnchorNoteId} loads. */
+    private String pendingPreviewAnchor;
+    private String pendingPreviewAnchorNoteId;
     private WikiLinkHandler wikiLinkHandler;
+    private java.util.function.Consumer<String> tagLinkHandler;
     private final PreviewJavaBridge previewJavaBridge = new PreviewJavaBridge();
     private final RichLinkService richLinkService = new RichLinkService();
     private CanvasView currentCanvasView;
@@ -1828,6 +1832,11 @@ public class EditorController {
     // Preview, word count, editor chrome
     // ============================================================
 
+    /** What a click on a {@code #tag} in the reading view does (given the tag, without {@code #}). */
+    public void setTagLinkHandler(java.util.function.Consumer<String> handler) {
+        this.tagLinkHandler = handler;
+    }
+
     public void setWikiLinkHandler(WikiLinkHandler handler) {
         this.wikiLinkHandler = handler;
     }
@@ -2076,6 +2085,16 @@ public class EditorController {
                 || !VALID_HEADING_SLUG.matcher(headingSlug).matches()) {
             return;
         }
+        // The page of this note is not shown yet (it was just opened and is still being
+        // rendered): jump once that page loads, not on the previous note's page.
+        String noteId = currentNote != null ? currentNote.getId() : null;
+        Task<String> rendering = currentPreviewTask;
+        if (noteId != null && (!noteId.equals(renderedPreviewNoteId)
+                || (rendering != null && !rendering.isDone()))) {
+            pendingPreviewAnchor = headingSlug;
+            pendingPreviewAnchorNoteId = noteId;
+            return;
+        }
         javafx.concurrent.Worker<Void> loadWorker = previewWebView.getEngine().getLoadWorker();
         if (loadWorker.getState() == javafx.concurrent.Worker.State.SUCCEEDED) {
             executeHeadingScroll(headingSlug);
@@ -2255,15 +2274,22 @@ public class EditorController {
     }
 
     private void restorePendingPreviewScroll() {
-        if (pendingPreviewScrollY == null) {
-            return;
+        if (pendingPreviewScrollY != null) {
+            double scrollY = pendingPreviewScrollY;
+            String noteId = pendingPreviewNoteId;
+            pendingPreviewScrollY = null;
+            pendingPreviewNoteId = null;
+            previewWebView.getEngine().executeScript("window.scrollTo(0, " + scrollY + ");");
+            renderedPreviewNoteId = noteId;
         }
-        double scrollY = pendingPreviewScrollY;
-        String noteId = pendingPreviewNoteId;
-        pendingPreviewScrollY = null;
-        pendingPreviewNoteId = null;
-        previewWebView.getEngine().executeScript("window.scrollTo(0, " + scrollY + ");");
-        renderedPreviewNoteId = noteId;
+        // A link to a heading or block of this note was followed before its page loaded.
+        if (pendingPreviewAnchor != null && pendingPreviewAnchorNoteId != null
+                && pendingPreviewAnchorNoteId.equals(renderedPreviewNoteId)) {
+            String anchor = pendingPreviewAnchor;
+            pendingPreviewAnchor = null;
+            pendingPreviewAnchorNoteId = null;
+            executeHeadingScroll(anchor);
+        }
     }
 
     /**
@@ -2276,6 +2302,15 @@ public class EditorController {
             Platform.runLater(() -> {
                 if (wikiLinkHandler != null) {
                     wikiLinkHandler.openNoteByTitle(title);
+                }
+            });
+        }
+
+        /** Opens the notes with a tag (a {@code #tag} clicked in the reading view). */
+        public void openTag(String tag) {
+            Platform.runLater(() -> {
+                if (tagLinkHandler != null && tag != null && !tag.isBlank()) {
+                    tagLinkHandler.accept(tag);
                 }
             });
         }

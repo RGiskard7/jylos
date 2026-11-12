@@ -36,8 +36,9 @@ public class MarkdownProcessor {
         TaskListItemsExtension.create()
     );
     
-    private static final Parser PARSER = Parser.builder()
-        .extensions(EXTENSIONS)
+    // ==highlight== and > [!type] callouts (see CalloutsAndHighlights).
+    private static final Parser PARSER = CalloutsAndHighlights.addTo(Parser.builder()
+        .extensions(EXTENSIONS))
         .build();
     
     /*
@@ -45,8 +46,8 @@ public class MarkdownProcessor {
      * Markdown apps such as Obsidian: users may author raw HTML, and Jylos wiki-links
      * use a custom jylos:// protocol that URL sanitizing would remove.
      */
-    private static final HtmlRenderer RENDERER = HtmlRenderer.builder()
-        .extensions(EXTENSIONS)
+    private static final HtmlRenderer RENDERER = CalloutsAndHighlights.addTo(HtmlRenderer.builder()
+        .extensions(EXTENSIONS))
         // JavaFX WebView 23 renders raw soft-break characters inside paragraph text as
         // replacement boxes. Emit semantic HTML line breaks instead of relying on its
         // whitespace handling.

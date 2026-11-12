@@ -527,11 +527,22 @@ public final class MarkdownEditorView extends StackPane {
         }
 
         public void openNote(String title) {
-            // The link as written (folder path kept), so the right one of two same-named notes opens.
-            String resolvedTitle = WikiLinkResolver.internalLinkPath(title);
+            // The link as written (folder path kept), so the right one of two same-named notes
+            // opens, and its heading or block, so it opens there.
+            String path = WikiLinkResolver.internalLinkPath(title);
+            String subpath = WikiLinkResolver.subpathOf(title);
+            String resolvedTitle = path != null && subpath != null ? path + "#" + subpath : path;
             Platform.runLater(() -> wikiLinkHandler.accept(resolvedTitle != null
                     ? resolvedTitle
                     : title != null ? title : ""));
+        }
+
+        private String urlDecodeQuietly(String value) {
+            try {
+                return java.net.URLDecoder.decode(value, java.nio.charset.StandardCharsets.UTF_8);
+            } catch (IllegalArgumentException e) {
+                return value;
+            }
         }
 
         public void openExternal(String url) {
@@ -539,7 +550,9 @@ public final class MarkdownEditorView extends StackPane {
         }
 
         public void openMarkdownLink(String target) {
-            String title = WikiLinkResolver.internalLinkPath(target);
+            String path = WikiLinkResolver.internalLinkPath(target);
+            String subpath = WikiLinkResolver.subpathOf(target != null ? urlDecodeQuietly(target) : null);
+            String title = path != null && subpath != null ? path + "#" + subpath : path;
             if (title != null) {
                 Platform.runLater(() -> wikiLinkHandler.accept(title));
             } else {

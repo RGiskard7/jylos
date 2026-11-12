@@ -150,7 +150,8 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 - **KaTeX** para `$…$`, `$$…$$` y delimitadores LaTeX (assets offline en el JAR)
 - Emoji en preview mediante glifos rasterizados (fiables en el WebView de JavaFX)
 - **Resolución de wiki-links** compartida con el grafo y los backlinks (`WikiLinkResolver`)
-- **Transclusión / embeds**: `![[Nota]]` (o `![[Nota#Encabezado]]`) incrusta el contenido renderizado de otra nota en la vista previa, con encabezado clicable; recursión acotada con detección de ciclos
+- **Transclusión / embeds**: `![[Nota]]` (o `![[Nota#Encabezado]]`, o un solo bloque con `![[Nota#^id]]`) incrusta el contenido renderizado de otra nota en la vista previa, con encabezado clicable; recursión acotada con detección de ciclos
+- **Sintaxis de Obsidian en la vista de lectura**: callouts (`> [!tip] Título`, plegables con `+`/`-`), `==resaltado==`, `%%comentarios%%` ocultos, notas al pie (`[^1]` y en línea `^[…]`), identificadores de bloque (`^id`) a los que apuntan los enlaces e incrustaciones `[[Nota#^id]]`, y `#etiquetas` clicables que muestran las notas con esa etiqueta; nada de esto se aplica dentro del código. Los enlaces a un encabezado o bloque abren la nota ahí, y `[[#Encabezado]]` salta dentro de la nota
 - **Rich links**: pega una URL para insertarla como tarjeta visual (título, descripción, miniatura, dominio) — la metadata se descarga en segundo plano; los enlaces externos abren en el navegador del sistema
 - **Modo concentración** (`Ctrl/Cmd+Shift+F`): oculta todo salvo el editor
 - Las proporciones de los paneles divididos se recuerdan entre sesiones
