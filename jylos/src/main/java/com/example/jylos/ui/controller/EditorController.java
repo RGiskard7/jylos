@@ -738,6 +738,11 @@ public class EditorController {
     }
 
     @FXML
+    private void handleEmptyCreateCanvas(ActionEvent e) {
+        publish(SystemActionEvent.ActionType.NEW_CANVAS);
+    }
+
+    @FXML
     private void handleEmptyGoToFile(ActionEvent e) {
         publish(SystemActionEvent.ActionType.QUICK_SWITCHER);
     }

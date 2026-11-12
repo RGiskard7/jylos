@@ -29,6 +29,11 @@ public final class CanvasGeometry {
                     Math.abs(a.x() - b.x()), Math.abs(a.y() - b.y()));
         }
 
+        /** Whether the point is on this rectangle (edges included). */
+        public boolean contains(Point p) {
+            return p.x() >= x && p.x() <= x + width && p.y() >= y && p.y() <= y + height;
+        }
+
         /** Whether the two overlap; only touching along an edge does not count. */
         public boolean intersects(Rect other) {
             return x < other.x + other.width && x + width > other.x
@@ -147,5 +152,49 @@ public final class CanvasGeometry {
             }
         }
         return new Point(x + (shiftX != null ? shiftX : 0), y + (shiftY != null ? shiftY : 0));
+    }
+
+    /**
+     * The side of {@code target} that faces {@code source}: where a new edge from the source
+     * enters it.
+     */
+    public static String facingSide(Rect source, Rect target) {
+        double dx = target.x() + target.width() / 2 - (source.x() + source.width() / 2);
+        double dy = target.y() + target.height() / 2 - (source.y() + source.height() / 2);
+        if (Math.abs(dx) >= Math.abs(dy)) {
+            return dx > 0 ? "left" : "right";
+        }
+        return dy > 0 ? "top" : "bottom";
+    }
+
+    /**
+     * A card resized by dragging one of its sides or corners ({@code top}, {@code right},
+     * {@code bottom}, {@code left}, {@code top-left}, ...) by {@code (dx, dy)}. It does not get
+     * smaller than {@code minWidth} x {@code minHeight}, and the opposite side stays where it
+     * was; with a {@code grid} above 0 the dragged sides land on it.
+     */
+    public static Rect resize(Rect start, String handle, double dx, double dy,
+            double minWidth, double minHeight, double grid) {
+        double left = start.x();
+        double top = start.y();
+        double right = start.x() + start.width();
+        double bottom = start.y() + start.height();
+        if (handle.contains("left")) {
+            left = Math.min(onGrid(left + dx, grid), right - minWidth);
+        }
+        if (handle.contains("right")) {
+            right = Math.max(onGrid(right + dx, grid), left + minWidth);
+        }
+        if (handle.contains("top")) {
+            top = Math.min(onGrid(top + dy, grid), bottom - minHeight);
+        }
+        if (handle.contains("bottom")) {
+            bottom = Math.max(onGrid(bottom + dy, grid), top + minHeight);
+        }
+        return new Rect(left, top, right - left, bottom - top);
+    }
+
+    private static double onGrid(double value, double grid) {
+        return grid > 0 ? Math.round(value / grid) * grid : value;
     }
 }

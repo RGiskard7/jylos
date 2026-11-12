@@ -65,7 +65,7 @@ class CanvasToolbarTest {
                         out.add(String.join(",", button.getStyleClass()) + " off by " + offset);
                     }
                 }
-                out.add(0, buttons >= 11 ? "checked" : "only " + buttons + " buttons found");
+                out.add(0, buttons >= 10 ? "checked" : "only " + buttons + " buttons found");
                 result.set(out);
             } catch (Throwable t) {
                 failure.set(t);

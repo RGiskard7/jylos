@@ -113,6 +113,60 @@ class CanvasGeometryTest {
         assertFalse(box.intersects(new Rect(400, 400, 50, 50)), "outside");
     }
 
+    // ── Connecting and resizing ────────────────────────────────────────────
+
+    @Test
+    void aNewEdgeEntersTheTargetByTheSideThatFacesTheSource() {
+        Rect source = new Rect(0, 0, 100, 100);
+        assertEquals("left", CanvasGeometry.facingSide(source, new Rect(300, 20, 100, 100)));
+        assertEquals("right", CanvasGeometry.facingSide(source, new Rect(-300, -20, 100, 100)));
+        assertEquals("top", CanvasGeometry.facingSide(source, new Rect(20, 300, 100, 100)));
+        assertEquals("bottom", CanvasGeometry.facingSide(source, new Rect(-20, -300, 100, 100)));
+    }
+
+    @Test
+    void aCardKnowsWhetherAPointIsOnIt() {
+        Rect card = new Rect(100, 100, 50, 50);
+        assertTrue(card.contains(new Point(120, 140)));
+        assertFalse(card.contains(new Point(99, 120)));
+        assertFalse(card.contains(new Point(120, 151)));
+    }
+
+    @Test
+    void aCardResizesFromAnySideOrCorner() {
+        Rect card = new Rect(100, 100, 200, 100);
+        assertRect(100, 100, 250, 100, CanvasGeometry.resize(card, "right", 50, 30, 80, 50, 0));
+        assertRect(100, 100, 200, 130, CanvasGeometry.resize(card, "bottom", 50, 30, 80, 50, 0));
+        assertRect(60, 100, 240, 100, CanvasGeometry.resize(card, "left", -40, 30, 80, 50, 0));
+        assertRect(100, 70, 200, 130, CanvasGeometry.resize(card, "top", 50, -30, 80, 50, 0));
+        assertRect(60, 70, 240, 130, CanvasGeometry.resize(card, "top-left", -40, -30, 80, 50, 0));
+        assertRect(100, 70, 250, 130, CanvasGeometry.resize(card, "top-right", 50, -30, 80, 50, 0));
+        assertRect(60, 100, 240, 130, CanvasGeometry.resize(card, "bottom-left", -40, 30, 80, 50, 0));
+        assertRect(100, 100, 250, 130, CanvasGeometry.resize(card, "bottom-right", 50, 30, 80, 50, 0));
+    }
+
+    @Test
+    void shrinkingStopsAtTheMinimumSizeWithTheOppositeSideStill() {
+        Rect card = new Rect(100, 100, 200, 100);
+        // Dragging the left side far to the right: the right side stays at 300.
+        assertRect(220, 100, 80, 100, CanvasGeometry.resize(card, "left", 500, 0, 80, 50, 0));
+        assertRect(100, 150, 200, 50, CanvasGeometry.resize(card, "top", 0, 500, 80, 50, 0));
+        assertRect(100, 100, 80, 50, CanvasGeometry.resize(card, "bottom-right", -500, -500, 80, 50, 0));
+    }
+
+    @Test
+    void theSideBeingDraggedSnapsToTheGrid() {
+        Rect card = new Rect(100, 100, 200, 100);
+        // Right side to 357 -> 360; bottom to 213 -> 220.
+        assertRect(100, 100, 260, 120, CanvasGeometry.resize(card, "bottom-right", 57, 13, 80, 50, 20));
+        // Left side to 47 -> 40; the right side stays at 300.
+        assertRect(40, 100, 260, 100, CanvasGeometry.resize(card, "left", -53, 0, 80, 50, 20));
+    }
+
+    private static void assertRect(double x, double y, double w, double h, Rect r) {
+        assertEquals(List.of(x, y, w, h), List.of(r.x(), r.y(), r.width(), r.height()), r.toString());
+    }
+
     private static void assertPoint(double x, double y, Point p) {
         assertEquals(x, p.x(), EPS, "x of " + p);
         assertEquals(y, p.y(), EPS, "y of " + p);

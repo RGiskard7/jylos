@@ -3736,13 +3736,11 @@
     -fx-scale-y: 1.2;
     -fx-effect: dropshadow(gaussian, -fx-accent, 10, 0.4, 0, 0);
 }
-.canvas-resize-handle {
-    -fx-background-color: -fx-accent;
-    -fx-border-color: white; -fx-border-width: 2;
-    -fx-background-radius: 8; -fx-border-radius: 8;
-    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.55), 4, 0.3, 0, 1);
-}
-.canvas-resize-handle:hover { -fx-cursor: se-resize; -fx-scale-x: 1.15; -fx-scale-y: 1.15; }
+/* The resize grips along the selected card's sides and corners: only the cursor shows them. */
+.canvas-resize-handle { -fx-background-color: transparent; }
+/* An edge being dragged out of a card, and the card it would connect to. */
+.canvas-edge-pending { -fx-stroke-dash-array: 6 4; }
+.canvas-connection-target { -fx-effect: dropshadow(gaussian, -fx-accent, 14, 0.6, 0, 0); }
 .toolbar-btn-active {
     -fx-background-color: -fx-hover-bg; -fx-border-color: -fx-accent; -fx-text-fill: -fx-accent;
 }

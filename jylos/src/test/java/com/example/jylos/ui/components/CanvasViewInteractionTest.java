@@ -227,6 +227,84 @@ class CanvasViewInteractionTest {
         assertEquals(0.0, (Double) seen.get(1), 1e-6, "left drag draws a selection box instead");
     }
 
+    @Test
+    void cmdZUndoesAndCmdShiftZRedoes() throws Exception {
+        assumeFx();
+        List<List<String>> steps = onFx(() -> {
+            Fixture f = new Fixture(DOC);
+            f.click("a", false);
+            f.key(KeyCode.DELETE, false);
+            List<String> deleted = f.ids();
+            f.key(KeyCode.Z, true);
+            List<String> undone = f.ids();
+            f.keyShift(KeyCode.Z);
+            return List.of(deleted, undone, f.ids());
+        });
+        assertEquals(List.of(List.of("b", "c"), List.of("a", "b", "c"), List.of("b", "c")), steps);
+    }
+
+    @Test
+    void draggingFromASideOfACardOntoAnotherConnectsThemByTheSidesThatFaceEachOther() throws Exception {
+        assumeFx();
+        List<String> edge = onFx(() -> {
+            Fixture f = new Fixture(DOC);
+            f.click("a", false);
+            f.dragFromHandle("a", "bottom", f.sceneOf("c", 0.5, 0.5));
+            return f.document.edges().stream().filter(e -> !e.id().equals("ab"))
+                    .map(e -> e.fromNode() + ":" + e.fromSide() + "->" + e.toNode() + ":" + e.toSide()).toList();
+        });
+        assertEquals(List.of("a:bottom->c:top"), edge);
+    }
+
+    @Test
+    void droppingAnEdgeOnTheEmptyCanvasOffersACardThatComesConnected() throws Exception {
+        assumeFx();
+        List<Object> seen = onFx(() -> {
+            Fixture f = new Fixture(DOC);
+            f.show();
+            f.click("b", false);
+            Point2D empty = f.sceneOf("b", 0.5, 4.5);
+            f.dragFromHandle("b", "bottom", empty);
+            MenuItem addText = f.openMenuItem("canvas.add_text");
+            addText.fire();
+            List<String> ids = f.ids();
+            String added = ids.stream().filter(id -> !List.of("a", "b", "c").contains(id)).findFirst().orElse("none");
+            String edge = f.document.edges().stream().filter(e -> e.toNode().equals(added))
+                    .map(e -> e.fromNode() + ":" + e.fromSide() + "->new:" + e.toSide()).findFirst().orElse("no edge");
+            boolean editing = f.view.lookup(".canvas-node-editor") != null;
+            f.close();
+            return List.of(ids.size(), edge, editing);
+        });
+        assertEquals(List.of(4, "b:bottom->new:top", true), seen);
+    }
+
+    @Test
+    void aCardResizesFromItsLeftSideKeepingItsRightSide() throws Exception {
+        assumeFx();
+        prefs.putBoolean("canvas.snapToGrid", false);
+        List<Double> size = onFx(() -> {
+            Fixture f = new Fixture(DOC);
+            f.click("a", false);
+            f.dragResize("left", -40 * f.scale(), 0);
+            return List.of(f.node("a").x(), f.node("a").width(), f.node("a").height());
+        });
+        assertEquals(List.of(-40.0, 240.0, 100.0), size);
+    }
+
+    @Test
+    void theConnectionPointsOfACardShowWhileThePointerIsOverIt() throws Exception {
+        assumeFx();
+        List<Boolean> seen = onFx(() -> {
+            Fixture f = new Fixture(DOC);
+            boolean before = f.handleVisible("c", "top");
+            f.moveTo(f.sceneOf("c", 0.5, 0.5));
+            boolean over = f.handleVisible("c", "top");
+            f.moveTo(f.sceneOf("c", 0.5, 3.0));
+            return List.of(before, over, f.handleVisible("c", "top"));
+        });
+        assertEquals(List.of(false, true, false), seen);
+    }
+
     // ── Fixture ────────────────────────────────────────────────────────────
 
     private final class Fixture {
@@ -246,10 +324,98 @@ class CanvasViewInteractionTest {
             viewport = view.lookup(".canvas-viewport");
         }
 
+        List<String> ids() {
+            return document.nodes().stream().map(CanvasNode::id).toList();
+        }
+
+        void keyShift(KeyCode code) {
+            Event.fireEvent(view, new KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, true, !MAC, false, MAC));
+        }
+
+        /** Drags from the connection point on {@code side} of a card to a point of the scene. */
+        void dragFromHandle(String id, String side, Point2D to) {
+            Node handle = null;
+            for (Node node : view.lookupAll(".canvas-connect-handle")) {
+                if ((id + ":" + side).equals(node.getProperties().get(CanvasView.CONNECT_HANDLE_KEY))) {
+                    handle = node;
+                }
+            }
+            assertTrue(handle != null && handle.isVisible(), "no visible connection point " + id + ":" + side);
+            Bounds b = handle.localToScene(handle.getLayoutBounds());
+            Point2D from = new Point2D(b.getCenterX(), b.getCenterY());
+            Event.fireEvent(handle, mouse(MouseEvent.MOUSE_PRESSED, from, MouseButton.PRIMARY, false));
+            Event.fireEvent(handle, mouse(MouseEvent.MOUSE_DRAGGED, from.midpoint(to), MouseButton.PRIMARY, false));
+            Event.fireEvent(handle, mouse(MouseEvent.MOUSE_DRAGGED, to, MouseButton.PRIMARY, false));
+            Event.fireEvent(handle, mouse(MouseEvent.MOUSE_RELEASED, to, MouseButton.PRIMARY, false));
+        }
+
+        /** Drags the resize grip {@code side} ("left", "top-right", ...) of the selected card. */
+        void dragResize(String side, double dx, double dy) {
+            Node grip = null;
+            for (Node node : view.lookupAll(".canvas-resize-handle")) {
+                if (side.equals(node.getProperties().get(CanvasView.RESIZE_HANDLE_KEY)) && node.isVisible()) {
+                    grip = node;
+                }
+            }
+            assertTrue(grip != null, "no visible resize grip " + side);
+            Bounds b = grip.localToScene(grip.getLayoutBounds());
+            Point2D from = new Point2D(b.getCenterX(), b.getCenterY());
+            Point2D to = from.add(dx, dy);
+            Event.fireEvent(grip, mouse(MouseEvent.MOUSE_PRESSED, from, MouseButton.PRIMARY, false));
+            Event.fireEvent(grip, mouse(MouseEvent.MOUSE_DRAGGED, to, MouseButton.PRIMARY, false));
+            Event.fireEvent(grip, mouse(MouseEvent.MOUSE_RELEASED, to, MouseButton.PRIMARY, false));
+        }
+
+        private javafx.stage.Stage stage;
+
+        void show() {
+            stage = new javafx.stage.Stage();
+            stage.setScene(view.getScene());
+            stage.show();
+            view.getScene().getRoot().applyCss();
+            view.getScene().getRoot().layout();
+        }
+
+        void close() {
+            for (javafx.stage.Window window : List.copyOf(javafx.stage.Window.getWindows())) {
+                if (window instanceof javafx.scene.control.ContextMenu menu) {
+                    menu.hide();
+                }
+            }
+            stage.close();
+        }
+
+        /** The item of the menu that is open now with this key. */
+        MenuItem openMenuItem(String key) {
+            for (javafx.stage.Window window : javafx.stage.Window.getWindows()) {
+                if (window instanceof javafx.scene.control.ContextMenu menu && menu.isShowing()) {
+                    for (MenuItem item : menu.getItems()) {
+                        if (key.equals(item.getUserData())) {
+                            return item;
+                        }
+                    }
+                }
+            }
+            throw new AssertionError("no open menu with " + key);
+        }
+
+        boolean handleVisible(String id, String side) {
+            for (Node node : view.lookupAll(".canvas-connect-handle")) {
+                if ((id + ":" + side).equals(node.getProperties().get(CanvasView.CONNECT_HANDLE_KEY))) {
+                    return node.isVisible();
+                }
+            }
+            throw new AssertionError("no connection point " + id + ":" + side);
+        }
+
+        void moveTo(Point2D p) {
+            Event.fireEvent(viewport, mouse(MouseEvent.MOUSE_MOVED, p, MouseButton.NONE, false));
+        }
+
         Region box(String id) {
             for (Node node : view.lookupAll("*")) {
-                if (id.equals(node.getProperties().get(CanvasView.NODE_ID_KEY))) {
-                    return (Region) node;
+                if (id.equals(node.getProperties().get(CanvasView.NODE_ID_KEY)) && node instanceof Region region) {
+                    return region;
                 }
             }
             throw new AssertionError("no card " + id);

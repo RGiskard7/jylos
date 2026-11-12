@@ -7,6 +7,10 @@
   - **Selección múltiple:** arrastrar sobre el fondo dibuja un recuadro que selecciona las tarjetas que toca; Mayús+clic o Cmd/Ctrl+clic añade o quita tarjetas, y Cmd/Ctrl+A las selecciona todas. Al arrastrar una tarjeta seleccionada se mueve toda la selección, y Supr la borra entera.
   - **Copiar, cortar y pegar** tarjetas con Cmd/Ctrl+C, X y V, con las aristas que las unen; también entre canvas distintos.
   - **Ajuste al mover:** las tarjetas se ajustan a una rejilla que se hace más amplia al alejar el zoom, y se alinean con los bordes y centros de las tarjetas cercanas. Los dos ajustes se activan o desactivan en el nuevo botón de ajustes de la barra del canvas y se recuerdan.
+  - **Conectar arrastrando:** al pasar el ratón por una tarjeta (o al seleccionarla) aparece un punto en cada lado; arrástralo hasta otra tarjeta para unirlas, y la arista entra por el lado que mira hacia el origen. Si lo sueltas en el vacío, un menú ofrece crear allí una tarjeta de texto o de nota ya conectada. Sustituye al botón "Conectar nodos" y su clic en origen y destino.
+  - **Redimensionar desde cualquier lado o esquina** de la tarjeta seleccionada (antes solo desde la esquina inferior derecha), con el lado opuesto quieto y ajustado a la rejilla.
+  - **Cmd/Ctrl+Z deshace y Cmd/Ctrl+Mayús+Z rehace** en el canvas.
+  - **La pestaña vacía ofrece "Nuevo lienzo"** entre "Nueva nota" e "Ir a archivo", con los mismos textos que Obsidian.
   - **Desplazarse como en Obsidian:** la rueda o dos dedos en el trackpad desplazan el lienzo (antes hacían zoom); el zoom es Cmd/Ctrl + rueda o pellizcar. Arrastrar el fondo con el botón central, o con el izquierdo manteniendo Espacio, también desplaza.
 
 - **Editor y arranque más fluidos.**

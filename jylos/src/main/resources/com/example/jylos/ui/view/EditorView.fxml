@@ -262,6 +262,9 @@
             <Button text="%empty.create_note" onAction="#handleEmptyCreate" styleClass="empty-state-btn">
                 <graphic><FontIcon iconLiteral="fth-file-plus" styleClass="feather-icon"/></graphic>
             </Button>
+            <Button text="%empty.create_canvas" onAction="#handleEmptyCreateCanvas" styleClass="empty-state-btn-secondary">
+                <graphic><FontIcon iconLiteral="fth-layout" styleClass="feather-icon"/></graphic>
+            </Button>
             <Button text="%empty.go_to_file" onAction="#handleEmptyGoToFile" styleClass="empty-state-btn-secondary">
                 <graphic><FontIcon iconLiteral="fth-search" styleClass="feather-icon"/></graphic>
             </Button>
