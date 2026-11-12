@@ -22,7 +22,10 @@ import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.database.SQLiteDB;
 import com.example.jylos.service.DatabaseBackupService;
 import com.example.jylos.ui.AppIconLoader;
+import com.example.jylos.ui.StartupSplash;
 import com.example.jylos.ui.controller.MainController;
+import com.example.jylos.ui.theme.ThemeCatalog;
+import com.example.jylos.ui.theme.ThemeCommand;
 
 /**
  * JavaFX application entry point. Use {@link Launcher} or {@code scripts/launch-jylos.*}
@@ -52,67 +55,77 @@ public class Main extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        try {
-            ensureDirectoriesExist();
+        ensureDirectoriesExist();
 
-            Preferences prefs = Preferences.userNodeForPackage(MainController.class);
-            // Before anything else writes preferences: an empty node means a new install.
-            new com.example.jylos.ui.preferences.UiPreferencesStore().initLayoutMode(prefs);
-            String lang = prefs.get("language", Locale.getDefault().getLanguage());
-            Locale locale = Locale.forLanguageTag(lang);
-            Locale.setDefault(locale);
-            ResourceBundle bundle = ResourceBundle.getBundle("com.example.jylos.i18n.messages", locale);
+        Preferences prefs = Preferences.userNodeForPackage(MainController.class);
+        // Before anything else writes preferences: an empty node means a new install.
+        new com.example.jylos.ui.preferences.UiPreferencesStore().initLayoutMode(prefs);
+        String lang = prefs.get("language", Locale.getDefault().getLanguage());
+        Locale locale = Locale.forLanguageTag(lang);
+        Locale.setDefault(locale);
+        ResourceBundle bundle = ResourceBundle.getBundle("com.example.jylos.i18n.messages", locale);
 
+        // Building the window blocks the UI thread for a few seconds: show something first.
+        boolean dark = new ThemeCommand().opensDark(prefs, new ThemeCatalog().getAvailableThemes());
+        StartupSplash splash = StartupSplash.show(dark, bundle.getString("startup.loading"));
+        splash.thenRun(() -> {
             try {
-                prepareSqliteInfrastructureIfNeeded();
-            } catch (RuntimeException e) {
-                showStartupDatabaseError(bundle, e);
+                openMainWindow(primaryStage, bundle);
+            } catch (IOException | RuntimeException e) {
+                logger.severe("Failed to start: " + e);
                 Platform.exit();
-                return;
+            } finally {
+                splash.close();
             }
+        });
+    }
 
-            FXMLLoader loader = new FXMLLoader(getClass()
-                    .getResource("/com/example/jylos/ui/view/MainView.fxml"), bundle);
-            Scene scene = new Scene(loader.load(), 1200, 800);
-            MainController mainController = loader.getController();
-
-            var cssResource = getClass().getResource("/com/example/jylos/ui/css/modern-theme.css");
-            if (cssResource != null) {
-                scene.getStylesheets().add(cssResource.toExternalForm());
-            }
-
-            primaryStage.setTitle(AppConfig.getWindowTitle());
-
-            AppIconLoader.load().ifPresent(img -> primaryStage.getIcons().add(img));
-
-            primaryStage.setScene(scene);
-            primaryStage.setMinWidth(800);
-            primaryStage.setMinHeight(600);
-            primaryStage.setMaximized(true);
-            mainController.applyInitialThemeBeforeShow();
-            primaryStage.setOnCloseRequest(event -> {
-                if (mainController != null && !mainController.requestApplicationClose()) {
-                    event.consume();
-                }
-            });
-            primaryStage.show();
-
-            // macOS focus workaround
-            if (System.getProperty("os.name", "").toLowerCase().contains("mac")) {
-                Platform.runLater(() -> {
-                    primaryStage.toFront();
-                    primaryStage.requestFocus();
-                });
-            }
-
-            LEGACY_MIGRATION.messages().forEach(message -> logger.info("Data migration: " + message));
-            logger.info("Jylos started. Data: " + AppDataDirectory.getDataDirectory()
-                    + " | Logs: " + AppDataDirectory.getLogsDirectory());
-
-        } catch (IOException e) {
-            logger.severe("Failed to load main view: " + e.getMessage());
-            throw new RuntimeException("Failed to start application", e);
+    private void openMainWindow(Stage primaryStage, ResourceBundle bundle) throws IOException {
+        try {
+            prepareSqliteInfrastructureIfNeeded();
+        } catch (RuntimeException e) {
+            showStartupDatabaseError(bundle, e);
+            Platform.exit();
+            return;
         }
+
+        FXMLLoader loader = new FXMLLoader(getClass()
+                .getResource("/com/example/jylos/ui/view/MainView.fxml"), bundle);
+        Scene scene = new Scene(loader.load(), 1200, 800);
+        MainController mainController = loader.getController();
+
+        var cssResource = getClass().getResource("/com/example/jylos/ui/css/modern-theme.css");
+        if (cssResource != null) {
+            scene.getStylesheets().add(cssResource.toExternalForm());
+        }
+
+        primaryStage.setTitle(AppConfig.getWindowTitle());
+
+        AppIconLoader.load().ifPresent(img -> primaryStage.getIcons().add(img));
+
+        primaryStage.setScene(scene);
+        primaryStage.setMinWidth(800);
+        primaryStage.setMinHeight(600);
+        primaryStage.setMaximized(true);
+        mainController.applyInitialThemeBeforeShow(scene);
+        primaryStage.setOnCloseRequest(event -> {
+            if (mainController != null && !mainController.requestApplicationClose()) {
+                event.consume();
+            }
+        });
+        primaryStage.show();
+
+        // macOS focus workaround
+        if (System.getProperty("os.name", "").toLowerCase().contains("mac")) {
+            Platform.runLater(() -> {
+                primaryStage.toFront();
+                primaryStage.requestFocus();
+            });
+        }
+
+        LEGACY_MIGRATION.messages().forEach(message -> logger.info("Data migration: " + message));
+        logger.info("Jylos started. Data: " + AppDataDirectory.getDataDirectory()
+                + " | Logs: " + AppDataDirectory.getLogsDirectory());
     }
 
     /**
@@ -128,7 +141,10 @@ public class Main extends Application {
         alert.setHeaderText(bundle.getString("startup.database_error.header"));
         alert.setContentText(java.text.MessageFormat.format(bundle.getString("startup.database_error.content"),
                 detail, AppDataDirectory.getBackupsDirectory()));
-        AppIconLoader.load().ifPresent(img -> ((Stage) alert.getDialogPane().getScene().getWindow()).getIcons().add(img));
+        Stage alertStage = (Stage) alert.getDialogPane().getScene().getWindow();
+        AppIconLoader.load().ifPresent(img -> alertStage.getIcons().add(img));
+        // Above the startup splash, which stays on top while the app starts.
+        alertStage.setAlwaysOnTop(true);
         alert.showAndWait();
     }
 

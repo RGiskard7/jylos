@@ -46,6 +46,33 @@ class LinkIndexTest {
         assertEquals(Optional.of("Gente/Ana.md"), index.resolveId("Anita", "Inicio.md"));
     }
 
+    /**
+     * Resolving every link of the vault at once (the backlink map) answers exactly as one link
+     * at a time: the same name from two folders, relative links, a heading of the note itself,
+     * aliases and notes outside the index.
+     */
+    @Test
+    void resolvingManyLinksAtOnceAnswersAsResolvingThemOneByOne() {
+        Note alias = note("Ideas/Objetivo.md", "Objetivo");
+        alias.setCustomProperties(Map.of("aliases", "[Meta]"));
+        List<Note> notes = List.of(note("A/Reunión.md", "Reunión"), note("B/Reunión.md", "Reunión"),
+                note("A/Diario.md", "Diario"), note("B/Diario.md", "Diario"), note("B/Sub/Hoja.md", "Hoja"), alias);
+        LinkIndex index = LinkIndex.build(notes, Note::getId);
+        List<String> sources = List.of("A/Diario.md", "B/Diario.md", "B/Sub/Hoja.md", "Fuera.md");
+        List<String> links = List.of("Reunión", "Reunión#Tema", "Reunión|otra", "./Reunión", "../Reunión", "#Tema",
+                "B/Reunión", "Meta", "Nada", " ", "|solo", "Hoja", "./Hoja", "Sub/Hoja", "Objetivo", "../Diario");
+
+        java.util.function.BiFunction<String, String, Optional<String>> batch = index.batchResolver();
+        for (String source : sources) {
+            for (String link : links) {
+                assertEquals(index.resolveId(link, source), batch.apply(link, source), link + " from " + source);
+            }
+        }
+        // The folder decides: the same link from A and from B points to different notes.
+        assertEquals(Optional.of("A/Reunión.md"), batch.apply("Reunión", "A/Diario.md"));
+        assertEquals(Optional.of("B/Reunión.md"), batch.apply("Reunión", "B/Diario.md"));
+    }
+
     @Test
     void aSourceNoteNotInTheIndexResolvesFromTheRoot() {
         LinkIndex index = LinkIndex.build(List.of(note("A/Nota.md", "Nota")), Note::getId);

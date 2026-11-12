@@ -49,6 +49,32 @@ class LongNoteLinksTest {
         assertEquals(0, dao.indexLongNotes(), "nothing left to read");
     }
 
+    /**
+     * The vault is opened on the JavaFX thread while the window is being built: the stored
+     * link cache (megabytes of JSON on a big vault) must be read by the background loader, not
+     * there, and still be read once and used.
+     */
+    @Test
+    void theLinkCacheIsReadByTheBackgroundLoaderNotWhereTheVaultIsOpened(@TempDir Path root) throws Exception {
+        Path vault = vault(root, FILLER + "[[Tarde]]");
+        Path cacheFile = root.resolve("links.json");
+        new NoteDAOFileSystem(vault.toString(), false, cacheFile);   // first start: reads in full, fills the cache
+        NoteDAOFileSystem first = new NoteDAOFileSystem(vault.toString(), false, cacheFile);
+        first.indexLongNotes();
+
+        List<Thread> readers = new java.util.concurrent.CopyOnWriteArrayList<>();
+        NoteDAOFileSystem dao = new NoteDAOFileSystem(vault.toString(), true, () -> {
+            readers.add(Thread.currentThread());
+            return LinkCache.load(cacheFile);
+        });
+        assertTrue(dao.awaitContentLoaded(10_000));
+
+        assertEquals(1, readers.size(), "the cache is read once");
+        assertTrue(readers.get(0) != Thread.currentThread(), "not on the thread that opened the vault");
+        assertTrue(linksOf(dao, "Largo.md").contains("Tarde"), "the stored links are used");
+        assertEquals(0, dao.pendingLongNoteCount(), "nothing to read again");
+    }
+
     @Test
     void theLinkPastTheHeadIsABacklink(@TempDir Path root) throws Exception {
         Path vault = vault(root, FILLER + "[[Tarde]]");

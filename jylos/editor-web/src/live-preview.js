@@ -93,74 +93,137 @@ function inLink(tree, position) {
   return false;
 }
 
-// Document-wide facts (footnote numbers, comments) are recomputed only when the document
-// changes, not on every scroll or cursor move.
-const footnoteCache = new WeakMap();
+// Document-wide facts (footnote numbers, comments, blocks) are recomputed only when the
+// document changes, not on every scroll or cursor move. They still run on every keystroke, so
+// each scan tests a line with a regular expression only when a cheap check says it can match:
+// most lines are prose and are passed over without one.
+
+/** The first character after the line's indentation (looking at most four characters in). */
+function leadingChar(text) {
+  for (let index = 0; index < text.length && index < 4; index++) {
+    const character = text[index];
+    if (character !== " " && character !== "\t") return character;
+  }
+  return "";
+}
+
+const FENCE_START = /^[ \t]{0,3}(`{3,}|~{3,})/;
+
+/** The fence a line opens or closes (` ``` ` or `~~~`, three or more), or null. */
+function fenceOf(text) {
+  const first = leadingChar(text);
+  if (first !== "`" && first !== "~") return null;
+  const match = text.match(FENCE_START);
+  return match ? match[1] : null;
+}
+
+/** Runs `scan` once per document version (documents are immutable: a new version is a new key). */
+function cachedPerDocument(scan) {
+  const cache = new WeakMap();
+  return doc => {
+    let result = cache.get(doc);
+    if (!result) {
+      result = scan(doc);
+      cache.set(doc, result);
+    }
+    return result;
+  };
+}
+
+/** The document's lines and where each starts, read once and shared by every scan. */
+const linesOf = cachedPerDocument(doc => {
+  const texts = [];
+  const froms = [];
+  let from = 0;
+  for (const text of doc.iterLines()) {
+    texts.push(text);
+    froms.push(from);
+    from += text.length + 1;
+  }
+  return { texts, froms };
+});
 
 /** Footnote numbers by first use, as the reading view numbers them. */
-function footnoteNumbers(doc) {
-  let numbers = footnoteCache.get(doc);
-  if (numbers) return numbers;
-  const text = doc.toString();
+const footnoteNumbers = cachedPerDocument(doc => {
   const byLabel = new Map();
   const inline = new Map();
   let next = 1;
+  // No footnote spans a line break, so the document is read line by line.
   const pattern = /\[\^([^\]\s]+)\](?!:)|\^\[[^\]\n]+\]/g;
-  for (const match of text.matchAll(pattern)) {
-    if (match[1] !== undefined) {
-      if (!byLabel.has(match[1])) byLabel.set(match[1], next++);
-    } else {
-      inline.set(match.index, next++);
+  const { texts, froms } = linesOf(doc);
+  for (let index = 0; index < texts.length; index++) {
+    if (!texts[index].includes("^")) continue;
+    for (const match of texts[index].matchAll(pattern)) {
+      if (match[1] !== undefined) {
+        if (!byLabel.has(match[1])) byLabel.set(match[1], next++);
+      } else {
+        inline.set(froms[index] + match.index, next++);
+      }
     }
   }
-  numbers = { byLabel, inline };
-  footnoteCache.set(doc, numbers);
-  return numbers;
-}
-
-const commentCache = new WeakMap();
+  return { byLabel, inline };
+});
 
 /** `%%…%%` ranges outside code (fenced blocks and inline code spans), in document order. */
-function commentRanges(doc) {
-  let ranges = commentCache.get(doc);
-  if (ranges) return ranges;
-  ranges = [];
+const commentRanges = cachedPerDocument(doc => {
+  const ranges = [];
   const markers = [];
   let fence = null;
-  for (let number = 1; number <= doc.lines; number++) {
-    const line = doc.line(number);
-    const fenceMatch = line.text.match(/^[ \t]{0,3}(`{3,}|~{3,})/);
+  const { texts, froms } = linesOf(doc);
+  for (let index = 0; index < texts.length; index++) {
+    const text = texts[index];
+    const lineFrom = froms[index];
+    const marker = fenceOf(text);
     if (fence) {
-      if (fenceMatch && fenceMatch[1][0] === fence[0] && fenceMatch[1].length >= fence.length) fence = null;
+      if (marker && marker[0] === fence[0] && marker.length >= fence.length) fence = null;
       continue;
     }
-    if (fenceMatch) {
-      fence = fenceMatch[1];
+    if (marker) {
+      fence = marker;
       continue;
     }
-    const masked = line.text.replace(/(`+)[^`]*?\1/g, span => " ".repeat(span.length));
+    if (!text.includes("%%")) continue;
+    const masked = text.replace(/(`+)[^`]*?\1/g, span => " ".repeat(span.length));
     for (let index = masked.indexOf("%%"); index >= 0; index = masked.indexOf("%%", index + 2)) {
-      markers.push(line.from + index);
+      markers.push(lineFrom + index);
     }
   }
   for (let index = 0; index + 1 < markers.length; index += 2) {
     ranges.push({ from: markers[index], to: markers[index + 1] + 2 });
   }
-  commentCache.set(doc, ranges);
   return ranges;
+});
+
+// Widgets are compared by what they show, never by where they are: typing before a widget
+// shifts its position, and comparing positions would redraw every widget below the cursor on
+// each keystroke (KaTeX drawn again, images reloaded, the text jumping while they load). A
+// kept widget's DOM therefore asks CodeMirror where it is now when it is clicked.
+function widgetPosition(view, element, fallback) {
+  try {
+    return view.posAtDOM(element);
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function placeCursorAt(view, element, fallback) {
+  view.dispatch({ selection: { anchor: widgetPosition(view, element, fallback) }, scrollIntoView: true });
+  view.focus();
 }
 
 class TextWidget extends WidgetType {
-  constructor(text, className, from, action) {
+  /** `key` is what the action acts on (a link's target), so a changed target is a new widget. */
+  constructor(text, className, from, action, key = "") {
     super();
     this.text = text;
     this.className = className;
     this.from = from;
     this.action = action;
+    this.key = key;
   }
 
   eq(other) {
-    return this.text === other.text && this.className === other.className && this.from === other.from;
+    return this.text === other.text && this.className === other.className && this.key === other.key;
   }
 
   toDOM(view) {
@@ -173,8 +236,7 @@ class TextWidget extends WidgetType {
       if (this.action && (event.metaKey || event.ctrlKey)) {
         this.action();
       } else {
-        view.dispatch({ selection: { anchor: this.from }, scrollIntoView: true });
-        view.focus();
+        placeCursorAt(view, element, this.from);
       }
     });
     return element;
@@ -193,7 +255,7 @@ class TaskWidget extends WidgetType {
   }
 
   eq(other) {
-    return this.from === other.from && this.checked === other.checked;
+    return this.checked === other.checked;
   }
 
   toDOM(view) {
@@ -209,8 +271,9 @@ class TaskWidget extends WidgetType {
         checkbox.checked = this.checked;
         return;
       }
+      const from = widgetPosition(view, checkbox, this.from);
       view.dispatch({
-        changes: { from: this.from + 1, to: this.from + 2, insert: checkbox.checked ? "x" : " " },
+        changes: { from: from + 1, to: from + 2, insert: checkbox.checked ? "x" : " " },
         userEvent: "input"
       });
       view.focus();
@@ -223,40 +286,96 @@ class TaskWidget extends WidgetType {
   }
 }
 
-/**
- * A widget's height can change after CodeMirror measured it: KaTeX fonts and images load
- * later. CodeMirror does not see that by itself, and its map of line heights would then send
- * every click below the widget to the wrong line, so it is asked to measure again.
- */
-function remeasureWhenSettled(view, element) {
-  const remeasure = () => view.requestMeasure();
-  if (typeof document !== "undefined" && document.fonts?.ready) document.fonts.ready.then(remeasure);
-  for (const image of element.querySelectorAll?.("img") || []) {
-    image.addEventListener("load", remeasure, { once: true });
-  }
-  if (typeof ResizeObserver !== "undefined") {
-    const observer = new ResizeObserver(remeasure);
-    observer.observe(element);
-    element.__jylosResizeObserver = observer;
-  } else if (typeof requestAnimationFrame !== "undefined") {
-    requestAnimationFrame(remeasure);
-  }
+// A widget can change height after CodeMirror measured it: an image or an embedded note
+// loads, KaTeX fonts arrive. CodeMirror reads line heights again only when it redraws something
+// or the whole content changes height, and in a note shorter than the editor the content keeps
+// the editor's height, so requestMeasure() alone is not enough: every click below the widget
+// would land on the wrong line. One observer per editor watches the widgets that can grow and,
+// when one really changes size, tells the Live Preview plugin, which changes an attribute of
+// the first line: CodeMirror redraws it and measures every visible line again.
+const layoutChanged = StateEffect.define();
+const sizeObservers = new WeakMap();
+
+function sizeObserver(view) {
+  let observer = sizeObservers.get(view);
+  if (observer || typeof ResizeObserver === "undefined") return observer;
+  let pending = false;
+  observer = new ResizeObserver(entries => {
+    let changed = false;
+    for (const entry of entries) {
+      const height = Math.round(entry.target.getBoundingClientRect().height);
+      const before = entry.target.__jylosHeight;
+      entry.target.__jylosHeight = height;
+      if (entry.target.__jylosBlockKey !== undefined && height > 0) {
+        rememberBlockHeight(entry.target.__jylosBlockKey, height);
+      }
+      // The first report is the size CodeMirror measured when it drew the widget.
+      if (before !== undefined && before !== height) changed = true;
+    }
+    if (!changed || pending) return;
+    pending = true;
+    requestAnimationFrame(() => {
+      pending = false;
+      if (view.dom.isConnected) view.dispatch({ effects: layoutChanged.of(null) });
+    });
+  });
+  sizeObservers.set(view, observer);
+  return observer;
 }
 
-function stopRemeasuring(element) {
-  element.__jylosResizeObserver?.disconnect();
+function watchSize(view, element) {
+  const observer = sizeObserver(view);
+  if (!observer) return;
+  observer.observe(element);
+  element.__jylosSizeObserver = observer;
+}
+
+function stopWatchingSize(element) {
+  element.__jylosSizeObserver?.unobserve(element);
+}
+
+// CodeMirror lays the document out from estimates and only measures what is on screen. A block
+// widget without an estimate counts as one line, so the page jumps by the block's real height
+// when it scrolls into view. A rendered block (callout, embed, plugin block, display formula)
+// is estimated at the height it was last drawn at, keyed by its content; one never drawn, at
+// the height of its source lines.
+const blockHeights = new Map();
+const BLOCK_HEIGHTS_KEPT = 500;
+// CodeMirror's own line height before it has measured the text; updated once it has.
+let lineHeight = 14;
+
+function rememberBlockHeight(key, height) {
+  blockHeights.delete(key);
+  blockHeights.set(key, height);
+  if (blockHeights.size > BLOCK_HEIGHTS_KEPT) blockHeights.delete(blockHeights.keys().next().value);
+}
+
+function estimateBlockHeight(key, lines) {
+  return blockHeights.get(key) ?? Math.round(lines * lineHeight);
+}
+
+/** Watches a block widget's size, recording it as the estimate for the same content. */
+function watchBlockSize(view, element, key) {
+  if (view.defaultLineHeight > 0) lineHeight = view.defaultLineHeight;
+  element.__jylosBlockKey = key;
+  watchSize(view, element);
 }
 
 class MathWidget extends WidgetType {
-  constructor(tex, display, from) {
+  constructor(tex, display, from, lines = 1) {
     super();
     this.tex = tex;
     this.display = display;
     this.from = from;
+    this.lines = lines;
   }
 
   eq(other) {
-    return this.tex === other.tex && this.display === other.display && this.from === other.from;
+    return this.tex === other.tex && this.display === other.display;
+  }
+
+  get estimatedHeight() {
+    return this.display ? estimateBlockHeight(`math:${this.tex}`, this.lines) : -1;
   }
 
   toDOM(view) {
@@ -269,20 +388,43 @@ class MathWidget extends WidgetType {
     }
     element.addEventListener("mousedown", event => {
       event.preventDefault();
-      view.dispatch({ selection: { anchor: this.from }, scrollIntoView: true });
-      view.focus();
+      placeCursorAt(view, element, this.from);
     });
-    remeasureWhenSettled(view, element);
+    if (this.display) watchBlockSize(view, element, `math:${this.tex}`);
+    else watchSize(view, element);
     return element;
   }
 
   destroy(dom) {
-    stopRemeasuring(dom);
+    stopWatchingSize(dom);
   }
 
   ignoreEvent() {
     return false;
   }
+}
+
+// The height each image was last drawn at. An image scrolled out of view loses its DOM; drawn
+// again, it would take one line until the file decodes and then grow by hundreds of pixels
+// above what the reader is looking at, pushing the text away. Its old height is reserved
+// meanwhile, and CodeMirror is given it as the estimate before the image is drawn.
+const imageHeights = new Map();
+
+// What the host answered for each image of the open note. Reading an image means reading the
+// file and encoding it on the UI thread, so it is done once per note rather than every time the
+// image scrolls into view. Kept in the state: a new note (a new state) starts empty, since the
+// same name may be another file there.
+const imageSources = StateField.define({
+  create: () => new Map(),
+  update: value => value
+});
+
+function resolveImage(view, source) {
+  const cache = view.state.field(imageSources, false);
+  if (cache?.has(source)) return cache.get(source);
+  const resolved = window.javaEditor?.resolveImageSource(source) || source;
+  cache?.set(source, resolved);
+  return resolved;
 }
 
 class ImageWidget extends WidgetType {
@@ -294,17 +436,29 @@ class ImageWidget extends WidgetType {
   }
 
   eq(other) {
-    return this.source === other.source && this.alt === other.alt && this.from === other.from;
+    return this.source === other.source && this.alt === other.alt;
+  }
+
+  get estimatedHeight() {
+    return imageHeights.get(this.source) ?? -1;
   }
 
   toDOM(view) {
     const figure = document.createElement("span");
     figure.className = "cm-live-image";
-    const resolved = window.javaEditor?.resolveImageSource(this.source) || this.source;
+    const resolved = resolveImage(view, this.source);
     const image = document.createElement("img");
     image.alt = this.alt;
+    const known = imageHeights.get(this.source);
+    if (known) figure.style.minHeight = `${known}px`;
+    image.addEventListener("load", () => {
+      figure.style.minHeight = "";
+      const height = figure.getBoundingClientRect().height;
+      if (height > 0) imageHeights.set(this.source, height);
+    });
     image.src = resolved;
     image.addEventListener("error", () => {
+      figure.style.minHeight = "";
       image.hidden = true;
       fallback.hidden = false;
     });
@@ -315,15 +469,14 @@ class ImageWidget extends WidgetType {
     figure.append(image, fallback);
     figure.addEventListener("mousedown", event => {
       event.preventDefault();
-      view.dispatch({ selection: { anchor: this.from }, scrollIntoView: true });
-      view.focus();
+      placeCursorAt(view, figure, this.from);
     });
-    remeasureWhenSettled(view, figure);
+    watchSize(view, figure);
     return figure;
   }
 
   destroy(dom) {
-    stopRemeasuring(dom);
+    stopWatchingSize(dom);
   }
 
   ignoreEvent() {
@@ -343,7 +496,7 @@ class TableRowWidget extends WidgetType {
 
   eq(other) {
     return this.source === other.source && this.delimiter === other.delimiter
-      && this.header === other.header && this.from === other.from;
+      && this.header === other.header;
   }
 
   toDOM(view) {
@@ -364,8 +517,7 @@ class TableRowWidget extends WidgetType {
     });
     wrapper.addEventListener("mousedown", event => {
       event.preventDefault();
-      view.dispatch({ selection: { anchor: this.from }, scrollIntoView: true });
-      view.focus();
+      placeCursorAt(view, wrapper, this.from);
     });
     return wrapper;
   }
@@ -382,11 +534,18 @@ class TableRowWidget extends WidgetType {
 // would put plugin work — and its I/O — on the UI thread during scrolling.
 export const setBlockRenders = StateEffect.define();
 
+function sameRenders(a, b) {
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every(key => a[key] === b[key]);
+}
+
 export const blockRenderField = StateField.define({
   create: () => ({}),
   update(value, transaction) {
     for (const effect of transaction.effects) {
-      if (effect.is(setBlockRenders)) return effect.value;
+      // The host sends its renders again after every pause in typing; the same ones keep the
+      // field as it is, so nothing downstream rebuilds.
+      if (effect.is(setBlockRenders)) return sameRenders(value, effect.value || {}) ? value : effect.value;
     }
     return value;
   }
@@ -400,13 +559,16 @@ const FENCE_OPEN = /^[ \t]{0,3}(`{3,}|~{3,})[ \t]*([A-Za-z0-9_+-]+)[ \t]*$/;
 // fence pairing (the closing fence must repeat the opening one), same info string, same
 // trimmed body. It also keeps this independent of how much of the document Lezer has
 // parsed, since these decorations are computed over the whole document, not the viewport.
-function scanFencedBlocks(doc) {
+const scanFencedBlocks = cachedPerDocument(doc => {
   const blocks = [];
   let open = null;
-  for (let number = 1; number <= doc.lines; number++) {
-    const line = doc.line(number);
+  const { texts, froms } = linesOf(doc);
+  for (let index = 0; index < texts.length; index++) {
+    const text = texts[index];
+    const line = { from: froms[index], to: froms[index] + text.length, text };
+    const fenceLine = fenceOf(text) !== null;
     if (open) {
-      const close = line.text.match(FENCE_CLOSE);
+      const close = fenceLine ? text.match(FENCE_CLOSE) : null;
       if (close && close[1] === open.marker) {
         blocks.push({
           from: open.from,
@@ -419,11 +581,11 @@ function scanFencedBlocks(doc) {
       }
       continue;
     }
-    const match = line.text.match(FENCE_OPEN);
+    const match = fenceLine ? text.match(FENCE_OPEN) : null;
     if (match) open = { from: line.from, marker: match[1], language: match[2], body: [] };
   }
   return blocks;
-}
+});
 
 const CALLOUT_START = /^[ \t]{0,3}>[ \t]?\[![^\]\n]+\]/;
 const QUOTE_LINE = /^[ \t]{0,3}>/;
@@ -435,77 +597,81 @@ const EMBED_LINE = /^!\[\[([^\]\n]+)\]\]$/;
  * (`![[Note]]`). Keys are shared with EditorBlockRenderSupport on the Java side:
  * `callout\n` + the block's lines, `embed\n` + the link without its display text.
  */
-export function scanHostBlocks(doc) {
+export const scanHostBlocks = cachedPerDocument(doc => {
   const blocks = [];
   let fence = null;
-  for (let number = 1; number <= doc.lines; number++) {
-    const line = doc.line(number);
-    const fenceMatch = line.text.match(/^[ \t]{0,3}(`{3,}|~{3,})/);
+  const { texts, froms } = linesOf(doc);
+  for (let index = 0; index < texts.length; index++) {
+    const text = texts[index];
+    const marker = fenceOf(text);
     if (fence) {
-      if (fenceMatch && fenceMatch[1][0] === fence[0] && fenceMatch[1].length >= fence.length) fence = null;
+      if (marker && marker[0] === fence[0] && marker.length >= fence.length) fence = null;
       continue;
     }
-    if (fenceMatch) {
-      fence = fenceMatch[1];
+    if (marker) {
+      fence = marker;
       continue;
     }
-    if (CALLOUT_START.test(line.text)) {
-      const lines = [line.text];
-      let last = line;
-      while (last.number < doc.lines && QUOTE_LINE.test(doc.line(last.number + 1).text)) {
-        last = doc.line(last.number + 1);
-        lines.push(last.text);
-      }
-      blocks.push({ from: line.from, to: last.to, key: `callout\n${lines.join("\n")}` });
-      number = last.number;
+    if (leadingChar(text) === ">" && CALLOUT_START.test(text)) {
+      let last = index;
+      while (last + 1 < texts.length && QUOTE_LINE.test(texts[last + 1])) last++;
+      blocks.push({
+        from: froms[index],
+        to: froms[last] + texts[last].length,
+        key: `callout\n${texts.slice(index, last + 1).join("\n")}`
+      });
+      index = last;
       continue;
     }
-    const embed = line.text.trim().match(EMBED_LINE);
+    const embed = text.includes("![[") ? text.trim().match(EMBED_LINE) : null;
     if (embed) {
       const target = embed[1].split("|", 1)[0].trim();
       if (!IMAGE_EXTENSION.test(target.split("#", 1)[0])) {
-        blocks.push({ from: line.from, to: line.to, key: `embed\n${target}` });
+        blocks.push({ from: froms[index], to: froms[index] + text.length, key: `embed\n${target}` });
       }
     }
   }
   return blocks;
-}
+});
 
 /** `$$ … $$` math blocks (fences on their own lines, or on one line), outside code. */
-function scanMathBlocks(doc) {
+const scanMathBlocks = cachedPerDocument(doc => {
   const blocks = [];
   let fence = null;
-  for (let number = 1; number <= doc.lines; number++) {
-    const line = doc.line(number);
-    const fenceMatch = line.text.match(/^[ \t]{0,3}(`{3,}|~{3,})/);
+  const { texts, froms } = linesOf(doc);
+  for (let index = 0; index < texts.length; index++) {
+    const marker = fenceOf(texts[index]);
     if (fence) {
-      if (fenceMatch && fenceMatch[1][0] === fence[0] && fenceMatch[1].length >= fence.length) fence = null;
+      if (marker && marker[0] === fence[0] && marker.length >= fence.length) fence = null;
       continue;
     }
-    if (fenceMatch) {
-      fence = fenceMatch[1];
+    if (marker) {
+      fence = marker;
       continue;
     }
-    const text = line.text.trim();
+    if (!texts[index].includes("$$")) continue;
+    const text = texts[index].trim();
     if (!text.startsWith("$$")) continue;
     const single = text.match(/^\$\$(.+)\$\$$/);
     if (single) {
-      blocks.push({ from: line.from, to: line.to, tex: single[1].trim() });
+      blocks.push({ from: froms[index], to: froms[index] + texts[index].length, tex: single[1].trim() });
       continue;
     }
     if (text !== "$$") continue;
-    for (let close = number + 1; close <= doc.lines; close++) {
-      if (doc.line(close).text.trim() === "$$") {
-        const body = [];
-        for (let inner = number + 1; inner < close; inner++) body.push(doc.line(inner).text);
-        blocks.push({ from: line.from, to: doc.line(close).to, tex: body.join("\n").trim() });
-        number = close;
+    for (let close = index + 1; close < texts.length; close++) {
+      if (texts[close].includes("$$") && texts[close].trim() === "$$") {
+        blocks.push({
+          from: froms[index],
+          to: froms[close] + texts[close].length,
+          tex: texts.slice(index + 1, close).join("\n").trim()
+        });
+        index = close;
         break;
       }
     }
   }
   return blocks;
-}
+});
 
 /** Blocks currently displayed rendered, keyed by document range. */
 function renderedBlocks(state) {
@@ -526,14 +692,19 @@ function renderedBlocks(state) {
 }
 
 class RenderedBlockWidget extends WidgetType {
-  constructor(html, from) {
+  constructor(html, from, lines = 1) {
     super();
     this.html = html;
     this.from = from;
+    this.lines = lines;
   }
 
   eq(other) {
-    return this.html === other.html && this.from === other.from;
+    return this.html === other.html;
+  }
+
+  get estimatedHeight() {
+    return estimateBlockHeight(`html:${this.html}`, this.lines);
   }
 
   toDOM(view) {
@@ -563,8 +734,7 @@ class RenderedBlockWidget extends WidgetType {
       // cursor into the block so it reverts to source and can be edited.
       if (event.target.closest("a")) return;
       event.preventDefault();
-      view.dispatch({ selection: { anchor: this.from }, scrollIntoView: true });
-      view.focus();
+      placeCursorAt(view, outer, this.from);
     });
 
     wrapper.addEventListener("click", event => {
@@ -582,12 +752,12 @@ class RenderedBlockWidget extends WidgetType {
       }
     });
 
-    remeasureWhenSettled(view, outer);
+    watchBlockSize(view, outer, `html:${this.html}`);
     return outer;
   }
 
   destroy(dom) {
-    stopRemeasuring(dom);
+    stopWatchingSize(dom);
   }
 
   ignoreEvent() {
@@ -595,12 +765,33 @@ class RenderedBlockWidget extends WidgetType {
   }
 }
 
-function computeBlockDecorations(state) {
-  const decorations = renderedBlocks(state).map(block => Decoration.replace({
-    widget: block.math ? new MathWidget(block.tex, true, block.from) : new RenderedBlockWidget(block.html, block.from),
-    block: true
-  }).range(block.from, block.to));
+function computeBlockDecorations(state, blocks = renderedBlocks(state)) {
+  const decorations = blocks.map(block => {
+    const lines = state.doc.lineAt(block.to).number - state.doc.lineAt(block.from).number + 1;
+    return Decoration.replace({
+      widget: block.math
+        ? new MathWidget(block.tex, true, block.from, lines)
+        : new RenderedBlockWidget(block.html, block.from, lines),
+      block: true
+    }).range(block.from, block.to);
+  });
   return Decoration.set(decorations, true);
+}
+
+/** Whether `set` already shows exactly `blocks`: same places, same content. */
+function showsBlocks(set, blocks) {
+  if (set.size !== blocks.length) return false;
+  const sorted = [...blocks].sort((a, b) => a.from - b.from || a.to - b.to);
+  let index = 0;
+  for (const cursor = set.iter(); cursor.value; cursor.next()) {
+    const block = sorted[index++];
+    const widget = cursor.value.spec.widget;
+    if (cursor.from !== block.from || cursor.to !== block.to) return false;
+    const same = block.math ? widget instanceof MathWidget && widget.tex === block.tex
+      : widget instanceof RenderedBlockWidget && widget.html === block.html;
+    if (!same) return false;
+  }
+  return true;
 }
 
 // A StateField, not the Live Preview ViewPlugin: CodeMirror rejects block decorations —
@@ -610,10 +801,15 @@ function computeBlockDecorations(state) {
 export const blockRenderDecorations = StateField.define({
   create: computeBlockDecorations,
   update(value, transaction) {
-    const rendersChanged = transaction.effects.some(effect =>
-      effect.is(setBlockRenders) || effect.is(setEditorFocus) || effect.is(setMathReady));
-    if (!transaction.docChanged && !transaction.selection && !rendersChanged) return value;
-    return computeBlockDecorations(transaction.state);
+    const relevant = transaction.docChanged || transaction.selection || transaction.effects.some(effect =>
+      effect.is(setBlockRenders) || effect.is(setMathReady) || effect.is(setEditorFocus));
+    if (!relevant) return value;
+    const blocks = renderedBlocks(transaction.state);
+    // Typing outside the blocks, or moving the cursor without revealing one, keeps the set
+    // (shifted by the edit): CodeMirror then sees unchanged decorations and compares nothing,
+    // where a new set would make it walk every block of the document on each keystroke.
+    const kept = transaction.docChanged ? value.map(transaction.changes) : value;
+    return showsBlocks(kept, blocks) ? kept : computeBlockDecorations(transaction.state, blocks);
   },
   provide: field => EditorView.decorations.from(field)
 });
@@ -685,14 +881,14 @@ function wikiReplacement(match, from) {
   const className = embed ? "cm-live-embed" : "cm-live-wikilink";
   const text = embed ? `▣ ${label}` : label;
   return Decoration.replace({
-    widget: new TextWidget(text, className, from, () => window.javaEditor?.openNote(target))
+    widget: new TextWidget(text, className, from, () => window.javaEditor?.openNote(target), target)
   }).range(from, from + match.length);
 }
 
 function linkReplacement(label, target, from, to) {
   return Decoration.replace({
     widget: new TextWidget(label || target, "cm-live-link", from,
-      () => window.javaEditor?.openMarkdownLink(target))
+      () => window.javaEditor?.openMarkdownLink(target), target)
   }).range(from, to);
 }
 
@@ -783,7 +979,7 @@ function lineSpans(state, tree, line) {
 }
 
 function spanDecoration(state, span) {
-  const numbers = footnoteNumbers(state.doc);
+  const numbers = span.kind.includes("footnote") ? footnoteNumbers(state.doc) : null;
   switch (span.kind) {
     case "wiki":
       return wikiReplacement(span.text, span.from);
@@ -824,9 +1020,10 @@ function revealOwner(node) {
 const INLINE_MARKS = ["EmphasisMark", "StrikethroughMark", "MarkMark", "CodeMark", "CodeInfo"];
 const LINE_MARKS = ["HeaderMark", "QuoteMark"];
 
-function buildDecorations(view) {
+function buildDecorations(view, layoutGeneration = 0) {
   const state = view.state;
-  const decorations = [];
+  // Changing this attribute makes CodeMirror measure the visible lines again (see sizeObserver).
+  const decorations = [Decoration.line({ attributes: { "data-layout": String(layoutGeneration) } }).range(0)];
   const replacements = [];
   const htmlTags = [];
   const renderedRanges = renderedBlocks(state);
@@ -1041,6 +1238,7 @@ function revealKey(state, tree) {
 const livePreviewPlugin = ViewPlugin.fromClass(class {
   constructor(view) {
     this.view = view;
+    this.layoutGeneration = 0;
     this.decorations = buildDecorations(view);
     this.revealKey = revealKey(view.state, syntaxTree(view.state));
     this.dragging = false;
@@ -1056,7 +1254,7 @@ const livePreviewPlugin = ViewPlugin.fromClass(class {
     const key = revealKey(this.view.state, syntaxTree(this.view.state));
     if (key !== this.revealKey) {
       this.revealKey = key;
-      this.decorations = buildDecorations(this.view);
+      this.decorations = buildDecorations(this.view, this.layoutGeneration);
       // Ask CodeMirror to redraw with the new decorations.
       this.view.dispatch({ effects: [] });
     }
@@ -1064,16 +1262,18 @@ const livePreviewPlugin = ViewPlugin.fromClass(class {
 
   update(update) {
     const fieldChanged = field => update.startState.field(field, false) !== update.state.field(field, false);
-    if (update.docChanged || update.viewportChanged || fieldChanged(blockRenderField)
+    const resized = update.transactions.some(tr => tr.effects.some(effect => effect.is(layoutChanged)));
+    if (resized) this.layoutGeneration++;
+    if (resized || update.docChanged || update.viewportChanged || fieldChanged(blockRenderField)
         || fieldChanged(editorFocusField) || fieldChanged(mathReadyField)) {
-      this.decorations = buildDecorations(update.view);
+      this.decorations = buildDecorations(update.view, this.layoutGeneration);
       this.revealKey = revealKey(update.state, syntaxTree(update.state));
       return;
     }
     if (update.selectionSet && !this.dragging) {
       const key = revealKey(update.state, syntaxTree(update.state));
       if (key !== this.revealKey) {
-        this.decorations = buildDecorations(update.view);
+        this.decorations = buildDecorations(update.view, this.layoutGeneration);
         this.revealKey = key;
       }
     }
@@ -1081,6 +1281,8 @@ const livePreviewPlugin = ViewPlugin.fromClass(class {
 
   destroy() {
     this.view.dom.ownerDocument.removeEventListener("mouseup", this.onMouseUp);
+    sizeObservers.get(this.view)?.disconnect();
+    sizeObservers.delete(this.view);
   }
 }, {
   decorations: value => value.decorations,
@@ -1118,9 +1320,13 @@ const livePreviewTheme = EditorView.baseTheme({
   ".cm-live-underline": { textDecoration: "underline" },
   ".cm-live-task": { margin: "0 .45em 0 0", accentColor: "var(--jylos-accent)", verticalAlign: "middle" },
   ".cm-live-horizontal-rule": { display: "block", width: "100%", height: "1px", margin: ".8em 0", background: "var(--jylos-border)" },
-  ".cm-live-image": { display: "block", maxWidth: "min(100%, 720px)", margin: "0", padding: ".65em 0" },
+  // border-box: the height reserved for an image that is loading again is its whole box.
+  ".cm-live-image": { display: "block", boxSizing: "border-box", maxWidth: "min(100%, 720px)", margin: "0", padding: ".65em 0" },
   ".cm-live-image img": { display: "block", maxWidth: "100%", maxHeight: "520px", borderRadius: "8px", objectFit: "contain" },
   ".cm-live-image-fallback": { display: "inline-block", padding: "8px 10px", color: "var(--jylos-muted)", background: "var(--jylos-panel)", border: "1px solid var(--jylos-border)", borderRadius: "6px" },
+  // The display above would otherwise override the hidden attribute, and the file name would
+  // show under every image that did load.
+  ".cm-live-image-fallback[hidden]": { display: "none" },
   ".cm-live-table-row": { display: "inline-grid", width: "100%", color: "inherit", verticalAlign: "top" },
   ".cm-live-table-cell": { minWidth: "0", padding: "6px 9px", border: "1px solid var(--jylos-border)", overflowWrap: "anywhere" },
   ".cm-live-table-header .cm-live-table-cell": { background: "var(--jylos-panel)", fontWeight: "700" },
@@ -1190,6 +1396,7 @@ export function livePreview() {
   return [
     editorFocusField,
     mathReadyField,
+    imageSources,
     focusTracker,
     livePreviewPlugin,
     blockRenderDecorations,

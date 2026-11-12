@@ -294,9 +294,10 @@ public class BacklinkService {
             return current.byTarget();
         }
         Map<String, Set<String>> byTarget = new HashMap<>();
+        java.util.function.BiFunction<String, String, java.util.Optional<String>> resolve = links.batchResolver();
         forward.forEach((sourceId, cached) -> {
             for (String link : cached.links()) {
-                links.resolveId(link, sourceId)
+                resolve.apply(link, sourceId)
                         .ifPresent(targetId -> byTarget.computeIfAbsent(targetId, k -> new HashSet<>()).add(sourceId));
             }
         });

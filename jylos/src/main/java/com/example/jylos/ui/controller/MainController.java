@@ -3326,6 +3326,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private static final Preferences prefs = Preferences.userNodeForPackage(MainController.class);
 
     private String currentTheme = prefs.get("theme", "light"); // Load from preferences
+    /** The main window's scene, given before the window is shown (see applyInitialThemeBeforeShow). */
+    private javafx.scene.Scene windowScene;
 
     @FXML
     private void handleLightTheme(ActionEvent event) {
@@ -3357,7 +3359,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (mainSplitPane == null || editorController == null) {
             return;
         }
-        javafx.scene.Scene scene = mainSplitPane.getScene();
+        // In the Explorer layout mainSplitPane is not part of the scene: fall back to the window's
+        // scene, or the theme would wait until after the first paint and the window would flash
+        // in the light theme.
+        javafx.scene.Scene scene = mainSplitPane.getScene() != null ? mainSplitPane.getScene() : windowScene;
         if (scene == null) {
             Platform.runLater(this::applyTheme);
             return;
@@ -3382,7 +3387,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
      * Applies the persisted theme after the scene is attached but before the first
      * window paint, avoiding a visible flash from the default stylesheet.
      */
-    public void applyInitialThemeBeforeShow() {
+    public void applyInitialThemeBeforeShow(javafx.scene.Scene scene) {
+        windowScene = scene;
         applyTheme();
         if (editorController != null) {
             editorController.applyEditorTheme(isDarkThemeActive(), uiAccentColor);

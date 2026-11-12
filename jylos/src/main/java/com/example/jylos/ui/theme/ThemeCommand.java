@@ -329,6 +329,20 @@ public final class ThemeCommand {
         return isDarkThemeActive(currentTheme);
     }
 
+    /**
+     * Whether the app opens in a dark theme, read from the saved preferences: for what has to be
+     * drawn before the main window exists.
+     */
+    public boolean opensDark(Preferences prefs, List<ThemeCatalog.ThemeDescriptor> themes) {
+        String theme = prefs.get("theme", "light");
+        String source = prefs.get(UiPreferencesStore.THEME_SOURCE_KEY, UiPreferencesStore.THEME_SOURCE_BUILTIN);
+        String externalId = prefs.get(UiPreferencesStore.THEME_EXTERNAL_ID_KEY, "");
+        ThemeCatalog.ThemeDescriptor external = UiPreferencesStore.THEME_SOURCE_EXTERNAL.equals(source)
+                ? themes.stream().filter(t -> t.id().equals(externalId)).findFirst().orElse(null)
+                : null;
+        return resolveDarkUi(theme, source, external);
+    }
+
     public static String effectiveThemeSource(String currentTheme, String themeSource) {
         if (UiPreferencesStore.THEME_SOURCE_EXTERNAL.equals(themeSource)) {
             return UiPreferencesStore.THEME_SOURCE_EXTERNAL;

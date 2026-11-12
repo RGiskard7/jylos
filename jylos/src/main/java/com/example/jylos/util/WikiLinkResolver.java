@@ -303,8 +303,12 @@ public final class WikiLinkResolver {
      * code spans (a run of backticks up to the next run of the same length).
      */
     public static BitSet codeRanges(String markdown) {
-        BitSet code = new BitSet(markdown.length());
         int n = markdown.length();
+        // Most notes have no code at all: nothing to walk.
+        if (markdown.indexOf('`') < 0 && markdown.indexOf('~') < 0) {
+            return new BitSet();
+        }
+        BitSet code = new BitSet(n);
         int lineStart = 0;
         char fenceChar = 0;
         int fenceLen = 0;
@@ -346,10 +350,12 @@ public final class WikiLinkResolver {
             code.set(fenceFrom, n);
         }
 
-        int i = 0;
-        while (i < n) {
-            if (code.get(i) || markdown.charAt(i) != '`') {
-                i++;
+        // Inline code: only backticks matter, so jump from one to the next.
+        int i = markdown.indexOf('`');
+        while (i >= 0) {
+            if (code.get(i)) {
+                int after = code.nextClearBit(i);
+                i = after < n ? markdown.indexOf('`', after) : -1;
                 continue;
             }
             int run = 0;
@@ -358,11 +364,11 @@ public final class WikiLinkResolver {
             }
             int close = closingRun(markdown, i + run, run, code);
             if (close < 0) {
-                i += run;
+                i = markdown.indexOf('`', i + run);
                 continue;
             }
             code.set(i, close + run);
-            i = close + run;
+            i = markdown.indexOf('`', close + run);
         }
         return code;
     }
@@ -372,21 +378,23 @@ public final class WikiLinkResolver {
         int n = markdown.length();
         int j = from;
         while (j < n) {
-            if (fenced.get(j)) {
+            int backtick = markdown.indexOf('`', j);
+            int fence = fenced.nextSetBit(j);
+            // A fenced block before the next backtick ends the search, as reaching it did.
+            if (fence >= 0 && (backtick < 0 || fence <= backtick)) {
                 return -1;
             }
-            if (markdown.charAt(j) != '`') {
-                j++;
-                continue;
+            if (backtick < 0) {
+                return -1;
             }
             int run = 0;
-            while (j + run < n && markdown.charAt(j + run) == '`') {
+            while (backtick + run < n && markdown.charAt(backtick + run) == '`') {
                 run++;
             }
             if (run == len) {
-                return j;
+                return backtick;
             }
-            j += run;
+            j = backtick + run;
         }
         return -1;
     }

@@ -70,6 +70,36 @@ public final class LinkIndex {
         return resolver.resolve(rawLink, source).map(idByPath::get);
     }
 
+    /**
+     * Resolves many links at once (every link of the vault, as the backlink map does), answering
+     * exactly as {@link #resolveId}. The same link is written in many notes, and most links
+     * point to the same note whichever folder they are written in (no other file has that
+     * name): those are resolved once. For one pass; not thread-safe.
+     */
+    public java.util.function.BiFunction<String, String, Optional<String>> batchResolver() {
+        Map<String, Optional<String>> fromAnyFolder = new HashMap<>();
+        java.util.Set<String> dependsOnFolder = new java.util.HashSet<>();
+        return (rawLink, sourceNoteId) -> {
+            if (rawLink == null) {
+                return Optional.empty();
+            }
+            Optional<String> known = fromAnyFolder.get(rawLink);
+            if (known != null) {
+                return known;
+            }
+            if (dependsOnFolder.contains(rawLink)) {
+                return resolveId(rawLink, sourceNoteId);
+            }
+            Optional<String> answer = resolveId(rawLink, sourceNoteId);
+            if (resolver.sameFromEveryFolder(rawLink)) {
+                fromAnyFolder.put(rawLink, answer);
+            } else {
+                dependsOnFolder.add(rawLink);
+            }
+            return answer;
+        };
+    }
+
     /** True when {@code rawLink} written in {@code sourceNoteId} points to a note. */
     public boolean exists(String rawLink, String sourceNoteId) {
         return resolveId(rawLink, sourceNoteId).isPresent();

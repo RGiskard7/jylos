@@ -207,6 +207,52 @@ class LivePreviewMathAndTagsTest {
         }
     }
 
+    /**
+     * An image is one line tall until its file loads and then grows. The editor must learn the
+     * new height by itself: without a scroll to make it measure again, a click on the text below
+     * would land where that text was before the image grew.
+     */
+    @Test
+    void aClickBelowAnImageLandsWhereItIsAimedOnceTheImageHasLoaded() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        java.nio.file.Path image = java.nio.file.Files.createTempFile("jylos-image", ".png");
+        javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(600, 400,
+                java.awt.image.BufferedImage.TYPE_INT_RGB), "png", image.toFile());
+        String doc = "![captura](" + image.toUri() + ")\n\nTexto **negrita** fin";
+        AtomicReference<MarkdownEditorView> editor = new AtomicReference<>();
+        AtomicReference<Stage> stage = new AtomicReference<>();
+        onFx(() -> {
+            MarkdownEditorView view = new MarkdownEditorView();
+            view.setImageSourceResolver(source -> source);
+            Stage window = new Stage();
+            window.setScene(new Scene(new StackPane(view), 800, 700));
+            window.show();
+            view.setText(doc);
+            editor.set(view);
+            stage.set(window);
+            return null;
+        });
+        try {
+            waitFor(() -> "true".equals(js(editor.get(),
+                    "String(Boolean(document.querySelector('.cm-live-image img')?.naturalWidth))")));
+            Thread.sleep(800);   // no scroll, no edit: nothing else makes the editor measure again
+            String position = js(editor.get(), "(function(){"
+                    + "var span = Array.from(document.querySelectorAll('.cm-line span')).find(e => e.textContent === 'negrita');"
+                    + "var r = span.getBoundingClientRect();"
+                    + "return String(window.JylosEditor.positionAt(r.left + r.width / 2, r.top + r.height / 2));})()");
+            int start = doc.indexOf("negrita");
+            int at = Integer.parseInt(position);
+            assertTrue(at >= start && at <= start + "negrita".length(),
+                    "a click on 'negrita' (" + start + "-" + (start + 7) + ") maps to " + at);
+        } finally {
+            onFx(() -> {
+                stage.get().close();
+                return null;
+            });
+            java.nio.file.Files.deleteIfExists(image);
+        }
+    }
+
     private static String js(MarkdownEditorView view, String script) {
         try {
             return onFx(() -> {

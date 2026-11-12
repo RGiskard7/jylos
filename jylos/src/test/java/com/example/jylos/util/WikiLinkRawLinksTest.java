@@ -36,6 +36,24 @@ class WikiLinkRawLinksTest {
         assertEquals(List.of("Fuera", "Despues"), WikiLinkResolver.extractRawLinks(md));
     }
 
+    /** A note with tilde fences and not a single backtick still has code. */
+    @Test
+    void aTildeFenceIsCodeInANoteWithoutBackticks() {
+        assertEquals(List.of("Fuera"), WikiLinkResolver.extractRawLinks("~~~\n[[Dentro]]\n~~~\n[[Fuera]]"));
+    }
+
+    /** A lone backtick is not closed by one inside a fenced block further down: it stays text. */
+    @Test
+    void aFencedBlockEndsTheSearchForAClosingBacktick() {
+        String md = String.join("\n",
+                "Un ` suelto [[A]]",
+                "```",
+                "`[[B]]`",
+                "```",
+                "[[C]]");
+        assertEquals(List.of("A", "C"), WikiLinkResolver.extractRawLinks(md));
+    }
+
     @Test
     void anUnclosedFenceRunsToTheEnd() {
         assertEquals(List.of("Antes"), WikiLinkResolver.extractRawLinks("[[Antes]]\n```\n[[Dentro]]\n"));

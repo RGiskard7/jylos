@@ -31,6 +31,8 @@ public final class LinkResolver {
     private final Set<String> paths = new HashSet<>();
     /** Lower-cased NFC file name → paths of the files with that name. */
     private final Map<String, List<String>> byName = new HashMap<>();
+    /** Path → its lower-cased NFC form, computed once rather than on every resolution. */
+    private final Map<String, String> folded = new HashMap<>();
     /** Lower-cased NFC alias → path. */
     private final Map<String, String> aliases = new HashMap<>();
 
@@ -40,6 +42,7 @@ public final class LinkResolver {
                 continue;
             }
             paths.add(entry.path());
+            folded.put(entry.path(), fold(entry.path()));
             byName.computeIfAbsent(fold(basename(entry.path())), k -> new ArrayList<>()).add(entry.path());
         }
         if (aliases != null) {
@@ -76,6 +79,30 @@ public final class LinkResolver {
         return Optional.ofNullable(aliases.get(fold(link)));
     }
 
+    /**
+     * Whether {@code rawLink} points to the same file from every note: it is not relative, it
+     * is not a link to a heading of the note itself, and no two files share its name (with or
+     * without {@code .md}), so the folder it is written in never decides.
+     */
+    boolean sameFromEveryFolder(String rawLink) {
+        if (rawLink == null || rawLink.strip().startsWith("#")) {
+            return false;
+        }
+        String link = stripTarget(nfc(rawLink));
+        if (link.isEmpty()) {
+            return false;
+        }
+        String name = fold(link);
+        if (name.startsWith("./") || name.startsWith("../")) {
+            return false;
+        }
+        return atMostOne(byName.get(basename(name))) && atMostOne(byName.get(basename(name + ".md")));
+    }
+
+    private static boolean atMostOne(List<String> paths) {
+        return paths == null || paths.size() <= 1;
+    }
+
     /** True when {@code rawLink} points to some file from {@code sourcePath}. */
     public boolean exists(String rawLink, String sourcePath) {
         return resolve(rawLink, sourcePath).isPresent();
@@ -96,14 +123,14 @@ public final class LinkResolver {
         if (name.startsWith("./") || name.startsWith("../")) {
             String wanted = relativeTo(sourceBase, name);
             for (String path : sameName) {
-                if (fold(path).equals(wanted)) {
+                if (folded.get(path).equals(wanted)) {
                     return List.of(path);
                 }
             }
             return List.of();
         }
         for (String path : sameName) {
-            if (fold(path).equals(name)) {
+            if (folded.get(path).equals(name)) {
                 return List.of(path);
             }
         }
@@ -111,7 +138,7 @@ public final class LinkResolver {
         List<String> local = new ArrayList<>();
         List<String> other = new ArrayList<>();
         for (String path : sameName) {
-            String lower = fold(path);
+            String lower = folded.get(path);
             if (!lower.equals(name) && !lower.endsWith("/" + name)) {
                 continue;
             }

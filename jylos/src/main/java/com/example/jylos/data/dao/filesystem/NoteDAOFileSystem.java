@@ -64,7 +64,10 @@ public class NoteDAOFileSystem implements NoteDAO {
 
     // Notes longer than the head read for the list: their links come from the persistent
     // cache, or from a full read in the background (see indexLongNotes).
-    private final LinkCache linkCache;
+    /** Reads the stored cache; called once, on first use (see {@link #linkCache()}). */
+    private final java.util.function.Supplier<LinkCache> linkCacheLoader;
+    private final Object linkCacheLock = new Object();
+    private volatile LinkCache linkCache;
     /** Long notes whose links so far cover only the head read. */
     private final Set<String> pendingLongNotes = ConcurrentHashMap.newKeySet();
     /** Every long note of the vault, to drop the cache entries of notes that are gone. */
@@ -100,7 +103,7 @@ public class NoteDAOFileSystem implements NoteDAO {
      *        When {@code false}, contents load synchronously.
      */
     public NoteDAOFileSystem(String rootDirectory, boolean deferContentLoad) {
-        this(rootDirectory, deferContentLoad, null);
+        this(rootDirectory, deferContentLoad, (Path) null);
     }
 
     /**
@@ -108,7 +111,18 @@ public class NoteDAOFileSystem implements NoteDAO {
      *        {@code null} to index them again on every start (see {@link LinkCache})
      */
     public NoteDAOFileSystem(String rootDirectory, boolean deferContentLoad, Path linkCacheFile) {
-        this.linkCache = linkCacheFile != null ? LinkCache.load(linkCacheFile) : LinkCache.inMemory();
+        this(rootDirectory, deferContentLoad,
+                () -> linkCacheFile != null ? LinkCache.load(linkCacheFile) : LinkCache.inMemory());
+    }
+
+    /**
+     * @param linkCacheLoader reads the stored link cache. With a deferred load it runs on the
+     *        background loader: the vault is opened on the JavaFX thread while the window is
+     *        built, and the cache of a big vault is megabytes of JSON.
+     */
+    NoteDAOFileSystem(String rootDirectory, boolean deferContentLoad,
+            java.util.function.Supplier<LinkCache> linkCacheLoader) {
+        this.linkCacheLoader = linkCacheLoader;
         this.autoIndexLongNotes = deferContentLoad;
         this.rootPath = Paths.get(rootDirectory);
         this.metadataStore = new FileSystemDocumentMetadataStore(this.rootPath);
@@ -139,6 +153,21 @@ public class NoteDAOFileSystem implements NoteDAO {
         metadataStore.clearCache();
         rebuildCache(this::createLightweightNote);
         scheduleLongNoteIndexing();
+    }
+
+    /** The link cache, read from disk the first time it is needed. */
+    private LinkCache linkCache() {
+        LinkCache cache = linkCache;
+        if (cache == null) {
+            synchronized (linkCacheLock) {
+                cache = linkCache;
+                if (cache == null) {
+                    cache = linkCacheLoader.get();
+                    linkCache = cache;
+                }
+            }
+        }
+        return cache;
     }
 
     /** Long notes whose links still cover only the head read; {@link #indexLongNotes()} reads them in full. */
@@ -175,7 +204,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                         Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class);
                 String content = Files.readString(path, java.nio.charset.StandardCharsets.UTF_8);
                 List<String> links = WikiLinkResolver.extractRawLinks(FrontmatterHandler.stripFrontmatter(content));
-                linkCache.put(id, attrs.lastModifiedTime().toMillis(), attrs.size(), links);
+                linkCache().put(id, attrs.lastModifiedTime().toMillis(), attrs.size(), links);
                 cachedNotes.computeIfPresent(id, (key, note) -> {
                     note.setLinkTargets(links);
                     return note;
@@ -186,8 +215,8 @@ public class NoteDAOFileSystem implements NoteDAO {
             }
             pendingLongNotes.remove(id);
         }
-        linkCache.retainOnly(longNoteIds);
-        linkCache.save();
+        linkCache().retainOnly(longNoteIds);
+        linkCache().save();
         Runnable callback = onLinksIndexed;
         if (indexed > 0 && callback != null) {
             runCallbackSafely(callback);
@@ -302,6 +331,7 @@ public class NoteDAOFileSystem implements NoteDAO {
     private void startBackgroundContentLoad() {
         Thread loader = new Thread(() -> {
             try {
+                linkCache();   // here, before the notes that need it are read, and off the UI thread
                 List<Map.Entry<String, Path>> snapshot = new ArrayList<>(idToPathMap.entrySet());
                 int threads = Math.max(4, Math.min(32, Runtime.getRuntime().availableProcessors() * 4));
                 ExecutorService pool = Executors.newFixedThreadPool(threads, r -> {
@@ -439,7 +469,7 @@ public class NoteDAOFileSystem implements NoteDAO {
             if (attrs.size() > LIGHTWEIGHT_READ_BYTES && filename.endsWith(".md")) {
                 longNoteIds.add(id);
                 java.util.Optional<List<String>> cached =
-                        linkCache.get(id, attrs.lastModifiedTime().toMillis(), attrs.size());
+                        linkCache().get(id, attrs.lastModifiedTime().toMillis(), attrs.size());
                 if (cached.isPresent()) {
                     links = cached.get();
                     pendingLongNotes.remove(id);
