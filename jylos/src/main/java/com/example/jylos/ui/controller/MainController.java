@@ -583,9 +583,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                     com.example.jylos.service.NoteTitleIndex.getInstance()::titlesSorted,
                     uiPreferences.loadLivePreviewEnabled(prefs),
                     enabled -> uiPreferences.saveLivePreviewEnabled(prefs, enabled));
-            editorController.setWikiLinkHandler(title -> noteService.findNoteByTitle(title).ifPresentOrElse(
+            // A link opens the note it names by path, resolved from the note it is written in.
+            editorController.setWikiLinkHandler(link -> noteService.resolveLink(link,
+                    getCurrentNote() != null ? getCurrentNote().getId() : null).ifPresentOrElse(
                     this::handleUiNoteOpenRequest,
-                    () -> updateStatus("Note not found: " + title)));
+                    () -> updateStatus("Note not found: " + link)));
             editorController.setEditorHooks(editorHooks);
             if (editorTabs == null) {
                 editorController.initializeTagsBarCollapsed();

@@ -332,7 +332,7 @@ public class NoteDAOFileSystem implements NoteDAO {
             // Index outgoing links from the (untruncated) content head already read, so the
             // backlink index needs no second full-file read per note — critical on large or
             // cloud-backed vaults where each read can block on an on-demand download.
-            note.setLinkTargets(WikiLinkResolver.extractLinkTargets(FrontmatterHandler.stripFrontmatter(head)));
+            note.setLinkTargets(WikiLinkResolver.extractRawLinks(FrontmatterHandler.stripFrontmatter(head)));
             return note;
         } catch (IOException | RuntimeException e) {
             logger.log(Level.FINE, "Failed lightweight read for: " + path, e);
@@ -591,7 +591,7 @@ public class NoteDAOFileSystem implements NoteDAO {
             note.setTitle(filename);
 
             // Full read → full-body link coverage for the backlink index.
-            note.setLinkTargets(WikiLinkResolver.extractLinkTargets(FrontmatterHandler.stripFrontmatter(content)));
+            note.setLinkTargets(WikiLinkResolver.extractRawLinks(FrontmatterHandler.stripFrontmatter(content)));
 
             return note;
         } catch (IOException e) {

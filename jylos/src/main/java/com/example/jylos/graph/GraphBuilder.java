@@ -21,10 +21,11 @@ import com.example.jylos.util.WikiLinkResolver;
  * Builds the knowledge graph (notes + tags + their relationships) from the
  * existing services.
  *
- * <p>Note→note edges are derived with {@link WikiLinkResolver#extractLinkTargets(String)}
- * (only {@code [[wiki-links]]} and internal {@code [label](note)} references —
- * no URLs, anchors, attachments, or inline {@code #tags}). Optional tag nodes
- * are off by default ({@link Options#includeTags()}).</p>
+ * <p>Note→note edges are derived with {@link WikiLinkResolver#extractRawLinks(String)}
+ * (only {@code [[wiki-links]]} and internal {@code [label](note)} references outside
+ * code — no URLs, anchors, attachments, or inline {@code #tags}), each resolved to the
+ * note it names by path, as in Obsidian ({@link com.example.jylos.service.LinkIndex}).
+ * Optional tag nodes are off by default ({@link Options#includeTags()}).</p>
  *
  * <p>Building is read-only and side-effect free; callers should run it off the
  * JavaFX thread for large vaults.</p>
@@ -94,7 +95,7 @@ public class GraphBuilder {
         } catch (Exception e) {
             logger.fine("Graph: could not read full content for " + id + ": " + e.getMessage());
         }
-        List<String> targets = WikiLinkResolver.extractLinkTargets(content);
+        List<String> targets = WikiLinkResolver.extractRawLinks(content);
         linkCache.put(id, new CachedLinks(modified, targets));
         return targets;
     }
@@ -125,15 +126,11 @@ public class GraphBuilder {
 
         List<Note> notes = noteService.getAllNotes();
 
-        Map<String, String> titleToId = new HashMap<>();
+        com.example.jylos.service.LinkIndex links = noteService.linkIndex();
         Map<String, GraphNode> nodes = new LinkedHashMap<>();
         for (Note note : notes) {
             if (note == null || note.getId() == null) {
                 continue;
-            }
-            String title = note.getTitle();
-            if (title != null && !title.isBlank()) {
-                titleToId.putIfAbsent(normalize(title), note.getId());
             }
             nodes.put(note.getId(), new GraphNode(note.getId(), labelOf(note),
                     GraphNode.Type.NOTE, folderGroup(note), 0));
@@ -146,8 +143,9 @@ public class GraphBuilder {
                 continue;
             }
             for (String target : linkTargetsFor(note)) {
-                String norm = normalize(target);
-                String targetId = titleToId.get(norm);
+                String targetId = links.resolveId(target, note.getId())
+                        .filter(nodes::containsKey)
+                        .orElse(null);
                 if (targetId != null) {
                     if (targetId.equals(note.getId())) {
                         continue;
@@ -157,7 +155,7 @@ public class GraphBuilder {
                     }
                 } else if (options.includeGhosts()) {
                     // Link to a note that doesn't exist yet -> Obsidian-style ghost node.
-                    String ghostId = "ghost:" + norm;
+                    String ghostId = "ghost:" + normalize(target);
                     nodes.putIfAbsent(ghostId, new GraphNode(ghostId, target.trim(),
                             GraphNode.Type.GHOST, "", 0));
                     if (seen.add(note.getId() + "\u0000" + ghostId)) {

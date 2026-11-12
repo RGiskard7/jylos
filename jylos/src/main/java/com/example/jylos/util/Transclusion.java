@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -66,12 +67,27 @@ public final class Transclusion {
      * @param knownTitles    titles used to resolve {@code [[wiki-links]]} inside embeds
      */
     public static Result protect(String markdown, Function<String, String> contentByTitle, Set<String> knownTitles) {
+        return protect(markdown, contentByTitle,
+                link -> knownTitles != null && knownTitles.stream()
+                        .anyMatch(t -> t.equalsIgnoreCase(WikiLinkResolver.extractTitle(link))));
+    }
+
+    /**
+     * Same as {@link #protect(String, Function, Set)}, with {@code exists} telling whether a
+     * {@code [[wiki-link]]} inside an embed points to a note. Embeds inside code are text.
+     *
+     * @param markdown       host Markdown (may be null)
+     * @param contentByTitle resolves a link (as written, e.g. {@code Carpeta/Nota}) to the
+     *                       note's raw Markdown (or null if absent)
+     * @param exists         whether a link inside an embed points to an existing note
+     */
+    public static Result protect(String markdown, Function<String, String> contentByTitle, Predicate<String> exists) {
         Map<String, String> embeds = new HashMap<>();
         if (markdown == null || !markdown.contains("![[")) {
             return new Result(markdown == null ? "" : markdown, embeds);
         }
         int[] counter = {0};
-        String out = expand(markdown, contentByTitle, knownTitles, 0, new HashSet<>(), embeds, counter);
+        String out = expand(markdown, contentByTitle, exists, 0, new HashSet<>(), embeds, counter);
         return new Result(out, embeds);
     }
 
@@ -91,14 +107,19 @@ public final class Transclusion {
         return sb.toString();
     }
 
-    private static String expand(String md, Function<String, String> resolver, Set<String> titles,
+    private static String expand(String md, Function<String, String> resolver, Predicate<String> titles,
             int depth, Set<String> visited, Map<String, String> embeds, int[] counter) {
         if (md == null || !md.contains("![[")) {
             return md == null ? "" : md;
         }
+        java.util.BitSet code = WikiLinkResolver.codeRanges(md);
         Matcher m = EMBED.matcher(md);
         StringBuilder sb = new StringBuilder(md.length() + 64);
         while (m.find()) {
+            if (code.get(m.start())) {
+                m.appendReplacement(sb, Matcher.quoteReplacement(m.group(0)));
+                continue;
+            }
             String html = renderEmbed(m.group(1).trim(), resolver, titles, depth, visited, embeds, counter);
             String token = "" + TOK_START + (counter[0]++) + TOK_END;
             embeds.put(token, html);
@@ -108,7 +129,7 @@ public final class Transclusion {
         return sb.toString();
     }
 
-    private static String renderEmbed(String ref, Function<String, String> resolver, Set<String> titles,
+    private static String renderEmbed(String ref, Function<String, String> resolver, Predicate<String> titles,
             int depth, Set<String> visited, Map<String, String> embeds, int[] counter) {
         // Split "Title#Heading" (alias after | is ignored for embeds).
         String titlePart = ref;
@@ -122,16 +143,17 @@ public final class Transclusion {
         if (pipe >= 0) {
             titlePart = titlePart.substring(0, pipe);
         }
-        String title = WikiLinkResolver.extractTitle(titlePart.trim());
+        String link = titlePart.trim();
+        String title = WikiLinkResolver.extractTitle(link);
         String display = heading != null && !heading.isEmpty() ? title + " › " + heading : title;
 
         if (depth >= MAX_DEPTH) {
             return notice("embed-too-deep", display, "embeds nested too deep");
         }
-        if (visited.contains(title.toLowerCase())) {
+        if (visited.contains(link.toLowerCase())) {
             return notice("embed-cycle", display, "circular embed");
         }
-        String content = resolver.apply(titlePart.trim());
+        String content = resolver.apply(link);
         if (content == null) {
             return notice("embed-missing", display, "note not found");
         }
@@ -144,14 +166,15 @@ public final class Transclusion {
         }
 
         Set<String> nextVisited = new HashSet<>(visited);
-        nextVisited.add(title.toLowerCase());
+        nextVisited.add(link.toLowerCase());
         String inner = expand(section, resolver, titles, depth + 1, nextVisited, embeds, counter);
         inner = WikiLinkResolver.resolve(inner, titles);
         String innerHtml = MarkdownProcessor.markdownToHtml(inner);
         innerHtml = restore(innerHtml, embeds);
 
         return "<div class=\"embed\">"
-                + "<a class=\"embed-title\" href=\"" + WikiLinkResolver.PROTOCOL + urlEncode(title) + "\">"
+                + "<a class=\"embed-title\" href=\"" + WikiLinkResolver.PROTOCOL + urlEncode(link)
+                + "\" data-target=\"" + escape(link) + "\">"
                 + escape(display) + "</a>"
                 + "<div class=\"embed-body\">" + innerHtml + "</div>"
                 + "</div>";

@@ -545,6 +545,92 @@ public class NoteService {
                 .findFirst();
     }
 
+    // ==================== Link resolution ====================
+
+    /**
+     * The note a link written in note {@code sourceNoteId} points to, resolved the way
+     * Obsidian does: by path, preferring the source note's folder, then aliases (see
+     * {@link LinkResolver}). A plain title the index does not know yet (a note created a
+     * moment ago) falls back to the title lookup.
+     *
+     * @param rawLink      the link as written ({@code Carpeta/Nota}, {@code Nota#Sección})
+     * @param sourceNoteId the note the link is written in, or null
+     * @return the linked note, if any
+     */
+    public Optional<Note> resolveLink(String rawLink, String sourceNoteId) {
+        if (rawLink == null || rawLink.isBlank()) {
+            return Optional.empty();
+        }
+        Optional<String> id = linkIndex().resolveId(rawLink, sourceNoteId);
+        if (id.isPresent()) {
+            Optional<Note> note = getNoteById(id.get());
+            if (note.isPresent()) {
+                return note;
+            }
+        }
+        String target = LinkResolver.stripTarget(rawLink);
+        if (target.isEmpty() || target.contains("/")) {
+            return Optional.empty();
+        }
+        if (target.toLowerCase(java.util.Locale.ROOT).endsWith(".md")) {
+            target = target.substring(0, target.length() - 3);
+        }
+        return findNoteByTitle(target);
+    }
+
+    /** The vault-wide link index: the warm one of the title index, or a fresh one. */
+    public LinkIndex linkIndex() {
+        if (noteTitleIndex != null) {
+            return noteTitleIndex.linkIndex();
+        }
+        return buildLinkIndex(getAllNotes());
+    }
+
+    /** Builds a link index for {@code notes}, giving each note its path in the vault. */
+    public LinkIndex buildLinkIndex(List<Note> notes) {
+        boolean fileVault = getStorageRoot().isPresent();
+        java.util.Map<String, String> folderPaths = new java.util.HashMap<>();
+        return LinkIndex.build(notes, note -> vaultPathOf(note, fileVault, folderPaths));
+    }
+
+    /**
+     * The path of a note in the vault, as a link would write it: the file path in a folder
+     * vault, the folder chain plus the title in SQLite ({@code Carpeta/Sub/Nota.md}).
+     */
+    private String vaultPathOf(Note note, boolean fileVault, java.util.Map<String, String> folderPaths) {
+        if (fileVault) {
+            return note.getId();
+        }
+        String title = note.getTitle();
+        if (title == null || title.isBlank()) {
+            return null;
+        }
+        String name = title.strip().replace('/', '-').replace('\\', '-') + ".md";
+        String folderId = note.getParent() != null ? note.getParent().getId() : null;
+        if (folderId == null || folderId.isBlank() || folderDAO == null) {
+            return name;
+        }
+        String folder = folderPaths.computeIfAbsent(folderId, this::folderPathOf);
+        return folder.isEmpty() ? name : folder + "/" + name;
+    }
+
+    private String folderPathOf(String folderId) {
+        try {
+            String path = folderDAO.getPathFolder(folderId);
+            if (path == null) {
+                return "";
+            }
+            String clean = path.replace('\\', '/');
+            while (clean.startsWith("/")) {
+                clean = clean.substring(1);
+            }
+            return clean;
+        } catch (RuntimeException e) {
+            logger.fine("No folder path for " + folderId + ": " + e.getMessage());
+            return "";
+        }
+    }
+
     // ==================== Search Methods ====================
 
     /**

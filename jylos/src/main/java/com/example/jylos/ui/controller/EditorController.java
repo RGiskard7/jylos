@@ -1508,10 +1508,13 @@ public class EditorController {
             if (m.start() > last) {
                 flow.getChildren().add(new Text(value.substring(last, m.start())));
             }
-            String title = WikiLinkResolver.extractTitle(m.group(1).trim());
+            String written = m.group(1).trim();
+            String path = WikiLinkResolver.internalLinkPath(written);
+            String title = WikiLinkResolver.extractTitle(written);
+            String target = path != null ? path : title;
             Hyperlink link = new Hyperlink(title);
             link.getStyleClass().add("property-wikilink");
-            link.setOnAction(e -> openNoteByTitle(title));
+            link.setOnAction(e -> openNoteByTitle(target));
             flow.getChildren().add(link);
             last = m.end();
         }
@@ -1985,7 +1988,8 @@ public class EditorController {
         if (noteService == null || title == null || title.isBlank()) {
             return null;
         }
-        return noteService.findNoteByTitle(title)
+        // The embed's link as written, resolved by path from the note being shown.
+        return noteService.resolveLink(title, currentNote != null ? currentNote.getId() : null)
                 .flatMap(note -> noteService.getNoteById(note.getId()))
                 .map(Note::getContent)
                 .orElse(null);

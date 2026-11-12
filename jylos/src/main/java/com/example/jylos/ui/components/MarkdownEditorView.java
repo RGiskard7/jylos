@@ -527,7 +527,8 @@ public final class MarkdownEditorView extends StackPane {
         }
 
         public void openNote(String title) {
-            String resolvedTitle = WikiLinkResolver.internalNoteTarget(title);
+            // The link as written (folder path kept), so the right one of two same-named notes opens.
+            String resolvedTitle = WikiLinkResolver.internalLinkPath(title);
             Platform.runLater(() -> wikiLinkHandler.accept(resolvedTitle != null
                     ? resolvedTitle
                     : title != null ? title : ""));
@@ -538,7 +539,7 @@ public final class MarkdownEditorView extends StackPane {
         }
 
         public void openMarkdownLink(String target) {
-            String title = WikiLinkResolver.internalNoteTarget(target);
+            String title = WikiLinkResolver.internalLinkPath(target);
             if (title != null) {
                 Platform.runLater(() -> wikiLinkHandler.accept(title));
             } else {

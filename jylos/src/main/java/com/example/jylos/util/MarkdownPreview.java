@@ -132,19 +132,21 @@ public class MarkdownPreview {
         // carries in that raw HTML is neutralised by the page's Content-Security-Policy
         // below, not by escaping.
         //
-        // The set of known titles comes from NoteTitleIndex, a warm cache invalidated
-        // by note events. This avoids re-scanning the whole note store on every
-        // keystroke-driven render (perf P1).
-        Set<String> knownTitles = NoteTitleIndex.getInstance().titles();
+        // Links resolve by path from the note shown, as in Obsidian, against the vault's link
+        // index from NoteTitleIndex: a warm cache invalidated by note events, so the note
+        // store is not re-scanned on every keystroke-driven render (perf P1).
+        com.example.jylos.service.LinkIndex links = NoteTitleIndex.getInstance().linkIndex();
+        String sourceId = context != null && context.note() != null ? context.note().getId() : null;
+        java.util.function.Predicate<String> exists = link -> links.exists(link, sourceId);
 
         // Expand ![[transclusions]] FIRST: ![[X]] contains a [[X]] that WikiLinkResolver
         // would otherwise rewrite. Each embed is rendered now and parked behind a token,
         // re-injected after CommonMark (see Transclusion).
         Transclusion.Result embeds = Transclusion.protect(raw,
-                title -> embedContentByTitle(title, embeddedContentResolver), knownTitles);
+                title -> embedContentByTitle(title, embeddedContentResolver), exists);
         raw = embeds.markdown();
 
-        raw = WikiLinkResolver.resolve(raw, knownTitles);
+        raw = WikiLinkResolver.resolve(raw, exists);
 
         // Expand ::: rich-link blocks into HTML cards before CommonMark (the card is
         // an HTML block, which CommonMark passes through verbatim).
