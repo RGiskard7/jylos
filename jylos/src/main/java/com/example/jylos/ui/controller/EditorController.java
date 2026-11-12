@@ -565,6 +565,15 @@ public class EditorController {
     @FXML
     private void initialize() {
         setNoteOpen(false);
+        // Live Preview shows a note embedded on its own line rendered, as the reading view does.
+        blockRenderSupport.setEmbedRenderer(this::renderEditorEmbed);
+        if (noteContentArea != null) {
+            noteContentArea.setTagHandler(tag -> {
+                if (tagLinkHandler != null) {
+                    tagLinkHandler.accept(tag);
+                }
+            });
+        }
         if (noteContentArea != null) {
             noteContentArea.setInsertionTransformer(this::applyInsertHooks);
             noteContentArea.setLinkHandlers(title -> {
@@ -1863,10 +1872,6 @@ public class EditorController {
         if (noteContentArea == null) {
             return;
         }
-        if (blockRenderSupport.isEmpty()) {
-            noteContentArea.setBlockRenders(java.util.Map.of());
-            return;
-        }
         blockRenderSupport.requestRender(currentNote, noteContentArea.getText(), immediate,
                 rendered -> Platform.runLater(() -> noteContentArea.setBlockRenders(rendered)));
     }
@@ -1991,6 +1996,17 @@ public class EditorController {
                 && previewPane != null
                 && previewPane.isVisible()
                 && previewPane.isManaged();
+    }
+
+    /** The HTML of {@code ![[link]]} for Live Preview: the same embed the reading view draws. */
+    private String renderEditorEmbed(String link) {
+        Note source = currentNote;
+        String sourceId = source != null ? source.getId() : null;
+        com.example.jylos.service.LinkIndex links = com.example.jylos.service.NoteTitleIndex.getInstance().linkIndex();
+        com.example.jylos.util.Transclusion.Result embed = com.example.jylos.util.Transclusion.protect(
+                "![[" + link + "]]", this::resolveEmbedContentByTitle, candidate -> links.exists(candidate, sourceId));
+        return com.example.jylos.util.Transclusion.restore(
+                com.example.jylos.util.MarkdownProcessor.markdownToHtml(embed.markdown()), embed.embeds()).strip();
     }
 
     private String resolveEmbedContentByTitle(String title) {

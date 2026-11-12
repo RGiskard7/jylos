@@ -143,7 +143,7 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 - **Tabs** like VS Code: a click replaces the note in the current tab, an already open note switches to its tab, and Cmd/Ctrl+click, middle click or the context menu open a new tab ("Always open notes in a new tab" in Preferences restores one tab per note)
 - **Save state and editor mode in the status bar**: "Saved" / "Unsaved" (the tooltip says how often autosave runs) and the current mode, which opens a menu to switch between Live Preview, source, reading and linked reading
 - **`[[` autocomplete** for note titles; formatting toolbar (bold, lists, links, …)
-- Source-backed **Live Preview** hides Markdown punctuation outside the active block while preserving one editable document and one undo history
+- Source-backed **Live Preview** shows each element rendered and only reveals the Markdown of the element under the cursor (headings, quotes and lists per line), all rendered while the editor is not focused, while preserving one editable document and one undo history. It draws callouts and notes embedded on their own line as in the reading view, images embedded with `![[…]]`, math with the bundled KaTeX, footnotes as numbers, clickable `#tags` (Cmd/Ctrl+click), dimmed `%%comments%%` and block ids, and the language of each code block; nothing is rendered inside code
 - A single book/pencil action switches between editing and reading; source mode is configurable in Preferences, while the linked side-by-side reading view is an independent View command
 - The separate reading view remains the canonical full render for transclusions, KaTeX and preview plugins
 - Markdown rendering with GFM tables, autolinks, strikethrough; code-block highlighting in preview (highlight.js)

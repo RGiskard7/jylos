@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+- **Vista previa en vivo como en Obsidian.** El editor muestra la nota renderizada y solo enseña el Markdown de lo que estás editando:
+  - **Por elemento, no por bloque:** con el cursor en una palabra en `**negrita**`, solo esa negrita muestra sus asteriscos; el resto de la línea sigue renderizado. Encabezados, citas y listas muestran su marca cuando el cursor está en esa línea. Mientras el editor no tiene el foco, todo se ve renderizado. Seleccionar arrastrando no hace saltar el texto bajo el ratón: el cambio se aplica al soltar.
+  - **Callouts** (`> [!tipo] Título`, también plegables) y **notas incrustadas** en su propia línea (`![[Nota]]`, `![[Nota#Sección]]`, `![[Nota#^id]]`) se ven como en la vista de lectura. Las **imágenes** incrustadas con `![[foto.png]]` se ven como imagen.
+  - **Fórmulas:** `$…$` en línea y `$$…$$` en bloque se dibujan con el KaTeX que ya incluye Jylos, que solo se carga en el editor si la nota tiene fórmulas.
+  - **Notas al pie** como superíndices numerados por orden de aparición (igual que en la lectura), **`#etiquetas`** como etiquetas (Cmd/Ctrl+clic muestra las notas con esa etiqueta), **`%%comentarios%%`** e **identificadores de bloque** `^id` atenuados, y el **lenguaje** de cada bloque de código en su esquina.
+  - Nada de esto se renderiza **dentro de código**: un `[[enlace]]` o una `#etiqueta` en un bloque de código o entre comillas invertidas se quedan como texto.
+
+  Además se corrigen tres fallos del editor: la **negrita y los títulos no se veían en negrita** (el WebView ignoraba el grosor de letra que se le pedía); un **clic bajo una fórmula, una imagen o un bloque renderizado caía en otra línea**; y el cursor dentro de un elemento no mostraba su Markdown porque el editor nunca se daba por enfocado.
+
 - **Sintaxis de Obsidian en la vista de lectura.** Lo que antes salía como texto literal ahora se ve como en Obsidian:
   - **Callouts:** `> [!tip] Título` dibuja un recuadro de color con icono y título. Los tipos y sus alias son los de Obsidian (nota, resumen, info, tarea, consejo, éxito, pregunta, aviso, fallo, peligro, error, ejemplo, cita); un tipo desconocido se ve como una nota. Con `[!tipo]-` empieza plegado y con `[!tipo]+` es plegable pero empieza abierto. Se pueden anidar.
   - **`==resaltado==`** se marca en amarillo.

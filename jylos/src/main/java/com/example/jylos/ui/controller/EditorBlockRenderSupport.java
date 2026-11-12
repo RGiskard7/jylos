@@ -54,6 +54,15 @@ final class EditorBlockRenderSupport {
 
     private final Map<String, Registration> renderersByLanguage = new ConcurrentHashMap<>();
 
+    /** Renders a note embedded on a line of its own ({@code ![[link]]}), or null to leave it as source. */
+    private volatile java.util.function.Function<String, String> embedRenderer = link -> null;
+
+    private static final Pattern FENCE_LINE = Pattern.compile("^[ \\t]{0,3}(`{3,}|~{3,})");
+    private static final Pattern CALLOUT_START = Pattern.compile("^[ \\t]{0,3}>[ \\t]?\\[![^\\]\\n]+\\]");
+    private static final Pattern QUOTE_LINE = Pattern.compile("^[ \\t]{0,3}>");
+    private static final Pattern EMBED_LINE = Pattern.compile("^!\\[\\[([^\\]\\n]+)\\]\\]$");
+    private static final Pattern IMAGE = Pattern.compile("(?i).*\\.(png|jpe?g|gif|webp|svg|bmp|avif)$");
+
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
         Thread thread = new Thread(runnable, "editor-block-render");
         thread.setDaemon(true);
@@ -81,6 +90,11 @@ final class EditorBlockRenderSupport {
         }
     }
 
+    /** How to render a note embedded on its own line, given the link as written (without display text). */
+    void setEmbedRenderer(java.util.function.Function<String, String> renderer) {
+        this.embedRenderer = renderer != null ? renderer : link -> null;
+    }
+
     /** True when no plugin claims any language, letting callers skip the work entirely. */
     boolean isEmpty() {
         return renderersByLanguage.isEmpty();
@@ -99,7 +113,7 @@ final class EditorBlockRenderSupport {
             return;
         }
         cancelPending();
-        if (renderersByLanguage.isEmpty() || markdown == null || markdown.isEmpty()) {
+        if (markdown == null || markdown.isEmpty()) {
             // Still deliver, so the editor drops results left over from the previous note.
             onRendered.accept(Map.of());
             return;
@@ -130,6 +144,21 @@ final class EditorBlockRenderSupport {
 
     private Map<String, String> render(Note note, String markdown) {
         Map<String, String> rendered = new LinkedHashMap<>();
+        for (HostBlock block : hostBlocks(markdown)) {
+            if (rendered.containsKey(block.key())) {
+                continue;
+            }
+            try {
+                String html = "callout".equals(block.kind())
+                        ? com.example.jylos.util.MarkdownProcessor.markdownToHtml(block.source())
+                        : embedRenderer.apply(block.source());
+                if (html != null && !html.isBlank()) {
+                    rendered.put(block.key(), html);
+                }
+            } catch (RuntimeException e) {
+                logger.log(Level.FINE, "Could not render " + block.kind() + " for Live Preview", e);
+            }
+        }
         for (Block block : extractBlocks(markdown)) {
             Registration registration = renderersByLanguage.get(block.language());
             if (registration == null || rendered.containsKey(block.key())) {
@@ -147,6 +176,64 @@ final class EditorBlockRenderSupport {
             }
         }
         return rendered;
+    }
+
+    /**
+     * A block the host renders for Live Preview without any plugin: a callout ({@code > [!type]}
+     * and the quote lines after it) or a note embedded on a line of its own.
+     *
+     * @param key    the key the editor looks the HTML up by
+     * @param kind   {@code callout} or {@code embed}
+     * @param source the callout's lines, or the embed's link (display text dropped)
+     */
+    record HostBlock(String key, String kind, String source) {
+    }
+
+    /**
+     * The callouts and line embeds of {@code markdown}, outside fenced code, found exactly as
+     * the editor's {@code scanHostBlocks} finds them. Embeds of images are left to the editor.
+     */
+    static List<HostBlock> hostBlocks(String markdown) {
+        List<HostBlock> blocks = new java.util.ArrayList<>();
+        if (markdown == null || markdown.isEmpty()) {
+            return blocks;
+        }
+        String[] lines = markdown.split("\n", -1);
+        String fence = null;
+        for (int i = 0; i < lines.length; i++) {
+            Matcher fenceMatch = FENCE_LINE.matcher(lines[i]);
+            boolean isFence = fenceMatch.find();
+            if (fence != null) {
+                if (isFence && fenceMatch.group(1).charAt(0) == fence.charAt(0)
+                        && fenceMatch.group(1).length() >= fence.length()) {
+                    fence = null;
+                }
+                continue;
+            }
+            if (isFence) {
+                fence = fenceMatch.group(1);
+                continue;
+            }
+            if (CALLOUT_START.matcher(lines[i]).find()) {
+                StringBuilder source = new StringBuilder(lines[i]);
+                while (i + 1 < lines.length && QUOTE_LINE.matcher(lines[i + 1]).find()) {
+                    source.append('\n').append(lines[++i]);
+                }
+                blocks.add(new HostBlock("callout\n" + source, "callout", source.toString()));
+                continue;
+            }
+            Matcher embed = EMBED_LINE.matcher(lines[i].strip());
+            if (embed.matches()) {
+                String link = embed.group(1);
+                int pipe = link.indexOf('|');
+                link = (pipe >= 0 ? link.substring(0, pipe) : link).strip();
+                int hash = link.indexOf('#');
+                if (!IMAGE.matcher(hash >= 0 ? link.substring(0, hash) : link).matches()) {
+                    blocks.add(new HostBlock("embed\n" + link, "embed", link));
+                }
+            }
+        }
+        return blocks;
     }
 
     /** A claimed fenced block: its language, trimmed body, and the key the editor looks up by. */

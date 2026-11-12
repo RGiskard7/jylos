@@ -72,6 +72,10 @@ public final class MarkdownEditorView extends StackPane {
     private Consumer<String> externalLinkHandler = url -> {
     };
     private Function<String, String> imageSourceResolver = source -> "";
+    private Consumer<String> tagHandler = tag -> {
+    };
+    /** KaTeX is loaded into the editor page the first time a note has math. */
+    private boolean mathLoaded;
     private UnaryOperator<String> insertionTransformer = UnaryOperator.identity();
     private String text = "";
     private boolean ready;
@@ -135,6 +139,12 @@ public final class MarkdownEditorView extends StackPane {
         };
     }
 
+    /** What a Cmd/Ctrl+click on a {@code #tag} in Live Preview does (given the tag without {@code #}). */
+    public void setTagHandler(Consumer<String> handler) {
+        tagHandler = handler != null ? handler : tag -> {
+        };
+    }
+
     /** Sets the resolver that converts relative Markdown image paths to WebView-safe URIs. */
     public void setImageSourceResolver(Function<String, String> resolver) {
         imageSourceResolver = resolver != null ? resolver : source -> "";
@@ -149,7 +159,24 @@ public final class MarkdownEditorView extends StackPane {
             // controller pushes the new note's renders right after loading it.
             blockRenders = Map.of();
             execute("window.JylosEditor.setDocument(" + GSON.toJson(text) + ")");
+            loadMathIfNeeded(text);
         }
+    }
+
+    /**
+     * Loads the bundled KaTeX into the editor page the first time a document has math, and
+     * tells Live Preview it can draw it. Notes without math never pay for it.
+     */
+    private void loadMathIfNeeded(String content) {
+        if (mathLoaded || !ready || !com.example.jylos.util.MarkdownPreview.mightContainMath(content)) {
+            return;
+        }
+        mathLoaded = true;
+        execute(com.example.jylos.util.MarkdownPreview.katexScript());
+        execute("(function(){var s=document.createElement('style');s.textContent="
+                + GSON.toJson(com.example.jylos.util.MarkdownPreview.katexStylesheet())
+                + ";document.head.appendChild(s);})()");
+        execute("window.JylosEditor.setMathReady()");
     }
 
     /**
@@ -335,6 +362,7 @@ public final class MarkdownEditorView extends StackPane {
             execute("window.JylosEditor.initialize(" + GSON.toJson(config) + ")");
             ready = true;
             execute("window.JylosEditor.setDocument(" + GSON.toJson(text) + ")");
+            loadMathIfNeeded(text);
             while (!pendingActions.isEmpty()) {
                 pendingActions.remove().run();
             }
@@ -508,6 +536,7 @@ public final class MarkdownEditorView extends StackPane {
     public final class EditorBridge {
         public void onDocumentChanged(String content) {
             text = content != null ? content : "";
+            loadMathIfNeeded(text);
             textChangeListener.accept(text);
         }
 
@@ -542,6 +571,12 @@ public final class MarkdownEditorView extends StackPane {
                 return java.net.URLDecoder.decode(value, java.nio.charset.StandardCharsets.UTF_8);
             } catch (IllegalArgumentException e) {
                 return value;
+            }
+        }
+
+        public void openTag(String tag) {
+            if (tag != null && !tag.isBlank()) {
+                Platform.runLater(() -> tagHandler.accept(tag));
             }
         }
 

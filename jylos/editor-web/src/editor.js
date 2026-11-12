@@ -17,7 +17,7 @@ import {
 } from "@codemirror/view";
 import { Tag, tags } from "@lezer/highlight";
 import { GFM } from "@lezer/markdown";
-import { blockRenderField, livePreview, setBlockRenders } from "./live-preview.js";
+import { blockRenderField, livePreview, setBlockRenders, setMathReady } from "./live-preview.js";
 
 // `==mark==` highlight syntax is a common CommonMark extension (Obsidian,
 // Typora) but isn't part of GFM, so @lezer/markdown has no built-in node for
@@ -74,11 +74,11 @@ function editorHighlight(config) {
   const number = dark ? "#f78c6c" : "#a33b20";
 
   return HighlightStyle.define([
-    { tag: tags.heading1, color: accent, fontSize: "1.35em", fontWeight: "750" },
-    { tag: tags.heading2, color: accent, fontSize: "1.22em", fontWeight: "725" },
+    { tag: tags.heading1, color: accent, fontSize: "1.35em", fontWeight: "700" },
+    { tag: tags.heading2, color: accent, fontSize: "1.22em", fontWeight: "700" },
     { tag: tags.heading3, color: accent, fontSize: "1.12em", fontWeight: "700" },
     { tag: tags.heading, color: accent, fontWeight: "700" },
-    { tag: tags.strong, color: foreground, fontWeight: "750" },
+    { tag: tags.strong, color: foreground, fontWeight: "700" },
     { tag: tags.emphasis, fontStyle: "italic" },
     { tag: tags.strikethrough, textDecoration: "line-through" },
     { tag: markContentTag, backgroundColor: dark ? "#5a4a1f" : "#fff3b0", color: foreground },
@@ -493,6 +493,8 @@ window.JylosEditor = {
   getSelectionFrom: () => view ? selectedRange().from : 0,
   getSelectionTo: () => view ? selectedRange().to : 0,
   getCaretPosition: () => view ? selectedRange().head : 0,
+  // Document position under a point of the page (diagnostics, tests): -1 when none.
+  positionAt: (x, y) => view ? (view.posAtCoords({ x, y }) ?? -1) : -1,
   replaceSelection,
   replaceRange,
   scrollToOffset,
@@ -539,6 +541,9 @@ window.JylosEditor = {
   },
   setBlockRenders(renders) {
     view?.dispatch({ effects: setBlockRenders.of(renders || {}) });
+  },
+  setMathReady() {
+    view?.dispatch({ effects: setMathReady.of(true) });
   },
   setLivePreviewEnabled(enabled) {
     window.__jylosEditorConfig.livePreview = Boolean(enabled);

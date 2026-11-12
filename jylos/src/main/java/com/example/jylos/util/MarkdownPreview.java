@@ -829,6 +829,21 @@ public class MarkdownPreview {
         return markdown != null && MATH_HINT.matcher(markdown).find();
     }
 
+    /** Whether {@code markdown} has something that looks like math ({@code $…$}, {@code $$…$$}, {@code \(…\)}). */
+    public static boolean mightContainMath(String markdown) {
+        return containsMath(markdown);
+    }
+
+    /** The bundled KaTeX script, for the editor's Live Preview. */
+    public static String katexScript() {
+        return katexJs();
+    }
+
+    /** The bundled KaTeX stylesheet with its fonts inlined, for the editor's Live Preview. */
+    public static String katexStylesheet() {
+        return katexCss();
+    }
+
     private static String katexCss() {
         return KatexAssets.CSS;
     }
