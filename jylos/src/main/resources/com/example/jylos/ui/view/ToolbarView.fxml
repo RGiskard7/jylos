@@ -184,7 +184,9 @@
         <HBox fx:id="pluginToolbarContainer" spacing="6" alignment="CENTER_LEFT"
               visible="false" managed="false"/>
 
-        <Region HBox.hgrow="ALWAYS"/>
+        <!-- Open-note tabs (moved here from above the editor by TopBarTabsSupport); a left
+             margin keeps them starting right above the editor. -->
+        <HBox fx:id="tabsHost" styleClass="top-bar-tabs" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS" minWidth="0"/>
 
         <!-- Layout Toggles -->
         <ToggleButton fx:id="sidebarToggleBtn" onAction="#handleToggleSidebar" styleClass="modern-toggle-btn">

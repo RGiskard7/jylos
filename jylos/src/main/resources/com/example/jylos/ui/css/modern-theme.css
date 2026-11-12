@@ -4674,3 +4674,39 @@
     -fx-background-color: -fx-hover-bg;
     -fx-text-fill: -fx-text-main;
 }
+
+/* Open-note tabs in the top bar: no strip background or line of their own there. */
+.toolbar .top-bar-tabs .editor-tab-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+}
+
+.toolbar .top-bar-tabs .editor-tab-bar {
+    -fx-padding: 0;
+}
+
+.toolbar .top-bar-tabs .editor-tab {
+    -fx-background-radius: 6;
+    -fx-padding: 4 8 4 10;
+}
+
+/* Tabs in the top bar are as tall as its buttons, so the bar keeps its height. */
+.toolbar .top-bar-tabs .editor-tab-scroll {
+    -fx-pref-height: 28;
+    -fx-max-height: 28;
+    -fx-min-height: 28;
+}
+
+.toolbar .top-bar-tabs .editor-tab {
+    -fx-pref-height: 28;
+    -fx-max-height: 28;
+    -fx-min-height: 28;
+    -fx-padding: 0 6 0 10;
+}
+
+/* Tabs resting on the top bar's bottom line: rounded only at the top. */
+.toolbar .top-bar-tabs .editor-tab {
+    -fx-background-radius: 6 6 0 0;
+}

@@ -569,6 +569,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                     this::handleUiNotesLoaded, this::updateStatus, this::getNoteContextMenuItems);
             notesListController.setOpenInNewTabAction(this::openNoteInNewTab);
             notesListController.setCloseResultsAction(this::closeResultsPanel);
+            notesListController.setCurrentNoteSupplier(this::getCurrentNote);
             if (sidebarController != null) {
                 sidebarController.setExplorerNoteMenu(notesListController::noteContextMenu);
             }
@@ -592,11 +593,25 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                         editorController.getEditorTabBar(),
                         editorController.getEditorTabScroll(),
                         new com.example.jylos.ui.components.EditorTabs.Listener() {
-                            @Override public void onSelect(String noteId) { openNoteInTab(noteId); }
+                            @Override public void onSelect(String noteId) {
+                                // Tabs stay visible over the graph and the Kanban; picking one shows the note.
+                                if (overlaySupport.isGraphVisible()) {
+                                    overlaySupport.hideGraph();
+                                }
+                                if (overlaySupport.isKanbanVisible()) {
+                                    overlaySupport.hideKanban();
+                                }
+                                openNoteInTab(noteId);
+                            }
                             @Override public void onClose(String noteId) { closeTab(noteId); }
                         },
                         this::getString);
                 editorTabs.setAlwaysNewTab(uiPreferences.load(prefs).alwaysOpenInNewTab());
+                if (toolbarController != null && toolbarController.getTabsHost() != null && editor != null) {
+                    // Tabs in the top bar, as in Obsidian, starting above the editor.
+                    TopBarTabsSupport.install(toolbarController.getTabsHost(),
+                            editorController.getEditorTabScroll(), editor);
+                }
             }
             editorController.setFormatToolbarVisible(uiPreferences.loadShowFormatToolbar(prefs));
         }

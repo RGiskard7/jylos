@@ -243,10 +243,57 @@ class SidebarExplorerModeTest {
         return "no row";
     }
 
+    /**
+     * Whatever changes the vault reloads the Explorer tree, as in Obsidian: here, moving a
+     * note to the trash (the notes list publishes NoteDeletedEvent) and a note changed
+     * outside Jylos (NoteUpdatedEvent).
+     */
+    @Test
+    void trashingANoteOrChangingItOutsideReloadsTheTree() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        com.example.jylos.event.EventBus bus = com.example.jylos.event.EventBus.getInstance();
+        Fixture f = onFx(() -> new Fixture(folders, notes, new ArrayList<>(), bus));
+        try {
+            onFx(() -> {
+                f.sidebar.setExplorerMode(true);
+                return null;
+            });
+            TreeView<Component> explorer = onFx(() -> f.sidebar.getExplorerTree().getView());
+            waitUntil(() -> titles(explorer.getRoot()).equals(List.of("Trabajo", "Inicio")));
+
+            com.example.jylos.data.models.Note inicio = notes.getAllNotes().stream()
+                    .filter(n -> "Inicio".equals(n.getTitle())).findFirst().orElseThrow();
+            notes.moveToTrash(inicio.getId());
+            onFx(() -> {
+                bus.publish(new com.example.jylos.event.events.NoteEvents.NoteDeletedEvent(inicio.getId(), "Inicio"));
+                return null;
+            });
+            waitUntil(() -> titles(explorer.getRoot()).equals(List.of("Trabajo")));
+
+            notes.createNote("Externa", "x");
+            onFx(() -> {
+                bus.publish(new com.example.jylos.event.events.NoteEvents.NoteUpdatedEvent(
+                        new com.example.jylos.data.models.Note("Externa", "x")));
+                return null;
+            });
+            waitUntil(() -> titles(explorer.getRoot()).equals(List.of("Trabajo", "Externa")));
+        } finally {
+            onFx(() -> {
+                f.sidebar.teardown();
+                return null;
+            });
+        }
+    }
+
     private static final class Fixture {
         final SidebarController sidebar;
 
         Fixture(FolderService folders, NoteService notes, List<String> opened) throws Exception {
+            this(folders, notes, opened, null);
+        }
+
+        Fixture(FolderService folders, NoteService notes, List<String> opened,
+                com.example.jylos.event.EventBus bus) throws Exception {
             URL fxml = SidebarExplorerModeTest.class.getClassLoader()
                     .getResource("com/example/jylos/ui/view/SidebarView.fxml");
             ResourceBundle bundle = ResourceBundle.getBundle("com.example.jylos.i18n.messages",
@@ -254,7 +301,7 @@ class SidebarExplorerModeTest {
             FXMLLoader loader = new FXMLLoader(fxml, bundle);
             Parent root = loader.load();
             sidebar = loader.getController();
-            sidebar.wire(null, notes, null, folders, bundle, x -> { }, x -> { }, x -> { }, x -> { }, x -> { },
+            sidebar.wire(bus, notes, null, folders, bundle, x -> { }, x -> { }, x -> { }, x -> { }, x -> { },
                     x -> { }, x -> { });
             sidebar.setExplorerOpenAction((note, target) -> opened.add(note.getTitle() + " " + target));
             Stage stage = new Stage();

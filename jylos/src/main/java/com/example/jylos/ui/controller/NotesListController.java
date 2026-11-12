@@ -1218,17 +1218,25 @@ public class NotesListController {
 
     @FXML
     private void handleDelete(ActionEvent event) {
-        Note selectedNote = notesListView.getSelectionModel().getSelectedItem();
-        if (selectedNote != null) {
-            deleteNote(selectedNote);
-        } else {
-            // Note: SidebarController also listens to DELETE and handles its managed items.
-            // If we are here and no note is selected, we could just do nothing or
-            // publish a status if we want to be explicit.
-            // However, MainController previously favored Sidebar over Note selection.
-            // Here they both listen, so if Sidebar found something, it acts.
-            // If NotesList finds something, it acts.
-        }
+        deleteNote(deleteTarget());
+    }
+
+    /** The note open in the editor; the delete command falls back to it. */
+    private Supplier<Note> currentNoteSupplier = () -> null;
+
+    public void setCurrentNoteSupplier(Supplier<Note> supplier) {
+        this.currentNoteSupplier = supplier != null ? supplier : () -> null;
+    }
+
+    /**
+     * What the delete command (editor's trash button, menu, shortcut) deletes: the note
+     * selected in the list, or else the note open in the editor. In the Explorer layout the
+     * list has no selection (notes are opened from the tree), so without the fallback the
+     * command did nothing.
+     */
+    Note deleteTarget() {
+        Note selected = notesListView.getSelectionModel().getSelectedItem();
+        return selected != null ? selected : currentNoteSupplier.get();
     }
 
     /**

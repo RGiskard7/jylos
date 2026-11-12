@@ -60,6 +60,9 @@ public class ToolbarController {
     private Button layoutSwitchBtn;
     @FXML
     private java.util.ResourceBundle resources;
+    /** Where the open-note tabs live in the top bar (see TopBarTabsSupport). */
+    @FXML
+    private HBox tabsHost;
     /** The layout ticked in the layout menu. */
     private com.example.jylos.ui.preferences.LayoutMode currentLayout =
             com.example.jylos.ui.preferences.LayoutMode.CLASSIC_COLUMNS;
@@ -178,6 +181,10 @@ public class ToolbarController {
 
     public ToggleButton getRightPanelToggleBtn() {
         return rightPanelToggleBtn;
+    }
+
+    public HBox getTabsHost() {
+        return tabsHost;
     }
 
     public Button getLayoutSwitchBtn() {

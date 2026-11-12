@@ -908,6 +908,13 @@ public class SidebarController {
             // filesystem storage a tag has no existence of its own beyond the notes that
             // currently declare it, so the sidebar list must be recomputed too.
             requestTagsReload();
+            // The Explorer tree lists notes, so a note moved to the trash must leave it.
+            requestExplorerRefresh();
+        }));
+        // A note changed outside Jylos (or by another view) may have been renamed or moved.
+        eventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteUpdatedEvent.class, event -> {
+            requestExplorerRefresh();
+            requestRecentFavoritesReload();
         }));
         eventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteCreatedEvent.class, event -> {
             invalidateFolderNoteCountCache();

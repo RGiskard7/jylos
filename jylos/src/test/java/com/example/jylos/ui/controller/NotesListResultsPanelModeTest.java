@@ -59,6 +59,44 @@ class NotesListResultsPanelModeTest {
         assertEquals(List.of("close"), closes);
     }
 
+    /**
+     * The delete command (editor's trash button, menu, shortcut) deletes the note selected
+     * in the list; in the Explorer layout nothing is selected there, so it deletes the note
+     * open in the editor instead of doing nothing.
+     */
+    @Test
+    void deleteTargetsTheListSelectionOrElseTheOpenNote() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> targets = onFx(() -> {
+            URL fxml = getClass().getClassLoader().getResource("com/example/jylos/ui/view/NotesListView.fxml");
+            ResourceBundle bundle = ResourceBundle.getBundle("com.example.jylos.i18n.messages",
+                    Locale.forLanguageTag("es"));
+            FXMLLoader loader = new FXMLLoader(fxml, bundle);
+            loader.load();
+            NotesListController controller = loader.getController();
+            com.example.jylos.data.models.Note open = new com.example.jylos.data.models.Note("abierta", "x");
+            open.setId("abierta");
+            controller.setCurrentNoteSupplier(() -> open);
+            List<String> out = new ArrayList<>();
+            out.add(String.valueOf(controller.deleteTarget() != null ? controller.deleteTarget().getId() : null));
+
+            Field field = NotesListController.class.getDeclaredField("notesListView");
+            field.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            javafx.scene.control.ListView<com.example.jylos.data.models.Note> list =
+                    (javafx.scene.control.ListView<com.example.jylos.data.models.Note>) field.get(controller);
+            com.example.jylos.data.models.Note selected = new com.example.jylos.data.models.Note("lista", "x");
+            selected.setId("lista");
+            list.getItems().setAll(selected);
+            list.getSelectionModel().select(0);
+            out.add(controller.deleteTarget().getId());
+            return out;
+        });
+
+        assertEquals(List.of("abierta", "lista"), targets);
+    }
+
     private static List<Boolean> shown(NotesListController controller) throws Exception {
         return List.of(visible(button(controller, "viewModeToggleBtn")),
                 visible(button(controller, "peekRecursiveBtn")),
