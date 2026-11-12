@@ -84,8 +84,14 @@ Local graph: BFS neighbourhood around the open note id (configurable depth in co
 
 ## Wiki-links and backlinks
 
-- `WikiLinkResolver` — `[[Title]]`, `[[path/Note#heading|alias]]`, `[label](Note.md)`; resolves to HTML anchors for preview.
-- `BacklinkService` — bidirectional warm index (forward `noteId → targets`, inverse `title → noteIds`) kept current by note events; after the initial warm-up, `backlinksFor` resolves from the inverse index instead of re-scanning the whole vault on each call.
+A link names a note by path, not by title: two notes called "Meeting" in different folders are different targets.
+
+- `WikiLinkResolver` — finds the links of a Markdown text (`[[Title]]`, `[[path/Note#heading|alias]]`, `[label](Note.md)`) with their position, skipping code (fenced blocks and inline spans), external links, anchors and attachments; renders them as HTML anchors for the preview. A link is kept as written (folder path included); the existence test is a predicate supplied by the caller.
+- `LinkResolver` — pure resolution of a link to a file of the vault: case and Unicode form ignored, heading and display text dropped, `./` and `../` relative to the note the link is written in, an exact or partial path, and otherwise the file name, preferring the source note's folder and then the shortest path; aliases last.
+- `LinkIndex` — the vault's resolver by note id: the path of each note (the file path in a folder vault; the folder chain plus the title in SQLite) and its aliases from the `aliases` / `alias` property. It lives in the `NoteTitleIndex` snapshot, rebuilt after note events; `NoteService.resolveLink(link, sourceNoteId)` is what clicks use.
+- `BacklinkService` — warm forward index (`noteId → links as written`, kept current by note events) and an inverse index (target id → linking ids) rebuilt in memory when the forward index or the link index changes, because where a link points depends on every note. It also builds what the links panel shows: `backlinkGroups`, `unlinkedMentions` (title and aliases as plain text), `outgoingLinks`, and `linkMention` (rewrites a mention as a link). The text work, with line and column of each link or mention, is in `LinkOccurrences`.
+- Long notes — the list reads only the first 16 KB of each file, so `NoteDAOFileSystem` reads the notes longer than that in full in the background after the vault loads (`indexLongNotes`) and keeps the links in `LinkCache`, a file per vault in the app's cache folder keyed by modified time and size, so later starts read only what changed.
+- `LinksPanel` (right panel) draws the sections *Linked mentions*, *Unlinked mentions* (searched when opened) and *Outgoing links*; `BacklinksSupport` fetches the data off the FX thread and discards late answers.
 
 ## Kanban board
 

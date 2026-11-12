@@ -71,6 +71,14 @@ final class NoteCreationSupport {
         createAndOpenNote(getString("action.new_note"), "", folder, "status.note_created");
     }
 
+    /** Creates an empty note named {@code title} (a link to it that did not exist yet) and opens it. */
+    void createNoteWithTitle(String title) {
+        if (title == null || title.isBlank()) {
+            return;
+        }
+        createAndOpenNote(title.strip(), "", currentFolder(), "status.note_created");
+    }
+
     void createNewCanvas() {
         createNewCanvasInFolder(currentFolder());
     }

@@ -4543,3 +4543,92 @@
 .toolbar .top-bar-tabs .editor-tab {
     -fx-background-radius: 6 6 0 0;
 }
+
+/* Links panel (right panel): linked mentions, unlinked mentions, outgoing links. */
+.root .links-section-header {
+    -fx-padding: 3 4 3 2;
+    -fx-background-radius: 4;
+    -fx-cursor: hand;
+}
+.root .links-section-header:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+.root .links-section-title {
+    -fx-font-size: 0.923em;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-muted;
+}
+.root .links-section-arrow {
+    -fx-icon-size: 12;
+    -fx-icon-color: -fx-text-muted;
+}
+.root .links-flair {
+    -fx-font-size: 0.846em;
+    -fx-text-fill: -fx-text-muted;
+    -fx-padding: 0 6 0 6;
+    -fx-background-color: -fx-hover-bg;
+    -fx-background-radius: 8;
+}
+.root .links-group-title {
+    -fx-padding: 3 4 3 4;
+    -fx-background-radius: 4;
+    -fx-cursor: hand;
+}
+.root .links-group-title:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+.root .links-group-name {
+    -fx-font-size: 0.923em;
+    -fx-text-fill: -fx-accent;
+}
+.root .links-match-row {
+    -fx-padding: 2 4 2 12;
+    -fx-background-radius: 4;
+    -fx-cursor: hand;
+}
+.root .links-match-row:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+.root .links-match-text {
+    -fx-font-size: 0.846em;
+    -fx-fill: -fx-text-muted;
+}
+.root .links-match-highlight {
+    -fx-font-size: 0.846em;
+    -fx-font-weight: bold;
+    -fx-fill: -fx-accent;
+}
+.root .links-link-btn {
+    -fx-font-size: 0.846em;
+    -fx-padding: 1 8 1 8;
+    -fx-background-color: transparent;
+    -fx-border-width: 0;
+    -fx-text-fill: -fx-accent;
+    -fx-cursor: hand;
+}
+.root .links-link-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-background-radius: 4;
+}
+.root .links-outgoing-row {
+    -fx-padding: 3 4 3 4;
+    -fx-background-radius: 4;
+    -fx-cursor: hand;
+}
+.root .links-outgoing-row:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+.root .links-outgoing-name {
+    -fx-font-size: 0.923em;
+    -fx-text-fill: -fx-accent;
+}
+.root .links-outgoing-icon {
+    -fx-icon-size: 12;
+    -fx-icon-color: -fx-text-muted;
+}
+.root .links-outgoing-missing .links-outgoing-name {
+    -fx-text-fill: -fx-text-muted;
+}
+.root .links-empty {
+    -fx-padding: 2 4 2 4;
+}

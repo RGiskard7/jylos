@@ -66,7 +66,16 @@ Las notas pueden contener HTML crudo, que `MarkdownProcessor` deja pasar sin esc
 
 ## Grafo y backlinks
 
-`GraphBuilder` carga notas y tags por servicios. Los enlaces se resuelven con `WikiLinkResolver`. `BacklinkService` mantiene índices forward/inverse para no reescanear todo el vault en cada consulta.
+Un enlace nombra una nota por su ruta, no por su título: dos notas "Reunión" en carpetas distintas son destinos distintos.
+
+`GraphBuilder` carga notas y tags por servicios y resuelve cada enlace con `LinkIndex`, igual que los backlinks y la vista de lectura.
+
+- `WikiLinkResolver` encuentra los enlaces de un texto Markdown con su posición (`[[Título]]`, `[[ruta/Nota#sección|alias]]`, `[texto](Nota.md)`), ignorando el código, los enlaces externos, los anclajes y los adjuntos; los enlaces se conservan tal como están escritos, con su carpeta.
+- `LinkResolver` resuelve un enlace a un fichero de la bóveda: sin distinguir mayúsculas ni la forma Unicode, sin sección ni texto, con `./` y `../` relativos a la nota donde está escrito, ruta exacta o parcial y, si no, el nombre del fichero (primero la carpeta de la nota de origen, luego la ruta más corta); los alias van al final.
+- `LinkIndex` es el resolvedor de la bóveda por id de nota: la ruta de cada nota (la del fichero en una bóveda de carpetas; la cadena de carpetas más el título en SQLite) y sus alias (propiedad `aliases` o `alias`). Vive en la instantánea de `NoteTitleIndex`; `NoteService.resolveLink(enlace, notaOrigen)` es lo que usan los clics.
+- `BacklinkService` mantiene un índice de enlaces por nota y otro inverso (destino → notas que enlazan) que se reconstruye en memoria cuando cambia alguno de los dos, porque a dónde apunta un enlace depende de todas las notas. También prepara lo que muestra el panel: `backlinkGroups`, `unlinkedMentions` (el título y los alias como texto), `outgoingLinks` y `linkMention` (convierte una mención en enlace). El trabajo sobre el texto, con la línea y la posición, está en `LinkOccurrences`.
+- Notas largas: la lista solo lee los primeros 16 KB de cada fichero; `NoteDAOFileSystem` lee enteras las notas más largas en segundo plano al cargar la bóveda y guarda sus enlaces en `LinkCache` (un fichero por bóveda en la carpeta de caché de la app, validado por fecha y tamaño), de modo que los arranques siguientes solo leen lo que cambió.
+- `LinksPanel` (panel derecho) dibuja *Menciones con enlaces*, *Menciones sin enlace* (se buscan al abrir la sección) y *Enlaces salientes*; `BacklinksSupport` pide los datos fuera del hilo de JavaFX y descarta las respuestas tardías.
 
 ## Kanban
 

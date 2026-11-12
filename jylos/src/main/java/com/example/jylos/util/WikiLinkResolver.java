@@ -124,11 +124,34 @@ public final class WikiLinkResolver {
      * @return ordered, de-duplicated list of links (never null)
      */
     public static List<String> extractRawLinks(String markdown) {
+        Set<String> links = new LinkedHashSet<>();
+        for (LinkMatch match : findLinks(markdown)) {
+            links.add(match.path());
+        }
+        return new ArrayList<>(links);
+    }
+
+    /**
+     * An internal note link found in Markdown: where it is ({@code [start, end)} in the text)
+     * and the link as written ({@link #internalLinkPath(String)}).
+     */
+    public record LinkMatch(int start, int end, String path) {
+    }
+
+    /**
+     * Every internal note link in {@code markdown} with its position, in order of
+     * appearance and without de-duplicating. Same rules as {@link #extractRawLinks(String)}
+     * (links in code, external links, anchors, images and attachments are skipped).
+     *
+     * @param markdown raw Markdown content (may be null)
+     * @return the links found (never null)
+     */
+    public static List<LinkMatch> findLinks(String markdown) {
         if (markdown == null || markdown.isEmpty()) {
             return new ArrayList<>();
         }
         BitSet code = codeRanges(markdown);
-        java.util.TreeMap<Integer, String> byPosition = new java.util.TreeMap<>();
+        java.util.TreeMap<Integer, LinkMatch> byPosition = new java.util.TreeMap<>();
 
         Matcher wiki = WIKI_LINK.matcher(markdown);
         while (wiki.find()) {
@@ -137,7 +160,7 @@ public final class WikiLinkResolver {
             }
             String path = internalLinkPath(wiki.group(1).trim());
             if (path != null) {
-                byPosition.put(wiki.start(), path);
+                byPosition.put(wiki.start(), new LinkMatch(wiki.start(), wiki.end(), path));
             }
         }
 
@@ -152,11 +175,10 @@ public final class WikiLinkResolver {
             }
             String path = internalLinkPath(url);
             if (path != null) {
-                byPosition.putIfAbsent(md.start(), path);
+                byPosition.putIfAbsent(md.start(), new LinkMatch(md.start(), md.end(), path));
             }
         }
-        Set<String> links = new LinkedHashSet<>(byPosition.values());
-        return new ArrayList<>(links);
+        return new ArrayList<>(byPosition.values());
     }
 
     /**

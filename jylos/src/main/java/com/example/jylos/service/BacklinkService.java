@@ -109,6 +109,158 @@ public class BacklinkService {
         return result;
     }
 
+    /**
+     * The links (or mentions) of one note to the open note, with where each is.
+     *
+     * @param note        the note that contains them
+     * @param occurrences their places, in order
+     */
+    public record LinkGroup(Note note, List<LinkOccurrences.Occurrence> occurrences) {
+    }
+
+    /**
+     * Where the open note links to.
+     *
+     * @param name  the destination's name: its title, or what the link says when it does not exist yet
+     * @param note  the destination, or null when no such note exists yet
+     * @param count how many links of the open note point there
+     */
+    public record OutgoingLink(String name, Note note, int count) {
+        public boolean resolved() {
+            return note != null;
+        }
+    }
+
+    /**
+     * The notes that link to {@code target}, each with the links themselves and the line
+     * they are on, sorted by title. Reads the linking notes in full.
+     */
+    public List<LinkGroup> backlinkGroups(Note target) {
+        if (target == null || target.getId() == null) {
+            return List.of();
+        }
+        LinkIndex links = noteService.linkIndex();
+        List<LinkGroup> groups = new ArrayList<>();
+        for (Note linking : backlinksFor(target)) {
+            Note full = noteService.getNoteById(linking.getId()).orElse(null);
+            if (full == null || full.getContent() == null) {
+                continue;
+            }
+            List<LinkOccurrences.Occurrence> points = LinkOccurrences.links(full.getContent()).stream()
+                    .filter(o -> links.resolveId(o.target(), full.getId()).filter(target.getId()::equals).isPresent())
+                    .toList();
+            if (!points.isEmpty()) {
+                groups.add(new LinkGroup(full, points));
+            }
+        }
+        return groups;
+    }
+
+    /**
+     * Notes that name {@code target} (its title or one of its aliases) in plain text without
+     * linking it, with each mention. Reads every note in full, so it is meant for a
+     * background thread; {@code cancelled} is polled between notes.
+     */
+    public List<LinkGroup> unlinkedMentions(Note target, java.util.function.BooleanSupplier cancelled) {
+        if (target == null || target.getId() == null || target.getTitle() == null || target.getTitle().isBlank()) {
+            return List.of();
+        }
+        List<String> terms = new ArrayList<>();
+        terms.add(target.getTitle());
+        terms.addAll(LinkIndex.aliasesOf(target));
+        List<LinkGroup> groups = new ArrayList<>();
+        for (Note candidate : noteService.getAllNotes()) {
+            if (cancelled != null && cancelled.getAsBoolean()) {
+                return List.of();
+            }
+            if (candidate == null || candidate.getId() == null || candidate.getId().equals(target.getId())
+                    || com.example.jylos.util.AttachmentType.fromName(candidate.getId())
+                            != com.example.jylos.util.AttachmentType.MARKDOWN) {
+                continue;
+            }
+            Note full = noteService.getNoteById(candidate.getId()).orElse(null);
+            if (full == null || full.getContent() == null) {
+                continue;
+            }
+            List<LinkOccurrences.Occurrence> found = LinkOccurrences.mentions(full.getContent(), terms);
+            if (!found.isEmpty()) {
+                groups.add(new LinkGroup(full, found));
+            }
+        }
+        groups.sort((a, b) -> safeTitle(a.note()).compareToIgnoreCase(safeTitle(b.note())));
+        return groups;
+    }
+
+    /**
+     * Where {@code note} links to: each destination once (with how many links point there),
+     * in order of first appearance. A destination that does not exist yet has no note.
+     */
+    public List<OutgoingLink> outgoingLinks(Note note) {
+        if (note == null || note.getId() == null) {
+            return List.of();
+        }
+        Note full = noteService.getNoteById(note.getId()).orElse(note);
+        LinkIndex links = noteService.linkIndex();
+        java.util.Map<String, int[]> counts = new java.util.LinkedHashMap<>();
+        java.util.Map<String, String> names = new java.util.HashMap<>();
+        java.util.Map<String, String> ids = new java.util.HashMap<>();
+        for (LinkOccurrences.Occurrence o : LinkOccurrences.links(full.getContent())) {
+            java.util.Optional<String> id = links.resolveId(o.target(), full.getId());
+            String key = id.map(i -> "id:" + i).orElse("name:" + o.target().toLowerCase(java.util.Locale.ROOT));
+            counts.computeIfAbsent(key, k -> new int[1])[0]++;
+            names.putIfAbsent(key, WikiLinkResolver.extractTitle(o.target()));
+            id.ifPresent(i -> ids.putIfAbsent(key, i));
+        }
+        List<OutgoingLink> out = new ArrayList<>();
+        counts.forEach((key, count) -> {
+            Note destination = ids.containsKey(key) ? noteService.getNoteById(ids.get(key)).orElse(null) : null;
+            String name = destination != null && destination.getTitle() != null
+                    ? destination.getTitle() : names.get(key);
+            out.add(new OutgoingLink(name, destination, count[0]));
+        });
+        return out;
+    }
+
+    /**
+     * Turns a mention into a link: rewrites that text in {@code sourceNoteId} as
+     * {@code [[Title]]}, or {@code [[Title|mention]]} when the mention says it differently
+     * (an alias, another case). When another note with the same name would win the link
+     * from there, the link carries the folder path. Does nothing and returns false when the
+     * note no longer has the mention where it was found.
+     *
+     * @return true when the note was rewritten and saved
+     */
+    public boolean linkMention(String sourceNoteId, LinkOccurrences.Occurrence mention, Note target) {
+        if (sourceNoteId == null || mention == null || target == null || target.getId() == null
+                || target.getTitle() == null) {
+            return false;
+        }
+        Note source = noteService.getNoteById(sourceNoteId).orElse(null);
+        if (source == null || source.getContent() == null) {
+            return false;
+        }
+        LinkIndex links = noteService.linkIndex();
+        String title = target.getTitle();
+        String link = title;
+        if (!links.resolveId(title, sourceNoteId).filter(target.getId()::equals).isPresent()) {
+            String path = links.pathOf(target.getId());
+            if (path != null) {
+                link = path.toLowerCase(java.util.Locale.ROOT).endsWith(".md")
+                        ? path.substring(0, path.length() - 3) : path;
+            }
+        }
+        String matched = mention.matched();
+        String replacement = matched.equals(link) ? "[[" + link + "]]" : "[[" + link + "|" + matched + "]]";
+        String rewritten = LinkOccurrences.replace(source.getContent(), mention, replacement);
+        if (rewritten == null) {
+            return false;
+        }
+        source.setContent(rewritten);
+        noteService.updateNote(source);
+        reindex(source);
+        return true;
+    }
+
     /** Drops cached link data (e.g. when the vault changes wholesale). */
     public void invalidate() {
         forward.clear();

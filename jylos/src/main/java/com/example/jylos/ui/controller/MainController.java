@@ -641,6 +641,14 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 this::loadNoteInEditor,
                 () -> backlinksSection != null && backlinksSection.isVisible() && backlinksSection.isManaged()
                         && backlinksContent != null && backlinksContent.isVisible() && backlinksContent.isManaged());
+        backlinksSupport.setCreateNoteAction(noteCreationSupport::createNoteWithTitle);
+        backlinksSupport.setStatusAction(this::updateStatus);
+        // "Link" rewrote a mention in another note: tell the list, tabs and indexes it was saved.
+        backlinksSupport.setMentionLinkedAction(note -> {
+            if (eventBus != null) {
+                eventBus.publish(new NoteEvents.NoteSavedEvent(note));
+            }
+        });
         historySupport.wire(noteService, this::getString, this::updateStatus, sceneSupplier,
                 this::getCurrentNote, this::loadNoteInEditor);
         noteCreationSupport.wire(noteService, noteOperations,
@@ -1015,6 +1023,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
         uiEventSubscriptions.forEach(EventBus.Subscription::cancel);
         uiEventSubscriptions.clear();
+        uiEventSubscriptions.addAll(backlinksSupport.subscribe(eventBus));
         uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteDeletedEvent.class,
                 event -> handleUiNoteDeleted(event.getNoteId())));
         uiEventSubscriptions.add(eventBus.subscribe(FolderEvents.FolderDeletedEvent.class,
@@ -1053,6 +1062,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                             this::handleAddTagToNote, this::removeTagFromNote);
                 }
                 pendingModifiedNoteId = saved.getId();
+                // What the note links to may have changed with this save.
+                refreshBacklinks(active);
             }
             refreshNotesGridIfActive();
         }));
