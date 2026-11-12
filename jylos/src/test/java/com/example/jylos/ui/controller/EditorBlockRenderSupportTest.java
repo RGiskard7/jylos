@@ -84,4 +84,24 @@ class EditorBlockRenderSupportTest {
         assertTrue(livePreview.contains("close[1] === open.marker"),
                 "live-preview.js should pair fences exactly, matching the host's backreference");
     }
+
+    /**
+     * When the app closes, the editor stops its render thread and then each plugin, shutting
+     * down, unregisters its renderers, which asks for one more render. That request has nothing
+     * left to do: it must be dropped, not thrown on the UI thread.
+     */
+    @Test
+    void aRenderAskedForAfterShutdownIsDroppedQuietly() throws Exception {
+        EditorBlockRenderSupport support = new EditorBlockRenderSupport();
+        java.util.concurrent.CountDownLatch delivered = new java.util.concurrent.CountDownLatch(1);
+        support.requestRender(null, "```dataview\nLIST\n```", true, rendered -> delivered.countDown());
+        assertTrue(delivered.await(5, java.util.concurrent.TimeUnit.SECONDS), "renders while running");
+
+        support.shutdown();
+        java.util.concurrent.atomic.AtomicInteger after = new java.util.concurrent.atomic.AtomicInteger();
+        support.requestRender(null, "```dataview\nLIST\n```", true, rendered -> after.incrementAndGet());
+        support.requestRender(null, "```dataview\nLIST\n```", false, rendered -> after.incrementAndGet());
+        Thread.sleep(500);
+        assertEquals(0, after.get(), "nothing is rendered or delivered after shutdown");
+    }
 }

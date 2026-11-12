@@ -7,6 +7,16 @@ El editor Canvas abre y edita ficheros `.canvas` compatibles con Obsidian sobre 
 - Crear, mover, redimensionar y colorear nodos de texto, enlace y grupo.
 - Conectar y borrar aristas, con puntas de flecha.
 - Crear nuevos canvas.
+- Seleccionar varias tarjetas y moverlas, borrarlas, copiarlas y pegarlas juntas.
+
+## Controles
+
+- **Desplazarse:** rueda del ratón o dos dedos en el trackpad (con Mayús, en horizontal). También arrastrando el fondo con el botón central, o con el izquierdo mientras mantienes Espacio.
+- **Zoom:** Cmd/Ctrl + rueda, pellizcar en el trackpad, o los botones de la barra.
+- **Seleccionar:** clic en una tarjeta; Mayús+clic o Cmd/Ctrl+clic añade o quita tarjetas; arrastrar sobre el fondo dibuja un recuadro que selecciona las que toca; Cmd/Ctrl+A selecciona todas.
+- **Mover:** arrastra una tarjeta seleccionada y se mueve toda la selección. Las tarjetas se ajustan a la rejilla y se alinean con los bordes y centros de las demás; los dos ajustes se activan o desactivan en el botón de ajustes de la barra y se recuerdan.
+- **Copiar, cortar y pegar:** Cmd/Ctrl+C, X y V, con las aristas entre las tarjetas copiadas. Se puede pegar en otro canvas.
+- **Borrar:** Supr o Retroceso borra la selección.
 
 ## Seguridad
 

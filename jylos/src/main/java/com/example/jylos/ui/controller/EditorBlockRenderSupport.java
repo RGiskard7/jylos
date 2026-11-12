@@ -109,7 +109,9 @@ final class EditorBlockRenderSupport {
      * @param onRendered receives the block key to HTML table, on the scheduler thread
      */
     void requestRender(Note note, String markdown, boolean immediate, Consumer<Map<String, String>> onRendered) {
-        if (onRendered == null) {
+        // After shutdown (the app is closing) there is nothing to render for: plugins shutting
+        // down still unregister their renderers, which asks for one more render.
+        if (onRendered == null || scheduler.isShutdown()) {
             return;
         }
         cancelPending();

@@ -87,13 +87,15 @@ class StartupSplashTest {
         });
         assertTrue(built.await(10, TimeUnit.SECONDS), "the build never ran");
         Thread.sleep(300);
-        assertEquals("scheduled", events.get(0));
-        int build = events.indexOf("build+splash+dialog");
+        // The splash is still open and keeps adding "painted": check a fixed copy.
+        List<String> seen = List.copyOf(events);
+        assertEquals("scheduled", seen.get(0));
+        int build = seen.indexOf("build+splash+dialog");
         // The listener runs before its pulse is rendered; a pulse only starts once the previous
         // one has been rendered. Two pulses before the build mean the splash has been drawn.
-        assertTrue(build > 0 && events.subList(0, build).stream().filter("painted"::equals).count() >= 2,
-                "the build ran before the splash was painted, without it, or where it cannot show a dialog: " + events);
-        assertEquals(1, events.stream().filter(e -> e.startsWith("build")).count(), "ran once: " + events);
+        assertTrue(build > 0 && seen.subList(0, build).stream().filter("painted"::equals).count() >= 2,
+                "the build ran before the splash was painted, without it, or where it cannot show a dialog: " + seen);
+        assertEquals(1, seen.stream().filter(e -> e.startsWith("build")).count(), "ran once: " + seen);
         // On macOS a new window reaches the screen only some time after JavaFX has drawn it
         // (150 ms was not always enough when measured); blocking sooner keeps it hidden.
         long waitedMs = (builtAt.get() - shownAt.get()) / 1_000_000;

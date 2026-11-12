@@ -1751,6 +1751,9 @@
 .content-split,
 .editor-split {
     -fx-background-color: transparent;
+    /* A SplitPane is inset by 1px on every side: a gap around the editor and under the
+       format bar. */
+    -fx-padding: 0;
 }
 
 .split-pane>.split-pane-divider {
@@ -3750,6 +3753,8 @@
 }
 .canvas-empty { -fx-text-fill: -fx-text-faint; -fx-font-size: 1.077em; }
 .canvas-selected { -fx-effect: dropshadow(gaussian, -fx-accent, 12, 0.55, 0, 0); }
+/* The box dragged on the background to select cards. */
+.canvas-selection-box { -fx-fill: rgba(128, 128, 128, 0.12); -fx-stroke: -fx-accent; -fx-stroke-width: 1; }
 .canvas-node-scroll { -fx-background-color: transparent; -fx-background: transparent; -fx-padding: 0; }
 .canvas-node-scroll > .viewport { -fx-background-color: transparent; }
 .canvas-node-editor {

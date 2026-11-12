@@ -120,7 +120,6 @@ class AppSettings {
     ToggleGroup initializeThemeMenu(ToolbarController toolbarController, String currentTheme,
             Supplier<String> detectSystemTheme,
             Consumer<String> setCurrentTheme,
-            Runnable updateThemeMenuSelection,
             Runnable applyTheme) {
         ToggleGroup themeToggleGroup = new ToggleGroup();
 
@@ -136,9 +135,8 @@ class AppSettings {
             }
         }
 
-        if (updateThemeMenuSelection != null) {
-            updateThemeMenuSelection.run();
-        }
+        // With this group: the caller only keeps it once this returns.
+        updateThemeMenuSelection(toolbarController, themeToggleGroup, currentTheme);
 
         if (applyTheme != null) {
             Platform.runLater(applyTheme);

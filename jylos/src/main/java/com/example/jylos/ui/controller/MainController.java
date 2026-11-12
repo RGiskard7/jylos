@@ -521,7 +521,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 currentTheme,
                 this::detectSystemTheme,
                 theme -> currentTheme = theme,
-                this::updateThemeMenuSelection,
                 this::applyTheme);
     }
 

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+- **Canvas más cómodo, como en Obsidian.**
+  - **Aristas curvas:** salen y llegan a cada tarjeta perpendiculares a su lado, con la flecha orientada según la curva y la etiqueta en su centro.
+  - **Selección múltiple:** arrastrar sobre el fondo dibuja un recuadro que selecciona las tarjetas que toca; Mayús+clic o Cmd/Ctrl+clic añade o quita tarjetas, y Cmd/Ctrl+A las selecciona todas. Al arrastrar una tarjeta seleccionada se mueve toda la selección, y Supr la borra entera.
+  - **Copiar, cortar y pegar** tarjetas con Cmd/Ctrl+C, X y V, con las aristas que las unen; también entre canvas distintos.
+  - **Ajuste al mover:** las tarjetas se ajustan a una rejilla que se hace más amplia al alejar el zoom, y se alinean con los bordes y centros de las tarjetas cercanas. Los dos ajustes se activan o desactivan en el nuevo botón de ajustes de la barra del canvas y se recuerdan.
+  - **Desplazarse como en Obsidian:** la rueda o dos dedos en el trackpad desplazan el lienzo (antes hacían zoom); el zoom es Cmd/Ctrl + rueda o pellizcar. Arrastrar el fondo con el botón central, o con el izquierdo manteniendo Espacio, también desplaza.
+
 - **Editor y arranque más fluidos.**
   - **Escribir en la vista previa en vivo ya no redibuja lo que hay alrededor.** Cada tecla volvía a crear las fórmulas, imágenes, callouts, tablas y enlaces que había por debajo del cursor: KaTeX dibujaba otra vez, las imágenes se recargaban y el texto parpadeaba. Ahora se conservan, y cada tecla cuesta la mitad en una nota de dos mil líneas.
   - **El scroll hacia arriba por una nota con imágenes ya no da saltos.** Una imagen que volvía a entrar en pantalla ocupaba una línea hasta cargarse y luego empujaba el texto cientos de píxeles; ahora reserva el alto que tenía.
@@ -11,6 +18,9 @@
   - **Un clic debajo de una imagen recién cargada cae donde apuntas**, también en notas más cortas que la ventana. El editor no se enteraba de que la imagen había crecido y mandaba el clic a otra línea.
   - **Cada imagen de la nota abierta se lee del disco una sola vez**, en lugar de cada vez que vuelve a entrar en pantalla. Y una pausa al escribir ya no rehace los callouts, fórmulas y bloques renderizados si no han cambiado.
   - **Al arrancar se ve una ventana de carga con el icono y el nombre de la aplicación**, en el tema con el que se abre, mientras se prepara la ventana principal. Antes no aparecía nada durante esos segundos.
+  - **La cabecera del editor mide lo mismo que la del panel lateral**, y sus líneas inferiores quedan alineadas. **La barra de formato llega hasta el borde inferior**, sin el hueco de un píxel que dejaba debajo.
+  - **El menú Ver > Tema marca el tema con el que se abre la aplicación.** Siempre marcaba Claro, aunque se abriera en Oscuro o Sistema.
+  - **Cerrar la aplicación ya no deja errores en el registro** por los bloques de los plugins que se descargan al salir.
   - **Al arrancar en tema oscuro la ventana ya no aparece un instante en tema claro.** En el diseño Explorador el tema se aplicaba después de mostrar la ventana.
   - **Abrir una bóveda de carpetas no espera a la caché de enlaces de las notas largas**, que se lee en segundo plano. Extraer los enlaces de cada nota y recalcular los backlinks al guardar también es más rápido en bóvedas grandes.
 

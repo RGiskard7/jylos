@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.prefs.Preferences;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -20,6 +21,7 @@ import org.kordamp.ikonli.javafx.FontIcon;
 
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.util.AttachmentType;
+import com.example.jylos.util.CanvasGeometry;
 import com.example.jylos.util.CanvasModel;
 import com.example.jylos.util.CanvasModel.CanvasEdge;
 import com.example.jylos.util.CanvasModel.CanvasNode;
@@ -56,7 +58,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.scene.shape.Line;
+import javafx.scene.shape.CubicCurve;
 import javafx.scene.shape.Rectangle;
 import javafx.stage.Popup;
 import javafx.scene.transform.Scale;
@@ -86,6 +88,23 @@ public final class CanvasView extends BorderPane {
     private static final Pattern EMBED_TOKEN = Pattern.compile("!\\[\\[(.+?)]]");
     private static final Pattern LINK_TRIGGER = Pattern.compile("(!?)\\[\\[([^\\]\\[\\n]*)$");
     private static final String INTERACTIVE_CONTENT_KEY = "canvasInteractiveContent";
+    /** Property of each card's box holding its node id. */
+    static final String NODE_ID_KEY = "canvasNodeId";
+    static final String SNAP_TO_GRID_KEY = "canvas.snapToGrid";
+    static final String SNAP_TO_OBJECTS_KEY = "canvas.snapToObjects";
+    /** How far pasted cards land from the copied ones. */
+    private static final double PASTE_OFFSET = 30;
+    /** The clipboard format of copied cards, so they can be pasted into another canvas. */
+    private static final javafx.scene.input.DataFormat CANVAS_CLIPBOARD = java.util.Optional
+            .ofNullable(javafx.scene.input.DataFormat.lookupMimeType("application/x-jylos-canvas"))
+            .orElseGet(() -> new javafx.scene.input.DataFormat("application/x-jylos-canvas"));
+    /** Where the canvas switches (snapping) are saved. */
+    private static Preferences preferences = Preferences.userNodeForPackage(CanvasView.class);
+
+    /** Saves the canvas switches somewhere else (tests); {@code null} goes back to the user's. */
+    static void usePreferences(Preferences prefs) {
+        preferences = prefs != null ? prefs : Preferences.userNodeForPackage(CanvasView.class);
+    }
 
     private final Pane world = new Pane();
     private final Group worldGroup = new Group(world);
@@ -126,8 +145,18 @@ public final class CanvasView extends BorderPane {
     private Button undoButton;
     private Button redoButton;
     private Button connectButton;
-    /** Currently selected node id (for delete), or null. */
-    private String selectedNodeId;
+    /** The selected cards, in the order they were picked. */
+    private final java.util.LinkedHashSet<String> selectedNodeIds = new java.util.LinkedHashSet<>();
+    /** Moving cards snap to the grid and to the other cards (saved switches, on by default). */
+    private boolean snapToGrid = preferences.getBoolean(SNAP_TO_GRID_KEY, true);
+    private boolean snapToObjects = preferences.getBoolean(SNAP_TO_OBJECTS_KEY, true);
+    /** Space held down: dragging the background pans. */
+    private boolean spaceDown;
+    /** The background is being dragged to pan (middle button, or space + left button). */
+    private boolean panning;
+    /** Where a selection box started on the background (viewport coordinates), or null. */
+    private CanvasGeometry.Point selectionBoxStart;
+    private final Rectangle selectionBox = new Rectangle();
     /** Currently selected edge id (for delete), or null. */
     private String selectedEdgeId;
     /** True while a text node is being edited (suspends node dragging). */
@@ -144,7 +173,7 @@ public final class CanvasView extends BorderPane {
     private Supplier<List<String>> autocompleteSuggestions = List::of;
     private String autocompletePrefix = "[[";
 
-    private record EdgeLine(CanvasEdge edge, Line line, javafx.scene.shape.Polygon arrow) {
+    private record EdgeLine(CanvasEdge edge, CubicCurve line, javafx.scene.shape.Polygon arrow) {
     }
 
     private record ConnectHandle(String nodeId, String side, Region handle) {
@@ -205,14 +234,37 @@ public final class CanvasView extends BorderPane {
             if (editing || isTextInputTarget(e.getTarget()) || hasTextInputFocus()) {
                 return;
             }
-            if (e.getCode() == javafx.scene.input.KeyCode.ESCAPE && connecting) {
+            javafx.scene.input.KeyCode code = e.getCode();
+            if (code == javafx.scene.input.KeyCode.ESCAPE && connecting) {
                 cancelConnect();
                 e.consume();
-            } else if ((e.getCode() == javafx.scene.input.KeyCode.DELETE
-                    || e.getCode() == javafx.scene.input.KeyCode.BACK_SPACE)
-                    && (selectedNodeId != null || selectedEdgeId != null)) {
+            } else if ((code == javafx.scene.input.KeyCode.DELETE
+                    || code == javafx.scene.input.KeyCode.BACK_SPACE)
+                    && (!selectedNodeIds.isEmpty() || selectedEdgeId != null)) {
                 deleteSelected();
                 e.consume();
+            } else if (e.isShortcutDown() && code == javafx.scene.input.KeyCode.C) {
+                copySelection();
+                e.consume();
+            } else if (e.isShortcutDown() && code == javafx.scene.input.KeyCode.X) {
+                if (copySelection()) {
+                    deleteSelected();
+                }
+                e.consume();
+            } else if (e.isShortcutDown() && code == javafx.scene.input.KeyCode.V) {
+                paste();
+                e.consume();
+            } else if (e.isShortcutDown() && code == javafx.scene.input.KeyCode.A) {
+                setSelection(nodeBoxes.keySet());
+                e.consume();
+            } else if (code == javafx.scene.input.KeyCode.SPACE) {
+                spaceDown = true;
+                e.consume();
+            }
+        });
+        addEventFilter(javafx.scene.input.KeyEvent.KEY_RELEASED, e -> {
+            if (e.getCode() == javafx.scene.input.KeyCode.SPACE) {
+                spaceDown = false;
             }
         });
     }
@@ -254,8 +306,41 @@ public final class CanvasView extends BorderPane {
                 toolbarSeparator(),
                 zoomIn,
                 zoomOut,
-                fit);
+                fit,
+                toolbarSeparator(),
+                settingsButton());
         return bar;
+    }
+
+    /**
+     * The canvas switches: snapping to the grid and to other cards, saved for every canvas. A
+     * plain button like the others (a MenuButton keeps room for its arrow and its icon would
+     * sit off-centre); its menu opens beside it.
+     */
+    private Button settingsButton() {
+        javafx.scene.control.ContextMenu menu = new javafx.scene.control.ContextMenu(
+                snapSwitch("canvas.snap_to_grid", "Snap to grid", snapToGrid, on -> {
+                    snapToGrid = on;
+                    preferences.putBoolean(SNAP_TO_GRID_KEY, on);
+                }),
+                snapSwitch("canvas.snap_to_objects", "Snap to other cards", snapToObjects, on -> {
+                    snapToObjects = on;
+                    preferences.putBoolean(SNAP_TO_OBJECTS_KEY, on);
+                }));
+        Button settings = iconButton("fth-settings", tr("canvas.settings", "Canvas settings"), null);
+        settings.getStyleClass().add("canvas-settings");
+        settings.setContextMenu(menu);
+        settings.setOnAction(e -> menu.show(settings, javafx.geometry.Side.LEFT, 0, 0));
+        return settings;
+    }
+
+    private javafx.scene.control.CheckMenuItem snapSwitch(String key, String fallback, boolean on,
+            Consumer<Boolean> apply) {
+        javafx.scene.control.CheckMenuItem item = new javafx.scene.control.CheckMenuItem(tr(key, fallback));
+        item.setUserData(key);
+        item.setSelected(on);
+        item.selectedProperty().addListener((obs, was, now) -> apply.accept(now));
+        return item;
     }
 
     private Node toolbarSeparator() {
@@ -366,7 +451,7 @@ public final class CanvasView extends BorderPane {
     /** Re-renders the whole canvas from the (mutated) document, keeping the current pan/zoom. */
 
     private void rebuild() {
-        selectedNodeId = null;
+        selectedNodeIds.clear();
         selectedEdgeId = null;
         connectSourceId = null;
         connectSourceSide = null;
@@ -388,7 +473,8 @@ public final class CanvasView extends BorderPane {
             }
         }
         for (CanvasEdge e : document.edges()) {
-            Line line = new Line();
+            CubicCurve line = new CubicCurve();
+            line.setFill(null);
             line.getStyleClass().add("canvas-edge");
             javafx.scene.shape.Polygon arrow = new javafx.scene.shape.Polygon();
             arrow.getStyleClass().add("canvas-edge-arrow");
@@ -719,54 +805,67 @@ public final class CanvasView extends BorderPane {
 
     private void refreshEdges() {
         for (EdgeLine el : edgeLines) {
-            Region from = nodeBoxes.get(el.edge().fromNode());
-            Region to = nodeBoxes.get(el.edge().toNode());
-            if (from == null || to == null) {
+            CanvasGeometry.Curve curve = curveOf(el.edge());
+            if (curve == null) {
                 el.line().setVisible(false);
                 el.arrow().setVisible(false);
                 continue;
             }
-            double[] a = anchor(from, el.edge().fromSide());
-            double[] b = anchor(to, el.edge().toSide());
-            el.line().setVisible(true);
-            el.line().setStartX(a[0]);
-            el.line().setStartY(a[1]);
-            el.line().setEndX(b[0]);
-            el.line().setEndY(b[1]);
-            updateArrow(el.arrow(), a[0], a[1], b[0], b[1]);
+            CubicCurve line = el.line();
+            line.setVisible(true);
+            line.setStartX(curve.start().x());
+            line.setStartY(curve.start().y());
+            line.setControlX1(curve.control1().x());
+            line.setControlY1(curve.control1().y());
+            line.setControlX2(curve.control2().x());
+            line.setControlY2(curve.control2().y());
+            line.setEndX(curve.end().x());
+            line.setEndY(curve.end().y());
+            updateArrow(el.arrow(), curve);
         }
         refreshConnectHandles();
-        // Re-position any edge labels at the midpoint of their edge.
+        // Edge labels sit on the middle of their curve.
         for (Node node : world.getChildren()) {
             if (node instanceof Label label && label.getStyleClass().contains("canvas-edge-label")
                     && label.getUserData() instanceof String edgeId) {
                 edgeLines.stream().filter(el -> edgeId.equals(el.edge().id())).findFirst().ifPresent(el -> {
-                    Region from = nodeBoxes.get(el.edge().fromNode());
-                    Region to = nodeBoxes.get(el.edge().toNode());
-                    if (from != null && to != null) {
-                        double[] a = anchor(from, el.edge().fromSide());
-                        double[] b = anchor(to, el.edge().toSide());
-                        label.relocate((a[0] + b[0]) / 2.0 - 20, (a[1] + b[1]) / 2.0 - 10);
+                    CanvasGeometry.Curve curve = curveOf(el.edge());
+                    if (curve != null) {
+                        CanvasGeometry.Point middle = curve.at(0.5);
+                        label.relocate(middle.x() - 20, middle.y() - 10);
                     }
                 });
             }
         }
     }
 
-    /** Lays out the arrowhead triangle pointing at the target end {@code (bx,by)}. */
-    private static void updateArrow(javafx.scene.shape.Polygon arrow, double ax, double ay, double bx, double by) {
-        double dx = bx - ax;
-        double dy = by - ay;
-        double len = Math.hypot(dx, dy);
-        if (len < 1) {
+    /** The curve of an edge between its cards as they are now, or null when one is missing. */
+    private CanvasGeometry.Curve curveOf(CanvasEdge edge) {
+        Region from = nodeBoxes.get(edge.fromNode());
+        Region to = nodeBoxes.get(edge.toNode());
+        if (from == null || to == null) {
+            return null;
+        }
+        double[] a = anchor(from, edge.fromSide());
+        double[] b = anchor(to, edge.toSide());
+        return CanvasGeometry.edgeCurve(new CanvasGeometry.Point(a[0], a[1]), edge.fromSide(),
+                new CanvasGeometry.Point(b[0], b[1]), edge.toSide());
+    }
+
+    /** Lays out the arrowhead triangle at the end of the curve, along the direction it arrives in. */
+    private static void updateArrow(javafx.scene.shape.Polygon arrow, CanvasGeometry.Curve curve) {
+        CanvasGeometry.Point direction = curve.endDirection();
+        if (direction.x() == 0 && direction.y() == 0) {
             arrow.setVisible(false);
             return;
         }
         arrow.setVisible(true);
-        double ux = dx / len;
-        double uy = dy / len;
+        double ux = direction.x();
+        double uy = direction.y();
         final double size = 11;
         final double half = 5;
+        double bx = curve.end().x();
+        double by = curve.end().y();
         double baseX = bx - ux * size;
         double baseY = by - uy * size;
         double px = -uy;
@@ -986,42 +1085,65 @@ public final class CanvasView extends BorderPane {
 
     private void installNodeInteraction(Region box, CanvasNode node) {
         final String id = node.id();
+        box.getProperties().put(NODE_ID_KEY, id);
         final boolean isGroup = "group".equals(node.type());
-        final double[] last = new double[2];
+        final double[] pressScene = new double[2];
         final boolean[] moved = {false};
-        // Nodes whose centre lies inside this group when the drag starts: they travel with it.
-        final List<String> dragMembers = new ArrayList<>();
+        // The cards this drag moves and where each started: the selection when this card is
+        // in it (else this card alone), and the cards inside any group among them.
+        final Map<String, double[]> starts = new java.util.LinkedHashMap<>();
         box.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
             if (isInteractiveTarget(e.getTarget())) {
                 return;
             }
-            last[0] = e.getSceneX();
-            last[1] = e.getSceneY();
+            pressScene[0] = e.getSceneX();
+            pressScene[1] = e.getSceneY();
             moved[0] = false;
-            dragMembers.clear();
-            if (isGroup) {
-                dragMembers.addAll(groupMemberIds(id));
+            starts.clear();
+            if (e.getButton() != javafx.scene.input.MouseButton.PRIMARY) {
+                return;
+            }
+            if (!editing && !connecting && !selectedNodeIds.contains(id) && !e.isShiftDown() && !e.isShortcutDown()) {
+                select(id);
+            }
+            java.util.LinkedHashSet<String> moving = new java.util.LinkedHashSet<>();
+            moving.add(id);
+            if (selectedNodeIds.contains(id)) {
+                moving.addAll(selectedNodeIds);
+            }
+            for (String m : List.copyOf(moving)) {
+                Region mb = nodeBoxes.get(m);
+                if (mb != null && mb.getStyleClass().contains("canvas-group")) {
+                    moving.addAll(groupMemberIds(m));
+                }
+            }
+            for (String m : moving) {
+                Region mb = nodeBoxes.get(m);
+                if (mb != null) {
+                    starts.put(m, new double[] {mb.getLayoutX(), mb.getLayoutY()});
+                }
             }
         });
         box.addEventFilter(MouseEvent.MOUSE_DRAGGED, e -> {
-            if (editing || connecting || isInteractiveTarget(e.getTarget())) {
+            if (editing || connecting || isInteractiveTarget(e.getTarget()) || starts.isEmpty()) {
                 return; // editing: allow text selection; connecting: avoid accidental moves
             }
             double s = scaleTransform.getX();
-            double dx = (e.getSceneX() - last[0]) / s;
-            double dy = (e.getSceneY() - last[1]) / s;
-            box.relocate(box.getLayoutX() + dx, box.getLayoutY() + dy);
-            for (String m : dragMembers) {
+            double[] start = starts.get(id);
+            CanvasGeometry.Point to = snapped(box, starts.keySet(),
+                    start[0] + (e.getSceneX() - pressScene[0]) / s,
+                    start[1] + (e.getSceneY() - pressScene[1]) / s);
+            double dx = to.x() - start[0];
+            double dy = to.y() - start[1];
+            starts.forEach((m, from) -> {
                 Region mb = nodeBoxes.get(m);
                 if (mb != null) {
-                    mb.relocate(mb.getLayoutX() + dx, mb.getLayoutY() + dy);
+                    mb.relocate(from[0] + dx, from[1] + dy);
                 }
-            }
-            last[0] = e.getSceneX();
-            last[1] = e.getSceneY();
+            });
             moved[0] = true;
             refreshEdges();
-            if (id.equals(selectedNodeId)) {
+            if (id.equals(singleSelection())) {
                 positionResizeHandle(box);
             }
             e.consume();
@@ -1031,8 +1153,7 @@ public final class CanvasView extends BorderPane {
                 return;
             }
             if (moved[0]) {
-                document.moveNode(id, box.getLayoutX(), box.getLayoutY());
-                for (String m : dragMembers) {
+                for (String m : starts.keySet()) {
                     Region mb = nodeBoxes.get(m);
                     if (mb != null) {
                         document.moveNode(m, mb.getLayoutX(), mb.getLayoutY());
@@ -1048,7 +1169,8 @@ public final class CanvasView extends BorderPane {
                 e.consume();
                 return;
             }
-            if (isInteractiveTarget(e.getTarget())) {
+            // A click that ends a drag leaves the selection as it is.
+            if (isInteractiveTarget(e.getTarget()) || moved[0]) {
                 return;
             }
             requestFocus();
@@ -1067,6 +1189,8 @@ public final class CanvasView extends BorderPane {
                     case "group" -> editGroupLabel(id);
                     default -> editTextNode(id);
                 }
+            } else if (e.isShiftDown() || e.isShortcutDown()) {
+                toggleSelection(id);
             } else {
                 select(id);
             }
@@ -1107,27 +1231,73 @@ public final class CanvasView extends BorderPane {
 
     // ── Selection / create / edit / delete ─────────────────────────────────
 
-    /** Selects a node (highlight) or clears the selection when {@code id} is null. */
+    /** Selects only this card, or nothing when {@code id} is null. */
     private void select(String id) {
+        setSelection(id == null ? List.of() : List.of(id));
+    }
+
+    /** Selects exactly these cards. */
+    private void setSelection(java.util.Collection<String> ids) {
         clearEdgeSelection();
-        if (selectedNodeId != null && nodeBoxes.containsKey(selectedNodeId)) {
-            nodeBoxes.get(selectedNodeId).getStyleClass().remove("canvas-selected");
+        selectedNodeIds.clear();
+        for (String id : ids) {
+            if (nodeBoxes.containsKey(id)) {
+                selectedNodeIds.add(id);
+            }
         }
-        selectedNodeId = id;
-        if (id != null && nodeBoxes.containsKey(id)) {
-            Region box = nodeBoxes.get(id);
-            if (!box.getStyleClass().contains("canvas-selected")) {
+        applySelectionStyles();
+    }
+
+    /** Adds the card to the selection, or takes it out if it was in it (Shift/Cmd+click). */
+    private void toggleSelection(String id) {
+        clearEdgeSelection();
+        if (!selectedNodeIds.remove(id)) {
+            selectedNodeIds.add(id);
+        }
+        applySelectionStyles();
+    }
+
+    /** The selected card when exactly one is selected (it gets the resize grip), else null. */
+    private String singleSelection() {
+        return selectedNodeIds.size() == 1 ? selectedNodeIds.iterator().next() : null;
+    }
+
+    /** Highlights the selected cards, or only the source card while connecting. */
+    private void applySelectionStyles() {
+        nodeBoxes.forEach((id, box) -> {
+            boolean on = connectSourceId != null ? id.equals(connectSourceId) : selectedNodeIds.contains(id);
+            box.getStyleClass().remove("canvas-selected");
+            if (on) {
                 box.getStyleClass().add("canvas-selected");
             }
-            showResizeHandleFor(id);
+        });
+        String single = connectSourceId == null ? singleSelection() : null;
+        if (single != null) {
+            showResizeHandleFor(single);
         } else {
             hideResizeHandle();
         }
     }
 
+    /**
+     * Where a card being dragged to {@code (x, y)} ends up, snapped to the grid and to the
+     * cards not being moved, as the switches say.
+     */
+    private CanvasGeometry.Point snapped(Region box, java.util.Collection<String> moving, double x, double y) {
+        List<CanvasGeometry.Rect> others = new ArrayList<>();
+        nodeBoxes.forEach((id, other) -> {
+            if (!moving.contains(id)) {
+                others.add(new CanvasGeometry.Rect(other.getLayoutX(), other.getLayoutY(),
+                        other.getPrefWidth(), other.getPrefHeight()));
+            }
+        });
+        return CanvasGeometry.snap(new CanvasGeometry.Rect(x, y, box.getPrefWidth(), box.getPrefHeight()),
+                others, scaleTransform.getX(), snapToGrid, snapToObjects);
+    }
+
     /** Selects an edge (highlight) for deletion, clearing any node selection. */
     private void selectEdge(String id) {
-        if (selectedNodeId != null) {
+        if (!selectedNodeIds.isEmpty()) {
             select(null);
         }
         clearEdgeSelection();
@@ -1145,7 +1315,7 @@ public final class CanvasView extends BorderPane {
         selectedEdgeId = null;
     }
 
-    /** Deletes the current selection — an edge if one is selected, otherwise the selected node. */
+    /** Deletes the current selection — an edge if one is selected, otherwise the selected cards. */
     private void deleteSelected() {
         if (selectedEdgeId != null) {
             document.removeEdge(selectedEdgeId);
@@ -1153,11 +1323,37 @@ public final class CanvasView extends BorderPane {
             rebuild();
             return;
         }
-        if (selectedNodeId != null) {
-            document.removeNode(selectedNodeId);
+        if (!selectedNodeIds.isEmpty()) {
+            selectedNodeIds.forEach(document::removeNode);
             markDirty();
             rebuild();
         }
+    }
+
+    /** Puts the selected cards and the edges between them on the clipboard; false when none. */
+    private boolean copySelection() {
+        if (selectedNodeIds.isEmpty()) {
+            return false;
+        }
+        javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+        content.put(CANVAS_CLIPBOARD, document.copyFragment(selectedNodeIds));
+        javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);
+        return true;
+    }
+
+    /** Adds the copied cards a little away from the originals, and selects them. */
+    private void paste() {
+        javafx.scene.input.Clipboard clipboard = javafx.scene.input.Clipboard.getSystemClipboard();
+        if (!(clipboard.getContent(CANVAS_CLIPBOARD) instanceof String fragment)) {
+            return;
+        }
+        List<String> pasted = document.pasteFragment(fragment, PASTE_OFFSET, PASTE_OFFSET);
+        if (pasted.isEmpty()) {
+            return;
+        }
+        markDirty();
+        rebuild();
+        setSelection(pasted);
     }
 
     // ── Resize (bottom-right grip on the selected node) ────────────────────
@@ -1177,7 +1373,7 @@ public final class CanvasView extends BorderPane {
 
         final double[] start = new double[4]; // sceneX, sceneY, startW, startH
         resizeHandle.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
-            Region box = selectedNodeId != null ? nodeBoxes.get(selectedNodeId) : null;
+            Region box = singleSelection() != null ? nodeBoxes.get(singleSelection()) : null;
             if (box == null) {
                 return;
             }
@@ -1188,7 +1384,7 @@ public final class CanvasView extends BorderPane {
             e.consume();
         });
         resizeHandle.addEventFilter(MouseEvent.MOUSE_DRAGGED, e -> {
-            Region box = selectedNodeId != null ? nodeBoxes.get(selectedNodeId) : null;
+            Region box = singleSelection() != null ? nodeBoxes.get(singleSelection()) : null;
             if (box == null) {
                 return;
             }
@@ -1201,9 +1397,9 @@ public final class CanvasView extends BorderPane {
             e.consume();
         });
         resizeHandle.addEventFilter(MouseEvent.MOUSE_RELEASED, e -> {
-            Region box = selectedNodeId != null ? nodeBoxes.get(selectedNodeId) : null;
+            Region box = singleSelection() != null ? nodeBoxes.get(singleSelection()) : null;
             if (box != null) {
-                document.resizeNode(selectedNodeId, box.getPrefWidth(), box.getPrefHeight());
+                document.resizeNode(singleSelection(), box.getPrefWidth(), box.getPrefHeight());
                 markDirty();
             }
             e.consume();
@@ -1348,14 +1544,7 @@ public final class CanvasView extends BorderPane {
 
     /** Clears node highlights and re-applies the connect-source one (without changing the selection). */
     private void rebuildHighlights() {
-        for (Region box : nodeBoxes.values()) {
-            box.getStyleClass().remove("canvas-selected");
-        }
-        if (connectSourceId != null && nodeBoxes.containsKey(connectSourceId)) {
-            nodeBoxes.get(connectSourceId).getStyleClass().add("canvas-selected");
-        } else if (selectedNodeId != null && nodeBoxes.containsKey(selectedNodeId)) {
-            nodeBoxes.get(selectedNodeId).getStyleClass().add("canvas-selected");
-        }
+        applySelectionStyles();
     }
 
     /** World coordinates of the current viewport centre, where new nodes are placed. */
@@ -1621,25 +1810,97 @@ public final class CanvasView extends BorderPane {
             addTextNode(worldPoint[0], worldPoint[1]);
             e.consume();
         });
+        // The wheel (two fingers on a trackpad) pans; with Cmd/Ctrl, or pinching, it zooms.
         viewport.setOnScroll(e -> {
-            double factor = e.getDeltaY() > 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
-            zoomAt(factor, e.getX(), e.getY());
+            if (e.isShortcutDown()) {
+                zoomAt(Math.pow(2, e.getDeltaY() / 300), e.getX(), e.getY());
+            } else {
+                double dx = e.getDeltaX();
+                double dy = e.getDeltaY();
+                if (e.isShiftDown() && dx == 0) {
+                    dx = dy;
+                    dy = 0;
+                }
+                panTransform.setX(panTransform.getX() + dx);
+                panTransform.setY(panTransform.getY() + dy);
+            }
             e.consume();
         });
+        viewport.setOnZoom(e -> {
+            zoomAt(e.getZoomFactor(), e.getX(), e.getY());
+            e.consume();
+        });
+        // On the background, the left button draws a selection box; the middle button, or
+        // the left one with Space held, pans.
+        selectionBox.getStyleClass().add("canvas-selection-box");
+        selectionBox.setManaged(false);
+        selectionBox.setMouseTransparent(true);
         viewport.setOnMousePressed(e -> {
-            dragAnchorX = e.getX() - panTransform.getX();
-            dragAnchorY = e.getY() - panTransform.getY();
+            if (!isBackground(e.getTarget())) {
+                return;
+            }
             requestFocus();
-            select(null); // pressing the background clears the selection
             if (connecting && connectSourceId != null) {
                 connectSourceId = null; // abandon the in-progress connection
                 rebuildHighlights();
             }
+            panning = e.getButton() == javafx.scene.input.MouseButton.MIDDLE
+                    || (e.getButton() == javafx.scene.input.MouseButton.PRIMARY && spaceDown);
+            if (panning) {
+                dragAnchorX = e.getX() - panTransform.getX();
+                dragAnchorY = e.getY() - panTransform.getY();
+                return;
+            }
+            if (e.getButton() == javafx.scene.input.MouseButton.PRIMARY) {
+                select(null); // pressing the background clears the selection
+                selectionBoxStart = new CanvasGeometry.Point(e.getX(), e.getY());
+            }
         });
         viewport.setOnMouseDragged(e -> {
-            panTransform.setX(e.getX() - dragAnchorX);
-            panTransform.setY(e.getY() - dragAnchorY);
+            if (panning) {
+                panTransform.setX(e.getX() - dragAnchorX);
+                panTransform.setY(e.getY() - dragAnchorY);
+            } else if (selectionBoxStart != null) {
+                CanvasGeometry.Rect box = CanvasGeometry.Rect.between(selectionBoxStart,
+                        new CanvasGeometry.Point(e.getX(), e.getY()));
+                selectionBox.setX(box.x());
+                selectionBox.setY(box.y());
+                selectionBox.setWidth(box.width());
+                selectionBox.setHeight(box.height());
+                if (!viewport.getChildren().contains(selectionBox)) {
+                    viewport.getChildren().add(selectionBox);
+                }
+            }
         });
+        viewport.setOnMouseReleased(e -> {
+            if (panning) {
+                panning = false;
+                return;
+            }
+            if (selectionBoxStart == null) {
+                return;
+            }
+            double[] from = screenToWorld(selectionBoxStart.x(), selectionBoxStart.y());
+            double[] to = screenToWorld(e.getX(), e.getY());
+            selectionBoxStart = null;
+            viewport.getChildren().remove(selectionBox);
+            CanvasGeometry.Rect box = CanvasGeometry.Rect.between(new CanvasGeometry.Point(from[0], from[1]),
+                    new CanvasGeometry.Point(to[0], to[1]));
+            List<String> touched = new ArrayList<>();
+            nodeBoxes.forEach((id, card) -> {
+                if (box.intersects(new CanvasGeometry.Rect(card.getLayoutX(), card.getLayoutY(),
+                        card.getPrefWidth(), card.getPrefHeight()))) {
+                    touched.add(id);
+                }
+            });
+            setSelection(document.nodes().stream().map(CanvasNode::id).filter(touched::contains).toList());
+        });
+    }
+
+    /** Whether a mouse event landed on the empty canvas rather than on a card, edge or control. */
+    private boolean isBackground(Object target) {
+        return target == viewport || target == world || target == worldGroup
+                || (target instanceof Label label && label.getStyleClass().contains("canvas-empty"));
     }
 
     private void installCanvasDrops() {
