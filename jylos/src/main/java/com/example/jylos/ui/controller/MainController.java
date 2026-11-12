@@ -746,11 +746,23 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             }
             Platform.runLater(() -> onVaultContentLoaded(generation));
         });
+        // Long notes are read in full in the background: once their links are known, backlinks
+        // and the title index are rebuilt from them.
+        noteDAO.setOnLinksIndexed(() -> {
+            if (!isActiveBackendSession(generation)) {
+                return;
+            }
+            if (backlinkService != null) {
+                backlinkService.invalidate();
+            }
+            com.example.jylos.service.NoteTitleIndex.getInstance().invalidate();
+        });
     }
 
     private void disposeCurrentBackendSession() {
         if (noteDAO != null) {
             noteDAO.setOnContentLoaded(null);
+            noteDAO.setOnLinksIndexed(null);
         }
         if (backlinkService != null) {
             backlinkService.shutdown();

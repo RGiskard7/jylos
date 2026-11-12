@@ -187,6 +187,17 @@ public interface NoteDAO {
     }
 
     /**
+     * Registers a callback invoked, off the UI thread, when a background pass has indexed the
+     * links of notes that the list only read in part (file-based storage with long notes).
+     * Backends that always know a note's links have nothing to report: no-op by default.
+     *
+     * @param callback action to run (may be {@code null} to clear)
+     */
+    default void setOnLinksIndexed(Runnable callback) {
+        // No-op: links are always complete.
+    }
+
+    /**
      * Resolves the on-disk file backing a note, when the storage is file-based.
      *
      * @param id note id

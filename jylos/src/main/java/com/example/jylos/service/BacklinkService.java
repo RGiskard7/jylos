@@ -58,7 +58,7 @@ public class BacklinkService {
     /** True once the whole current vault snapshot has been indexed. */
     private volatile boolean fullIndexBuilt;
     /** Bumped whenever {@link #forward} changes, so the inverse map knows it is stale. */
-    private volatile long forwardRevision;
+    private final java.util.concurrent.atomic.AtomicLong forwardRevision = new java.util.concurrent.atomic.AtomicLong();
     private Inverse inverse;
 
     private record CachedLinks(String modified, List<String> links) {
@@ -113,7 +113,7 @@ public class BacklinkService {
     public void invalidate() {
         forward.clear();
         fullIndexBuilt = false;
-        forwardRevision++;
+        forwardRevision.incrementAndGet();
     }
 
     private void ensureFullIndex() {
@@ -136,7 +136,7 @@ public class BacklinkService {
     /** The inverse map for the current link index, rebuilt in memory when stale. */
     private synchronized Map<String, Set<String>> inverse() {
         LinkIndex links = noteService.linkIndex();
-        long revision = forwardRevision;
+        long revision = forwardRevision.get();
         Inverse current = inverse;
         if (current != null && current.links() == links && current.revision() == revision) {
             return current.byTarget();
@@ -175,13 +175,13 @@ public class BacklinkService {
             links = WikiLinkResolver.extractRawLinks(note.getContent() == null ? "" : note.getContent());
         }
         forward.put(id, new CachedLinks(modified, List.copyOf(links)));
-        forwardRevision++;
+        forwardRevision.incrementAndGet();
     }
 
     /** Removes a note from the index (on deletion). */
     private void removeFromIndex(String id) {
         if (id != null && forward.remove(id) != null) {
-            forwardRevision++;
+            forwardRevision.incrementAndGet();
         }
     }
 

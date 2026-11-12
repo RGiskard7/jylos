@@ -12,12 +12,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
@@ -59,6 +61,17 @@ public class NoteDAOFileSystem implements NoteDAO {
     /** Body characters kept on cached notes for the notes list preview. */
     private static final int LIGHTWEIGHT_BODY_CHARS = 900;
     private volatile long lastPruneTimestampMs = 0L;
+
+    // Notes longer than the head read for the list: their links come from the persistent
+    // cache, or from a full read in the background (see indexLongNotes).
+    private final LinkCache linkCache;
+    /** Long notes whose links so far cover only the head read. */
+    private final Set<String> pendingLongNotes = ConcurrentHashMap.newKeySet();
+    /** Every long note of the vault, to drop the cache entries of notes that are gone. */
+    private final Set<String> longNoteIds = ConcurrentHashMap.newKeySet();
+    private final AtomicBoolean longNoteIndexingScheduled = new AtomicBoolean();
+    private volatile boolean autoIndexLongNotes;
+    private volatile Runnable onLinksIndexed;
     private volatile boolean notesByFolderIndexDirty = true;
 
     // Deferred (background) content-load coordination — see the two-arg constructor.
@@ -87,6 +100,16 @@ public class NoteDAOFileSystem implements NoteDAO {
      *        When {@code false}, contents load synchronously.
      */
     public NoteDAOFileSystem(String rootDirectory, boolean deferContentLoad) {
+        this(rootDirectory, deferContentLoad, null);
+    }
+
+    /**
+     * @param linkCacheFile where the links of long notes are kept between sessions, or
+     *        {@code null} to index them again on every start (see {@link LinkCache})
+     */
+    public NoteDAOFileSystem(String rootDirectory, boolean deferContentLoad, Path linkCacheFile) {
+        this.linkCache = linkCacheFile != null ? LinkCache.load(linkCacheFile) : LinkCache.inMemory();
+        this.autoIndexLongNotes = deferContentLoad;
         this.rootPath = Paths.get(rootDirectory);
         this.metadataStore = new FileSystemDocumentMetadataStore(this.rootPath);
         if (!Files.exists(rootPath)) {
@@ -115,6 +138,78 @@ public class NoteDAOFileSystem implements NoteDAO {
     public void refreshCache() {
         metadataStore.clearCache();
         rebuildCache(this::createLightweightNote);
+        scheduleLongNoteIndexing();
+    }
+
+    /** Long notes whose links still cover only the head read; {@link #indexLongNotes()} reads them in full. */
+    public int pendingLongNoteCount() {
+        return pendingLongNotes.size();
+    }
+
+    /** Called (off the FX thread) after {@link #indexLongNotes()} found links the list had not read. */
+    @Override
+    public void setOnLinksIndexed(Runnable callback) {
+        this.onLinksIndexed = callback;
+    }
+
+    /**
+     * Reads in full every long note whose links are not in the cache, stores the result (in
+     * memory, on the cached notes, and on disk) and reports it through
+     * {@link #setOnLinksIndexed(Runnable)} when anything was read. Slow on a big or
+     * cloud-backed vault, so it runs on a background thread after the list has loaded.
+     *
+     * @return how many notes were read
+     */
+    public int indexLongNotes() {
+        int indexed = 0;
+        for (String id : new ArrayList<>(pendingLongNotes)) {
+            Path path = idToPathMap.get(id);
+            if (path == null) {
+                pendingLongNotes.remove(id);
+                continue;
+            }
+            try {
+                // Stat before reading: if the file changes meanwhile the entry is merely
+                // outdated and the next start reads it again.
+                java.nio.file.attribute.BasicFileAttributes attrs =
+                        Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class);
+                String content = Files.readString(path, java.nio.charset.StandardCharsets.UTF_8);
+                List<String> links = WikiLinkResolver.extractRawLinks(FrontmatterHandler.stripFrontmatter(content));
+                linkCache.put(id, attrs.lastModifiedTime().toMillis(), attrs.size(), links);
+                cachedNotes.computeIfPresent(id, (key, note) -> {
+                    note.setLinkTargets(links);
+                    return note;
+                });
+                indexed++;
+            } catch (IOException | RuntimeException e) {
+                logger.log(Level.FINE, "Could not index links of " + id, e);
+            }
+            pendingLongNotes.remove(id);
+        }
+        linkCache.retainOnly(longNoteIds);
+        linkCache.save();
+        Runnable callback = onLinksIndexed;
+        if (indexed > 0 && callback != null) {
+            runCallbackSafely(callback);
+        }
+        return indexed;
+    }
+
+    /** Runs {@link #indexLongNotes()} once on a daemon thread, if the DAO indexes on its own. */
+    private void scheduleLongNoteIndexing() {
+        if (!autoIndexLongNotes || pendingLongNotes.isEmpty()
+                || !longNoteIndexingScheduled.compareAndSet(false, true)) {
+            return;
+        }
+        Thread indexer = new Thread(() -> {
+            try {
+                indexLongNotes();
+            } finally {
+                longNoteIndexingScheduled.set(false);
+            }
+        }, "vault-long-note-indexer");
+        indexer.setDaemon(true);
+        indexer.start();
     }
 
     @Override
@@ -169,6 +264,8 @@ public class NoteDAOFileSystem implements NoteDAO {
         try {
             idToPathMap.clear();
             cachedNotes.clear();
+            pendingLongNotes.clear();
+            longNoteIds.clear();
             try (Stream<Path> walk = Files.walk(rootPath)) {
                 // Parallel walk for faster initial load of thousands of files.
                 walk.filter(Files::isRegularFile)
@@ -240,6 +337,8 @@ public class NoteDAOFileSystem implements NoteDAO {
             } finally {
                 markContentLoaded();
             }
+            // After the list is usable: reading long notes in full may block on a cloud download.
+            scheduleLongNoteIndexing();
         }, "vault-content-loader-main");
         loader.setDaemon(true);
         loader.start();
@@ -332,7 +431,23 @@ public class NoteDAOFileSystem implements NoteDAO {
             // Index outgoing links from the (untruncated) content head already read, so the
             // backlink index needs no second full-file read per note — critical on large or
             // cloud-backed vaults where each read can block on an on-demand download.
-            note.setLinkTargets(WikiLinkResolver.extractRawLinks(FrontmatterHandler.stripFrontmatter(head)));
+            List<String> links = WikiLinkResolver.extractRawLinks(FrontmatterHandler.stripFrontmatter(head));
+            // A longer file has links the head does not show: take them from the cache when the
+            // file is unchanged, and queue it for a full read in the background otherwise.
+            java.nio.file.attribute.BasicFileAttributes attrs =
+                    Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class);
+            if (attrs.size() > LIGHTWEIGHT_READ_BYTES && filename.endsWith(".md")) {
+                longNoteIds.add(id);
+                java.util.Optional<List<String>> cached =
+                        linkCache.get(id, attrs.lastModifiedTime().toMillis(), attrs.size());
+                if (cached.isPresent()) {
+                    links = cached.get();
+                    pendingLongNotes.remove(id);
+                } else {
+                    pendingLongNotes.add(id);
+                }
+            }
+            note.setLinkTargets(links);
             return note;
         } catch (IOException | RuntimeException e) {
             logger.log(Level.FINE, "Failed lightweight read for: " + path, e);
