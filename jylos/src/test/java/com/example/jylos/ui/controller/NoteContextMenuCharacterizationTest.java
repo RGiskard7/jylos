@@ -126,9 +126,9 @@ class NoteContextMenuCharacterizationTest {
 
     private static List<String> expected(String pin, String favorite, String privacy, String delete) {
         List<String> out = new ArrayList<>(List.of("Abrir", "Abrir en pestaña nueva", pin, favorite, privacy,
-                "Renombrar", "Mover a Carpeta..."));
+                "Renombrar", "Mover a Carpeta...", "Duplicar"));
         if (FILE_VAULT) {
-            out.add("Mostrar en el explorador de archivos");
+            out.addAll(List.of("Copiar ruta", "Abrir en la app por defecto", "Mostrar en el explorador de archivos"));
         }
         out.addAll(List.of("Exportar nota…", "---", delete, "---", "Plugin: contar"));
         return out;

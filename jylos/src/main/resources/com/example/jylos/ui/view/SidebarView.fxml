@@ -50,18 +50,15 @@
                          <tooltip><Tooltip text="%action.sort_folders"/></tooltip>
                          <graphic><FontIcon iconLiteral="fth-filter" iconSize="14" styleClass="feather-icon"/></graphic>
                     </Button>
-                    <!-- Explorer layout only: show the open note in the tree. -->
-                    <Button fx:id="revealActiveNoteBtn" onAction="#handleRevealActiveNote" styleClass="icon-btn" visible="false" managed="false">
-                          <tooltip><Tooltip text="%action.reveal_active_note"/></tooltip>
+                    <!-- Explorer layout only: keep the tree on the note open in the editor. -->
+                    <ToggleButton fx:id="revealActiveNoteBtn" onAction="#handleToggleAutoReveal" styleClass="icon-btn" visible="false" managed="false">
+                          <tooltip><Tooltip text="%explorer.auto_reveal"/></tooltip>
                          <graphic><FontIcon iconLiteral="fth-crosshair" iconSize="14" styleClass="feather-icon"/></graphic>
-                    </Button>
-                    <Button onAction="#handleExpandAllFolders" styleClass="icon-btn">
+                    </ToggleButton>
+                    <!-- Expands everything, or collapses it when something is open (icon and tooltip follow). -->
+                    <Button fx:id="expandCollapseBtn" onAction="#handleToggleExpandAll" styleClass="icon-btn">
                           <tooltip><Tooltip text="%action.expand_all"/></tooltip>
-                         <graphic><FontIcon iconLiteral="fth-maximize-2" iconSize="14" styleClass="feather-icon"/></graphic>
-                    </Button>
-                    <Button onAction="#handleCollapseAllFolders" styleClass="icon-btn">
-                          <tooltip><Tooltip text="%action.collapse_all"/></tooltip>
-                         <graphic><FontIcon iconLiteral="fth-minimize-2" iconSize="14" styleClass="feather-icon"/></graphic>
+                         <graphic><FontIcon iconLiteral="fth-chevrons-down" iconSize="14" styleClass="feather-icon"/></graphic>
                     </Button>
                 </HBox>
                 <TreeView fx:id="folderTreeView" showRoot="true" styleClass="sidebar-tree" VBox.vgrow="ALWAYS"/>

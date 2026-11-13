@@ -4802,3 +4802,12 @@
 .root .links-empty {
     -fx-padding: 2 4 2 4;
 }
+
+/* A header switch that is on (the Explorer's "show the current file"): the icon in the accent colour. */
+.icon-btn:selected .feather-icon,
+.icon-btn:selected .ikonli-font-icon {
+    -fx-icon-color: -fx-accent;
+}
+
+/* The name field of an Explorer row being renamed. */
+.explorer-rename-field { -fx-padding: 0 4; -fx-background-radius: 4; }

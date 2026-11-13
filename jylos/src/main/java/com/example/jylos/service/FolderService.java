@@ -79,7 +79,17 @@ public class FolderService {
      * @return The created subfolder
      */
     public Folder createSubfolder(String title, Folder parentFolder) {
-        Folder subfolder = createFolder(title);
+        // Created in its parent directly: created at the root and then moved, it took a "(1)"
+        // whenever the root had a folder with the same name.
+        Folder subfolder = new Folder(title);
+        if (parentFolder != null && parentFolder.getId() != null) {
+            subfolder.setParent(parentFolder);
+        }
+        String folderId = folderDAO.createFolder(subfolder);
+        if (folderId == null || folderId.isEmpty()) {
+            throw new DataAccessException("Failed to create folder: " + title, null);
+        }
+        subfolder.setId(folderId);
         if (parentFolder != null && parentFolder.getId() != null) {
             folderDAO.addSubFolder(parentFolder, subfolder);
             logger.info("Added subfolder '" + title + "' to parent: " + parentFolder.getTitle());

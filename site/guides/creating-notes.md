@@ -61,10 +61,12 @@ Move notes between folders, add tags, and mark favorites from the sidebar. Notes
 
 In the **Explorer** layout, the header above the tree has:
 
-- a **filter** that searches note and folder names across the whole vault (case and accents are ignored) and shows the matches inside their folders;
+- a **filter** that searches names and paths (`work/minutes`) across the whole vault (case and accents are ignored) and shows the matches inside their folders;
 - the **note order** (name, last edited or created);
-- a button that shows the **open note** in the tree, opening its folders;
-- **expand** and **collapse**.
+- **Auto-reveal current file**: when on, the tree opens the folders of the note you open and selects it;
+- one button to **expand all** or **collapse all**.
+
+Folders you leave open stay open next time. In the tree, **F2** (or **Rename** in the menu) renames in the row itself: Enter applies, Escape cancels. A new folder is created as "Untitled", ready for its name, and a new note as "Untitled". Holding a dragged note over a closed folder opens it. The note menu also has **Make a copy**, **Copy path** and **Open in default app**.
 
 **Show note count next to each folder** (Preferences) applies to both layouts.
 

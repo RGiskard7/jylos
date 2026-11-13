@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+- **Explorador de archivos como en Obsidian.**
+  - **Renombrar en la propia fila:** F2 o "Renombrar" en el menú del Explorador ponen el nombre en un campo dentro de la fila; Enter (o hacer clic fuera) lo aplica y Escape lo deja como estaba. Sin diálogo.
+  - **Nota y carpeta nuevas sin pedir nombre:** una nota nueva se crea como "Sin título" (o "Sin título 1", "Sin título 2"…, el primero libre) con el título seleccionado para escribir el nombre; en el Explorador, una carpeta nueva se crea como "Sin nombre" con su nombre listo para cambiar en la fila.
+  - **"Mostrar automáticamente el archivo actual":** un interruptor en la cabecera del Explorador que, activado, abre las carpetas de la nota que abres y la selecciona. Se recuerda. Sustituye al botón de mostrar la nota abierta.
+  - **Un solo botón "Expandir todo" / "Colapsar todo"**, que cambia de icono y de texto según lo que hará.
+  - **Las carpetas que dejas abiertas siguen abiertas** la próxima vez que abres la aplicación.
+  - **El filtro busca también en la ruta:** "trabajo/acta" encuentra las notas "Acta…" de la carpeta Trabajo.
+  - **Al arrastrar una nota y mantenerla sobre una carpeta cerrada, la carpeta se abre** a los tres cuartos de segundo, para poder soltarla más adentro.
+  - **Nuevas opciones en el menú de las notas:** "Duplicar" (crea "Nota 1" junto a la original, con el mismo contenido y propiedades; también para canvas), "Copiar ruta" y "Abrir en la app por defecto".
+  - **Crear una subcarpeta con el mismo nombre que otra de la raíz ya no le añade "(1)".** Se creaba en la raíz y luego se movía.
+
 - **Canvas más cómodo, como en Obsidian.**
   - **Aristas curvas:** salen y llegan a cada tarjeta perpendiculares a su lado, con la flecha orientada según la curva y la etiqueta en su centro.
   - **Selección múltiple:** arrastrar sobre el fondo dibuja un recuadro que selecciona las tarjetas que toca; Mayús+clic o Cmd/Ctrl+clic añade o quita tarjetas, y Cmd/Ctrl+A las selecciona todas. Al arrastrar una tarjeta seleccionada se mueve toda la selección, y Supr la borra entera.

@@ -1,5 +1,6 @@
 package com.example.jylos.ui.controller;
 
+import javafx.application.Platform;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -42,6 +43,8 @@ final class NoteCreationSupport {
     private Consumer<String> requestSelectAfterRefresh;
     private Runnable refreshNotes;
     private Runnable refreshSidebar;
+    private Runnable beginTitleRename = () -> {
+    };
 
     void wire(NoteService noteService, NoteOperations noteOperations, BooleanSupplier fileSystemStorage,
             Function<String, String> i18n, Consumer<String> status, Supplier<Window> windowSupplier,
@@ -62,13 +65,53 @@ final class NoteCreationSupport {
         this.refreshSidebar = refreshSidebar;
     }
 
+    /** What leaves a new untitled note's title ready to rename (the editor focuses it). */
+    void setBeginTitleRename(Runnable action) {
+        beginTitleRename = action != null ? action : () -> {
+        };
+    }
+
+    /** A new note, as in Obsidian: "Sin título" (or the first free "Sin título N"), its title ready to rename. */
     void createNewNote() {
-        createAndOpenNote(getString("action.new_note"), "", currentFolder(), "status.note_created");
+        createNewNoteInFolder(currentFolder());
     }
 
     /** Creates a regular note in the explicit folder chosen by a contextual action. */
     void createNewNoteInFolder(Folder folder) {
-        createAndOpenNote(getString("action.new_note"), "", folder, "status.note_created");
+        if (createAndOpenNote(untitledTitle(folder), "", folder, "status.note_created")) {
+            Platform.runLater(beginTitleRename);
+        }
+    }
+
+    /** "Sin título", or the first "Sin título N" that no note in {@code folder} has. */
+    private String untitledTitle(Folder folder) {
+        String base = getString("app.untitled");
+        if (noteService == null) {
+            return base;
+        }
+        boolean inFolder = folder != null && folder.getId() != null && !folder.getId().isBlank()
+                && !"ROOT".equals(folder.getId());
+        List<String> taken = new ArrayList<>();
+        try {
+            if (isFileSystem()) {
+                // A note's folder is the path of its id ("Folder/Note.md").
+                String dir = inFolder ? folder.getId().replace('\\', '/') : "";
+                for (Note note : noteService.getAllNotes()) {
+                    String id = note.getId() != null ? note.getId().replace('\\', '/') : "";
+                    int slash = id.lastIndexOf('/');
+                    if ((slash < 0 ? "" : id.substring(0, slash)).equals(dir)) {
+                        taken.add(note.getTitle());
+                    }
+                }
+            } else {
+                List<Note> siblings = inFolder ? noteService.getNotesByFolder(folder)
+                        : noteService.getAllNotes().stream().filter(n -> n.getParent() == null).toList();
+                siblings.forEach(n -> taken.add(n.getTitle()));
+            }
+        } catch (RuntimeException e) {
+            // Without the list, the storage still avoids overwriting: it numbers the file.
+        }
+        return com.example.jylos.util.UntitledNames.next(base, taken);
     }
 
     /** Creates an empty note named {@code title} (a link to it that did not exist yet) and opens it. */
@@ -145,18 +188,19 @@ final class NoteCreationSupport {
         });
     }
 
-    private void createAndOpenNote(String title, String content, Folder folder, String successStatusKey) {
+    private boolean createAndOpenNote(String title, String content, Folder folder, String successStatusKey) {
         if (noteOperations == null) {
             updateStatus(getString("status.error_creating_note"));
-            return;
+            return false;
         }
         NoteOperations.NoteCreationResult creation =
                 noteOperations.createNewNote(title, content, folder, isFileSystem());
         if (!creation.success() || creation.note() == null) {
             updateStatus(getString("status.error_creating_note"));
-            return;
+            return false;
         }
         handleCreatedNote(creation.note(), successStatusKey);
+        return true;
     }
 
     private void handleCreatedNote(Note note, String successStatusKey) {

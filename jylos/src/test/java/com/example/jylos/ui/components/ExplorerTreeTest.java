@@ -362,6 +362,174 @@ class ExplorerTreeTest {
     }
 
     @Test
+    void theFilterAlsoMatchesThePathOfEachNote() throws Exception {
+        assumeFx();
+        FakeVault vault = nestedVault();
+        Holder h = new Holder();
+        onFx(() -> {
+            h.tree = new ExplorerTree(vault, Runnable::run, key -> key);
+            h.tree.setRoot(new Folder("ROOT", "Vault"));
+            h.tree.setFilter("reuniones/acta");
+            return null;
+        });
+        assertEquals(List.of("Trabajo", "  Reuniones", "    Acta semanal"),
+                settle(() -> outline(h.tree.getView().getRoot(), "")));
+
+        onFx(() -> {
+            h.tree.setFilter("trabajo/presu");
+            return null;
+        });
+        assertEquals(List.of("Trabajo", "  Presupuesto"), settle(() -> outline(h.tree.getView().getRoot(), "")),
+                "a folder in the query does not bring in the rest of its notes");
+    }
+
+    @Test
+    void theFoldersLeftOpenOpenAgainAndOpeningOrClosingOneIsReported() throws Exception {
+        assumeFx();
+        FakeVault vault = nestedVault();
+        Holder h = new Holder();
+        List<java.util.Set<String>> reported = new ArrayList<>();
+        onFx(() -> {
+            h.tree = new ExplorerTree(vault, Runnable::run, key -> key);
+            h.tree.setOpenFolders(java.util.Set.of("folder:t", "folder:t/r"));
+            h.tree.setOnOpenFoldersChanged(reported::add);
+            h.tree.setRoot(new Folder("ROOT", "Vault"));
+            return null;
+        });
+        assertEquals(List.of("Árbol genealógico", "Trabajo", "  Reuniones", "    Acta semanal", "  Acta 2",
+                "  Acta 10", "  Presupuesto", "Inicio"), settle(() -> outline(h.tree.getView().getRoot(), "")));
+
+        onFx(() -> {
+            h.tree.getView().getRoot().getChildren().get(0).setExpanded(true);
+            h.tree.getView().getRoot().getChildren().get(1).setExpanded(false);
+            return null;
+        });
+        settle(() -> null);
+        assertEquals(java.util.Set.of("folder:a", "folder:t/r"), reported.get(reported.size() - 1),
+                "a closed folder is forgotten; the folder inside it keeps its own state");
+    }
+
+    @Test
+    void holdingADragOverAClosedFolderOpensItAfterAMoment() throws Exception {
+        assumeFx();
+        Holder h = shown(nestedVault(), new ArrayList<>());
+        onFx(() -> {
+            fireDrag(h.cell("Trabajo"), javafx.scene.input.DragEvent.DRAG_ENTERED);
+            fireDrag(h.cell("Trabajo"), javafx.scene.input.DragEvent.DRAG_EXITED);
+            fireDrag(h.cell("Árbol genealógico"), javafx.scene.input.DragEvent.DRAG_ENTERED);
+            return null;
+        });
+        Thread.sleep(400);
+        boolean tooSoon = onFx(() -> h.tree.getView().getRoot().getChildren().get(0).isExpanded());
+        Thread.sleep(600);
+        List<Boolean> after = onFx(() -> List.of(h.tree.getView().getRoot().getChildren().get(0).isExpanded(),
+                h.tree.getView().getRoot().getChildren().get(1).isExpanded()));
+        onFx(() -> {
+            h.stage.close();
+            return null;
+        });
+
+        assertFalse(tooSoon, "not before 750 ms");
+        assertEquals(List.of(true, false), after, "the folder held over opens; the one left does not");
+    }
+
+    private static void fireDrag(Node target, javafx.event.EventType<javafx.scene.input.DragEvent> type) {
+        javafx.geometry.Bounds b = target.localToScene(target.getLayoutBounds());
+        javafx.event.Event.fireEvent(target, new javafx.scene.input.DragEvent(type, null, b.getCenterX(), b.getCenterY(),
+                b.getCenterX(), b.getCenterY(), javafx.scene.input.TransferMode.MOVE, null, null, null));
+    }
+
+    @Test
+    void f2RenamesTheSelectedRowInPlaceAndEnterAppliesTheNewName() throws Exception {
+        assumeFx();
+        Holder h = shown(nestedVault(), new ArrayList<>());
+        List<String> renamed = new ArrayList<>();
+        List<String> seen = onFx(() -> {
+            h.tree.setOnRename((item, name) -> renamed.add(item.getTitle() + " -> " + name));
+            TreeItem<Component> inicio = h.tree.getView().getRoot().getChildren().get(2);
+            h.tree.getView().getSelectionModel().select(inicio);
+            key(h.tree.getView(), javafx.scene.input.KeyCode.F2);
+            return null;
+        });
+        javafx.scene.control.TextField field = settle(() -> renameField(h));
+        String shownText = onFx(field::getText);
+        onFx(() -> {
+            field.setText("Portada");
+            key(field, javafx.scene.input.KeyCode.ENTER);
+            return null;
+        });
+        boolean fieldGone = settle(() -> h.tree.getView().lookup(".explorer-rename-field") == null
+                || !h.tree.getView().lookup(".explorer-rename-field").isVisible()
+                || h.tree.getView().lookup(".explorer-rename-field").getScene() == null);
+        onFx(() -> {
+            h.stage.close();
+            return null;
+        });
+
+        assertEquals("Inicio", shownText, "the field starts with the current name");
+        assertEquals(List.of("Inicio -> Portada"), renamed);
+        assertTrue(fieldGone);
+    }
+
+    @Test
+    void escapeLeavesTheNameAsItWas() throws Exception {
+        assumeFx();
+        Holder h = shown(nestedVault(), new ArrayList<>());
+        List<String> renamed = new ArrayList<>();
+        onFx(() -> {
+            h.tree.setOnRename((item, name) -> renamed.add(name));
+            h.tree.startRename(h.tree.getView().getRoot().getChildren().get(1).getValue());
+            return null;
+        });
+        javafx.scene.control.TextField field = settle(() -> renameField(h));
+        onFx(() -> {
+            field.setText("Otra cosa");
+            key(field, javafx.scene.input.KeyCode.ESCAPE);
+            return null;
+        });
+        String label = settle(() -> h.cell("Trabajo").getText() == null ? "Trabajo" : h.cell("Trabajo").getText());
+        onFx(() -> {
+            h.stage.close();
+            return null;
+        });
+        assertEquals(List.of(), renamed);
+        assertEquals("Trabajo", label);
+    }
+
+    @Test
+    void anItemAskedToBeRenamedBeforeItIsShownIsRenamedOnceItAppears() throws Exception {
+        assumeFx();
+        FakeVault vault = nestedVault();
+        Holder h = shown(vault, new ArrayList<>());
+        Folder created = new Folder("Sin nombre", "Sin nombre");
+        onFx(() -> {
+            vault.folders.get("ROOT").add(created);
+            h.tree.startRename(created);
+            h.tree.refresh();
+            return null;
+        });
+        javafx.scene.control.TextField field = settle(() -> renameField(h));
+        String text = onFx(field::getText);
+        onFx(() -> {
+            h.stage.close();
+            return null;
+        });
+        assertEquals("Sin nombre", text);
+    }
+
+    private static javafx.scene.control.TextField renameField(Holder h) {
+        h.layout();
+        Node node = h.tree.getView().lookup(".explorer-rename-field");
+        assertTrue(node instanceof javafx.scene.control.TextField && node.getScene() != null, "no rename field shown");
+        return (javafx.scene.control.TextField) node;
+    }
+
+    private static void key(Node target, javafx.scene.input.KeyCode code) {
+        javafx.event.Event.fireEvent(target, new javafx.scene.input.KeyEvent(javafx.scene.input.KeyEvent.KEY_PRESSED,
+                "", "", code, false, false, false, false));
+    }
+
+    @Test
     void clearingTheFilterBringsBackTheTreeAsItWas() throws Exception {
         assumeFx();
         FakeVault vault = nestedVault();

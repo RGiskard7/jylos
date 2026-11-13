@@ -570,7 +570,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             notesListController.setCloseResultsAction(this::closeResultsPanel);
             notesListController.setCurrentNoteSupplier(this::getCurrentNote);
             if (sidebarController != null) {
-                sidebarController.setExplorerNoteMenu(notesListController::noteContextMenu);
+                sidebarController.setExplorerNoteMenu(
+                        note -> notesListController.noteContextMenu(note, sidebarController::renameInExplorer));
+                sidebarController.setExplorerRenameNoteAction(notesListController::renameNoteTo);
             }
             notesPanel = notesListController.getNotesPanel();
             sortComboBox = notesListController.getSortComboBox();
@@ -649,6 +651,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         });
         historySupport.wire(noteService, this::getString, this::updateStatus, sceneSupplier,
                 this::getCurrentNote, this::loadNoteInEditor);
+        noteCreationSupport.setBeginTitleRename(() -> {
+            if (editorController != null) {
+                editorController.beginTitleRename();
+            }
+        });
         noteCreationSupport.wire(noteService, noteOperations,
                 () -> !"sqlite".equals(prefs.get("storage_type", "sqlite")),
                 this::getString, this::updateStatus,
@@ -2805,6 +2812,18 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     @FXML
     void handleNewFolder(ActionEvent event) {
         boolean createInRoot = currentFolder == null;
+        // In the Explorer, as in Obsidian: the folder is created as "Sin nombre" and renamed in its row.
+        if (sidebarController != null && sidebarController.isExplorerMode()) {
+            FolderOperations.FolderCreationResult untitled = folderOperations.createUntitledFolder(
+                    getString("app.untitled_folder"), currentFolder, createInRoot);
+            if (!untitled.success() || untitled.folder() == null) {
+                updateStatus(getString("status.error_creating_folder"));
+                return;
+            }
+            sidebarController.renameInExplorer(untitled.folder());
+            sidebarController.loadFolders();
+            return;
+        }
         TextInputDialog dialog = new TextInputDialog("");
         dialog.setTitle(getString("dialog.new_folder.title"));
         dialog.setHeaderText(createInRoot

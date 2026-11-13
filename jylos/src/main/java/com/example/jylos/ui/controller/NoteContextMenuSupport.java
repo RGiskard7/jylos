@@ -25,12 +25,19 @@ public final class NoteContextMenuSupport {
     /** What each entry does with the note it was opened on. */
     public record Actions(Consumer<Note> open, Consumer<Note> openInNewTab, Consumer<Note> togglePin,
             Consumer<Note> toggleFavorite, Consumer<Note> togglePrivacy, Consumer<Note> rename,
-            Consumer<Note> move, Consumer<Note> reveal, Consumer<Note> export, Consumer<Note> moveToTrash) {
+            Consumer<Note> move, Consumer<Note> reveal, Consumer<Note> export, Consumer<Note> moveToTrash,
+            Consumer<Note> duplicate, Consumer<Note> copyPath, Consumer<Note> openInDefaultApp) {
 
         /** The same actions with a different "Open". */
         public Actions withOpen(Consumer<Note> otherOpen) {
             return new Actions(otherOpen, openInNewTab, togglePin, toggleFavorite, togglePrivacy, rename, move,
-                    reveal, export, moveToTrash);
+                    reveal, export, moveToTrash, duplicate, copyPath, openInDefaultApp);
+        }
+
+        /** The same actions with a different "Rename" (the Explorer renames in the row itself). */
+        public Actions withRename(Consumer<Note> otherRename) {
+            return new Actions(open, openInNewTab, togglePin, toggleFavorite, togglePrivacy, otherRename, move,
+                    reveal, export, moveToTrash, duplicate, copyPath, openInDefaultApp);
         }
     }
 
@@ -54,8 +61,17 @@ public final class NoteContextMenuSupport {
                         actions.togglePrivacy()),
                 item(i18n.apply("action.rename"), note, actions.rename()),
                 item(i18n.apply("action.move_to"), note, actions.move()));
+        // Images and PDFs are files, not notes: only notes and canvases are copied.
+        String title = note.getTitle() != null ? note.getTitle() : "";
+        if (!com.example.jylos.util.AttachmentType.isAttachment(title)
+                || title.toLowerCase(java.util.Locale.ROOT).endsWith(".canvas")) {
+            menu.getItems().add(item(i18n.apply("action.duplicate"), note, actions.duplicate()));
+        }
         if (fileVault) {
-            menu.getItems().add(item(i18n.apply("action.reveal_in_files"), note, actions.reveal()));
+            menu.getItems().addAll(
+                    item(i18n.apply("action.copy_path"), note, actions.copyPath()),
+                    item(i18n.apply("action.open_default_app"), note, actions.openInDefaultApp()),
+                    item(i18n.apply("action.reveal_in_files"), note, actions.reveal()));
         }
         MenuItem moveToTrash = item(i18n.apply("action.move_to_trash"), note, actions.moveToTrash());
         moveToTrash.setDisable(note.isPrivate());

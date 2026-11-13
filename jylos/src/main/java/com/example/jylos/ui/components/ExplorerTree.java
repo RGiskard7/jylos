@@ -25,6 +25,8 @@ import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
 import com.example.jylos.util.AttachmentType;
 
 import javafx.application.Platform;
+import javafx.scene.input.DragEvent;
+import javafx.animation.PauseTransition;
 import javafx.beans.value.ChangeListener;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -59,6 +61,9 @@ public final class ExplorerTree {
 
     private static final Logger logger = LoggerConfig.getLogger(ExplorerTree.class);
 
+    /** How long a drag has to stay over a closed folder for it to open. */
+    static final javafx.util.Duration DRAG_HOLD_TO_OPEN = javafx.util.Duration.millis(750);
+
     /** Style class of the row showing the note open in the editor. */
     public static final String ACTIVE_NOTE_STYLE = "explorer-active-note";
     private static final String LOADING_STYLE = "explorer-loading-row";
@@ -91,6 +96,17 @@ public final class ExplorerTree {
     private final Executor loader;
     private final Function<String, String> i18n;
     private final TreeView<Component> view = new TreeView<>();
+    /** The folders left open, by key, so they open again (also in the next session). */
+    private final java.util.Set<String> openFolders = new java.util.LinkedHashSet<>();
+    private Consumer<java.util.Set<String>> onOpenFoldersChanged = keys -> {
+    };
+    private BiConsumer<Component, String> onRename = (item, name) -> {
+    };
+    /** The name field shown in the row being renamed, and the item it renames (or null). */
+    private final javafx.scene.control.TextField renameField = new javafx.scene.control.TextField();
+    private Component renaming;
+    /** An item to rename as soon as it appears in the tree (it was just created). */
+    private String pendingRenameKey;
 
     private SortOption noteSort = SortOption.TITLE_ASC;
     private BiConsumer<Note, OpenTarget> onOpenNote = (note, target) -> {
@@ -129,6 +145,21 @@ public final class ExplorerTree {
         view.getStyleClass().add("explorer-tree");
         view.setCellFactory(tv -> new ExplorerCell());
         view.addEventFilter(KeyEvent.KEY_PRESSED, this::handleKey);
+        renameField.getStyleClass().add("explorer-rename-field");
+        renameField.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                commitRename();
+                event.consume();
+            } else if (event.getCode() == KeyCode.ESCAPE) {
+                cancelRename();
+                event.consume();
+            }
+        });
+        renameField.focusedProperty().addListener((obs, was, now) -> {
+            if (!now && renaming != null) {
+                commitRename();
+            }
+        });
     }
 
     public TreeView<Component> getView() {
@@ -137,7 +168,7 @@ public final class ExplorerTree {
 
     /** Shows the contents of {@code root} (the vault root itself is not a row) and reads it. */
     public void setRoot(Folder root) {
-        FolderItem item = new FolderItem(root);
+        FolderItem item = new FolderItem(root, false);
         lazyRoot = item;
         index = null;
         indexGeneration++;
@@ -145,6 +176,94 @@ public final class ExplorerTree {
         filterGeneration++;
         view.setRoot(item);
         item.setExpanded(true);
+    }
+
+    /** The folders left open (their keys), opened again as they are shown. Call before {@link #setRoot}. */
+    public void setOpenFolders(java.util.Collection<String> keys) {
+        openFolders.clear();
+        openFolders.addAll(keys);
+    }
+
+    /** Told the open folders (their keys) whenever one is opened or closed, to remember them. */
+    public void setOnOpenFoldersChanged(Consumer<java.util.Set<String>> listener) {
+        onOpenFoldersChanged = listener != null ? listener : keys -> {
+        };
+    }
+
+    /** What renaming a row does: the owner renames the note or folder; the tree only asks for the name. */
+    public void setOnRename(BiConsumer<Component, String> action) {
+        onRename = action != null ? action : (item, name) -> {
+        };
+    }
+
+    /**
+     * Puts a name field in the row of {@code item}, with the name selected (without the extension
+     * of a file such as a canvas). Enter or leaving the field renames; Escape leaves it as it was.
+     * If the item is not in the tree yet (just created), the field appears once it is.
+     */
+    public void startRename(Component item) {
+        if (item == null) {
+            return;
+        }
+        TreeItem<Component> row = find(view.getRoot(), key(item));
+        if (row == null) {
+            pendingRenameKey = key(item);
+            return;
+        }
+        pendingRenameKey = null;
+        renaming = row.getValue();
+        String name = renaming.getTitle() != null ? renaming.getTitle() : "";
+        renameField.setText(name);
+        view.getSelectionModel().select(row);
+        int index = view.getRow(row);
+        if (index >= 0) {
+            view.scrollTo(Math.max(0, index - 3));
+        }
+        decorationsRevision.set(decorationsRevision.get() + 1);
+        Platform.runLater(() -> {
+            if (renaming != null) {
+                renameField.requestFocus();
+                int dot = name.lastIndexOf('.');
+                renameField.selectRange(0, AttachmentType.isAttachment(name) && dot > 0 ? dot : name.length());
+            }
+        });
+    }
+
+    private void commitRename() {
+        if (renaming == null) {
+            return;
+        }
+        Component item = renaming;
+        String name = renameField.getText() != null ? renameField.getText().strip() : "";
+        renaming = null;
+        decorationsRevision.set(decorationsRevision.get() + 1);
+        view.requestFocus();
+        if (!name.isEmpty() && !name.equals(item.getTitle())) {
+            onRename.accept(item, name);
+        }
+    }
+
+    private void cancelRename() {
+        renaming = null;
+        decorationsRevision.set(decorationsRevision.get() + 1);
+        view.requestFocus();
+    }
+
+    /** The row of the item with this key among the rows read so far, or null. */
+    private static TreeItem<Component> find(TreeItem<Component> parent, String itemKey) {
+        if (parent == null) {
+            return null;
+        }
+        for (TreeItem<Component> child : parent.getChildren()) {
+            if (child.getValue() != null && itemKey.equals(key(child.getValue()))) {
+                return child;
+            }
+            TreeItem<Component> deeper = find(child, itemKey);
+            if (deeper != null) {
+                return deeper;
+            }
+        }
+        return null;
     }
 
     /** Changes how notes are ordered and re-reads every folder already read. */
@@ -221,8 +340,8 @@ public final class ExplorerTree {
     }
 
     /**
-     * Shows only the notes and folders whose name contains {@code query} (ignoring case and
-     * accents), each under its folders, which are shown open. A matching folder is shown
+     * Shows only the notes and folders whose path ({@code Folder/Sub/Note}) contains
+     * {@code query} (ignoring case and accents), each under its folders, which are shown open. A matching folder is shown
      * closed and can be opened to see everything in it. A blank query brings back the tree
      * exactly as it was, with the same folders open.
      *
@@ -353,15 +472,24 @@ public final class ExplorerTree {
         }
     }
 
-    /** The filtered tree: each match under its folders (shown open), in vault order. */
+    /**
+     * The filtered tree: each match under its folders (shown open), in vault order. An item
+     * matches when its path (its folders and its name, joined by "/") contains the query; one
+     * inside a folder that already matched is left in that folder, which is shown closed.
+     */
     private TreeItem<Component> buildFiltered(List<Entry> entries, String query) {
         TreeItem<Component> root = new TreeItem<>(lazyRoot != null ? lazyRoot.getValue() : null);
         root.setExpanded(true);
         Map<String, TreeItem<Component>> folders = new HashMap<>();
+        java.util.Set<String> matchedFolders = new java.util.HashSet<>();
         for (Entry entry : entries) {
             Component item = entry.item();
-            if (!normalize(item.getTitle()).contains(query)) {
+            if (!normalize(pathOf(entry)).contains(query)
+                    || entry.path().stream().anyMatch(ancestor -> matchedFolders.contains(key(ancestor)))) {
                 continue;
+            }
+            if (item instanceof Folder folder) {
+                matchedFolders.add(key(folder));
             }
             TreeItem<Component> parent = root;
             for (Folder ancestor : entry.path()) {
@@ -376,7 +504,7 @@ public final class ExplorerTree {
             }
             if (item instanceof Folder folder) {
                 if (!folders.containsKey(key(folder))) {
-                    FolderItem match = new FolderItem(folder);
+                    FolderItem match = new FolderItem(folder, false);
                     folders.put(key(folder), match);
                     parent.getChildren().add(match);
                 }
@@ -385,6 +513,14 @@ public final class ExplorerTree {
             }
         }
         return root;
+    }
+
+    private static String pathOf(Entry entry) {
+        StringBuilder path = new StringBuilder();
+        for (Folder ancestor : entry.path()) {
+            path.append(ancestor.getTitle()).append('/');
+        }
+        return path.append(entry.item().getTitle()).toString();
     }
 
     private static String normalize(String text) {
@@ -410,6 +546,17 @@ public final class ExplorerTree {
     }
 
     private void handleKey(KeyEvent event) {
+        if (renaming != null) {
+            return; // the name field handles its own keys
+        }
+        if (event.getCode() == KeyCode.F2) {
+            TreeItem<Component> selected = view.getSelectionModel().getSelectedItem();
+            if (selected != null && selected.getValue() != null) {
+                startRename(selected.getValue());
+                event.consume();
+            }
+            return;
+        }
         if (event.getCode() != KeyCode.ENTER) {
             return;
         }
@@ -443,12 +590,32 @@ public final class ExplorerTree {
         private final List<Runnable> afterLoad = new ArrayList<>();
 
         FolderItem(Folder folder) {
+            this(folder, true);
+        }
+
+        /**
+         * @param remember whether opening and closing it is remembered (not for the root, nor
+         *        for a folder shown by a filter)
+         */
+        FolderItem(Folder folder, boolean remember) {
             super(folder);
             expandedProperty().addListener((obs, was, now) -> {
                 if (now && !requested) {
                     load();
                 }
             });
+            if (remember) {
+                String folderKey = key(folder);
+                expandedProperty().addListener((obs, was, now) -> {
+                    boolean changed = now ? openFolders.add(folderKey) : openFolders.remove(folderKey);
+                    if (changed) {
+                        onOpenFoldersChanged.accept(java.util.Set.copyOf(openFolders));
+                    }
+                });
+                if (openFolders.contains(folderKey)) {
+                    setExpanded(true);
+                }
+            }
         }
 
         /** Unread folders show an arrow; a read folder shows one only if it has contents. */
@@ -518,6 +685,15 @@ public final class ExplorerTree {
             }
             loaded = true;
             getChildren().setAll(next);
+            if (pendingRenameKey != null) {
+                for (TreeItem<Component> child : next) {
+                    if (child.getValue() != null && pendingRenameKey.equals(key(child.getValue()))) {
+                        Component appeared = child.getValue();
+                        Platform.runLater(() -> startRename(appeared));
+                        break;
+                    }
+                }
+            }
             List<Runnable> pending = List.copyOf(afterLoad);
             afterLoad.clear();
             pending.forEach(Runnable::run);
@@ -586,6 +762,21 @@ public final class ExplorerTree {
                     getTreeItem().setExpanded(!getTreeItem().isExpanded());
                 }
             });
+            // Holding a drag over a closed folder opens it, so the drop can go deeper.
+            PauseTransition openOnHold = new PauseTransition(DRAG_HOLD_TO_OPEN);
+            openOnHold.setOnFinished(event -> {
+                TreeItem<Component> item = getTreeItem();
+                if (item != null && item.getValue() instanceof Folder && !item.isExpanded()) {
+                    item.setExpanded(true);
+                }
+            });
+            addEventHandler(DragEvent.DRAG_ENTERED, event -> {
+                if (getItem() instanceof Folder && getTreeItem() != null && !getTreeItem().isExpanded()) {
+                    openOnHold.playFromStart();
+                }
+            });
+            addEventHandler(DragEvent.DRAG_EXITED, event -> openOnHold.stop());
+            addEventHandler(DragEvent.DRAG_DROPPED, event -> openOnHold.stop());
             cellDecorator.accept(this);
         }
 
@@ -656,6 +847,14 @@ public final class ExplorerTree {
         /** The parts that change without the item changing: the active-note mark and the badge. */
         private void decorate() {
             Component item = isEmpty() ? null : getItem();
+            boolean editingHere = item != null && renaming != null && key(item).equals(key(renaming));
+            int nameAt = content.getChildren().indexOf(editingHere ? name : renameField);
+            if (nameAt >= 0) {
+                content.getChildren().set(nameAt, editingHere ? renameField : name);
+                if (editingHere) {
+                    HBox.setHgrow(renameField, Priority.ALWAYS);
+                }
+            }
             boolean active = item instanceof Note note && activeNoteId != null && activeNoteId.equals(note.getId());
             if (active && !getStyleClass().contains(ACTIVE_NOTE_STYLE)) {
                 getStyleClass().add(ACTIVE_NOTE_STYLE);

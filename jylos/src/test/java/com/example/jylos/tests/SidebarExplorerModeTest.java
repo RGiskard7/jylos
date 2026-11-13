@@ -61,8 +61,12 @@ class SidebarExplorerModeTest {
     private FolderService folders;
     private NoteService notes;
 
+    private java.util.prefs.Preferences prefs;
+
     @BeforeEach
     void setUp() throws Exception {
+        prefs = java.util.prefs.Preferences.userRoot().node("/com/example/jylos/test/" + java.util.UUID.randomUUID());
+        SidebarController.usePreferences(prefs);
         SQLiteTestSupport.configureFreshDatabase(tempDir.resolve("sidebar.db"));
         connection = SQLiteTestSupport.openConnection();
         FolderDAOSQLite folderDAO = new FolderDAOSQLite(connection);
@@ -76,6 +80,8 @@ class SidebarExplorerModeTest {
 
     @AfterEach
     void tearDown() throws Exception {
+        SidebarController.usePreferences(null);
+        prefs.removeNode();
         SQLiteTestSupport.closeAndReset(connection);
     }
 
@@ -285,6 +291,140 @@ class SidebarExplorerModeTest {
         }
     }
 
+    @Test
+    void theShowCurrentFileSwitchIsSavedAndRevealsTheOpenNote() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        String acta = notes.getAllNotes().stream().filter(n -> "Acta".equals(n.getTitle())).findFirst().orElseThrow().getId();
+        Fixture f = onFx(() -> new Fixture(folders, notes, new ArrayList<>()));
+        onFx(() -> {
+            f.sidebar.setExplorerMode(true);
+            return null;
+        });
+        waitUntil(() -> titles(f.explorer().getRoot()).equals(List.of("Trabajo", "Inicio")));
+        String tooltip = onFx(() -> f.revealButton().getTooltip().getText());
+
+        onFx(() -> {
+            f.sidebar.setExplorerActiveNote(acta);
+            return null;
+        });
+        Thread.sleep(300);
+        boolean openedWhileOff = onFx(() -> f.explorer().getRoot().getChildren().get(0).isExpanded());
+
+        onFx(() -> {
+            f.revealButton().fire();
+            return null;
+        });
+        waitUntil(() -> selectedTitle(f.explorer()).equals("Acta"));
+        // Switched on, opening a note shows it again (its folder had been collapsed meanwhile).
+        onFx(() -> {
+            f.explorer().getRoot().getChildren().get(0).setExpanded(false);
+            f.explorer().getSelectionModel().clearSelection();
+            f.sidebar.setExplorerActiveNote(null);
+            f.sidebar.setExplorerActiveNote(acta);
+            return null;
+        });
+        waitUntil(() -> selectedTitle(f.explorer()).equals("Acta")
+                && f.explorer().getRoot().getChildren().get(0).isExpanded());
+        boolean saved = prefs.getBoolean("ui.explorer.auto_reveal", false);
+        Fixture again = onFx(() -> new Fixture(folders, notes, new ArrayList<>()));
+
+        assertEquals("Mostrar automáticamente el archivo actual", tooltip);
+        assertFalse(openedWhileOff, "off: opening a note leaves the tree as it is");
+        assertTrue(saved);
+        assertTrue(onFx(() -> again.revealButton().isSelected()), "a new window reads the saved switch");
+    }
+
+    @Test
+    void oneButtonExpandsEverythingAndThenCollapsesIt() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        Fixture f = onFx(() -> new Fixture(folders, notes, new ArrayList<>()));
+        onFx(() -> {
+            f.sidebar.setExplorerMode(true);
+            return null;
+        });
+        waitUntil(() -> titles(f.explorer().getRoot()).equals(List.of("Trabajo", "Inicio")));
+        List<String> steps = new ArrayList<>();
+        steps.add(onFx(() -> f.expandCollapseButton().getTooltip().getText()));
+        onFx(() -> {
+            f.expandCollapseButton().fire();
+            return null;
+        });
+        waitUntil(() -> f.explorer().getRoot().getChildren().get(0).isExpanded());
+        steps.add(onFx(() -> f.expandCollapseButton().getTooltip().getText()));
+        onFx(() -> {
+            f.expandCollapseButton().fire();
+            return null;
+        });
+        steps.add(onFx(() -> f.explorer().getRoot().getChildren().get(0).isExpanded()
+                + " " + f.expandCollapseButton().getTooltip().getText()));
+        assertEquals(List.of("Expandir todo", "Colapsar todo", "false Expandir todo"), steps);
+    }
+
+    @Test
+    void theFoldersLeftOpenAreOpenInTheNextSession() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        Fixture f = onFx(() -> new Fixture(folders, notes, new ArrayList<>()));
+        onFx(() -> {
+            f.sidebar.setExplorerMode(true);
+            return null;
+        });
+        waitUntil(() -> titles(f.explorer().getRoot()).equals(List.of("Trabajo", "Inicio")));
+        onFx(() -> {
+            f.explorer().getRoot().getChildren().get(0).setExpanded(true);
+            return null;
+        });
+        Thread.sleep(600);
+
+        Fixture next = onFx(() -> new Fixture(folders, notes, new ArrayList<>()));
+        onFx(() -> {
+            next.sidebar.setExplorerMode(true);
+            return null;
+        });
+        waitUntil(() -> titles(next.explorer().getRoot()).equals(List.of("Trabajo", "Inicio"))
+                && next.explorer().getRoot().getChildren().get(0).isExpanded()
+                && titles(next.explorer().getRoot().getChildren().get(0)).equals(List.of("Acta")));
+    }
+
+    @Test
+    void renameInTheExplorerMenuRenamesTheFolderInItsRow() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        Fixture f = onFx(() -> new Fixture(folders, notes, new ArrayList<>()));
+        onFx(() -> {
+            f.sidebar.setExplorerMode(true);
+            return null;
+        });
+        waitUntil(() -> titles(f.explorer().getRoot()).equals(List.of("Trabajo", "Inicio")));
+        onFx(() -> {
+            javafx.scene.control.TreeCell<?> row = null;
+            for (javafx.scene.Node node : f.explorer().lookupAll(".tree-cell")) {
+                if (node instanceof javafx.scene.control.TreeCell<?> cell && cell.getItem() instanceof Component c
+                        && "Trabajo".equals(c.getTitle())) {
+                    row = cell;
+                }
+            }
+            row.getContextMenu().getItems().stream().filter(i -> "Renombrar".equals(i.getText())).findFirst()
+                    .orElseThrow().fire();
+            return null;
+        });
+        waitUntil(() -> f.explorer().lookup(".explorer-rename-field") != null
+                && f.explorer().lookup(".explorer-rename-field").getScene() != null);
+        onFx(() -> {
+            TextField field = (TextField) f.explorer().lookup(".explorer-rename-field");
+            field.setText("Oficina");
+            javafx.event.Event.fireEvent(field, new javafx.scene.input.KeyEvent(javafx.scene.input.KeyEvent.KEY_PRESSED,
+                    "", "", javafx.scene.input.KeyCode.ENTER, false, false, false, false));
+            return null;
+        });
+        waitUntil(() -> titles(f.explorer().getRoot()).contains("Oficina"));
+        assertTrue(folders.getAllFolders().stream().anyMatch(folder -> "Oficina".equals(folder.getTitle())),
+                "renamed in the storage, not only on screen");
+    }
+
+    private static String selectedTitle(TreeView<Component> tree) {
+        TreeItem<Component> item = tree.getSelectionModel().getSelectedItem();
+        return item != null && item.getValue() != null ? item.getValue().getTitle() : "";
+    }
+
     private static final class Fixture {
         final SidebarController sidebar;
 
@@ -313,8 +453,16 @@ class SidebarExplorerModeTest {
             return (TreeView<?>) field("folderTreeView");
         }
 
-        javafx.scene.control.Button revealButton() throws Exception {
-            return (javafx.scene.control.Button) field("revealActiveNoteBtn");
+        javafx.scene.control.ToggleButton revealButton() throws Exception {
+            return (javafx.scene.control.ToggleButton) field("revealActiveNoteBtn");
+        }
+
+        javafx.scene.control.Button expandCollapseButton() throws Exception {
+            return (javafx.scene.control.Button) field("expandCollapseBtn");
+        }
+
+        TreeView<Component> explorer() {
+            return sidebar.getExplorerTree().getView();
         }
 
         TextField filterField() throws Exception {

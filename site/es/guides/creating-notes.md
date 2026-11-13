@@ -61,10 +61,12 @@ Mueve notas entre carpetas, añade etiquetas y marca favoritas desde la barra la
 
 En el diseño **Explorador**, la cabecera sobre el árbol tiene:
 
-- un **filtro** que busca por nombre entre todas las notas y carpetas de la bóveda (sin distinguir mayúsculas ni acentos) y muestra las coincidencias dentro de sus carpetas;
+- un **filtro** que busca en el nombre y en la ruta (`trabajo/acta`) entre todas las notas y carpetas de la bóveda (sin distinguir mayúsculas ni acentos) y muestra las coincidencias dentro de sus carpetas;
 - el **orden de las notas** (nombre, última edición o creación);
-- un botón que muestra en el árbol la **nota abierta**, desplegando sus carpetas;
-- **expandir** y **plegar**.
+- **Mostrar automáticamente el archivo actual**: activado, el árbol despliega las carpetas de la nota que abres y la selecciona;
+- un solo botón para **expandir todo** o **colapsar todo**.
+
+Las carpetas que dejas abiertas siguen abiertas la próxima vez. En el árbol, **F2** (o **Renombrar** en el menú) cambia el nombre en la propia fila: Enter lo aplica y Escape lo cancela. Una carpeta nueva se crea como "Sin nombre", lista para escribir su nombre, y una nota nueva como "Sin título". Si mantienes una nota arrastrada sobre una carpeta cerrada, la carpeta se abre. El menú de las notas también tiene **Duplicar**, **Copiar ruta** y **Abrir en la app por defecto**.
 
 **Mostrar el número de notas junto a cada carpeta** (Preferencias) se aplica a los dos diseños.
 

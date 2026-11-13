@@ -414,6 +414,14 @@ public class EditorController {
     public HBox            getEditorTabBar()           { return editorTabBar; }
     public javafx.scene.control.ScrollPane getEditorTabScroll() { return editorTabScroll; }
     public TextField       getNoteTitleField()         { return noteTitleField; }
+
+    /** Leaves the title of the open note selected in its field, ready to type a new name. */
+    public void beginTitleRename() {
+        if (noteTitleField != null && noteTitleField.isVisible() && !noteTitleField.isDisabled()) {
+            noteTitleField.requestFocus();
+            noteTitleField.selectAll();
+        }
+    }
     public ToggleButton    getToggleTagsBtn()           { return toggleTagsBtn; }
     public Button          getReadingModeButton()       { return readingModeButton; }
     public ToggleButton    getPinButton()               { return pinButton; }

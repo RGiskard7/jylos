@@ -131,6 +131,76 @@ public class NoteService {
     }
 
     /**
+     * Copies a note next to the original, named as Obsidian does: "Name 1", "Name 2", ... (the
+     * first one free in that folder). Content, properties and tags are copied; a canvas stays a
+     * canvas. Binary attachments (images, PDF) are not notes and are not duplicated here.
+     *
+     * @return the copy, with its id
+     */
+    public Note duplicateNote(String id) {
+        Note source = getNoteById(id).orElseThrow(() -> new NoteException("Note not found: " + id));
+        String title = source.getTitle() != null ? source.getTitle() : "";
+        String extension = "";
+        int dot = title.lastIndexOf('.');
+        if (com.example.jylos.util.AttachmentType.isAttachment(title) && dot > 0) {
+            extension = title.substring(dot);
+            title = title.substring(0, dot);
+        }
+        Optional<java.nio.file.Path> file = getNoteFilePath(id);
+        java.nio.file.Path dir = file.map(java.nio.file.Path::getParent).orElse(null);
+        Folder folder = file.isEmpty() ? noteDAO.getFolderOfNote(id) : null;
+        java.util.Set<String> siblingTitles = new java.util.HashSet<>();
+        if (dir == null) {
+            List<Note> siblings = folder != null ? getNotesByFolder(folder)
+                    : getAllNotes().stream().filter(n -> n.getParent() == null).toList();
+            siblings.forEach(n -> siblingTitles.add(n.getTitle()));
+        }
+        String fileExtension = extension.isEmpty() ? ".md" : extension;
+        String copyTitle;
+        int number = 1;
+        while (true) {
+            copyTitle = title + " " + number++;
+            boolean taken = dir != null
+                    ? java.nio.file.Files.exists(dir.resolve(copyTitle + fileExtension))
+                    : siblingTitles.contains(copyTitle + extension);
+            if (!taken) {
+                break;
+            }
+        }
+        Note copy = new Note(copyTitle + extension, source.getContent());
+        copy.setTags(source.getTags() != null ? new java.util.ArrayList<>(source.getTags()) : new java.util.ArrayList<>());
+        if (source.getCustomProperties() != null) {
+            copy.setCustomProperties(new java.util.LinkedHashMap<>(source.getCustomProperties()));
+        }
+        if (source.getStructuredFrontmatterProperties() != null) {
+            copy.setStructuredFrontmatterProperties(new java.util.LinkedHashMap<>(source.getStructuredFrontmatterProperties()));
+        }
+        if (source.getDisplayableFrontmatterPropertyKeys() != null) {
+            copy.setDisplayableFrontmatterPropertyKeys(new java.util.LinkedHashSet<>(source.getDisplayableFrontmatterPropertyKeys()));
+        }
+        copy.setAuthor(source.getAuthor());
+        copy.setSource(source.getSource());
+        copy.setSourceUrl(source.getSourceUrl());
+        copy.setSourceApplication(source.getSourceApplication());
+        copy.setStatus(source.getStatus());
+        copy.setLatitude(source.getLatitude());
+        copy.setLongitude(source.getLongitude());
+        copy.setPrivate(source.isPrivate());
+        java.nio.file.Path root = getStorageRoot().orElse(null);
+        if (dir != null && root != null && !root.toAbsolutePath().normalize().equals(dir.toAbsolutePath().normalize())) {
+            // File storage takes the folder from the id it is given (see NoteDAOFileSystem.createNote).
+            String folderPath = root.toAbsolutePath().normalize().relativize(dir.toAbsolutePath().normalize())
+                    .toString().replace('\\', '/');
+            copy.setId(folderPath + "/" + copyTitle + fileExtension);
+        }
+        Note created = createNote(copy);
+        if (folder != null && folderDAO != null) {
+            folderDAO.addNote(folder, created);
+        }
+        return created;
+    }
+
+    /**
      * Creates a new note in a specific folder.
      * 
      * @param title   The note title

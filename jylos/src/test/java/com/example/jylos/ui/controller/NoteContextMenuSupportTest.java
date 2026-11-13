@@ -39,10 +39,14 @@ class NoteContextMenuSupportTest {
         ContextMenu menu = NoteContextMenuSupport.create(note("a"), actions(), true, key -> key, List.of());
 
         assertEquals(List.of("action.open", "action.open_in_new_tab", "action.pin_note", "action.add_favorite",
-                "action.make_private", "action.rename", "action.move_to", "action.reveal_in_files",
-                "action.export_note", "---", "action.move_to_trash"), labels(menu));
-        item(menu, "action.reveal_in_files").fire();
-        assertEquals(List.of("reveal a"), calls);
+                "action.make_private", "action.rename", "action.move_to", "action.duplicate", "action.copy_path",
+                "action.open_default_app", "action.reveal_in_files", "action.export_note", "---",
+                "action.move_to_trash"), labels(menu));
+        for (String label : List.of("action.reveal_in_files", "action.duplicate", "action.copy_path",
+                "action.open_default_app")) {
+            item(menu, label).fire();
+        }
+        assertEquals(List.of("reveal a", "duplicate a", "copyPath a", "openDefault a"), calls);
     }
 
     @Test
@@ -54,7 +58,20 @@ class NoteContextMenuSupportTest {
         ContextMenu menu = NoteContextMenuSupport.create(note("a"), actions(), false, key -> key, null);
 
         assertFalse(labels(menu).contains("action.reveal_in_files"));
+        assertFalse(labels(menu).contains("action.copy_path"), "no files to point at");
+        assertFalse(labels(menu).contains("action.open_default_app"));
+        assertTrue(labels(menu).contains("action.duplicate"));
         assertEquals("action.move_to_trash", labels(menu).get(labels(menu).size() - 1));
+    }
+
+    @Test
+    void anImageIsNotDuplicatedAsANoteButACanvasIs() throws Exception {
+        onFxThread(() -> {
+            assertFalse(labels(NoteContextMenuSupport.create(note("foto.png"), actions(), true, key -> key, null))
+                    .contains("action.duplicate"));
+            assertTrue(labels(NoteContextMenuSupport.create(note("Mapa.canvas"), actions(), true, key -> key, null))
+                    .contains("action.duplicate"));
+        });
     }
 
     @Test
@@ -93,7 +110,7 @@ class NoteContextMenuSupportTest {
     private NoteContextMenuSupport.Actions actions() {
         return new NoteContextMenuSupport.Actions(record("open"), record("newTab"), record("pin"),
                 record("favorite"), record("privacy"), record("rename"), record("move"), record("reveal"),
-                record("export"), record("trash"));
+                record("export"), record("trash"), record("duplicate"), record("copyPath"), record("openDefault"));
     }
 
     private Consumer<Note> record(String name) {

@@ -1,5 +1,7 @@
 package com.example.jylos.ui.controller;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
@@ -45,5 +47,26 @@ class FolderOperations {
             logger.warning("Failed to create folder: " + e.getMessage());
             return new FolderCreationResult(false, null, e.getMessage());
         }
+    }
+
+    /**
+     * Creates a folder named {@code base} ("Sin nombre"), or "base 1", "base 2", ... the first
+     * name free among the folders next to it, as Obsidian does before letting it be renamed.
+     */
+    FolderCreationResult createUntitledFolder(String base, Folder parent, boolean inRoot) {
+        if (folderService == null) {
+            return new FolderCreationResult(false, null, "FolderService is null");
+        }
+        boolean root = inRoot || parent == null;
+        List<String> taken = new ArrayList<>();
+        try {
+            Folder where = root ? new Folder("ROOT", "") : parent;
+            for (Folder sibling : folderService.getSubfolders(where)) {
+                taken.add(sibling.getTitle());
+            }
+        } catch (RuntimeException e) {
+            logger.warning("Could not list folders before creating one: " + e.getMessage());
+        }
+        return createFolder(com.example.jylos.util.UntitledNames.next(base, taken), parent, root);
     }
 }

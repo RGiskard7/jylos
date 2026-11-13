@@ -1294,9 +1294,13 @@ public class NotesListController {
         dialog.setContentText(getString("dialog.rename_note.content"));
         dialog.getDialogPane().setMinWidth(380);
 
-        com.example.jylos.ui.UiDialogs.show(dialog).ifPresent(name -> {
+        com.example.jylos.ui.UiDialogs.show(dialog).ifPresent(name -> renameNoteTo(note, name));
+    }
+
+    /** Renames the note to {@code name} (trimmed); a blank or unchanged name does nothing. */
+    public void renameNoteTo(Note note, String name) {
             String trimmed = name != null ? name.trim() : "";
-            if (trimmed.isBlank() || trimmed.equals(note.getTitle())) {
+            if (note == null || noteService == null || trimmed.isBlank() || trimmed.equals(note.getTitle())) {
                 return;
             }
             try {
@@ -1314,7 +1318,6 @@ public class NotesListController {
                 logger.log(Level.WARNING, "Failed to rename note " + note.getId(), e);
                 publishPersistenceFailure(e, "status.note_rename_error");
             }
-        });
     }
 
     private void moveNote(Note note) {
@@ -1813,6 +1816,11 @@ public class NotesListController {
         return note == null ? null : createNoteContextMenu(note, noteMenuActions());
     }
 
+    /** The same menu with another "Rename" (the Explorer renames in the row itself). */
+    public ContextMenu noteContextMenu(Note note, Consumer<Note> rename) {
+        return note == null ? null : createNoteContextMenu(note, noteMenuActions().withRename(rename));
+    }
+
     private ContextMenu createNoteContextMenu(Note note, NoteContextMenuSupport.Actions actions) {
         return NoteContextMenuSupport.create(note, actions, isFileSystemStorage(), this::getString,
                 noteContextMenuItemsSupplier.get());
@@ -1830,7 +1838,65 @@ public class NotesListController {
                 this::moveNote,
                 this::revealInFileManager,
                 note -> noteExportAction.accept(note),
-                this::deleteNote);
+                this::deleteNote,
+                this::duplicateNote,
+                this::copyNotePath,
+                this::openInDefaultApp);
+    }
+
+    /** Copies the note next to it ("Name 1") and selects the copy. */
+    private void duplicateNote(Note note) {
+        if (note == null || noteService == null) {
+            return;
+        }
+        try {
+            Note copy = noteService.duplicateNote(note.getId());
+            requestSelectAfterRefresh(copy.getId());
+            if (eventBus != null) {
+                eventBus.publish(new NoteEvents.NoteCreatedEvent(copy));
+            }
+            publishStatusUpdate(java.text.MessageFormat.format(getString("status.note_duplicated"), copy.getTitle()));
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Failed to duplicate note " + note.getId(), e);
+            publishPersistenceFailure(e, "status.note_duplicate_error");
+        }
+    }
+
+    /** Puts the note's path in the vault ("Folder/Note.md") on the clipboard. */
+    private void copyNotePath(Note note) {
+        if (note == null || note.getId() == null) {
+            return;
+        }
+        javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+        content.putString(note.getId().replace('\\', '/'));
+        javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);
+        publishStatusUpdate(getString("status.path_copied"));
+    }
+
+    /** Opens the note's file with the application the system uses for it. */
+    private void openInDefaultApp(Note note) {
+        if (note == null || noteService == null) {
+            return;
+        }
+        Optional<java.nio.file.Path> path = noteService.getNoteFilePath(note.getId());
+        if (path.isEmpty()) {
+            publishStatusUpdate(getString("status.reveal_unavailable"));
+            return;
+        }
+        String absolute = path.get().toAbsolutePath().toString();
+        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+        try {
+            if (os.contains("mac")) {
+                new ProcessBuilder("open", absolute).start();
+            } else if (os.contains("win")) {
+                new ProcessBuilder("cmd", "/c", "start", "\"\"", absolute).start();
+            } else {
+                new ProcessBuilder("xdg-open", absolute).start();
+            }
+        } catch (Exception ex) {
+            logger.log(Level.WARNING, "Failed to open note in the default app", ex);
+            publishStatusUpdate(getString("status.reveal_error"));
+        }
     }
 
     private void setupNoteCardDrag(

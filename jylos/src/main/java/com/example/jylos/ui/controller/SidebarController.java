@@ -218,16 +218,34 @@ public class SidebarController {
     @FXML
     private Button sortFoldersBtn;
     @FXML
-    private Button revealActiveNoteBtn;
+    private javafx.scene.control.ToggleButton revealActiveNoteBtn;
+    /** Expands everything, or collapses it when something is open. */
+    @FXML
+    private Button expandCollapseBtn;
     /** Preference: the note order of the Explorer tree (a {@code NoteService.SortOption} name). */
     private static final String EXPLORER_NOTE_SORT_KEY = "ui.explorer.note_sort";
     private ExplorerTree explorerTree;
+    /** Where the Explorer's switches and open folders are saved. */
+    private static Preferences explorerPrefs = Preferences.userNodeForPackage(SidebarController.class);
+
+    /** Saves the Explorer's state somewhere else (tests); {@code null} goes back to the user's. */
+    public static void usePreferences(Preferences prefs) {
+        explorerPrefs = prefs != null ? prefs : Preferences.userNodeForPackage(SidebarController.class);
+    }
+    /** Preference: keep the Explorer tree on the note open in the editor (off by default). */
+    private static final String AUTO_REVEAL_KEY = "ui.explorer.auto_reveal";
+    /** Preference: the Explorer folders left open, one key per line. */
+    private static final String OPEN_FOLDERS_KEY = "ui.explorer.open_folders";
+    private final PauseTransition openFoldersSave = new PauseTransition(Duration.millis(300));
+    private java.util.Set<String> openFoldersToSave = java.util.Set.of();
     private boolean explorerMode;
     private String explorerActiveNoteId;
     private java.util.function.BiConsumer<Note, EditorTabsModel.OpenTarget> explorerOpenAction = (note, target) -> {
     };
     private java.util.function.Function<Note, ContextMenu> explorerNoteMenu = note -> null;
     private Consumer<Folder> explorerFolderContextAction = folder -> {
+    };
+    private java.util.function.BiConsumer<Note, String> explorerRenameNoteAction = (note, name) -> {
     };
     private final PauseTransition explorerRefreshDebounce = new PauseTransition(Duration.millis(200));
 
@@ -261,6 +279,7 @@ public class SidebarController {
         if (on) {
             explorerTree.setRoot(explorerRootFolder());
         }
+        updateExpandCollapseButton();
     }
 
     public boolean isExplorerMode() {
@@ -301,11 +320,75 @@ public class SidebarController {
         if (explorerTree != null) {
             explorerTree.setActiveNoteId(noteId);
         }
+        if (isAutoReveal()) {
+            revealExplorerActiveNote();
+        }
     }
 
+    private boolean isAutoReveal() {
+        return revealActiveNoteBtn != null && revealActiveNoteBtn.isSelected();
+    }
+
+    /** "Show the current file automatically": saved; switching it on shows the open note now. */
     @FXML
-    private void handleRevealActiveNote(ActionEvent e) {
-        revealExplorerActiveNote();
+    private void handleToggleAutoReveal(ActionEvent e) {
+        explorerPrefs.putBoolean(AUTO_REVEAL_KEY, isAutoReveal());
+        if (isAutoReveal()) {
+            revealExplorerActiveNote();
+        }
+    }
+
+    /** One button: expands everything when all is collapsed, otherwise collapses it. */
+    @FXML
+    private void handleToggleExpandAll(ActionEvent e) {
+        if (allCollapsed()) {
+            handleExpandAllFolders(e);
+        } else {
+            handleCollapseAllFolders(e);
+        }
+        updateExpandCollapseButton();
+    }
+
+    /** Whether no folder at the top of the tree shown is open. */
+    private boolean allCollapsed() {
+        TreeView<?> tree = explorerMode && explorerTree != null ? explorerTree.getView() : folderTreeView;
+        if (tree == null || tree.getRoot() == null) {
+            return true;
+        }
+        for (TreeItem<?> child : tree.getRoot().getChildren()) {
+            if (child.isExpanded() && !child.isLeaf()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** The button says what it will do: expand everything, or collapse it. */
+    private void updateExpandCollapseButton() {
+        if (expandCollapseBtn == null) {
+            return;
+        }
+        boolean collapsed = allCollapsed();
+        if (expandCollapseBtn.getGraphic() instanceof org.kordamp.ikonli.javafx.FontIcon icon) {
+            icon.setIconLiteral(collapsed ? "fth-chevrons-down" : "fth-chevrons-up");
+        }
+        String text = getString(collapsed ? "action.expand_all" : "action.collapse_all");
+        if (expandCollapseBtn.getTooltip() == null) {
+            expandCollapseBtn.setTooltip(new Tooltip(text));
+        } else {
+            expandCollapseBtn.getTooltip().setText(text);
+        }
+    }
+
+    /** Saves the open Explorer folders a moment after the last change. */
+    private void rememberOpenFolders(java.util.Set<String> keys) {
+        openFoldersToSave = keys;
+        openFoldersSave.playFromStart();
+    }
+
+    private static List<String> storedOpenFolders() {
+        String stored = explorerPrefs.get(OPEN_FOLDERS_KEY, "");
+        return stored.isBlank() ? List.of() : List.of(stored.split("\n"));
     }
 
     /** Shows the note open in the editor in the Explorer tree (clearing a filter first). */
@@ -370,6 +453,11 @@ public class SidebarController {
         explorerTree = new ExplorerTree(source, sidebarLoadExecutor, this::getString);
         explorerTree.getView().getStyleClass().add("sidebar-tree");
         explorerTree.setNoteSort(storedExplorerSort());
+        explorerTree.setOpenFolders(storedOpenFolders());
+        explorerTree.setOnOpenFoldersChanged(this::rememberOpenFolders);
+        openFoldersSave.setOnFinished(e -> explorerPrefs.put(OPEN_FOLDERS_KEY, String.join("\n", openFoldersToSave)));
+        explorerTree.getView().expandedItemCountProperty()
+                .addListener((obs, was, now) -> updateExpandCollapseButton());
         // Same count as the classic tree (the folder's notes plus its subfolders'), same preference.
         explorerTree.setFolderBadge(folder -> {
             int count = showFolderNoteCounts ? getNoteCountForFolder(folder) : 0;
@@ -377,8 +465,16 @@ public class SidebarController {
         });
         explorerTree.setOnOpenNote((note, target) -> explorerOpenAction.accept(note, target));
         explorerTree.setNoteMenu(explorerNoteMenu);
-        explorerTree.setFolderMenu(folder -> FolderContextMenuSupport.create(folder, folderMenuActions(),
+        // In the Explorer, "Rename" puts a name field in the row instead of opening a dialog.
+        explorerTree.setFolderMenu(folder -> FolderContextMenuSupport.create(folder, explorerFolderMenuActions(),
                 isFileSystemStorage(), this::getString));
+        explorerTree.setOnRename((item, name) -> {
+            if (item instanceof Note note) {
+                explorerRenameNoteAction.accept(note, name);
+            } else if (item instanceof Folder folder) {
+                renameFolderTo(folder, name.strip());
+            }
+        });
         explorerTree.setCellDecorator(cell -> {
             FolderDropSupport.installDragSource(cell, () -> {
                 Component item = cell.getItem();
@@ -529,6 +625,11 @@ public class SidebarController {
         setupFilteredList(tagListView, masterTagsList, filterTagsField);
         setupFilteredList(recentNotesListView, masterRecentList, filterRecentField);
         setupFilteredList(favoritesListView, masterFavoritesList, filterFavoritesField);
+        if (revealActiveNoteBtn != null) {
+            revealActiveNoteBtn.setSelected(explorerPrefs.getBoolean(AUTO_REVEAL_KEY, false));
+        }
+        folderTreeView.expandedItemCountProperty().addListener((obs, was, now) -> updateExpandCollapseButton());
+        updateExpandCollapseButton();
 
         // Selection listeners - Matching MainController patterns
         folderTreeView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
@@ -1602,6 +1703,30 @@ public class SidebarController {
     }
 
     /** What the folder context menu entries do. */
+    private FolderContextMenuSupport.Actions explorerFolderMenuActions() {
+        return new FolderContextMenuSupport.Actions(
+                this::handleCreateNoteInFolder,
+                this::handleCreateCanvasInFolder,
+                this::handleCreateSubfolderInFolder,
+                this::renameInExplorer,
+                this::handleMoveFolder,
+                this::revealFolderInFileManager,
+                this::handleDeleteFolder);
+    }
+
+    /** Puts a name field in the Explorer row of {@code item} (once it is shown, if it was just created). */
+    public void renameInExplorer(Component item) {
+        if (explorerTree != null) {
+            explorerTree.startRename(item);
+        }
+    }
+
+    /** What renaming a note in the Explorer row does (the notes list renames it). */
+    public void setExplorerRenameNoteAction(java.util.function.BiConsumer<Note, String> action) {
+        this.explorerRenameNoteAction = action != null ? action : (note, name) -> {
+        };
+    }
+
     private FolderContextMenuSupport.Actions folderMenuActions() {
         return new FolderContextMenuSupport.Actions(
                 this::handleCreateNoteInFolder,
@@ -1718,7 +1843,15 @@ public class SidebarController {
         d.setHeaderText(getString("dialog.rename_folder.header"));
         d.setContentText(getString("dialog.rename_folder.content"));
         d.getDialogPane().setMinWidth(380);
-        com.example.jylos.ui.UiDialogs.show(d).ifPresent(name -> {
+        com.example.jylos.ui.UiDialogs.show(d).ifPresent(name -> renameFolderTo(f, name));
+    }
+
+    /** Renames the folder to {@code name}; a blank or unchanged name does nothing. */
+    private void renameFolderTo(Folder f, String name) {
+            if (f == null || folderService == null || name == null || name.isBlank()
+                    || name.strip().equals(f.getTitle())) {
+                return;
+            }
             try {
                 String previousId = f.getId();
                 Folder renamed = folderService.renameFolder(f, name);
@@ -1731,7 +1864,6 @@ public class SidebarController {
                 logger.log(Level.WARNING, "Failed to rename folder " + (f != null ? f.getId() : "null"), e);
                 publishStatusUpdate(getString("status.error_renaming_folder"));
             }
-        });
     }
 
     private void handleDeleteFolder(Folder f) {
