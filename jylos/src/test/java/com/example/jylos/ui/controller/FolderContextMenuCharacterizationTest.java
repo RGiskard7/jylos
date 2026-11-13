@@ -3,6 +3,7 @@ package com.example.jylos.ui.controller;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.example.jylos.tests.FxTestSupport.onFx;
 
 import java.lang.reflect.Field;
 import java.net.URL;
@@ -10,10 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.prefs.Preferences;
 
 import org.junit.jupiter.api.Assumptions;
@@ -22,7 +19,6 @@ import org.junit.jupiter.api.Test;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.tests.FxTestSupport;
 
-import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.Parent;
@@ -53,7 +49,7 @@ class FolderContextMenuCharacterizationTest {
     @Test
     void menuOfAFolder() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
-        List<String> entries = onFxThread(() -> describe(new Fixture().cellOf("t1").getContextMenu()));
+        List<String> entries = onFx(() -> describe(new Fixture().cellOf("t1").getContextMenu()));
 
         assertEquals(expected(true), entries);
     }
@@ -61,7 +57,7 @@ class FolderContextMenuCharacterizationTest {
     @Test
     void menuOfTheVaultRootCannotMoveIt() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
-        List<String> entries = onFxThread(() -> describe(new Fixture().cellOf("ROOT").getContextMenu()));
+        List<String> entries = onFx(() -> describe(new Fixture().cellOf("ROOT").getContextMenu()));
 
         assertEquals(expected(false), entries);
     }
@@ -70,7 +66,7 @@ class FolderContextMenuCharacterizationTest {
     void revealInFilesDependsOnTheVaultKindAndMoveReachesItsAction() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
         List<String> calls = new ArrayList<>();
-        List<List<String>> menus = onFxThread(() -> {
+        List<List<String>> menus = onFx(() -> {
             FolderContextMenuSupport.Actions actions = new FolderContextMenuSupport.Actions(f -> { }, f -> { },
                     f -> { }, f -> { }, f -> calls.add("move " + f.getId()), f -> calls.add("reveal " + f.getId()),
                     f -> { });
@@ -105,7 +101,7 @@ class FolderContextMenuCharacterizationTest {
     @Test
     void newNoteAndNewCanvasSelectTheFolderAndCreateInIt() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
-        List<String> calls = onFxThread(() -> {
+        List<String> calls = onFx(() -> {
             Fixture f = new Fixture();
             ContextMenu menu = f.cellOf("t1").getContextMenu();
             item(menu, "Nueva Nota").fire();
@@ -175,25 +171,5 @@ class FolderContextMenuCharacterizationTest {
             }
             throw new AssertionError("no rendered cell for folder " + folderId);
         }
-    }
-
-    private static <T> T onFxThread(Callable<T> work) throws Exception {
-        AtomicReference<T> result = new AtomicReference<>();
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        CountDownLatch done = new CountDownLatch(1);
-        Platform.runLater(() -> {
-            try {
-                result.set(work.call());
-            } catch (Throwable t) {
-                failure.set(t);
-            } finally {
-                done.countDown();
-            }
-        });
-        assertTrue(done.await(30, TimeUnit.SECONDS), "test never completed on the FX thread");
-        if (failure.get() != null) {
-            throw new AssertionError(failure.get());
-        }
-        return result.get();
     }
 }

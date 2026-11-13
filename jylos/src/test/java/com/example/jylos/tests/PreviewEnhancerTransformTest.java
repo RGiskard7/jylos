@@ -33,8 +33,7 @@ class PreviewEnhancerTransformTest {
             }
         };
 
-        MarkdownPreview.buildPreviewHtml("Hello", true, List.of(enhancer), null, null,
-                new PreviewContext(note, true));
+        MarkdownPreview.buildPreviewHtml("Hello", true, List.of(enhancer), new MarkdownPreview.PreviewOptions(null, null, new PreviewContext(note, true), false, 0, null, null));
 
         assertTrue(seen.get() != null, "transformHtml should be invoked when a context is supplied");
         assertEquals("Research Log", seen.get().note().getTitle(),
@@ -57,8 +56,7 @@ class PreviewEnhancerTransformTest {
             }
         };
 
-        String result = MarkdownPreview.buildPreviewHtml("Hello", false, List.of(first, second),
-                null, null, new PreviewContext(new Note("id", "N", ""), false));
+        String result = MarkdownPreview.buildPreviewHtml("Hello", false, List.of(first, second), new MarkdownPreview.PreviewOptions(null, null, new PreviewContext(new Note("id", "N", ""), false), false, 0, null, null));
 
         assertTrue(result.contains("<!--first-->") && result.contains("<!--second-->"),
                 "Each enhancer should see the previous enhancer's output");
@@ -80,8 +78,7 @@ class PreviewEnhancerTransformTest {
         };
 
         String result = MarkdownPreview.buildPreviewHtml("Distinctive body text", false,
-                List.of(broken, nulling), null, null,
-                new PreviewContext(new Note("id", "N", ""), false));
+                List.of(broken, nulling), new MarkdownPreview.PreviewOptions(null, null, new PreviewContext(new Note("id", "N", ""), false), false, 0, null, null));
 
         assertTrue(result.contains("Distinctive body text"),
                 "A throwing or null-returning enhancer must not blank out the note");
@@ -103,8 +100,7 @@ class PreviewEnhancerTransformTest {
                 LIST
                 ```
                 """;
-        String result = MarkdownPreview.buildPreviewHtml(source, false, List.of(replacer), null, null,
-                new PreviewContext(new Note("id", "N", ""), false));
+        String result = MarkdownPreview.buildPreviewHtml(source, false, List.of(replacer), new MarkdownPreview.PreviewOptions(null, null, new PreviewContext(new Note("id", "N", ""), false), false, 0, null, null));
 
         assertTrue(result.contains("<table>"), "The generated markup should be present");
         assertFalse(result.contains("highlightElement"),

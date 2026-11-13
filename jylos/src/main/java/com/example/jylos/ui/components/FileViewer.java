@@ -21,6 +21,7 @@ import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.ui.UiNodes;
 import com.example.jylos.util.AttachmentType;
 
 import javafx.application.Platform;
@@ -198,8 +199,7 @@ public final class FileViewer {
         thumbnailScroll.setFitToWidth(true);
         thumbnailScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         thumbnailScroll.getStyleClass().addAll("viewer-scroll", "viewer-thumbnail-scroll");
-        thumbnailScroll.setVisible(false);
-        thumbnailScroll.setManaged(false);
+        UiNodes.show(thumbnailScroll, false);
 
         ProgressIndicator spinner = new ProgressIndicator();
         spinner.setMaxSize(48, 48);
@@ -292,8 +292,7 @@ public final class FileViewer {
                 }
             });
             thumbnailsBtn.selectedProperty().addListener((obs, wasSelected, selected) -> {
-                thumbnailScroll.setVisible(selected);
-                thumbnailScroll.setManaged(selected);
+                UiNodes.show(thumbnailScroll, selected);
                 if (selected) {
                     session.renderThumbnails(thumbnailSlots);
                     selectThumbnail(thumbnailSlots, visiblePageIndex(scroll, pages, slots));

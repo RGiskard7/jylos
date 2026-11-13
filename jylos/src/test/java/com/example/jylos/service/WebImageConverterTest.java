@@ -1,4 +1,4 @@
-package com.example.jylos.util;
+package com.example.jylos.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;

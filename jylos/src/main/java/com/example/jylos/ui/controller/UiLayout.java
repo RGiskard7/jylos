@@ -1,6 +1,7 @@
 package com.example.jylos.ui.controller;
 
 import com.example.jylos.data.models.Note;
+import com.example.jylos.ui.UiNodes;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.VBox;
@@ -36,10 +37,8 @@ class UiLayout {
 
         switch (mode) {
             case EDITOR_ONLY:
-                editorPane.setVisible(true);
-                editorPane.setManaged(true);
-                previewPane.setVisible(false);
-                previewPane.setManaged(false);
+                UiNodes.show(editorPane, true);
+                UiNodes.show(previewPane, false);
                 if (editorPreviewSplitPane.getItems().contains(previewPane)) {
                     editorPreviewSplitPane.getItems().remove(previewPane);
                 }
@@ -48,10 +47,8 @@ class UiLayout {
                 }
                 break;
             case PREVIEW_ONLY:
-                editorPane.setVisible(false);
-                editorPane.setManaged(false);
-                previewPane.setVisible(true);
-                previewPane.setManaged(true);
+                UiNodes.show(editorPane, false);
+                UiNodes.show(previewPane, true);
                 if (editorPreviewSplitPane.getItems().contains(editorPane)) {
                     editorPreviewSplitPane.getItems().remove(editorPane);
                 }
@@ -64,10 +61,8 @@ class UiLayout {
                 break;
             case SPLIT:
             default:
-                editorPane.setVisible(true);
-                editorPane.setManaged(true);
-                previewPane.setVisible(true);
-                previewPane.setManaged(true);
+                UiNodes.show(editorPane, true);
+                UiNodes.show(previewPane, true);
                 editorPreviewSplitPane.getItems().clear();
                 editorPreviewSplitPane.getItems().addAll(editorPane, previewPane);
                 editorPreviewSplitPane.setDividerPositions(0.5);
@@ -94,8 +89,7 @@ class UiLayout {
 
         boolean isCollapsed = !rightPanel.isManaged() || !rightPanel.isVisible() || rightPanel.getPrefWidth() < 10;
         if (isCollapsed) {
-            rightPanel.setVisible(true);
-            rightPanel.setManaged(true);
+            UiNodes.show(rightPanel, true);
             rightPanel.setMinWidth(240);
             rightPanel.setMaxWidth(Double.MAX_VALUE);
             rightPanel.setPrefWidth(300);

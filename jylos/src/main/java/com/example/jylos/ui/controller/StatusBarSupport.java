@@ -9,6 +9,7 @@ import java.util.function.Function;
 import java.util.prefs.Preferences;
 
 import com.example.jylos.data.models.Note;
+import com.example.jylos.ui.UiNodes;
 
 import javafx.geometry.Side;
 import javafx.scene.Node;
@@ -39,8 +40,7 @@ final class StatusBarSupport {
         label.setTooltip(text.length() > 40 ? new javafx.scene.control.Tooltip(text) : null);
         if (separator != null) {
             boolean shown = !text.isBlank();
-            separator.setVisible(shown);
-            separator.setManaged(shown);
+            UiNodes.show(separator, shown);
         }
     }
 
@@ -122,17 +122,17 @@ final class StatusBarSupport {
         if (saveStateLabel != null) {
             saveStateLabel.setTooltip(new Tooltip());
         }
-        setShown(saveStateLabel, false);
-        setShown(editorModeLabel, false);
-        setShown(group, false);
+        UiNodes.show(saveStateLabel, false);
+        UiNodes.show(editorModeLabel, false);
+        UiNodes.show(group, false);
     }
 
     /** Names the save state ("Saved"/"Unsaved", with the autosave rule as tooltip) and the editor mode. */
     void updateEditorIndicators(boolean noteOpen, boolean modified, EditorMode mode, boolean autosaveEnabled,
             int autosaveIdleMs) {
-        setShown(saveStateLabel, noteOpen);
-        setShown(editorModeLabel, noteOpen);
-        setShown(editorIndicatorsGroup, noteOpen);
+        UiNodes.show(saveStateLabel, noteOpen);
+        UiNodes.show(editorModeLabel, noteOpen);
+        UiNodes.show(editorIndicatorsGroup, noteOpen);
         if (!noteOpen) {
             return;
         }
@@ -170,10 +170,10 @@ final class StatusBarSupport {
                 charCountLabel.setText(MessageFormat.format(getString("status.chars"), content.length()));
             }
         }
-        setShown(statsSeparator, show);
-        setShown(wordCountLabel, show);
-        setShown(wordCharSeparator, show);
-        setShown(charCountLabel, show);
+        UiNodes.show(statsSeparator, show);
+        UiNodes.show(wordCountLabel, show);
+        UiNodes.show(wordCharSeparator, show);
+        UiNodes.show(charCountLabel, show);
     }
 
     /** Reflects the active storage backend (vault folder vs. SQLite database). */
@@ -191,12 +191,6 @@ final class StatusBarSupport {
         }
     }
 
-    private static void setShown(Node node, boolean visible) {
-        if (node != null) {
-            node.setVisible(visible);
-            node.setManaged(visible);
-        }
-    }
 
     private String getString(String key) {
         return i18n != null ? i18n.apply(key) : key;

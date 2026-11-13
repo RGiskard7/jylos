@@ -248,8 +248,8 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
         FileSystemIoLock.LOCK.lock();
         try {
-            String previousId = normalizeId(previousNoteId);
-            String currentId = normalizeId(movedNote.getId());
+            String previousId = FileSystemNames.normalizeId(previousNoteId);
+            String currentId = FileSystemNames.normalizeId(movedNote.getId());
             Path currentPath = rootPath.resolve(currentId.replace("/", File.separator)).toAbsolutePath().normalize();
 
             if (!previousId.isBlank() && !previousId.equals(currentId)) {
@@ -307,7 +307,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                         .filter(p -> !FileSystemNames.isHiddenWithinVault(rootPath, p))
                         .parallel()
                         .forEach(path -> {
-                            String relativePath = normalizeId(rootPath.relativize(path).toString());
+                            String relativePath = FileSystemNames.normalizeId(rootPath.relativize(path).toString());
                             idToPathMap.put(relativePath, path);
                             // Maps are concurrent, so parallel population is safe.
                             cachedNotes.put(relativePath, noteFactory.apply(relativePath, path));
@@ -547,7 +547,7 @@ public class NoteDAOFileSystem implements NoteDAO {
 
             // Determine parent directory
             Path parentDir = rootPath;
-            String suggestedId = normalizeId(note.getId());
+            String suggestedId = FileSystemNames.normalizeId(note.getId());
 
             if (!suggestedId.isEmpty()) {
                 // Check if the ID implies a folder path (e.g. "Folder/Note.md" or just
@@ -597,7 +597,7 @@ public class NoteDAOFileSystem implements NoteDAO {
             }
 
             // Set the ID to relative path
-            String relativePath = normalizeId(rootPath.relativize(filePath).toString());
+            String relativePath = FileSystemNames.normalizeId(rootPath.relativize(filePath).toString());
             note.setId(relativePath);
 
             try {
@@ -663,10 +663,10 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
         Path path = idToPathMap.get(id);
         if (path == null) {
-            path = idToPathMap.get(normalizeId(id));
+            path = idToPathMap.get(FileSystemNames.normalizeId(id));
         }
         if (path == null) {
-            Path potential = rootPath.resolve(normalizeId(id).replace("/", File.separator));
+            Path potential = rootPath.resolve(FileSystemNames.normalizeId(id).replace("/", File.separator));
             if (Files.exists(potential)) {
                 path = potential.toAbsolutePath().normalize();
             }
@@ -680,7 +680,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         if (id == null || !isInsideVault(id))
             return null;
 
-        String normalizedId = normalizeId(id);
+        String normalizedId = FileSystemNames.normalizeId(id);
         Path path = idToPathMap.get(id);
         if (path == null) {
             path = idToPathMap.get(normalizedId);
@@ -770,7 +770,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                 throw new InvalidParameterException("Invalid note");
             requireInsideVault(note.getId());
 
-            String normalizedId = normalizeId(note.getId());
+            String normalizedId = FileSystemNames.normalizeId(note.getId());
             note.setId(normalizedId);
             Path path = idToPathMap.get(note.getId());
             if (path == null) {
@@ -816,7 +816,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                 Path newPath = path.resolveSibling(expectedFilename);
                 if (!Files.exists(newPath) && missingOnDisk) {
                     String oldId = normalizedId;
-                    String newId = normalizeId(rootPath.relativize(newPath).toString());
+                    String newId = FileSystemNames.normalizeId(rootPath.relativize(newPath).toString());
                     idToPathMap.remove(oldId);
                     cachedNotes.remove(oldId);
                     note.setId(newId);
@@ -830,7 +830,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                         idToPathMap.remove(oldId);
                         cachedNotes.remove(oldId);
 
-                        String newId = normalizeId(rootPath.relativize(newPath).toString());
+                        String newId = FileSystemNames.normalizeId(rootPath.relativize(newPath).toString());
                         if (attachment) {
                             metadataStore.moveDocumentMetadata(oldId, newId);
                         }
@@ -881,7 +881,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                 if (attachment && isCanvasFile(path.getFileName().toString())) {
                     metadataStore.persistDocumentMetadata(note);
                 }
-                String currentId = normalizeId(note.getId());
+                String currentId = FileSystemNames.normalizeId(note.getId());
                 removeCacheAliasesForIds(normalizedId, currentId);
                 if (!normalizedId.equals(currentId)) {
                     cachedNotes.remove(normalizedId);
@@ -947,7 +947,7 @@ public class NoteDAOFileSystem implements NoteDAO {
             return;
         }
         requireInsideVault(id);
-        String normalizedId = normalizeId(id);
+        String normalizedId = FileSystemNames.normalizeId(id);
 
         Path sourcePath = idToPathMap.get(id);
         if (sourcePath == null) {
@@ -971,7 +971,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         if (sourcePath != null && Files.exists(sourcePath)) {
             try {
                 // Determine target path in trash while preserving relative structure
-                Path trashDir = rootPath.resolve(".trash");
+                Path trashDir = rootPath.resolve(FileSystemNames.TRASH_DIR);
                 Path targetPath = trashDir.resolve(normalizedId.replace("/", File.separator));
 
                 // Ensure target parent directories exist in trash
@@ -991,7 +991,7 @@ public class NoteDAOFileSystem implements NoteDAO {
 
                 Files.move(sourcePath, targetPath);
                 if (usesSidecarMetadata(sourcePath)) {
-                    String trashedId = normalizeId(rootPath.relativize(targetPath).toString());
+                    String trashedId = FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString());
                     metadataStore.moveDocumentMetadata(normalizedId, trashedId);
                 }
 
@@ -1018,7 +1018,7 @@ public class NoteDAOFileSystem implements NoteDAO {
             }
         } else {
             // Idempotent delete: if already in trash or already gone, do not treat as warning.
-            Path trashedPath = rootPath.resolve(".trash").resolve(normalizedId.replace("/", File.separator));
+            Path trashedPath = rootPath.resolve(FileSystemNames.TRASH_DIR).resolve(normalizedId.replace("/", File.separator));
             if (Files.exists(trashedPath)) {
                 logger.fine("Delete request ignored because note is already in trash: " + normalizedId);
             } else {
@@ -1036,7 +1036,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         FileSystemIoLock.LOCK.lock();
         try {
             List<Note> deletedNotes = new ArrayList<>();
-            Path trashPath = rootPath.resolve(".trash");
+            Path trashPath = rootPath.resolve(FileSystemNames.TRASH_DIR);
             if (Files.exists(trashPath) && Files.isDirectory(trashPath)) {
                 try (Stream<Path> stream = Files.walk(trashPath)) {
                     stream.filter(Files::isRegularFile)
@@ -1089,20 +1089,12 @@ public class NoteDAOFileSystem implements NoteDAO {
             if (!Files.exists(source)) {
                 // Try fallback to just filename if id is not found (for old trashed notes)
                 String filename = Paths.get(normalizedId).getFileName().toString();
-                source = rootPath.resolve(".trash").resolve(filename);
+                source = rootPath.resolve(FileSystemNames.TRASH_DIR).resolve(filename);
             }
 
             if (Files.exists(source)) {
                 // Calculate original relative path
-                String originalRelPath = normalizedId;
-                if (normalizedId.startsWith(".trash/")) {
-                    originalRelPath = normalizedId.substring(".trash/".length());
-                } else if (normalizedId.startsWith(".trash")) {
-                    originalRelPath = normalizedId.substring(6);
-                    if (originalRelPath.startsWith("/")) {
-                        originalRelPath = originalRelPath.substring(1);
-                    }
-                }
+                String originalRelPath = FileSystemNames.originalPathOfTrashed(normalizedId);
 
                 Path target = rootPath.resolve(originalRelPath.replace("/", File.separator));
 
@@ -1115,7 +1107,8 @@ public class NoteDAOFileSystem implements NoteDAO {
 
                 // Handle conflicts
                 if (Files.exists(target)) {
-                    target = withConflictSuffix(target, "_restored_" + System.currentTimeMillis());
+                    target = target.resolveSibling(FileSystemNames.withSuffix(target.getFileName().toString(),
+                            "_restored_" + System.currentTimeMillis()));
                 }
 
                 // Ensure parent exists (always true if it's rootPath, but safe to keep)
@@ -1125,7 +1118,7 @@ public class NoteDAOFileSystem implements NoteDAO {
 
                 Files.move(source, target);
                 if (usesSidecarMetadata(target)) {
-                    String restoredId = normalizeId(rootPath.relativize(target).toString());
+                    String restoredId = FileSystemNames.normalizeId(rootPath.relativize(target).toString());
                     metadataStore.moveDocumentMetadata(normalizedId, restoredId);
                 }
 
@@ -1150,7 +1143,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         FileSystemIoLock.LOCK.lock();
         try {
         try {
-            String normalizedId = normalizeId(id);
+            String normalizedId = FileSystemNames.normalizeId(id);
             Path path = rootPath.resolve(normalizedId.replace("/", File.separator)); // id starts with .trash/ usually
 
             if (Files.exists(path)) {
@@ -1166,14 +1159,14 @@ public class NoteDAOFileSystem implements NoteDAO {
             } else {
                 // Try fallback to filename in trash root
                 String filename = path.getFileName().toString();
-                Path fallback = rootPath.resolve(".trash").resolve(filename);
+                Path fallback = rootPath.resolve(FileSystemNames.TRASH_DIR).resolve(filename);
                 if (Files.exists(fallback)) {
                     Files.delete(fallback);
                 }
             }
             // Also remove from cache
             cachedNotes.remove(id);
-            cachedNotes.remove(normalizeId(id));
+            cachedNotes.remove(FileSystemNames.normalizeId(id));
             notesByFolderIndexDirty = true;
         } catch (IOException e) {
             logger.log(Level.SEVERE, "Failed to permanently delete note: " + id, e);
@@ -1371,17 +1364,10 @@ public class NoteDAOFileSystem implements NoteDAO {
         return extension.isEmpty() ? base : base + "." + extension;
     }
 
-    private Path withConflictSuffix(Path targetPath, String suffix) {
-        String filename = targetPath.getFileName().toString();
-        int dot = filename.lastIndexOf('.');
-        String base = dot > 0 ? filename.substring(0, dot) : filename;
-        String extension = dot > 0 ? filename.substring(dot) : "";
-        return targetPath.getParent().resolve(base + suffix + extension);
-    }
 
     /** Whether {@code id} resolves to a path inside the vault root (see {@link PathContainment}). */
     private boolean isInsideVault(String id) {
-        return PathContainment.resolveInside(rootPath, normalizeId(id)).isPresent();
+        return PathContainment.resolveInside(rootPath, FileSystemNames.normalizeId(id)).isPresent();
     }
 
     /** Rejects ids that would resolve outside the vault before any mutation touches the disk. */
@@ -1391,30 +1377,23 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
-    /** Normalizes a note ID to use forward slashes and returns an empty string for null input. */
-    private String normalizeId(String id) {
-        if (id == null) {
-            return "";
-        }
-        return id.replace("\\", "/");
-    }
 
     /**
      * Removes stale alias entries that can appear after filesystem moves/renames
      * performed outside the NoteDAO cache ownership path.
      */
     private void removeCacheAliasesForIds(String previousId, String currentId) {
-        String normalizedPreviousId = normalizeId(previousId);
-        String normalizedCurrentId = normalizeId(currentId);
+        String normalizedPreviousId = FileSystemNames.normalizeId(previousId);
+        String normalizedCurrentId = FileSystemNames.normalizeId(currentId);
         if (normalizedCurrentId.equals(normalizedPreviousId) && cachedNotes.containsKey(normalizedCurrentId)) {
             return;
         }
 
         List<String> aliasKeys = new ArrayList<>();
         for (Map.Entry<String, Note> entry : cachedNotes.entrySet()) {
-            String entryKey = normalizeId(entry.getKey());
+            String entryKey = FileSystemNames.normalizeId(entry.getKey());
             Note cached = entry.getValue();
-            String cachedId = cached != null ? normalizeId(cached.getId()) : "";
+            String cachedId = cached != null ? FileSystemNames.normalizeId(cached.getId()) : "";
 
             boolean previousAlias = !normalizedPreviousId.isBlank()
                     && cachedId.equals(normalizedPreviousId)
@@ -1430,9 +1409,9 @@ public class NoteDAOFileSystem implements NoteDAO {
 
         for (String aliasKey : aliasKeys) {
             cachedNotes.remove(aliasKey);
-            cachedNotes.remove(normalizeId(aliasKey));
+            cachedNotes.remove(FileSystemNames.normalizeId(aliasKey));
             idToPathMap.remove(aliasKey);
-            idToPathMap.remove(normalizeId(aliasKey));
+            idToPathMap.remove(FileSystemNames.normalizeId(aliasKey));
         }
     }
 
@@ -1449,7 +1428,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                     continue;
                 }
 
-                String noteId = normalizeId(note.getId());
+                String noteId = FileSystemNames.normalizeId(note.getId());
                 Path resolved = rootPath.resolve(noteId.replace("/", File.separator));
                 if (!Files.exists(resolved)) {
                     Path mapped = idToPathMap.get(noteId);
@@ -1510,7 +1489,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                 if (note == null || note.getId() == null || note.getId().isBlank() || note.isDeleted()) {
                     continue;
                 }
-                String noteId = normalizeId(note.getId());
+                String noteId = FileSystemNames.normalizeId(note.getId());
                 String folderKey = extractFolderKeyFromNoteId(noteId);
                 notesByFolderIndex.computeIfAbsent(folderKey, k -> new ArrayList<>()).add(note);
             }
@@ -1525,7 +1504,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         if (folderId == null || folderId.isBlank() || ROOT_ID.equals(folderId)) {
             return ROOT_ID;
         }
-        return normalizeId(folderId);
+        return FileSystemNames.normalizeId(folderId);
     }
 
     /** Extracts the parent directory portion of a note's relative path to use as the folder-index key. */
@@ -1533,7 +1512,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         if (noteId == null || noteId.isBlank()) {
             return ROOT_ID;
         }
-        String normalized = normalizeId(noteId);
+        String normalized = FileSystemNames.normalizeId(noteId);
         int idx = normalized.lastIndexOf('/');
         if (idx <= 0) {
             return ROOT_ID;

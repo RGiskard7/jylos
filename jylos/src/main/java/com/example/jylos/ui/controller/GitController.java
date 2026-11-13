@@ -17,6 +17,7 @@ import com.example.jylos.git.GitResult;
 import com.example.jylos.git.GitService;
 import com.example.jylos.git.GitStatus;
 import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.ui.UiNodes;
 
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
@@ -149,8 +150,8 @@ public final class GitController {
         }
         Path vault = gitVaultPath();
         if (vault == null) {
-            setNodeVisible(gitBar, false);
-            setNodeVisible(gitSeparator, false);
+            UiNodes.show(gitBar, false);
+            UiNodes.show(gitSeparator, false);
             return;
         }
         Task<GitStatus> task = new Task<>() {
@@ -161,8 +162,8 @@ public final class GitController {
         };
         task.setOnSucceeded(e -> applyGitStatus(task.getValue()));
         task.setOnFailed(e -> {
-            setNodeVisible(gitBar, false);
-            setNodeVisible(gitSeparator, false);
+            UiNodes.show(gitBar, false);
+            UiNodes.show(gitSeparator, false);
         });
         runDaemon(task, "git-status");
     }
@@ -261,22 +262,22 @@ public final class GitController {
         if (gitBar == null || status == null) {
             return;
         }
-        setNodeVisible(gitBar, true);
-        setNodeVisible(gitSeparator, true);
+        UiNodes.show(gitBar, true);
+        UiNodes.show(gitSeparator, true);
 
         boolean repo = status.repository();
         // Compact: without a repository only "Initialize Git"; with one, a single entry (branch,
         // sync state and number of changes) that opens the Git panel, whose context menu keeps
         // one-click access to changes, commit, history and adding a remote.
-        setNodeVisible(gitInitLabel, !repo);
-        setNodeVisible(gitRemoteLabel, false);
-        setNodeVisible(gitChangesLabel, false);
-        setNodeVisible(gitCommitLabel, false);
-        setNodeVisible(gitHistoryLabel, false);
-        setNodeVisible(gitSyncLabel, repo);
+        UiNodes.show(gitInitLabel, !repo);
+        UiNodes.show(gitRemoteLabel, false);
+        UiNodes.show(gitChangesLabel, false);
+        UiNodes.show(gitCommitLabel, false);
+        UiNodes.show(gitHistoryLabel, false);
+        UiNodes.show(gitSyncLabel, repo);
         for (javafx.scene.Node child : gitBar.getChildren()) {
             if (child instanceof Separator) {
-                setNodeVisible(child, false);
+                UiNodes.show(child, false);
             }
         }
 
@@ -378,12 +379,6 @@ public final class GitController {
     }
 
     /** Sets both {@code visible} and {@code managed} on {@code node} so the layout does not reserve space when hidden. */
-    private static void setNodeVisible(Node node, boolean visible) {
-        if (node != null) {
-            node.setVisible(visible);
-            node.setManaged(visible);
-        }
-    }
 
     /** Starts {@code task} on a new daemon thread so Git I/O never blocks the JavaFX Application Thread. */
     private static void runDaemon(Task<?> task, String name) {

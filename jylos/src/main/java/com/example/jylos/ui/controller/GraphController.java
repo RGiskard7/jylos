@@ -25,6 +25,7 @@ import com.example.jylos.graph.GraphEdge;
 import com.example.jylos.graph.GraphNode;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
+import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.graph.GraphCanvas;
 
 import javafx.concurrent.Task;
@@ -594,8 +595,7 @@ public class GraphController {
             return;
         }
         boolean show = settingsBtn != null && settingsBtn.isSelected();
-        settingsScrollPane.setVisible(show);
-        settingsScrollPane.setManaged(show);
+        UiNodes.show(settingsScrollPane, show);
         if (show) {
             settingsScrollPane.setVvalue(0.0);
         }

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.example.jylos.tests.FxTestSupport.onFx;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -13,10 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -27,7 +25,6 @@ import com.example.jylos.data.models.interfaces.Component;
 import com.example.jylos.service.NoteService.SortOption;
 import com.example.jylos.tests.FxTestSupport;
 
-import javafx.application.Platform;
 import javafx.event.Event;
 import javafx.scene.Node;
 import javafx.scene.Scene;
@@ -851,25 +848,5 @@ class ExplorerTreeTest {
         onFx(() -> null);
         onFx(() -> null);
         return onFx(read);
-    }
-
-    private static <T> T onFx(Callable<T> work) throws Exception {
-        AtomicReference<T> result = new AtomicReference<>();
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        CountDownLatch done = new CountDownLatch(1);
-        Platform.runLater(() -> {
-            try {
-                result.set(work.call());
-            } catch (Throwable t) {
-                failure.set(t);
-            } finally {
-                done.countDown();
-            }
-        });
-        assertTrue(done.await(30, TimeUnit.SECONDS), "test never completed on the FX thread");
-        if (failure.get() != null) {
-            throw new AssertionError(failure.get());
-        }
-        return result.get();
     }
 }

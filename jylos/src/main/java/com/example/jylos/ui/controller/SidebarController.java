@@ -33,6 +33,7 @@ import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
+import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.EditorTabsModel;
 import com.example.jylos.ui.components.ExplorerOrdering;
 import com.example.jylos.ui.components.ExplorerTree;
@@ -268,7 +269,7 @@ public class SidebarController {
         }
         // One header row for both trees: the filter, the sort button and expand/collapse act on
         // whichever tree is shown; "reveal the open note" only exists in the Explorer.
-        setShown(revealActiveNoteBtn, on);
+        UiNodes.show(revealActiveNoteBtn, on);
         if (filterFoldersField != null) {
             filterFoldersField.clear();
             filterFoldersField.setPromptText(getString(on ? "tab.explorer.filter" : "tab.folders.filter"));
@@ -522,12 +523,6 @@ public class SidebarController {
         }
     }
 
-    private static void setShown(javafx.scene.Node node, boolean shown) {
-        if (node != null) {
-            node.setVisible(shown);
-            node.setManaged(shown);
-        }
-    }
 
     /** What Cmd/Ctrl+click and middle click on a Recent/Favorites entry do with the note. */
     public void setOpenInNewTabAction(Consumer<Note> action) {

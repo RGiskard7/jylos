@@ -3,12 +3,10 @@ package com.example.jylos.ui.controller;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.example.jylos.tests.FxTestSupport.runFx;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import org.junit.jupiter.api.Assumptions;
@@ -17,7 +15,6 @@ import org.junit.jupiter.api.Test;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.tests.FxTestSupport;
 
-import javafx.application.Platform;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
@@ -32,7 +29,7 @@ class NoteContextMenuSupportTest {
 
     @Test
     void aFolderVaultOffersRevealInFilesAndItRevealsTheNote() throws Exception {
-        onFxThread(() -> aFolderVaultOffersRevealInFilesAndItRevealsTheNoteBody());
+        runFx(() -> aFolderVaultOffersRevealInFilesAndItRevealsTheNoteBody());
     }
 
     private void aFolderVaultOffersRevealInFilesAndItRevealsTheNoteBody() {
@@ -51,7 +48,7 @@ class NoteContextMenuSupportTest {
 
     @Test
     void aDatabaseVaultHasNoRevealEntry() throws Exception {
-        onFxThread(() -> aDatabaseVaultHasNoRevealEntryBody());
+        runFx(() -> aDatabaseVaultHasNoRevealEntryBody());
     }
 
     private void aDatabaseVaultHasNoRevealEntryBody() {
@@ -66,7 +63,7 @@ class NoteContextMenuSupportTest {
 
     @Test
     void anImageIsNotDuplicatedAsANoteButACanvasIs() throws Exception {
-        onFxThread(() -> {
+        runFx(() -> {
             assertFalse(labels(NoteContextMenuSupport.create(note("foto.png"), actions(), true, key -> key, null))
                     .contains("action.duplicate"));
             assertTrue(labels(NoteContextMenuSupport.create(note("Mapa.canvas"), actions(), true, key -> key, null))
@@ -76,7 +73,7 @@ class NoteContextMenuSupportTest {
 
     @Test
     void everyOtherEntryReachesItsAction() throws Exception {
-        onFxThread(() -> everyOtherEntryReachesItsActionBody());
+        runFx(() -> everyOtherEntryReachesItsActionBody());
     }
 
     private void everyOtherEntryReachesItsActionBody() {
@@ -86,25 +83,6 @@ class NoteContextMenuSupportTest {
             item(menu, label).fire();
         }
         assertEquals(List.of("pin a", "favorite a", "rename a", "move a", "trash a"), calls);
-    }
-
-    private static void onFxThread(Runnable work) throws Exception {
-        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        CountDownLatch done = new CountDownLatch(1);
-        Platform.runLater(() -> {
-            try {
-                work.run();
-            } catch (Throwable t) {
-                failure.set(t);
-            } finally {
-                done.countDown();
-            }
-        });
-        assertTrue(done.await(30, TimeUnit.SECONDS), "test never completed on the FX thread");
-        if (failure.get() != null) {
-            throw new AssertionError(failure.get());
-        }
     }
 
     private NoteContextMenuSupport.Actions actions() {

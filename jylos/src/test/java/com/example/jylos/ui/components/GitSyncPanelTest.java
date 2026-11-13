@@ -3,6 +3,7 @@ package com.example.jylos.ui.components;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import static com.example.jylos.tests.FxTestSupport.onFx;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -10,10 +11,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
-import java.util.function.Supplier;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -23,7 +22,6 @@ import com.example.jylos.git.GitChange;
 import com.example.jylos.git.GitService;
 import com.example.jylos.tests.FxTestSupport;
 
-import javafx.application.Platform;
 import javafx.scene.control.Button;
 import javafx.scene.control.ListView;
 
@@ -47,12 +45,12 @@ class GitSyncPanelTest {
         assertTrue(git.init(vault).ok());
         Files.writeString(vault.resolve("note.md"), "changed\n", StandardCharsets.UTF_8);
 
-        GitSyncPanel panel = runOnFx(() -> new GitSyncPanel(git, vault, key -> key, null, () -> { }));
+        GitSyncPanel panel = onFx(() -> new GitSyncPanel(git, vault, key -> key, null, () -> { }));
         refresh(panel);
         assertTrue(awaitFx(() -> !visibleChanges(panel).isEmpty()), "unstaged change should be visible");
         assertTrue(visibleChanges(panel).stream().noneMatch(GitChange::staged));
 
-        runOnFx(() -> {
+        onFx(() -> {
             button(panel, "stageAllBtn").fire();
             return null;
         });
@@ -60,7 +58,7 @@ class GitSyncPanelTest {
                 && visibleChanges(panel).stream().allMatch(GitChange::staged)),
                 "stage all must refresh rows as staged");
 
-        runOnFx(() -> {
+        onFx(() -> {
             button(panel, "unstageAllBtn").fire();
             return null;
         });
@@ -82,7 +80,7 @@ class GitSyncPanelTest {
         assertTrue(git.stageAll(vault).ok());
         Files.writeString(note, "staged edit\nnew edit\n", StandardCharsets.UTF_8);
 
-        GitSyncPanel panel = runOnFx(() -> new GitSyncPanel(git, vault, key -> key, null, () -> { }));
+        GitSyncPanel panel = onFx(() -> new GitSyncPanel(git, vault, key -> key, null, () -> { }));
         refresh(panel);
 
         assertTrue(awaitFx(() -> visibleChanges(panel).size() == 2),
@@ -94,7 +92,7 @@ class GitSyncPanelTest {
     private static void refresh(GitSyncPanel panel) throws Exception {
         Method method = GitSyncPanel.class.getDeclaredMethod("refresh", boolean.class);
         method.setAccessible(true);
-        runOnFx(() -> {
+        onFx(() -> {
             try {
                 method.invoke(panel, false);
             } catch (ReflectiveOperationException e) {
@@ -129,35 +127,12 @@ class GitSyncPanelTest {
     private static boolean awaitFx(BooleanSupplier condition) throws Exception {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
         while (System.nanoTime() < deadline) {
-            if (runOnFx(condition::getAsBoolean)) {
+            if (onFx(condition::getAsBoolean)) {
                 return true;
             }
             Thread.sleep(25);
         }
-        return runOnFx(condition::getAsBoolean);
+        return onFx(condition::getAsBoolean);
     }
 
-    @SuppressWarnings("unchecked")
-    private static <T> T runOnFx(Supplier<T> supplier) throws Exception {
-        if (Platform.isFxApplicationThread()) {
-            return supplier.get();
-        }
-        CountDownLatch latch = new CountDownLatch(1);
-        Object[] result = new Object[1];
-        Throwable[] failure = new Throwable[1];
-        Platform.runLater(() -> {
-            try {
-                result[0] = supplier.get();
-            } catch (Throwable e) {
-                failure[0] = e;
-            } finally {
-                latch.countDown();
-            }
-        });
-        assertTrue(latch.await(5, TimeUnit.SECONDS), "Timed out waiting for JavaFX thread");
-        if (failure[0] != null) {
-            throw new AssertionError(failure[0]);
-        }
-        return (T) result[0];
-    }
 }

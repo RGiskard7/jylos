@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- **Exportar a PDF imprime la nota como se lee:** `[[Nota|texto]]` sale como su texto, no con los corchetes, y `![[Nota]]` imprime el contenido de la nota incrustada, buscada desde la carpeta de la nota exportada. También se imprimen las tarjetas de enlace.
+- **Un enlace en una tarjeta del Kanban abre la nota que nombra su ruta:** `[[Personal/Reunión]]` abre esa y no otra con el mismo nombre; antes un enlace con carpeta no abría nada.
+
 - **Lo mismo se trata igual en todas partes.**
   - **Exportar a HTML incrusta la nota correcta:** `![[Reunión]]` se busca desde la carpeta de la nota exportada y `![[Carpeta/Nota]]` respeta la carpeta, como en la vista de lectura. Antes se buscaba solo por título y podía incrustar otra nota con el mismo nombre, o ninguna. Los enlaces relativos (`[[./Nota]]`) también se resuelven desde la carpeta de la nota.
   - **Un `+` en la ruta de una imagen o en el encabezado de un enlace Markdown es un `+`:** `![](C++.png)` encuentra `C++.png` y `[C++](Lenguajes.md#C++)` lleva a ese encabezado. Antes el `+` se leía como un espacio.

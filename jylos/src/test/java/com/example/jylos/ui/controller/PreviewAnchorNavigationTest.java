@@ -1,13 +1,11 @@
 package com.example.jylos.ui.controller;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.example.jylos.tests.FxTestSupport.onFx;
 
 import java.net.URL;
 import java.util.Locale;
 import java.util.ResourceBundle;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Assumptions;
@@ -16,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.tests.FxTestSupport;
 
-import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -109,25 +106,5 @@ class PreviewAnchorNavigationTest {
             }
             Thread.sleep(50);
         }
-    }
-
-    private static <T> T onFx(Callable<T> work) throws Exception {
-        AtomicReference<T> result = new AtomicReference<>();
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        CountDownLatch done = new CountDownLatch(1);
-        Platform.runLater(() -> {
-            try {
-                result.set(work.call());
-            } catch (Throwable t) {
-                failure.set(t);
-            } finally {
-                done.countDown();
-            }
-        });
-        assertTrue(done.await(30, TimeUnit.SECONDS), "test never completed on the FX thread");
-        if (failure.get() != null) {
-            throw new AssertionError(failure.get());
-        }
-        return result.get();
     }
 }

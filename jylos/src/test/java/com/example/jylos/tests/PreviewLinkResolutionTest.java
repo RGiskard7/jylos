@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -21,7 +20,6 @@ import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.PreviewContext;
 import com.example.jylos.service.NoteService;
-import com.example.jylos.service.NoteTitleIndex;
 import com.example.jylos.util.MarkdownPreview;
 
 /**
@@ -32,23 +30,18 @@ import com.example.jylos.util.MarkdownPreview;
  */
 class PreviewLinkResolutionTest {
 
-    @AfterEach
-    void unwire() {
-        NoteTitleIndex.getInstance().shutdown();
-    }
-
     @Test
     void linksResolveByPathFromTheNoteShown(@TempDir Path vault) throws Exception {
         write(vault, "Carpeta/Nota.md", "# Nota\n");
         write(vault, "Fuente.md", "x\n");
         NoteService notes = new NoteService(new NoteDAOFileSystem(vault.toString()),
                 new FolderDAOFileSystem(vault.toString()));
-        NoteTitleIndex.getInstance().wire(notes, null);
         Note source = notes.getNoteById("Fuente.md").orElseThrow();
 
         String html = MarkdownPreview.buildPreviewHtml(
                 "[[Carpeta/Nota]] [[Otra/Nota]] `[[Nota]]`\n\n```\n[[Nota]] ![[Nota]]\n```\n",
-                false, List.of(), null, t -> "embebido", new PreviewContext(source, false));
+                false, List.of(), new MarkdownPreview.PreviewOptions(null, t -> "embebido", new PreviewContext(source, false), false, 0, null,
+                        notes.linkIndex()));
 
         assertEquals(List.of("wikilink|Carpeta/Nota", "wikilink wikilink-new|Otra/Nota"), anchors(html));
         assertTrue(html.contains("<code>[[Nota]]</code>"), "inline code keeps the link as text");

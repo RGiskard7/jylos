@@ -611,6 +611,11 @@ public final class KanbanBoard extends VBox {
         return com.example.jylos.ui.UiDialogs.show(dialog).orElse(null);
     }
 
+    /** Id of the board note shown, or {@code null}: the note card links resolve from. */
+    public String currentBoardId() {
+        return currentBoard != null ? currentBoard.getId() : null;
+    }
+
     private static String firstLink(String text) {
         if (text == null) {
             return null;

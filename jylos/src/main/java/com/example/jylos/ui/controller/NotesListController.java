@@ -11,6 +11,7 @@ import com.example.jylos.exceptions.DataAccessException;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
+import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.NewTabGesture;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -178,8 +179,7 @@ public class NotesListController {
                 scrollBar.setMax(0);
                 scrollBar.setValue(0);
                 scrollBar.setDisable(true);
-                scrollBar.setVisible(false);
-                scrollBar.setManaged(false);
+                UiNodes.show(scrollBar, false);
                 scrollBar.setMinWidth(0);
                 scrollBar.setPrefWidth(0);
                 scrollBar.setMaxWidth(0);
@@ -447,8 +447,7 @@ public class NotesListController {
                     boolean showPreview = previewLines > 0;
                     String preview = showPreview ? buildPreviewText(note.getContent(), previewLines) : "";
                     boolean hasPreview = showPreview && preview != null && !preview.isBlank();
-                    previewLabel.setVisible(hasPreview);
-                    previewLabel.setManaged(hasPreview);
+                    UiNodes.show(previewLabel, hasPreview);
                     previewLabel.setText(hasPreview ? preview : "");
 
                     modifiedLabel.setText(formatDate(
@@ -1172,17 +1171,11 @@ public class NotesListController {
      * which only make sense when browsing a folder.
      */
     public void setResultsPanelMode(boolean resultsOnly) {
-        setShown(viewModeToggleBtn, !resultsOnly);
-        setShown(peekRecursiveBtn, !resultsOnly);
-        setShown(closeResultsBtn, resultsOnly);
+        UiNodes.show(viewModeToggleBtn, !resultsOnly);
+        UiNodes.show(peekRecursiveBtn, !resultsOnly);
+        UiNodes.show(closeResultsBtn, resultsOnly);
     }
 
-    private static void setShown(javafx.scene.Node node, boolean shown) {
-        if (node != null) {
-            node.setVisible(shown);
-            node.setManaged(shown);
-        }
-    }
 
     @FXML
     private void handleCloseResults(ActionEvent event) {

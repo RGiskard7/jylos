@@ -58,9 +58,20 @@ public final class NoteExporter {
     public static void exportHtml(Note note, File target, java.nio.file.Path baseDir,
             Function<String, String> embeddedContentResolver, java.nio.file.Path imageContainmentRoot)
             throws Exception {
+        exportHtml(note, target, baseDir, embeddedContentResolver, imageContainmentRoot, null);
+    }
+
+    /**
+     * Same as {@link #exportHtml(Note, File, java.nio.file.Path, Function, java.nio.file.Path)},
+     * with the vault's {@code links} telling links to existing notes from links to notes to create.
+     */
+    public static void exportHtml(Note note, File target, java.nio.file.Path baseDir,
+            Function<String, String> embeddedContentResolver, java.nio.file.Path imageContainmentRoot,
+            com.example.jylos.service.LinkIndex links) throws Exception {
         // The note as context, so its links resolve from its own folder, as in the reading view.
-        String html = MarkdownPreview.buildPreviewHtml(content(note), false, null, baseDir, embeddedContentResolver,
-                new com.example.jylos.plugin.PreviewContext(note, false), false, 0, imageContainmentRoot);
+        String html = MarkdownPreview.buildPreviewHtml(content(note), false, null,
+                new MarkdownPreview.PreviewOptions(baseDir, embeddedContentResolver,
+                        new com.example.jylos.plugin.PreviewContext(note, false), false, 0, imageContainmentRoot, links));
         Files.writeString(target.toPath(), html, StandardCharsets.UTF_8);
     }
 
@@ -76,7 +87,24 @@ public final class NoteExporter {
      *                Markdown — should point at the note's source folder; may be null
      */
     public static void exportPdf(Note note, File target, String baseUri) throws Exception {
-        String xhtml = buildPrintHtml(note);
+        exportPdf(note, target, baseUri, null);
+    }
+
+    /**
+     * Same as {@link #exportPdf(Note, File, String)}, with {@code embeddedContentResolver}
+     * giving the Markdown of the notes embedded with {@code ![[…]]}.
+     */
+    public static void exportPdf(Note note, File target, String baseUri,
+            Function<String, String> embeddedContentResolver) throws Exception {
+        exportPdf(note, target, baseUri, embeddedContentResolver, null);
+    }
+
+    /** Same, with the vault's {@code links} to resolve the note's links from its folder. */
+    public static void exportPdf(Note note, File target, String baseUri,
+            Function<String, String> embeddedContentResolver, com.example.jylos.service.LinkIndex links)
+            throws Exception {
+        String xhtml = buildPrintHtml(note, new MarkdownPreview.PreviewOptions(null, embeddedContentResolver,
+                new com.example.jylos.plugin.PreviewContext(note, false), false, 0, null, links));
         Document jsoupDoc = Jsoup.parse(xhtml);
         jsoupDoc.outputSettings()
                 .syntax(Document.OutputSettings.Syntax.xml)
@@ -95,18 +123,14 @@ public final class NoteExporter {
     }
 
     /** Print-oriented XHTML: rendered Markdown body + a clean, paper-friendly stylesheet. */
-    private static String buildPrintHtml(Note note) {
-        String title = note != null && note.getTitle() != null ? escape(note.getTitle()) : "";
-        // Emojis as inline images (same approach as the preview): openhtmltopdf renders
-        // <img> fine, and this avoids the emoji font's oversized space glyph issue.
-        // The same Obsidian syntax as the reading view: comments stay hidden (they may hold
-        // what the author never meant to share), footnotes are listed, ^block ids hidden.
-        // Tags stay plain text: a link to the app means nothing on paper.
-        String markdown = ReadingSyntax.stripComments(content(note));
-        ReadingSyntax.Footnotes footnotes = ReadingSyntax.footnotes(markdown);
-        String rendered = MarkdownProcessor.markdownToHtml(ReadingSyntax.blockAnchors(footnotes.markdown()))
-                + footnotes.html();
-        String body = MarkdownPreview.emojifyToImages(rendered, false);
+    private static String buildPrintHtml(Note note, MarkdownPreview.PreviewOptions options) {
+        String title = note != null && note.getTitle() != null ? MarkdownProcessor.escapeHtml(note.getTitle()) : "";
+        // The reading view's body: comments stay hidden (they may hold what the author never
+        // meant to share), footnotes are listed, ^block ids hidden, links shown as their text
+        // and embeds with their note. Emojis are inline images: openhtmltopdf renders <img>
+        // fine, and this avoids the emoji font's oversized space glyph. Tags stay plain text:
+        // a link to the app means nothing on paper. Images resolve against the PDF's base URI.
+        String body = MarkdownPreview.renderBody(content(note), false, false, options);
         return """
                 <!DOCTYPE html>
                 <html lang="en">
@@ -159,7 +183,4 @@ public final class NoteExporter {
         return note != null && note.getContent() != null ? note.getContent() : "";
     }
 
-    private static String escape(String text) {
-        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-    }
 }

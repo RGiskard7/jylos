@@ -2,11 +2,11 @@ package com.example.jylos.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.example.jylos.tests.FxTestSupport.runFx;
 
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -18,7 +18,6 @@ import com.example.jylos.plugin.PreviewContext;
 import com.example.jylos.plugin.PreviewEnhancer;
 import com.example.jylos.ui.controller.EditorController;
 
-import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.layout.VBox;
 import javafx.scene.web.WebView;
@@ -44,7 +43,7 @@ class PreviewThemeOnPluginChangeTest {
         AtomicReference<EditorController> controller = new AtomicReference<>();
         AtomicReference<WebView> webView = new AtomicReference<>();
         AtomicReference<Stage> stage = new AtomicReference<>();
-        onFx(() -> {
+        runFx(() -> {
             EditorController editor = new EditorController();
             WebView view = new WebView();
             VBox pane = new VBox(view);
@@ -62,20 +61,20 @@ class PreviewThemeOnPluginChangeTest {
             stage.set(window);
         });
         try {
-            onFx(() -> controller.get().refreshPreview(true));
+            runFx(() -> controller.get().refreshPreview(true));
             assertTrue(waitFor(() -> renders.contains(true)), "drawn dark: " + renders);
             // The render is done before the page is loaded: wait for the page's own background.
             assertTrue(waitFor(() -> painted(background(webView.get()))), "the dark page is shown");
             String dark = background(webView.get());
 
             int before = renders.size();
-            onFx(() -> controller.get().registerPreviewEnhancer("otro", new PreviewEnhancer() { }));
+            runFx(() -> controller.get().registerPreviewEnhancer("otro", new PreviewEnhancer() { }));
             assertTrue(waitFor(() -> renders.size() > before), "drawn again");
             assertTrue(waitFor(() -> dark.equals(background(webView.get()))),
                     "the page keeps the dark background: " + dark + " vs " + background(webView.get()));
             assertEquals(Boolean.TRUE, renders.get(renders.size() - 1), "renders: " + renders);
         } finally {
-            onFx(() -> {
+            runFx(() -> {
                 controller.get().teardown();
                 stage.get().close();
             });
@@ -85,7 +84,7 @@ class PreviewThemeOnPluginChangeTest {
     private static String background(WebView view) {
         AtomicReference<String> color = new AtomicReference<>("");
         try {
-            onFx(() -> {
+            runFx(() -> {
                 Object value = view.getEngine().executeScript(
                         "document.body ? getComputedStyle(document.body).backgroundColor : ''");
                 color.set(String.valueOf(value));
@@ -109,28 +108,6 @@ class PreviewThemeOnPluginChangeTest {
             Thread.sleep(50);
         }
         return false;
-    }
-
-    private interface FxAction {
-        void run() throws Exception;
-    }
-
-    private static void onFx(FxAction action) throws Exception {
-        CountDownLatch done = new CountDownLatch(1);
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        Platform.runLater(() -> {
-            try {
-                action.run();
-            } catch (Throwable t) {
-                failure.set(t);
-            } finally {
-                done.countDown();
-            }
-        });
-        assertTrue(done.await(30, TimeUnit.SECONDS), "FX action timed out");
-        if (failure.get() != null) {
-            throw new AssertionError(failure.get());
-        }
     }
 
     private static void set(Object target, String name, Object value) throws Exception {

@@ -21,6 +21,7 @@ import com.example.jylos.data.models.interfaces.Component;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.NoteService.SortOption;
+import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
 import com.example.jylos.util.AttachmentType;
 
@@ -864,8 +865,7 @@ public final class ExplorerTree {
             String text = item instanceof Folder folder ? folderBadge.apply(folder) : null;
             boolean show = text != null && !text.isBlank();
             badge.setText(show ? "(" + text + ")" : "");
-            badge.setVisible(show);
-            badge.setManaged(show);
+            UiNodes.show(badge, show);
         }
 
         private void observe(TreeItem<Component> item) {

@@ -560,7 +560,7 @@ public final class WikiLinkResolver {
                     : MarkdownProcessor.slugifyHeading(target);
             String label = alias.isEmpty() ? target : alias;
             m.appendReplacement(sb, Matcher.quoteReplacement("<a class=\"wikilink wikilink-local\" href=\"#"
-                    + escapeHtml(anchor) + "\">" + escapeHtml(label) + "</a>"));
+                    + MarkdownProcessor.escapeHtml(anchor) + "\">" + MarkdownProcessor.escapeHtml(label) + "</a>"));
         }
         m.appendTail(sb);
         return sb.toString();
@@ -649,9 +649,9 @@ public final class WikiLinkResolver {
     private static String buildAnchor(String cssClass, String href, String dataTarget, String subpath, String label) {
         return "<a class=\"" + cssClass
                 + "\" href=\"" + href
-                + "\" data-target=\"" + escapeHtml(dataTarget)
-                + (subpath != null && !subpath.isBlank() ? "\" data-subpath=\"" + escapeHtml(subpath) : "")
-                + "\">" + escapeHtml(label) + "</a>";
+                + "\" data-target=\"" + MarkdownProcessor.escapeHtml(dataTarget)
+                + (subpath != null && !subpath.isBlank() ? "\" data-subpath=\"" + MarkdownProcessor.escapeHtml(subpath) : "")
+                + "\">" + MarkdownProcessor.escapeHtml(label) + "</a>";
     }
 
     private static String encodeTitle(String title) {
@@ -677,10 +677,4 @@ public final class WikiLinkResolver {
         }
     }
 
-    private static String escapeHtml(String text) {
-        return text.replace("&",  "&amp;")
-                   .replace("<",  "&lt;")
-                   .replace(">",  "&gt;")
-                   .replace("\"", "&quot;");
-    }
 }

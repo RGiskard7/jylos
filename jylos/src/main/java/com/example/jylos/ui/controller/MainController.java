@@ -44,6 +44,7 @@ import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
 import com.example.jylos.service.UpdateChecker;
+import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.CommandPalette;
 import com.example.jylos.ui.components.EditorTabsModel;
 import com.example.jylos.ui.components.PluginManagerDialog;
@@ -1531,8 +1532,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             container.getChildren().removeIf(n -> button.getId().equals(n.getId()));
             container.getChildren().add(button);
             pluginToolbarButtons.computeIfAbsent(pluginId, k -> new ArrayList<>()).add(button);
-            container.setVisible(true);
-            container.setManaged(true);
+            UiNodes.show(container, true);
         });
     }
 
@@ -1546,8 +1546,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         Platform.runLater(() -> {
             container.getChildren().removeAll(buttons);
             boolean empty = container.getChildren().isEmpty();
-            container.setVisible(!empty);
-            container.setManaged(!empty);
+            UiNodes.show(container, !empty);
         });
     }
 
@@ -2130,17 +2129,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private void updateRightPanelContext() {
         boolean graph = overlaySupport.isGraphVisible();
         boolean editorContext = !graph && !overlaySupport.isKanbanVisible();
-        setSectionShown(noteInfoSection, editorContext);
-        setSectionShown(backlinksSection, editorContext);
-        setSectionShown(graphInfoSection, graph);
+        UiNodes.show(noteInfoSection, editorContext);
+        UiNodes.show(backlinksSection, editorContext);
+        UiNodes.show(graphInfoSection, graph);
     }
 
-    private static void setSectionShown(VBox section, boolean shown) {
-        if (section != null) {
-            section.setVisible(shown);
-            section.setManaged(shown);
-        }
-    }
 
     /** Refreshes the graph baseline section's node/edge counts (graph rebuild callback). */
     private void updateGraphInfoSection(GraphData data) {
@@ -2156,8 +2149,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     private void initializeRightPanelVisibility() {
         if (rightPanel != null) {
-            rightPanel.setVisible(true);
-            rightPanel.setManaged(true);
+            UiNodes.show(rightPanel, true);
             rightPanel.setMinWidth(0);
             rightPanel.setMaxWidth(0);
             rightPanel.setPrefWidth(0);
@@ -2699,8 +2691,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (updateIndicator == null || release == null) {
             return;
         }
-        updateIndicator.setVisible(true);
-        updateIndicator.setManaged(true);
+        UiNodes.show(updateIndicator, true);
         updateIndicator.setTooltip(new Tooltip(java.text.MessageFormat.format(
                 getString("update.indicator.tooltip"), release.tagName())));
     }
@@ -3320,8 +3311,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             show = !tagsBox.isVisible();
         }
         if (tagsBox != null) {
-            tagsBox.setVisible(show);
-            tagsBox.setManaged(show);
+            UiNodes.show(tagsBox, show);
             updateStatus(show ? getString("status.tags_bar_shown") : getString("status.tags_bar_hidden"));
         }
     }

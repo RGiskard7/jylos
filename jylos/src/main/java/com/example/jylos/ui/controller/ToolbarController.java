@@ -2,6 +2,7 @@ package com.example.jylos.ui.controller;
 
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.SystemActionEvent;
+import com.example.jylos.ui.UiNodes;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -395,8 +396,7 @@ public class ToolbarController {
     private void applyNotesToggleVisibility() {
         if (notesPanelToggleBtn != null) {
             boolean show = layoutTogglesShown && notesToggleAvailable;
-            notesPanelToggleBtn.setVisible(show);
-            notesPanelToggleBtn.setManaged(show);
+            UiNodes.show(notesPanelToggleBtn, show);
         }
     }
 
@@ -460,11 +460,9 @@ public class ToolbarController {
             return;
         }
         if (searchToggleBtn != null) {
-            searchToggleBtn.setVisible(false);
-            searchToggleBtn.setManaged(false);
+            UiNodes.show(searchToggleBtn, false);
         }
-        searchField.setVisible(true);
-        searchField.setManaged(true);
+        UiNodes.show(searchField, true);
         searchField.requestFocus();
         if (!searchField.getText().isEmpty()) {
             searchField.selectAll();
@@ -479,11 +477,9 @@ public class ToolbarController {
         if (searchField == null || !searchField.getText().isEmpty()) {
             return;
         }
-        searchField.setVisible(false);
-        searchField.setManaged(false);
+        UiNodes.show(searchField, false);
         if (searchToggleBtn != null) {
-            searchToggleBtn.setVisible(true);
-            searchToggleBtn.setManaged(true);
+            UiNodes.show(searchToggleBtn, true);
         }
     }
 
@@ -623,41 +619,31 @@ public class ToolbarController {
             if (!showSearch) {
                 // Too narrow for search at all — it moves into the overflow menu
                 // instead, so neither the field nor its collapsed icon belong here.
-                searchField.setVisible(false);
-                searchField.setManaged(false);
+                UiNodes.show(searchField, false);
                 if (searchToggleBtn != null) {
-                    searchToggleBtn.setVisible(false);
-                    searchToggleBtn.setManaged(false);
+                    UiNodes.show(searchToggleBtn, false);
                 }
             } else if (searchToggleBtn == null) {
-                searchField.setVisible(true);
-                searchField.setManaged(true);
+                UiNodes.show(searchField, true);
             } else if (!searchField.isVisible()) {
                 // Only set the default (collapsed) state — if the user already has
                 // it expanded, a responsive re-check shouldn't yank it away.
-                searchToggleBtn.setVisible(true);
-                searchToggleBtn.setManaged(true);
+                UiNodes.show(searchToggleBtn, true);
             }
         }
         if (sidebarToggleBtn != null) {
-            sidebarToggleBtn.setVisible(showLayoutToggles);
-            sidebarToggleBtn.setManaged(showLayoutToggles);
+            UiNodes.show(sidebarToggleBtn, showLayoutToggles);
             layoutTogglesShown = showLayoutToggles;
             applyNotesToggleVisibility();
-            layoutSwitchBtn.setVisible(showLayoutToggles);
-            layoutSwitchBtn.setManaged(showLayoutToggles);
+            UiNodes.show(layoutSwitchBtn, showLayoutToggles);
             if (rightPanelToggleBtn != null) {
-                rightPanelToggleBtn.setVisible(showLayoutToggles);
-                rightPanelToggleBtn.setManaged(showLayoutToggles);
+                UiNodes.show(rightPanelToggleBtn, showLayoutToggles);
             }
         }
         if (newNoteBtn != null) {
-            newNoteBtn.setVisible(showFileActions);
-            newNoteBtn.setManaged(showFileActions);
-            newFolderBtn.setVisible(showFileActions);
-            newFolderBtn.setManaged(showFileActions);
-            newTagBtn.setVisible(showFileActions);
-            newTagBtn.setManaged(showFileActions);
+            UiNodes.show(newNoteBtn, showFileActions);
+            UiNodes.show(newFolderBtn, showFileActions);
+            UiNodes.show(newTagBtn, showFileActions);
         }
     }
 

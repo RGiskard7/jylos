@@ -12,6 +12,7 @@ import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.plugin.PluginManager;
+import com.example.jylos.ui.UiNodes;
 
 import javafx.application.Platform;
 import javafx.geometry.Orientation;
@@ -191,8 +192,7 @@ class PluginUi {
 
             header.setOnMouseClicked(e -> {
                 boolean expand = !contentWrapper.isVisible();
-                contentWrapper.setVisible(expand);
-                contentWrapper.setManaged(expand);
+                UiNodes.show(contentWrapper, expand);
                 collapseIcon.setText(expand ? "▼" : "▶");
             });
 
@@ -201,8 +201,7 @@ class PluginUi {
             pluginPanels.put(fullPanelId, panelWrapper);
             pluginPanelIds.computeIfAbsent(pluginId, k -> new ArrayList<>()).add(fullPanelId);
 
-            pluginPanelsContainer.setVisible(true);
-            pluginPanelsContainer.setManaged(true);
+            UiNodes.show(pluginPanelsContainer, true);
 
             logger.fine("Registered side panel: " + title + " for plugin " + pluginId);
         });
@@ -226,8 +225,7 @@ class PluginUi {
             }
 
             if (pluginPanelsContainer.getChildren().isEmpty()) {
-                pluginPanelsContainer.setVisible(false);
-                pluginPanelsContainer.setManaged(false);
+                UiNodes.show(pluginPanelsContainer, false);
             }
 
             logger.info("Removed side panel: " + panelId);
@@ -252,8 +250,7 @@ class PluginUi {
             }
 
             if (pluginPanelsContainer.getChildren().isEmpty()) {
-                pluginPanelsContainer.setVisible(false);
-                pluginPanelsContainer.setManaged(false);
+                UiNodes.show(pluginPanelsContainer, false);
             }
 
             logger.info("Removed all side panels for plugin: " + pluginId);
@@ -263,8 +260,7 @@ class PluginUi {
     void setPluginPanelsVisible(boolean visible, VBox pluginPanelsContainer) {
         Platform.runLater(() -> {
             if (pluginPanelsContainer != null) {
-                pluginPanelsContainer.setVisible(visible);
-                pluginPanelsContainer.setManaged(visible);
+                UiNodes.show(pluginPanelsContainer, visible);
             }
         });
     }

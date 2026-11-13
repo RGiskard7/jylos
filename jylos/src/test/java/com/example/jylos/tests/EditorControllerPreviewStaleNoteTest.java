@@ -2,6 +2,7 @@ package com.example.jylos.tests;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.example.jylos.tests.FxTestSupport.runFx;
 
 import java.lang.reflect.Field;
 import java.util.concurrent.CountDownLatch;
@@ -17,7 +18,6 @@ import com.example.jylos.plugin.PreviewContext;
 import com.example.jylos.plugin.PreviewEnhancer;
 import com.example.jylos.ui.controller.EditorController;
 
-import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.layout.VBox;
 import javafx.scene.web.WebView;
@@ -131,7 +131,7 @@ class EditorControllerPreviewStaleNoteTest {
 
         static Fixture open() throws Exception {
             Fixture fixture = new Fixture();
-            onFx(() -> {
+            runFx(() -> {
                 fixture.controller = new EditorController();
                 fixture.webView = new WebView();
                 VBox previewPane = new VBox(fixture.webView);
@@ -146,20 +146,20 @@ class EditorControllerPreviewStaleNoteTest {
         }
 
         void show(Note note) throws Exception {
-            onFx(() -> {
+            runFx(() -> {
                 set(controller, "currentNote", note);
                 controller.refreshPreview(false);
             });
         }
 
         void refresh() throws Exception {
-            onFx(() -> controller.refreshPreview(false));
+            runFx(() -> controller.refreshPreview(false));
         }
 
         String previewText() {
             AtomicReference<String> text = new AtomicReference<>("");
             try {
-                onFx(() -> {
+                runFx(() -> {
                     Object body = webView.getEngine().executeScript(
                             "document.body ? document.body.innerText : ''");
                     text.set(body != null ? body.toString() : "");
@@ -183,7 +183,7 @@ class EditorControllerPreviewStaleNoteTest {
 
         void close() throws Exception {
             blocker.releaseAll();
-            onFx(() -> {
+            runFx(() -> {
                 controller.teardown();
                 stage.close();
             });
@@ -193,28 +193,6 @@ class EditorControllerPreviewStaleNoteTest {
             Note note = new Note(title, content);
             note.setId(id);
             return note;
-        }
-    }
-
-    private interface FxAction {
-        void run() throws Exception;
-    }
-
-    private static void onFx(FxAction action) throws Exception {
-        CountDownLatch done = new CountDownLatch(1);
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        Platform.runLater(() -> {
-            try {
-                action.run();
-            } catch (Throwable t) {
-                failure.set(t);
-            } finally {
-                done.countDown();
-            }
-        });
-        assertTrue(done.await(30, TimeUnit.SECONDS), "FX action timed out");
-        if (failure.get() != null) {
-            throw new AssertionError(failure.get());
         }
     }
 

@@ -2,6 +2,7 @@ package com.example.jylos.ui.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.example.jylos.tests.FxTestSupport.onFx;
 
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
@@ -13,11 +14,7 @@ import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.prefs.Preferences;
 
@@ -38,7 +35,6 @@ import com.example.jylos.service.TagService;
 import com.example.jylos.tests.FxTestSupport;
 import com.example.jylos.ui.graph.GraphCanvas;
 
-import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
@@ -301,25 +297,5 @@ class GraphSettingsTest {
             Thread.sleep(50);
         }
         throw new AssertionError("condition not reached in time");
-    }
-
-    private static <T> T onFx(Callable<T> work) throws Exception {
-        AtomicReference<T> result = new AtomicReference<>();
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        CountDownLatch done = new CountDownLatch(1);
-        Platform.runLater(() -> {
-            try {
-                result.set(work.call());
-            } catch (Throwable t) {
-                failure.set(t);
-            } finally {
-                done.countDown();
-            }
-        });
-        assertTrue(done.await(30, TimeUnit.SECONDS), "never completed on the FX thread");
-        if (failure.get() != null) {
-            throw new AssertionError(failure.get());
-        }
-        return result.get();
     }
 }

@@ -6,6 +6,7 @@ import java.util.function.Supplier;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.service.NoteService;
+import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.KanbanBoard;
 
 import javafx.scene.Node;
@@ -119,7 +120,7 @@ final class OverlaySupport {
     }
 
     private void setGraphVisible(boolean visible) {
-        setShown(graphView, visible);
+        UiNodes.show(graphView, visible);
     }
 
     // ------------------------------------------------------------------
@@ -142,7 +143,7 @@ final class OverlaySupport {
             }
             kanbanBoard.setDarkTheme(isDark());
             kanbanBoard.reload();
-            setShown(kanbanBoard, true);
+            UiNodes.show(kanbanBoard, true);
             kanbanBoard.toFront();
             kanbanBoard.requestFocus(); // so Escape closes the board
             updateStatus(getString("status.kanban_opened"));
@@ -151,7 +152,7 @@ final class OverlaySupport {
     }
 
     void hideKanban() {
-        setShown(kanbanBoard, false);
+        UiNodes.show(kanbanBoard, false);
         onVisibilityChanged.run();
     }
 
@@ -159,18 +160,22 @@ final class OverlaySupport {
         if (kanbanBoard != null || centerStack == null || noteService == null) {
             return;
         }
-        kanbanBoard = new KanbanBoard(noteService, this::openNoteByTitle, this::hideKanban,
+        kanbanBoard = new KanbanBoard(noteService, this::openLinkedNote, this::hideKanban,
                 this::publishCreated, this::publishUpdated, i18n);
-        setShown(kanbanBoard, false);
+        UiNodes.show(kanbanBoard, false);
         centerStack.getChildren().add(kanbanBoard);
     }
 
-    /** Opens a note referenced from a Kanban card ({@code [[Title]]}). */
-    private void openNoteByTitle(String title) {
-        if (title == null || title.isBlank() || noteService == null) {
+    /**
+     * Opens the note a Kanban card links to ({@code [[Note]]}, {@code [[Folder/Note]]}), resolved
+     * by path from the board's note as any link is.
+     */
+    void openLinkedNote(String link) {
+        if (link == null || link.isBlank() || noteService == null) {
             return;
         }
-        noteService.findNoteByTitle(title).ifPresent(note -> {
+        String boardId = kanbanBoard != null ? kanbanBoard.currentBoardId() : null;
+        noteService.resolveLink(link, boardId).ifPresent(note -> {
             hideKanban();
             publishOpen(note);
         });
@@ -202,12 +207,6 @@ final class OverlaySupport {
         return darkTheme != null && Boolean.TRUE.equals(darkTheme.get());
     }
 
-    private static void setShown(Node node, boolean shown) {
-        if (node != null) {
-            node.setVisible(shown);
-            node.setManaged(shown);
-        }
-    }
 
     private String getString(String key) {
         return i18n != null ? i18n.apply(key) : key;

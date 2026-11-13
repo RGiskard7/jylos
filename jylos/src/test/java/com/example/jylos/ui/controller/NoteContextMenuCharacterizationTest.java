@@ -3,6 +3,7 @@ package com.example.jylos.ui.controller;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.example.jylos.tests.FxTestSupport.onFx;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -11,10 +12,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.prefs.Preferences;
 
 import org.junit.jupiter.api.Assumptions;
@@ -24,7 +21,6 @@ import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.NoteContextMenuEntry;
 import com.example.jylos.tests.FxTestSupport;
 
-import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.Parent;
@@ -52,7 +48,7 @@ class NoteContextMenuCharacterizationTest {
     @Test
     void listMenuOfAPlainNote() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
-        List<String> entries = onFxThread(() -> describe(new Fixture().cell(0).getContextMenu()));
+        List<String> entries = onFx(() -> describe(new Fixture().cell(0).getContextMenu()));
 
         assertEquals(expected("Fijar Nota", "Añadir a Favoritos", "Hacer Privada", "Mover a la Papelera"), entries);
     }
@@ -60,7 +56,7 @@ class NoteContextMenuCharacterizationTest {
     @Test
     void listMenuOfAPinnedFavoritePrivateNote() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
-        List<String> entries = onFxThread(() -> describe(new Fixture().cell(1).getContextMenu()));
+        List<String> entries = onFx(() -> describe(new Fixture().cell(1).getContextMenu()));
 
         assertEquals(expected("Desfijar Nota", "Quitar de Favoritos", "Hacer Normal (Descifrar)", "Mover a la Papelera (off)"),
                 entries);
@@ -69,7 +65,7 @@ class NoteContextMenuCharacterizationTest {
     @Test
     void gridMenuOfAPlainNote() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
-        List<String> entries = onFxThread(() -> {
+        List<String> entries = onFx(() -> {
             Fixture f = new Fixture();
             return describe(f.gridMenu(f.list.getItems().get(0), () -> { }));
         });
@@ -80,7 +76,7 @@ class NoteContextMenuCharacterizationTest {
     @Test
     void gridMenuOfAPinnedFavoritePrivateNote() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
-        List<String> entries = onFxThread(() -> {
+        List<String> entries = onFx(() -> {
             Fixture f = new Fixture();
             return describe(f.gridMenu(f.list.getItems().get(1), () -> { }));
         });
@@ -95,7 +91,7 @@ class NoteContextMenuCharacterizationTest {
     @Test
     void listMenuEntriesReachTheirActions() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
-        List<String> calls = onFxThread(() -> {
+        List<String> calls = onFx(() -> {
             Fixture f = new Fixture();
             ContextMenu menu = f.cell(0).getContextMenu();
             for (String label : List.of("Abrir", "Abrir en pestaña nueva", "Hacer Privada", "Exportar nota…",
@@ -111,7 +107,7 @@ class NoteContextMenuCharacterizationTest {
     @Test
     void gridMenuEntriesReachTheirActions() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
-        List<String> calls = onFxThread(() -> {
+        List<String> calls = onFx(() -> {
             Fixture f = new Fixture();
             ContextMenu menu = f.gridMenu(f.list.getItems().get(0), () -> f.calls.add("gridOpen"));
             for (String label : List.of("Abrir", "Abrir en pestaña nueva", "Hacer Privada", "Exportar nota…",
@@ -215,25 +211,5 @@ class NoteContextMenuCharacterizationTest {
         Note note = new Note(id, "content");
         note.setId(id);
         return note;
-    }
-
-    private static <T> T onFxThread(Callable<T> work) throws Exception {
-        AtomicReference<T> result = new AtomicReference<>();
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        CountDownLatch done = new CountDownLatch(1);
-        Platform.runLater(() -> {
-            try {
-                result.set(work.call());
-            } catch (Throwable t) {
-                failure.set(t);
-            } finally {
-                done.countDown();
-            }
-        });
-        assertTrue(done.await(30, TimeUnit.SECONDS), "test never completed on the FX thread");
-        if (failure.get() != null) {
-            throw new AssertionError(failure.get());
-        }
-        return result.get();
     }
 }

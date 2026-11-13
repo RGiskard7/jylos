@@ -7,6 +7,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.prefs.Preferences;
 
+import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
 
 import javafx.scene.Node;
@@ -79,8 +80,8 @@ final class FocusModeSupport {
         savedMainItems = mainSplitPane != null ? new ArrayList<>(mainSplitPane.getItems()) : null;
         savedContentItems = contentSplitPane != null ? new ArrayList<>(contentSplitPane.getItems()) : null;
 
-        setShown(tb, false);
-        setShown(statusBar, false);
+        UiNodes.show(tb, false);
+        UiNodes.show(statusBar, false);
         // The right panel lives inside a SplitPane (editor | right panel), not a plain
         // Box — a SplitPane still reserves that item's divided region even once it's
         // set invisible/unmanaged, since collapsing happens via divider position, not
@@ -118,8 +119,8 @@ final class FocusModeSupport {
             contentSplitPane.setDividerPositions(
                     prefs.getDouble(UiPreferencesStore.SPLIT_CONTENT_KEY, UiPreferencesStore.DEFAULT_SPLIT_CONTENT));
         }
-        setShown(toolbar != null ? toolbar.get() : null, savedToolbarVisible);
-        setShown(statusBar, savedStatusVisible);
+        UiNodes.show(toolbar != null ? toolbar.get() : null, savedToolbarVisible);
+        UiNodes.show(statusBar, savedStatusVisible);
         if (savedRightVisible) {
             expandRightPanel();
         }
@@ -130,12 +131,6 @@ final class FocusModeSupport {
         updateStatus(getString("status.focus_off"));
     }
 
-    private static void setShown(Node node, boolean shown) {
-        if (node != null) {
-            node.setVisible(shown);
-            node.setManaged(shown);
-        }
-    }
 
     /** Same "collapsed" check {@code UiLayout.toggleRightPanel} itself uses. */
     private boolean isRightPanelExpanded() {

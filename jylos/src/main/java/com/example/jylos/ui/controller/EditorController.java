@@ -33,6 +33,7 @@ import com.example.jylos.service.NoteTitleIndex;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.RichLinkService;
 import com.example.jylos.service.TagService;
+import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.CanvasView;
 import com.example.jylos.ui.components.MarkdownEditorView;
 import com.example.jylos.ui.components.WebViewImages;
@@ -485,8 +486,7 @@ public class EditorController {
     private void applyPropertiesExpandedState() {
         Node body = propertiesBody != null ? propertiesBody : propertiesContent;
         if (body != null) {
-            body.setVisible(propertiesExpanded);
-            body.setManaged(propertiesExpanded);
+            UiNodes.show(body, propertiesExpanded);
         }
         if (propertiesCollapseIcon != null) {
             propertiesCollapseIcon.setText(propertiesExpanded ? "▼" : "▶");
@@ -560,8 +560,8 @@ public class EditorController {
         // In the read (preview-only) view, swap the editable title input for a plain
         // heading Label so the title reads as a title, not an input field.
         if (noteTitleField != null && noteTitleLabel != null) {
-            setNodeVisible(noteTitleField, !readOnly);
-            setNodeVisible(noteTitleLabel, readOnly);
+            UiNodes.show(noteTitleField, !readOnly);
+            UiNodes.show(noteTitleLabel, readOnly);
         }
         rebuildPropertiesPanel();
     }
@@ -641,7 +641,7 @@ public class EditorController {
     /** Shows or hides the format bar under the editor (Preferences). */
     public void setFormatToolbarVisible(boolean visible) {
         this.formatToolbarVisible = visible;
-        setNodeVisible(formatToolbarContainer, visible);
+        UiNodes.show(formatToolbarContainer, visible);
     }
 
     public void applyLivePreviewPreference(boolean enabled) {
@@ -686,14 +686,14 @@ public class EditorController {
      */
     private void setNoteOpen(boolean open) {
         hideAttachmentViewer();
-        setNodeVisible(editorHeaderBar, open);
-        setNodeVisible(noteOnlyControls, open);
-        setNodeVisible(editorPreviewSplitPane, open);
+        UiNodes.show(editorHeaderBar, open);
+        UiNodes.show(noteOnlyControls, open);
+        UiNodes.show(editorPreviewSplitPane, open);
         if (!open) {
-            setNodeVisible(tagsContainer, false);
-            setNodeVisible(propertiesSection, false);
+            UiNodes.show(tagsContainer, false);
+            UiNodes.show(propertiesSection, false);
         }
-        setNodeVisible(emptyState, !open);
+        UiNodes.show(emptyState, !open);
         updateEditorEditableState();
     }
 
@@ -737,7 +737,7 @@ public class EditorController {
                 }
             });
         }
-        setNodeVisible(notePathLabel, !folders.isEmpty());
+        UiNodes.show(notePathLabel, !folders.isEmpty());
     }
 
 
@@ -827,8 +827,7 @@ public class EditorController {
             return;
         }
         boolean isPrivate = currentNote != null && currentNote.isPrivate() && !viewingAttachment;
-        privateIndicator.setVisible(isPrivate);
-        privateIndicator.setManaged(isPrivate);
+        UiNodes.show(privateIndicator, isPrivate);
         if (!isPrivate) {
             return;
         }
@@ -856,7 +855,7 @@ public class EditorController {
         if (attachmentViewer == null) {
             attachmentViewer = new StackPane();
             attachmentViewer.getStyleClass().add("attachment-viewer-host");
-            setNodeVisible(attachmentViewer, false);
+            UiNodes.show(attachmentViewer, false);
             if (editorContentStack != null) {
                 editorContentStack.getChildren().add(attachmentViewer);
             }
@@ -883,27 +882,26 @@ public class EditorController {
         } else if (path != null) {
             attachmentContent = com.example.jylos.ui.components.FileViewer.forAttachment(path, type, bundle);
         } else {
-            Label missing = new Label(bundle != null ? bundle.getString("viewer.file_not_found")
-                    : "File not found");
+            Label missing = new Label(getString("viewer.file_not_found", "File not found"));
             missing.getStyleClass().add("viewer-info");
             attachmentContent = missing;
         }
         attachmentViewer.getChildren().setAll(attachmentContent);
 
-        setNodeVisible(editorHeaderBar, true);
-        setNodeVisible(noteOnlyControls, false);
+        UiNodes.show(editorHeaderBar, true);
+        UiNodes.show(noteOnlyControls, false);
         if (noteTitleField != null) {
-            setNodeVisible(noteTitleField, true);
+            UiNodes.show(noteTitleField, true);
             noteTitleField.setEditable(true);
         }
         if (noteTitleLabel != null) {
-            setNodeVisible(noteTitleLabel, false);
+            UiNodes.show(noteTitleLabel, false);
         }
-        setNodeVisible(editorPreviewSplitPane, false);
-        setNodeVisible(tagsContainer, false);
-        setNodeVisible(propertiesSection, false);
-        setNodeVisible(emptyState, false);
-        setNodeVisible(attachmentViewer, true);
+        UiNodes.show(editorPreviewSplitPane, false);
+        UiNodes.show(tagsContainer, false);
+        UiNodes.show(propertiesSection, false);
+        UiNodes.show(emptyState, false);
+        UiNodes.show(attachmentViewer, true);
         updateBreadcrumb(note);
     }
 
@@ -968,8 +966,7 @@ public class EditorController {
             currentCanvasPath = null;
             currentCanvasFingerprint = null;
             currentCanvasView = null;
-            Label error = new Label(bundle != null ? bundle.getString("viewer.canvas_error")
-                    : "Could not open canvas");
+            Label error = new Label(getString("viewer.canvas_error", "Could not open canvas"));
             error.getStyleClass().add("viewer-info");
             return error;
         }
@@ -1224,7 +1221,7 @@ public class EditorController {
         }
         if (attachmentViewer != null) {
             attachmentViewer.getChildren().clear(); // release rendered images
-            setNodeVisible(attachmentViewer, false);
+            UiNodes.show(attachmentViewer, false);
         }
     }
 
@@ -1423,13 +1420,12 @@ public class EditorController {
         // title row's button (or this section's own button, once it is shown).
         boolean sectionVisible = currentNote != null && hasProps;
 
-        setNodeVisible(propertiesSection, sectionVisible);
+        UiNodes.show(propertiesSection, sectionVisible);
         // One way to add at a time: the title row's button while the note has no properties,
         // the panel's own "+ Add property" line once the panel shows.
-        setNodeVisible(addPropertyHeaderBtn, currentNote != null && !hasProps && !readOnlyView && !viewingAttachment);
+        UiNodes.show(addPropertyHeaderBtn, currentNote != null && !hasProps && !readOnlyView && !viewingAttachment);
         if (addPropertyBtn != null) {
-            addPropertyBtn.setVisible(!readOnlyView);
-            addPropertyBtn.setManaged(!readOnlyView);
+            UiNodes.show(addPropertyBtn, !readOnlyView);
         }
         if (!sectionVisible) {
             return;
@@ -1944,9 +1940,11 @@ public class EditorController {
             @Override
             protected String call() {
                 if (content != null && !content.trim().isEmpty()) {
-                    return MarkdownPreview.buildPreviewHtml(content, darkTheme, enhancers, baseDir,
-                            EditorController.this::resolveEmbedContentByTitle, previewContext, readable, fontSize,
-                            containmentRoot);
+                    // The vault's warm link index (NoteTitleIndex), read off the FX thread as before.
+                    com.example.jylos.service.LinkIndex links = noteService != null ? noteService.linkIndex() : null;
+                    return MarkdownPreview.buildPreviewHtml(content, darkTheme, enhancers,
+                            new MarkdownPreview.PreviewOptions(baseDir, EditorController.this::resolveEmbedContentByTitle,
+                                    previewContext, readable, fontSize, containmentRoot, links));
                 }
                 return MarkdownPreview.buildEmptyHtml(darkTheme);
             }
@@ -2186,8 +2184,7 @@ public class EditorController {
             toggleTagsBtn.setSelected(false);
         }
         if (tagsContainer != null) {
-            tagsContainer.setVisible(false);
-            tagsContainer.setManaged(false);
+            UiNodes.show(tagsContainer, false);
         }
     }
 
@@ -2444,9 +2441,6 @@ public class EditorController {
         return bundle.containsKey(key) ? bundle.getString(key) : fallback;
     }
 
-    private static void setNodeVisible(Node n, boolean visible) {
-        if (n != null) { n.setVisible(visible); n.setManaged(visible); }
-    }
 
     private static String orEmpty(String s)  { return s != null ? s : ""; }
     private static String orDash(String s)   { return (s != null && !s.isBlank()) ? s : "-"; }

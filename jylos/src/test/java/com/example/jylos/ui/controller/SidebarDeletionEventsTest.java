@@ -3,6 +3,7 @@ package com.example.jylos.ui.controller;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.example.jylos.tests.FxTestSupport.onFx;
 
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -12,8 +13,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
@@ -32,7 +31,6 @@ import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
 import com.example.jylos.tests.FxTestSupport;
 
-import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 
 /**
@@ -104,11 +102,5 @@ class SidebarDeletionEventsTest {
         Path file = vault.resolve(path);
         Files.createDirectories(file.getParent());
         Files.writeString(file, content, StandardCharsets.UTF_8);
-    }
-
-    private static <T> T onFx(java.util.concurrent.Callable<T> work) throws Exception {
-        FutureTask<T> task = new FutureTask<>(work);
-        Platform.runLater(task);
-        return task.get(30, TimeUnit.SECONDS);
     }
 }

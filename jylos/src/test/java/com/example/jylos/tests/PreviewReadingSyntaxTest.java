@@ -36,8 +36,7 @@ class PreviewReadingSyntaxTest {
 
     @Test
     void obsidianSyntaxRendersEndToEnd() {
-        String html = MarkdownPreview.buildPreviewHtml(NOTE, false, List.of(), null,
-                link -> "Contenido\nbloque incrustado %%oculto en la otra%% #etiqueta ^blk\n", null);
+        String html = MarkdownPreview.buildPreviewHtml(NOTE, false, List.of(), new MarkdownPreview.PreviewOptions(null, link -> "Contenido\nbloque incrustado %%oculto en la otra%% #etiqueta ^blk\n", null, false, 0, null, null));
         String body = html.substring(html.indexOf("<body>"));
 
         assertTrue(body.contains("data-callout=\"tip\""), "callout");

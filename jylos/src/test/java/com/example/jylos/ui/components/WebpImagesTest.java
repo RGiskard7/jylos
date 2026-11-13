@@ -2,14 +2,12 @@ package com.example.jylos.ui.components;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.example.jylos.tests.FxTestSupport.onFx;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -18,7 +16,6 @@ import org.junit.jupiter.api.io.TempDir;
 import com.example.jylos.tests.FxTestSupport;
 import com.example.jylos.util.MarkdownPreview;
 
-import javafx.application.Platform;
 import javafx.concurrent.Worker;
 import javafx.scene.Scene;
 import javafx.scene.layout.StackPane;
@@ -113,11 +110,5 @@ public class WebpImagesTest {
         }
         assertTrue(width >= 0, "the image is on the page");
         return width;
-    }
-
-    private static <T> T onFx(Callable<T> work) throws Exception {
-        FutureTask<T> task = new FutureTask<>(work);
-        Platform.runLater(task);
-        return task.get(30, TimeUnit.SECONDS);
     }
 }

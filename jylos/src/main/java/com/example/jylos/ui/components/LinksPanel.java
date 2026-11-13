@@ -9,6 +9,7 @@ import com.example.jylos.data.models.Note;
 import com.example.jylos.service.BacklinkService.LinkGroup;
 import com.example.jylos.service.BacklinkService.OutgoingLink;
 import com.example.jylos.service.LinkOccurrences.Occurrence;
+import com.example.jylos.ui.UiNodes;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -281,8 +282,7 @@ public final class LinksPanel extends VBox {
             body.getStyleClass().add("links-section-body");
             body.setPadding(new Insets(0, 0, 4, 12));
             getChildren().addAll(header, body);
-            flair.setVisible(false);
-            flair.setManaged(false);
+            UiNodes.show(flair, false);
             setExpanded(expanded);
         }
 
@@ -290,8 +290,7 @@ public final class LinksPanel extends VBox {
             boolean opened = value && !this.expanded;
             this.expanded = value;
             arrow.setIconLiteral(value ? "fth-chevron-down" : "fth-chevron-right");
-            body.setVisible(value);
-            body.setManaged(value);
+            UiNodes.show(body, value);
             if (opened && onExpand != null) {
                 onExpand.run();
             }
@@ -299,14 +298,12 @@ public final class LinksPanel extends VBox {
 
         void setFlair(String text) {
             flair.setText(text);
-            flair.setVisible(true);
-            flair.setManaged(true);
+            UiNodes.show(flair, true);
         }
 
         void clear() {
             body.getChildren().clear();
-            flair.setVisible(false);
-            flair.setManaged(false);
+            UiNodes.show(flair, false);
         }
     }
 }

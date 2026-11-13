@@ -175,9 +175,9 @@ public final class Transclusion {
 
         return "<div class=\"embed\">"
                 + "<a class=\"embed-title\" href=\"" + WikiLinkResolver.PROTOCOL + urlEncode(link)
-                + "\" data-target=\"" + escape(link)
-                + (heading != null && !heading.isEmpty() ? "\" data-subpath=\"" + escape(heading) : "") + "\">"
-                + escape(display) + "</a>"
+                + "\" data-target=\"" + MarkdownProcessor.escapeHtml(link)
+                + (heading != null && !heading.isEmpty() ? "\" data-subpath=\"" + MarkdownProcessor.escapeHtml(heading) : "") + "\">"
+                + MarkdownProcessor.escapeHtml(display) + "</a>"
                 + "<div class=\"embed-body\">" + innerHtml + "</div>"
                 + "</div>";
     }
@@ -268,22 +268,12 @@ public final class Transclusion {
 
     private static String notice(String cssClass, String display, String reason) {
         return "<div class=\"embed " + cssClass + "\">"
-                + "<span class=\"embed-title\">" + escape(display) + "</span>"
-                + "<span class=\"embed-note\">" + escape(reason) + "</span></div>";
+                + "<span class=\"embed-title\">" + MarkdownProcessor.escapeHtml(display) + "</span>"
+                + "<span class=\"embed-note\">" + MarkdownProcessor.escapeHtml(reason) + "</span></div>";
     }
 
     private static String urlEncode(String value) {
         return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
     }
 
-    private static String escape(String text) {
-        if (text == null) {
-            return "";
-        }
-        return text.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&#x27;");
-    }
 }

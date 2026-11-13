@@ -70,7 +70,7 @@ public class FolderDAOFileSystem implements FolderDAO {
                         // directory *above* the vault (e.g. ~/.config) must not hide it all.
                         .filter(p -> !FileSystemNames.isHiddenWithinVault(rootPath, p))
                         .forEach(path -> {
-                            String relativePath = normalizeId(rootPath.relativize(path).toString());
+                            String relativePath = FileSystemNames.normalizeId(rootPath.relativize(path).toString());
                             idToPathMap.put(relativePath, path);
                         });
             } catch (IOException e) {
@@ -111,7 +111,7 @@ public class FolderDAOFileSystem implements FolderDAO {
 
             try {
                 Files.createDirectories(dirPath);
-                String newId = normalizeId(rootPath.relativize(dirPath).toString());
+                String newId = FileSystemNames.normalizeId(rootPath.relativize(dirPath).toString());
                 idToPathMap.put(newId, dirPath);
                 folder.setId(newId);
                 return newId;
@@ -141,15 +141,15 @@ public class FolderDAOFileSystem implements FolderDAO {
                     List<String> metadataDocumentIds = collectMetadataDocumentIds(currentPath);
                     Files.move(currentPath, newPath);
                     moveDocumentMetadataEntries(metadataDocumentIds,
-                            normalizeId(rootPath.relativize(currentPath).toString()),
-                            normalizeId(rootPath.relativize(newPath).toString()));
+                            FileSystemNames.normalizeId(rootPath.relativize(currentPath).toString()),
+                            FileSystemNames.normalizeId(rootPath.relativize(newPath).toString()));
                     // Update Cache: Removing old ID and adding new one is tricky for recursive
                     // children headers
                     // Easiest is to refresh cache fully or update recursively.
                     // For now, refreshing cache is safer though invalidates other IDs if we held
                     // them
                     refreshCache();
-                    folder.setId(normalizeId(rootPath.relativize(newPath).toString()));
+                    folder.setId(FileSystemNames.normalizeId(rootPath.relativize(newPath).toString()));
                 } catch (IOException e) {
                     logger.warning("Failed to rename folder: " + e.getMessage());
                 }
@@ -189,7 +189,7 @@ public class FolderDAOFileSystem implements FolderDAO {
         if (path != null && Files.exists(path)) {
             try {
                 List<String> metadataDocumentIds = collectMetadataDocumentIds(path);
-                Path trashRoot = rootPath.resolve(".trash");
+                Path trashRoot = rootPath.resolve(FileSystemNames.TRASH_DIR);
                 if (!Files.exists(trashRoot)) {
                     Files.createDirectories(trashRoot);
                 }
@@ -211,7 +211,7 @@ public class FolderDAOFileSystem implements FolderDAO {
                 Files.move(path, targetPath);
                 moveDocumentMetadataEntries(metadataDocumentIds,
                         normalizedId,
-                        normalizeId(rootPath.relativize(targetPath).toString()));
+                        FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString()));
 
                 // Update cache
                 idToPathMap.remove(id);
@@ -236,8 +236,8 @@ public class FolderDAOFileSystem implements FolderDAO {
         FileSystemIoLock.LOCK.lock();
         try {
             // Title should be a localized string or just "Trash", not ".trash"
-            Folder trashRootFolder = new Folder(".trash", "Trash");
-            Path trashPath = rootPath.resolve(".trash");
+            Folder trashRootFolder = new Folder(FileSystemNames.TRASH_DIR, "Trash");
+            Path trashPath = rootPath.resolve(FileSystemNames.TRASH_DIR);
 
             if (Files.exists(trashPath)) {
                 loadSubFoldersRec(trashRootFolder, trashPath);
@@ -288,17 +288,10 @@ public class FolderDAOFileSystem implements FolderDAO {
             throw new DataAccessException("Folder not found in trash: " + id, null);
 
         // Calculate original relative path by removing .trash/ prefix
-        String originalRelativePath = normalizedId;
-        if (normalizedId.equals(".trash")) {
+        if (normalizedId.equals(FileSystemNames.TRASH_DIR)) {
             return; // Cannot restore the trash itself
-        } else if (normalizedId.startsWith(".trash/")) {
-            originalRelativePath = normalizedId.substring(".trash/".length());
-        } else if (normalizedId.startsWith(".trash")) {
-            originalRelativePath = normalizedId.substring(6);
-            if (originalRelativePath.startsWith("/")) {
-                originalRelativePath = originalRelativePath.substring(1);
-            }
         }
+        String originalRelativePath = FileSystemNames.originalPathOfTrashed(normalizedId);
 
         Path targetPath = rootPath.resolve(originalRelativePath.replace("/", File.separator));
 
@@ -318,7 +311,7 @@ public class FolderDAOFileSystem implements FolderDAO {
             Files.move(srcPath, targetPath);
             moveDocumentMetadataEntries(metadataDocumentIds,
                     normalizedId,
-                    normalizeId(rootPath.relativize(targetPath).toString()));
+                    FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString()));
             refreshCache();
         } catch (IOException e) {
             logger.log(Level.SEVERE, "Failed to restore folder: " + id, e);
@@ -374,7 +367,7 @@ public class FolderDAOFileSystem implements FolderDAO {
         }
         Path path = resolveFolderPath(id);
         if (path != null) {
-            String normalizedId = normalizeId(id);
+            String normalizedId = FileSystemNames.normalizeId(id);
             return new Folder(normalizedId, path.getFileName().toString());
         }
         return null;
@@ -384,13 +377,13 @@ public class FolderDAOFileSystem implements FolderDAO {
     public Folder getFolderByNoteId(String noteId) {
         // NoteID is relative path "Folder/Note.md"
         // Return folder "Folder"
-        String normalizedNoteId = normalizeId(noteId);
+        String normalizedNoteId = FileSystemNames.normalizeId(noteId);
         Path notePath = Paths.get(normalizedNoteId.replace("/", File.separator));
         Path parent = notePath.getParent();
         if (parent == null)
             return getFolderById(ROOT_ID); // Root folder
 
-        return getFolderById(normalizeId(parent.toString()));
+        return getFolderById(FileSystemNames.normalizeId(parent.toString()));
     }
 
     @Override
@@ -398,7 +391,7 @@ public class FolderDAOFileSystem implements FolderDAO {
         return idToPathMap.entrySet().stream()
                 .filter(e -> !e.getKey().equals(ROOT_ID) && !e.getKey().isEmpty()) // Exclude ROOT
                 .filter(e -> !e.getValue().getFileName().toString().startsWith(".")) // Exclude hidden
-                .map(e -> new Folder(normalizeId(e.getKey()), e.getValue().getFileName().toString()))
+                .map(e -> new Folder(FileSystemNames.normalizeId(e.getKey()), e.getValue().getFileName().toString()))
                 .collect(Collectors.toList());
     }
 
@@ -418,7 +411,7 @@ public class FolderDAOFileSystem implements FolderDAO {
             }
             requireInsideVault(note.getId());
 
-            String normalizedNoteId = normalizeId(note.getId());
+            String normalizedNoteId = FileSystemNames.normalizeId(note.getId());
             Path sourcePath = rootPath.resolve(normalizedNoteId.replace("/", File.separator));
             if (!Files.exists(sourcePath)) {
                 return;
@@ -446,10 +439,10 @@ public class FolderDAOFileSystem implements FolderDAO {
                 if (!sourcePath.equals(targetPath)) {
                     Files.move(sourcePath, targetPath);
                     moveDocumentMetadataIfNeeded(
-                            normalizeId(rootPath.relativize(sourcePath).toString()),
-                            normalizeId(rootPath.relativize(targetPath).toString()),
+                            FileSystemNames.normalizeId(rootPath.relativize(sourcePath).toString()),
+                            FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString()),
                             targetPath);
-                    String newId = normalizeId(rootPath.relativize(targetPath).toString());
+                    String newId = FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString());
                     note.setId(newId);
                     note.setParent(folder);
                 }
@@ -470,7 +463,7 @@ public class FolderDAOFileSystem implements FolderDAO {
             }
             requireInsideVault(note.getId());
 
-            String normalizedNoteId = normalizeId(note.getId());
+            String normalizedNoteId = FileSystemNames.normalizeId(note.getId());
             Path sourcePath = rootPath.resolve(normalizedNoteId.replace("/", File.separator));
             if (!Files.exists(sourcePath)) {
                 return;
@@ -486,10 +479,10 @@ public class FolderDAOFileSystem implements FolderDAO {
             try {
                 Files.move(sourcePath, targetPath);
                 moveDocumentMetadataIfNeeded(
-                        normalizeId(rootPath.relativize(sourcePath).toString()),
-                        normalizeId(rootPath.relativize(targetPath).toString()),
+                        FileSystemNames.normalizeId(rootPath.relativize(sourcePath).toString()),
+                        FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString()),
                         targetPath);
-                note.setId(normalizeId(rootPath.relativize(targetPath).toString()));
+                note.setId(FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString()));
                 note.setParent(getFolderById(ROOT_ID));
             } catch (IOException e) {
                 logger.log(Level.SEVERE, "Failed to move note file to root: " + note.getId(), e);
@@ -508,7 +501,7 @@ public class FolderDAOFileSystem implements FolderDAO {
             }
             requireInsideVault(note.getId());
 
-            String normalizedNoteId = normalizeId(note.getId());
+            String normalizedNoteId = FileSystemNames.normalizeId(note.getId());
             Path sourcePath = rootPath.resolve(normalizedNoteId.replace("/", File.separator));
             if (!Files.exists(sourcePath)) {
                 return;
@@ -524,10 +517,10 @@ public class FolderDAOFileSystem implements FolderDAO {
             try {
                 Files.move(sourcePath, targetPath);
                 moveDocumentMetadataIfNeeded(
-                        normalizeId(rootPath.relativize(sourcePath).toString()),
-                        normalizeId(rootPath.relativize(targetPath).toString()),
+                        FileSystemNames.normalizeId(rootPath.relativize(sourcePath).toString()),
+                        FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString()),
                         targetPath);
-                note.setId(normalizeId(rootPath.relativize(targetPath).toString()));
+                note.setId(FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString()));
                 note.setParent(getFolderById(ROOT_ID));
             } catch (IOException e) {
                 logger.log(Level.SEVERE, "Failed to remove note from folder: " + folder.getId(), e);
@@ -595,10 +588,10 @@ public class FolderDAOFileSystem implements FolderDAO {
                 List<String> metadataDocumentIds = collectMetadataDocumentIds(subPath);
                 Files.move(subPath, targetPath);
                 moveDocumentMetadataEntries(metadataDocumentIds,
-                        normalizeId(rootPath.relativize(subPath).toString()),
-                        normalizeId(rootPath.relativize(targetPath).toString()));
+                        FileSystemNames.normalizeId(rootPath.relativize(subPath).toString()),
+                        FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString()));
                 refreshCache();
-                String newId = normalizeId(rootPath.relativize(targetPath).toString());
+                String newId = FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString());
                 subFolder.setId(newId);
                 subFolder.setParent(parent);
             } catch (IOException e) {
@@ -632,10 +625,10 @@ public class FolderDAOFileSystem implements FolderDAO {
                 List<String> metadataDocumentIds = collectMetadataDocumentIds(sourcePath);
                 Files.move(sourcePath, targetPath);
                 moveDocumentMetadataEntries(metadataDocumentIds,
-                        normalizeId(rootPath.relativize(sourcePath).toString()),
-                        normalizeId(rootPath.relativize(targetPath).toString()));
+                        FileSystemNames.normalizeId(rootPath.relativize(sourcePath).toString()),
+                        FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString()));
                 refreshCache();
-                folder.setId(normalizeId(rootPath.relativize(targetPath).toString()));
+                folder.setId(FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString()));
                 folder.setParent(null);
             } catch (IOException e) {
                 logger.warning("Failed to move folder to root: " + e.getMessage());
@@ -668,7 +661,7 @@ public class FolderDAOFileSystem implements FolderDAO {
             stream.filter(Files::isDirectory)
                     .filter(p -> !p.getFileName().toString().startsWith(".")) // Ignore hidden
                     .forEach(p -> {
-                        String startPath = normalizeId(rootPath.relativize(p).toString());
+                        String startPath = FileSystemNames.normalizeId(rootPath.relativize(p).toString());
                         Folder sub = new Folder(startPath, p.getFileName().toString());
                         sub.setParent(folder);
                         folder.add(sub);
@@ -719,7 +712,7 @@ public class FolderDAOFileSystem implements FolderDAO {
             if (parent != null && parent.startsWith(rootPath)) {
                 if (parent.equals(rootPath))
                     return getFolderById(ROOT_ID);
-                return getFolderById(normalizeId(rootPath.relativize(parent).toString()));
+                return getFolderById(FileSystemNames.normalizeId(rootPath.relativize(parent).toString()));
             }
         }
         return null;
@@ -745,16 +738,10 @@ public class FolderDAOFileSystem implements FolderDAO {
         return FileSystemNames.sanitize(title, "folder");
     }
 
-    private String normalizeId(String id) {
-        if (id == null) {
-            return "";
-        }
-        return id.replace("\\", "/");
-    }
 
     /** Rejects ids that would resolve outside the vault before any mutation touches the disk. */
     private void requireInsideVault(String id) {
-        if (PathContainment.resolveInside(rootPath, normalizeId(id)).isEmpty()) {
+        if (PathContainment.resolveInside(rootPath, FileSystemNames.normalizeId(id)).isEmpty()) {
             throw new InvalidParameterException("Id resolves outside the vault: " + id);
         }
     }
@@ -763,20 +750,20 @@ public class FolderDAOFileSystem implements FolderDAO {
         if (id == null || id.isBlank()) {
             return null;
         }
-        if (PathContainment.resolveInside(rootPath, normalizeId(id)).isEmpty()) {
+        if (PathContainment.resolveInside(rootPath, FileSystemNames.normalizeId(id)).isEmpty()) {
             return null;
         }
         Path path = idToPathMap.get(id);
         if (path != null) {
             return path;
         }
-        String normalized = normalizeId(id);
+        String normalized = FileSystemNames.normalizeId(id);
         path = idToPathMap.get(normalized);
         if (path != null) {
             return path;
         }
         for (Map.Entry<String, Path> entry : idToPathMap.entrySet()) {
-            if (normalizeId(entry.getKey()).equals(normalized)) {
+            if (FileSystemNames.normalizeId(entry.getKey()).equals(normalized)) {
                 return entry.getValue();
             }
         }
@@ -787,12 +774,6 @@ public class FolderDAOFileSystem implements FolderDAO {
         return null;
     }
 
-    private String conflictFilename(String filename, String suffix) {
-        int dot = filename.lastIndexOf('.');
-        String base = dot > 0 ? filename.substring(0, dot) : filename;
-        String extension = dot > 0 ? filename.substring(dot) : "";
-        return base + suffix + extension;
-    }
 
     private Path uniqueDocumentTargetPath(Path requestedPath) {
         if (requestedPath == null || !Files.exists(requestedPath)) {
@@ -803,7 +784,7 @@ public class FolderDAOFileSystem implements FolderDAO {
         int counter = 1;
         Path candidate;
         do {
-            candidate = parent.resolve(conflictFilename(filename, " (" + counter + ")"));
+            candidate = parent.resolve(FileSystemNames.withSuffix(filename, " (" + counter + ")"));
             counter++;
         } while (Files.exists(candidate));
         return candidate;
@@ -847,7 +828,7 @@ public class FolderDAOFileSystem implements FolderDAO {
                                 com.example.jylos.util.AttachmentType.fromName(path.getFileName().toString());
                         return type.isAttachment();
                     })
-                    .forEach(path -> ids.add(normalizeId(rootPath.relativize(path).toString())));
+                    .forEach(path -> ids.add(FileSystemNames.normalizeId(rootPath.relativize(path).toString())));
         } catch (IOException e) {
             logger.log(Level.WARNING, "Failed to collect document metadata paths", e);
         }
@@ -858,10 +839,10 @@ public class FolderDAOFileSystem implements FolderDAO {
         if (documentIds == null || documentIds.isEmpty()) {
             return;
         }
-        String oldPrefix = normalizeId(previousPrefix);
-        String newPrefix = normalizeId(currentPrefix);
+        String oldPrefix = FileSystemNames.normalizeId(previousPrefix);
+        String newPrefix = FileSystemNames.normalizeId(currentPrefix);
         for (String documentId : documentIds) {
-            String normalizedDocumentId = normalizeId(documentId);
+            String normalizedDocumentId = FileSystemNames.normalizeId(documentId);
             String suffix = normalizedDocumentId.startsWith(oldPrefix)
                     ? normalizedDocumentId.substring(oldPrefix.length())
                     : normalizedDocumentId;

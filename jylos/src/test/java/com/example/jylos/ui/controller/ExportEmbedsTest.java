@@ -27,7 +27,6 @@ class ExportEmbedsTest {
 
     @AfterEach
     void clearEventBus() {
-        com.example.jylos.service.NoteTitleIndex.getInstance().shutdown();
         EventBus.getInstance().clear();
     }
 
@@ -43,8 +42,6 @@ class ExportEmbedsTest {
         NoteDAOFileSystem noteDao = new NoteDAOFileSystem(vault.toString());
         FolderDAOFileSystem folderDao = new FolderDAOFileSystem(vault.toString());
         NoteService notes = new NoteService(noteDao, folderDao);
-        // The vault's link index, as the app wires it at start-up.
-        com.example.jylos.service.NoteTitleIndex.getInstance().wire(notes, EventBus.getInstance());
         DocumentSupport documents = new DocumentSupport();
         documents.wire(notes, new FolderService(folderDao, noteDao));
 
@@ -56,6 +53,27 @@ class ExportEmbedsTest {
 
         String indice = export(documents, notes, "Indice.md", out.resolve("indice.html").toFile());
         assertTrue(indice.contains("Cosas personales"), "the folder path written in the embed");
+    }
+
+    @Test
+    void aPdfEmbedsTheSameNote(@TempDir Path vault, @TempDir Path out) throws Exception {
+        write(vault, "Proyectos/Reunión.md", "Acta de proyectos\n");
+        write(vault, "Personal/Reunión.md", "Cosas personales\n");
+        write(vault, "Proyectos/Acta.md", "![[Reunión]]\n");
+        NoteDAOFileSystem noteDao = new NoteDAOFileSystem(vault.toString());
+        FolderDAOFileSystem folderDao = new FolderDAOFileSystem(vault.toString());
+        NoteService notes = new NoteService(noteDao, folderDao);
+        DocumentSupport documents = new DocumentSupport();
+        documents.wire(notes, new FolderService(folderDao, noteDao));
+
+        File pdf = out.resolve("acta.pdf").toFile();
+        assertTrue(documents.exportNote(notes.getNoteById("Proyectos/Acta.md").orElseThrow(), pdf).success());
+        String text;
+        try (org.apache.pdfbox.pdmodel.PDDocument document = org.apache.pdfbox.pdmodel.PDDocument.load(pdf)) {
+            text = new org.apache.pdfbox.text.PDFTextStripper().getText(document);
+        }
+        assertTrue(text.contains("Acta de proyectos"), "the Reunión beside the exported note: " + text);
+        assertFalse(text.contains("Cosas personales"), text);
     }
 
     private static String export(DocumentSupport documents, NoteService notes, String id, File target)

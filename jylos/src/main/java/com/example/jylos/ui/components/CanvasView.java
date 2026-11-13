@@ -630,7 +630,7 @@ public final class CanvasView extends BorderPane {
         if (markdownBlock == null || markdownBlock.isEmpty() || markdownBlock.toString().isBlank()) {
             return;
         }
-        container.getChildren().add(com.example.jylos.util.MarkdownMini.render(markdownBlock.toString()));
+        container.getChildren().add(MarkdownMini.render(markdownBlock.toString()));
     }
 
     private Node renderEmbedReference(String rawTarget, int depth, Set<String> visitedTargets) {

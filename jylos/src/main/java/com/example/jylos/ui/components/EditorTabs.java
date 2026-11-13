@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
 
 import javafx.geometry.Pos;
@@ -85,7 +86,7 @@ public final class EditorTabs {
             root.setMaxWidth(TAB_WIDTH);
 
             dot.getStyleClass().add("editor-tab-dot");
-            setNodeVisible(dot, false); // clean by default
+            UiNodes.show(dot, false); // clean by default
 
             title.getStyleClass().add("editor-tab-title");
             title.setText(displayTitle(titleText));
@@ -184,7 +185,7 @@ public final class EditorTabs {
     public void setDirty(String id, boolean dirty) {
         TabNode node = nodes.get(id);
         if (node != null) {
-            setNodeVisible(node.dot, dirty);
+            UiNodes.show(node.dot, dirty);
         }
     }
 
@@ -245,8 +246,7 @@ public final class EditorTabs {
     private void updateVisibility() {
         if (visibilityNode != null) {
             boolean show = !model.getIds().isEmpty();
-            visibilityNode.setVisible(show);
-            visibilityNode.setManaged(show);
+            UiNodes.show(visibilityNode, show);
         }
     }
 
@@ -254,10 +254,4 @@ public final class EditorTabs {
         return (title != null && !title.isBlank()) ? title : "(untitled)";
     }
 
-    private static void setNodeVisible(Node n, boolean visible) {
-        if (n != null) {
-            n.setVisible(visible);
-            n.setManaged(visible);
-        }
-    }
 }

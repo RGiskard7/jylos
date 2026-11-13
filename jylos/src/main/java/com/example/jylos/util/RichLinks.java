@@ -185,17 +185,17 @@ public final class RichLinks {
 
     /** Builds the card HTML, escaping all text and only honouring {@code http(s)} URLs/images. */
     private static String cardHtml(RichLink link) {
-        String safeUrl = escape(link.url());
-        String title = escape(firstNonBlank(link.title(), link.url()));
-        String description = escape(link.description());
-        String site = escape(firstNonBlank(link.siteName(), hostOf(link.url())));
+        String safeUrl = MarkdownProcessor.escapeHtml(link.url());
+        String title = MarkdownProcessor.escapeHtml(firstNonBlank(link.title(), link.url()));
+        String description = MarkdownProcessor.escapeHtml(link.description());
+        String site = MarkdownProcessor.escapeHtml(firstNonBlank(link.siteName(), hostOf(link.url())));
 
         StringBuilder card = new StringBuilder();
         card.append("<div class=\"rich-link\">");
         card.append("<a class=\"rich-link-card\" href=\"").append(safeUrl).append("\">");
         if (isHttpUrl(link.image())) {
             card.append("<span class=\"rich-link-thumb\" style=\"background-image:url('")
-                    .append(escape(link.image())).append("')\"></span>");
+                    .append(MarkdownProcessor.escapeHtml(link.image())).append("')\"></span>");
         }
         card.append("<span class=\"rich-link-body\">");
         card.append("<span class=\"rich-link-title\">").append(title).append("</span>");
@@ -226,15 +226,4 @@ public final class RichLinks {
         return "";
     }
 
-    /** Minimal HTML-attribute/text escaping for values that originate from the web. */
-    private static String escape(String text) {
-        if (text == null) {
-            return "";
-        }
-        return text.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&#x27;");
-    }
 }

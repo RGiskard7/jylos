@@ -1,4 +1,4 @@
-package com.example.jylos.util;
+package com.example.jylos.ui.components;
 
 import org.commonmark.node.BlockQuote;
 import org.commonmark.node.BulletList;

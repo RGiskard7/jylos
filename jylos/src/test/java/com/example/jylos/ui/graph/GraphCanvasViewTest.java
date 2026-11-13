@@ -3,12 +3,10 @@ package com.example.jylos.ui.graph;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.example.jylos.tests.FxTestSupport.onFx;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -17,8 +15,6 @@ import com.example.jylos.graph.GraphData;
 import com.example.jylos.graph.GraphEdge;
 import com.example.jylos.graph.GraphNode;
 import com.example.jylos.tests.FxTestSupport;
-
-import javafx.application.Platform;
 
 /**
  * How the graph opens, as in Obsidian: from close up it zooms out to the zoom chosen last time,
@@ -107,25 +103,5 @@ class GraphCanvasViewTest {
             }
         }
         return new GraphData(nodes, edges);
-    }
-
-    private static <T> T onFx(java.util.concurrent.Callable<T> work) throws Exception {
-        AtomicReference<T> result = new AtomicReference<>();
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        CountDownLatch done = new CountDownLatch(1);
-        Platform.runLater(() -> {
-            try {
-                result.set(work.call());
-            } catch (Throwable t) {
-                failure.set(t);
-            } finally {
-                done.countDown();
-            }
-        });
-        assertTrue(done.await(120, TimeUnit.SECONDS), "never completed on the FX thread");
-        if (failure.get() != null) {
-            throw new AssertionError(failure.get());
-        }
-        return result.get();
     }
 }

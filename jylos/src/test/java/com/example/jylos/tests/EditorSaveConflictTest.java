@@ -2,6 +2,7 @@ package com.example.jylos.tests;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.example.jylos.tests.FxTestSupport.onFx;
 
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
@@ -9,9 +10,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import org.junit.jupiter.api.Assumptions;
@@ -22,8 +20,6 @@ import com.example.jylos.data.dao.filesystem.FolderDAOFileSystem;
 import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.ui.controller.EditorController;
-
-import javafx.application.Platform;
 
 /**
  * End to end through the editor's save path: a note file that changes on disk while it is
@@ -41,7 +37,7 @@ class EditorSaveConflictTest {
         Path file = Files.writeString(vault.resolve("nota.md"), "original\n", StandardCharsets.UTF_8);
         List<String> statuses = new CopyOnWriteArrayList<>();
 
-        boolean saved = onFxThread(() -> {
+        boolean saved = onFx(() -> {
             EditorController editor = openInEditor(statuses);
             editInEditor(editor, "my version in the editor");
             Files.writeString(file, "edited in another app\n", StandardCharsets.UTF_8);
@@ -60,7 +56,7 @@ class EditorSaveConflictTest {
         Path file = Files.writeString(vault.resolve("nota.md"), "original\n", StandardCharsets.UTF_8);
         List<String> statuses = new CopyOnWriteArrayList<>();
 
-        boolean saved = onFxThread(() -> {
+        boolean saved = onFx(() -> {
             EditorController editor = openInEditor(statuses);
             editInEditor(editor, "my version in the editor");
             return editor.handleSave(true);
@@ -76,7 +72,7 @@ class EditorSaveConflictTest {
         Path file = Files.writeString(vault.resolve("nota.md"), "original\n", StandardCharsets.UTF_8);
         List<String> statuses = new CopyOnWriteArrayList<>();
 
-        boolean secondSaved = onFxThread(() -> {
+        boolean secondSaved = onFx(() -> {
             EditorController editor = openInEditor(statuses);
             editInEditor(editor, "first edit");
             assertTrue(editor.handleSave(true));
@@ -101,30 +97,6 @@ class EditorSaveConflictTest {
     private static void editInEditor(EditorController editor, String text) throws Exception {
         editor.getCurrentNote().setContent(text);
         setField(editor, "isModified", true);
-    }
-
-    private interface FxCall<T> {
-        T call() throws Exception;
-    }
-
-    private static <T> T onFxThread(FxCall<T> call) throws Exception {
-        AtomicReference<T> result = new AtomicReference<>();
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        CountDownLatch done = new CountDownLatch(1);
-        Platform.runLater(() -> {
-            try {
-                result.set(call.call());
-            } catch (Throwable t) {
-                failure.set(t);
-            } finally {
-                done.countDown();
-            }
-        });
-        assertTrue(done.await(30, TimeUnit.SECONDS), "FX call never completed");
-        if (failure.get() != null) {
-            throw new AssertionError("FX call failed", failure.get());
-        }
-        return result.get();
     }
 
     private static void setField(Object target, String name, Object value) throws Exception {

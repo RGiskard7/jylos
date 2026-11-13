@@ -11,7 +11,6 @@ import java.util.logging.Logger;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.plugin.PreviewContext;
 import com.example.jylos.plugin.PreviewEnhancer;
-import com.example.jylos.service.NoteTitleIndex;
 
 /**
  * Builds the complete HTML document loaded into the JavaFX {@code WebView} preview.
@@ -45,98 +44,70 @@ public class MarkdownPreview {
             "[\\x{1F000}-\\x{1FAFF}\\x{2600}-\\x{27BF}\\x{2B00}-\\x{2BFF}\\x{2300}-\\x{23FF}"
             + "\\x{2190}-\\x{21FF}\\x{FE00}-\\x{FE0F}\\x{20E3}\\x{200D}\\x{1F1E6}-\\x{1F1FF}\\x{1F3FB}-\\x{1F3FF}]+");
 
-    public static String buildPreviewHtml(String markdownContent, boolean isDarkTheme, Collection<PreviewEnhancer> enhancers) {
-        return buildPreviewHtml(markdownContent, isDarkTheme, enhancers, null, null);
+    /**
+     * What a reading view render needs besides the Markdown, the theme and the enhancers.
+     *
+     * @param baseDir                 folder to resolve relative image paths against, or
+     *                                {@code null}; local images are inlined as {@code data:}
+     *                                URIs, since the WebView loads content with an opaque
+     *                                origin and cannot fetch {@code file://} resources (it also
+     *                                makes an exported HTML self-contained)
+     * @param embeddedContentResolver the Markdown of a note embedded with {@code ![[…]]}, by
+     *                                its link as written, or {@code null} for none
+     * @param context                 the note and theme the render belongs to, for plugin
+     *                                enhancers and to resolve links from the note's folder;
+     *                                {@code null} for none
+     * @param readableLineLength      cap the body to a centered column
+     * @param contentFontSize         body text size in pixels, or {@code 0} for the WebView's
+     *                                default
+     * @param imageContainmentRoot    bound of the local files an image may inline, normally
+     *                                the vault root ({@code ../attachments/x.png} works,
+     *                                {@code ../../.ssh/id_rsa} does not); {@code null} falls
+     *                                back to {@code baseDir}
+     * @param links                   the vault's link index, to tell links to existing notes
+     *                                from links to notes to create; {@code null} for none
+     */
+    public record PreviewOptions(java.nio.file.Path baseDir, Function<String, String> embeddedContentResolver,
+            PreviewContext context, boolean readableLineLength, int contentFontSize,
+            java.nio.file.Path imageContainmentRoot, com.example.jylos.service.LinkIndex links) {
+
+        /** No images inlined, no embeds, no note, no links. */
+        public static PreviewOptions none() {
+            return new PreviewOptions(null, null, null, false, 0, null, null);
+        }
+
+        public PreviewOptions withBaseDir(java.nio.file.Path dir) {
+            return new PreviewOptions(dir, embeddedContentResolver, context, readableLineLength, contentFontSize,
+                    imageContainmentRoot, links);
+        }
     }
 
-    /**
-     * Builds preview HTML, additionally embedding local images referenced by the note
-     * (relative {@code ![](img.png)} paths) as {@code data:} URIs resolved against
-     * {@code baseDir}. This is required because the {@code WebView} loads content with
-     * an opaque origin and cannot fetch {@code file://} resources; it also makes the
-     * exported HTML self-contained.
-     *
-     * @param baseDir folder to resolve relative image paths against, or {@code null}
-     */
+    public static String buildPreviewHtml(String markdownContent, boolean isDarkTheme, Collection<PreviewEnhancer> enhancers) {
+        return buildPreviewHtml(markdownContent, isDarkTheme, enhancers, PreviewOptions.none());
+    }
+
+    /** Same, inlining the local images the note references, resolved against {@code baseDir}. */
     public static String buildPreviewHtml(String markdownContent, boolean isDarkTheme,
             Collection<PreviewEnhancer> enhancers, java.nio.file.Path baseDir) {
-        return buildPreviewHtml(markdownContent, isDarkTheme, enhancers, baseDir, null);
-    }
-
-    public static String buildPreviewHtml(String markdownContent, boolean isDarkTheme,
-            Collection<PreviewEnhancer> enhancers, java.nio.file.Path baseDir,
-            Function<String, String> embeddedContentResolver) {
-        return buildPreviewHtml(markdownContent, isDarkTheme, enhancers, baseDir, embeddedContentResolver, null);
+        return buildPreviewHtml(markdownContent, isDarkTheme, enhancers, PreviewOptions.none().withBaseDir(baseDir));
     }
 
     /**
-     * Builds preview HTML, additionally letting plugin enhancers post-process the
-     * rendered body for a specific note via
-     * {@link PreviewEnhancer#transformHtml(PreviewContext, String)}.
-     *
-     * @param context the note/theme this render belongs to, or {@code null} to skip
-     *                per-note post-processing
+     * The body of a note as the reading view renders it, without the page around it or what
+     * plugins add: Obsidian syntax (comments hidden, footnotes, block anchors, and {@code #tags}
+     * as links when {@code tags}), embeds, links, rich-link cards, inlined local images and
+     * emoji. The PDF export prints the same body.
      */
-    public static String buildPreviewHtml(String markdownContent, boolean isDarkTheme,
-            Collection<PreviewEnhancer> enhancers, java.nio.file.Path baseDir,
-            Function<String, String> embeddedContentResolver, PreviewContext context) {
-        return buildPreviewHtml(markdownContent, isDarkTheme, enhancers, baseDir, embeddedContentResolver, context,
-                false, 0);
-    }
-
-    /**
-     * Builds preview HTML with the Obsidian-style "readable line length" option: when
-     * {@code readableLineLength} is {@code true}, the body is capped to a centered
-     * column instead of filling the full WebView width.
-     */
-    public static String buildPreviewHtml(String markdownContent, boolean isDarkTheme,
-            Collection<PreviewEnhancer> enhancers, java.nio.file.Path baseDir,
-            Function<String, String> embeddedContentResolver, PreviewContext context,
-            boolean readableLineLength) {
-        return buildPreviewHtml(markdownContent, isDarkTheme, enhancers, baseDir, embeddedContentResolver, context,
-                readableLineLength, 0);
-    }
-
-    /**
-     * Builds preview HTML with an explicit body text size, independent from the native
-     * JavaFX chrome's own font size preference.
-     *
-     * @param contentFontSize font size in pixels for the rendered body text, or
-     *                        {@code 0} to leave the WebView's own default untouched
-     *                        (existing callers that don't care about this keep the
-     *                        exact output they always got)
-     */
-    public static String buildPreviewHtml(String markdownContent, boolean isDarkTheme,
-            Collection<PreviewEnhancer> enhancers, java.nio.file.Path baseDir,
-            Function<String, String> embeddedContentResolver, PreviewContext context,
-            boolean readableLineLength, int contentFontSize) {
-        return buildPreviewHtml(markdownContent, isDarkTheme, enhancers, baseDir, embeddedContentResolver, context,
-                readableLineLength, contentFontSize, null);
-    }
-
-    /**
-     * Full form: {@code imageContainmentRoot} bounds which local files a relative image
-     * reference may inline — normally the vault root, so {@code ../attachments/x.png}
-     * works while {@code ../../.ssh/id_rsa} does not. {@code null} falls back to
-     * {@code baseDir} (the note's own folder), the narrowest safe choice.
-     */
-    public static String buildPreviewHtml(String markdownContent, boolean isDarkTheme,
-            Collection<PreviewEnhancer> enhancers, java.nio.file.Path baseDir,
-            Function<String, String> embeddedContentResolver, PreviewContext context,
-            boolean readableLineLength, int contentFontSize, java.nio.file.Path imageContainmentRoot) {
+    public static String renderBody(String markdownContent, boolean isDarkTheme, boolean tags,
+            PreviewOptions options) {
         String raw = markdownContent == null ? "" : markdownContent;
+        PreviewOptions o = options != null ? options : PreviewOptions.none();
 
-        // Resolve [[WikiLinks]] in the raw Markdown source FIRST, then pass the result
-        // (including the generated <a> anchors) through CommonMark, which leaves raw HTML
-        // untouched — MarkdownProcessor deliberately does not escape it. Script that a note
-        // carries in that raw HTML is neutralised by the page's Content-Security-Policy
-        // below, not by escaping.
-        //
         // Links resolve by path from the note shown, as in Obsidian, against the vault's link
-        // index from NoteTitleIndex: a warm cache invalidated by note events, so the note
-        // store is not re-scanned on every keystroke-driven render (perf P1).
-        com.example.jylos.service.LinkIndex links = NoteTitleIndex.getInstance().linkIndex();
-        String sourceId = context != null && context.note() != null ? context.note().getId() : null;
+        // index (kept warm by the caller's NoteService, not rebuilt on every keystroke).
+        com.example.jylos.service.LinkIndex links = o.links() != null ? o.links()
+                : com.example.jylos.service.LinkIndex.EMPTY;
+        String sourceId = o.context() != null && o.context().note() != null ? o.context().note().getId() : null;
         java.util.function.Predicate<String> exists = link -> links.exists(link, sourceId);
 
         // Obsidian syntax resolved on the source (outside code): comments hidden, footnotes
@@ -144,25 +115,44 @@ public class MarkdownPreview {
         // Callouts and ==highlights== are handled inside CommonMark (CalloutsAndHighlights).
         raw = ReadingSyntax.stripComments(raw);
         ReadingSyntax.Footnotes footnotes = ReadingSyntax.footnotes(raw);
-        raw = ReadingSyntax.tags(ReadingSyntax.blockAnchors(footnotes.markdown()));
+        raw = ReadingSyntax.blockAnchors(footnotes.markdown());
+        if (tags) {
+            raw = ReadingSyntax.tags(raw);
+        }
 
         // Expand ![[transclusions]] FIRST: ![[X]] contains a [[X]] that WikiLinkResolver
         // would otherwise rewrite. Each embed is rendered now and parked behind a token,
         // re-injected after CommonMark (see Transclusion).
         Transclusion.Result embeds = Transclusion.protect(raw,
-                title -> embedContentByTitle(title, embeddedContentResolver), exists);
+                title -> embedContentByTitle(title, o.embeddedContentResolver()), exists);
         raw = embeds.markdown();
 
+        // [[WikiLinks]] are resolved in the raw Markdown, then passed through CommonMark,
+        // which leaves raw HTML untouched (MarkdownProcessor deliberately does not escape it).
         raw = WikiLinkResolver.resolve(raw, exists);
 
-        // Expand ::: rich-link blocks into HTML cards before CommonMark (the card is
-        // an HTML block, which CommonMark passes through verbatim).
+        // ::: rich-link blocks become HTML cards (an HTML block, passed through verbatim).
         raw = RichLinks.render(raw);
 
         String html = MarkdownProcessor.markdownToHtml(raw) + footnotes.html();
         html = Transclusion.restore(html, embeds.embeds());
-        html = embedLocalImages(html, baseDir, imageContainmentRoot);
-        html = emojifyToImages(html, isDarkTheme);
+        html = embedLocalImages(html, o.baseDir(), o.imageContainmentRoot());
+        return emojifyToImages(html, isDarkTheme);
+    }
+
+    /**
+     * The reading view page of a note: its {@link #renderBody body} plus plugin enhancers,
+     * syntax highlighting, math, styles and the page's scripts. Script a note carries in raw
+     * HTML is neutralised by the page's Content-Security-Policy, not by escaping.
+     */
+    public static String buildPreviewHtml(String markdownContent, boolean isDarkTheme,
+            Collection<PreviewEnhancer> enhancers, PreviewOptions options) {
+        PreviewOptions o = options != null ? options : PreviewOptions.none();
+        boolean readableLineLength = o.readableLineLength();
+        int contentFontSize = o.contentFontSize();
+        PreviewContext context = o.context();
+        String raw = markdownContent == null ? "" : markdownContent;
+        String html = renderBody(raw, isDarkTheme, true, o);
         // Per-note post-processing runs before code-block detection below: an enhancer
         // that replaces a fenced block with generated markup (e.g. a query result table)
         // must be able to remove the only <pre><code> in the document, so highlight.js

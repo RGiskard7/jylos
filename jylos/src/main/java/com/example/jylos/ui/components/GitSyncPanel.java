@@ -16,6 +16,7 @@ import com.example.jylos.git.GitResult;
 import com.example.jylos.git.GitService;
 import com.example.jylos.git.GitStatus;
 import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.ui.UiNodes;
 
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
@@ -180,15 +181,13 @@ public final class GitSyncPanel {
         buildUnavailableView();
         buildLoadingView();
 
-        progress.setVisible(false);
-        progress.setManaged(false);
+        UiNodes.show(progress, false);
         progress.setMaxWidth(Double.MAX_VALUE);
         operationLabel.getStyleClass().add("git-operation-status");
         operationLabel.setText(str("git.panel.ready"));
         configureButton(cancelBtn, "git.panel.cancel_operation", this::cancelRunningOperation);
         cancelBtn.getStyleClass().add("git-cancel-operation-btn");
-        cancelBtn.setVisible(false);
-        cancelBtn.setManaged(false);
+        UiNodes.show(cancelBtn, false);
 
         logArea.setEditable(false);
         logArea.setWrapText(true);
@@ -225,8 +224,7 @@ public final class GitSyncPanel {
         summaryLabel.getStyleClass().add("git-status-summary");
         conflictBanner.getStyleClass().add("git-conflict-banner");
         conflictBanner.setWrapText(true);
-        conflictBanner.setVisible(false);
-        conflictBanner.setManaged(false);
+        UiNodes.show(conflictBanner, false);
         workflowHint.getStyleClass().add("git-workflow-hint");
         workflowHint.setWrapText(true);
 
@@ -413,8 +411,7 @@ public final class GitSyncPanel {
             conflictBanner.setText(str("git.panel.nested_repository_dirty"));
         }
         boolean hasBlockingChanges = conflicts > 0 || nestedRepositories > 0;
-        conflictBanner.setVisible(hasBlockingChanges);
-        conflictBanner.setManaged(hasBlockingChanges);
+        UiNodes.show(conflictBanner, hasBlockingChanges);
 
         // Conflicts first, then staged, then the rest — the order a user resolves them in.
         List<GitChange> ordered = snap.changes().stream()
@@ -440,8 +437,7 @@ public final class GitSyncPanel {
     private void showState(VBox active) {
         for (VBox view : List.of(repoView, setupView, unavailableView, loadingView)) {
             boolean on = view == active;
-            view.setVisible(on);
-            view.setManaged(on);
+            UiNodes.show(view, on);
         }
     }
 
@@ -589,12 +585,10 @@ public final class GitSyncPanel {
     /** Shows operation state and prevents concurrent Git actions while a task is running. */
     private void setBusy(boolean busy, String message) {
         this.busy = busy;
-        progress.setVisible(busy);
-        progress.setManaged(busy);
+        UiNodes.show(progress, busy);
         progress.setProgress(busy ? ProgressBar.INDETERMINATE_PROGRESS : 0);
         operationLabel.setText(message);
-        cancelBtn.setVisible(busy);
-        cancelBtn.setManaged(busy);
+        UiNodes.show(cancelBtn, busy);
         cancelBtn.setDisable(!busy);
         operationLabel.pseudoClassStateChanged(javafx.css.PseudoClass.getPseudoClass("error"),
                 !busy && message.startsWith("✖"));

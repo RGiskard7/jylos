@@ -14,7 +14,33 @@ final class FileSystemNames {
      */
     private static final Pattern UNSAFE_NAME_CHARS = Pattern.compile("[^\\p{L}\\p{M}\\p{N}.\\-_ ]");
 
+    /** The vault's trash: a hidden directory at its root, as in Obsidian. */
+    static final String TRASH_DIR = ".trash";
+
     private FileSystemNames() {
+    }
+
+    /** A note or folder id with {@code /} separators, whatever the platform; {@code ""} for null. */
+    static String normalizeId(String id) {
+        return id == null ? "" : id.replace("\\", "/");
+    }
+
+    /** {@code name} with {@code suffix} before its extension: {@code Nota.md} → {@code Nota (1).md}. */
+    static String withSuffix(String name, String suffix) {
+        int dot = name.lastIndexOf('.');
+        return dot > 0 ? name.substring(0, dot) + suffix + name.substring(dot) : name + suffix;
+    }
+
+    /**
+     * Where an item of the trash came from: its normalized id without the leading
+     * {@code .trash/}. An id outside the trash is returned as it is.
+     */
+    static String originalPathOfTrashed(String normalizedId) {
+        if (normalizedId.startsWith(TRASH_DIR)) {
+            String rest = normalizedId.substring(TRASH_DIR.length());
+            return rest.startsWith("/") ? rest.substring(1) : rest;
+        }
+        return normalizedId;
     }
 
     /**

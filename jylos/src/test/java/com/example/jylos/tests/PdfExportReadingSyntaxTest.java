@@ -49,4 +49,25 @@ class PdfExportReadingSyntaxTest {
         assertFalse(text.contains("[!tip]"), text);
         assertFalse(text.contains("^marca"), text);
     }
+
+    /**
+     * Links and embeds are printed as the reading view shows them: {@code [[Nota|texto]]} as its
+     * text, not with its brackets, and {@code ![[Nota]]} with the embedded note's content.
+     */
+    @Test
+    void thePdfShowsLinksAsTextAndEmbedsTheirNote(@TempDir Path dir) throws Exception {
+        Note note = new Note("Exportada", "Ver [[Otra nota|la otra]] y [[Tercera]].\n\n![[Incrustada]]\n");
+        File pdf = dir.resolve("nota.pdf").toFile();
+
+        NoteExporter.exportPdf(note, pdf, null,
+                link -> link.equals("Incrustada") ? "Texto de la incrustada" : null);
+
+        String text;
+        try (PDDocument document = PDDocument.load(pdf)) {
+            text = new PDFTextStripper().getText(document);
+        }
+        assertFalse(text.contains("[["), "brackets printed: " + text);
+        assertTrue(text.contains("la otra") && text.contains("Tercera"), text);
+        assertTrue(text.contains("Texto de la incrustada"), "embed missing: " + text);
+    }
 }

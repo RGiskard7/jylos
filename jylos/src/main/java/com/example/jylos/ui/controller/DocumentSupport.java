@@ -98,12 +98,15 @@ class DocumentSupport {
             if (name.endsWith(".html") || name.endsWith(".htm")) {
                 com.example.jylos.util.NoteExporter.exportHtml(note, targetFile, baseDir,
                         link -> resolveEmbedContent(link, note),
-                        noteService != null ? noteService.getStorageRoot().orElse(null) : null);
+                        noteService != null ? noteService.getStorageRoot().orElse(null) : null,
+                        noteService != null ? noteService.linkIndex() : null);
                 return new ExportResult(true, null);
             }
             if (name.endsWith(".pdf")) {
                 String baseUri = baseDir != null ? baseDir.toUri().toString() : null;
-                com.example.jylos.util.NoteExporter.exportPdf(note, targetFile, baseUri);
+                com.example.jylos.util.NoteExporter.exportPdf(note, targetFile, baseUri,
+                        link -> resolveEmbedContent(link, note),
+                        noteService != null ? noteService.linkIndex() : null);
                 return new ExportResult(true, null);
             }
             // Markdown / plain text (default).

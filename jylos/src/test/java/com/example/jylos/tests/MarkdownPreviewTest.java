@@ -29,11 +29,11 @@ class MarkdownPreviewTest {
         assertFalse(withoutOption.contains("max-width: 700px"),
                 "Default preview must not cap content width");
 
-        String withOptionOff = MarkdownPreview.buildPreviewHtml("Some note text.", false, null, null, null, null, false);
+        String withOptionOff = MarkdownPreview.buildPreviewHtml("Some note text.", false, null, new MarkdownPreview.PreviewOptions(null, null, null, false, 0, null, null));
         assertFalse(withOptionOff.contains("max-width: 700px"),
                 "readableLineLength=false must not cap content width");
 
-        String withOptionOn = MarkdownPreview.buildPreviewHtml("Some note text.", false, null, null, null, null, true);
+        String withOptionOn = MarkdownPreview.buildPreviewHtml("Some note text.", false, null, new MarkdownPreview.PreviewOptions(null, null, null, true, 0, null, null));
         assertTrue(withOptionOn.contains("max-width: 700px"),
                 "readableLineLength=true must cap the body to a centered, readable column");
         assertTrue(withOptionOn.contains("margin-left: auto") && withOptionOn.contains("margin-right: auto"),
@@ -47,12 +47,12 @@ class MarkdownPreviewTest {
                 "existing 3-arg callers (tests, NoteExporter) must render exactly as before");
 
         String zeroMeansUnset = MarkdownPreview.buildPreviewHtml(
-                "Some note text.", false, null, null, null, null, false, 0);
+                "Some note text.", false, null, new MarkdownPreview.PreviewOptions(null, null, null, false, 0, null, null));
         assertFalse(zeroMeansUnset.contains("body { font-size:"),
                 "contentFontSize=0 must leave the WebView's own default font size untouched");
 
         String withSize = MarkdownPreview.buildPreviewHtml(
-                "Some note text.", false, null, null, null, null, false, 18);
+                "Some note text.", false, null, new MarkdownPreview.PreviewOptions(null, null, null, false, 18, null, null));
         assertTrue(withSize.contains("body { font-size: 18px; }"),
                 "a positive contentFontSize must set the body's text size explicitly");
     }

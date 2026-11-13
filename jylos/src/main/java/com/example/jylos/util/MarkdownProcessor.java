@@ -87,7 +87,11 @@ public class MarkdownProcessor {
      * @param text The text to escape
      * @return HTML-escaped text
      */
-    private static String escapeHtml(String text) {
+    /**
+     * Escapes text for HTML element content and quoted attribute values: {@code & < > " '}.
+     * {@code null} becomes an empty string.
+     */
+    public static String escapeHtml(String text) {
         if (text == null) {
             return "";
         }

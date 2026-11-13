@@ -243,7 +243,7 @@ public final class CalloutsAndHighlights {
             Look look = lookOf(callout.type);
             html.line();
             html.raw("<" + box + " class=\"callout callout-" + look.colour() + "\" data-callout=\""
-                    + escape(callout.type) + "\"" + ("+".equals(callout.fold) ? " open" : "") + ">");
+                    + MarkdownProcessor.escapeHtml(callout.type) + "\"" + ("+".equals(callout.fold) ? " open" : "") + ">");
             html.line();
             html.raw("<" + (foldable ? "summary" : "div") + " class=\"callout-title\">");
             html.raw("<span class=\"callout-icon\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" "
@@ -282,8 +282,5 @@ public final class CalloutsAndHighlights {
             }
         }
 
-        private static String escape(String value) {
-            return value.replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;");
-        }
     }
 }

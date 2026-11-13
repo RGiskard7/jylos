@@ -13,6 +13,7 @@ import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
+import com.example.jylos.ui.UiNodes;
 
 /**
  * One-time UI wiring extracted from {@link MainController}.
@@ -74,8 +75,7 @@ class UiInitialization {
         wireCollapsibleSection(noteInfoHeader, noteInfoContent, noteInfoCollapseIcon);
 
         if (pluginPanelsContainer != null) {
-            pluginPanelsContainer.setVisible(true);
-            pluginPanelsContainer.setManaged(true);
+            UiNodes.show(pluginPanelsContainer, true);
         }
     }
 
@@ -91,8 +91,7 @@ class UiInitialization {
         }
         header.setOnMouseClicked(e -> {
             boolean expand = !content.isVisible();
-            content.setVisible(expand);
-            content.setManaged(expand);
+            UiNodes.show(content, expand);
             collapseIcon.setText(expand ? "▼" : "▶");
             if (onToggle != null) {
                 onToggle.accept(expand);
@@ -200,12 +199,10 @@ class UiInitialization {
                         toggleSidebar, toggleNotes, toggleRightPanel, switchLayout);
             }
 
-            toolbarController.getToolbarOverflowBtn().setVisible(true);
-            toolbarController.getToolbarOverflowBtn().setManaged(true);
+            UiNodes.show(toolbarController.getToolbarOverflowBtn(), true);
         } else {
             toolbarController.getToolbarOverflowBtn().getItems().clear();
-            toolbarController.getToolbarOverflowBtn().setVisible(false);
-            toolbarController.getToolbarOverflowBtn().setManaged(false);
+            UiNodes.show(toolbarController.getToolbarOverflowBtn(), false);
         }
     }
 }

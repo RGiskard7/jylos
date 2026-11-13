@@ -1,4 +1,4 @@
-package com.example.jylos.util;
+package com.example.jylos.service;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;

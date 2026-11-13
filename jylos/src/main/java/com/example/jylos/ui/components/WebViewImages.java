@@ -1,6 +1,6 @@
 package com.example.jylos.ui.components;
 
-import com.example.jylos.util.WebImageConverter;
+import com.example.jylos.service.WebImageConverter;
 import com.google.gson.Gson;
 
 import javafx.application.Platform;

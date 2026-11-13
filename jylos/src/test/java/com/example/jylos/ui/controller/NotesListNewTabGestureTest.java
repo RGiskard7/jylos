@@ -3,6 +3,7 @@ package com.example.jylos.ui.controller;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.example.jylos.tests.FxTestSupport.onFx;
 
 import java.lang.reflect.Field;
 import java.net.URL;
@@ -10,10 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -21,7 +18,6 @@ import org.junit.jupiter.api.Test;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.tests.FxTestSupport;
 
-import javafx.application.Platform;
 import javafx.event.Event;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
@@ -50,25 +46,25 @@ class NotesListNewTabGestureTest {
 
         List<String> newTab = new ArrayList<>();
         List<String> selected = new ArrayList<>();
-        Fixture f = onFxThread(() -> new Fixture(newTab, selected));
+        Fixture f = onFx(() -> new Fixture(newTab, selected));
 
-        onFxThread(() -> {
+        onFx(() -> {
             press(f.cell(1), MouseButton.PRIMARY, true);
             press(f.cell(0), MouseButton.MIDDLE, false);
             return null;
         });
-        String selectionAfterGestures = onFxThread(() -> String.valueOf(f.list.getSelectionModel().getSelectedItem()));
-        onFxThread(() -> null); // let any runLater from a selection run
+        String selectionAfterGestures = onFx(() -> String.valueOf(f.list.getSelectionModel().getSelectedItem()));
+        onFx(() -> null); // let any runLater from a selection run
 
         assertEquals(List.of("b", "a"), newTab);
         assertEquals("null", selectionAfterGestures, "a new-tab gesture must not select the note");
         assertEquals(List.of(), selected, "nothing may open in the current tab");
 
-        onFxThread(() -> {
+        onFx(() -> {
             press(f.cell(1), MouseButton.PRIMARY, false);
             return null;
         });
-        onFxThread(() -> null);
+        onFx(() -> null);
         assertEquals(List.of("b"), selected, "a plain click still opens the note in the current tab");
         assertEquals(List.of("b", "a"), newTab);
     }
@@ -78,7 +74,7 @@ class NotesListNewTabGestureTest {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
 
         List<String> newTab = new ArrayList<>();
-        List<String> labels = onFxThread(() -> {
+        List<String> labels = onFx(() -> {
             Fixture f = new Fixture(newTab, new ArrayList<>());
             ListCell<Note> cell = f.cell(0);
             assertNotNull(cell.getContextMenu(), "the note row has no context menu");
@@ -153,25 +149,5 @@ class NotesListNewTabGestureTest {
         Event.fireEvent(node, new MouseEvent(MouseEvent.MOUSE_RELEASED, at.getX(), at.getY(), at.getX(), at.getY(),
                 button, 1, false, shortcut && !MAC, false, shortcut && MAC,
                 false, false, false, false, false, true, null));
-    }
-
-    private static <T> T onFxThread(Callable<T> work) throws Exception {
-        AtomicReference<T> result = new AtomicReference<>();
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        CountDownLatch done = new CountDownLatch(1);
-        Platform.runLater(() -> {
-            try {
-                result.set(work.call());
-            } catch (Throwable t) {
-                failure.set(t);
-            } finally {
-                done.countDown();
-            }
-        });
-        assertTrue(done.await(30, TimeUnit.SECONDS), "test never completed on the FX thread");
-        if (failure.get() != null) {
-            throw new AssertionError(failure.get());
-        }
-        return result.get();
     }
 }

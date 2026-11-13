@@ -2,13 +2,11 @@ package com.example.jylos.ui.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.example.jylos.tests.FxTestSupport.onFx;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 import org.junit.jupiter.api.Assumptions;
@@ -17,7 +15,6 @@ import org.junit.jupiter.api.Test;
 import com.example.jylos.tests.FxTestSupport;
 import com.example.jylos.ui.controller.StatusBarSupport.EditorMode;
 
-import javafx.application.Platform;
 import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
@@ -58,7 +55,7 @@ class StatusBarEditorIndicatorsTest {
     void theLabelsNameTheSaveStateAndModeAndHideWithoutANote() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
 
-        List<String> seen = onFxThread(() -> {
+        List<String> seen = onFx(() -> {
             Fixture f = new Fixture(mode -> { });
             List<String> out = new ArrayList<>();
 
@@ -93,7 +90,7 @@ class StatusBarEditorIndicatorsTest {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
 
         List<EditorMode> chosen = new ArrayList<>();
-        List<String> seen = onFxThread(() -> {
+        List<String> seen = onFx(() -> {
             Fixture f = new Fixture(chosen::add);
             f.support.updateEditorIndicators(true, false, EditorMode.SOURCE, true, 2000);
 
@@ -114,7 +111,7 @@ class StatusBarEditorIndicatorsTest {
     void theSaveStateIsNotShownBeforeTheIndicatorsAreUpdated() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
 
-        List<String> seen = onFxThread(() -> {
+        List<String> seen = onFx(() -> {
             Fixture f = new Fixture(mode -> { });
             return List.of("" + f.save.isVisible() + f.mode.isVisible());
         });
@@ -132,25 +129,5 @@ class StatusBarEditorIndicatorsTest {
             support.wire(null, null, null, null, null, null, I18N);
             support.wireEditorIndicators(save, mode, separator, onModeChosen);
         }
-    }
-
-    private static <T> T onFxThread(java.util.concurrent.Callable<T> work) throws Exception {
-        AtomicReference<T> result = new AtomicReference<>();
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        CountDownLatch done = new CountDownLatch(1);
-        Platform.runLater(() -> {
-            try {
-                result.set(work.call());
-            } catch (Throwable t) {
-                failure.set(t);
-            } finally {
-                done.countDown();
-            }
-        });
-        assertTrue(done.await(30, TimeUnit.SECONDS), "test never completed on the FX thread");
-        if (failure.get() != null) {
-            throw new AssertionError(failure.get());
-        }
-        return result.get();
     }
 }
