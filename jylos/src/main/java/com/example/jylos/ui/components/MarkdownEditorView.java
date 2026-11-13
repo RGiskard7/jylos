@@ -566,14 +566,6 @@ public final class MarkdownEditorView extends StackPane {
                     : title != null ? title : ""));
         }
 
-        private String urlDecodeQuietly(String value) {
-            try {
-                return java.net.URLDecoder.decode(value, java.nio.charset.StandardCharsets.UTF_8);
-            } catch (IllegalArgumentException e) {
-                return value;
-            }
-        }
-
         public void openTag(String tag) {
             if (tag != null && !tag.isBlank()) {
                 Platform.runLater(() -> tagHandler.accept(tag));
@@ -586,7 +578,7 @@ public final class MarkdownEditorView extends StackPane {
 
         public void openMarkdownLink(String target) {
             String path = WikiLinkResolver.internalLinkPath(target);
-            String subpath = WikiLinkResolver.subpathOf(target != null ? urlDecodeQuietly(target) : null);
+            String subpath = WikiLinkResolver.subpathOf(target != null ? WikiLinkResolver.urlDecode(target) : null);
             String title = path != null && subpath != null ? path + "#" + subpath : path;
             if (title != null) {
                 Platform.runLater(() -> wikiLinkHandler.accept(title));

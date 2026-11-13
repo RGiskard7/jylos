@@ -108,7 +108,10 @@ public final class FileViewer {
         scroll.setFitToHeight(true);
         scroll.getStyleClass().add("viewer-scroll");
 
-        Image image = new Image(path.toUri().toString(), true); // background load
+        // JavaFX decodes the usual formats itself, in the background; WebP is read through
+        // ImageIO (TwelveMonkeys plugin), also off the UI thread.
+        boolean webp = AttachmentType.extensionOf(path.toString()).equals("webp");
+        Image image = webp ? null : new Image(path.toUri().toString(), true);
         view.setImage(image);
 
         // Default: fit the image to the viewport width.
@@ -126,11 +129,28 @@ public final class FileViewer {
                 fit.run();
             }
         });
-        image.progressProperty().addListener((o, a, p) -> {
-            if (p.doubleValue() >= 1.0) {
-                Platform.runLater(apply);
-            }
-        });
+        if (webp) {
+            Thread reader = new Thread(() -> {
+                try {
+                    BufferedImage read = ImageIO.read(path.toFile());
+                    Image converted = read != null ? toFxImage(read) : null;
+                    Platform.runLater(() -> {
+                        view.setImage(converted);
+                        apply.run();
+                    });
+                } catch (Exception e) {
+                    logger.fine("Could not read WebP image: " + e.getMessage());
+                }
+            }, "jylos-webp-viewer");
+            reader.setDaemon(true);
+            reader.start();
+        } else {
+            image.progressProperty().addListener((o, a, p) -> {
+                if (p.doubleValue() >= 1.0) {
+                    Platform.runLater(apply);
+                }
+            });
+        }
 
         HBox toolbar = viewerToolbar();
         Button zoomOut = toolBtn("−");
@@ -139,16 +159,16 @@ public final class FileViewer {
         Button fullBtn = toolBtn("100%");
         zoomOut.setOnAction(e -> {
             double base = zoom[0] > 0 ? zoom[0] : view.getBoundsInLocal().getWidth();
-            zoom[0] = Math.max(image.getWidth() * MIN_ZOOM, base / ZOOM_STEP);
+            zoom[0] = Math.max(shownWidth(view) * MIN_ZOOM, base / ZOOM_STEP);
             apply.run();
         });
         zoomIn.setOnAction(e -> {
             double base = zoom[0] > 0 ? zoom[0] : view.getBoundsInLocal().getWidth();
-            zoom[0] = Math.min(image.getWidth() * MAX_ZOOM, base * ZOOM_STEP);
+            zoom[0] = Math.min(shownWidth(view) * MAX_ZOOM, base * ZOOM_STEP);
             apply.run();
         });
         fitBtn.setOnAction(e -> { zoom[0] = 0; apply.run(); });
-        fullBtn.setOnAction(e -> { zoom[0] = image.getWidth(); apply.run(); });
+        fullBtn.setOnAction(e -> { zoom[0] = shownWidth(view); apply.run(); });
         toolbar.getChildren().addAll(zoomOut, zoomIn, fitBtn, fullBtn);
 
         BorderPane root = new BorderPane(scroll);
@@ -723,6 +743,11 @@ public final class FileViewer {
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
+
+    /** Width of the picture shown, 0 while it loads. */
+    private static double shownWidth(ImageView view) {
+        return view.getImage() != null ? view.getImage().getWidth() : 0;
+    }
 
     private static Image toFxImage(BufferedImage image) throws Exception {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {

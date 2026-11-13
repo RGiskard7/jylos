@@ -662,8 +662,11 @@ public final class WikiLinkResolver {
                     .replace("'",  "%27");
     }
 
-    /** Decodes {@code %xx} escapes; a {@code +} stays a {@code +}, as in a link it is one. */
-    private static String urlDecode(String url) {
+    /**
+     * Decodes {@code %xx} escapes as Obsidian reads a link or an image path: a {@code +} stays
+     * a {@code +}, as in a link it is one (unlike {@link URLDecoder}, made for form data).
+     */
+    public static String urlDecode(String url) {
         if (url.indexOf('%') < 0) {
             return url;
         }

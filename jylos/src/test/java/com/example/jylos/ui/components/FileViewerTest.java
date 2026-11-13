@@ -31,6 +31,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
@@ -103,6 +104,28 @@ class FileViewerTest {
             }
             return null;
         });
+    }
+
+    /** A WebP in the vault opens in the image viewer, though JavaFX's Image cannot decode WebP. */
+    @Test
+    void aWebpImageIsShown(@TempDir Path tempDir) throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+        Path webp = tempDir.resolve("foto.webp");
+        // 40x30, lossless.
+        java.nio.file.Files.write(webp, java.util.Base64.getDecoder().decode(
+                "UklGRioAAABXRUJQVlA4TB4AAAAvJ0AHAA8wHvfwvRD3/EcLhASEB/6v9UCO6H+UMAQ="));
+
+        Region viewer = runOnFx(() -> {
+            ResourceBundle bundle = ResourceBundle.getBundle("com.example.jylos.i18n.messages", Locale.ENGLISH);
+            Region region = FileViewer.forAttachment(webp, AttachmentType.fromName(webp.toString()), bundle);
+            new Scene(new Pane(region), 600, 400);
+            return region;
+        });
+
+        assertTrue(awaitFx(() -> {
+            ImageView view = findFirst(viewer, ImageView.class);
+            return view != null && view.getImage() != null && view.getImage().getWidth() == 40;
+        }, 10), "the picture is shown at its own width");
     }
 
     private static Label pageTotal(Node root) {

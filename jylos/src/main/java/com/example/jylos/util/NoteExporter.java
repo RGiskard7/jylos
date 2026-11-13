@@ -58,8 +58,9 @@ public final class NoteExporter {
     public static void exportHtml(Note note, File target, java.nio.file.Path baseDir,
             Function<String, String> embeddedContentResolver, java.nio.file.Path imageContainmentRoot)
             throws Exception {
+        // The note as context, so its links resolve from its own folder, as in the reading view.
         String html = MarkdownPreview.buildPreviewHtml(content(note), false, null, baseDir, embeddedContentResolver,
-                null, false, 0, imageContainmentRoot);
+                new com.example.jylos.plugin.PreviewContext(note, false), false, 0, imageContainmentRoot);
         Files.writeString(target.toPath(), html, StandardCharsets.UTF_8);
     }
 

@@ -35,7 +35,7 @@ public final class ReadingSyntax {
     private static final Pattern FOOTNOTE_DEFINITION = Pattern.compile("^ {0,3}\\[\\^([^\\]\\s]+)\\]:[ \\t]?(.*)$");
     private static final Pattern FOOTNOTE_REFERENCE = Pattern.compile("\\^\\[([^\\]\\n]+)\\]|\\[\\^([^\\]\\s]+)\\]");
     private static final Pattern BLOCK_ID = Pattern.compile("(?:^|[ \\t]+)\\^([A-Za-z0-9-]+)[ \\t]*$", Pattern.MULTILINE);
-    /** Same tag characters the vault indexes ({@code FrontmatterHandler}); only after a space or at a line start. */
+    /** Tag characters, as in Obsidian; only after a space or at a line start. */
     private static final Pattern TAG = Pattern.compile("(?<![^\\s])#([\\p{L}\\p{N}_/-]+)");
     /** Text a tag cannot be in: links of any kind, URLs, HTML tags. */
     private static final Pattern NOT_TAGGABLE = Pattern.compile(
@@ -184,11 +184,7 @@ public final class ReadingSyntax {
         if (markdown == null || markdown.indexOf('#') < 0) {
             return markdown;
         }
-        BitSet excluded = WikiLinkResolver.codeRanges(markdown);
-        Matcher skip = NOT_TAGGABLE.matcher(markdown);
-        while (skip.find()) {
-            excluded.set(skip.start(), skip.end());
-        }
+        BitSet excluded = notTaggable(markdown);
         Matcher m = TAG.matcher(markdown);
         StringBuilder out = new StringBuilder(markdown.length());
         while (m.find()) {
@@ -201,6 +197,35 @@ public final class ReadingSyntax {
         }
         m.appendTail(out);
         return out.toString();
+    }
+
+    /**
+     * The {@code #tags} written in a note's text, in order, without the {@code #}: the ones
+     * {@link #tags} turns into links, so the vault indexes what the note shows as tags.
+     */
+    public static List<String> inlineTags(String markdown) {
+        List<String> found = new ArrayList<>();
+        if (markdown == null || markdown.indexOf('#') < 0) {
+            return found;
+        }
+        BitSet excluded = notTaggable(markdown);
+        Matcher m = TAG.matcher(markdown);
+        while (m.find()) {
+            if (!excluded.get(m.start())) {
+                found.add(m.group(1));
+            }
+        }
+        return found;
+    }
+
+    /** Code, links, URLs and HTML tags: where a {@code #} does not start a tag. */
+    private static BitSet notTaggable(String markdown) {
+        BitSet excluded = WikiLinkResolver.codeRanges(markdown);
+        Matcher skip = NOT_TAGGABLE.matcher(markdown);
+        while (skip.find()) {
+            excluded.set(skip.start(), skip.end());
+        }
+        return excluded;
     }
 
     /** Comments, block anchors and tags: what an embedded note also needs. */

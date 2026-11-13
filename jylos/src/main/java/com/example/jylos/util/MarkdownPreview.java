@@ -738,7 +738,7 @@ public class MarkdownPreview {
             return "";
         }
         try {
-            String decoded = java.net.URLDecoder.decode(value, StandardCharsets.UTF_8);
+            String decoded = WikiLinkResolver.urlDecode(value);
             java.nio.file.Path imagePath = baseDir.resolve(decoded).normalize();
             java.nio.file.Path bound = containmentRoot != null ? containmentRoot : baseDir;
             if (!PathContainment.isInside(bound, imagePath)) {

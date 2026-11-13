@@ -1635,19 +1635,32 @@ public class SidebarController {
         alert.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
         com.example.jylos.ui.UiDialogs.show(alert).filter(r -> r == ButtonType.OK).ifPresent(r -> {
             try {
-                for (Note n : noteService.getTrashNotes())
-                    noteService.permanentlyDeleteNote(n.getId());
-                Folder root = folderService.getTrashFolders();
-                if (root != null)
-                    for (Component c : root.getChildren())
-                        if (c instanceof Folder)
-                            folderService.permanentlyDeleteFolder(c.getId());
-                loadTrashTree();
+                emptyTrashNow();
                 publishStatusUpdate(getString("status.trash_emptied"));
             } catch (Exception ex) {
                 logger.log(Level.WARNING, "Failed to empty trash", ex);
             }
         });
+    }
+
+    /**
+     * Empties the trash, once confirmed. Each item is announced: the views that show notes
+     * update, and this sidebar reloads its trees when it hears it.
+     */
+    void emptyTrashNow() {
+        for (Note n : noteService.getTrashNotes()) {
+            noteService.permanentlyDeleteNote(n.getId());
+            publishEvent(new NoteEvents.TrashItemDeletedEvent(n));
+        }
+        Folder root = folderService.getTrashFolders();
+        if (root != null) {
+            for (Component c : root.getChildren()) {
+                if (c instanceof Folder) {
+                    folderService.permanentlyDeleteFolder(c.getId());
+                    publishEvent(new NoteEvents.TrashItemDeletedEvent(c));
+                }
+            }
+        }
     }
 
     private void handleRestoreTrashItem() {
@@ -1689,17 +1702,22 @@ public class SidebarController {
             a.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
             if (com.example.jylos.ui.UiDialogs.show(a).orElse(ButtonType.CANCEL) == ButtonType.OK) {
                 try {
-                    if (c instanceof Folder)
-                        folderService.permanentlyDeleteFolder(c.getId());
-                    else if (c instanceof Note)
-                        noteService.permanentlyDeleteNote(c.getId());
-                    loadTrashTree();
+                    deleteFromTrashNow(c);
                     publishStatusUpdate(getString("status.item_deleted"));
                 } catch (Exception e) {
                     logger.log(Level.WARNING, "Failed to permanently delete trash item", e);
                 }
             }
         }
+    }
+
+    /** Deletes one item of the trash for good, once confirmed, and announces it. */
+    void deleteFromTrashNow(Component c) {
+        if (c instanceof Folder)
+            folderService.permanentlyDeleteFolder(c.getId());
+        else if (c instanceof Note)
+            noteService.permanentlyDeleteNote(c.getId());
+        publishEvent(new NoteEvents.TrashItemDeletedEvent(c));
     }
 
     /** What the folder context menu entries do. */
@@ -1879,14 +1897,18 @@ public class SidebarController {
         a.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
         com.example.jylos.ui.UiDialogs.show(a).filter(r -> r == ButtonType.OK).ifPresent(r -> {
             try {
-                folderService.deleteFolder(f.getId());
-                loadFolders();
-                loadTrashTree();
+                deleteFolderNow(f);
             } catch (Exception e) {
                 logger.log(Level.WARNING, "Failed to delete folder " + (f != null ? f.getId() : "null"), e);
                 publishStatusUpdate(getString("status.error_deleting_folder"));
             }
         });
+    }
+
+    /** Moves a folder to the trash, once confirmed, and announces it. */
+    void deleteFolderNow(Folder f) {
+        folderService.deleteFolder(f.getId());
+        publishEvent(new FolderEvents.FolderDeletedEvent(f.getId(), f.getTitle()));
     }
 
     private ContextMenu createTagContextMenu(String tagName) {

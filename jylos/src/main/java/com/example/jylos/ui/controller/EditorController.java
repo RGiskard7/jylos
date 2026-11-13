@@ -1893,14 +1893,16 @@ public class EditorController {
     public void registerPreviewEnhancer(String pluginId, PreviewEnhancer enhancer) {
         if (pluginId != null && enhancer != null) {
             previewEnhancers.put(pluginId, enhancer);
-            Platform.runLater(() -> refreshPreview(false));
+            // Drawn again in the theme it is shown in.
+            Platform.runLater(() -> refreshPreview(lastPreviewDarkTheme));
         }
     }
 
     public void unregisterPreviewEnhancer(String pluginId) {
         if (pluginId != null) {
             previewEnhancers.remove(pluginId);
-            Platform.runLater(() -> refreshPreview(false));
+            // Drawn again in the theme it is shown in.
+            Platform.runLater(() -> refreshPreview(lastPreviewDarkTheme));
         }
     }
 

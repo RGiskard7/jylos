@@ -2,6 +2,7 @@ package com.example.jylos.util;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -38,7 +39,6 @@ public final class Transclusion {
 
     /** {@code ![[target]]} where target is {@code Note}, {@code Note#Heading} (alias after | ignored). */
     private static final Pattern EMBED = Pattern.compile("!\\[\\[([^\\[\\]\\n]+?)\\]\\]");
-    private static final Pattern HEADING = Pattern.compile("^(#{1,6})\\s+(.*?)\\s*$");
 
     /** Placeholder delimiters: private-use code points that never occur in note text. */
     private static final char TOK_START = '';
@@ -191,30 +191,24 @@ public final class Transclusion {
         if (heading != null && heading.strip().startsWith("^")) {
             return extractBlock(content, heading.strip().substring(1));
         }
-        String[] lines = content.split("\n", -1);
-        int start = -1;
-        int level = 0;
-        for (int i = 0; i < lines.length; i++) {
-            Matcher hm = HEADING.matcher(lines[i]);
-            if (hm.matches() && hm.group(2).trim().equalsIgnoreCase(heading.trim())) {
-                start = i;
-                level = hm.group(1).length();
-                break;
+        // The headings a link jumps to (NoteAnchors), so an embed and a link agree.
+        List<NoteAnchors.Heading> headings = NoteAnchors.headings(content);
+        for (int i = 0; i < headings.size(); i++) {
+            NoteAnchors.Heading found = headings.get(i);
+            if (!found.title().equalsIgnoreCase(heading.strip())) {
+                continue;
             }
-        }
-        if (start < 0) {
-            return null;
-        }
-        StringBuilder sb = new StringBuilder();
-        sb.append(lines[start]).append('\n');
-        for (int j = start + 1; j < lines.length; j++) {
-            Matcher hm = HEADING.matcher(lines[j]);
-            if (hm.matches() && hm.group(1).length() <= level) {
-                break;
+            int end = content.length();
+            for (NoteAnchors.Heading next : headings.subList(i + 1, headings.size())) {
+                if (next.level() <= found.level()) {
+                    end = next.offset();
+                    break;
+                }
             }
-            sb.append(lines[j]).append('\n');
+            String section = content.substring(found.offset(), end);
+            return section.endsWith("\n") ? section : section + "\n";
         }
-        return sb.toString();
+        return null;
     }
 
     private static final Pattern LIST_ITEM = Pattern.compile("^\\s*([-*+]|\\d+[.)])\\s.*");
@@ -228,13 +222,16 @@ public final class Transclusion {
         if (id.isEmpty()) {
             return null;
         }
+        // The block a link jumps to (NoteAnchors): a marker inside code marks nothing.
+        int at = NoteAnchors.blockLine(content, id);
+        if (at < 0) {
+            return null;
+        }
         String[] lines = content.split("\n", -1);
         Pattern marker = Pattern.compile("(?:^|[ \\t]+)\\^" + Pattern.quote(id) + "[ \\t]*$");
-        for (int i = 0; i < lines.length; i++) {
-            Matcher m = marker.matcher(lines[i]);
-            if (!m.find()) {
-                continue;
-            }
+        int i = (int) content.substring(0, at).chars().filter(c -> c == '\n').count();
+        Matcher m = marker.matcher(lines[i]);
+        if (m.find()) {
             String rest = lines[i].substring(0, m.start());
             int from;
             int to;

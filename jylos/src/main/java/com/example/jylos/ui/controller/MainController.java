@@ -1033,8 +1033,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 event -> handleUiNoteDeleted(event.getNoteId())));
         uiEventSubscriptions.add(eventBus.subscribe(FolderEvents.FolderDeletedEvent.class,
                 event -> handleUiFolderDeleted(event.getFolderId())));
-        uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.TrashItemDeletedEvent.class,
-                event -> handleUiTrashItemDeleted()));
         // Keep the editor tab in sync when its note is saved (clear dirty dot, refresh title).
         uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class, e -> {
             Note saved = e.getNote();
@@ -1116,23 +1114,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
     }
 
+    /** The sidebar reloads its own trees when it hears the deletion. */
     void handleUiFolderDeleted(String folderId) {
         if (currentFolder != null && currentFolder.getId().equals(folderId)) {
             currentFolder = null;
-        }
-        if (sidebarController != null) {
-            if (sidebarController.getFolderTreeView() != null) {
-                sidebarController.getFolderTreeView().refresh();
-            }
-            sidebarController.loadFolders();
-            sidebarController.loadTrashTree();
-        }
-    }
-
-    void handleUiTrashItemDeleted() {
-        if (sidebarController != null) {
-            sidebarController.loadTrashTree();
-            sidebarController.loadFolders();
         }
     }
 

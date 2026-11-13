@@ -1,6 +1,5 @@
 package com.example.jylos.ui.controller;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
@@ -49,11 +48,10 @@ class NoteOperations {
                 newNote.setParent(currentFolder);
             }
 
-            // FileSystem DAO relies on a pre-seeded ID to infer the parent folder path.
+            // The filesystem DAO reads the parent folder from a pre-seeded id ("Folder/"); it
+            // names the file itself, from the title.
             if (isFileSystem && isConcreteFolder(currentFolder)) {
-                String folderPath = currentFolder.getId();
-                String sanitizedTitle = safeTitle.replaceAll("[^\\p{L}\\p{N}\\.\\-_ ]", "_");
-                newNote.setId(folderPath + File.separator + sanitizedTitle);
+                newNote.setId(currentFolder.getId() + "/");
             }
 
             Note createdNote = noteService.createNote(newNote);

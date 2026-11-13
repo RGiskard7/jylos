@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+- **Lo mismo se trata igual en todas partes.**
+  - **Exportar a HTML incrusta la nota correcta:** `![[Reunión]]` se busca desde la carpeta de la nota exportada y `![[Carpeta/Nota]]` respeta la carpeta, como en la vista de lectura. Antes se buscaba solo por título y podía incrustar otra nota con el mismo nombre, o ninguna. Los enlaces relativos (`[[./Nota]]`) también se resuelven desde la carpeta de la nota.
+  - **Un `+` en la ruta de una imagen o en el encabezado de un enlace Markdown es un `+`:** `![](C++.png)` encuentra `C++.png` y `[C++](Lenguajes.md#C++)` lleva a ese encabezado. Antes el `+` se leía como un espacio.
+  - **La vista de lectura conserva el tema oscuro** cuando un plugin se activa o se desactiva; antes se volvía a dibujar en claro.
+  - **`![[Nota#Encabezado]]` incrusta la misma sección a la que lleva `[[Nota#Encabezado]]`:** una línea que empieza por `#` dentro de un bloque de código (un comentario de bash, por ejemplo) ya no corta la sección ni se toma por el encabezado, y se reconocen los encabezados con sangría o cerrados con `#`. Un `^id` dentro de código ya no marca un bloque.
+  - **Las etiquetas que se indexan son las que se ven:** `#foo.bar` es la etiqueta `foo`, como en Obsidian y como la muestran el editor y la vista de lectura (antes se indexaba `foobar`), y una etiqueta dentro de un bloque de código cercado con más de tres comillas ya no cuenta.
+  - **Borrar una carpeta, borrar algo de la papelera para siempre o vaciarla actualiza el grafo y la lista de notas**, no solo la barra lateral.
+  - **Las imágenes `.webp` de la bóveda aparecen en el explorador y se abren en el visor de imágenes.**
+
 - **Las imágenes WebP se ven en el editor y en la vista de lectura.** Antes solo aparecía su enlace en un recuadro. Pasaba con muchas imágenes de la web, como las de los artículos de Medium guardados con el clipper, que se sirven en WebP aunque la dirección termine en `.png`, y también con los `.webp` de la bóveda. El visor que usa Jylos no sabe dibujar WebP, así que cuando una imagen falla, Jylos la convierte a PNG en segundo plano y la muestra. Si no puede (sin conexión, o la imagen no existe), sigue saliendo el recuadro con el enlace.
 
 - **El grafo abre y se reparte como el de Obsidian.**

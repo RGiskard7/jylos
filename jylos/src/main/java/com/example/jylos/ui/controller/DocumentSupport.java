@@ -97,7 +97,7 @@ class DocumentSupport {
             java.nio.file.Path baseDir = resolveBaseDir(note);
             if (name.endsWith(".html") || name.endsWith(".htm")) {
                 com.example.jylos.util.NoteExporter.exportHtml(note, targetFile, baseDir,
-                        this::resolveEmbedContentByTitle,
+                        link -> resolveEmbedContent(link, note),
                         noteService != null ? noteService.getStorageRoot().orElse(null) : null);
                 return new ExportResult(true, null);
             }
@@ -139,11 +139,12 @@ class DocumentSupport {
         return null;
     }
 
-    private String resolveEmbedContentByTitle(String title) {
-        if (noteService == null || title == null || title.isBlank()) {
+    /** The embed's link as written, resolved by path from the exported note, as the reading view does. */
+    private String resolveEmbedContent(String link, Note source) {
+        if (noteService == null || link == null || link.isBlank()) {
             return null;
         }
-        return noteService.findNoteByTitle(title)
+        return noteService.resolveLink(link, source.getId())
                 .flatMap(note -> noteService.getNoteById(note.getId()))
                 .map(Note::getContent)
                 .orElse(null);
