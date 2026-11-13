@@ -49,16 +49,19 @@ public final class GraphCanvas extends Region {
 
     // ── Physics tuning (close to Obsidian's defaults) ───────────────────────
     private static final double ALPHA_INIT     = 1.0;
-    private static final double ALPHA_MIN      = 0.0015;
-    private static final double ALPHA_DECAY    = 0.0135;   // longer settle → fuller spread
+    // Obsidian's simulation (its graph worker): alpha 1 down to .001 in about 300 steps,
+    // keeping 60 % of the velocity each step.
+    private static final double ALPHA_MIN      = 0.001;
+    private static final double ALPHA_DECAY    = 1 - Math.pow(0.001, 1.0 / 300);
     private static final double VELOCITY_DECAY = 0.60;     // fraction of velocity kept per tick
-    private static final double CHARGE         = -260.0;   // many-body repulsion (negative = repel)
+    private static final double CHARGE         = -1000.0;  // many-body repulsion (negative = repel)
+    private static final double CHARGE_MIN_DISTANCE2 = 30.0 * 30.0;
     private static final double THETA2         = 0.81;     // Barnes–Hut accuracy (theta=0.9)^2
-    private static final double LINK_DISTANCE  = 36.0;
-    private static final double CENTER_GRAVITY = 0.035;    // weak pull → orphans drift to the rim
-    private static final double MAX_VELOCITY   = 160.0;    // clamp to avoid explosions
-    private static final double COLLISION_PADDING  = 2.0;  // small visual gap even when circles "touch"
-    private static final double COLLISION_STRENGTH = 0.7;  // d3-force's own default — unlike charge/link,
+    private static final double LINK_DISTANCE  = 250.0;
+    private static final double CENTER_GRAVITY = 0.1;      // pulls every node toward the centre
+    private static final double MAX_VELOCITY   = 10_000.0; // only a guard against blow-ups
+    private static final double COLLISION_RADIUS = 60.0;   // every node keeps this much room
+    private static final double COLLISION_STRENGTH = 0.5;
                                                              // this is not scaled by alpha: collisions must
                                                              // keep resolving even once the simulation has
                                                              // cooled down, or an overlap in an already-settled
@@ -75,7 +78,7 @@ public final class GraphCanvas extends Region {
                                                              // not a fixed-duration tween: no elapsed-time
                                                              // bookkeeping needed, and it self-adjusts to
                                                              // whatever frame rate is actually delivered
-    private static final double BASE_NODE_RADIUS = 2.4;    // smallest normal (non-ghost) note radius, degree 0 —
+    private static final double BASE_NODE_RADIUS = 8.0;    // smallest note radius (Obsidian's minimum size)
                                                              // the reference point labelThreshold is calibrated
                                                              // against; a bigger node's label reveals at a
                                                              // proportionally lower zoom than that reference
@@ -449,8 +452,7 @@ public final class GraphCanvas extends Region {
                 case GHOST -> KIND_GHOST;
                 default -> KIND_NOTE;
             };
-            double base = node.type() == GraphNode.Type.GHOST ? 2.0 : BASE_NODE_RADIUS;
-            radius[i] = base + Math.sqrt(Math.max(0, node.degree())) * 1.5;
+            radius[i] = nodeSize(node.degree());
         }
 
         // Resolve edges to index pairs, dropping any dangling endpoints.
@@ -515,7 +517,8 @@ public final class GraphCanvas extends Region {
      */
     private void seedLayout() {
         java.util.Random rnd = new java.util.Random(0x5DEECE66DL ^ n);
-        double spread = 60.0 + Math.sqrt(Math.max(1, n)) * 26.0;
+        // Obsidian starts the nodes in a disc of area 60·N·60 around the centre.
+        double spread = Math.sqrt(60.0 * 60.0 * Math.max(1, n) / Math.PI);
         for (int i = 0; i < n; i++) {
             double a = rnd.nextDouble() * Math.PI * 2.0;
             double r = spread * Math.sqrt(rnd.nextDouble());
@@ -532,6 +535,28 @@ public final class GraphCanvas extends Region {
     }
 
     // ── Simulation step ────────────────────────────────────────────────────────
+
+    /** The radius of a note node with {@code degree} connections, before zoom and the size slider. */
+    static double nodeSize(int degree) {
+        return Math.max(BASE_NODE_RADIUS, Math.min(3 * Math.sqrt(Math.max(0, degree) + 1), 30));
+    }
+
+    /** Runs {@code ticks} steps of the simulation at once (tests; the view runs them per frame). */
+    void runTicks(int ticks) {
+        for (int t = 0; t < ticks; t++) {
+            tick();
+        }
+    }
+
+    /** Where a node is, in graph coordinates (the centre of the simulation is 0,0); null if absent. */
+    double[] positionOf(String nodeId) {
+        for (int i = 0; i < n; i++) {
+            if (ids[i].equals(nodeId)) {
+                return new double[] {x[i], y[i]};
+            }
+        }
+        return null;
+    }
 
     private void tick() {
         if (n == 0) {
@@ -579,16 +604,17 @@ public final class GraphCanvas extends Region {
                 dy = jiggle();
                 d = Math.sqrt(dx * dx + dy * dy);
             }
-            // Stronger springs for low-degree endpoints (d3's bias heuristic).
+            // d3's default (stronger springs for low-degree ends), times the link force (1).
             double strength = 1.0 / Math.min(linkCount[s], linkCount[t]);
             double l = (d - linkDistance) / d * alpha * strength * linkForce;
             double fx = dx * l;
             double fy = dy * l;
+            // As d3: the end with fewer links moves more (target by bias, source by 1 - bias).
             double bias = (double) linkCount[s] / (linkCount[s] + linkCount[t]);
-            vx[t] -= fx * (1 - bias);
-            vy[t] -= fy * (1 - bias);
-            vx[s] += fx * bias;
-            vy[s] += fy * bias;
+            vx[t] -= fx * bias;
+            vy[t] -= fy * bias;
+            vx[s] += fx * (1 - bias);
+            vy[s] += fy * (1 - bias);
         }
     }
 
@@ -636,7 +662,7 @@ public final class GraphCanvas extends Region {
             }
             double dx = (x[j] + vx[j]) - (x[i] + vx[i]);
             double dy = (y[j] + vy[j]) - (y[i] + vy[i]);
-            double minDist = radius[i] + radius[j] + COLLISION_PADDING;
+            double minDist = 2 * COLLISION_RADIUS;
             double d2 = dx * dx + dy * dy;
             if (d2 >= minDist * minDist) {
                 return;
@@ -663,7 +689,7 @@ public final class GraphCanvas extends Region {
         double closestY = clamp(y[i], node.y0, node.y0 + node.size);
         double dx = closestX - x[i];
         double dy = closestY - y[i];
-        double maxReach = radius[i] + node.maxRadius + COLLISION_PADDING;
+        double maxReach = 2 * COLLISION_RADIUS;
         if (dx * dx + dy * dy > maxReach * maxReach) {
             return;
         }
@@ -688,6 +714,9 @@ public final class GraphCanvas extends Region {
         }
         // Far enough to treat the whole cell as one body? (size^2 / dist^2 < theta^2)
         if (node.leaf || (node.size * node.size) < THETA2 * d2) {
+            if (d2 < CHARGE_MIN_DISTANCE2) {
+                d2 = Math.sqrt(CHARGE_MIN_DISTANCE2 * d2); // d3's distanceMin: no huge push up close
+            }
             double w = charge * alpha * node.count / d2;
             vx[i] += dx * w;
             vy[i] += dy * w;

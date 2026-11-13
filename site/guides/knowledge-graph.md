@@ -9,6 +9,8 @@ The knowledge graph renders your notes and their wiki-links as an interactive fo
 - **Ctrl/Cmd+G**
 - Command palette
 
+Links count both in the note's body and in its properties (`up: "[[Index]]"`), as in Obsidian.
+
 ## Global and local views
 
 - **Global graph** — every note and resolved wiki-link edge, with optional tag nodes and note→tag edges.

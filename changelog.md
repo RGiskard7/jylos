@@ -5,6 +5,8 @@
 - **Grafo como en Obsidian: grupos de color, opciones del grafo local y ajustes que se recuerdan.**
   - **Grupos de color:** en el panel de ajustes, "Nuevo grupo" añade una consulta (texto, `path:`, `file:` o `tag:`) con un color. Se prueban en orden y cada nota toma el color del primero con el que coincide.
   - **Grafo local con profundidad de 1 a 5** (antes, siempre 2) y casillas de **enlaces entrantes**, **salientes** y **adyacentes**. Ahora sigue la dirección de los enlaces y, salvo que actives "adyacentes", solo muestra los enlaces que llevan desde la nota a cada vecina. Por defecto, como en Obsidian: profundidad 1, entrantes y salientes. La nota abierta aparece aunque no tenga enlaces.
+  - **Los enlaces escritos en las propiedades cuentan como enlaces**, como en Obsidian (`up: "[[Índice]]"`, una lista de `"[[Nota]]"`): son aristas del grafo, la nota enlazada los ve en sus backlinks y el panel de enlaces muestra la línea de la propiedad. Antes solo contaban los del cuerpo, y en una bóveda que enlaza desde las propiedades faltaban la mayoría de aristas. Las notas largas se releen una vez para recogerlos.
+  - **El grafo se distribuye como el de Obsidian:** mismas fuerzas (repulsión, distancia y fuerza de enlace, atracción al centro, espacio alrededor de cada nota) y mismos tamaños de nodo. Las notas conectadas ya no se apiñan en el centro con un anillo de notas sueltas alrededor: se reparten por todo el círculo. Los deslizadores de fuerzas usan la escala de Obsidian.
   - **Los ajustes del grafo se guardan:** fuerzas, tamaños, flechas, color por carpeta, filtros, opciones del grafo local y grupos siguen igual la próxima vez.
 
 - **Explorador de archivos como en Obsidian.**

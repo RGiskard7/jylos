@@ -237,6 +237,24 @@ public class NoteService {
      * @param id note id
      * @return the note's file path, or empty when storage has no files (SQLite)
      */
+    /**
+     * The text of the note's properties block as written in its file (file storage only; ""
+     * otherwise), to show where a link in the properties is.
+     */
+    public String propertiesText(String id) {
+        Optional<java.nio.file.Path> file = getNoteFilePath(id);
+        if (file.isEmpty()) {
+            return "";
+        }
+        try {
+            return com.example.jylos.data.dao.filesystem.FrontmatterHandler.frontmatterText(
+                    java.nio.file.Files.readString(file.get(), java.nio.charset.StandardCharsets.UTF_8));
+        } catch (java.io.IOException | RuntimeException e) {
+            logger.fine("Could not read the properties of " + id + ": " + e.getMessage());
+            return "";
+        }
+    }
+
     public Optional<java.nio.file.Path> getNoteFilePath(String id) {
         return noteDAO.resolveFilePath(id);
     }

@@ -87,15 +87,22 @@ public class GraphBuilder {
             return cached.targets();
         }
         String content = note.getContent();
+        List<String> targets = null;
         try {
             Note full = noteService.getNoteById(id).orElse(null);
-            if (full != null && full.getContent() != null) {
-                content = full.getContent();
+            if (full != null) {
+                // The links storage found in the whole file, properties included (as Obsidian).
+                targets = full.getLinkTargets();
+                if (full.getContent() != null) {
+                    content = full.getContent();
+                }
             }
         } catch (Exception e) {
             logger.fine("Graph: could not read full content for " + id + ": " + e.getMessage());
         }
-        List<String> targets = WikiLinkResolver.extractRawLinks(content);
+        if (targets == null) {
+            targets = WikiLinkResolver.extractRawLinks(content);
+        }
         linkCache.put(id, new CachedLinks(modified, targets));
         return targets;
     }

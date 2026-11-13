@@ -9,6 +9,8 @@ El grafo de conocimiento dibuja tus notas y sus wiki-links como una red interact
 - **Ctrl/Cmd+G**
 - Paleta de comandos
 
+Los enlaces cuentan tanto en el cuerpo como en las propiedades de la nota (`up: "[[Índice]]"`), como en Obsidian.
+
 ## Vistas global y local
 
 - **Grafo global** — todas las notas y aristas de wiki-links resueltos, con nodos de etiquetas opcionales y aristas nota→etiqueta.

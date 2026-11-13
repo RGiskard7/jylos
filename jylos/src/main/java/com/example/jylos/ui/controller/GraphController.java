@@ -151,10 +151,10 @@ public class GraphController {
      * keeps its graph settings.
      */
     private void rememberSettings() {
-        remember(repulsionSlider, "graph.repulsion");
+        remember(repulsionSlider, "graph.v2.repulsion"); // v2: Obsidian's scale (1000)
         remember(linkForceSlider, "graph.link_force");
-        remember(linkDistanceSlider, "graph.link_distance");
-        remember(centerSlider, "graph.center");
+        remember(linkDistanceSlider, "graph.v2.link_distance");
+        remember(centerSlider, "graph.v2.center");
         remember(labelThresholdSlider, "graph.label_threshold");
         remember(nodeScaleSlider, "graph.node_scale");
         remember(lineThicknessSlider, "graph.line_thickness");

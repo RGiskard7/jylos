@@ -32,8 +32,15 @@ public final class LinkCache {
     private static final Logger logger = LoggerConfig.getLogger(LinkCache.class);
     private static final Gson GSON = new Gson();
 
-    private record Entry(long modified, long size, List<String> links) {
+    /**
+     * @param format the rules the links were found with; entries written with others are not
+     *               used (2: links in properties count)
+     */
+    private record Entry(long modified, long size, List<String> links, int format) {
     }
+
+    /** Bumped whenever which links are found changes, so old entries are read again. */
+    private static final int FORMAT = 2;
 
     private final Path file;
     private final Map<String, Entry> entries = new ConcurrentHashMap<>();
@@ -74,14 +81,14 @@ public final class LinkCache {
     /** The links stored for {@code id}, if they were computed from this exact modified time and size. */
     public Optional<List<String>> get(String id, long modified, long size) {
         Entry entry = entries.get(id);
-        if (entry == null || entry.modified() != modified || entry.size() != size) {
+        if (entry == null || entry.format() != FORMAT || entry.modified() != modified || entry.size() != size) {
             return Optional.empty();
         }
         return Optional.of(List.copyOf(entry.links()));
     }
 
     public void put(String id, long modified, long size, List<String> links) {
-        entries.put(id, new Entry(modified, size, List.copyOf(links)));
+        entries.put(id, new Entry(modified, size, List.copyOf(links), FORMAT));
         dirty = true;
     }
 

@@ -178,6 +178,31 @@ public final class FrontmatterHandler {
         return buildNote(parseYaml(block.yaml()), body);
     }
 
+    /**
+     * Every note link of a file, as Obsidian counts them: first the links written in its
+     * properties ({@code up: "[[Índice]]"}, a list of {@code "[[Note]]"}), then those of its
+     * body. Same rules as {@code WikiLinkResolver.extractRawLinks}; de-duplicated, in order.
+     */
+    public static List<String> linksOf(String fileContent) {
+        if (fileContent == null) {
+            return List.of();
+        }
+        FrontmatterBlock block = extractLeadingFrontmatter(fileContent);
+        java.util.LinkedHashSet<String> links = new java.util.LinkedHashSet<>();
+        if (block != null) {
+            links.addAll(com.example.jylos.util.WikiLinkResolver.extractRawLinks(block.yaml()));
+        }
+        links.addAll(com.example.jylos.util.WikiLinkResolver.extractRawLinks(
+                block != null ? block.body() : fileContent));
+        return List.copyOf(links);
+    }
+
+    /** The text of a file's leading properties block (without the {@code ---} lines), or "". */
+    public static String frontmatterText(String fileContent) {
+        FrontmatterBlock block = fileContent == null ? null : extractLeadingFrontmatter(fileContent);
+        return block != null ? block.yaml() : "";
+    }
+
     public static String stripFrontmatter(String fileContent) {
         if (fileContent == null) return "";
         FrontmatterBlock block = extractLeadingFrontmatter(fileContent);

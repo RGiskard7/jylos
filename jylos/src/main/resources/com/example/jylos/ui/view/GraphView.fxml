@@ -125,13 +125,13 @@
                     <Separator/>
                     <Label text="%graph.forces" styleClass="graph-settings-header"/>
                     <Label text="%graph.center_force" styleClass="graph-settings-label"/>
-                    <Slider fx:id="centerSlider" min="0" max="150"/>
+                    <Slider fx:id="centerSlider" min="0" max="300"/>
                     <Label text="%graph.repulsion" styleClass="graph-settings-label"/>
-                    <Slider fx:id="repulsionSlider" min="40" max="700"/>
+                    <Slider fx:id="repulsionSlider" min="0" max="2000"/>
                     <Label text="%graph.link_force" styleClass="graph-settings-label"/>
                     <Slider fx:id="linkForceSlider" min="0" max="200"/>
                     <Label text="%graph.link_distance" styleClass="graph-settings-label"/>
-                    <Slider fx:id="linkDistanceSlider" min="10" max="140"/>
+                    <Slider fx:id="linkDistanceSlider" min="30" max="500"/>
                 </VBox>
             </content>
         </ScrollPane>

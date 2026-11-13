@@ -203,7 +203,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                 java.nio.file.attribute.BasicFileAttributes attrs =
                         Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class);
                 String content = Files.readString(path, java.nio.charset.StandardCharsets.UTF_8);
-                List<String> links = WikiLinkResolver.extractRawLinks(FrontmatterHandler.stripFrontmatter(content));
+                List<String> links = FrontmatterHandler.linksOf(content);
                 linkCache().put(id, attrs.lastModifiedTime().toMillis(), attrs.size(), links);
                 cachedNotes.computeIfPresent(id, (key, note) -> {
                     note.setLinkTargets(links);
@@ -461,7 +461,7 @@ public class NoteDAOFileSystem implements NoteDAO {
             // Index outgoing links from the (untruncated) content head already read, so the
             // backlink index needs no second full-file read per note — critical on large or
             // cloud-backed vaults where each read can block on an on-demand download.
-            List<String> links = WikiLinkResolver.extractRawLinks(FrontmatterHandler.stripFrontmatter(head));
+            List<String> links = FrontmatterHandler.linksOf(head);
             // A longer file has links the head does not show: take them from the cache when the
             // file is unchanged, and queue it for a full read in the background otherwise.
             java.nio.file.attribute.BasicFileAttributes attrs =
@@ -736,7 +736,7 @@ public class NoteDAOFileSystem implements NoteDAO {
             note.setTitle(filename);
 
             // Full read → full-body link coverage for the backlink index.
-            note.setLinkTargets(WikiLinkResolver.extractRawLinks(FrontmatterHandler.stripFrontmatter(content)));
+            note.setLinkTargets(FrontmatterHandler.linksOf(content));
 
             return note;
         } catch (IOException e) {

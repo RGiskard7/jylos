@@ -146,9 +146,18 @@ public class BacklinkService {
             if (full == null || full.getContent() == null) {
                 continue;
             }
-            List<LinkOccurrences.Occurrence> points = LinkOccurrences.links(full.getContent()).stream()
+            // Links in the properties count too (as in Obsidian); their lines are numbered below
+            // zero so they never join a line of the body.
+            List<LinkOccurrences.Occurrence> points = new ArrayList<>();
+            for (LinkOccurrences.Occurrence o : LinkOccurrences.links(noteService.propertiesText(full.getId()))) {
+                if (links.resolveId(o.target(), full.getId()).filter(target.getId()::equals).isPresent()) {
+                    points.add(new LinkOccurrences.Occurrence(-(o.line() + 1), o.start(), o.end(), o.lineText(),
+                            o.target()));
+                }
+            }
+            LinkOccurrences.links(full.getContent()).stream()
                     .filter(o -> links.resolveId(o.target(), full.getId()).filter(target.getId()::equals).isPresent())
-                    .toList();
+                    .forEach(points::add);
             if (!points.isEmpty()) {
                 groups.add(new LinkGroup(full, points));
             }
