@@ -70,6 +70,7 @@ public final class GraphCanvas extends Region {
     // ── Interaction tuning ──────────────────────────────────────────────────
     private static final double MIN_SCALE = 0.02;
     private static final double MAX_SCALE = 8.0;
+    private static final double GHOST_ALPHA = 0.5;         // opacity of a note that does not exist yet (Obsidian's)
     private static final double ZOOM_EASE = 0.85;          // share of the zoom gap left after a frame (Obsidian's)
     private static final double CLICK_SLOP = 4.0;          // px movement still counts as a click
     private static final double MIN_NODE_PX = 2.0;         // floor on on-screen node radius (Obsidian-like dots)
@@ -1043,12 +1044,12 @@ public final class GraphCanvas extends Region {
             }
         }
 
-        // Edges — thin, constant-ish width so relationships always read clearly.
+        // Edges — one pixel on screen at any zoom (times the thickness slider), as Obsidian's.
         // Colors ease between resting and highlighted/dimmed via hoverStrength
         // instead of switching outright, so the whole highlight (edges, nodes,
         // labels below) reads as one smooth transition rather than some parts
         // snapping instantly while others fade.
-        g.setLineWidth(clamp(scale, 0.7, 1.6) * lineThickness);
+        g.setLineWidth(lineThickness);
         for (int e = 0; e < edgeA.length; e++) {
             int s = edgeA[e];
             int t = edgeB[e];
@@ -1074,10 +1075,10 @@ public final class GraphCanvas extends Region {
             g.setGlobalAlpha(dim ? 1.0 - (1.0 - HOVER_DIM_ALPHA) * hoverStrength : 1.0);
 
             if (kind[i] == KIND_GHOST) {
-                // Unresolved link → hollow node (Obsidian style).
-                g.setStroke(i == displayHoverIndex ? palette.accent : palette.ghost);
-                g.setLineWidth(1.2);
-                g.strokeOval(px - r, py - r, r * 2, r * 2);
+                // A note that does not exist yet: a faint dot at half opacity, as Obsidian's.
+                g.setFill(i == displayHoverIndex ? palette.accent : palette.ghost);
+                g.setGlobalAlpha(g.getGlobalAlpha() * GHOST_ALPHA);
+                g.fillOval(px - r, py - r, r * 2, r * 2);
             } else {
                 Color fill;
                 if (i == displayHoverIndex) {

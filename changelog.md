@@ -6,6 +6,7 @@
   - **Las notas conectadas se reparten por todo el círculo** en lugar de apiñarse en el centro: cada nota empieza junto a las notas que enlaza, como en Obsidian, y cada grupo de notas enlazadas queda donde cayó, no en medio.
   - **Al cambiar un filtro, las notas que ya estaban se quedan donde estaban** y solo se colocan las nuevas.
   - **El grafo abre con el zoom que dejaste**, centrado, alejándose desde cerca como en Obsidian. El grafo local guarda el suyo. La primera vez, o tras "Restablecer vista", la vista sigue al grafo mientras se despliega para mostrarlo entero, hasta que haces zoom o lo arrastras.
+  - **Se dibuja como el de Obsidian:** las notas que aún no existen son puntos rellenos y tenues en lugar de aros, y los enlaces miden un píxel con cualquier zoom, así que ya no se desvanecen al alejarse.
 
 - **Los enlaces se leen como en Obsidian, y el grafo deja fuera los adjuntos.**
   - **"Mostrar adjuntos" en los filtros del grafo, desactivado por defecto como en Obsidian.** Antes cada imagen, PDF o audio de la bóveda era un nodo suelto, y cientos de ellos formaban un anillo que apiñaba en el centro las notas conectadas. Activado, cada adjunto aparece unido a las notas que lo incrustan o enlazan. Los canvas siguen apareciendo siempre.
