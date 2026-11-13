@@ -113,6 +113,93 @@ public class GraphBuilder {
         }
     }
 
+    /**
+     * What the local graph shows, as in Obsidian.
+     *
+     * @param depth          how many links away from the open note (kept between 1 and 5)
+     * @param outgoing       follow the links each note makes
+     * @param incoming       follow the links each note receives
+     * @param neighborLinks  also show the links between the notes reached
+     */
+    public record LocalOptions(int depth, boolean outgoing, boolean incoming, boolean neighborLinks) {
+        /** Obsidian's defaults: one link away, both directions, no links between neighbours. */
+        public static LocalOptions defaults() {
+            return new LocalOptions(1, true, true, false);
+        }
+    }
+
+    /**
+     * The local graph of a note, as in Obsidian: the note plus the notes up to
+     * {@code local.depth()} links away, following outgoing and/or incoming links. Only the
+     * links that were followed are shown, plus every link between the notes reached when
+     * {@code neighborLinks} is on. Tags are reached but not followed further. The note itself
+     * is always there, even with no links (orphans are not filtered out here).
+     */
+    public GraphData buildLocalGraph(String rootId, LocalOptions local, Options options) {
+        GraphData global = buildGlobalGraph(new Options(options.includeTags(), options.includeGhosts(), true));
+        if (rootId == null) {
+            return global;
+        }
+        Map<String, GraphNode> byId = new LinkedHashMap<>();
+        for (GraphNode node : global.nodes()) {
+            byId.put(node.id(), node);
+        }
+        if (!byId.containsKey(rootId)) {
+            return GraphData.empty();
+        }
+        Map<String, List<GraphEdge>> out = new HashMap<>();
+        Map<String, List<GraphEdge>> in = new HashMap<>();
+        for (GraphEdge edge : global.edges()) {
+            out.computeIfAbsent(edge.source(), k -> new ArrayList<>()).add(edge);
+            in.computeIfAbsent(edge.target(), k -> new ArrayList<>()).add(edge);
+        }
+        Set<String> keep = new java.util.LinkedHashSet<>();
+        keep.add(rootId);
+        Set<GraphEdge> shown = new java.util.LinkedHashSet<>();
+        List<String> frontier = List.of(rootId);
+        int depth = Math.max(1, Math.min(5, local.depth()));
+        for (int hop = 0; hop < depth && !frontier.isEmpty(); hop++) {
+            List<String> next = new ArrayList<>();
+            for (String id : frontier) {
+                GraphNode node = byId.get(id);
+                if (node != null && node.type() == GraphNode.Type.TAG && !id.equals(rootId)) {
+                    continue; // a tag is reached, not followed
+                }
+                if (local.outgoing()) {
+                    for (GraphEdge edge : out.getOrDefault(id, List.of())) {
+                        shown.add(edge);
+                        if (keep.add(edge.target())) {
+                            next.add(edge.target());
+                        }
+                    }
+                }
+                if (local.incoming()) {
+                    for (GraphEdge edge : in.getOrDefault(id, List.of())) {
+                        shown.add(edge);
+                        if (keep.add(edge.source())) {
+                            next.add(edge.source());
+                        }
+                    }
+                }
+            }
+            frontier = next;
+        }
+        if (local.neighborLinks()) {
+            for (GraphEdge edge : global.edges()) {
+                if (keep.contains(edge.source()) && keep.contains(edge.target())) {
+                    shown.add(edge);
+                }
+            }
+        }
+        List<GraphNode> nodes = new ArrayList<>();
+        for (String id : keep) {
+            if (byId.containsKey(id)) {
+                nodes.add(byId.get(id));
+            }
+        }
+        return new GraphData(nodes, new ArrayList<>(shown));
+    }
+
     /** Builds the full vault graph with default options. */
     public GraphData buildGlobalGraph(boolean includeTags) {
         return buildGlobalGraph(new Options(includeTags, true, true));

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- **Grafo como en Obsidian: grupos de color, opciones del grafo local y ajustes que se recuerdan.**
+  - **Grupos de color:** en el panel de ajustes, "Nuevo grupo" añade una consulta (texto, `path:`, `file:` o `tag:`) con un color. Se prueban en orden y cada nota toma el color del primero con el que coincide.
+  - **Grafo local con profundidad de 1 a 5** (antes, siempre 2) y casillas de **enlaces entrantes**, **salientes** y **adyacentes**. Ahora sigue la dirección de los enlaces y, salvo que actives "adyacentes", solo muestra los enlaces que llevan desde la nota a cada vecina. Por defecto, como en Obsidian: profundidad 1, entrantes y salientes. La nota abierta aparece aunque no tenga enlaces.
+  - **Los ajustes del grafo se guardan:** fuerzas, tamaños, flechas, color por carpeta, filtros, opciones del grafo local y grupos siguen igual la próxima vez.
+
 - **Explorador de archivos como en Obsidian.**
   - **Renombrar en la propia fila:** F2 o "Renombrar" en el menú del Explorador ponen el nombre en un campo dentro de la fila; Enter (o hacer clic fuera) lo aplica y Escape lo deja como estaba. Sin diálogo.
   - **Nota y carpeta nuevas sin pedir nombre:** una nota nueva se crea como "Sin título" (o "Sin título 1", "Sin título 2"…, el primero libre) con el título seleccionado para escribir el nombre; en el Explorador, una carpeta nueva se crea como "Sin nombre" con su nombre listo para cambiar en la fila.

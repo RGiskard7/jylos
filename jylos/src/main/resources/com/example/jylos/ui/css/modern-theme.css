@@ -4811,3 +4811,23 @@
 
 /* The name field of an Explorer row being renamed. */
 .explorer-rename-field { -fx-padding: 0 4; -fx-background-radius: 4; }
+
+/* Graph colour groups: a query field, its colour and a remove button per row. */
+.graph-color-group .color-picker { -fx-color-label-visible: false; -fx-padding: 2 4; }
+.graph-new-group { -fx-max-width: Infinity; }
+
+/* "New group" in the graph settings: flat, like "+ Add card". */
+.root .graph-new-group {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-background-insets: 0;
+    -fx-background-radius: 6;
+    -fx-effect: null;
+    -fx-text-fill: -fx-text-faint;
+}
+
+.root .graph-new-group:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-text-main;
+}

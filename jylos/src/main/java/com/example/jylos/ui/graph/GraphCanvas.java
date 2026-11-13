@@ -107,6 +107,9 @@ public final class GraphCanvas extends Region {
     private String[] ids = new String[0];
     private String[] labels = new String[0];
     private String[] group = new String[0];   // folder/tag group, for color-by-folder
+    /** Colour groups: the colour of each node a group matched, by node id. */
+    private Map<String, Color> nodeColors = Map.of();
+    private Color[] groupFill = new Color[0];
     private int[][] neighbors = new int[0][];
     /** Node indices sorted by descending radius, computed once per model build (radius
      *  never changes afterward) so the label pass doesn't re-sort on every frame. */
@@ -298,6 +301,43 @@ public final class GraphCanvas extends Region {
         g.strokeLine(tipX, tipY, rx, ry);
     }
 
+    /**
+     * The colours the colour groups give, by node id; nodes not in the map keep their usual
+     * colour. A group's colour wins over "colour by folder", as in Obsidian.
+     */
+    public void setNodeColors(Map<String, Color> colors) {
+        nodeColors = colors != null ? Map.copyOf(colors) : Map.of();
+        applyNodeColors();
+        drawIfIdle();
+    }
+
+    private void applyNodeColors() {
+        groupFill = new Color[n];
+        for (int i = 0; i < n; i++) {
+            groupFill[i] = nodeColors.get(ids[i]);
+        }
+    }
+
+    /** The colour a node is drawn with when the pointer is not on it; null if it is not shown. */
+    public Color fillOf(String nodeId) {
+        for (int i = 0; i < n; i++) {
+            if (ids[i].equals(nodeId)) {
+                return kind[i] == KIND_GHOST ? null : restingFill(i);
+            }
+        }
+        return null;
+    }
+
+    private Color restingFill(int i) {
+        if (i < groupFill.length && groupFill[i] != null) {
+            return groupFill[i];
+        }
+        if (kind[i] == KIND_TAG) {
+            return palette.tag;
+        }
+        return colorByFolder ? groupColor(group[i]) : palette.node;
+    }
+
     /** Stable pastel color derived from a group key (folder path). */
     private Color groupColor(String key) {
         if (key == null || key.isBlank()) {
@@ -314,6 +354,7 @@ public final class GraphCanvas extends Region {
      */
     public void setData(GraphData data) {
         buildModel(data != null ? data : GraphData.empty());
+        applyNodeColors();
         seedLayout();
         // If the canvas hasn't been laid out yet, defer the initial framing to
         // the first real resize so the graph isn't pushed off-screen.
@@ -824,12 +865,8 @@ public final class GraphCanvas extends Region {
                 Color fill;
                 if (i == displayHoverIndex) {
                     fill = palette.node.interpolate(palette.accent, hoverStrength);
-                } else if (kind[i] == KIND_TAG) {
-                    fill = palette.tag;
-                } else if (colorByFolder) {
-                    fill = groupColor(group[i]);
                 } else {
-                    fill = palette.node;
+                    fill = restingFill(i);
                 }
                 g.setFill(fill);
                 g.fillOval(px - r, py - r, r * 2, r * 2);

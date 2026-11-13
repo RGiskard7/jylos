@@ -394,6 +394,13 @@ class SidebarExplorerModeTest {
             return null;
         });
         waitUntil(() -> titles(f.explorer().getRoot()).equals(List.of("Trabajo", "Inicio")));
+        // The rows are drawn on the next layout pass: wait for the "Trabajo" one.
+        waitUntil(() -> {
+            f.explorer().layout();
+            return f.explorer().lookupAll(".tree-cell").stream().anyMatch(node ->
+                    node instanceof javafx.scene.control.TreeCell<?> cell && cell.getItem() instanceof Component c
+                            && "Trabajo".equals(c.getTitle()));
+        });
         onFx(() -> {
             javafx.scene.control.TreeCell<?> row = null;
             for (javafx.scene.Node node : f.explorer().lookupAll(".tree-cell")) {

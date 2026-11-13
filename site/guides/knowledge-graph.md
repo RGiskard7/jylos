@@ -12,7 +12,7 @@ The knowledge graph renders your notes and their wiki-links as an interactive fo
 ## Global and local views
 
 - **Global graph** — every note and resolved wiki-link edge, with optional tag nodes and note→tag edges.
-- **Local graph** — the current note plus neighbours within a configurable hop depth.
+- **Local graph** — the current note plus the notes it reaches within **Depth** links (1 to 5). **Incoming links** and **Outgoing links** choose which links to follow, and **Neighbor links** also shows the links between those notes. Defaults, as in Obsidian: depth 1, incoming and outgoing, no neighbor links.
 
 ## Interact
 
@@ -33,6 +33,19 @@ The settings panel also includes filters that re-render the graph without rebuil
 - **Show orphans** — hide/show unconnected notes.
 - **Show unresolved** — hide/show broken-link ("ghost") nodes.
 - **Show tags** — include/exclude `#tag` nodes.
+
+### Colour groups
+
+Under **Groups**, **New group** adds a row with a query and a colour. Groups are tried in order and each note takes the colour of the first one it matches; other nodes keep theirs. A query can be:
+
+- text, looked for in the note's name or path;
+- `path:text`, in the path (`path:projects/`);
+- `file:text`, in the name;
+- `tag:name`, the notes with that tag (and its tag node).
+
+A group colour wins over **Colour by folder**. The row's X removes the group.
+
+Every graph setting (forces, sizes, switches, local depth and groups) is saved and stays the same next time.
 
 ## Knowledge Insights
 

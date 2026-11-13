@@ -39,6 +39,7 @@ import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 
 /**
  * Hosts the Obsidian-style knowledge graph, rendered natively on a JavaFX
@@ -54,7 +55,16 @@ import javafx.scene.layout.VBox;
 public class GraphController {
 
     private static final Logger logger = LoggerConfig.getLogger(GraphController.class);
-    private static final int LOCAL_DEPTH = 2;
+    /** Where the graph's settings are kept between sessions. */
+    private static java.util.prefs.Preferences prefs =
+            java.util.prefs.Preferences.userNodeForPackage(GraphController.class);
+
+    /** Keeps the graph's settings somewhere else (tests); {@code null} goes back to the user's. */
+    static void usePreferences(java.util.prefs.Preferences other) {
+        prefs = other != null ? other : java.util.prefs.Preferences.userNodeForPackage(GraphController.class);
+    }
+
+    private static final String GROUPS_KEY = "graph.color_groups";
 
     @FXML private VBox graphRoot;
     @FXML private Label graphTitleLabel;
@@ -80,6 +90,17 @@ public class GraphController {
     @FXML private Slider labelThresholdSlider;
     @FXML private Slider nodeScaleSlider;
     @FXML private Slider lineThicknessSlider;
+    @FXML private Slider localDepthSlider;
+    @FXML private CheckBox localIncomingCheck;
+    @FXML private CheckBox localOutgoingCheck;
+    @FXML private CheckBox localNeighborCheck;
+    @FXML private VBox colorGroupsBox;
+    @FXML private javafx.scene.control.Button addColorGroupBtn;
+    /** Colour group edits are applied and saved a moment after the last change. */
+    private final javafx.animation.PauseTransition groupsDebounce =
+            new javafx.animation.PauseTransition(javafx.util.Duration.millis(250));
+    /** The tags of each note, read only once a group asks for them ("tag:"); null until then. */
+    private java.util.Map<String, Set<String>> noteTags;
 
     private final GraphCanvas canvas = new GraphCanvas();
 
@@ -117,6 +138,215 @@ public class GraphController {
         });
         wireForceSliders();
         wireFilters();
+        rememberSettings();
+        groupsDebounce.setOnFinished(e -> {
+            saveColorGroups();
+            applyColorGroups();
+        });
+        loadColorGroups();
+    }
+
+    /**
+     * Restores every setting saved last time and saves each one when it changes, as Obsidian
+     * keeps its graph settings.
+     */
+    private void rememberSettings() {
+        remember(repulsionSlider, "graph.repulsion");
+        remember(linkForceSlider, "graph.link_force");
+        remember(linkDistanceSlider, "graph.link_distance");
+        remember(centerSlider, "graph.center");
+        remember(labelThresholdSlider, "graph.label_threshold");
+        remember(nodeScaleSlider, "graph.node_scale");
+        remember(lineThicknessSlider, "graph.line_thickness");
+        remember(localDepthSlider, "graph.local_depth");
+        if (arrowsCheck != null) {
+            remember(arrowsCheck.selectedProperty(), "graph.arrows", this::handleArrows);
+        }
+        if (colorFolderCheck != null) {
+            remember(colorFolderCheck.selectedProperty(), "graph.color_by_folder", this::handleColorMode);
+        }
+        for (Object[] toggle : new Object[][] {
+                {orphansCheck, "graph.orphans"}, {ghostsCheck, "graph.unresolved"},
+                {localIncomingCheck, "graph.local_incoming"}, {localOutgoingCheck, "graph.local_outgoing"},
+                {localNeighborCheck, "graph.local_neighbors"}}) {
+            if (toggle[0] instanceof CheckBox box) {
+                remember(box.selectedProperty(), (String) toggle[1], null);
+            }
+        }
+        if (showTagsBtn != null) {
+            remember(showTagsBtn.selectedProperty(), "graph.tags", null);
+        }
+        if (localDepthSlider != null) {
+            // The depth applies on release (and at once when set by other means).
+            localDepthSlider.valueProperty().addListener((o, was, now) -> {
+                if (!localDepthSlider.isValueChanging()) {
+                    rebuildIfLocal();
+                }
+            });
+            localDepthSlider.valueChangingProperty().addListener((o, was, now) -> {
+                if (!now) {
+                    rebuildIfLocal();
+                }
+            });
+        }
+    }
+
+    private void remember(Slider slider, String key) {
+        if (slider == null) {
+            return;
+        }
+        if (prefs.get(key, null) != null) {
+            slider.setValue(prefs.getDouble(key, slider.getValue()));
+        }
+        slider.valueProperty().addListener((o, was, now) -> prefs.putDouble(key, now.doubleValue()));
+    }
+
+    private void remember(javafx.beans.property.BooleanProperty selected, String key, Runnable apply) {
+        if (prefs.get(key, null) != null) {
+            selected.set(prefs.getBoolean(key, selected.get()));
+            if (apply != null) {
+                apply.run();
+            }
+        }
+        selected.addListener((o, was, now) -> prefs.putBoolean(key, now));
+    }
+
+    private void rebuildIfLocal() {
+        if (graphVisible && localGraphBtn != null && localGraphBtn.isSelected()) {
+            rebuild();
+        }
+    }
+
+    // ---- Colour groups: a query and a colour each; the first one a note matches colours it.
+
+    @FXML
+    private void handleAddColorGroup() {
+        TextField query = addColorGroupRow("", Color.hsb(Math.random() * 360, 0.6, 0.85));
+        groupsDebounce.playFromStart();
+        query.requestFocus();
+    }
+
+    private TextField addColorGroupRow(String queryText, Color color) {
+        TextField query = new TextField(queryText);
+        query.getStyleClass().add("graph-color-group-query");
+        query.setPromptText(text("graph.group_query", "Query: text, path:, file: or tag:"));
+        javafx.scene.control.ColorPicker picker = new javafx.scene.control.ColorPicker(color);
+        picker.getStyleClass().add("graph-color-group-color");
+        picker.setMaxWidth(44);
+        javafx.scene.control.Button remove = new javafx.scene.control.Button("\u2715");
+        remove.getStyleClass().addAll("icon-btn", "graph-color-group-remove");
+        remove.setTooltip(new javafx.scene.control.Tooltip(text("graph.group_remove", "Remove group")));
+        javafx.scene.layout.HBox row = new javafx.scene.layout.HBox(4, query, picker, remove);
+        row.getStyleClass().add("graph-color-group");
+        row.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        javafx.scene.layout.HBox.setHgrow(query, Priority.ALWAYS);
+        query.textProperty().addListener((o, was, now) -> groupsDebounce.playFromStart());
+        picker.valueProperty().addListener((o, was, now) -> groupsDebounce.playFromStart());
+        remove.setOnAction(e -> {
+            colorGroupsBox.getChildren().remove(row);
+            groupsDebounce.playFromStart();
+        });
+        if (colorGroupsBox != null) {
+            colorGroupsBox.getChildren().add(row);
+        }
+        return query;
+    }
+
+    /** The groups as shown, in order. */
+    private List<com.example.jylos.graph.GraphColorGroups.Group> colorGroups() {
+        List<com.example.jylos.graph.GraphColorGroups.Group> groups = new ArrayList<>();
+        if (colorGroupsBox == null) {
+            return groups;
+        }
+        for (javafx.scene.Node node : colorGroupsBox.getChildren()) {
+            if (node.lookup(".graph-color-group-query") instanceof TextField query
+                    && node.lookup(".graph-color-group-color") instanceof javafx.scene.control.ColorPicker picker) {
+                groups.add(new com.example.jylos.graph.GraphColorGroups.Group(query.getText(), hex(picker.getValue())));
+            }
+        }
+        return groups;
+    }
+
+    private void saveColorGroups() {
+        StringBuilder stored = new StringBuilder();
+        for (com.example.jylos.graph.GraphColorGroups.Group group : colorGroups()) {
+            stored.append(group.color()).append('\t')
+                    .append(group.query() == null ? "" : group.query().replace('\n', ' ')).append('\n');
+        }
+        prefs.put(GROUPS_KEY, stored.toString());
+    }
+
+    private void loadColorGroups() {
+        for (String line : prefs.get(GROUPS_KEY, "").split("\n")) {
+            int tab = line.indexOf('\t');
+            if (tab > 0) {
+                try {
+                    addColorGroupRow(line.substring(tab + 1), Color.web(line.substring(0, tab)));
+                } catch (IllegalArgumentException ignored) {
+                    // a colour that no longer parses: skip the group
+                }
+            }
+        }
+    }
+
+    /** Paints the nodes the groups match (reading the notes' tags first if a group needs them). */
+    private void applyColorGroups() {
+        List<com.example.jylos.graph.GraphColorGroups.Group> groups = colorGroups();
+        boolean needsTags = groups.stream().anyMatch(g -> g.query() != null
+                && g.query().strip().toLowerCase(Locale.ROOT).startsWith("tag:"));
+        if (needsTags && noteTags == null && tagService != null) {
+            Task<java.util.Map<String, Set<String>>> read = new Task<>() {
+                @Override
+                protected java.util.Map<String, Set<String>> call() {
+                    return readNoteTags();
+                }
+            };
+            read.setOnSucceeded(e -> {
+                noteTags = read.getValue();
+                applyColorGroups();
+            });
+            Thread thread = new Thread(read, "graph-tags");
+            thread.setDaemon(true);
+            thread.start();
+            return;
+        }
+        java.util.Map<String, Color> colors = new java.util.HashMap<>();
+        com.example.jylos.graph.GraphColorGroups.assign(lastBuilt.nodes(), groups,
+                id -> noteTags != null ? noteTags.get(id) : null)
+                .forEach((id, color) -> colors.put(id, Color.web(color)));
+        canvas.setNodeColors(colors);
+    }
+
+    private java.util.Map<String, Set<String>> readNoteTags() {
+        java.util.Map<String, Set<String>> tagsByNote = new java.util.HashMap<>();
+        try {
+            for (Tag tag : tagService.getAllTags()) {
+                if (tag == null || tag.getTitle() == null) {
+                    continue;
+                }
+                for (Note note : tagService.getNotesWithTag(tag)) {
+                    if (note != null && note.getId() != null) {
+                        tagsByNote.computeIfAbsent(note.getId(), k -> new HashSet<>()).add(tag.getTitle());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.fine("Graph colour groups could not read tags: " + e.getMessage());
+        }
+        return tagsByNote;
+    }
+
+    private static String hex(Color color) {
+        return String.format("#%02x%02x%02x", (int) Math.round(color.getRed() * 255),
+                (int) Math.round(color.getGreen() * 255), (int) Math.round(color.getBlue() * 255));
+    }
+
+    private String text(String key, String fallback) {
+        try {
+            return bundle != null ? bundle.getString(key) : fallback;
+        } catch (java.util.MissingResourceException e) {
+            return fallback;
+        }
     }
 
     /**
@@ -381,12 +611,18 @@ public class GraphController {
                 orphansCheck == null || orphansCheck.isSelected());
         final boolean local = localGraphBtn != null && localGraphBtn.isSelected();
         final String rootId = currentNoteIdSupplier.get();
+        final GraphBuilder.LocalOptions localOptions = new GraphBuilder.LocalOptions(
+                localDepthSlider != null ? (int) Math.round(localDepthSlider.getValue()) : 1,
+                localOutgoingCheck == null || localOutgoingCheck.isSelected(),
+                localIncomingCheck == null || localIncomingCheck.isSelected(),
+                localNeighborCheck != null && localNeighborCheck.isSelected());
+        noteTags = null; // tags may have changed: read again if a group needs them
 
         Task<GraphData> task = new Task<>() {
             @Override
             protected GraphData call() {
                 return (local && rootId != null)
-                        ? graphBuilder.buildLocalGraph(rootId, LOCAL_DEPTH, options)
+                        ? graphBuilder.buildLocalGraph(rootId, localOptions, options)
                         : graphBuilder.buildGlobalGraph(options);
             }
         };
@@ -394,6 +630,7 @@ public class GraphController {
             lastBuilt = task.getValue();
             refreshFilterChoices(lastBuilt);
             applyView();
+            applyColorGroups();
             onDataBuilt.accept(lastBuilt);
         });
         task.setOnFailed(e -> logger.log(Level.WARNING, "Graph build failed", task.getException()));

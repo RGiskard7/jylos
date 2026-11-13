@@ -63,7 +63,7 @@ class LivePreviewMathAndTagsTest {
     @Test
     void aTagFromTheEditorReachesTheHandler() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
-        List<String> tags = new ArrayList<>();
+        List<String> tags = new java.util.concurrent.CopyOnWriteArrayList<>(); // filled on the FX thread, read here
         AtomicReference<MarkdownEditorView> editor = new AtomicReference<>();
         AtomicReference<Stage> stage = new AtomicReference<>();
         onFx(() -> {

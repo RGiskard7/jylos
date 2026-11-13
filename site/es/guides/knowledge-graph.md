@@ -12,7 +12,7 @@ El grafo de conocimiento dibuja tus notas y sus wiki-links como una red interact
 ## Vistas global y local
 
 - **Grafo global** — todas las notas y aristas de wiki-links resueltos, con nodos de etiquetas opcionales y aristas nota→etiqueta.
-- **Grafo local** — la nota actual más sus vecinos dentro de una profundidad configurable.
+- **Grafo local** — la nota actual más las notas a las que llega en hasta **Profundidad** enlaces (de 1 a 5). Las casillas **Enlaces entrantes** y **Enlaces salientes** eligen qué enlaces seguir, y **Enlaces adyacentes** muestra también los enlaces entre esas notas. Por defecto, como en Obsidian: profundidad 1, entrantes y salientes, sin adyacentes.
 
 ## Interactúa
 
@@ -33,6 +33,19 @@ El panel de ajustes también incluye filtros que redibujan el grafo sin reconstr
 - **Mostrar huérfanos** — oculta/muestra notas sin conexiones.
 - **Mostrar sin resolver** — oculta/muestra nodos de enlaces rotos ("fantasmas").
 - **Mostrar etiquetas** — incluye/excluye nodos `#etiqueta`.
+
+### Grupos de color
+
+En **Grupos**, **Nuevo grupo** añade una fila con una consulta y un color. Los grupos se prueban en orden y cada nota toma el color del primero con el que coincide; los demás nodos no cambian. La consulta puede ser:
+
+- texto, que se busca en el nombre o en la ruta de la nota;
+- `path:texto`, en la ruta (`path:proyectos/`);
+- `file:texto`, en el nombre;
+- `tag:etiqueta`, las notas con esa etiqueta (y su nodo de etiqueta).
+
+Un color de grupo tiene prioridad sobre **Color por carpeta**. La X de la fila borra el grupo.
+
+Todos los ajustes del grafo (fuerzas, tamaños, casillas, profundidad local y grupos) se guardan y siguen igual la próxima vez.
 
 ## Knowledge Insights
 

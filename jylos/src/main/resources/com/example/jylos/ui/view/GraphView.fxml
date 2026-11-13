@@ -94,6 +94,23 @@
                     <CheckBox fx:id="orphansCheck" text="%graph.show_orphans" selected="true" onAction="#handleFilters"/>
                     <CheckBox fx:id="ghostsCheck" text="%graph.show_unresolved" selected="true" onAction="#handleFilters"/>
 
+                    <!-- Local graph (applies when the graph shows the open note) -->
+                    <Separator/>
+                    <Label text="%graph.local_section" styleClass="graph-settings-header"/>
+                    <Label text="%graph.local_depth" styleClass="graph-settings-label"/>
+                    <Slider fx:id="localDepthSlider" min="1" max="5" value="1" majorTickUnit="1" minorTickCount="0"
+                            snapToTicks="true" showTickLabels="true" showTickMarks="true"/>
+                    <CheckBox fx:id="localIncomingCheck" text="%graph.local_incoming" selected="true" onAction="#handleFilters"/>
+                    <CheckBox fx:id="localOutgoingCheck" text="%graph.local_outgoing" selected="true" onAction="#handleFilters"/>
+                    <CheckBox fx:id="localNeighborCheck" text="%graph.local_neighbors" onAction="#handleFilters"/>
+
+                    <!-- Colour groups: the first one a note matches gives its colour -->
+                    <Separator/>
+                    <Label text="%graph.groups" styleClass="graph-settings-header"/>
+                    <VBox fx:id="colorGroupsBox" spacing="4"/>
+                    <Button fx:id="addColorGroupBtn" text="%graph.new_group" onAction="#handleAddColorGroup"
+                            styleClass="graph-new-group"/>
+
                     <Separator/>
                     <Label text="%graph.display" styleClass="graph-settings-header"/>
                     <CheckBox fx:id="arrowsCheck" text="%graph.arrows" onAction="#handleArrows"/>
