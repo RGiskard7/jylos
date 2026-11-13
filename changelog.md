@@ -2,11 +2,25 @@
 
 ## [Unreleased]
 
+- **El grafo abre y se reparte como el de Obsidian.**
+  - **Las notas conectadas se reparten por todo el círculo** en lugar de apiñarse en el centro: cada nota empieza junto a las notas que enlaza, como en Obsidian, y cada grupo de notas enlazadas queda donde cayó, no en medio.
+  - **Al cambiar un filtro, las notas que ya estaban se quedan donde estaban** y solo se colocan las nuevas.
+  - **El grafo abre con el zoom que dejaste**, centrado, alejándose desde cerca como en Obsidian. El grafo local guarda el suyo. La primera vez, o tras "Restablecer vista", la vista sigue al grafo mientras se despliega para mostrarlo entero, hasta que haces zoom o lo arrastras.
+
+- **Los enlaces se leen como en Obsidian, y el grafo deja fuera los adjuntos.**
+  - **"Mostrar adjuntos" en los filtros del grafo, desactivado por defecto como en Obsidian.** Antes cada imagen, PDF o audio de la bóveda era un nodo suelto, y cientos de ellos formaban un anillo que apiñaba en el centro las notas conectadas. Activado, cada adjunto aparece unido a las notas que lo incrustan o enlazan. Los canvas siguen apareciendo siempre.
+  - **Un punto en el nombre de una nota ya no rompe el enlace:** `[[12.12a1]]`, `[[Guía 5.0]]`, `[[Python vs. Java]]` o `[[Mapa.excalidraw]]` se tomaban por ficheros y no contaban. Ahora solo apuntan a un fichero los enlaces que terminan en una extensión de imagen, audio, vídeo, PDF o canvas.
+  - **Un `+` en un enlace es un `+`:** `[[AutoGen + LangChain]]` ya no se lee como "AutoGen   LangChain".
+  - **Enlaces Markdown como los lee Obsidian:** se reconocen los que envuelven la ruta en `< >` (`[texto](<Mi nota.md>)`). Ya no cuentan como enlace a una nota los que tienen espacios sin `< >` ni `%20`, ni las rutas con `:` (`C:/…`, `app.py:12`), que Obsidian tampoco cuenta.
+  - **`../Nota.md` que no está en la carpeta de arriba se busca en la carpeta de la propia nota**, como hace Obsidian.
+  - **En las propiedades solo cuentan los enlaces entre comillas** (`up: "[[Índice]]"`). Sin comillas, `[[Índice]]` es una lista para YAML, y Obsidian tampoco lo toma como enlace.
+  - Todo esto vale también para los backlinks, la vista previa y el clic en los enlaces.
+
 - **Grafo como en Obsidian: grupos de color, opciones del grafo local y ajustes que se recuerdan.**
   - **Grupos de color:** en el panel de ajustes, "Nuevo grupo" añade una consulta (texto, `path:`, `file:` o `tag:`) con un color. Se prueban en orden y cada nota toma el color del primero con el que coincide.
   - **Grafo local con profundidad de 1 a 5** (antes, siempre 2) y casillas de **enlaces entrantes**, **salientes** y **adyacentes**. Ahora sigue la dirección de los enlaces y, salvo que actives "adyacentes", solo muestra los enlaces que llevan desde la nota a cada vecina. Por defecto, como en Obsidian: profundidad 1, entrantes y salientes. La nota abierta aparece aunque no tenga enlaces.
   - **Los enlaces escritos en las propiedades cuentan como enlaces**, como en Obsidian (`up: "[[Índice]]"`, una lista de `"[[Nota]]"`): son aristas del grafo, la nota enlazada los ve en sus backlinks y el panel de enlaces muestra la línea de la propiedad. Antes solo contaban los del cuerpo, y en una bóveda que enlaza desde las propiedades faltaban la mayoría de aristas. Las notas largas se releen una vez para recogerlos.
-  - **El grafo se distribuye como el de Obsidian:** mismas fuerzas (repulsión, distancia y fuerza de enlace, atracción al centro, espacio alrededor de cada nota) y mismos tamaños de nodo. Las notas conectadas ya no se apiñan en el centro con un anillo de notas sueltas alrededor: se reparten por todo el círculo. Los deslizadores de fuerzas usan la escala de Obsidian.
+  - **El grafo se distribuye como el de Obsidian:** mismas fuerzas (repulsión, distancia y fuerza de enlace, atracción al centro, espacio alrededor de cada nota) y mismos tamaños de nodo. Los deslizadores de fuerzas usan la escala de Obsidian.
   - **Los ajustes del grafo se guardan:** fuerzas, tamaños, flechas, color por carpeta, filtros, opciones del grafo local y grupos siguen igual la próxima vez.
 
 - **Explorador de archivos como en Obsidian.**

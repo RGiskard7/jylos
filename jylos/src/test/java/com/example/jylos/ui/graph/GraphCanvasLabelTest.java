@@ -173,6 +173,12 @@ class GraphCanvasLabelTest {
                 stage.show();
                 gc.setData(new GraphData(List.of(hub, leaf), List.of()));
                 gc.pause();
+                // Far apart, so the box looked at under one node never reaches the other's
+                // label (the hub's is wide), whatever the seeded layout.
+                setDoubleArrayElement(gc, "x", 0, -600.0);
+                setDoubleArrayElement(gc, "y", 0, 0.0);
+                setDoubleArrayElement(gc, "x", 1, 600.0);
+                setDoubleArrayElement(gc, "y", 1, 0.0);
 
                 // A scale between the two nodes' own reveal thresholds: past the
                 // hub's (big radius → low threshold), short of the leaf's (small

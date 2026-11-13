@@ -111,11 +111,75 @@ class GraphSettingsTest {
     }
 
     @Test
-    void theSettingsAndColourGroupsAreKeptForNextTime() throws Exception {
+    void theAttachmentsSwitchPutsThemOnTheGraph() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        Files.write(vault.resolve("foto.png"), new byte[] {1});
+        Files.writeString(vault.resolve("D.md"), "![[foto.png]]", StandardCharsets.UTF_8);
+        NoteDAOFileSystem dao = new NoteDAOFileSystem(vault.toString());
+        notes = new NoteService(dao, new FolderDAOFileSystem(vault.toString()));
+        tags = new TagService(new TagDAOFileSystem(dao), dao);
+        Fixture f = onFx(Fixture::new);
+        onFx(() -> {
+            f.controller.show(false);
+            return null;
+        });
+        f.waitForBuild();
+        Set<String> without = f.lastIds();
+        onFx(() -> {
+            f.<CheckBox>field("attachmentsCheck").fire();
+            return null;
+        });
+        f.waitForBuild();
+
+        assertEquals(Set.of("A.md", "B.md", "C.md", "D.md"), without);
+        assertEquals(Set.of("A.md", "B.md", "C.md", "D.md", "foto.png", "D.md->foto.png"), f.lastIds());
+    }
+
+    @Test
+    void theZoomIsKeptForNextTimeApartForTheLocalGraph() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
         Fixture f = onFx(Fixture::new);
         onFx(() -> {
+            f.controller.show(false);
+            return null;
+        });
+        f.waitForBuild();
+        double chosen = onFx(() -> {
+            f.canvas().zoomOut();
+            return f.<Double>canvasField("targetScale");
+        });
+        assertEquals(chosen, prefs.getDouble("graph.scale", -1), 1e-12, "kept");
+
+        Fixture again = onFx(Fixture::new);
+        onFx(() -> {
+            again.controller.show(false);
+            return null;
+        });
+        again.waitForBuild();
+        assertEquals(chosen, (double) onFx(() -> again.<Double>canvasField("targetScale")), 1e-12, "opens there");
+
+        onFx(() -> {
+            again.<ToggleButton>field("localGraphBtn").fire();
+            return null;
+        });
+        again.waitForBuild();
+        assertTrue(onFx(() -> again.<Boolean>canvasField("followFit")), "the local graph has no zoom kept: it frames itself");
+        onFx(() -> {
+            again.canvas().zoomIn();
+            return null;
+        });
+        assertTrue(prefs.getDouble("graph.local_scale", -1) > 0, "the local graph keeps its own");
+        assertEquals(chosen, prefs.getDouble("graph.scale", -1), 1e-12, "and leaves the global one alone");
+    }
+
+    @Test
+    void theSettingsAndColourGroupsAreKeptForNextTime() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        Fixture f = onFx(Fixture::new);
+        boolean attachmentsAtFirst = onFx(() -> f.<CheckBox>field("attachmentsCheck").isSelected());
+        onFx(() -> {
             f.<Slider>field("localDepthSlider").setValue(3);
+            f.<CheckBox>field("attachmentsCheck").fire();
             f.<CheckBox>field("arrowsCheck").fire();
             f.<Slider>field("repulsionSlider").setValue(321);
             f.<Button>field("addColorGroupBtn").fire();
@@ -131,12 +195,14 @@ class GraphSettingsTest {
             Pane row = (Pane) next.<Pane>field("colorGroupsBox").getChildren().get(0);
             return List.of(next.<Slider>field("localDepthSlider").getValue(),
                     next.<CheckBox>field("arrowsCheck").isSelected(),
+                    next.<CheckBox>field("attachmentsCheck").isSelected(),
                     next.<Slider>field("repulsionSlider").getValue(),
                     next.<Pane>field("colorGroupsBox").getChildren().size(),
                     ((TextField) row.lookup(".graph-color-group-query")).getText(),
                     ((ColorPicker) row.lookup(".graph-color-group-color")).getValue());
         });
-        assertEquals(List.of(3.0, true, 321.0, 1, "file:b", Color.web("#ff0000")), restored);
+        assertEquals(false, attachmentsAtFirst, "attachments are off until asked, as in Obsidian");
+        assertEquals(List.of(3.0, true, true, 321.0, 1, "file:b", Color.web("#ff0000")), restored);
     }
 
     @Test
@@ -184,10 +250,32 @@ class GraphSettingsTest {
             return field("canvas");
         }
 
+        @SuppressWarnings("unchecked")
+        <T> T canvasField(String name) throws Exception {
+            Field field = GraphCanvas.class.getDeclaredField(name);
+            field.setAccessible(true);
+            return (T) field.get(canvas());
+        }
+
         void waitForBuild() throws Exception {
             int before = seen;
             waitUntil(() -> built.size() > before);
             seen = built.size();
+        }
+
+        /** The node ids of the last build, and its edges to files that are not notes. */
+        Set<String> lastIds() {
+            GraphData data = built.get(built.size() - 1);
+            Set<String> ids = new TreeSet<>();
+            for (GraphNode node : data.nodes()) {
+                ids.add(node.id());
+            }
+            for (GraphEdge edge : data.edges()) {
+                if (!edge.target().endsWith(".md")) {
+                    ids.add(edge.source() + "->" + edge.target());
+                }
+            }
+            return ids;
         }
 
         String last() {

@@ -18,7 +18,7 @@ Links count both in the note's body and in its properties (`up: "[[Index]]"`), a
 
 ## Interact
 
-- Zoom and pan.
+- Zoom and pan. The graph opens at the zoom you left it at, as in Obsidian (the local graph keeps its own). Until you choose one, or after **Reset view**, it keeps the whole graph in view while it spreads out.
 - Drag nodes.
 - Hover to highlight neighbours.
 - Click a note node to open it.
@@ -34,6 +34,7 @@ The settings panel also includes filters that re-render the graph without rebuil
 - **Folder** — restricts the graph to a folder group.
 - **Show orphans** — hide/show unconnected notes.
 - **Show unresolved** — hide/show broken-link ("ghost") nodes.
+- **Show attachments** — off by default, as in Obsidian. When on, images, PDFs, audio and other files appear, each joined to the notes that embed or link it. Canvases always appear.
 - **Show tags** — include/exclude `#tag` nodes.
 
 ### Colour groups

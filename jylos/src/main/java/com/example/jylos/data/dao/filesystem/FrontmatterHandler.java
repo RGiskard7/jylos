@@ -190,11 +190,40 @@ public final class FrontmatterHandler {
         FrontmatterBlock block = extractLeadingFrontmatter(fileContent);
         java.util.LinkedHashSet<String> links = new java.util.LinkedHashSet<>();
         if (block != null) {
-            links.addAll(com.example.jylos.util.WikiLinkResolver.extractRawLinks(block.yaml()));
+            for (String value : textValues(block.yaml())) {
+                links.addAll(com.example.jylos.util.WikiLinkResolver.extractRawLinks(value));
+            }
         }
         links.addAll(com.example.jylos.util.WikiLinkResolver.extractRawLinks(
                 block != null ? block.body() : fileContent));
         return List.copyOf(links);
+    }
+
+    /**
+     * The text values of a properties block, in order (lists walked into). A link counts in a
+     * property only when it is text, as in Obsidian: {@code up: "[[A]]"}; written without
+     * quotes YAML reads {@code [[A]]} as a list, not a link. Unreadable YAML has none.
+     */
+    private static List<String> textValues(String yaml) {
+        List<String> values = new ArrayList<>();
+        try {
+            collectText(parseYaml(yaml).values(), values);
+        } catch (RuntimeException e) {
+            return List.of();
+        }
+        return values;
+    }
+
+    private static void collectText(java.util.Collection<?> items, List<String> into) {
+        for (Object item : items) {
+            if (item instanceof String text) {
+                into.add(text);
+            } else if (item instanceof java.util.Collection<?> list) {
+                collectText(list, into);
+            } else if (item instanceof Map<?, ?> map) {
+                collectText(map.values(), into);
+            }
+        }
     }
 
     /** The text of a file's leading properties block (without the {@code ---} lines), or "". */

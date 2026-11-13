@@ -18,7 +18,7 @@ Los enlaces cuentan tanto en el cuerpo como en las propiedades de la nota (`up: 
 
 ## Interactúa
 
-- Zoom y paneo.
+- Zoom y paneo. El grafo abre con el zoom que dejaste, como en Obsidian (el grafo local guarda el suyo). Hasta que eliges uno, o tras **Restablecer vista**, muestra el grafo entero mientras se despliega.
 - Arrastra nodos.
 - Pasa el cursor para resaltar vecinos.
 - Haz clic en un nodo de nota para abrirlo.
@@ -34,6 +34,7 @@ El panel de ajustes también incluye filtros que redibujan el grafo sin reconstr
 - **Carpeta** — restringe el grafo a un grupo de carpetas.
 - **Mostrar huérfanos** — oculta/muestra notas sin conexiones.
 - **Mostrar sin resolver** — oculta/muestra nodos de enlaces rotos ("fantasmas").
+- **Mostrar adjuntos** — desactivado por defecto, como en Obsidian. Activado, aparecen las imágenes, PDF, audios y demás ficheros, cada uno unido a las notas que lo incrustan o enlazan. Los canvas aparecen siempre.
 - **Mostrar etiquetas** — incluye/excluye nodos `#etiqueta`.
 
 ### Grupos de color

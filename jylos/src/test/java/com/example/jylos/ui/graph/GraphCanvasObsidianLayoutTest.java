@@ -76,11 +76,38 @@ class GraphCanvasObsidianLayoutTest {
             }
             return new double[] {(hubs / 30) / (loose / 1500), loose / 1500};
         });
-        // Obsidian's own simulation (its graph worker, run on this same graph from the same kind
-        // of start) leaves the hubs at 0.57-0.60 of the loose notes' distance from the centre,
-        // and the loose notes about 3290 from it; the earlier layout packed the hubs at 0.43.
-        assertTrue(ratio[0] > 0.52 && ratio[0] < 0.68, "hubs / loose mean distance from the centre: " + ratio[0]);
-        assertTrue(ratio[1] > 2900 && ratio[1] < 3700, "loose notes' mean distance from the centre: " + ratio[1]);
+        // Obsidian (its graph worker, started the way its graph view places the notes: each one
+        // beside the notes it links to) leaves the hubs at 0.85-1.04 of the loose notes' distance
+        // from the centre, and the loose notes about 2950-3090 from it. Started at random over the
+        // disc instead, the hubs end at 0.57-0.61: packed in the middle.
+        assertTrue(ratio[0] > 0.78 && ratio[0] < 1.15, "hubs / loose mean distance from the centre: " + ratio[0]);
+        assertTrue(ratio[1] > 2700 && ratio[1] < 3400, "loose notes' mean distance from the centre: " + ratio[1]);
+    }
+
+    @Test
+    void theNotesAlreadyOnTheGraphStayWhereTheyAreWhenItChanges() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        GraphNode a = new GraphNode("a", "a", GraphNode.Type.NOTE, "", 1);
+        GraphNode b = new GraphNode("b", "b", GraphNode.Type.NOTE, "", 1);
+        GraphNode c = new GraphNode("c", "c", GraphNode.Type.NOTE, "", 0);
+        GraphNode d = new GraphNode("d", "d", GraphNode.Type.NOTE, "", 1);
+        double[][] seen = onFx(() -> {
+            GraphCanvas canvas = new GraphCanvas();
+            canvas.setData(new GraphData(List.of(a, b, c), List.of(new GraphEdge("a", "b", GraphEdge.Type.LINK))));
+            canvas.pause();
+            canvas.runTicks(300);
+            double[] before = canvas.positionOf("a");
+            canvas.setData(new GraphData(List.of(a, b, c, d), List.of(new GraphEdge("a", "b", GraphEdge.Type.LINK),
+                    new GraphEdge("d", "a", GraphEdge.Type.LINK))));
+            canvas.pause();
+            return new double[][] {before, canvas.positionOf("a"), canvas.positionOf("d")};
+        });
+        assertEquals(seen[0][0], seen[1][0], "a's x");
+        assertEquals(seen[0][1], seen[1][1], "a's y");
+        // As in Obsidian, a new note starts beside the notes it links to: within half of
+        // sqrt(60·60·new notes) of them on each axis.
+        double gap = Math.hypot(seen[2][0] - seen[1][0], seen[2][1] - seen[1][1]);
+        assertTrue(gap <= 30 * Math.sqrt(2) + 1e-9, "d starts this far from a: " + gap);
     }
 
     @Test

@@ -70,6 +70,7 @@ public final class GraphCanvas extends Region {
     // ── Interaction tuning ──────────────────────────────────────────────────
     private static final double MIN_SCALE = 0.02;
     private static final double MAX_SCALE = 8.0;
+    private static final double ZOOM_EASE = 0.85;          // share of the zoom gap left after a frame (Obsidian's)
     private static final double CLICK_SLOP = 4.0;          // px movement still counts as a click
     private static final double MIN_NODE_PX = 2.0;         // floor on on-screen node radius (Obsidian-like dots)
     private static final double HOVER_DIM_ALPHA = 0.28;    // opacity for nodes/labels not part of the hovered relation
@@ -132,6 +133,16 @@ public final class GraphCanvas extends Region {
     private double scale = 1.0;
     private double offsetX = 0;
     private double offsetY = 0;
+    /** The zoom the view eases toward, a little each frame, as Obsidian's does. */
+    private double targetScale = 1.0;
+    /** Until the user zooms or drags the view, it keeps the whole graph framed. */
+    private boolean followFit = true;
+    /** The next data starts a fresh view, as opening the graph: see {@link #openView}. */
+    private boolean openPending = true;
+    private Double openScale = null;
+    private Consumer<Double> onZoomChosen = s -> { };
+    private double lastWidth = 0;
+    private double lastHeight = 0;
 
     // ── Simulation / interaction state ──────────────────────────────────────
     private double alpha = 0;
@@ -149,7 +160,6 @@ public final class GraphCanvas extends Region {
     private int dragIndex = -1;
     private boolean panning = false;
     private boolean movedSincePress = false;
-    private boolean needsInitialFit = false;
     private double pressX, pressY;        // screen coords at mouse-press
     private double lastDragX, lastDragY;  // screen coords for incremental pan
 
@@ -159,9 +169,8 @@ public final class GraphCanvas extends Region {
     private final AnimationTimer timer = new AnimationTimer() {
         @Override
         public void handle(long now) {
-            tick();
-            draw();
-            if (alpha < ALPHA_MIN && dragIndex < 0) {
+            frame();
+            if (alpha < ALPHA_MIN && dragIndex < 0 && !viewMoving()) {
                 stopTimer();
             }
         }
@@ -209,6 +218,25 @@ public final class GraphCanvas extends Region {
 
     public void setOnOpenNote(Consumer<String> handler) {
         this.onOpenNote = handler != null ? handler : id -> { };
+    }
+
+    /**
+     * Told the zoom the user chooses (wheel, buttons), to keep it for next time; told
+     * {@code null} when they reset the view, which goes back to framing the whole graph.
+     */
+    public void setOnZoomChosen(Consumer<Double> handler) {
+        this.onZoomChosen = handler != null ? handler : s -> { };
+    }
+
+    /**
+     * Makes the next {@link #setData} start the view afresh, as Obsidian opens its graph: centred
+     * on the middle of the graph, from close up, zooming out to {@code savedScale}; with no zoom
+     * kept ({@code null}) it frames the whole graph while it spreads out, until the user zooms or
+     * drags the view. The notes are all placed anew too.
+     */
+    public void openView(Double savedScale) {
+        openPending = true;
+        openScale = savedScale != null && savedScale > 0 ? savedScale : null;
     }
 
     /** Applies the dark/light palette and repaints. */
@@ -356,14 +384,37 @@ public final class GraphCanvas extends Region {
      * (re)heats the simulation.
      */
     public void setData(GraphData data) {
+        boolean opening = openPending;
+        // As Obsidian: the notes already on the graph stay where they are; only a fresh view
+        // (or an empty graph before) places them all anew.
+        Map<String, double[]> kept = opening || n == 0 ? Map.of() : currentPositions();
         buildModel(data != null ? data : GraphData.empty());
         applyNodeColors();
-        seedLayout();
-        // If the canvas hasn't been laid out yet, defer the initial framing to
-        // the first real resize so the graph isn't pushed off-screen.
-        needsInitialFit = width() <= 0 || height() <= 0;
-        resetView();
-        reheat();
+        seedLayout(kept);
+        if (opening) {
+            openPending = false;
+            startView();
+        }
+        alpha = kept.isEmpty() ? ALPHA_INIT : Math.max(alpha, 0.3);
+        draw();
+        startTimer();
+    }
+
+    private Map<String, double[]> currentPositions() {
+        Map<String, double[]> positions = new HashMap<>(n * 2);
+        for (int i = 0; i < n; i++) {
+            positions.put(ids[i], new double[] {x[i], y[i]});
+        }
+        return positions;
+    }
+
+    /** Centred on the middle of the graph, close up (Obsidian starts at zoom 1), easing out. */
+    private void startView() {
+        scale = 1.0;
+        offsetX = width() / 2.0;
+        offsetY = height() / 2.0;
+        followFit = openScale == null;
+        targetScale = openScale != null ? clamp(openScale, MIN_SCALE, MAX_SCALE) : scale;
     }
 
     /** Zooms in one step about the viewport center. */
@@ -378,23 +429,51 @@ public final class GraphCanvas extends Region {
 
     /** Multiplies the zoom by {@code factor}, keeping the given screen point fixed. */
     private void zoomBy(double factor, double anchorX, double anchorY) {
-        double newScale = clamp(scale * factor, MIN_SCALE, MAX_SCALE);
+        zoomTo(clamp(scale * factor, MIN_SCALE, MAX_SCALE), anchorX, anchorY);
+        takeView();
+        onZoomChosen.accept(scale);
+        drawIfIdle();
+    }
+
+    private void zoomTo(double newScale, double anchorX, double anchorY) {
         double wx = (anchorX - offsetX) / scale;
         double wy = (anchorY - offsetY) / scale;
         scale = newScale;
         offsetX = anchorX - wx * scale;
         offsetY = anchorY - wy * scale;
-        drawIfIdle();
     }
 
-    /** Re-frames the viewport so the whole graph fits with a small margin. */
+    /** The user has taken the view: it stays where they leave it. */
+    private void takeView() {
+        followFit = false;
+        targetScale = scale;
+    }
+
+    /**
+     * Re-frames the viewport so the whole graph fits with a small margin, and keeps it framed
+     * while the graph moves, until the user zooms or drags the view again.
+     */
     public void resetView() {
-        if (n == 0) {
+        double[] fit = fitView();
+        if (fit == null) {
             scale = 1.0;
             offsetX = width() / 2.0;
             offsetY = height() / 2.0;
-            draw();
-            return;
+        } else {
+            scale = fit[0];
+            offsetX = fit[1];
+            offsetY = fit[2];
+        }
+        followFit = true;
+        targetScale = scale;
+        onZoomChosen.accept(null);
+        draw();
+    }
+
+    /** The zoom and offsets that fit the whole graph in the view, or null with nothing to fit. */
+    private double[] fitView() {
+        if (n == 0 || width() <= 0 || height() <= 0) {
+            return null;
         }
         double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE;
         double maxX = -Double.MAX_VALUE, maxY = -Double.MAX_VALUE;
@@ -409,12 +488,79 @@ public final class GraphCanvas extends Region {
         double vw = Math.max(1, width());
         double vh = Math.max(1, height());
         double margin = 0.86;
-        scale = clamp(Math.min(vw / w, vh / h) * margin, MIN_SCALE, MAX_SCALE);
+        double fitScale = clamp(Math.min(vw / w, vh / h) * margin, MIN_SCALE, MAX_SCALE);
         double cx = (minX + maxX) / 2.0;
         double cy = (minY + maxY) / 2.0;
-        offsetX = vw / 2.0 - cx * scale;
-        offsetY = vh / 2.0 - cy * scale;
+        return new double[] {fitScale, vw / 2.0 - cx * fitScale, vh / 2.0 - cy * fitScale};
+    }
+
+    /** One frame: a step of the simulation while it runs, the view eased, and a repaint. */
+    private void frame() {
+        if (alpha >= ALPHA_MIN || dragIndex >= 0) {
+            tick();
+        }
+        easeView();
         draw();
+    }
+
+    /**
+     * Moves the view a step toward where it should be: framing the whole graph while
+     * {@link #followFit}, otherwise toward {@link #targetScale} about the middle of the view.
+     * Each frame closes 15 % of the way, as Obsidian's zoom does.
+     */
+    private void easeView() {
+        if (followFit) {
+            double[] fit = fitView();
+            if (fit == null) {
+                return;
+            }
+            targetScale = fit[0];
+            scale = eased(scale, targetScale);
+            // Keep the middle of the graph where the fit puts it, at the eased zoom.
+            double cx = (width() / 2.0 - fit[1]) / fit[0];
+            double cy = (height() / 2.0 - fit[2]) / fit[0];
+            offsetX = width() / 2.0 - cx * scale;
+            offsetY = height() / 2.0 - cy * scale;
+            return;
+        }
+        if (scale != targetScale) {
+            zoomTo(eased(scale, targetScale), width() / 2.0, height() / 2.0);
+        }
+    }
+
+    private static double eased(double from, double to) {
+        double next = to + (from - to) * ZOOM_EASE;
+        return Math.abs(next / to - 1) < 0.001 ? to : next;
+    }
+
+    /** Whether the view is still easing toward its zoom. */
+    private boolean viewMoving() {
+        return scale != targetScale;
+    }
+
+    /** Runs {@code frames} frames at once, as the view does one per screen refresh (tests). */
+    void runFrames(int frames) {
+        for (int f = 0; f < frames; f++) {
+            frame();
+        }
+    }
+
+    /** {@code {zoom, offsetX, offsetY}}: where graph point (0,0) is on screen, and the zoom (tests). */
+    double[] view() {
+        return new double[] {scale, offsetX, offsetY};
+    }
+
+    /** {@code {minX, minY, maxX, maxY}} of the nodes' circles on screen (tests). */
+    double[] screenBounds() {
+        double[] box = {Double.MAX_VALUE, Double.MAX_VALUE, -Double.MAX_VALUE, -Double.MAX_VALUE};
+        for (int i = 0; i < n; i++) {
+            double r = radius[i] * scale;
+            box[0] = Math.min(box[0], sx(x[i]) - r);
+            box[1] = Math.min(box[1], sy(y[i]) - r);
+            box[2] = Math.max(box[2], sx(x[i]) + r);
+            box[3] = Math.max(box[3], sy(y[i]) + r);
+        }
+        return box;
     }
 
     /** Stops the animation loop (call when the view is hidden). */
@@ -510,22 +656,64 @@ public final class GraphCanvas extends Region {
     }
 
     /**
-     * Seeds nodes at random positions inside a disk. A random (symmetry-breaking)
-     * start is essential: an ordered seed (e.g. phyllotaxis) is itself the
-     * uniform-repulsion equilibrium, so the simulation would never break it into
-     * Obsidian-like organic clusters. The PRNG is seeded for reproducible layouts.
+     * Places the notes as Obsidian's graph view does before its simulation starts. A note in
+     * {@code kept} stays where it was. Each new one starts beside the notes it links to that are
+     * already placed (their mean, plus up to half of {@code sqrt(60·60·new notes)} on each axis),
+     * so a cluster starts together wherever its first note fell and stays spread over the graph,
+     * instead of forming in the middle of notes scattered all over the disc. A new note with
+     * nothing placed to link to starts at random in a ring of area {@code 60·60·new notes}
+     * around the notes already there (a disc when there are none). The PRNG is seeded so a
+     * layout can be reproduced.
      */
-    private void seedLayout() {
+    private void seedLayout(Map<String, double[]> kept) {
         java.util.Random rnd = new java.util.Random(0x5DEECE66DL ^ n);
-        // Obsidian starts the nodes in a disc of area 60·N·60 around the centre.
-        double spread = Math.sqrt(60.0 * 60.0 * Math.max(1, n) / Math.PI);
+        boolean[] placed = new boolean[n];
+        double keptRadius2 = 0;
+        int fresh = 0;
         for (int i = 0; i < n; i++) {
-            double a = rnd.nextDouble() * Math.PI * 2.0;
-            double r = spread * Math.sqrt(rnd.nextDouble());
-            x[i] = Math.cos(a) * r;
-            y[i] = Math.sin(a) * r;
             vx[i] = 0;
             vy[i] = 0;
+            double[] p = kept.get(ids[i]);
+            if (p != null) {
+                x[i] = p[0];
+                y[i] = p[1];
+                placed[i] = true;
+                keptRadius2 = Math.max(keptRadius2, x[i] * x[i] + y[i] * y[i]);
+            } else {
+                fresh++;
+            }
+        }
+        if (fresh == 0) {
+            return;
+        }
+        double area = 60.0 * 60.0 * fresh;
+        double inner = Math.sqrt(keptRadius2);
+        double ring = Math.sqrt(area / Math.PI + keptRadius2) - inner;
+        double jitter = Math.sqrt(area);
+        for (int i = 0; i < n; i++) {
+            if (placed[i]) {
+                continue;
+            }
+            double sumX = 0;
+            double sumY = 0;
+            int count = 0;
+            for (int j : neighbors[i]) {
+                if (placed[j]) {
+                    sumX += x[j];
+                    sumY += y[j];
+                    count++;
+                }
+            }
+            if (count > 0) {
+                x[i] = sumX / count + (rnd.nextDouble() - 0.5) * jitter;
+                y[i] = sumY / count + (rnd.nextDouble() - 0.5) * jitter;
+            } else {
+                double a = rnd.nextDouble() * Math.PI * 2.0;
+                double r = inner + Math.sqrt(rnd.nextDouble()) * ring;
+                x[i] = Math.cos(a) * r;
+                y[i] = Math.sin(a) * r;
+            }
+            placed[i] = true;
         }
     }
 
@@ -1035,6 +1223,7 @@ public final class GraphCanvas extends Region {
             lastDragX = e.getX();
             lastDragY = e.getY();
             movedSincePress = false;
+            takeView();
             int hit = pick(e.getX(), e.getY());
             if (hit >= 0) {
                 dragIndex = hit;
@@ -1144,9 +1333,13 @@ public final class GraphCanvas extends Region {
     private void resize() {
         canvas.setWidth(width());
         canvas.setHeight(height());
-        if (needsInitialFit && width() > 0 && height() > 0 && n > 0) {
-            needsInitialFit = false;
-            resetView();
+        // As Obsidian: what was in the middle of the view stays in the middle.
+        offsetX += (width() - lastWidth) / 2.0;
+        offsetY += (height() - lastHeight) / 2.0;
+        lastWidth = width();
+        lastHeight = height();
+        if (followFit && n > 0) {
+            startTimer(); // re-frame for the new size
         } else {
             draw();
         }

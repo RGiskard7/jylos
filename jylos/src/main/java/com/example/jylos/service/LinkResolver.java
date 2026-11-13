@@ -127,6 +127,14 @@ public final class LinkResolver {
                     return List.of(path);
                 }
             }
+            if (name.startsWith("../")) {
+                // Not there: Obsidian takes the file of that name in the note's own folder.
+                for (String path : sameName) {
+                    if (dirname(folded.get(path)).equals(sourceBase)) {
+                        return List.of(path);
+                    }
+                }
+            }
             return List.of();
         }
         for (String path : sameName) {

@@ -40,7 +40,7 @@ public final class LinkCache {
     }
 
     /** Bumped whenever which links are found changes, so old entries are read again. */
-    private static final int FORMAT = 2;
+    private static final int FORMAT = 3;
 
     private final Path file;
     private final Map<String, Entry> entries = new ConcurrentHashMap<>();

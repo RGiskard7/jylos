@@ -81,6 +81,7 @@ public class GraphController {
     @FXML private ComboBox<String> folderFilterCombo;
     @FXML private CheckBox orphansCheck;
     @FXML private CheckBox ghostsCheck;
+    @FXML private CheckBox attachmentsCheck;
     @FXML private CheckBox arrowsCheck;
     @FXML private CheckBox colorFolderCheck;
     @FXML private Slider repulsionSlider;
@@ -136,6 +137,14 @@ public class GraphController {
                 onOpenNote.accept(id);
             }
         });
+        // The zoom is kept for next time, as Obsidian does; the local graph keeps its own.
+        canvas.setOnZoomChosen(scale -> {
+            if (scale == null) {
+                prefs.remove(scaleKey());
+            } else {
+                prefs.putDouble(scaleKey(), scale);
+            }
+        });
         wireForceSliders();
         wireFilters();
         rememberSettings();
@@ -167,6 +176,7 @@ public class GraphController {
         }
         for (Object[] toggle : new Object[][] {
                 {orphansCheck, "graph.orphans"}, {ghostsCheck, "graph.unresolved"},
+                {attachmentsCheck, "graph.attachments"},
                 {localIncomingCheck, "graph.local_incoming"}, {localOutgoingCheck, "graph.local_outgoing"},
                 {localNeighborCheck, "graph.local_neighbors"}}) {
             if (toggle[0] instanceof CheckBox box) {
@@ -510,7 +520,18 @@ public class GraphController {
     public void show(boolean dark) {
         graphVisible = true;
         canvas.setDarkTheme(dark);
+        openView();
         rebuild();
+    }
+
+    /** The graph opens afresh, at the zoom kept for this kind of graph (global or local). */
+    private void openView() {
+        double saved = prefs.getDouble(scaleKey(), -1);
+        canvas.openView(saved > 0 ? saved : null);
+    }
+
+    private String scaleKey() {
+        return localGraphBtn != null && localGraphBtn.isSelected() ? "graph.local_scale" : "graph.scale";
     }
 
     /** Re-applies dark/light colors without rebuilding the graph data. */
@@ -530,6 +551,7 @@ public class GraphController {
 
     @FXML
     private void handleToggleScope() {
+        openView();
         rebuild();
     }
 
@@ -608,7 +630,8 @@ public class GraphController {
         GraphBuilder.Options options = new GraphBuilder.Options(
                 showTagsBtn == null || showTagsBtn.isSelected(),
                 ghostsCheck == null || ghostsCheck.isSelected(),
-                orphansCheck == null || orphansCheck.isSelected());
+                orphansCheck == null || orphansCheck.isSelected(),
+                attachmentsCheck != null && attachmentsCheck.isSelected());
         final boolean local = localGraphBtn != null && localGraphBtn.isSelected();
         final String rootId = currentNoteIdSupplier.get();
         final GraphBuilder.LocalOptions localOptions = new GraphBuilder.LocalOptions(

@@ -74,6 +74,17 @@ public final class WikiLinkResolver {
     private static final Pattern MARKDOWN_INTERNAL = Pattern.compile(
             "\\[([^\\[\\]]+)\\]\\((?!(?:https?|ftp|file|mailto):)([^()\\n]+?)\\)");
 
+    /**
+     * Extensions of the files Obsidian opens besides notes (images, audio, video, PDF, canvas,
+     * base): a link ending in one of them points to that file, not to a note. Any other dot is
+     * part of the name ({@code [[12.12a1]]}, {@code [[Python vs. Java]]}).
+     */
+    private static final Set<String> FILE_EXTENSIONS = Set.of(
+            "png", "jpg", "jpeg", "gif", "bmp", "svg", "webp", "avif",
+            "mp3", "wav", "m4a", "3gp", "flac", "ogg", "oga", "opus",
+            "mp4", "webm", "ogv", "mov", "mkv",
+            "pdf", "canvas", "base");
+
     private WikiLinkResolver() {
     }
 
@@ -177,7 +188,7 @@ public final class WikiLinkResolver {
             if (url.startsWith(PROTOCOL)) {
                 continue;
             }
-            String path = internalLinkPath(url);
+            String path = internalLinkPath(markdownDestination(url));
             if (path != null) {
                 byPosition.putIfAbsent(md.start(), new LinkMatch(md.start(), md.end(), path));
             }
@@ -238,6 +249,81 @@ public final class WikiLinkResolver {
      * {@link #internalNoteTarget(String)}.
      */
     public static String internalLinkPath(String rawReference) {
+        String decoded = linkPath(rawReference);
+        if (decoded == null || FILE_EXTENSIONS.contains(AttachmentType.extensionOf(decoded))) {
+            return null;
+        }
+        if (decoded.toLowerCase(java.util.Locale.ROOT).endsWith(".md")) {
+            decoded = decoded.substring(0, decoded.length() - 3).trim();
+        }
+        return extractTitle(decoded).isBlank() ? null : decoded;
+    }
+
+    /**
+     * The file a link points to when it names one of the files Obsidian opens besides notes
+     * ({@code foto.png}, {@code img/foto.png}, {@code Lienzo.canvas}), as written and
+     * URL-decoded; {@code null} for a note link, a URL or an anchor.
+     */
+    public static String fileLinkPath(String rawReference) {
+        String decoded = linkPath(rawReference);
+        return decoded != null && FILE_EXTENSIONS.contains(AttachmentType.extensionOf(decoded)) ? decoded : null;
+    }
+
+    /**
+     * The links of {@code markdown} to files that are not notes (embedded or linked images,
+     * PDFs, audio, canvases…), outside code, de-duplicated in order of appearance.
+     */
+    public static List<String> extractFileLinks(String markdown) {
+        if (markdown == null || markdown.isEmpty()) {
+            return new ArrayList<>();
+        }
+        BitSet code = codeRanges(markdown);
+        java.util.TreeMap<Integer, String> byPosition = new java.util.TreeMap<>();
+        Matcher wiki = WIKI_LINK.matcher(markdown);
+        while (wiki.find()) {
+            String path = code.get(wiki.start()) ? null : fileLinkPath(wiki.group(1).trim());
+            if (path != null) {
+                byPosition.put(wiki.start(), path);
+            }
+        }
+        Matcher md = MARKDOWN_INTERNAL.matcher(markdown);
+        while (md.find()) {
+            String path = code.get(md.start()) ? null : fileLinkPath(markdownDestination(md.group(2).trim()));
+            if (path != null) {
+                byPosition.putIfAbsent(md.start(), path);
+            }
+        }
+        return new ArrayList<>(new LinkedHashSet<>(byPosition.values()));
+    }
+
+    /**
+     * The destination of a Markdown link when Obsidian takes it for a file of the vault, or
+     * {@code null}: written with spaces it must be wrapped in {@code < >} (or use {@code %20}),
+     * and its path has no {@code :} ({@code C:/…}, {@code app.py:12}, {@code mailto:} are not
+     * notes). The heading after {@code #} may have anything.
+     */
+    private static String markdownDestination(String url) {
+        if (url == null) {
+            return null;
+        }
+        String destination = url.trim();
+        boolean wrapped = destination.length() > 1 && destination.startsWith("<") && destination.endsWith(">");
+        if (!wrapped && destination.chars().anyMatch(Character::isWhitespace)) {
+            int hash = destination.indexOf('#');
+            if (hash < 0 || destination.substring(0, hash).chars().anyMatch(Character::isWhitespace)) {
+                return null;
+            }
+        }
+        int hash = destination.indexOf('#');
+        String path = hash >= 0 ? destination.substring(0, hash) : destination;
+        return path.indexOf(':') >= 0 ? null : destination;
+    }
+
+    /**
+     * A link as written, without its heading, display text or {@code < >}, URL-decoded and
+     * with {@code /} separators; {@code null} for a URL, an anchor, {@code mailto:}/{@code tel:}.
+     */
+    private static String linkPath(String rawReference) {
         if (rawReference == null) {
             return null;
         }
@@ -249,6 +335,10 @@ public final class WikiLinkResolver {
                 || ref.startsWith(PROTOCOL)
                 || ref.contains("://")) {
             return null;
+        }
+        if (ref.length() > 1 && ref.startsWith("<") && ref.endsWith(">")) {
+            // A Markdown link may wrap its path in < > ([texto](<Mi nota.md>)).
+            ref = ref.substring(1, ref.length() - 1).trim();
         }
         int pipe = ref.indexOf('|');
         if (pipe >= 0) {
@@ -265,15 +355,7 @@ public final class WikiLinkResolver {
         if (decoded.matches("(?i)^(https?://|www\\.).*")) {
             return null;
         }
-        String last = decoded.substring(decoded.lastIndexOf('/') + 1);
-        int dot = last.lastIndexOf('.');
-        if (dot > 0 && !last.substring(dot + 1).equalsIgnoreCase("md")) {
-            return null;
-        }
-        if (decoded.toLowerCase(java.util.Locale.ROOT).endsWith(".md")) {
-            decoded = decoded.substring(0, decoded.length() - 3).trim();
-        }
-        return extractTitle(decoded).isBlank() ? null : decoded;
+        return decoded;
     }
 
     /**
@@ -504,7 +586,7 @@ public final class WikiLinkResolver {
             }
 
             // Only internal note references qualify (rejects anchors, URLs, images…).
-            String path = internalLinkPath(url);
+            String path = internalLinkPath(markdownDestination(url));
             if (path == null || exists == null || !exists.test(path)) {
                 // Not an internal link to a known note — leave the Markdown unchanged.
                 m.appendReplacement(sb, Matcher.quoteReplacement(m.group(0)));
@@ -580,9 +662,13 @@ public final class WikiLinkResolver {
                     .replace("'",  "%27");
     }
 
+    /** Decodes {@code %xx} escapes; a {@code +} stays a {@code +}, as in a link it is one. */
     private static String urlDecode(String url) {
+        if (url.indexOf('%') < 0) {
+            return url;
+        }
         try {
-            return URLDecoder.decode(url, StandardCharsets.UTF_8);
+            return URLDecoder.decode(url.replace("+", "%2B"), StandardCharsets.UTF_8);
         } catch (Exception e) {
             return url;
         }

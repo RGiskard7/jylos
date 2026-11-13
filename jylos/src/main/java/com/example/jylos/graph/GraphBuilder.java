@@ -49,7 +49,7 @@ public class GraphBuilder {
      */
     private final Map<String, CachedLinks> linkCache = new java.util.concurrent.ConcurrentHashMap<>();
 
-    private record CachedLinks(String modified, List<String> targets) {
+    private record CachedLinks(String modified, List<String> targets, List<String> files) {
     }
 
     public GraphBuilder(NoteService noteService, TagService tagService) {
@@ -80,11 +80,20 @@ public class GraphBuilder {
      * graph). Results are cached per note id and validated by {@code modified}.
      */
     private List<String> linkTargetsFor(Note note) {
+        return linksOf(note).targets();
+    }
+
+    /** The links a note makes to files that are not notes (images, PDFs, canvases…). */
+    private List<String> fileLinksFor(Note note) {
+        return linksOf(note).files();
+    }
+
+    private CachedLinks linksOf(Note note) {
         String id = note.getId();
         String modified = note.getModifiedDate();
         CachedLinks cached = linkCache.get(id);
         if (cached != null && java.util.Objects.equals(cached.modified(), modified)) {
-            return cached.targets();
+            return cached;
         }
         String content = note.getContent();
         List<String> targets = null;
@@ -103,8 +112,9 @@ public class GraphBuilder {
         if (targets == null) {
             targets = WikiLinkResolver.extractRawLinks(content);
         }
-        linkCache.put(id, new CachedLinks(modified, targets));
-        return targets;
+        CachedLinks links = new CachedLinks(modified, targets, WikiLinkResolver.extractFileLinks(content));
+        linkCache.put(id, links);
+        return links;
     }
 
     /**
@@ -113,8 +123,17 @@ public class GraphBuilder {
      * @param includeTags    include {@code #tag} nodes and note→tag edges
      * @param includeGhosts  include hollow nodes for links to non-existent notes
      * @param includeOrphans include nodes that have no connections at all
+     * @param includeAttachments include images, PDFs and the other files notes link to, each
+     *                       joined to the notes that link or embed it (off by default, as in
+     *                       Obsidian); a canvas is a node either way
      */
-    public record Options(boolean includeTags, boolean includeGhosts, boolean includeOrphans) {
+    public record Options(boolean includeTags, boolean includeGhosts, boolean includeOrphans,
+            boolean includeAttachments) {
+        /** Without attachments, as Obsidian starts. */
+        public Options(boolean includeTags, boolean includeGhosts, boolean includeOrphans) {
+            this(includeTags, includeGhosts, includeOrphans, false);
+        }
+
         public static Options defaults() {
             return new Options(false, true, true);
         }
@@ -143,7 +162,8 @@ public class GraphBuilder {
      * is always there, even with no links (orphans are not filtered out here).
      */
     public GraphData buildLocalGraph(String rootId, LocalOptions local, Options options) {
-        GraphData global = buildGlobalGraph(new Options(options.includeTags(), options.includeGhosts(), true));
+        GraphData global = buildGlobalGraph(new Options(options.includeTags(), options.includeGhosts(), true,
+                options.includeAttachments()));
         if (rootId == null) {
             return global;
         }
@@ -226,6 +246,9 @@ public class GraphBuilder {
             if (note == null || note.getId() == null) {
                 continue;
             }
+            if (isHiddenAttachment(note.getId(), options)) {
+                continue;
+            }
             nodes.put(note.getId(), new GraphNode(note.getId(), labelOf(note),
                     GraphNode.Type.NOTE, folderGroup(note), 0));
         }
@@ -233,8 +256,16 @@ public class GraphBuilder {
         List<GraphEdge> edges = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         for (Note note : notes) {
-            if (note == null || note.getId() == null) {
+            if (note == null || note.getId() == null || !nodes.containsKey(note.getId())) {
                 continue;
+            }
+            for (String file : fileLinksFor(note)) {
+                // Only to a file that is on the graph: a canvas always, the rest with attachments.
+                links.resolveId(file, note.getId())
+                        .filter(nodes::containsKey)
+                        .filter(fileId -> !fileId.equals(note.getId()))
+                        .filter(fileId -> seen.add(note.getId() + "\u0000" + fileId))
+                        .ifPresent(fileId -> edges.add(new GraphEdge(note.getId(), fileId, GraphEdge.Type.LINK)));
             }
             for (String target : linkTargetsFor(note)) {
                 String targetId = links.resolveId(target, note.getId())
@@ -265,6 +296,14 @@ public class GraphBuilder {
 
         GraphData graph = withDegrees(nodes, edges);
         return options.includeOrphans() ? graph : dropOrphans(graph);
+    }
+
+    /** An image, PDF or other file that is not a note, left out unless attachments are shown. */
+    private static boolean isHiddenAttachment(String id, Options options) {
+        com.example.jylos.util.AttachmentType type = com.example.jylos.util.AttachmentType.fromName(id);
+        return type != com.example.jylos.util.AttachmentType.MARKDOWN
+                && type != com.example.jylos.util.AttachmentType.CANVAS
+                && !options.includeAttachments();
     }
 
     /** Removes nodes with no connections (degree 0). Edges are unaffected. */

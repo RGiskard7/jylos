@@ -93,6 +93,7 @@
                     <ComboBox fx:id="folderFilterCombo" maxWidth="Infinity"/>
                     <CheckBox fx:id="orphansCheck" text="%graph.show_orphans" selected="true" onAction="#handleFilters"/>
                     <CheckBox fx:id="ghostsCheck" text="%graph.show_unresolved" selected="true" onAction="#handleFilters"/>
+                    <CheckBox fx:id="attachmentsCheck" text="%graph.show_attachments" onAction="#handleFilters"/>
 
                     <!-- Local graph (applies when the graph shows the open note) -->
                     <Separator/>
