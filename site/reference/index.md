@@ -10,6 +10,7 @@ The in-depth technical documentation lives in the repository's `docs/` folder. T
 | [LAUNCH_APP](https://github.com/RGiskard7/jylos/blob/main/docs/LAUNCH_APP.md) | Launchers and JavaFX notes |
 | [ARCHITECTURE](https://github.com/RGiskard7/jylos/blob/main/docs/ARCHITECTURE.md) | Packages, UI layout, storage, events |
 | [ARCHITECTURE_GUIDELINES](https://github.com/RGiskard7/jylos/blob/main/docs/ARCHITECTURE_GUIDELINES.md) | Normative architecture and growth rules |
+| [WEBVIEW](https://github.com/RGiskard7/jylos/blob/main/docs/WEBVIEW.md) | JavaFX WebView limitations, the Java/page bridge, and the JCEF option |
 | [I18N](https://github.com/RGiskard7/jylos/blob/main/docs/I18N.md) | Supported locales and how to add a new language |
 | [PLUGINS](https://github.com/RGiskard7/jylos/blob/main/docs/PLUGINS.md) | External plugin JAR workflow |
 | [PACKAGING](https://github.com/RGiskard7/jylos/blob/main/docs/PACKAGING.md) | Platform packaging scripts |

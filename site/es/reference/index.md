@@ -10,6 +10,7 @@ La documentación técnica en profundidad vive en la carpeta `docs/` del reposit
 | [LAUNCH_APP](https://github.com/RGiskard7/jylos/blob/main/docs/LAUNCH_APP.md) | Lanzadores y notas de JavaFX |
 | [ARCHITECTURE](https://github.com/RGiskard7/jylos/blob/main/docs/ARCHITECTURE.md) | Paquetes, disposición de la UI, almacenamiento, eventos |
 | [ARCHITECTURE_GUIDELINES](https://github.com/RGiskard7/jylos/blob/main/docs/ARCHITECTURE_GUIDELINES.md) | Reglas normativas de arquitectura y crecimiento |
+| [WEBVIEW](https://github.com/RGiskard7/jylos/blob/main/docs/es/WEBVIEW.md) | Limitaciones del WebView de JavaFX, el puente entre Java y la página, y la opción JCEF |
 | [I18N](https://github.com/RGiskard7/jylos/blob/main/docs/I18N.md) | Idiomas soportados y cómo añadir un nuevo idioma |
 | [PLUGINS](https://github.com/RGiskard7/jylos/blob/main/docs/PLUGINS.md) | Flujo de trabajo de plugins JAR externos |
 | [PACKAGING](https://github.com/RGiskard7/jylos/blob/main/docs/PACKAGING.md) | Scripts de empaquetado por plataforma |

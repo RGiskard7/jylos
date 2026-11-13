@@ -10,6 +10,7 @@ Documentación técnica de Jylos. Vista general de usuario: [README.es.md](../..
 | [LAUNCH_APP.md](LAUNCH_APP.md) | Launchers y notas de JavaFX |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Paquetes, UI, almacenamiento y eventos |
 | [ARCHITECTURE_GUIDELINES.md](ARCHITECTURE_GUIDELINES.md) | Reglas normativas de arquitectura y crecimiento |
+| [WEBVIEW.md](WEBVIEW.md) | Limitaciones del WebView de JavaFX, el puente entre Java y la página, y la opción JCEF |
 | [I18N.md](I18N.md) | Locales soportados y cómo añadir idiomas |
 | [PLUGINS.md](PLUGINS.md) | Flujo de plugins JAR externos |
 | [PACKAGING.md](PACKAGING.md) | Scripts de empaquetado por plataforma |
