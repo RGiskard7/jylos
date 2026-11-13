@@ -7,6 +7,7 @@ import { markExtension } from "../editor.js";
 import {
   blockRenderDecorations,
   blockRenderField,
+  imageConverted,
   livePreview,
   setBlockRenders,
   setEditorFocus
@@ -191,6 +192,65 @@ describe("an image that loads shows only the image", () => {
 
     view.contentDOM.querySelector(".cm-live-image img").dispatchEvent(new Event("error"));
     expect(getComputedStyle(fallback).display).not.toBe("none");
+  });
+});
+
+describe("an image the WebView cannot draw is converted by the host", () => {
+  // JavaFX's WebKit cannot decode WebP, which many pages serve even under a .png name. The
+  // host is asked once for a PNG copy; the file name shows only if that fails too.
+  function failingImage(convertImage) {
+    window.javaEditor = { resolveImageSource: source => source, convertImage };
+    const view = makeView("![](https://cdn.example/foto.png)");
+    view.contentDOM.querySelector(".cm-live-image img").dispatchEvent(new Event("error"));
+    return view;
+  }
+
+  function drawAgain(view) {
+    const doc = view.state.doc.toString();
+    view.dispatch({ changes: { from: 0, to: doc.length, insert: "" } });
+    view.dispatch({ changes: { from: 0, insert: doc } });
+  }
+
+  it("shows the PNG the host makes of it, not the file name", () => {
+    const convertImage = vi.fn();
+    const view = failingImage(convertImage);
+    expect(convertImage).toHaveBeenCalledTimes(1);
+    const [id, source] = convertImage.mock.calls[0];
+    expect(source).toBe("https://cdn.example/foto.png");
+    const fallback = view.contentDOM.querySelector(".cm-live-image-fallback");
+    expect(fallback.hidden, "no file name while it is converted").toBe(true);
+
+    imageConverted(id, "data:image/png;base64,QUJD");
+
+    const image = view.contentDOM.querySelector(".cm-live-image img");
+    expect(image.getAttribute("src")).toBe("data:image/png;base64,QUJD");
+    expect(image.hidden).toBe(false);
+    expect(fallback.hidden).toBe(true);
+  });
+
+  it("drawn again, it uses the PNG and the host is not asked again", () => {
+    const convertImage = vi.fn();
+    const view = failingImage(convertImage);
+    imageConverted(convertImage.mock.calls[0][0], "data:image/png;base64,QUJD");
+
+    drawAgain(view);
+
+    expect(view.contentDOM.querySelector(".cm-live-image img").getAttribute("src")).toBe("data:image/png;base64,QUJD");
+    expect(convertImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the file name when the host cannot convert it either, and does not ask again", () => {
+    const convertImage = vi.fn();
+    const view = failingImage(convertImage);
+    imageConverted(convertImage.mock.calls[0][0], "");
+
+    const fallback = view.contentDOM.querySelector(".cm-live-image-fallback");
+    expect(getComputedStyle(fallback).display).not.toBe("none");
+
+    drawAgain(view);
+    view.contentDOM.querySelector(".cm-live-image img").dispatchEvent(new Event("error"));
+    expect(getComputedStyle(view.contentDOM.querySelector(".cm-live-image-fallback")).display).not.toBe("none");
+    expect(convertImage).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -35,6 +35,7 @@ import com.example.jylos.service.RichLinkService;
 import com.example.jylos.service.TagService;
 import com.example.jylos.ui.components.CanvasView;
 import com.example.jylos.ui.components.MarkdownEditorView;
+import com.example.jylos.ui.components.WebViewImages;
 import com.example.jylos.util.AttachmentType;
 import com.example.jylos.util.MarkdownPreview;
 import com.example.jylos.util.RichLinks;
@@ -2280,6 +2281,7 @@ public class EditorController {
                     netscape.javascript.JSObject window = (netscape.javascript.JSObject)
                             previewWebView.getEngine().executeScript("window");
                     window.setMember("javaApp", previewJavaBridge);
+                    WebViewImages.bridgeReady(previewWebView.getEngine());
                     installAcceleratedPreviewScroll();
                     restorePendingPreviewScroll();
                 } catch (Exception e) {
@@ -2347,6 +2349,11 @@ public class EditorController {
         /** Opens an external {@code http(s)} link (e.g. a rich-link card) in the system browser. */
         public void openExternal(String url) {
             Platform.runLater(() -> SystemBrowser.open(url));
+        }
+
+        /** An image the reading view could not draw (WebP): answered later with a PNG copy, or "". */
+        public void convertImage(String id, String source) {
+            WebViewImages.convert(previewWebView.getEngine(), WebViewImages.READING_VIEW, id, source);
         }
     }
 

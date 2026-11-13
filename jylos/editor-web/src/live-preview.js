@@ -419,12 +419,35 @@ const imageSources = StateField.define({
   update: value => value
 });
 
-function resolveImage(view, source) {
+// Per image: the address it is drawn from and whether the host was already asked to convert it.
+function imageEntry(view, source) {
   const cache = view.state.field(imageSources, false);
-  if (cache?.has(source)) return cache.get(source);
-  const resolved = window.javaEditor?.resolveImageSource(source) || source;
-  cache?.set(source, resolved);
-  return resolved;
+  let entry = cache?.get(source);
+  if (!entry) {
+    entry = { src: window.javaEditor?.resolveImageSource(source) || source, converted: false };
+    cache?.set(source, entry);
+  }
+  return entry;
+}
+
+// JavaFX's WebKit cannot decode WebP (Obsidian, on Chromium, can), and many pages serve it
+// even under a .png name. An image that fails is handed to the host, which answers later,
+// from a background thread, with a PNG copy or "" through imageConverted().
+const conversions = new Map();
+let nextConversion = 0;
+
+function convertImage(source, done) {
+  if (typeof window.javaEditor?.convertImage !== "function") return false;
+  const id = String(++nextConversion);
+  conversions.set(id, done);
+  window.javaEditor.convertImage(id, source);
+  return true;
+}
+
+export function imageConverted(id, png) {
+  const done = conversions.get(String(id));
+  conversions.delete(String(id));
+  done?.(png || "");
 }
 
 class ImageWidget extends WidgetType {
@@ -446,7 +469,7 @@ class ImageWidget extends WidgetType {
   toDOM(view) {
     const figure = document.createElement("span");
     figure.className = "cm-live-image";
-    const resolved = resolveImage(view, this.source);
+    const entry = imageEntry(view, this.source);
     const image = document.createElement("img");
     image.alt = this.alt;
     const known = imageHeights.get(this.source);
@@ -456,11 +479,30 @@ class ImageWidget extends WidgetType {
       const height = figure.getBoundingClientRect().height;
       if (height > 0) imageHeights.set(this.source, height);
     });
-    image.src = resolved;
-    image.addEventListener("error", () => {
+    image.src = entry.src;
+    const showFallback = () => {
       figure.style.minHeight = "";
       image.hidden = true;
       fallback.hidden = false;
+    };
+    image.addEventListener("error", () => {
+      // Asked once per image and note: the answer, a PNG or nothing, is kept in the entry.
+      if (entry.converted) {
+        showFallback();
+        return;
+      }
+      entry.converted = true;
+      image.hidden = true;
+      const asked = convertImage(entry.src, png => {
+        if (!png) {
+          showFallback();
+          return;
+        }
+        entry.src = png;
+        image.hidden = false;
+        image.src = png;
+      });
+      if (!asked) showFallback();
     });
     const fallback = document.createElement("span");
     fallback.className = "cm-live-image-fallback";

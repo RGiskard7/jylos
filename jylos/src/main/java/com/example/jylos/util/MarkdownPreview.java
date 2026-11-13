@@ -212,7 +212,42 @@ public class MarkdownPreview {
                 <script nonce="%s">
                     %s
                     %s
-                    
+
+                    // JavaFX's WebKit cannot decode WebP, which many pages serve even under a
+                    // .png name. An image that fails is handed to Java (javaApp.convertImage),
+                    // which answers with a PNG copy through imageConverted(); the ones that fail
+                    // before the bridge is set wait for bridgeReady().
+                    (function() {
+                        var page = Math.random().toString(36).slice(2);
+                        var next = 0, waiting = {}, early = [];
+                        function convert(img) {
+                            if (img.__jylosConverting || !img.getAttribute('src')) { return; }
+                            if (!window.javaApp || !window.javaApp.convertImage) { early.push(img); return; }
+                            img.__jylosConverting = true;
+                            var id = page + ':' + (++next);
+                            waiting[id] = img;
+                            window.javaApp.convertImage(id, img.src);
+                        }
+                        window.__jylosImages = {
+                            imageConverted: function(id, png) {
+                                var img = waiting[id];
+                                delete waiting[id];
+                                if (img && png) { img.src = png; }
+                            },
+                            bridgeReady: function() {
+                                var pending = early;
+                                early = [];
+                                pending.forEach(convert);
+                            }
+                        };
+                        document.addEventListener('error', function(e) {
+                            if (e.target && e.target.tagName === 'IMG') { convert(e.target); }
+                        }, true);
+                        Array.prototype.forEach.call(document.images, function(img) {
+                            if (img.complete && img.naturalWidth === 0) { convert(img); }
+                        });
+                    })();
+
                     document.addEventListener('click', function(e) {
                         let target = e.target.closest('a');
                         if (!target) { return; }

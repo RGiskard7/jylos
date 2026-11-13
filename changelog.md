@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- **Las imágenes WebP se ven en el editor y en la vista de lectura.** Antes solo aparecía su enlace en un recuadro. Pasaba con muchas imágenes de la web, como las de los artículos de Medium guardados con el clipper, que se sirven en WebP aunque la dirección termine en `.png`, y también con los `.webp` de la bóveda. El visor que usa Jylos no sabe dibujar WebP, así que cuando una imagen falla, Jylos la convierte a PNG en segundo plano y la muestra. Si no puede (sin conexión, o la imagen no existe), sigue saliendo el recuadro con el enlace.
+
 - **El grafo abre y se reparte como el de Obsidian.**
   - **Las notas conectadas se reparten por todo el círculo** en lugar de apiñarse en el centro: cada nota empieza junto a las notas que enlaza, como en Obsidian, y cada grupo de notas enlazadas queda donde cayó, no en medio.
   - **Al cambiar un filtro, las notas que ya estaban se quedan donde estaban** y solo se colocan las nuevas.

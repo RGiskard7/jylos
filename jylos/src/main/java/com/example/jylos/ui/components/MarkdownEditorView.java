@@ -600,6 +600,11 @@ public final class MarkdownEditorView extends StackPane {
             return resolved != null ? resolved : "";
         }
 
+        /** An image the editor could not draw (WebP): answered later with a PNG copy, or "". */
+        public void convertImage(String id, String source) {
+            WebViewImages.convert(engine, WebViewImages.EDITOR, id, source);
+        }
+
         /**
          * Rasterises an emoji run for the editor's emoji decoration, reusing the same
          * cache and bundled font as the Preview (see {@link MarkdownPreview}) — the

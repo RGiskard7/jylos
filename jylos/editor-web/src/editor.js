@@ -17,7 +17,7 @@ import {
 } from "@codemirror/view";
 import { Tag, tags } from "@lezer/highlight";
 import { GFM } from "@lezer/markdown";
-import { blockRenderField, livePreview, setBlockRenders, setMathReady } from "./live-preview.js";
+import { blockRenderField, imageConverted, livePreview, setBlockRenders, setMathReady } from "./live-preview.js";
 
 // `==mark==` highlight syntax is a common CommonMark extension (Obsidian,
 // Typora) but isn't part of GFM, so @lezer/markdown has no built-in node for
@@ -545,6 +545,8 @@ window.JylosEditor = {
   setMathReady() {
     view?.dispatch({ effects: setMathReady.of(true) });
   },
+  // The host's answer to javaEditor.convertImage(id, source): a PNG data URI, or "".
+  imageConverted,
   setLivePreviewEnabled(enabled) {
     window.__jylosEditorConfig.livePreview = Boolean(enabled);
     view?.dispatch({ effects: presentationCompartment.reconfigure(enabled ? livePreview() : []) });
