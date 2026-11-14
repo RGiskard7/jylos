@@ -17,13 +17,13 @@ engine (JCEF) would involve.
 |---|---|---|---|
 | No WebP decoding (`naturalWidth` stays 0). Many sites serve WebP even under a `.png` URL. | Image shows as its link | An image that fails is handed to Java. Java fetches it (or decodes the inlined vault file), reads it with ImageIO plus the TwelveMonkeys WebP plugin, and sends back a PNG. | `WebImageConverter`, `WebViewImages`, `live-preview.js` (`imageConverted`), `MarkdownPreview` (`__jylosImages`) |
 | No colour emoji fonts; characters outside the BMP draw as tofu | Emoji missing or shown as boxes | Emoji runs are rasterised to monochrome images with the bundled Noto Emoji font | `MarkdownPreview.rasterizeEmojiRun`, `MarkdownEditorView.EditorBridge.rasterizeEmoji`, `editor.js` |
-| Scrolling is animated by WebKit itself | One wheel or trackpad event moves nothing for 2 frames, then takes about 5 more to arrive (about 100 ms in all). On top of the trackpad's own momentum this feels laggy. Measured with a 100 px event. | Nothing in the editor; the reading view multiplies wheel steps by 1.8. There is no public API to turn the animation off. | `EditorController.installAcceleratedPreviewScroll` |
+| Scrolling is animated by WebKit itself | One wheel or trackpad event moves nothing for 2 frames, then takes about 5 more to arrive (about 100 ms in all). On top of the trackpad's own momentum this feels laggy. Measured with a 100 px event. | Nothing in the editor; the reading view multiplies wheel steps by 1.8. There is no public API to turn the animation off. | `EditorPreviewSupport.installAcceleratedScroll` |
 | No GPU compositing; scrolling repaints on the JavaFX Application Thread | Smoothness depends on the size of the page area that repaints | CodeMirror only draws the viewport. Widget heights are remembered so content does not jump. | `live-preview.js` (`imageHeights`, `blockHeights`) |
 | `KeyboardEvent.key` is empty on macOS | Option-key symbols (`[`, `{`, `@`…) matched CodeMirror shortcuts | Shortcuts that depend on key codes are kept off the typing path | `editor.js` (`typingSafeKeymap`) |
 | `document.hasFocus()` does not answer as in a browser | CodeMirror's `hasFocus` is wrong | Focus is followed through the content's own focus and blur events | `live-preview.js` (`editorFocusField`) |
 | No native clipboard paste into `contentEditable` | Paste does nothing | Copy, cut and paste go through the JavaFX clipboard in a key filter | `MarkdownEditorView.installDesktopEditingIntegration` |
 | Pages are loaded with `loadContent`: opaque origin, no URL | `file://` resources and `#fragment` jumps don't work | Vault images and KaTeX fonts are inlined as `data:` URIs; anchor jumps are done in JavaScript | `MarkdownPreview.resolveImageSource`, the reading view's click handler |
-| JavaScript only reaches methods of **public** classes | A bridge class that is not public fails silently | Bridges are public classes (`EditorBridge`, `PreviewJavaBridge`) | `EditorController.PreviewJavaBridge` |
+| JavaScript only reaches methods of **public** classes | A bridge class that is not public fails silently | Bridges are public classes (`EditorBridge`, `PreviewJavaBridge`) | `EditorPreviewSupport.PreviewJavaBridge` |
 | JavaScript runs on the JavaFX Application Thread | A synchronous call into Java blocks the UI | Expensive work (plugin block renders, image conversion) runs on background threads and is pushed back to the page | `EditorBlockRenderSupport`, `WebViewImages` |
 | Font weights that are not multiples of 100 are dropped (e.g. 750) | Headings lose their weight | Only multiples of 100 are used | editor theme in `live-preview.js` |
 | No AVIF decoding | AVIF images do not show | None yet: there is no pure-Java AVIF reader | — |
@@ -70,5 +70,11 @@ bring:
    WebView?
 2. How large is the packaged app on each platform?
 
-Until then the plan is to keep the three page hosts behind one small interface, so that
-changing the engine touches a single place.
+## Where the engine lives
+
+The three pages are shown through one small interface, `HtmlView` (`ui/web`): load a page, run
+or evaluate script, expose a Java object to the page (set again on every load), and act once it
+has loaded. `JavaFxHtmlView` is its implementation on JavaFX's WebView, and the only class, with
+`ExternalLinksBridge`, that knows the engine; it is also the node FXML places where a page is
+shown. `WebEngineConfinementGuardTest` keeps `javafx.scene.web` and `netscape.javascript` out of
+the rest of the code, so a move to another engine is a new implementation of `HtmlView`.

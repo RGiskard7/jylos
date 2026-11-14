@@ -18,7 +18,6 @@ import com.example.jylos.ui.controller.EditorController;
 
 import javafx.scene.Scene;
 import javafx.scene.layout.VBox;
-import javafx.scene.web.WebView;
 import javafx.stage.Stage;
 
 /**
@@ -33,11 +32,11 @@ class PreviewScrollKeptTest {
         Note longNote = note("larga.md", "Larga", "Párrafo\n\n".repeat(400));
         Note other = note("otra.md", "Otra", "Párrafo\n\n".repeat(400));
         AtomicReference<EditorController> controller = new AtomicReference<>();
-        AtomicReference<WebView> webView = new AtomicReference<>();
+        AtomicReference<com.example.jylos.ui.web.JavaFxHtmlView> webView = new AtomicReference<>();
         AtomicReference<Stage> stage = new AtomicReference<>();
         runFx(() -> {
             EditorController editor = new EditorController();
-            WebView view = new WebView();
+            com.example.jylos.ui.web.JavaFxHtmlView view = new com.example.jylos.ui.web.JavaFxHtmlView();
             VBox pane = new VBox(view);
             set(editor, "previewWebView", view);
             set(editor, "previewPane", pane);
@@ -52,7 +51,7 @@ class PreviewScrollKeptTest {
         });
         try {
             assertTrue(waitFor(() -> scrollHeight(webView.get()) > 2000), "the long note is shown");
-            runFx(() -> webView.get().getEngine().executeScript("window.scrollTo(0, 1500)"));
+            runFx(() -> webView.get().evaluate("window.scrollTo(0, 1500)"));
             assertTrue(waitFor(() -> scrollY(webView.get()) == 1500), "scrolled");
 
             runFx(() -> controller.get().refreshPreview(false));
@@ -80,25 +79,25 @@ class PreviewScrollKeptTest {
         return note;
     }
 
-    private static int scrollY(WebView view) {
+    private static int scrollY(com.example.jylos.ui.web.JavaFxHtmlView view) {
         return number(view, "window.scrollY || 0");
     }
 
-    private static int scrollHeight(WebView view) {
+    private static int scrollHeight(com.example.jylos.ui.web.JavaFxHtmlView view) {
         return number(view, "document.body ? document.body.scrollHeight : 0");
     }
 
-    private static Object body(WebView view) {
+    private static Object body(com.example.jylos.ui.web.JavaFxHtmlView view) {
         try {
-            return onFx(() -> view.getEngine().executeScript("document.body ? document.body.innerText : ''"));
+            return onFx(() -> view.evaluate("document.body ? document.body.innerText : ''"));
         } catch (Exception e) {
             return "";
         }
     }
 
-    private static int number(WebView view, String script) {
+    private static int number(com.example.jylos.ui.web.JavaFxHtmlView view, String script) {
         try {
-            return ((Number) onFx(() -> view.getEngine().executeScript(script))).intValue();
+            return ((Number) onFx(() -> view.evaluate(script))).intValue();
         } catch (Exception e) {
             return -1;
         }

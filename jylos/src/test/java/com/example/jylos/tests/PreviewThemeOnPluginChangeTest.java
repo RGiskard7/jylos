@@ -20,7 +20,6 @@ import com.example.jylos.ui.controller.EditorController;
 
 import javafx.scene.Scene;
 import javafx.scene.layout.VBox;
-import javafx.scene.web.WebView;
 import javafx.stage.Stage;
 
 /**
@@ -41,11 +40,11 @@ class PreviewThemeOnPluginChangeTest {
             }
         };
         AtomicReference<EditorController> controller = new AtomicReference<>();
-        AtomicReference<WebView> webView = new AtomicReference<>();
+        AtomicReference<com.example.jylos.ui.web.JavaFxHtmlView> webView = new AtomicReference<>();
         AtomicReference<Stage> stage = new AtomicReference<>();
         runFx(() -> {
             EditorController editor = new EditorController();
-            WebView view = new WebView();
+            com.example.jylos.ui.web.JavaFxHtmlView view = new com.example.jylos.ui.web.JavaFxHtmlView();
             VBox pane = new VBox(view);
             set(editor, "previewWebView", view);
             set(editor, "previewPane", pane);
@@ -81,11 +80,11 @@ class PreviewThemeOnPluginChangeTest {
         }
     }
 
-    private static String background(WebView view) {
+    private static String background(com.example.jylos.ui.web.JavaFxHtmlView view) {
         AtomicReference<String> color = new AtomicReference<>("");
         try {
             runFx(() -> {
-                Object value = view.getEngine().executeScript(
+                Object value = view.evaluate(
                         "document.body ? getComputedStyle(document.body).backgroundColor : ''");
                 color.set(String.valueOf(value));
             });

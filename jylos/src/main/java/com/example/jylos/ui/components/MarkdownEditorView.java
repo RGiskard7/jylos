@@ -20,7 +20,6 @@ import com.example.jylos.util.WikiLinkResolver;
 import com.google.gson.Gson;
 
 import javafx.application.Platform;
-import javafx.concurrent.Worker;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
@@ -30,9 +29,6 @@ import javafx.scene.input.ContextMenuEvent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.StackPane;
-import javafx.scene.web.WebEngine;
-import javafx.scene.web.WebView;
-import netscape.javascript.JSObject;
 
 /**
  * JavaFX host for the offline CodeMirror 6 Markdown editor.
@@ -53,8 +49,8 @@ public final class MarkdownEditorView extends StackPane {
     private static final String BUNDLE_RESOURCE = "/com/example/jylos/ui/editor/editor.bundle.js";
     private static final String BUNDLE_PLACEHOLDER = "/*__JYLOS_EDITOR_BUNDLE__*/";
 
-    private final WebView webView = new WebView();
-    private final WebEngine engine = webView.getEngine();
+    /** The editor page (CodeMirror) and the way to talk to it. */
+    private final com.example.jylos.ui.web.JavaFxHtmlView page = new com.example.jylos.ui.web.JavaFxHtmlView();
     private final EditorBridge bridge = new EditorBridge();
     private final Queue<Runnable> pendingActions = new ArrayDeque<>();
     private final ContextMenu editorContextMenu = new ContextMenu();
@@ -97,27 +93,16 @@ public final class MarkdownEditorView extends StackPane {
 
     public MarkdownEditorView() {
         getStyleClass().add("markdown-editor-view");
-        webView.getStyleClass().add("markdown-editor-webview");
-        webView.setContextMenuEnabled(false);
-        webView.setMinSize(0, 0);
-        webView.setPrefSize(0, 0);
-        getChildren().add(webView);
+        page.getStyleClass().add("markdown-editor-webview");
+        page.setContextMenuEnabled(false);
+        page.setMinSize(0, 0);
+        page.setPrefSize(0, 0);
+        getChildren().add(page);
         installDesktopEditingIntegration();
 
-        engine.setJavaScriptEnabled(true);
-        engine.setOnError(event -> logger.warning("CodeMirror WebView error: " + event.getMessage()));
-        engine.setOnAlert(event -> logger.warning("CodeMirror alert: " + event.getData()));
-        engine.getLoadWorker().exceptionProperty().addListener((obs, oldError, error) -> {
-            if (error != null) {
-                logger.log(Level.SEVERE, "Could not load CodeMirror editor", error);
-            }
-        });
-        engine.getLoadWorker().stateProperty().addListener((obs, oldState, state) -> {
-            if (state == Worker.State.SUCCEEDED) {
-                initializeBridge();
-            }
-        });
-        engine.loadContent(loadEditorHtml(), "text/html");
+        page.exposeBridge("javaEditor", bridge);
+        page.onLoaded(this::initializeBridge);
+        page.loadHtml(loadEditorHtml());
     }
 
     /** Sets the listener invoked after user or command-driven document changes. */
@@ -343,14 +328,13 @@ public final class MarkdownEditorView extends StackPane {
         whenReady(() -> execute("window.JylosEditor.focus()"));
     }
 
-    public WebView getWebView() {
-        return webView;
+    /** The editor page, for tests that look into it. */
+    com.example.jylos.ui.web.HtmlView page() {
+        return page;
     }
 
     private void initializeBridge() {
         try {
-            JSObject window = (JSObject) engine.executeScript("window");
-            window.setMember("javaEditor", bridge);
             Map<String, Object> config = Map.of(
                     "dark", darkTheme,
                     "accent", accent,
@@ -394,15 +378,15 @@ public final class MarkdownEditorView extends StackPane {
         editorContextMenu.setOnShowing(event -> refreshContextMenuState());
         updateContextMenuLabels();
 
-        webView.addEventFilter(ContextMenuEvent.CONTEXT_MENU_REQUESTED, event -> {
+        page.addEventFilter(ContextMenuEvent.CONTEXT_MENU_REQUESTED, event -> {
             if (!ready) {
                 return;
             }
             refreshContextMenuState();
-            editorContextMenu.show(webView, event.getScreenX(), event.getScreenY());
+            editorContextMenu.show(page, event.getScreenX(), event.getScreenY());
             event.consume();
         });
-        webView.addEventFilter(KeyEvent.KEY_PRESSED, this::handleDesktopShortcut);
+        page.addEventFilter(KeyEvent.KEY_PRESSED, this::handleDesktopShortcut);
     }
 
     private void handleDesktopShortcut(KeyEvent event) {
@@ -411,7 +395,7 @@ public final class MarkdownEditorView extends StackPane {
         // tick behind after switching notes/panels, silently dropping the
         // shortcut since JavaFX WebView has no native clipboard paste to fall
         // back on for a contentEditable element.
-        if (!ready || !event.isShortcutDown() || event.isAltDown() || !webView.isFocused()) {
+        if (!ready || !event.isShortcutDown() || event.isAltDown() || !page.hasFocus()) {
             return;
         }
 
@@ -494,12 +478,7 @@ public final class MarkdownEditorView extends StackPane {
     }
 
     private Object execute(String script) {
-        try {
-            return engine.executeScript(script);
-        } catch (RuntimeException e) {
-            logger.log(Level.WARNING, "CodeMirror command failed", e);
-            return null;
-        }
+        return page.evaluate(script);
     }
 
     private String stringResult(String script, String fallback) {
@@ -594,7 +573,7 @@ public final class MarkdownEditorView extends StackPane {
 
         /** An image the editor could not draw (WebP): answered later with a PNG copy, or "". */
         public void convertImage(String id, String source) {
-            WebViewImages.convert(engine, WebViewImages.EDITOR, id, source);
+            WebViewImages.convert(page, WebViewImages.EDITOR, id, source);
         }
 
         /**

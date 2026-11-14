@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- **Los enlaces de las notas de versión que se muestran antes de actualizar se abren en el navegador**; antes no hacían nada.
 - **Un Canvas se puede hacer privado**, como una nota: se guarda cifrado, se abre normalmente mientras las notas privadas están desbloqueadas y muestra el candado mientras están bloqueadas. Antes, hacer privado un Canvas daba un error y no se guardaba. Las imágenes y los PDF ya no ofrecen "Hacer privada": son ficheros binarios y cifrarlos los rompería.
 - **Guardar un Canvas quita el aviso amarillo "Sin guardar"** de la barra de estado, como al guardar una nota.
 - **Renombrar desde el explorador la nota abierta ya no salta el aviso de que se modificó fuera de Jylos**, ni al renombrar ni al guardar después, aunque tuviera cambios sin guardar.

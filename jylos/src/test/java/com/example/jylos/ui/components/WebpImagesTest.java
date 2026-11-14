@@ -14,15 +14,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.example.jylos.tests.FxTestSupport;
+import com.example.jylos.ui.web.HtmlView;
+import com.example.jylos.ui.web.JavaFxHtmlView;
 import com.example.jylos.util.MarkdownPreview;
 
-import javafx.concurrent.Worker;
 import javafx.scene.Scene;
 import javafx.scene.layout.StackPane;
-import javafx.scene.web.WebEngine;
-import javafx.scene.web.WebView;
 import javafx.stage.Stage;
-import netscape.javascript.JSObject;
 
 /**
  * A WebP image is shown in the editor and in the reading view, as in Obsidian, although
@@ -51,9 +49,9 @@ public class WebpImagesTest {
             return view;
         });
 
-        WebEngine engine = editor.getWebView().getEngine();
-        assertEquals(40, widthOnceDrawn(engine, ".cm-live-image img"), "the picture is drawn at its own width");
-        assertEquals(Boolean.TRUE, onFx(() -> engine.executeScript(
+        HtmlView page = editor.page();
+        assertEquals(40, widthOnceDrawn(page, ".cm-live-image img"), "the picture is drawn at its own width");
+        assertEquals(Boolean.TRUE, onFx(() -> page.evaluate(
                 "document.querySelector('.cm-live-image-fallback').hidden")), "not its file name");
     }
 
@@ -63,34 +61,29 @@ public class WebpImagesTest {
         Files.write(vault.resolve("foto.webp"), WEBP);
         String html = MarkdownPreview.buildPreviewHtml("Texto\n\n![](foto.webp)\n", false, List.of(), vault);
 
-        WebView webView = onFx(() -> {
-            WebView view = new WebView();
-            WebEngine engine = view.getEngine();
-            // What the reading view does once its page has loaded.
-            engine.getLoadWorker().stateProperty().addListener((obs, old, state) -> {
-                if (state == Worker.State.SUCCEEDED) {
-                    ((JSObject) engine.executeScript("window")).setMember("javaApp", new Bridge(engine));
-                    WebViewImages.bridgeReady(engine);
-                }
-            });
+        HtmlView page = onFx(() -> {
+            JavaFxHtmlView view = new JavaFxHtmlView();
+            // What the reading view does with its page.
+            view.exposeBridge("javaApp", new Bridge(view));
+            view.onLoaded(() -> WebViewImages.bridgeReady(view));
             show(view);
-            engine.loadContent(html);
+            view.loadHtml(html);
             return view;
         });
 
-        assertEquals(40, widthOnceDrawn(webView.getEngine(), "img"), "the picture is drawn at its own width");
+        assertEquals(40, widthOnceDrawn(page, "img"), "the picture is drawn at its own width");
     }
 
     /** The reading view's {@code window.javaApp}, reduced to what images use. */
     public static final class Bridge {
-        private final WebEngine engine;
+        private final HtmlView page;
 
-        Bridge(WebEngine engine) {
-            this.engine = engine;
+        Bridge(HtmlView page) {
+            this.page = page;
         }
 
         public void convertImage(String id, String source) {
-            WebViewImages.convert(engine, WebViewImages.READING_VIEW, id, source);
+            WebViewImages.convert(page, WebViewImages.READING_VIEW, id, source);
         }
     }
 
@@ -101,12 +94,12 @@ public class WebpImagesTest {
     }
 
     /** The natural width of the image, once it is above zero; zero if it never is. */
-    private static int widthOnceDrawn(WebEngine engine, String selector) throws Exception {
+    private static int widthOnceDrawn(HtmlView page, String selector) throws Exception {
         String script = "(function(){var i=document.querySelector('" + selector + "');return i?i.naturalWidth:-1;})()";
         int width = 0;
         for (int attempt = 0; attempt < 75 && width <= 0; attempt++) {
             Thread.sleep(200);
-            width = ((Number) onFx(() -> engine.executeScript(script))).intValue();
+            width = ((Number) onFx(() -> page.evaluate(script))).intValue();
         }
         assertTrue(width >= 0, "the image is on the page");
         return width;

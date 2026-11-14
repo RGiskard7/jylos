@@ -17,7 +17,6 @@ import com.example.jylos.tests.FxTestSupport;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.web.WebView;
 import javafx.stage.Stage;
 
 /**
@@ -70,7 +69,7 @@ class PreviewAnchorNavigationTest {
         waitFor(() -> bodyText(controller.get()).contains("Después 40"));
         Thread.sleep(400);
 
-        double top = onFx(() -> ((Number) webView(controller.get()).getEngine().executeScript(
+        double top = onFx(() -> ((Number) webView(controller.get()).evaluate(
                 "document.getElementById('detalle').getBoundingClientRect().top")).doubleValue());
         onFx(() -> {
             stage.get().close();
@@ -79,17 +78,14 @@ class PreviewAnchorNavigationTest {
         assertTrue(Math.abs(top) < 5, "heading should be at the top of the view, is at " + top);
     }
 
-    private static WebView webView(EditorController editor) {
-        return (WebView) editor.getPreviewPane().lookup(".web-view") != null
-                ? (WebView) editor.getPreviewPane().lookup(".web-view")
-                : (WebView) editor.getPreviewPane().getChildrenUnmodifiable().stream()
-                        .filter(WebView.class::isInstance).findFirst().orElseThrow();
+    private static com.example.jylos.ui.web.HtmlView webView(EditorController editor) {
+        return editor.getPreviewWebView();
     }
 
     private static String bodyText(EditorController editor) {
         try {
             return onFx(() -> {
-                Object text = webView(editor).getEngine().executeScript(
+                Object text = webView(editor).evaluate(
                         "document.body ? document.body.textContent : ''");
                 return text != null ? text.toString() : "";
             });

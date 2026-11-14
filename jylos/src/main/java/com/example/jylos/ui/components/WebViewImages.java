@@ -4,7 +4,7 @@ import com.example.jylos.service.WebImageConverter;
 import com.google.gson.Gson;
 
 import javafx.application.Platform;
-import javafx.scene.web.WebEngine;
+import com.example.jylos.ui.web.HtmlView;
 
 /**
  * Shows images JavaFX's WebKit cannot decode (WebP) in the editor and the reading view.
@@ -27,22 +27,17 @@ public final class WebViewImages {
     }
 
     /** Converts {@code source} in the background and answers {@code receiver} on the page. */
-    public static void convert(WebEngine engine, String receiver, String id, String source) {
-        WebImageConverter.shared().convert(source).thenAccept(png -> Platform.runLater(() -> {
-            try {
-                engine.executeScript(receiver + " && " + receiver + ".imageConverted("
-                        + GSON.toJson(id) + ", " + GSON.toJson(png) + ")");
-            } catch (RuntimeException e) {
-                // The page was replaced meanwhile: nothing left to show the image in.
-            }
-        }));
+    public static void convert(HtmlView page, String receiver, String id, String source) {
+        // If the page was replaced meanwhile, the receiver is gone and nothing runs.
+        WebImageConverter.shared().convert(source).thenAccept(png -> Platform.runLater(() -> page.run(
+                receiver + " && " + receiver + ".imageConverted(" + GSON.toJson(id) + ", " + GSON.toJson(png) + ")")));
     }
 
     /**
      * Tells a reading view page its bridge is in place. Images that failed while the page was
      * loading, before the bridge was set, are converted now.
      */
-    public static void bridgeReady(WebEngine engine) {
-        engine.executeScript(READING_VIEW + " && " + READING_VIEW + ".bridgeReady()");
+    public static void bridgeReady(HtmlView page) {
+        page.run(READING_VIEW + " && " + READING_VIEW + ".bridgeReady()");
     }
 }

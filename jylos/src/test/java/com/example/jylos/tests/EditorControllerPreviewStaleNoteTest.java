@@ -20,7 +20,6 @@ import com.example.jylos.ui.controller.EditorController;
 
 import javafx.scene.Scene;
 import javafx.scene.layout.VBox;
-import javafx.scene.web.WebView;
 import javafx.stage.Stage;
 
 /**
@@ -126,14 +125,14 @@ class EditorControllerPreviewStaleNoteTest {
         final Note noteA = note("a.md", "A", "Texto de A");
         final Note noteB = note("b.md", "B", "Texto de B");
         EditorController controller;
-        WebView webView;
+        com.example.jylos.ui.web.JavaFxHtmlView webView;
         Stage stage;
 
         static Fixture open() throws Exception {
             Fixture fixture = new Fixture();
             runFx(() -> {
                 fixture.controller = new EditorController();
-                fixture.webView = new WebView();
+                fixture.webView = new com.example.jylos.ui.web.JavaFxHtmlView();
                 VBox previewPane = new VBox(fixture.webView);
                 set(fixture.controller, "previewWebView", fixture.webView);
                 set(fixture.controller, "previewPane", previewPane);
@@ -160,7 +159,7 @@ class EditorControllerPreviewStaleNoteTest {
             AtomicReference<String> text = new AtomicReference<>("");
             try {
                 runFx(() -> {
-                    Object body = webView.getEngine().executeScript(
+                    Object body = webView.evaluate(
                             "document.body ? document.body.innerText : ''");
                     text.set(body != null ? body.toString() : "");
                 });

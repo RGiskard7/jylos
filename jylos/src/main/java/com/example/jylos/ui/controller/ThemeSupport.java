@@ -16,7 +16,6 @@ import com.example.jylos.ui.theme.ThemeCommand;
 import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.control.ToggleGroup;
-import javafx.scene.web.WebView;
 import javafx.stage.Window;
 
 /**
@@ -37,7 +36,7 @@ final class ThemeSupport {
     private Preferences prefs;
     private java.util.function.BooleanSupplier ready = () -> false;
     private Supplier<Scene> mainScene = () -> null;
-    private Supplier<WebView> previewWebView = () -> null;
+    private Supplier<javafx.scene.Node> previewWebView = () -> null;
     private Supplier<Runnable> previewRefresh = () -> null;
     private Runnable refreshDependents = () -> { };
     private Supplier<ToolbarController> toolbar = () -> null;
@@ -64,7 +63,7 @@ final class ThemeSupport {
      * @param refreshDependents redraws what else depends on the theme
      * @param ready             whether the window's controls are in place to be themed
      */
-    void wire(Preferences prefs, java.util.function.BooleanSupplier ready, Supplier<Scene> mainScene, Supplier<WebView> previewWebView,
+    void wire(Preferences prefs, java.util.function.BooleanSupplier ready, Supplier<Scene> mainScene, Supplier<javafx.scene.Node> previewWebView,
             Supplier<Runnable> previewRefresh, Runnable refreshDependents, Supplier<ToolbarController> toolbar,
             AppSettings appSettings, Function<String, String> i18n, Consumer<String> status) {
         this.prefs = prefs;

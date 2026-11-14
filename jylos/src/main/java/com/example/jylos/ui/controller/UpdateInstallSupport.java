@@ -29,7 +29,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
-import javafx.scene.web.WebView;
 
 /**
  * REMOVABLE: in-app updater — see {@link UpdateInstaller}'s class docs ("Removing
@@ -108,11 +107,8 @@ final class UpdateInstallSupport {
             // last thing someone updating from inside the app sees before installing.
             Label notesTitle = new Label(getString("update.install.release_notes"));
             notesTitle.setStyle("-fx-font-weight: bold;");
-            WebView notes = new WebView();
+            javafx.scene.layout.Region notes = (javafx.scene.layout.Region) releaseNotesView(release.notes()).node();
             notes.setPrefSize(560, 320);
-            notes.getEngine().loadContent(
-                    MarkdownPreview.buildPreviewHtml(release.notes(), darkTheme.getAsBoolean(), java.util.List.of()),
-                    "text/html");
             Label contentLabel = new Label(content);
             contentLabel.setWrapText(true);
             VBox box = new VBox(8, contentLabel, notesTitle, notes);
@@ -126,6 +122,16 @@ final class UpdateInstallSupport {
         UiDialogs.apply(alert.getDialogPane());
         Optional<ButtonType> result = alert.showAndWait();
         return result.isPresent() && result.get() == downloadButton;
+    }
+
+    /** The release notes as the reading view shows them; their links open in the browser. */
+    com.example.jylos.ui.web.HtmlView releaseNotesView(String notes) {
+        com.example.jylos.ui.web.JavaFxHtmlView view = new com.example.jylos.ui.web.JavaFxHtmlView();
+        // Its links open in the browser, as the reading view's do.
+        view.exposeBridge("javaApp", new com.example.jylos.ui.web.ExternalLinksBridge(
+                url -> openBrowser.accept(url)));
+        view.loadHtml(MarkdownPreview.buildPreviewHtml(notes, darkTheme.getAsBoolean(), java.util.List.of()));
+        return view;
     }
 
     private void runDownloadAndVerify(UpdateChecker.ReleaseInfo release, UpdateChecker.AssetInfo asset) {

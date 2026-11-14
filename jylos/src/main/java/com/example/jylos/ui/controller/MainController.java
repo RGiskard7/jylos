@@ -487,7 +487,7 @@ public class MainController {
     private void initializeThemeMenu() {
         theme.wire(prefs, () -> mainSplitPane != null && editorController != null,
                 () -> mainSplitPane != null ? mainSplitPane.getScene() : null,
-                () -> editorController != null ? editorController.getPreviewWebView() : null,
+                () -> editorController != null ? editorController.getPreviewWebView().node() : null,
                 () -> getCurrentNote() != null ? this::refreshEditorPreview : null,
                 this::refreshUiThemeDependents, () -> toolbarController, appSettings, this::getString,
                 this::updateStatus);

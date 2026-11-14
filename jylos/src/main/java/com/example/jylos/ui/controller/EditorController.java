@@ -58,7 +58,6 @@ import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.scene.web.WebView;
 
 /**
  * FXML controller for the note editor pane.
@@ -181,7 +180,8 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
     @FXML private MarkdownEditorView noteContentArea;
     @FXML private HBox      formatToolbarContainer;
     @FXML private VBox      previewPane;
-    @FXML private WebView previewWebView;
+    /** The reading view's page. */
+    @FXML private com.example.jylos.ui.web.JavaFxHtmlView previewWebView;
 
     // ============================================================
     // Setters
@@ -385,7 +385,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
     public SplitPane       getEditorPreviewSplitPane()  { return editorPreviewSplitPane; }
     public VBox            getEditorPane()              { return editorPane; }
     public VBox            getPreviewPane()             { return previewPane; }
-    public javafx.scene.web.WebView getPreviewWebView() { return previewWebView; }
+    public com.example.jylos.ui.web.HtmlView getPreviewWebView() { return previewWebView; }
 
     // ============================================================
     // FXML action handlers
@@ -1686,7 +1686,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
     /** What the reading view reads from this editor. */
     private final class PreviewHost implements EditorPreviewSupport.Host {
         @Override
-        public javafx.scene.web.WebView previewWebView() {
+        public com.example.jylos.ui.web.HtmlView previewWebView() {
             return previewWebView;
         }
 

@@ -24,7 +24,6 @@ import com.example.jylos.ui.controller.EditorController;
 
 import javafx.scene.Scene;
 import javafx.scene.layout.VBox;
-import javafx.scene.web.WebView;
 import javafx.stage.Stage;
 
 /**
@@ -47,11 +46,11 @@ class PreviewLinkExistenceTest {
                 new FolderDAOFileSystem(vault.toString()));
         java.util.List<String> opened = new java.util.concurrent.CopyOnWriteArrayList<>();
         AtomicReference<EditorController> controller = new AtomicReference<>();
-        AtomicReference<WebView> webView = new AtomicReference<>();
+        AtomicReference<com.example.jylos.ui.web.JavaFxHtmlView> webView = new AtomicReference<>();
         AtomicReference<Stage> stage = new AtomicReference<>();
         runFx(() -> {
             EditorController editor = new EditorController();
-            WebView view = new WebView();
+            com.example.jylos.ui.web.JavaFxHtmlView view = new com.example.jylos.ui.web.JavaFxHtmlView();
             VBox pane = new VBox(view);
             set(editor, "previewWebView", view);
             set(editor, "previewPane", pane);
@@ -73,12 +72,12 @@ class PreviewLinkExistenceTest {
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
             while (System.nanoTime() < deadline && classes.isEmpty()) {
                 Thread.sleep(100);
-                classes = String.valueOf(onFx(() -> webView.get().getEngine().executeScript(script)));
+                classes = String.valueOf(onFx(() -> webView.get().evaluate(script)));
             }
             assertEquals("Destino:wikilink,Falta:wikilink wikilink-new", classes);
 
             // A click on a link reaches the app through the page's bridge.
-            runFx(() -> webView.get().getEngine().executeScript("document.querySelector('a.wikilink').click()"));
+            runFx(() -> webView.get().evaluate("document.querySelector('a.wikilink').click()"));
             long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
             while (System.nanoTime() < until && opened.isEmpty()) {
                 Thread.sleep(50);

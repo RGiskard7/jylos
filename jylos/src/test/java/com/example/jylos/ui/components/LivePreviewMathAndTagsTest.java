@@ -253,7 +253,7 @@ class LivePreviewMathAndTagsTest {
     private static String js(MarkdownEditorView view, String script) {
         try {
             return onFx(() -> {
-                Object value = view.getWebView().getEngine().executeScript(script);
+                Object value = view.page().evaluate(script);
                 return value != null ? value.toString() : "null";
             });
         } catch (Exception e) {

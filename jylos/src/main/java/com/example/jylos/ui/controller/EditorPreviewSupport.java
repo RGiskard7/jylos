@@ -16,6 +16,7 @@ import com.example.jylos.plugin.PreviewEnhancer;
 import com.example.jylos.service.LinkIndex;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.ui.components.WebViewImages;
+import com.example.jylos.ui.web.HtmlView;
 import com.example.jylos.util.MarkdownPreview;
 import com.example.jylos.util.MarkdownProcessor;
 import com.example.jylos.util.SystemBrowser;
@@ -23,17 +24,12 @@ import com.example.jylos.util.Transclusion;
 
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
 import javafx.concurrent.Task;
-import javafx.concurrent.Worker;
-import javafx.scene.web.WebView;
 import javafx.util.Duration;
-import netscape.javascript.JSObject;
 
 /**
  * The editor's reading view: renders the open note off the FX thread into the preview
- * {@link WebView}, keeps the reader's place when the same note is drawn again, jumps to a
+ * {@link HtmlView}, keeps the reader's place when the same note is drawn again, jumps to a
  * heading once its page has loaded, and answers the page's clicks and failed images through
  * its Java bridge. Plugin preview enhancers are registered here.
  *
@@ -55,7 +51,7 @@ public final class EditorPreviewSupport {
 
     /** What the reading view reads from the editor that owns it. */
     interface Host {
-        WebView previewWebView();
+        HtmlView previewWebView();
 
         /** Whether the reading view is on screen (shown, and not replaced by an attachment). */
         boolean previewShown();
@@ -132,7 +128,7 @@ public final class EditorPreviewSupport {
     }
 
     void refresh(boolean darkTheme) {
-        WebView webView = host.previewWebView();
+        HtmlView webView = host.previewWebView();
         Note note = host.currentNote();
         // A plugin's own shutdown() can call unregisterEnhancer(), which queues this via
         // Platform.runLater — that queued call always lands on a *later* tick of the event
@@ -182,7 +178,7 @@ public final class EditorPreviewSupport {
             }
             pendingScrollY = scrollY;
             pendingNoteId = noteId;
-            webView.getEngine().loadContent(task.getValue(), "text/html");
+            webView.loadHtml(task.getValue());
             installBridge(webView);
         });
         task.setOnCancelled(e -> {
@@ -214,19 +210,15 @@ public final class EditorPreviewSupport {
         grace.setOnFinished(e -> {
             if (task == currentTask && !task.isDone() && host.previewShown()) {
                 renderedNoteId = null;
-                host.previewWebView().getEngine().loadContent(MarkdownPreview.buildEmptyHtml(darkTheme), "text/html");
+                host.previewWebView().loadHtml(MarkdownPreview.buildEmptyHtml(darkTheme));
             }
         });
         grace.play();
     }
 
     private double currentScrollY() {
-        try {
-            Object value = host.previewWebView().getEngine().executeScript("window.scrollY || 0");
-            return value instanceof Number number ? Math.max(0, number.doubleValue()) : 0;
-        } catch (Exception e) {
-            return 0;
-        }
+        Object value = host.previewWebView().evaluate("window.scrollY || 0");
+        return value instanceof Number number ? Math.max(0, number.doubleValue()) : 0;
     }
 
     /** The HTML of {@code ![[link]]} for Live Preview: the same embed the reading view draws. */
@@ -276,21 +268,21 @@ public final class EditorPreviewSupport {
     }
 
     void clear() {
-        WebView webView = host.previewWebView();
+        HtmlView webView = host.previewWebView();
         if (webView != null) {
-            webView.getEngine().loadContent("", "text/html");
+            webView.loadHtml("");
         }
     }
 
     void ensureThemeClass() {
-        WebView webView = host.previewWebView();
-        if (webView != null && !webView.getStyleClass().contains("webview-theme")) {
-            webView.getStyleClass().add("webview-theme");
+        HtmlView webView = host.previewWebView();
+        if (webView != null && !webView.node().getStyleClass().contains("webview-theme")) {
+            webView.node().getStyleClass().add("webview-theme");
         }
     }
 
     void scrollToHeading(String headingSlug) {
-        WebView webView = host.previewWebView();
+        HtmlView webView = host.previewWebView();
         if (webView == null || headingSlug == null || !VALID_HEADING_SLUG.matcher(headingSlug).matches()) {
             return;
         }
@@ -304,62 +296,33 @@ public final class EditorPreviewSupport {
             pendingAnchorNoteId = noteId;
             return;
         }
-        Worker<Void> loadWorker = webView.getEngine().getLoadWorker();
-        if (loadWorker.getState() == Worker.State.SUCCEEDED) {
-            executeHeadingScroll(headingSlug);
-            return;
-        }
         // A render triggered moments ago (e.g. just switched to the reading view, or a
-        // background refresh from a recent edit) hasn't landed yet — jumping now would run
-        // the script against the page that's about to be replaced. Wait for the next load
-        // to actually finish, once, the same way restorePendingScroll waits rather than
-        // assuming loadContent() is synchronous.
-        loadWorker.stateProperty().addListener(new ChangeListener<Worker.State>() {
-            @Override
-            public void changed(ObservableValue<? extends Worker.State> obs, Worker.State oldState,
-                    Worker.State newState) {
-                if (newState == Worker.State.SUCCEEDED) {
-                    loadWorker.stateProperty().removeListener(this);
-                    executeHeadingScroll(headingSlug);
-                } else if (newState == Worker.State.FAILED || newState == Worker.State.CANCELLED) {
-                    loadWorker.stateProperty().removeListener(this);
-                }
-            }
-        });
+        // background refresh from a recent edit) may not have landed yet — jumping now would run
+        // the script against the page that's about to be replaced: wait for it to load, once.
+        webView.whenLoaded(() -> executeHeadingScroll(headingSlug));
     }
 
     private void executeHeadingScroll(String headingSlug) {
-        try {
-            host.previewWebView().getEngine().executeScript(
-                    "document.getElementById('" + headingSlug + "')?.scrollIntoView({block: 'start'})");
-        } catch (Exception e) {
-            logger.fine("Could not scroll preview to heading: " + e.getMessage());
-        }
+        host.previewWebView().run(
+                "document.getElementById('" + headingSlug + "')?.scrollIntoView({block: 'start'})");
     }
 
     /** Sets the page's bridge on every load, then restores the scroll and pending jumps. */
-    private void installBridge(WebView webView) {
+    private void installBridge(HtmlView webView) {
         if (bridgeInstalled) {
             return;
         }
         bridgeInstalled = true;
-        webView.getEngine().getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
-            if (newState == Worker.State.SUCCEEDED) {
-                try {
-                    JSObject window = (JSObject) webView.getEngine().executeScript("window");
-                    window.setMember("javaApp", bridge);
-                    WebViewImages.bridgeReady(webView.getEngine());
-                    installAcceleratedScroll(webView);
-                    restorePendingScroll(webView);
-                } catch (Exception e) {
-                    logger.warning("Failed to inject preview Java bridge: " + e.getMessage());
-                }
-            }
+        webView.exposeBridge("javaApp", bridge);
+        webView.onLoaded(() -> {
+            WebViewImages.bridgeReady(webView);
+            installAcceleratedScroll(webView);
+            restorePendingScroll(webView);
         });
     }
 
-    private static void installAcceleratedScroll(WebView webView) {
-        webView.getEngine().executeScript("""
+    private static void installAcceleratedScroll(HtmlView webView) {
+        webView.run("""
                 if (!window.__jylosWheelSpeedInstalled) {
                   window.__jylosWheelSpeedInstalled = true;
                   document.addEventListener('wheel', function(e) {
@@ -371,13 +334,13 @@ public final class EditorPreviewSupport {
                 """);
     }
 
-    private void restorePendingScroll(WebView webView) {
+    private void restorePendingScroll(HtmlView webView) {
         if (pendingScrollY != null) {
             double scrollY = pendingScrollY;
             String noteId = pendingNoteId;
             pendingScrollY = null;
             pendingNoteId = null;
-            webView.getEngine().executeScript("window.scrollTo(0, " + scrollY + ");");
+            webView.run("window.scrollTo(0, " + scrollY + ");");
             renderedNoteId = noteId;
         }
         // A link to a heading or block of this note was followed before its page loaded.
@@ -415,7 +378,7 @@ public final class EditorPreviewSupport {
 
         /** An image the reading view could not draw (WebP): answered later with a PNG copy, or "". */
         public void convertImage(String id, String source) {
-            WebViewImages.convert(host.previewWebView().getEngine(), WebViewImages.READING_VIEW, id, source);
+            WebViewImages.convert(host.previewWebView(), WebViewImages.READING_VIEW, id, source);
         }
     }
 }

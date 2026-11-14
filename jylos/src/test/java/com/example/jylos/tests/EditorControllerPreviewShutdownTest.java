@@ -14,7 +14,6 @@ import com.example.jylos.ui.controller.EditorController;
 
 import javafx.application.Platform;
 import javafx.scene.layout.VBox;
-import javafx.scene.web.WebView;
 
 /**
  * Reproduces a real shutdown-ordering bug: during app quit, a plugin's own
@@ -38,7 +37,7 @@ class EditorControllerPreviewShutdownTest {
             Thread.currentThread().setUncaughtExceptionHandler((t, e) -> uncaught[0] = e);
             try {
                 EditorController controller = new EditorController();
-                setField(controller, "previewWebView", new WebView());
+                setField(controller, "previewWebView", new com.example.jylos.ui.web.JavaFxHtmlView());
                 VBox previewPane = new VBox();
                 previewPane.setVisible(true);
                 previewPane.setManaged(true);

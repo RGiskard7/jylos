@@ -14,7 +14,6 @@ import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
 
 import javafx.scene.Scene;
-import javafx.scene.web.WebView;
 
 /**
  * Theme selection, OS-theme detection and stylesheet application.
@@ -259,7 +258,7 @@ public final class ThemeCommand {
             String externalThemeId,
             ThemeCatalog themeCatalog,
             Class<?> resourceAnchor,
-            WebView previewWebView,
+            javafx.scene.Node previewWebView,
             Runnable refreshPreview,
             List<String> snippetCssUris) {
         if (scene == null || themeCatalog == null || resourceAnchor == null) {
@@ -355,7 +354,7 @@ public final class ThemeCommand {
                 && !UiPreferencesStore.THEME_SOURCE_EXTERNAL.equals(themeSource);
     }
 
-    private void ensurePreviewThemeClass(WebView previewWebView) {
+    private void ensurePreviewThemeClass(javafx.scene.Node previewWebView) {
         if (previewWebView != null && !previewWebView.getStyleClass().contains("webview-theme")) {
             previewWebView.getStyleClass().add("webview-theme");
         }
