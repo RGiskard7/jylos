@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 - **Exportar a PDF imprime la nota como se lee:** `[[Nota|texto]]` sale como su texto, no con los corchetes, y `![[Nota]]` imprime el contenido de la nota incrustada, buscada desde la carpeta de la nota exportada. También se imprimen las tarjetas de enlace.
+- **Una tarjeta de nota en un Canvas abre la nota de su ruta:** con dos notas llamadas igual en carpetas distintas, antes podía abrirse la otra. Una tarjeta que apunta a `Carpeta/Nota` sin `.md` también se resuelve.
 - **Un enlace en una tarjeta del Kanban abre la nota que nombra su ruta:** `[[Personal/Reunión]]` abre esa y no otra con el mismo nombre; antes un enlace con carpeta no abría nada.
 
 - **Lo mismo se trata igual en todas partes.**

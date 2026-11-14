@@ -584,12 +584,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                     this::handleUiNoteModified, this::updateStatus,
                     com.example.jylos.service.NoteTitleIndex.getInstance()::titlesSorted,
                     uiPreferences.loadLivePreviewEnabled(prefs),
-                    enabled -> uiPreferences.saveLivePreviewEnabled(prefs, enabled));
-            // A link opens the note it names by path, resolved from the note it is written in,
-            // and scrolls to its heading or block when it names one.
-            editorController.setWikiLinkHandler(this::openLink);
-            editorController.setTagLinkHandler(this::loadNotesForTag);
-            editorController.setEditorHooks(editorHooks);
+                    enabled -> uiPreferences.saveLivePreviewEnabled(prefs, enabled),
+                    // A link opens the note it names by path, resolved from the note it is
+                    // written in, and scrolls to its heading or block when it names one.
+                    this::openLink, this::loadNotesForTag, editorHooks);
             if (editorTabs == null) {
                 editorController.initializeTagsBarCollapsed();
                 editorTabs = new com.example.jylos.ui.components.EditorTabs(

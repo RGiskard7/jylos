@@ -45,6 +45,7 @@ class PreviewLinkExistenceTest {
         Files.writeString(vault.resolve("Destino.md"), "x\n", StandardCharsets.UTF_8);
         NoteService notes = new NoteService(new NoteDAOFileSystem(vault.toString()),
                 new FolderDAOFileSystem(vault.toString()));
+        java.util.List<String> opened = new java.util.concurrent.CopyOnWriteArrayList<>();
         AtomicReference<EditorController> controller = new AtomicReference<>();
         AtomicReference<WebView> webView = new AtomicReference<>();
         AtomicReference<Stage> stage = new AtomicReference<>();
@@ -56,6 +57,7 @@ class PreviewLinkExistenceTest {
             set(editor, "previewPane", pane);
             set(editor, "noteService", notes);
             set(editor, "currentNote", notes.getNoteById("Fuente.md").orElseThrow());
+            set(editor, "wikiLinkHandler", (EditorController.WikiLinkHandler) opened::add);
             Stage window = new Stage();
             window.setScene(new Scene(pane, 600, 400));
             window.show();
@@ -74,6 +76,14 @@ class PreviewLinkExistenceTest {
                 classes = String.valueOf(onFx(() -> webView.get().getEngine().executeScript(script)));
             }
             assertEquals("Destino:wikilink,Falta:wikilink wikilink-new", classes);
+
+            // A click on a link reaches the app through the page's bridge.
+            runFx(() -> webView.get().getEngine().executeScript("document.querySelector('a.wikilink').click()"));
+            long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (System.nanoTime() < until && opened.isEmpty()) {
+                Thread.sleep(50);
+            }
+            assertEquals(java.util.List.of("Destino"), opened, "the clicked link opens its note");
         } finally {
             runFx(() -> {
                 controller.get().teardown();
