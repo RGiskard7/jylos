@@ -2,6 +2,7 @@ package com.example.jylos.ui.controller;
 
 import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -11,49 +12,87 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.data.models.Note;
+import com.example.jylos.plugin.NoteContextMenuEntry;
 import com.example.jylos.plugin.PluginManager;
+import com.example.jylos.plugin.PluginMenuRegistry;
+import com.example.jylos.plugin.PluginNoteContextMenuRegistry;
+import com.example.jylos.plugin.SidePanelRegistry;
+import com.example.jylos.plugin.StatusBarRegistry;
+import com.example.jylos.plugin.ToolbarRegistry;
 import com.example.jylos.ui.UiNodes;
 
 import javafx.application.Platform;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.Separator;
 import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
 /**
- * Dynamic plugin UI registration/removal for menus, side panels and status bar.
- *
- * <p>Receives i18n/status callbacks plus the active plugin manager supplier via
- * {@link #wire(Function, Consumer, Supplier)}; the menu/panel/status-bar registries
- * it maintains are passed in by the controller that owns the corresponding FXML
- * containers.</p>
+ * What plugins add to the window: items in the Plugins menu, side panels in the right panel,
+ * toolbar buttons and entries in a note's context menu. Keeps each plugin's contributions so
+ * they can be taken out again when the plugin is disabled.
  */
-class PluginUi {
+class PluginUi implements PluginMenuRegistry, SidePanelRegistry, ToolbarRegistry, PluginNoteContextMenuRegistry,
+        StatusBarRegistry {
 
     private static final Logger logger = LoggerConfig.getLogger(PluginUi.class);
 
-    private Function<String, String> i18nFn;
-    private Consumer<String> updateStatus;
-    private Supplier<PluginManager> pluginManagerSupplier;
+    private Function<String, String> i18nFn = key -> key;
+    private Consumer<String> updateStatus = message -> { };
+    private Supplier<PluginManager> pluginManagerSupplier = () -> null;
+    private Supplier<ToolbarController> toolbar = () -> null;
+    private VBox pluginPanelsContainer;
+    private HBox statusBarContainer;
 
+    private final Map<String, Menu> pluginCategoryMenus = new HashMap<>();
+    private final Map<String, List<MenuItem>> pluginMenuItems = new HashMap<>();
+    private final Map<String, VBox> pluginPanels = new HashMap<>();
+    private final Map<String, List<String>> pluginPanelIds = new HashMap<>();
+    /** pluginId → toolbar buttons. */
+    private final Map<String, List<Node>> pluginToolbarButtons = new HashMap<>();
+    /** pluginId → note context menu entries. */
+    private final Map<String, List<NoteContextMenuEntry>> pluginNoteContextMenuItems = new HashMap<>();
+
+    /**
+     * @param toolbar               the toolbar, whose Plugins menu and plugin button area receive items
+     * @param pluginPanelsContainer the right panel's area for plugin side panels
+     * @param statusBarContainer    the status bar's area for plugin items
+     */
     void wire(Function<String, String> i18n, Consumer<String> updateStatus,
-            Supplier<PluginManager> pluginManagerSupplier) {
+            Supplier<PluginManager> pluginManagerSupplier, Supplier<ToolbarController> toolbar,
+            VBox pluginPanelsContainer, HBox statusBarContainer) {
         this.i18nFn = i18n;
         this.updateStatus = updateStatus;
         this.pluginManagerSupplier = pluginManagerSupplier;
+        this.toolbar = toolbar != null ? toolbar : () -> null;
+        this.pluginPanelsContainer = pluginPanelsContainer;
+        this.statusBarContainer = statusBarContainer;
     }
 
-    void registerMenuItem(String pluginId, String category, String itemName, String shortcut, Runnable action,
-            ToolbarController toolbarController,
-            Map<String, Menu> pluginCategoryMenus,
-            Map<String, List<MenuItem>> pluginMenuItems) {
+    @Override
+    public void registerMenuItem(String pluginId, String category, String itemName, Runnable action) {
+        registerMenuItem(pluginId, category, itemName, null, action);
+    }
+
+    @Override
+    public boolean isPluginEnabled(String pluginId) {
+        PluginManager pluginManager = pluginManagerSupplier.get();
+        return pluginManager != null && pluginManager.isPluginEnabled(pluginId);
+    }
+
+    @Override
+    public void registerMenuItem(String pluginId, String category, String itemName, String shortcut, Runnable action) {
+        ToolbarController toolbarController = toolbar.get();
         Platform.runLater(() -> {
             if (toolbarController == null || toolbarController.getPluginsMenu() == null) {
                 logger.warning("Plugins menu not available for registration: " + itemName);
@@ -94,9 +133,8 @@ class PluginUi {
         });
     }
 
-    void addMenuSeparator(String pluginId, String category,
-            Map<String, Menu> pluginCategoryMenus,
-            Map<String, List<MenuItem>> pluginMenuItems) {
+    @Override
+    public void addMenuSeparator(String pluginId, String category) {
         Platform.runLater(() -> {
             Menu categoryMenu = pluginCategoryMenus.get(category);
             if (categoryMenu != null) {
@@ -107,10 +145,9 @@ class PluginUi {
         });
     }
 
-    void removePluginMenuItems(String pluginId,
-            ToolbarController toolbarController,
-            Map<String, Menu> pluginCategoryMenus,
-            Map<String, List<MenuItem>> pluginMenuItems) {
+    @Override
+    public void removePluginMenuItems(String pluginId) {
+        ToolbarController toolbarController = toolbar.get();
         Platform.runLater(() -> {
             List<MenuItem> items = pluginMenuItems.remove(pluginId);
             if (items == null) {
@@ -138,10 +175,8 @@ class PluginUi {
         });
     }
 
-    void registerSidePanel(String pluginId, String panelId, String title, Node content, String icon,
-            VBox pluginPanelsContainer,
-            Map<String, VBox> pluginPanels,
-            Map<String, List<String>> pluginPanelIds) {
+    @Override
+    public void registerSidePanel(String pluginId, String panelId, String title, Node content, String icon) {
         Platform.runLater(() -> {
             if (pluginPanelsContainer == null) {
                 logger.warning("Plugin panels container not available for registration: " + panelId);
@@ -207,10 +242,8 @@ class PluginUi {
         });
     }
 
-    void removeSidePanel(String pluginId, String panelId,
-            VBox pluginPanelsContainer,
-            Map<String, VBox> pluginPanels,
-            Map<String, List<String>> pluginPanelIds) {
+    @Override
+    public void removeSidePanel(String pluginId, String panelId) {
         Platform.runLater(() -> {
             String fullPanelId = pluginId + ":" + panelId;
             VBox panel = pluginPanels.remove(fullPanelId);
@@ -232,10 +265,8 @@ class PluginUi {
         });
     }
 
-    void removeAllSidePanels(String pluginId,
-            VBox pluginPanelsContainer,
-            Map<String, VBox> pluginPanels,
-            Map<String, List<String>> pluginPanelIds) {
+    @Override
+    public void removeAllSidePanels(String pluginId) {
         Platform.runLater(() -> {
             List<String> ids = pluginPanelIds.remove(pluginId);
             if (ids == null || pluginPanelsContainer == null) {
@@ -257,7 +288,8 @@ class PluginUi {
         });
     }
 
-    void setPluginPanelsVisible(boolean visible, VBox pluginPanelsContainer) {
+    @Override
+    public void setPluginPanelsVisible(boolean visible) {
         Platform.runLater(() -> {
             if (pluginPanelsContainer != null) {
                 UiNodes.show(pluginPanelsContainer, visible);
@@ -265,83 +297,138 @@ class PluginUi {
         });
     }
 
-    boolean isPluginPanelsVisible(VBox pluginPanelsContainer) {
+    @Override
+    public boolean isPluginPanelsVisible() {
         return pluginPanelsContainer != null && pluginPanelsContainer.isVisible();
     }
 
-    void registerStatusBarItem(String pluginId, String itemId, Node content,
-            HBox pluginStatusBarContainer,
-            Map<String, Node> pluginStatusBarItems,
-            Map<String, List<String>> pluginStatusBarItemIds) {
+    // ── Toolbar buttons ─────────────────────────────────────────────────────
+
+    @Override
+    public void registerToolbarButton(String pluginId, String buttonId, String tooltip,
+            String iconLiteral, Runnable action) {
+        if (pluginId == null || buttonId == null || action == null) {
+            return;
+        }
+        ToolbarController toolbarController = toolbar.get();
+        HBox container = toolbarController != null ? toolbarController.getPluginToolbarContainer() : null;
+        if (container == null) {
+            return;
+        }
         Platform.runLater(() -> {
-            if (pluginStatusBarContainer == null) {
-                logger.warning("Status bar container not available for: " + itemId);
-                return;
+            Button button = new Button();
+            button.getStyleClass().add("toolbar-btn");
+            // Stable per-plugin id so re-registration replaces instead of duplicating.
+            button.setId("plugin-toolbar-" + pluginId + "-" + buttonId);
+            if (tooltip != null && !tooltip.isBlank()) {
+                button.setTooltip(new Tooltip(tooltip));
             }
+            if (iconLiteral != null && !iconLiteral.isBlank()) {
+                org.kordamp.ikonli.javafx.FontIcon icon = new org.kordamp.ikonli.javafx.FontIcon(iconLiteral);
+                icon.getStyleClass().add("feather-icon");
+                icon.setIconSize(16);
+                button.setGraphic(icon);
+            } else {
+                button.setText(tooltip != null ? tooltip : buttonId);
+            }
+            button.setOnAction(e -> action.run());
 
-            String fullItemId = pluginId + ":" + itemId;
-            HBox wrapper = new HBox(8);
-            wrapper.setAlignment(Pos.CENTER_LEFT);
-
-            Separator sep = new Separator();
-            sep.setOrientation(Orientation.VERTICAL);
-            sep.getStyleClass().add("status-separator");
-
-            wrapper.getChildren().addAll(sep, content);
-            pluginStatusBarContainer.getChildren().add(wrapper);
-            pluginStatusBarItems.put(fullItemId, wrapper);
-            pluginStatusBarItemIds.computeIfAbsent(pluginId, k -> new ArrayList<>()).add(fullItemId);
-
-            logger.fine("Registered status bar item: " + itemId + " for plugin " + pluginId);
+            container.getChildren().removeIf(n -> button.getId().equals(n.getId()));
+            container.getChildren().add(button);
+            pluginToolbarButtons.computeIfAbsent(pluginId, k -> new ArrayList<>()).add(button);
+            UiNodes.show(container, true);
         });
     }
 
-    void removeStatusBarItem(String pluginId, String itemId,
-            HBox pluginStatusBarContainer,
-            Map<String, Node> pluginStatusBarItems,
-            Map<String, List<String>> pluginStatusBarItemIds) {
+    @Override
+    public void removeToolbarButtons(String pluginId) {
+        ToolbarController toolbarController = toolbar.get();
+        HBox container = toolbarController != null ? toolbarController.getPluginToolbarContainer() : null;
+        List<Node> buttons = pluginToolbarButtons.remove(pluginId);
+        if (container == null || buttons == null) {
+            return;
+        }
         Platform.runLater(() -> {
-            String fullItemId = pluginId + ":" + itemId;
-            Node item = pluginStatusBarItems.remove(fullItemId);
-            if (item == null || pluginStatusBarContainer == null) {
+            container.getChildren().removeAll(buttons);
+            UiNodes.show(container, !container.getChildren().isEmpty());
+        });
+    }
+
+    // ── Note context menu entries ───────────────────────────────────────────
+
+    @Override
+    public void registerNoteContextMenuItem(String pluginId, String label, Consumer<Note> action) {
+        pluginNoteContextMenuItems.computeIfAbsent(pluginId, k -> new ArrayList<>())
+                .add(new NoteContextMenuEntry(pluginId, label, action));
+    }
+
+    @Override
+    public void removePluginNoteContextMenuItems(String pluginId) {
+        pluginNoteContextMenuItems.remove(pluginId);
+    }
+
+    @Override
+    public List<NoteContextMenuEntry> getNoteContextMenuItems() {
+        List<NoteContextMenuEntry> all = new ArrayList<>();
+        for (List<NoteContextMenuEntry> entries : pluginNoteContextMenuItems.values()) {
+            all.addAll(entries);
+        }
+        return all;
+    }
+
+    // ── Status bar items ────────────────────────────────────────────────────
+
+    /** pluginId:itemId → the item shown (its separator and content), in registration order. */
+    private final Map<String, Node> statusBarItems = new java.util.LinkedHashMap<>();
+
+    @Override
+    public void registerStatusBarItem(String pluginId, String itemId, Node content) {
+        if (pluginId == null || itemId == null || content == null) {
+            return;
+        }
+        Platform.runLater(() -> {
+            if (statusBarContainer == null) {
+                logger.warning("Status bar area not available for: " + itemId);
                 return;
             }
-
-            pluginStatusBarContainer.getChildren().remove(item);
-            List<String> ids = pluginStatusBarItemIds.get(pluginId);
-            if (ids != null) {
-                ids.remove(fullItemId);
+            // A separator before each item, as between the bar's own items.
+            Separator separator = new Separator(Orientation.VERTICAL);
+            separator.getStyleClass().add("status-separator");
+            HBox item = new HBox(8, separator, content);
+            item.setAlignment(Pos.CENTER_LEFT);
+            String key = pluginId + ":" + itemId;
+            Node previous = statusBarItems.put(key, item);
+            int at = previous != null ? statusBarContainer.getChildren().indexOf(previous) : -1;
+            if (at >= 0) {
+                statusBarContainer.getChildren().set(at, item);
+            } else {
+                statusBarContainer.getChildren().add(item);
             }
         });
     }
 
-    void updateStatusBarItem(String pluginId, String itemId, Node content,
-            Map<String, Node> pluginStatusBarItems) {
+    @Override
+    public void removeStatusBarItem(String pluginId, String itemId) {
         Platform.runLater(() -> {
-            String fullItemId = pluginId + ":" + itemId;
-            Node wrapper = pluginStatusBarItems.get(fullItemId);
-            if (wrapper instanceof HBox box && box.getChildren().size() > 1) {
-                box.getChildren().set(1, content);
+            Node item = statusBarItems.remove(pluginId + ":" + itemId);
+            if (item != null && statusBarContainer != null) {
+                statusBarContainer.getChildren().remove(item);
             }
         });
     }
 
-    void removeAllStatusBarItems(String pluginId,
-            HBox pluginStatusBarContainer,
-            Map<String, Node> pluginStatusBarItems,
-            Map<String, List<String>> pluginStatusBarItemIds) {
+    @Override
+    public void removeStatusBarItems(String pluginId) {
         Platform.runLater(() -> {
-            List<String> ids = pluginStatusBarItemIds.remove(pluginId);
-            if (ids == null || pluginStatusBarContainer == null) {
-                return;
-            }
-
-            for (String fullItemId : ids) {
-                Node item = pluginStatusBarItems.remove(fullItemId);
-                if (item != null) {
-                    pluginStatusBarContainer.getChildren().remove(item);
+            statusBarItems.entrySet().removeIf(entry -> {
+                if (!entry.getKey().startsWith(pluginId + ":")) {
+                    return false;
                 }
-            }
+                if (statusBarContainer != null) {
+                    statusBarContainer.getChildren().remove(entry.getValue());
+                }
+                return true;
+            });
         });
     }
 }

@@ -52,7 +52,7 @@ class PluginManagerLifecycleTest {
         RecordingNoteContextMenuRegistry noteContextMenu = new RecordingNoteContextMenuRegistry();
         PluginManager manager = new PluginManager(null, null, null, null, null, menu, side, preview, hooks, toolbar,
                 null, note -> {
-                }, null, noteContextMenu);
+                }, null, noteContextMenu, null);
         CountingPlugin plugin = new CountingPlugin("alpha");
 
         assertTrue(manager.registerPlugin(plugin));
@@ -95,7 +95,7 @@ class PluginManagerLifecycleTest {
         RecordingNoteContextMenuRegistry noteContextMenu = new RecordingNoteContextMenuRegistry();
         PluginManager manager = new PluginManager(null, null, null, null, null, null, null, null, null, null,
                 null, note -> {
-                }, null, noteContextMenu);
+                }, null, noteContextMenu, null);
         String id = "test-note-context-menu-plugin";
         NoteContextMenuPlugin plugin = new NoteContextMenuPlugin(id);
 
@@ -122,12 +122,63 @@ class PluginManagerLifecycleTest {
         }
     }
 
+    /**
+     * A status bar item a plugin adds through its context is shown, and removed when the
+     * plugin is disabled. The id is test-only: disabling writes to the real Preferences (see
+     * the test above).
+     */
+    @Test
+    void aStatusBarItemRegisteredByAPluginIsShownThenRemovedOnDisable() {
+        java.util.Map<String, javafx.scene.Node> shown = new java.util.LinkedHashMap<>();
+        com.example.jylos.plugin.StatusBarRegistry bar = new com.example.jylos.plugin.StatusBarRegistry() {
+            @Override
+            public void registerStatusBarItem(String pluginId, String itemId, javafx.scene.Node content) {
+                shown.put(pluginId + ":" + itemId, content);
+            }
+
+            @Override
+            public void removeStatusBarItem(String pluginId, String itemId) {
+                shown.remove(pluginId + ":" + itemId);
+            }
+
+            @Override
+            public void removeStatusBarItems(String pluginId) {
+                shown.keySet().removeIf(key -> key.startsWith(pluginId + ":"));
+            }
+        };
+        PluginManager manager = new PluginManager(null, null, null, null, null, null, null, null, null, null,
+                null, note -> {
+                }, null, null, bar);
+        String id = "test-status-bar-plugin";
+        Plugin plugin = new Plugin() {
+            public String getId() { return id; }
+            public String getName() { return "Status bar test"; }
+            public String getVersion() { return "1.0"; }
+            public String getDescription() { return ""; }
+            public String getAuthor() { return ""; }
+            public void initialize(PluginContext context) {
+                context.registerStatusBarItem("contador", null);
+            }
+            public void shutdown() {}
+        };
+        try {
+            manager.registerPlugin(plugin);
+            assertTrue(manager.initializePlugin(id));
+            assertEquals(java.util.List.of(id + ":contador"), new java.util.ArrayList<>(shown.keySet()));
+
+            assertTrue(manager.disablePlugin(id));
+            assertTrue(shown.isEmpty(), "removed on disable: " + shown);
+        } finally {
+            manager.enablePlugin(id);
+        }
+    }
+
     @Test
     void shutdownAllCallsShutdownOnRegisteredPlugins() {
         PluginManager manager = new PluginManager(null, null, null, null, null,
                 new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry(),
                 new RecordingHookRegistry(), new RecordingToolbarRegistry(), null, note -> {
-                }, null, null);
+                }, null, null, null);
         CountingPlugin one = new CountingPlugin("one");
         CountingPlugin two = new CountingPlugin("two");
 
@@ -147,7 +198,7 @@ class PluginManagerLifecycleTest {
         PluginManager firstSession = new PluginManager(null, null, null, null, null,
                 new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry(),
                 new RecordingHookRegistry(), new RecordingToolbarRegistry(), null, note -> {
-                }, null, null);
+                }, null, null, null);
         CountingPlugin firstPlugin = new CountingPlugin(pluginId);
         firstSession.registerPlugin(firstPlugin);
         firstSession.initializeAll();
@@ -156,7 +207,7 @@ class PluginManagerLifecycleTest {
         PluginManager secondSession = new PluginManager(null, null, null, null, null,
                 new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry(),
                 new RecordingHookRegistry(), new RecordingToolbarRegistry(), null, note -> {
-                }, null, null);
+                }, null, null, null);
         CountingPlugin secondPlugin = new CountingPlugin(pluginId);
         secondSession.registerPlugin(secondPlugin);
 
@@ -177,7 +228,7 @@ class PluginManagerLifecycleTest {
         PluginManager manager = new PluginManager(null, null, null, null, null,
                 new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry(),
                 new RecordingHookRegistry(), new RecordingToolbarRegistry(), null, note -> {
-                }, null, null);
+                }, null, null, null);
         FailingPlugin plugin = new FailingPlugin("broken");
 
         assertFalse(manager.initializePlugin("broken"));
@@ -202,7 +253,7 @@ class PluginManagerLifecycleTest {
             PluginManager manager = new PluginManager(null, null, null, null, null,
                     new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry(),
                     new RecordingHookRegistry(), new RecordingToolbarRegistry(), null, note -> {
-                    }, null, null);
+                    }, null, null, null);
 
             Plugin installed = manager.installPluginJar(sourceJar);
 

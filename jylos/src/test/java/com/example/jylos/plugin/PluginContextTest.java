@@ -102,7 +102,7 @@ class PluginContextTest {
      *  shared with whatever the real app has stored there under the same id. */
     private static PluginContext testContext(String pluginId) {
         return new PluginContext(pluginId, null, null, null, null, null, null, null, null, null, null, null, null,
-                null, null);
+                null, null, null);
     }
 
     @Test

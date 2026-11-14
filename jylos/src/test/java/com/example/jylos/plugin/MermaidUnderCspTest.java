@@ -50,7 +50,7 @@ class MermaidUnderCspTest {
         };
         MermaidPlugin plugin = new MermaidPlugin();
         plugin.initialize(new PluginContext(plugin.getId(), null, null, null, null, null, null, null, capture,
-                null, null, null, null, null, null));
+                null, null, null, null, null, null, null));
         assertTrue(!enhancers.isEmpty(), "Mermaid must register its preview enhancer");
 
         String html = MarkdownPreview.buildPreviewHtml("```mermaid\ngraph TD\n    A --> B\n```\n", false, enhancers);

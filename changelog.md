@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- **Un Canvas se puede hacer privado**, como una nota: se guarda cifrado, se abre normalmente mientras las notas privadas están desbloqueadas y muestra el candado mientras están bloqueadas. Antes, hacer privado un Canvas daba un error y no se guardaba. Las imágenes y los PDF ya no ofrecen "Hacer privada": son ficheros binarios y cifrarlos los rompería.
+- **Guardar un Canvas quita el aviso amarillo "Sin guardar"** de la barra de estado, como al guardar una nota.
+- **Renombrar desde el explorador la nota abierta ya no salta el aviso de que se modificó fuera de Jylos**, ni al renombrar ni al guardar después, aunque tuviera cambios sin guardar.
+- **El explorador muestra si una nota está fijada, en favoritos o es privada**, con los mismos iconos que la lista de notas, y pone primero las fijadas de cada carpeta. En la lista de notas, la estrella y el candado ya se ven sobre una nota seleccionada; antes tomaban el color de la selección.
+
+- **Los plugins pueden mostrar elementos en la barra de estado**, como `addStatusBarItem()` en Obsidian: `registerStatusBarItem(id, nodo)` lo añade a la derecha de la barra, el plugin lo actualiza cuando quiere y desaparece solo al desactivar el plugin.
 - **Exportar a PDF imprime la nota como se lee:** `[[Nota|texto]]` sale como su texto, no con los corchetes, y `![[Nota]]` imprime el contenido de la nota incrustada, buscada desde la carpeta de la nota exportada. También se imprimen las tarjetas de enlace.
 - **Una tarjeta de nota en un Canvas abre la nota de su ruta:** con dos notas llamadas igual en carpetas distintas, antes podía abrirse la otra. Una tarjeta que apunta a `Carpeta/Nota` sin `.md` también se resuelve.
 - **Un enlace en una tarjeta del Kanban abre la nota que nombra su ruta:** `[[Personal/Reunión]]` abre esa y no otra con el mismo nombre; antes un enlace con carpeta no abría nada.

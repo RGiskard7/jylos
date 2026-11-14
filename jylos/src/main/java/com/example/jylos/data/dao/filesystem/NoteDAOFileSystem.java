@@ -869,8 +869,12 @@ public class NoteDAOFileSystem implements NoteDAO {
                     // toggle rewrite a real .canvas file with an empty lightweight body.
                     if (content != null && !content.isBlank()) {
                         try {
-                            FileSystemAtomicWriter.writeString(path, metadataStore.normalizeCanvasDocument(content),
-                                    StandardCharsets.UTF_8);
+                            // A private canvas is stored encrypted, as a private note's body: written
+                            // as it is, not as canvas JSON.
+                            String stored = com.example.jylos.service.EncryptionService.isEncrypted(content)
+                                    ? content
+                                    : metadataStore.normalizeCanvasDocument(content);
+                            FileSystemAtomicWriter.writeString(path, stored, StandardCharsets.UTF_8);
                         } catch (IllegalArgumentException e) {
                             throw new DataAccessException("Invalid canvas document: " + note.getId(), e);
                         }

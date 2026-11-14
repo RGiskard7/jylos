@@ -75,7 +75,8 @@ import javafx.scene.web.WebView;
  * @author Edu Díaz (RGiskard7)
  * @since 1.3.0
  */
-public class EditorController {
+public class EditorController implements com.example.jylos.plugin.PreviewEnhancerRegistry,
+        com.example.jylos.plugin.EditorBlockRendererRegistry {
 
     private static final Logger logger = LoggerConfig.getLogger(EditorController.class);
 
@@ -329,6 +330,13 @@ public class EditorController {
         currentNote.setDeleted(note.isDeleted());
         currentNote.setDeletedDate(note.getDeletedDate());
         currentNote.setStatus(note.getStatus());
+        // Jylos itself just wrote the note (a rename, a pin, a favourite): the file on disk and
+        // the title are ours, before the title field changes and is compared with them. Edits
+        // still unsaved in the editor stay unsaved; they are not an outside change.
+        persistedTitle = orEmpty(note.getTitle());
+        persistedFingerprint = noteService != null && note.getId() != null
+                ? noteService.fingerprint(note.getId()).orElse(null)
+                : null;
         if (noteTitleField != null) {
             noteTitleField.setText(note.getTitle() != null ? note.getTitle() : "");
         }
@@ -340,6 +348,10 @@ public class EditorController {
 
     /** Live editor content (includes unsaved edits); empty while viewing an attachment. */
     public String getCurrentContent() {
+        if (currentAttachmentType == AttachmentType.CANVAS && currentCanvasView != null) {
+            // The canvas as it is on screen, unsaved changes included.
+            return currentCanvasView.serialize();
+        }
         if (viewingAttachment) {
             return "";
         }
@@ -829,7 +841,15 @@ public class EditorController {
     /** Reads, parses and renders a {@code .canvas} file; file nodes open the referenced note. */
     private javafx.scene.Node buildCanvasView(java.nio.file.Path path) {
         try {
-            String json = Files.readString(path);
+            String json = canvasContent(path);
+            if (NoteService.LOCKED_PLACEHOLDER.equals(json)) {
+                // A private canvas while locked: nothing to draw, and nothing to save over it.
+                currentCanvasView = null;
+                currentCanvasPath = null;
+                Label locked = new Label(json);
+                locked.getStyleClass().add("viewer-info");
+                return locked;
+            }
             com.example.jylos.util.CanvasModel.Document canvasDoc =
                     com.example.jylos.util.CanvasModel.Document.parse(json);
             CanvasReferences refs = new CanvasReferences(noteService,
@@ -858,6 +878,20 @@ public class EditorController {
             error.getStyleClass().add("viewer-info");
             return error;
         }
+    }
+
+    /**
+     * The canvas's JSON. Read through the note service, which decrypts a private canvas (or
+     * gives the lock placeholder while locked); straight from the file without one.
+     */
+    private String canvasContent(java.nio.file.Path path) throws IOException {
+        if (noteService != null && currentNote != null && currentNote.getId() != null) {
+            java.util.Optional<String> content = noteService.getNoteById(currentNote.getId()).map(Note::getContent);
+            if (content.isPresent()) {
+                return content.get();
+            }
+        }
+        return Files.readString(path);
     }
 
     private Supplier<List<String>> memoizedCanvasReferenceSuggestions(CanvasReferences refs) {
@@ -893,7 +927,8 @@ public class EditorController {
         noteService.updateNote(currentNote, previousStoredContent);
         currentCanvasPath = noteService.getNoteFilePath(currentNote.getId()).orElse(currentCanvasPath);
         currentCanvasFingerprint = fingerprint(currentCanvasPath);
-        isModified = false;
+        // Through setModifiedState, as a note's save: the window hears it and stops saying "Unsaved".
+        setModifiedState(false);
         updateBreadcrumb(currentNote);
         if (eventBus != null) {
             eventBus.publish(new NoteEvents.NoteSavedEvent(currentNote, previousNoteId));
@@ -1414,12 +1449,14 @@ public class EditorController {
     // Preview, word count, editor chrome
     // ============================================================
 
+    @Override
     public void registerEditorBlockRenderer(String pluginId, String language,
             com.example.jylos.plugin.EditorBlockRenderer renderer) {
         blockRenderSupport.registerRenderer(pluginId, language, renderer);
         Platform.runLater(() -> refreshEditorBlockRenders(true));
     }
 
+    @Override
     public void unregisterEditorBlockRenderers(String pluginId) {
         blockRenderSupport.unregisterRenderers(pluginId);
         Platform.runLater(() -> refreshEditorBlockRenders(true));
@@ -1440,10 +1477,12 @@ public class EditorController {
                 rendered -> Platform.runLater(() -> noteContentArea.setBlockRenders(rendered)));
     }
 
+    @Override
     public void registerPreviewEnhancer(String pluginId, PreviewEnhancer enhancer) {
         preview.registerEnhancer(pluginId, enhancer);
     }
 
+    @Override
     public void unregisterPreviewEnhancer(String pluginId) {
         preview.unregisterEnhancer(pluginId);
     }

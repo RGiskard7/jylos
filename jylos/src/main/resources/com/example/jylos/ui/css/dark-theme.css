@@ -649,6 +649,13 @@
     -fx-fill: -fx-accent;
 }
 
+/* On a selected row (painted with the accent) the lock takes the row's text colour. */
+.tree-cell:selected .note-cell-lock,
+.list-cell:selected .note-cell-lock {
+    -fx-icon-color: -fx-selected-text;
+    -fx-fill: -fx-selected-text;
+}
+
 .list-cell:selected .note-cell-title,
 .list-cell:selected .note-cell-preview,
 .list-cell:selected .note-cell-preview-flow .text,

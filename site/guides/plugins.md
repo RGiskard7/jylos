@@ -37,6 +37,7 @@ A plugin extends `AbstractPlugin` and receives a `PluginContext` exposing these 
 - `registerSidePanel(...)` — a node in the right panel.
 - `registerPreviewEnhancer(...)` — CSS/JS and per-note HTML post-processing for the Markdown preview.
 - `registerToolbarButton(...)` — a button in the main toolbar.
+- `registerStatusBarItem(...)` — an item in the status bar, which the plugin keeps and updates (like Obsidian's `addStatusBarItem()`).
 - `registerEditorHook(...)` — `onBeforeTextInsert`, `onBeforeSave`, `onAfterSave`.
 - `registerEditorBlockRenderer(...)` — render a fenced block inline in Live Preview.
 - Event bus access, themed dialogs, progress dialogs and per-plugin preferences.

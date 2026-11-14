@@ -95,6 +95,22 @@ class ExplorerOrderingTest {
         assertEquals("A", ordered.get(1).getTitle());
     }
 
+    /** Pinned notes come first in their folder, as in the notes list; each group keeps the chosen order. */
+    @Test
+    void pinnedNotesComeFirst() {
+        Note a = note("A", "2026-01-01", "2026-01-01");
+        Note b = note("B", "2026-01-02", "2026-01-02");
+        Note c = note("C", "2026-01-03", "2026-01-03");
+        Note d = note("D", "2026-01-04", "2026-01-04");
+        b.setPinned(true);
+        d.setPinned(true);
+
+        assertEquals(List.of("Carpeta", "B", "D", "A", "C"),
+                titles(ExplorerOrdering.order(List.of(folder("Carpeta")), List.of(a, b, c, d), SortOption.TITLE_ASC)));
+        assertEquals(List.of("D", "B", "C", "A"),
+                titles(ExplorerOrdering.order(List.of(), List.of(a, b, c, d), SortOption.TITLE_DESC)));
+    }
+
     private static Folder folder(String title) {
         return new Folder(title == null ? "id-null" : "id-" + title, title);
     }

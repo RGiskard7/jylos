@@ -267,7 +267,8 @@ public class NotesListController {
                 titleRow.setMinWidth(0);
                 pinIcon.getStyleClass().add("feather-pin-active");
                 pinIcon.setIconSize(12);
-                favIcon.setIconColor(javafx.scene.paint.Color.GOLD);
+                // A style class, not a colour set here: the theme recolours it on a selected row.
+                favIcon.getStyleClass().add("feather-favorite-active");
                 favIcon.setIconSize(12);
                 lockIcon.getStyleClass().add("note-cell-lock");
                 lockIcon.setIconSize(12);

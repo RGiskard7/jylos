@@ -721,6 +721,10 @@ public final class ExplorerTree {
         private final FontIcon folderIcon = new FontIcon("fth-folder");
         private final Label name = new Label();
         private final Label badge = new Label();
+        /** A note's marks, after its name: pinned, favourite, private (as in the notes list). */
+        private final FontIcon pinMark = mark("bi-pin-angle", "feather-pin-active");
+        private final FontIcon favouriteMark = mark("fth-star", "feather-favorite-active");
+        private final FontIcon privateMark = mark("fth-lock", "note-cell-lock");
         /** Which item this row showed last, to notice when it is reused for another one. */
         private String shownKey;
         private final HBox content = new HBox(6);
@@ -787,6 +791,13 @@ public final class ExplorerTree {
             guides.layout(this, getChildren());
         }
 
+        private static FontIcon mark(String literal, String styleClass) {
+            FontIcon icon = new FontIcon(literal);
+            icon.setIconSize(12);
+            icon.getStyleClass().addAll("feather-icon", "explorer-mark", styleClass);
+            return icon;
+        }
+
         private boolean onArrow(MouseEvent event) {
             Node node = event.getPickResult() != null ? event.getPickResult().getIntersectedNode() : null;
             while (node != null && node != this) {
@@ -832,6 +843,15 @@ public final class ExplorerTree {
                     default -> "fth-file-text";
                 });
                 content.getChildren().setAll(noteIcon, name);
+                if (note.isPinned()) {
+                    content.getChildren().add(pinMark);
+                }
+                if (note.isFavorite()) {
+                    content.getChildren().add(favouriteMark);
+                }
+                if (note.isPrivate()) {
+                    content.getChildren().add(privateMark);
+                }
                 getStyleClass().add(NOTE_STYLE);
                 setContextMenu(noteMenu.apply(note));
             } else {

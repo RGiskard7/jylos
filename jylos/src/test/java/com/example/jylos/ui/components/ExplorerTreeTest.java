@@ -659,6 +659,64 @@ class ExplorerTreeTest {
 
     // ------------------------------------------------------------------ fixtures
 
+    /**
+     * A pinned, favourite or private note shows it in the explorer, as in the notes list, and
+     * the marks stay visible when its row is selected, in both themes: none takes the
+     * selection's own colour.
+     */
+    @Test
+    void aNotesMarksShowAndStayVisibleWhenSelected() throws Exception {
+        assumeFx();
+        FakeVault vault = new FakeVault();
+        vault.note("ROOT", "Marcada");
+        vault.note("ROOT", "Normal");
+        Note marked = vault.notes.get("ROOT").get(0);
+        marked.setPinned(true);
+        marked.setFavorite(true);
+        marked.setPrivate(true);
+        Holder h = shown(vault, new ArrayList<>());
+
+        for (String theme : List.of("modern-theme.css", "dark-theme.css")) {
+            List<String> seen = onFx(() -> {
+                h.tree.getView().getScene().getStylesheets().setAll(
+                        ExplorerTreeTest.class.getResource("/com/example/jylos/ui/css/" + theme).toExternalForm());
+                h.tree.getView().getRoot().getChildren().stream().filter(item -> item.getValue() == marked)
+                        .findFirst().ifPresent(item -> h.tree.getView().getSelectionModel().select(item));
+                h.layout();
+                List<String> out = new ArrayList<>();
+                for (Node node : h.tree.getView().lookupAll(".explorer-cell")) {
+                    @SuppressWarnings("unchecked")
+                    TreeCell<Component> cell = (TreeCell<Component>) node;
+                    if (cell.getItem() == null) {
+                        continue;
+                    }
+                    List<String> marks = new ArrayList<>();
+                    for (Node icon : cell.lookupAll(".explorer-mark")) {
+                        org.kordamp.ikonli.javafx.FontIcon font = (org.kordamp.ikonli.javafx.FontIcon) icon;
+                        marks.add(font.getIconLiteral());
+                        javafx.scene.paint.Color background = selectionColour(cell);
+                        if (cell.isSelected() && font.getIconColor().equals(background)) {
+                            marks.add("invisible");
+                        }
+                    }
+                    out.add(cell.getItem().getTitle() + " " + marks);
+                }
+                return out;
+            });
+            assertEquals(List.of("Marcada [bi-pin-angle, fth-star, fth-lock]", "Normal []"), seen, theme);
+        }
+    }
+
+    /** The colour the selected row is painted with (its first background fill). */
+    private static javafx.scene.paint.Color selectionColour(TreeCell<Component> cell) {
+        if (cell.getBackground() == null || cell.getBackground().getFills().isEmpty()) {
+            return null;
+        }
+        javafx.scene.paint.Paint fill = cell.getBackground().getFills().get(cell.getBackground().getFills().size() - 1)
+                .getFill();
+        return fill instanceof javafx.scene.paint.Color color ? color : null;
+    }
+
     private static final class Holder {
         ExplorerTree tree;
         Stage stage;

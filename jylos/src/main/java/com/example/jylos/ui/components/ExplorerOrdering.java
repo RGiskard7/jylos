@@ -35,15 +35,15 @@ public final class ExplorerOrdering {
     }
 
     /**
-     * Folders (by name) followed by notes (by {@code noteSort}). Notes with an equal sort key
-     * fall back to name order, so the result does not depend on the order the storage
-     * returned them in.
+     * Folders (by name) followed by notes: pinned ones first, as in the notes list, each group
+     * by {@code noteSort}. Notes with an equal sort key fall back to name order, so the result
+     * does not depend on the order the storage returned them in.
      */
     public static List<Component> order(List<Folder> folders, List<Note> notes, SortOption noteSort) {
         List<Folder> sortedFolders = new ArrayList<>(folders.stream().filter(Objects::nonNull).toList());
         sortedFolders.sort(Comparator.comparing(Folder::getTitle, NAME_ORDER));
         List<Note> sortedNotes = new ArrayList<>(notes.stream().filter(Objects::nonNull).toList());
-        sortedNotes.sort(noteComparator(noteSort));
+        sortedNotes.sort(Comparator.comparing((Note note) -> !note.isPinned()).thenComparing(noteComparator(noteSort)));
 
         List<Component> out = new ArrayList<>(sortedFolders.size() + sortedNotes.size());
         out.addAll(sortedFolders);

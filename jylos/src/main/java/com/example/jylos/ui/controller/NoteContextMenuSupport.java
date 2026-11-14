@@ -57,10 +57,13 @@ public final class NoteContextMenuSupport {
                 item(i18n.apply(note.isPinned() ? "action.unpin_note" : "action.pin_note"), note, actions.togglePin()),
                 item(i18n.apply(note.isFavorite() ? "action.remove_favorite" : "action.add_favorite"), note,
                         actions.toggleFavorite()),
-                item(i18n.apply(note.isPrivate() ? "action.make_normal" : "action.make_private"), note,
-                        actions.togglePrivacy()),
                 item(i18n.apply("action.rename"), note, actions.rename()),
                 item(i18n.apply("action.move_to"), note, actions.move()));
+        // Images and PDFs are binary files: only notes and canvases can be private (encrypted).
+        if (PrivacySupport.canBePrivate(note)) {
+            menu.getItems().add(4, item(i18n.apply(note.isPrivate() ? "action.make_normal" : "action.make_private"),
+                    note, actions.togglePrivacy()));
+        }
         // Images and PDFs are files, not notes: only notes and canvases are copied.
         String title = note.getTitle() != null ? note.getTitle() : "";
         if (!com.example.jylos.util.AttachmentType.isAttachment(title)

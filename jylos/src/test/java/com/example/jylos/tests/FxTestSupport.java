@@ -88,6 +88,10 @@ public final class FxTestSupport {
      * runs right away.
      */
     public static <T> T onFx(Callable<T> work) throws Exception {
+        // Started here too: a test class run on its own may not have started it.
+        if (!isFxRuntimeAvailable()) {
+            throw new AssertionError("the JavaFX runtime could not be started");
+        }
         if (Platform.isFxApplicationThread()) {
             return work.call();
         }

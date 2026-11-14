@@ -52,6 +52,7 @@ public class PluginContext {
     private final PreviewEnhancerRegistry previewEnhancerRegistry;
     private final EditorHookRegistry editorHookRegistry;
     private final ToolbarRegistry toolbarRegistry;
+    private final StatusBarRegistry statusBarRegistry;
     private final EditorBlockRendererRegistry editorBlockRendererRegistry;
     private final Consumer<Note> noteOpenAction;
     private final BiConsumer<Integer, String> editorNavigateAction;
@@ -81,6 +82,7 @@ public class PluginContext {
      * @param editorNavigateAction Owner callback for plugin heading-navigation requests
      *                             (may be {@code null})
      * @param noteContextMenuRegistry The note context menu registry (may be null in tests)
+     * @param statusBarRegistry  The status bar item registry (may be null in tests)
      */
     public PluginContext(
             String pluginId,
@@ -97,7 +99,8 @@ public class PluginContext {
             EditorBlockRendererRegistry editorBlockRendererRegistry,
             Consumer<Note> noteOpenAction,
             BiConsumer<Integer, String> editorNavigateAction,
-            PluginNoteContextMenuRegistry noteContextMenuRegistry) {
+            PluginNoteContextMenuRegistry noteContextMenuRegistry,
+            StatusBarRegistry statusBarRegistry) {
         this.pluginId = pluginId;
         this.noteService = noteService;
         this.folderService = folderService;
@@ -113,6 +116,7 @@ public class PluginContext {
         this.noteOpenAction = noteOpenAction;
         this.editorNavigateAction = editorNavigateAction;
         this.noteContextMenuRegistry = noteContextMenuRegistry;
+        this.statusBarRegistry = statusBarRegistry;
     }
 
     /**
@@ -792,6 +796,34 @@ public class PluginContext {
     public void unregisterEditorBlockRenderers() {
         if (editorBlockRendererRegistry != null) {
             editorBlockRendererRegistry.unregisterEditorBlockRenderers(pluginId);
+        }
+    }
+
+    /**
+     * Shows {@code content} in the status bar, as Obsidian's {@code addStatusBarItem()}. Keep
+     * the node to update it (for example {@code label.setText(...)}); registering the same
+     * {@code itemId} again replaces it. Removed automatically when the plugin is disabled.
+     *
+     * @param itemId  stable id, unique within this plugin
+     * @param content what to show, usually a {@code Label}
+     */
+    public void registerStatusBarItem(String itemId, Node content) {
+        if (statusBarRegistry != null) {
+            statusBarRegistry.registerStatusBarItem(pluginId, itemId, content);
+        }
+    }
+
+    /** Removes one of this plugin's status bar items. */
+    public void removeStatusBarItem(String itemId) {
+        if (statusBarRegistry != null) {
+            statusBarRegistry.removeStatusBarItem(pluginId, itemId);
+        }
+    }
+
+    /** Removes every status bar item of this plugin (safe from {@code shutdown()}). */
+    public void removeStatusBarItems() {
+        if (statusBarRegistry != null) {
+            statusBarRegistry.removeStatusBarItems(pluginId);
         }
     }
 }

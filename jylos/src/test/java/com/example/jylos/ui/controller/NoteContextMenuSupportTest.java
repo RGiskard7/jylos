@@ -71,6 +71,21 @@ class NoteContextMenuSupportTest {
         });
     }
 
+    /** An image or a PDF is a binary file: it cannot be made private, a canvas can. */
+    @Test
+    void onlyNotesAndCanvasesCanBeMadePrivate() throws Exception {
+        runFx(() -> {
+            for (String file : List.of("foto.png", "doc.pdf")) {
+                assertFalse(labels(NoteContextMenuSupport.create(note(file), actions(), true, key -> key, null))
+                        .contains("action.make_private"), file);
+            }
+            for (String file : List.of("Mapa.canvas", "Nota")) {
+                assertTrue(labels(NoteContextMenuSupport.create(note(file), actions(), true, key -> key, null))
+                        .contains("action.make_private"), file);
+            }
+        });
+    }
+
     @Test
     void everyOtherEntryReachesItsAction() throws Exception {
         runFx(() -> everyOtherEntryReachesItsActionBody());

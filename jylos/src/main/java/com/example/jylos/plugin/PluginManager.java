@@ -70,6 +70,7 @@ public class PluginManager {
     private final PreviewEnhancerRegistry previewEnhancerRegistry;
     private final EditorHookRegistry editorHookRegistry;
     private final ToolbarRegistry toolbarRegistry;
+    private final StatusBarRegistry statusBarRegistry;
     private final EditorBlockRendererRegistry editorBlockRendererRegistry;
     private final Consumer<Note> noteOpenAction;
     private final BiConsumer<Integer, String> editorNavigateAction;
@@ -97,6 +98,7 @@ public class PluginManager {
      * @param noteOpenAction     Owner callback for plugin note-open requests
      * @param editorNavigateAction Owner callback for plugin heading-navigation requests (nullable)
      * @param noteContextMenuRegistry The note context menu registry (nullable)
+     * @param statusBarRegistry  The status bar item registry (nullable)
      */
     public PluginManager(
             NoteService noteService,
@@ -112,7 +114,8 @@ public class PluginManager {
             EditorBlockRendererRegistry editorBlockRendererRegistry,
             Consumer<Note> noteOpenAction,
             BiConsumer<Integer, String> editorNavigateAction,
-            PluginNoteContextMenuRegistry noteContextMenuRegistry) {
+            PluginNoteContextMenuRegistry noteContextMenuRegistry,
+            StatusBarRegistry statusBarRegistry) {
         this.noteService = noteService;
         this.folderService = folderService;
         this.tagService = tagService;
@@ -123,6 +126,7 @@ public class PluginManager {
         this.previewEnhancerRegistry = previewEnhancerRegistry;
         this.editorHookRegistry = editorHookRegistry;
         this.toolbarRegistry = toolbarRegistry;
+        this.statusBarRegistry = statusBarRegistry;
         this.editorBlockRendererRegistry = editorBlockRendererRegistry;
         this.noteOpenAction = noteOpenAction;
         this.editorNavigateAction = editorNavigateAction;
@@ -250,7 +254,8 @@ public class PluginManager {
                     editorBlockRendererRegistry,
                     noteOpenAction,
                     editorNavigateAction,
-                    noteContextMenuRegistry);
+                    noteContextMenuRegistry,
+                    statusBarRegistry);
             pluginContexts.put(pluginId, context);
 
             // Initialize plugin
@@ -526,6 +531,9 @@ public class PluginManager {
         }
         if (toolbarRegistry != null) {
             toolbarRegistry.removeToolbarButtons(pluginId);
+        }
+        if (statusBarRegistry != null) {
+            statusBarRegistry.removeStatusBarItems(pluginId);
         }
         if (editorBlockRendererRegistry != null) {
             editorBlockRendererRegistry.unregisterEditorBlockRenderers(pluginId);

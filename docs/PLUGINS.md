@@ -151,6 +151,7 @@ plugin out of the JAR mechanism (no independent enable/disable-by-file, no
 | `registerSidePanel(...)` | A JavaFX node in the right panel |
 | `registerPreviewEnhancer(...)` | CSS/JS injected into the Markdown preview, plus per-note HTML post-processing (below) |
 | `registerToolbarButton(buttonId, tooltip, iconLiteral, action)` | A button in the main toolbar (Feather icon literal like `fth-clock`, or text); removed automatically on disable |
+| `registerStatusBarItem(itemId, content)` | A node in the status bar, like Obsidian's `addStatusBarItem()`: keep the node to update it (e.g. a `Label` you `setText` on); the same `itemId` again replaces it; removed automatically on disable (`removeStatusBarItem(itemId)` / `removeStatusBarItems()` to take it out earlier) |
 | `registerEditorHook(EditorHook)` | Editor lifecycle hooks (below) |
 | `registerEditorBlockRenderer(language, renderer)` | Renders a fenced block inline in the editor's Live Preview |
 | `requestOpenNote(note)` | Ask the shell owner to open a note directly in the editor UI |

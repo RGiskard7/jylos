@@ -150,6 +150,7 @@ fichero independiente, sin `isPluginRemovable`) a cambio de disponibilidad incon
 | `registerSidePanel(...)` | Nodo JavaFX en panel derecho |
 | `registerPreviewEnhancer(...)` | CSS/JS en preview Markdown, más post-procesado de HTML por nota (abajo) |
 | `registerToolbarButton(...)` | Botón de toolbar |
+| `registerStatusBarItem(itemId, contenido)` | Nodo en la barra de estado, como `addStatusBarItem()` de Obsidian: se guarda el nodo para actualizarlo (p. ej. un `Label` con `setText`); el mismo `itemId` lo sustituye; se quita solo al desactivar el plugin (`removeStatusBarItem(itemId)` / `removeStatusBarItems()` para quitarlo antes) |
 | `registerEditorHook(EditorHook)` | Hooks del editor |
 | `registerEditorBlockRenderer(language, renderer)` | Renderiza un bloque cercado dentro del Live Preview del editor |
 | `requestOpenNote(note)` | Pedir al shell abrir nota |
