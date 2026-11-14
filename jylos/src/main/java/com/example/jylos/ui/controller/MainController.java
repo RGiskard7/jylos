@@ -315,14 +315,8 @@ public class MainController {
     private String pendingSearchText = "";
     private boolean searchListenerBound = false;
 
-    // ── Navigation history (back / forward arrows) ──────────────────────
-    /** IDs of previously visited notes, most-recent last. */
-    private final Deque<String> navBackStack    = new ArrayDeque<>();
-    /** IDs of notes skipped via back, most-recent last. */
-    private final Deque<String> navForwardStack = new ArrayDeque<>();
-    /** Suppresses history recording during programmatic back/forward jumps. */
-    private boolean navJumping = false;
-    private static final int NAV_MAX_HISTORY = 50;
+    /** The back and forward arrows. */
+    private final NavigationHistorySupport navigationHistory = new NavigationHistorySupport();
     private final ExecutorService quickSwitcherExecutor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "jylos-quick-switcher-loader");
         t.setDaemon(true);
@@ -824,6 +818,19 @@ public class MainController {
         refreshBacklinks(null);
     }
 
+    /** Opens the storage the preferences name now, from a clean UI, and shows it everywhere. */
+    private void reloadBackendSession() {
+        resetUiForBackendReload();
+        disposeCurrentBackendSession();
+        initializeBackendSession();
+        bindBackendSession();
+        reloadPluginSystemForBackendSession();
+        refreshBackendSessionViews(true);
+        if (eventBus != null) {
+            eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
+        }
+    }
+
     private void switchFilesystemVault(String newVaultPath) {
         if (newVaultPath == null || newVaultPath.isBlank()) {
             return;
@@ -843,15 +850,7 @@ public class MainController {
         long generation = beginBackendSessionGeneration();
         try {
             prefs.put("filesystem_path", newVaultPath);
-            resetUiForBackendReload();
-            disposeCurrentBackendSession();
-            initializeBackendSession();
-            bindBackendSession();
-            reloadPluginSystemForBackendSession();
-            refreshBackendSessionViews(true);
-            if (eventBus != null) {
-                eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
-            }
+            reloadBackendSession();
             updateStatus(java.text.MessageFormat.format(getString("status.vault_switched"),
                     new File(newVaultPath).getName()));
             logger.info("Switched vault without restart: " + newVaultPath + " [session=" + generation + "]");
@@ -860,15 +859,7 @@ public class MainController {
             prefs.put("filesystem_path", currentPath);
             try {
                 long rollbackGeneration = beginBackendSessionGeneration();
-                resetUiForBackendReload();
-                disposeCurrentBackendSession();
-                initializeBackendSession();
-                bindBackendSession();
-                reloadPluginSystemForBackendSession();
-                refreshBackendSessionViews(true);
-                if (eventBus != null) {
-                    eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
-                }
+                reloadBackendSession();
                 logger.info("Restored previous vault session after switch failure [session=" + rollbackGeneration + "]");
             } catch (Exception rollbackError) {
                 logger.log(Level.SEVERE, "Failed to restore previous vault after switch error", rollbackError);
@@ -1444,42 +1435,91 @@ public class MainController {
                 this::resolveCommandAction);
     }
 
+    /** Palette commands that are also menu or toolbar actions: one handler for both. */
+    private static final Map<String, SystemActionEvent.ActionType> COMMAND_ACTIONS = Map.ofEntries(
+            Map.entry("cmd.new_note", SystemActionEvent.ActionType.NEW_NOTE),
+            Map.entry("cmd.new_canvas", SystemActionEvent.ActionType.NEW_CANVAS),
+            Map.entry("cmd.new_folder", SystemActionEvent.ActionType.NEW_FOLDER),
+            Map.entry("cmd.save_all", SystemActionEvent.ActionType.SAVE_ALL),
+            Map.entry("cmd.import", SystemActionEvent.ActionType.IMPORT),
+            Map.entry("cmd.export", SystemActionEvent.ActionType.EXPORT),
+            Map.entry("cmd.undo", SystemActionEvent.ActionType.UNDO),
+            Map.entry("cmd.redo", SystemActionEvent.ActionType.REDO),
+            Map.entry("cmd.find", SystemActionEvent.ActionType.FIND),
+            Map.entry("cmd.replace", SystemActionEvent.ActionType.REPLACE),
+            Map.entry("cmd.cut", SystemActionEvent.ActionType.CUT),
+            Map.entry("cmd.copy", SystemActionEvent.ActionType.COPY),
+            Map.entry("cmd.paste", SystemActionEvent.ActionType.PASTE),
+            Map.entry("cmd.toggle_sidebar", SystemActionEvent.ActionType.TOGGLE_SIDEBAR),
+            Map.entry("cmd.toggle_info_panel", SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL),
+            Map.entry("cmd.toggle_reading_view", SystemActionEvent.ActionType.TOGGLE_READING_MODE),
+            Map.entry("cmd.toggle_source_mode", SystemActionEvent.ActionType.TOGGLE_SOURCE_MODE),
+            Map.entry("cmd.split_mode", SystemActionEvent.ActionType.SPLIT_VIEW_MODE),
+            Map.entry("cmd.zoom_in", SystemActionEvent.ActionType.ZOOM_IN),
+            Map.entry("cmd.zoom_out", SystemActionEvent.ActionType.ZOOM_OUT),
+            Map.entry("cmd.reset_zoom", SystemActionEvent.ActionType.RESET_ZOOM),
+            Map.entry("cmd.graph_view", SystemActionEvent.ActionType.GRAPH_VIEW),
+            Map.entry("cmd.knowledge_insights", SystemActionEvent.ActionType.KNOWLEDGE_INSIGHTS),
+            Map.entry("cmd.workspace_save", SystemActionEvent.ActionType.WORKSPACE_SAVE),
+            Map.entry("cmd.workspace_save_as", SystemActionEvent.ActionType.WORKSPACE_SAVE_AS),
+            Map.entry("cmd.workspace_open", SystemActionEvent.ActionType.WORKSPACE_OPEN),
+            Map.entry("cmd.workspace_manage", SystemActionEvent.ActionType.WORKSPACE_MANAGE),
+            Map.entry("cmd.git_panel", SystemActionEvent.ActionType.GIT_PANEL),
+            Map.entry("cmd.git_sync", SystemActionEvent.ActionType.GIT_SYNC),
+            Map.entry("cmd.git_commit_push", SystemActionEvent.ActionType.GIT_COMMIT_PUSH),
+            Map.entry("cmd.git_pull", SystemActionEvent.ActionType.GIT_PULL),
+            Map.entry("cmd.git_init", SystemActionEvent.ActionType.GIT_INIT),
+            Map.entry("cmd.git_add_remote", SystemActionEvent.ActionType.GIT_ADD_REMOTE),
+            Map.entry("cmd.quick_switcher", SystemActionEvent.ActionType.QUICK_SWITCHER),
+            Map.entry("cmd.daily_note", SystemActionEvent.ActionType.DAILY_NOTE),
+            Map.entry("cmd.new_from_template", SystemActionEvent.ActionType.NEW_FROM_TEMPLATE),
+            Map.entry("cmd.export_vault", SystemActionEvent.ActionType.EXPORT_VAULT),
+            Map.entry("cmd.tag_manager", SystemActionEvent.ActionType.TAGS_MANAGER),
+            Map.entry("cmd.preferences", SystemActionEvent.ActionType.PREFERENCES),
+            Map.entry("cmd.toggle_favorite", SystemActionEvent.ActionType.TOGGLE_FAVORITE),
+            Map.entry("cmd.refresh", SystemActionEvent.ActionType.REFRESH_NOTES),
+            Map.entry("cmd.documentation", SystemActionEvent.ActionType.DOCUMENTATION),
+            Map.entry("cmd.about", SystemActionEvent.ActionType.ABOUT),
+            Map.entry("cmd.focus_mode", SystemActionEvent.ActionType.FOCUS_MODE),
+            Map.entry("cmd.kanban_view", SystemActionEvent.ActionType.KANBAN_VIEW),
+            Map.entry("cmd.note_history", SystemActionEvent.ActionType.NOTE_HISTORY),
+            Map.entry("cmd.toggle_private", SystemActionEvent.ActionType.PRIVATE_TOGGLE),
+            Map.entry("cmd.lock_notes", SystemActionEvent.ActionType.NOTES_LOCK),
+            Map.entry("cmd.unlock_notes", SystemActionEvent.ActionType.NOTES_UNLOCK),
+            Map.entry("cmd.navigate_back", SystemActionEvent.ActionType.NAVIGATE_BACK),
+            Map.entry("cmd.navigate_forward", SystemActionEvent.ActionType.NAVIGATE_FORWARD),
+            Map.entry("cmd.close_note", SystemActionEvent.ActionType.CLOSE_NOTE),
+            Map.entry("cmd.switch_storage", SystemActionEvent.ActionType.SWITCH_STORAGE),
+            Map.entry("cmd.check_updates", SystemActionEvent.ActionType.CHECK_UPDATES),
+            Map.entry("cmd.toggle_pin", SystemActionEvent.ActionType.TOGGLE_PIN),
+            Map.entry("cmd.toggle_notes_list", SystemActionEvent.ActionType.TOGGLE_NOTES_LIST),
+            Map.entry("cmd.toggle_tags", SystemActionEvent.ActionType.TOGGLE_TAGS),
+            Map.entry("cmd.new_tag", SystemActionEvent.ActionType.NEW_TAG),
+            Map.entry("cmd.list_view", SystemActionEvent.ActionType.LIST_VIEW),
+            Map.entry("cmd.grid_view", SystemActionEvent.ActionType.GRID_VIEW),
+            Map.entry("cmd.switch_layout", SystemActionEvent.ActionType.SWITCH_LAYOUT),
+            Map.entry("cmd.editor_zoom_in", SystemActionEvent.ActionType.ZOOM_EDITOR_IN),
+            Map.entry("cmd.editor_zoom_out", SystemActionEvent.ActionType.ZOOM_EDITOR_OUT),
+            Map.entry("cmd.editor_reset_zoom", SystemActionEvent.ActionType.RESET_EDITOR_ZOOM),
+            Map.entry("cmd.import_obsidian", SystemActionEvent.ActionType.IMPORT_OBSIDIAN),
+            Map.entry("cmd.import_enex", SystemActionEvent.ActionType.IMPORT_ENEX));
+
     /** Returns the {@link Runnable} bound to {@code commandId}, or {@code null} for unknown IDs (used by the command registry). */
     private Runnable resolveCommandAction(String commandId) {
         if (commandId == null) {
             return null;
         }
+        // A palette command that is also a menu or toolbar action runs that action's handler.
+        initializeSystemActionHandlers();
+        SystemActionEvent.ActionType action = COMMAND_ACTIONS.get(commandId);
+        if (action != null) {
+            return systemActionHandlers.get(action);
+        }
         switch (commandId) {
-            case "cmd.new_note":
-                return () -> handleNewNote(null);
-            case "cmd.new_canvas":
-                return () -> handleNewCanvas(null);
-            case "cmd.new_folder":
-                return () -> handleNewFolder(null);
             case "cmd.save":
                 return () -> handleSave(null);
-            case "cmd.save_all":
-                return () -> handleSaveAll(null);
-            case "cmd.import":
-                return () -> handleImport(null);
-            case "cmd.export":
-                return () -> handleExport(null);
             case "cmd.delete_note":
                 return () -> handleDelete(null);
-            case "cmd.undo":
-                return () -> handleUndo(null);
-            case "cmd.redo":
-                return () -> handleRedo(null);
-            case "cmd.find":
-                return () -> handleFind(null);
-            case "cmd.replace":
-                return () -> handleReplace(null);
-            case "cmd.cut":
-                return () -> handleCut(null);
-            case "cmd.copy":
-                return () -> handleCopy(null);
-            case "cmd.paste":
-                return () -> handlePaste(null);
             case "cmd.bold":
                 return () -> publishEditorAction(SystemActionEvent.ActionType.BOLD);
             case "cmd.italic":
@@ -1496,62 +1536,14 @@ public class MainController {
                 return () -> publishEditorAction(SystemActionEvent.ActionType.TODO_LIST);
             case "cmd.insert_list":
                 return () -> publishEditorAction(SystemActionEvent.ActionType.NUMBERED_LIST);
-            case "cmd.toggle_sidebar":
-                return () -> handleToggleSidebar(null);
-            case "cmd.toggle_info_panel":
-                return () -> handleToggleRightPanel(null);
-            case "cmd.toggle_reading_view":
-                return () -> handleToggleReadingMode(null);
-            case "cmd.toggle_source_mode":
-                return this::handleToggleSourceMode;
-            case "cmd.split_mode":
-                return () -> handleSplitViewMode(null);
-            case "cmd.zoom_in":
-                return () -> handleZoomIn(null);
-            case "cmd.zoom_out":
-                return () -> handleZoomOut(null);
-            case "cmd.reset_zoom":
-                return () -> handleResetZoom(null);
             case "cmd.theme_light":
                 return () -> handleLightTheme(null);
             case "cmd.theme_dark":
                 return () -> handleDarkTheme(null);
             case "cmd.theme_system":
                 return () -> handleSystemTheme(null);
-            case "cmd.graph_view":
-                return overlaySupport::toggleGraph;
-            case "cmd.knowledge_insights":
-                return this::showKnowledgeInsights;
-            case "cmd.workspace_save":
-                return workspaceController::saveCurrent;
-            case "cmd.workspace_save_as":
-                return workspaceController::saveCurrentAs;
-            case "cmd.workspace_open":
-                return workspaceController::openWorkspaceDialog;
-            case "cmd.workspace_manage":
-                return workspaceController::manageDialog;
-            case "cmd.git_panel":
-                return gitController::showSyncPanel;
-            case "cmd.git_sync":
-                return gitController::sync;
-            case "cmd.git_commit_push":
-                return gitController::commitPush;
-            case "cmd.git_pull":
-                return gitController::pull;
-            case "cmd.git_init":
-                return gitController::init;
-            case "cmd.git_add_remote":
-                return gitController::addRemote;
-            case "cmd.quick_switcher":
-                return this::showQuickSwitcher;
             case "cmd.global_search":
                 return () -> handleSearch(null);
-            case "cmd.daily_note":
-                return this::handleDailyNote;
-            case "cmd.new_from_template":
-                return this::handleNewFromTemplate;
-            case "cmd.export_vault":
-                return this::handleExportVault;
             case "cmd.goto_all_notes":
                 return this::goToAllNotes;
             case "cmd.goto_favorites":
@@ -1566,68 +1558,10 @@ public class MainController {
                         sidebarController.loadRecentNotes();
                     }
                 };
-            case "cmd.tag_manager":
-                return () -> handleTagsManager(null);
-            case "cmd.preferences":
-                return () -> handlePreferences(null);
-            case "cmd.toggle_favorite":
-                return () -> handleToggleFavorite(null);
-            case "cmd.refresh":
-                return () -> handleRefresh(null);
             case "cmd.plugins.manage":
                 return this::showPluginManager;
             case "cmd.keyboard_shortcuts":
                 return () -> handleKeyboardShortcuts(null);
-            case "cmd.documentation":
-                return () -> handleDocumentation(null);
-            case "cmd.about":
-                return () -> handleAbout(null);
-            case "cmd.focus_mode":
-                return this::handleFocusMode;
-            case "cmd.kanban_view":
-                return overlaySupport::toggleKanban;
-            case "cmd.note_history":
-                return historySupport::showHistoryDialog;
-            case "cmd.toggle_private":
-                return () -> privacySupport.toggle(getCurrentNote());
-            case "cmd.lock_notes":
-                return privacySupport::lockAll;
-            case "cmd.unlock_notes":
-                return privacySupport::unlockAll;
-            case "cmd.navigate_back":
-                return this::navigateBack;
-            case "cmd.navigate_forward":
-                return this::navigateForward;
-            case "cmd.close_note":
-                return this::handleCloseNote;
-            case "cmd.switch_storage":
-                return this::handleSwitchStorage;
-            case "cmd.check_updates":
-                return updateNotifications::checkManually;
-            case "cmd.toggle_pin":
-                return () -> handleTogglePin(null);
-            case "cmd.toggle_notes_list":
-                return () -> handleToggleNotesPanel(null);
-            case "cmd.toggle_tags":
-                return () -> handleToggleTags(null);
-            case "cmd.new_tag":
-                return () -> handleNewTag(null);
-            case "cmd.list_view":
-                return () -> handleListView(null);
-            case "cmd.grid_view":
-                return () -> handleGridView(null);
-            case "cmd.switch_layout":
-                return () -> handleViewLayoutSwitch(null);
-            case "cmd.editor_zoom_in":
-                return () -> handleEditorZoomIn(null);
-            case "cmd.editor_zoom_out":
-                return () -> handleEditorZoomOut(null);
-            case "cmd.editor_reset_zoom":
-                return () -> handleEditorResetZoom(null);
-            case "cmd.import_obsidian":
-                return importSupport::importObsidianVault;
-            case "cmd.import_enex":
-                return importSupport::importEnex;
             case "cmd.strike":
                 return () -> publishEditorAction(SystemActionEvent.ActionType.STRIKE);
             case "cmd.highlight":
@@ -1735,58 +1669,33 @@ public class MainController {
     // Navigation history
     // ------------------------------------------------------------------
 
-    /** Pops the most recent entry from the back-stack, pushes the current note onto the forward-stack, and loads the target note. */
     private void navigateBack() {
-        if (navBackStack.isEmpty()) return;
-        String currentId = (getCurrentNote() != null) ? getCurrentNote().getId() : null;
-        String targetId  = navBackStack.pollLast();
-        if (currentId != null) {
-            if (navForwardStack.size() >= NAV_MAX_HISTORY) navForwardStack.pollFirst();
-            navForwardStack.addLast(currentId);
-        }
-        loadNoteById(targetId);
+        loadNoteById(navigationHistory.back(getCurrentNote() != null ? getCurrentNote().getId() : null));
     }
 
-    /** Pops the most recent entry from the forward-stack, pushes the current note onto the back-stack, and loads the target note. */
     private void navigateForward() {
-        if (navForwardStack.isEmpty()) return;
-        String currentId = (getCurrentNote() != null) ? getCurrentNote().getId() : null;
-        String targetId  = navForwardStack.pollLast();
-        if (currentId != null) {
-            if (navBackStack.size() >= NAV_MAX_HISTORY) navBackStack.pollFirst();
-            navBackStack.addLast(currentId);
-        }
-        loadNoteById(targetId);
+        loadNoteById(navigationHistory.forward(getCurrentNote() != null ? getCurrentNote().getId() : null));
     }
 
-    /** Loads the note identified by {@code noteId} into the editor without recording a new navigation event. */
+    /** Opens a back/forward target, without recording it as a new visit. */
     private void loadNoteById(String noteId) {
         if (noteId == null || noteService == null) return;
-        navJumping = true;
-        try {
-            noteService.getNoteById(noteId).ifPresent(note -> {
-                loadNoteInEditor(note);
-                if (notesListView != null) notesListView.getSelectionModel().select(note);
-            });
-        } finally {
-            navJumping = false;
-            updateNavigationButtons();
-        }
+        navigationHistory.jumping(() -> noteService.getNoteById(noteId).ifPresent(note -> {
+            loadNoteInEditor(note);
+            if (notesListView != null) notesListView.getSelectionModel().select(note);
+        }));
+        updateNavigationButtons();
     }
 
-    /** Pushes {@code previousNoteId} onto the back-stack and clears the forward-stack, unless a programmatic jump is in progress. */
     private void recordNavigation(String previousNoteId) {
-        if (navJumping || previousNoteId == null) return;
-        if (navBackStack.size() >= NAV_MAX_HISTORY) navBackStack.pollFirst();
-        navBackStack.addLast(previousNoteId);
-        navForwardStack.clear();
+        navigationHistory.record(previousNoteId);
         updateNavigationButtons();
     }
 
     /** Syncs the back/forward toolbar-button states to reflect whether the respective navigation stacks are non-empty. */
     private void updateNavigationButtons() {
         if (editorController != null) {
-            editorController.updateNavigationState(!navBackStack.isEmpty(), !navForwardStack.isEmpty());
+            editorController.updateNavigationState(navigationHistory.canGoBack(), navigationHistory.canGoForward());
         }
     }
 

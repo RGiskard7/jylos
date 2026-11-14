@@ -130,4 +130,28 @@ class UiControllerCompositionGuardTest {
                             + file.getFileName());
         }
     }
+
+    /**
+     * A ceiling for the size of the biggest controllers, at the size they were left at after
+     * features were moved out of them. Growing past it means a feature is going back in: move
+     * it to its own class (a {@code *Support} with its state) instead of raising the number.
+     * Lower a number when a controller shrinks, so the ceiling follows it down.
+     */
+    @Test
+    void theBiggestControllersDoNotGrow() throws IOException {
+        java.util.Map<String, Integer> ceilings = java.util.Map.of(
+                "MainController.java", 3242,
+                "EditorController.java", 1827,
+                "SidebarController.java", 2205,
+                "NotesListController.java", 1967);
+        for (java.util.Map.Entry<String, Integer> ceiling : ceilings.entrySet()) {
+            Path file = Path.of("src/main/java/com/example/jylos/ui/controller", ceiling.getKey());
+            long lines;
+            try (Stream<String> all = Files.lines(file, StandardCharsets.UTF_8)) {
+                lines = all.count();
+            }
+            assertTrue(lines <= ceiling.getValue(), ceiling.getKey() + " has " + lines + " lines, over its ceiling of "
+                    + ceiling.getValue() + ": move a feature out instead of raising it");
+        }
+    }
 }
