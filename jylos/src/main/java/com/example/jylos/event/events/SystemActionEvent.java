@@ -112,7 +112,9 @@ public class SystemActionEvent extends AppEvent {
         WORKSPACE_SAVE,
         WORKSPACE_SAVE_AS,
         WORKSPACE_OPEN,
-        WORKSPACE_MANAGE
+        WORKSPACE_MANAGE,
+        /** A new empty tab (the + after the tabs, Cmd/Ctrl+T). */
+        NEW_TAB
     }
 
     private final ActionType actionType;

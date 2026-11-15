@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import com.example.jylos.graph.GraphData;
@@ -16,6 +17,7 @@ import javafx.animation.AnimationTimer;
 import javafx.scene.Cursor;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.input.MouseButton;
 import javafx.scene.layout.Region;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
@@ -151,6 +153,8 @@ public final class GraphCanvas extends Region {
     // ── Simulation / interaction state ───────────────────────────────────────
     private double alpha = 0;
     private boolean timerRunning = false;
+    /** Hidden: nothing starts the animation loop until {@link #resume}. */
+    private boolean paused = false;
     private int hoverIndex = -1;
     /** The node whose highlight is currently being shown/animated — updates the
      *  instant a new node is hovered, but (unlike {@link #hoverIndex}) holds its
@@ -167,7 +171,8 @@ public final class GraphCanvas extends Region {
     private double pressX, pressY;        // screen coords at mouse-press
     private double lastDragX, lastDragY;  // screen coords for incremental pan
 
-    private Consumer<String> onOpenNote = id -> { };
+    /** Told the note clicked, and whether it asks for a new tab (Cmd/Ctrl or the middle button). */
+    private BiConsumer<String, Boolean> onOpenNote = (id, newTab) -> { };
     private Palette palette = Palette.light();
 
     private final AnimationTimer timer = new AnimationTimer() {
@@ -220,8 +225,12 @@ public final class GraphCanvas extends Region {
 
     // ── Public API ───────────────────────────────────────────────────────────
 
-    public void setOnOpenNote(Consumer<String> handler) {
-        this.onOpenNote = handler != null ? handler : id -> { };
+    /**
+     * Told the note clicked, and whether the click asks for a new tab (Cmd/Ctrl or the middle
+     * button), as a link click does.
+     */
+    public void setOnOpenNote(BiConsumer<String, Boolean> handler) {
+        this.onOpenNote = handler != null ? handler : (id, newTab) -> { };
     }
 
     /**
@@ -567,9 +576,22 @@ public final class GraphCanvas extends Region {
         return box;
     }
 
-    /** Stops the animation loop (call when the view is hidden). */
+    /**
+     * Stops the animation loop while the view is hidden. It stays stopped until {@link #resume}:
+     * new data or a resize meanwhile does not start it, since the layout runs on the interface
+     * thread and, with a whole vault on the graph, slows everything else down.
+     */
     public void pause() {
+        paused = true;
         stopTimer();
+    }
+
+    /** Lets the view move again (shown again), carrying on where the layout was left. */
+    public void resume() {
+        paused = false;
+        if (n > 0 && (alpha >= ALPHA_MIN || viewMoving() || followFit)) {
+            startTimer();
+        }
     }
 
     // ── Model construction ───────────────────────────────────────────────────
@@ -1262,7 +1284,7 @@ public final class GraphCanvas extends Region {
             if (!movedSincePress) {
                 int hit = pick(e.getX(), e.getY());
                 if (hit >= 0 && kind[hit] == KIND_NOTE) {
-                    onOpenNote.accept(ids[hit]);
+                    onOpenNote.accept(ids[hit], e.isShortcutDown() || e.getButton() == MouseButton.MIDDLE);
                 }
             }
             if (dragIndex >= 0) {
@@ -1314,7 +1336,7 @@ public final class GraphCanvas extends Region {
     // ── Timer / helpers ──────────────────────────────────────────────────────
 
     private void startTimer() {
-        if (!timerRunning) {
+        if (!timerRunning && !paused) {
             timerRunning = true;
             timer.start();
         }

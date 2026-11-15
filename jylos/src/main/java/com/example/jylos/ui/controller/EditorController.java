@@ -704,20 +704,10 @@ public class EditorController implements PreviewEnhancerRegistry,
     }
 
 
-    @FXML
-    private void handleEmptyCreate(ActionEvent e) {
-        publish(SystemActionEvent.ActionType.NEW_NOTE);
-    }
-
-    @FXML
-    private void handleEmptyCreateCanvas(ActionEvent e) {
-        publish(SystemActionEvent.ActionType.NEW_CANVAS);
-    }
-
-    @FXML
-    private void handleEmptyGoToFile(ActionEvent e) {
-        publish(SystemActionEvent.ActionType.QUICK_SWITCHER);
-    }
+    @FXML private void handleEmptyCreate(ActionEvent e)       { publish(SystemActionEvent.ActionType.NEW_NOTE); }
+    @FXML private void handleEmptyCreateCanvas(ActionEvent e) { publish(SystemActionEvent.ActionType.NEW_CANVAS); }
+    @FXML private void handleEmptyGoToFile(ActionEvent e)     { publish(SystemActionEvent.ActionType.QUICK_SWITCHER); }
+    @FXML private void handleEmptyOpenGraph(ActionEvent e)    { publish(SystemActionEvent.ActionType.GRAPH_VIEW); }
 
     public void loadNote(Note note) {
         // The tags bar is per-note UI state, not a sticky global preference: it must

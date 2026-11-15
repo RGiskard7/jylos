@@ -31,12 +31,13 @@
                     <SplitPane fx:id="contentSplitPane" dividerPositions="0.25" styleClass="content-split">
                         <!-- Notes List Panel -->
                         <fx:include source="NotesListView.fxml" fx:id="notesList"/>
-                        <fx:include source="EditorView.fxml" fx:id="editor"/>
+                        <!-- The editor area: the open note, or a view tab such as the graph -->
+                        <StackPane fx:id="editorArea">
+                            <fx:include source="EditorView.fxml" fx:id="editor"/>
+                            <fx:include source="GraphView.fxml" fx:id="graphView"/>
+                        </StackPane>
                     </SplitPane>
                 </SplitPane>
-
-                <!-- Graph overlay (hidden until toggled) -->
-                <fx:include source="GraphView.fxml" fx:id="graphView"/>
             </StackPane>
 
             <VBox fx:id="rightPanel" styleClass="right-panel" minWidth="0" prefWidth="0" maxWidth="0">

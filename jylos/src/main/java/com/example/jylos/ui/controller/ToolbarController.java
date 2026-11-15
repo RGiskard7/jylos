@@ -210,6 +210,11 @@ public class ToolbarController {
     }
 
     @FXML
+    private void handleNewTab(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.NEW_TAB);
+    }
+
+    @FXML
     private void handleNewCanvas(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.NEW_CANVAS);
     }

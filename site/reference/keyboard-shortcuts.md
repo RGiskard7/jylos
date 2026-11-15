@@ -7,6 +7,7 @@ Shortcuts use `Cmd` on macOS and `Ctrl` on Windows and Linux (shown here as `Ctr
 | Shortcut | Action |
 | --- | --- |
 | `Ctrl/Cmd+N` | New note |
+| `Ctrl/Cmd+T` | New tab |
 | `Ctrl/Cmd+Shift+N` | New folder |
 | `Ctrl/Cmd+Shift+D` | Daily note |
 | `Ctrl/Cmd+S` | Save |

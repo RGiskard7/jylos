@@ -14,6 +14,7 @@ import java.util.ResourceBundle;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -52,6 +53,7 @@ import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.CommandPalette;
 import com.example.jylos.ui.components.EditorTabs;
 import com.example.jylos.ui.components.EditorTabsModel;
+import com.example.jylos.ui.components.ViewTabs;
 import com.example.jylos.ui.components.GitSyncPanel;
 import com.example.jylos.ui.components.KnowledgeInsightsPanel;
 import com.example.jylos.ui.components.PluginManagerDialog;
@@ -162,6 +164,9 @@ public class MainController {
     private HBox statusBar;
     @FXML
     private StackPane centerStack;
+    /** The editor area: the open note, or the view of a view tab such as the graph. */
+    @FXML
+    private StackPane editorArea;
 
     private final FocusModeSupport focusModeSupport = new FocusModeSupport();
     @FXML
@@ -245,7 +250,8 @@ public class MainController {
     private final WorkspaceController workspaceController = new WorkspaceController();
     private final PrivacySupport privacySupport = new PrivacySupport();
     private final VaultLocationSupport vaultLocationSupport = new VaultLocationSupport();
-    private final OverlaySupport overlaySupport = new OverlaySupport();
+    /** The editor's tabs (notes, the graph, new tabs) and their back/forward; and the Kanban board. */
+    private final TabsSupport tabsSupport = new TabsSupport();
     private final StatusBarSupport statusBarSupport = new StatusBarSupport();
     private final BacklinksSupport backlinksSupport = new BacklinksSupport();
     /** Editor hook dispatcher shared by the plugin system and the editor. */
@@ -318,7 +324,6 @@ public class MainController {
     private boolean searchListenerBound = false;
 
     /** The back and forward arrows. */
-    private final NavigationHistorySupport navigationHistory = new NavigationHistorySupport();
     private final ExecutorService quickSwitcherExecutor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "jylos-quick-switcher-loader");
         t.setDaemon(true);
@@ -394,7 +399,7 @@ public class MainController {
             bindBackendSession();
             // After bindBackendSession(): it is what fetches the notes panel from its controller.
             uiLayout.wire(new UiLayout.Panes(mainSplitPane, contentSplitPane, navSplitPane, centerRightSplitPane,
-                    sidebarController != null ? sidebarController.getSidebarPane() : null, notesPanel, editor,
+                    sidebarController != null ? sidebarController.getSidebarPane() : null, notesPanel, editorArea,
                     rightPanel), () -> toolbarController, this::getString, this::updateStatus);
 
             bindToolbarSearchFieldDebounced();
@@ -570,34 +575,36 @@ public class MainController {
                         editorController.getEditorTabBar(),
                         editorController.getEditorTabScroll(),
                         new EditorTabs.Listener() {
-                            @Override public void onSelect(String noteId) {
-                                // Tabs stay visible over the graph and the Kanban; picking one shows the note.
-                                if (overlaySupport.isGraphVisible()) {
-                                    overlaySupport.hideGraph();
-                                }
-                                if (overlaySupport.isKanbanVisible()) {
-                                    overlaySupport.hideKanban();
-                                }
-                                openNoteInTab(noteId);
+                            @Override public void onSelect(String id) {
+                                tabsSupport.select(id);
                             }
-                            @Override public void onClose(String noteId) { closeTab(noteId); }
+                            @Override public void onClose(String id) {
+                                tabsSupport.close(id);
+                            }
                         },
                         this::getString);
                 editorTabs.setAlwaysNewTab(uiPreferences.load(prefs).alwaysOpenInNewTab());
+                editorTabs.setNewTabAction(tabsSupport::newTab);
                 if (toolbarController != null && toolbarController.getTabsHost() != null && editor != null) {
                     // Tabs in the top bar, as in Obsidian, starting above the editor.
                     TopBarTabsSupport.install(toolbarController.getTabsHost(),
-                            editorController.getEditorTabScroll(), editor);
+                            editorController.getEditorTabScroll(), editorArea);
                 }
             }
             editorController.setFormatToolbarVisible(uiPreferences.loadShowFormatToolbar(prefs));
         }
-        overlaySupport.wire(centerStack, graphView, graphViewController, noteService,
-                this::isDarkThemeActive, this::getString, this::updateStatus, this::handleUiNoteOpenRequest,
-                this::publishNoteCreated, this::publishNoteUpdated, this::updateRightPanelContext);
+        tabsSupport.wire(centerStack, graphView, graphViewController, noteService,
+                this::isDarkThemeActive, this::getString, this::updateStatus, () -> editorTabs,
+                new TabsSupport.Host(this::confirmLeaveCurrent, this::openNoteInTab, this::openNoteInNewTab,
+                        this::handleUiNoteOpenRequest, this::clearEditorToEmpty, () -> {
+                            updateRightPanelContext();
+                            refreshEditorIndicators();
+                            updateNavigationButtons();
+                        }),
+                this::publishNoteCreated, this::publishNoteUpdated);
         if (graphViewController != null) {
             graphViewController.wire(eventBus, noteService, tagService, resources,
-                    overlaySupport::openNoteFromGraph, overlaySupport::hideGraph,
+                    tabsSupport::openNoteFromGraph, tabsSupport::closeGraph,
                     () -> getCurrentNote() != null ? getCurrentNote().getId() : null,
                     this::updateGraphInfoSection);
         }
@@ -726,13 +733,13 @@ public class MainController {
         }
         if (forceAllNotes) {
             loadAllNotes();
-            Platform.runLater(this::goToAllNotes);
+            Platform.runLater(this::loadAllNotes);
         } else {
             Platform.runLater(() -> {
                 if (sidebarController != null
                         && sidebarController.getFolderTreeView() != null
                         && sidebarController.getFolderTreeView().getSelectionModel().getSelectedItem() == null) {
-                    goToAllNotes();
+                    loadAllNotes();
                 }
             });
         }
@@ -1090,20 +1097,14 @@ public class MainController {
     void handleUiNoteDeleted(String noteId) {
         Note current = getCurrentNote();
         boolean wasActive = current != null && current.getId().equals(noteId);
+        if (wasActive && editorController != null) {
+            editorController.markClean(); // the note is gone; discard any edits
+        }
+        if (editorTabs != null) {
+            editorTabs.forget(noteId);
+        }
         if (editorTabs != null && editorTabs.isOpen(noteId)) {
-            String neighbor = editorTabs.neighborOf(noteId);
-            if (wasActive && editorController != null) {
-                editorController.markClean(); // the note is gone; discard any edits
-            }
-            editorTabs.removeTab(noteId);
-            if (wasActive) {
-                if (neighbor != null) {
-                    openNoteInTab(neighbor);
-                } else if (editorController != null) {
-                    editorController.loadNote(null);
-                    editorController.clearPreview();
-                }
-            }
+            tabsSupport.close(noteId);
         } else if (wasActive && editorController != null) {
             editorController.loadNote(null);
             editorController.clearPreview();
@@ -1434,6 +1435,7 @@ public class MainController {
     /** Palette commands that are also menu or toolbar actions: one handler for both. */
     private static final Map<String, SystemActionEvent.ActionType> COMMAND_ACTIONS = Map.ofEntries(
             Map.entry("cmd.new_note", SystemActionEvent.ActionType.NEW_NOTE),
+            Map.entry("cmd.new_tab", SystemActionEvent.ActionType.NEW_TAB),
             Map.entry("cmd.new_canvas", SystemActionEvent.ActionType.NEW_CANVAS),
             Map.entry("cmd.new_folder", SystemActionEvent.ActionType.NEW_FOLDER),
             Map.entry("cmd.save_all", SystemActionEvent.ActionType.SAVE_ALL),
@@ -1541,7 +1543,7 @@ public class MainController {
             case "cmd.global_search":
                 return () -> handleSearch(null);
             case "cmd.goto_all_notes":
-                return this::goToAllNotes;
+                return this::loadAllNotes;
             case "cmd.goto_favorites":
                 return () -> {
                     if (sidebarController != null) {
@@ -1642,16 +1644,17 @@ public class MainController {
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_PIN, () -> handleTogglePin(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_FAVORITE, () -> handleToggleFavorite(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL, () -> handleToggleRightPanel(null));
-        systemActionHandlers.put(SystemActionEvent.ActionType.NAVIGATE_BACK,    this::navigateBack);
-        systemActionHandlers.put(SystemActionEvent.ActionType.NAVIGATE_FORWARD, this::navigateForward);
-        systemActionHandlers.put(SystemActionEvent.ActionType.GRAPH_VIEW, overlaySupport::toggleGraph);
+        systemActionHandlers.put(SystemActionEvent.ActionType.NAVIGATE_BACK,    tabsSupport::back);
+        systemActionHandlers.put(SystemActionEvent.ActionType.NAVIGATE_FORWARD, tabsSupport::forward);
+        systemActionHandlers.put(SystemActionEvent.ActionType.GRAPH_VIEW, tabsSupport::openGraph);
+        systemActionHandlers.put(SystemActionEvent.ActionType.NEW_TAB, tabsSupport::newTab);
         systemActionHandlers.put(SystemActionEvent.ActionType.KNOWLEDGE_INSIGHTS, this::showKnowledgeInsights);
         systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_SAVE, workspaceController::saveCurrent);
         systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_SAVE_AS, workspaceController::saveCurrentAs);
         systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_OPEN, workspaceController::openWorkspaceDialog);
         systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_MANAGE, workspaceController::manageDialog);
         systemActionHandlers.put(SystemActionEvent.ActionType.FOCUS_MODE, this::handleFocusMode);
-        systemActionHandlers.put(SystemActionEvent.ActionType.KANBAN_VIEW, overlaySupport::toggleKanban);
+        systemActionHandlers.put(SystemActionEvent.ActionType.KANBAN_VIEW, tabsSupport::toggleKanban);
         systemActionHandlers.put(SystemActionEvent.ActionType.PRIVATE_TOGGLE, () -> privacySupport.toggle(getCurrentNote()));
         systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_UNLOCK, privacySupport::unlockAll);
         systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_LOCK, privacySupport::lockAll);
@@ -1669,35 +1672,13 @@ public class MainController {
         systemActionHandlers.put(SystemActionEvent.ActionType.GIT_ADD_REMOTE, gitController::addRemote);
     }
 
-    // ── Navigation history ───────────────────────────────────────────────────
-
-    private void navigateBack() {
-        loadNoteById(navigationHistory.back(getCurrentNote() != null ? getCurrentNote().getId() : null));
-    }
-
-    private void navigateForward() {
-        loadNoteById(navigationHistory.forward(getCurrentNote() != null ? getCurrentNote().getId() : null));
-    }
-
-    /** Opens a back/forward target, without recording it as a new visit. */
-    private void loadNoteById(String noteId) {
-        if (noteId == null || noteService == null) return;
-        navigationHistory.jumping(() -> noteService.getNoteById(noteId).ifPresent(note -> {
-            loadNoteInEditor(note);
-            if (notesListView != null) notesListView.getSelectionModel().select(note);
-        }));
-        updateNavigationButtons();
-    }
-
-    private void recordNavigation(String previousNoteId) {
-        navigationHistory.record(previousNoteId);
-        updateNavigationButtons();
-    }
+    // ── Navigation history (per tab, in TabsSupport) ─────────────────────────
 
     /** Syncs the back/forward toolbar-button states to reflect whether the respective navigation stacks are non-empty. */
     private void updateNavigationButtons() {
         if (editorController != null) {
-            editorController.updateNavigationState(navigationHistory.canGoBack(), navigationHistory.canGoForward());
+            editorController.updateNavigationState(editorTabs != null && editorTabs.canGoBack(),
+                    editorTabs != null && editorTabs.canGoForward());
         }
     }
 
@@ -1825,8 +1806,8 @@ public class MainController {
      * for an overlay it can no longer reach.
      */
     private void updateRightPanelContext() {
-        boolean graph = overlaySupport.isGraphVisible();
-        boolean editorContext = !graph && !overlaySupport.isKanbanVisible();
+        boolean graph = tabsSupport.isGraphVisible();
+        boolean editorContext = !graph && !tabsSupport.isKanbanVisible();
         UiNodes.show(noteInfoSection, editorContext);
         UiNodes.show(backlinksSection, editorContext);
         UiNodes.show(graphInfoSection, graph);
@@ -1850,7 +1831,11 @@ public class MainController {
         updateRightPanelContext();
     }
 
-    /** Resets the filter state and asks {@link NotesListController} to display every note. */
+    /**
+     * Shows every note, unfiltered: resets the folder filter and asks {@link NotesListController}
+     * for every note (the sidebar has no "All Notes" row; the vault root with "show subfolders
+     * recursively" covers it).
+     */
     private void loadAllNotes() {
         if (notesListController != null) {
             currentFolder = null;
@@ -1858,12 +1843,6 @@ public class MainController {
         }
     }
 
-    /** Shows every note, unfiltered — the sidebar no longer has a dedicated "All Notes"
-     *  row to select for this (selecting the vault root with the notes panel's "show
-     *  subfolders recursively" toggle on now covers that), so this loads directly. */
-    private void goToAllNotes() {
-        loadAllNotes();
-    }
 
     /** Updates the active folder filter and ensures the notes panel is visible, expanding collapsed splits as needed. */
     private void handleFolderSelection(Folder folder) {
@@ -1892,7 +1871,7 @@ public class MainController {
     private void handleCloseNote() {
         // With tabs, "close note" closes the active tab (and activates a neighbour).
         if (editorTabs != null && editorTabs.getActiveId() != null) {
-            closeTab(editorTabs.getActiveId());
+            tabsSupport.close(editorTabs.getActiveId());
             return;
         }
         if (!confirmLeaveCurrent()) {
@@ -1910,7 +1889,8 @@ public class MainController {
     /** Shows the open note's save state and the editor mode in the status bar. */
     private void refreshEditorIndicators() {
         boolean livePreview = editorController == null || editorController.isLivePreviewEnabled();
-        statusBarSupport.updateEditorIndicators(getCurrentNote() != null, isModified(),
+        // A view's tab (the graph) shows no note, even with one loaded behind it.
+        statusBarSupport.updateEditorIndicators(getCurrentNote() != null && !tabsSupport.isViewActive(), isModified(),
                 StatusBarSupport.EditorMode.of(editorController != null ? editorController.getViewMode()
                         : EditorController.ViewMode.EDITOR_ONLY, livePreview), autosaveEnabled, autosaveIdleMs);
     }
@@ -2001,12 +1981,7 @@ public class MainController {
                 note = noteService.getNoteById(note.getId()).orElse(note);
             }
         }
-        // Record the note we're leaving in the back-navigation stack.
         Note leaving = getCurrentNote();
-        if (leaving != null && note != null && !leaving.getId().equals(note.getId())) {
-            recordNavigation(leaving.getId());
-        }
-
         if (isModified() && leaving != null && !confirmLeaveCurrent()) {
             return;
         }
@@ -2028,6 +2003,7 @@ public class MainController {
             editorTabs.open(activeNote.getId(), activeNote.getTitle(), target);
             editorTabs.setDirty(activeNote.getId(), false);
         }
+        tabsSupport.noteShown();
         if (sidebarController != null) {
             sidebarController.setExplorerActiveNote(activeNote.getId());
         }
@@ -2069,31 +2045,6 @@ public class MainController {
             return;
         }
         noteService.getNoteById(noteId).ifPresent(this::loadNoteInEditor);
-    }
-
-    /**
-     * Closes a tab. For the active tab this prompts to save unsaved changes, then
-     * activates a neighbouring tab (or empties the editor when none remain). Non-active
-     * tabs are always clean in the single-editor model, so they close immediately.
-     */
-    private void closeTab(String noteId) {
-        if (editorTabs == null || noteId == null) {
-            return;
-        }
-        if (!noteId.equals(editorTabs.getActiveId())) {
-            editorTabs.removeTab(noteId);
-            return;
-        }
-        if (!confirmLeaveCurrent()) {
-            return; // user cancelled
-        }
-        String neighbor = editorTabs.neighborOf(noteId);
-        editorTabs.removeTab(noteId);
-        if (neighbor != null) {
-            openNoteInTab(neighbor); // editor is clean now → no second save prompt
-        } else {
-            clearEditorToEmpty();
-        }
     }
 
     /**
@@ -2498,37 +2449,49 @@ public class MainController {
 
     @FXML
     private void handleUndo(ActionEvent event) {
-        editorController.performUndo();
+        inEditor(EditorController::performUndo);
     }
 
     @FXML
     private void handleRedo(ActionEvent event) {
-        editorController.performRedo();
+        inEditor(EditorController::performRedo);
     }
 
     @FXML
     private void handleCut(ActionEvent event) {
-        editorController.performCut();
+        inEditor(EditorController::performCut);
     }
 
     @FXML
     private void handleCopy(ActionEvent event) {
-        editorController.performCopy();
+        inEditor(EditorController::performCopy);
     }
 
     @FXML
     private void handlePaste(ActionEvent event) {
-        editorController.performPaste();
+        inEditor(EditorController::performPaste);
     }
 
     @FXML
     private void handleFind(ActionEvent event) {
-        editorController.performFind(this::getString, this::updateStatus);
+        inEditor(editor -> editor.performFind(this::getString, this::updateStatus));
     }
 
     @FXML
     private void handleReplace(ActionEvent event) {
-        editorController.performReplace(this::getString, this::updateStatus);
+        inEditor(editor -> editor.performReplace(this::getString, this::updateStatus));
+    }
+
+    /** Whether the editor is on screen: not with a view's tab (the graph) in front of its note. */
+    private boolean editorInFront() {
+        return editorController != null && !tabsSupport.isViewActive();
+    }
+
+    /** Runs an editing command (undo, paste, find…) on the editor when it is on screen. */
+    private void inEditor(Consumer<EditorController> command) {
+        if (editorInFront()) {
+            command.accept(editorController);
+        }
     }
 
     /** Toggles focus / writing mode (logic + state in {@link FocusModeSupport}). */
@@ -2556,8 +2519,8 @@ public class MainController {
     }
 
     /**
-     * Restores a workspace: reopens its still-existing notes as tabs, activates the saved
-     * active note, and reapplies the basic layout. Missing notes are skipped with a
+     * Restores a workspace: reopens its tabs (see {@link TabsSupport#restoreTabs}) and
+     * reapplies the basic layout. Missing notes are skipped with a
      * non-blocking status warning; a storage-mode mismatch is also flagged. Existing tabs
      * are kept (open is additive — it never closes notes you already had open).
      */
@@ -2571,25 +2534,7 @@ public class MainController {
             updateStatus(getString("workspace.status.storage_mismatch"));
         }
 
-        int missing = 0;
-        String lastOpened = null;
-        for (String id : ws.openNoteIds()) {
-            Optional<Note> note = noteService.getNoteById(id);
-            if (note.isPresent()) {
-                // Each saved tab gets its own tab (a plain open would replace the previous one).
-                loadNoteInEditor(note.get(), EditorTabsModel.OpenTarget.NEW_TAB);
-                lastOpened = id;
-            } else {
-                missing++;
-            }
-        }
-        // Activate the saved active note when it still exists, else the last one opened.
-        String target = ws.activeNoteId() != null && noteService.getNoteById(ws.activeNoteId()).isPresent()
-                ? ws.activeNoteId() : lastOpened;
-        if (target != null) {
-            openNoteInTab(target);
-        }
-
+        int missing = tabsSupport.restoreTabs(ws.openNoteIds(), ws.activeNoteId());
         applyWorkspaceLayout(ws);
 
         if (missing > 0) {
@@ -2829,7 +2774,7 @@ public class MainController {
             editorController.refreshPreview(isDarkThemeActive());
         }
         refreshNotesGridIfActive();
-        overlaySupport.applyGraphThemeIfVisible();
+        tabsSupport.applyGraphThemeIfVisible();
     }
 
     private boolean isDarkThemeActive() {
@@ -2969,7 +2914,7 @@ public class MainController {
         }
         String activeId = editorTabs.getActiveId();
         for (String openId : new ArrayList<>(editorTabs.getOpenIds())) {
-            if (Objects.equals(openId, activeId)) {
+            if (Objects.equals(openId, activeId) || ViewTabs.isView(openId)) {
                 continue;
             }
             Optional<Note> refreshed = noteService.getNoteById(openId);
@@ -2991,14 +2936,10 @@ public class MainController {
             return;
         }
         if (editorTabs != null && editorTabs.isOpen(missingNote.getId())) {
-            String neighbor = editorTabs.neighborOf(missingNote.getId());
-            editorTabs.removeTab(missingNote.getId());
-            if (neighbor != null) {
-                openNoteInTab(neighbor);
-                return;
-            }
+            tabsSupport.close(missingNote.getId());
+        } else {
+            clearEditorToEmpty();
         }
-        clearEditorToEmpty();
         updateStatus(getString("status.open_note_missing_closed"));
     }
 
@@ -3049,11 +2990,9 @@ public class MainController {
         updateStatus(getString("status.saved_all"));
     }
 
-    /** Runs a palette formatting command (bold, a list, a link…) in the editor. */
+    /** Runs a palette formatting command (bold, a list, a link…) in the editor, when it is on screen. */
     private void formatInEditor(SystemActionEvent.ActionType actionType) {
-        if (editorController != null) {
-            editorController.applyFormat(actionType);
-        }
+        inEditor(editor -> editor.applyFormat(actionType));
     }
 
     private void handleSystemAction(SystemActionEvent event) {

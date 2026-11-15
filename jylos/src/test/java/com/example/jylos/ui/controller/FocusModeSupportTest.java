@@ -1,8 +1,11 @@
 package com.example.jylos.ui.controller;
 
+import static com.example.jylos.tests.FxTestSupport.onFx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.prefs.Preferences;
@@ -13,8 +16,10 @@ import org.junit.jupiter.api.Test;
 import com.example.jylos.tests.FxTestSupport;
 
 import javafx.application.Platform;
+import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.control.SplitPane;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
 /**
@@ -99,6 +104,49 @@ class FocusModeSupportTest {
         assertEquals(0, widthAfterExit[0],
                 "a right panel that was already collapsed before entering focus mode must not "
                         + "be force-expanded just because focus mode was toggled off");
+    }
+
+    /**
+     * The editor sits in the editor area with the graph (a StackPane); focus mode keeps that
+     * area whole. Showing the editor alone took it out of the area, and on exit the area came
+     * back empty: no note showed, whatever tab was opened.
+     */
+    @Test
+    void focusModeKeepsTheEditorInsideItsArea() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            SplitPane main = new SplitPane();
+            SplitPane content = new SplitPane();
+            Label sidebar = new Label("sidebar");
+            Label notes = new Label("notes");
+            VBox editor = new VBox();
+            StackPane editorArea = new StackPane(editor, new VBox());
+            main.getItems().setAll(sidebar, content);
+            content.getItems().setAll(notes, editorArea);
+            new Scene(main, 800, 600); // with skins, a SplitPane's items become its children
+            main.applyCss();
+            main.layout();
+            FocusModeSupport support = new FocusModeSupport();
+            support.wire(main, content, () -> new Label("toolbar"), new Label("status"), new VBox(),
+                    () -> editor, Preferences.userRoot().node("/com/example/jylos/test/focus-mode"),
+                    key -> key, message -> { });
+            List<String> out = new ArrayList<>();
+            support.toggle();
+            main.applyCss();
+            main.layout();
+            out.add("focus: " + (content.getItems().equals(List.of(editorArea)) ? "area alone" : content.getItems())
+                    + ", editor in area " + (editor.getParent() == editorArea));
+            support.toggle();
+            main.applyCss();
+            main.layout();
+            out.add("after: " + (content.getItems().equals(List.of(notes, editorArea)) ? "notes and area"
+                    : content.getItems()) + ", editor in area " + (editor.getParent() == editorArea));
+            return out;
+        });
+
+        assertEquals(List.of("focus: area alone, editor in area true", "after: notes and area, editor in area true"),
+                seen);
     }
 
     private static FocusModeSupport wiredSupport(VBox rightPanel) {

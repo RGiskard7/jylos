@@ -21,7 +21,7 @@ ui/ (FXML, controllers, components, GraphCanvas)
 
 | Paquete | Rol |
 |---------|-----|
-| `ui.controller` | Shell y controladores: `MainController`, sidebar, lista, editor, toolbar, grafo y helpers (`GitController`, `PrivacySupport`, `OverlaySupport`, etc.); piezas compartidas por los árboles y la lista clásicos y el árbol Explorador: `NoteContextMenuSupport`, `FolderContextMenuSupport` y `FolderDropSupport` |
+| `ui.controller` | Shell y controladores: `MainController`, sidebar, lista, editor, toolbar, grafo y helpers (`GitController`, `PrivacySupport`, `TabsSupport`, etc.); piezas compartidas por los árboles y la lista clásicos y el árbol Explorador: `NoteContextMenuSupport`, `FolderContextMenuSupport` y `FolderDropSupport` |
 | `ui.theme` | Aplicación/detección de temas y catálogos de temas/snippets |
 | `ui.preferences` | Persistencia de preferencias UI serializadas y del diseño de la ventana (`LayoutMode`: Explorador, clásico en columnas, clásico apilado) |
 | `ui.graph` | `GraphCanvas`, render nativo del grafo |
@@ -45,11 +45,11 @@ ui/ (FXML, controllers, components, GraphCanvas)
 
 ## Composición UI
 
-- `MainView.fxml`: toolbar, centro con split principal, overlays de grafo/Kanban, panel derecho y status bar.
+- `MainView.fxml`: toolbar, centro con split principal, área del editor (`editorArea`: la nota o el grafo), overlay de Kanban, panel derecho y status bar.
 - Split central según `LayoutMode` (guardado en `ui.layout.mode`; se decide una sola vez en `Main.start`: instalación nueva, Explorador; actualización, clásico en columnas). `UiLayout` guarda la distribución y si el panel de resultados está abierto, coloca los paneles (`arrange`) y pliega o muestra la barra lateral, la lista y el panel derecho desde sus botones. Disposiciones: columnas `sidebar | lista | editor`; apilado `(sidebar sobre lista) | editor`; Explorador `sidebar | editor`, con la lista delante del editor solo mientras muestra resultados de búsqueda o etiqueta.
 - Barra lateral: en el diseño Explorador la pestaña de carpetas muestra `ExplorerTree` en lugar del árbol clásico. Cada carpeta lee su contenido (`FolderService.getSubfolders`, `NoteService.getNotesByFolder`) en el hilo de carga de la barra lateral al desplegarse por primera vez, y descarta resultados más antiguos que la última lectura. El filtro y "revelar la nota abierta" leen la bóveda entera una vez y la guardan hasta el siguiente refresco.
 - Lista de notas: en el diseño Explorador es un panel de resultados (botón de cerrar, sin cuadrícula ni "notas de subcarpetas").
-- Overlays: grafo (`GraphView.fxml`) y Kanban (`KanbanBoard`) se gestionan por `OverlaySupport`.
+- El grafo es una pestaña, como en Obsidian: `GraphView.fxml` está con el editor en `editorArea` y se ve mientras su pestaña (`ViewTabs.GRAPH`, un id reservado en la misma lista que los de las notas) es la activa. Como en Obsidian, todas las pestañas siguen una regla (lo que se abre ocupa la pestaña activa, o una nueva con Cmd/Ctrl; "pestaña nueva" llena la activa mientras está vacía) y cada una guarda su historial atrás/adelante de lo que mostró, notas, grafo y pestañas nuevas incluidos (`EditorTabsModel`, 20 pasos). El + tras las pestañas y `NEW_TAB` (`Ctrl/Cmd+T`) abren una pestaña vacía (`ViewTabs.newEmptyTab()`) al final, con el estado vacío del editor. `TabsSupport` lo coordina todo (abrir, elegir, cerrar, atrás/adelante, restaurar desde un espacio de trabajo) y termina en un único sitio que muestra lo que tiene la pestaña activa; también lleva el overlay del Kanban (`KanbanBoard`).
 - Editor: `EditorTabs` (reglas en `EditorTabsModel`: abrir en la pestaña actual sustituye su nota, una nota ya abierta activa su pestaña, una pestaña nueva va justo después de la activa), `MarkdownEditorView` como frontera JavaFX para CodeMirror 6 offline en modo fuente/vista previa en vivo, `WebView` de lectura separado y autocompletado `[[`.
 - Panel derecho: metadata, backlinks y paneles de plugins.
 - Focus mode: oculta chrome de UI y deja solo editor.

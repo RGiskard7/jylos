@@ -98,4 +98,4 @@ existing graph/link machinery — there is **no second link-resolution path**.
 | Model / DTO | `insights/KnowledgeHealthReport`, `NoteConnectivityInfo`, `BrokenLinkInfo` | Immutable report snapshots. |
 | Builder | `graph/GraphBuilder` (reused) | Derives note→note edges via `WikiLinkResolver` — the single source of link truth. |
 | View | `ui/components/KnowledgeInsightsPanel` | Read-only tabbed dialog. |
-| View | `ui/controller/GraphController` | Graph overlay + the view filters (post-filtering of the cached `GraphData`). |
+| View | `ui/controller/GraphController` | The graph tab's view + the view filters (post-filtering of the cached `GraphData`). |

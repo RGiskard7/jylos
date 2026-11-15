@@ -24,11 +24,14 @@ import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.layout.Pane;
 
-/** With no tab open, the editor offers what Obsidian does, in its words: new note, new canvas, go to file. */
+/**
+ * With no note open (or in a new tab), the editor offers what Obsidian does, in its words: new
+ * note, new canvas, go to file; and the graph.
+ */
 class EditorEmptyStateTest {
 
     @Test
-    void theEmptyTabOffersANewNoteANewCanvasAndGoToFile() throws Exception {
+    void theEmptyTabOffersANewNoteANewCanvasGoToFileAndTheGraph() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
         List<String> asked = new CopyOnWriteArrayList<>();
         EventBus.Subscription subscription = EventBus.getInstance().subscribe(SystemActionEvent.class,
@@ -51,8 +54,8 @@ class EditorEmptyStateTest {
                 buttons.forEach(Button::fire);
                 return buttons.stream().map(Button::getText).toList();
             });
-            assertEquals(List.of("Nueva nota", "Nuevo lienzo", "Ir a archivo"), labels);
-            assertEquals(List.of("NEW_NOTE", "NEW_CANVAS", "QUICK_SWITCHER"), asked);
+            assertEquals(List.of("Nueva nota", "Nuevo lienzo", "Ir a archivo", "Vista de grafo"), labels);
+            assertEquals(List.of("NEW_NOTE", "NEW_CANVAS", "QUICK_SWITCHER", "GRAPH_VIEW"), asked);
         } finally {
             subscription.cancel();
         }

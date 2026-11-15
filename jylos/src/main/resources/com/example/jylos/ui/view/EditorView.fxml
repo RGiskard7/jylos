@@ -268,6 +268,9 @@
             <Button text="%empty.go_to_file" onAction="#handleEmptyGoToFile" styleClass="empty-state-btn-secondary">
                 <graphic><FontIcon iconLiteral="fth-search" styleClass="feather-icon"/></graphic>
             </Button>
+            <Button text="%empty.open_graph" onAction="#handleEmptyOpenGraph" styleClass="empty-state-btn-secondary">
+                <graphic><FontIcon iconLiteral="fth-share-2" styleClass="feather-icon"/></graphic>
+            </Button>
         </VBox>
     </StackPane>
 </VBox>

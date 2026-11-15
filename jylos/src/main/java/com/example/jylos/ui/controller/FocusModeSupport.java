@@ -94,13 +94,26 @@ final class FocusModeSupport {
         if (mainSplitPane != null && contentSplitPane != null) {
             mainSplitPane.getItems().setAll(contentSplitPane);
         }
-        Node editor = editorContainer != null ? editorContainer.get() : null;
-        if (contentSplitPane != null && editor != null) {
-            contentSplitPane.getItems().setAll(editor);
+        Node editorArea = itemHolding(contentSplitPane, editorContainer != null ? editorContainer.get() : null);
+        if (editorArea != null) {
+            contentSplitPane.getItems().setAll(editorArea);
         }
 
         focusMode = true;
         updateStatus(getString("status.focus_on"));
+    }
+
+    /**
+     * The item of {@code split} that is {@code node} or holds it: the editor sits inside the
+     * editor area (with the graph), and taking it out on its own would leave the area empty.
+     */
+    private static Node itemHolding(SplitPane split, Node node) {
+        for (Node current = node; split != null && current != null; current = current.getParent()) {
+            if (split.getItems().contains(current)) {
+                return current;
+            }
+        }
+        return null;
     }
 
     private void exit() {

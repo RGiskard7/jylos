@@ -1,15 +1,19 @@
 package com.example.jylos.ui.components;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+
+import org.kordamp.ikonli.javafx.FontIcon;
 
 import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
 
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.MouseButton;
@@ -56,6 +60,8 @@ public final class EditorTabs {
     private final Function<String, String> i18n;
     private final EditorTabsModel model = new EditorTabsModel();
     private final Map<String, TabNode> nodes = new HashMap<>();
+    /** The + after the tabs, as in Obsidian; {@code null} until {@link #setNewTabAction}. */
+    private Button newTabButton;
 
     public EditorTabs(HBox container, Region visibilityNode, Listener listener,
             Function<String, String> i18n) {
@@ -76,7 +82,7 @@ public final class EditorTabs {
         final Label title = new Label();
         String noteId;
 
-        TabNode(String noteId, String titleText) {
+        TabNode(String noteId, String titleText, String iconLiteral) {
             this.noteId = noteId;
             root.getStyleClass().add("editor-tab");
             root.setSpacing(6);
@@ -106,7 +112,13 @@ public final class EditorTabs {
                 }
             });
 
-            root.getChildren().addAll(dot, title, close);
+            root.getChildren().add(dot);
+            if (iconLiteral != null) {
+                FontIcon icon = new FontIcon(iconLiteral);
+                icon.getStyleClass().addAll("feather-icon", "editor-tab-icon");
+                root.getChildren().add(icon);
+            }
+            root.getChildren().addAll(title, close);
             root.setOnMouseClicked(e -> {
                 if (listener == null) {
                     return;
@@ -151,19 +163,74 @@ public final class EditorTabs {
 
     /**
      * Shows {@code id} as the active tab, opening it where {@code target} says (see
-     * {@link EditorTabsModel}). No callback is fired. No-op for a {@code null} id.
+     * {@link EditorTabsModel}). A {@code null} title keeps the tab's title. No callback is
+     * fired. No-op for a {@code null} id.
      */
     public void open(String id, String title, OpenTarget target) {
+        open(id, title, null, target);
+    }
+
+    /**
+     * As {@link #open(String, String, OpenTarget)}, with an icon before the title (a Feather
+     * icon literal, or {@code null}); used for view tabs such as the graph ({@link ViewTabs}).
+     */
+    public void open(String id, String title, String iconLiteral, OpenTarget target) {
         if (id == null) {
             return;
         }
         model.open(id, target);
         TabNode node = nodes.get(id);
         if (node == null) {
-            nodes.put(id, new TabNode(id, title));
-        } else {
+            nodes.put(id, new TabNode(id, title, iconLiteral));
+        } else if (title != null) {
             node.title.setText(displayTitle(title));
         }
+        render();
+    }
+
+    /**
+     * Back in the active tab (see {@link EditorTabsModel#back}): returns what it shows now, or
+     * {@code null}. The strip is redrawn when the caller shows it, through {@link #open}.
+     */
+    public String back() {
+        return model.back();
+    }
+
+    /** Forward in the active tab; as {@link #back}. */
+    public String forward() {
+        return model.forward();
+    }
+
+    public boolean canGoBack() {
+        return model.canGoBack();
+    }
+
+    public boolean canGoForward() {
+        return model.canGoForward();
+    }
+
+    /** A note that no longer exists leaves every tab's history. */
+    public void forget(String id) {
+        model.forget(id);
+    }
+
+    /**
+     * Shows a + after the tabs that runs {@code action} (a new tab). With it, the strip stays
+     * visible with no tab open, so the + is always there.
+     */
+    public void setNewTabAction(Runnable action) {
+        if (newTabButton == null) {
+            newTabButton = new Button();
+            newTabButton.setGraphic(new FontIcon("fth-plus"));
+            newTabButton.getStyleClass().addAll("editor-tab-new", "icon-btn");
+            String tip = i18n != null ? i18n.apply("tooltip.new_tab") : null;
+            newTabButton.setTooltip(new Tooltip(tip != null ? tip : "New tab"));
+        }
+        newTabButton.setOnAction(e -> {
+            if (action != null) {
+                action.run();
+            }
+        });
         render();
     }
 
@@ -178,10 +245,10 @@ public final class EditorTabs {
         render();
     }
 
-    /** Shows/hides the dirty dot for a tab. */
+    /** Shows/hides the dirty dot for a tab; a view tab has nothing to save and never shows it. */
     public void setDirty(String id, boolean dirty) {
         TabNode node = nodes.get(id);
-        if (node != null) {
+        if (node != null && !ViewTabs.isView(id)) {
             UiNodes.show(node.dot, dirty);
         }
     }
@@ -226,7 +293,11 @@ public final class EditorTabs {
         List<String> ids = model.getIds();
         nodes.keySet().retainAll(ids);
         if (container != null) {
-            container.getChildren().setAll(ids.stream().map(id -> (Node) nodes.get(id).root).toList());
+            List<Node> children = new ArrayList<>(ids.stream().map(id -> (Node) nodes.get(id).root).toList());
+            if (newTabButton != null) {
+                children.add(newTabButton);
+            }
+            container.getChildren().setAll(children);
         }
         String activeId = model.getActiveId();
         nodes.forEach((id, node) -> {
@@ -240,7 +311,7 @@ public final class EditorTabs {
 
     private void updateVisibility() {
         if (visibilityNode != null) {
-            boolean show = !model.getIds().isEmpty();
+            boolean show = newTabButton != null || !model.getIds().isEmpty();
             UiNodes.show(visibilityNode, show);
         }
     }

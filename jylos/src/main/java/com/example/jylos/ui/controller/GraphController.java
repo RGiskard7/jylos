@@ -1,6 +1,7 @@
 package com.example.jylos.ui.controller;
 
 import java.util.ResourceBundle;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Level;
@@ -133,7 +134,8 @@ public class GraphController {
     private String filterAllLabel = "All";
 
     private ResourceBundle bundle;
-    private Consumer<String> onOpenNote;
+    /** Told the note clicked, and whether the click asks for a new tab. */
+    private BiConsumer<String, Boolean> onOpenNote;
     private Runnable onClose;
     private Supplier<String> currentNoteIdSupplier = () -> null;
     /** Notified with the freshly built model after every rebuild, so the right panel's
@@ -150,9 +152,9 @@ public class GraphController {
             graphCanvasHolder.getChildren().add(0, canvas);
             VBox.setVgrow(graphCanvasHolder, Priority.ALWAYS);
         }
-        canvas.setOnOpenNote(id -> {
+        canvas.setOnOpenNote((id, newTab) -> {
             if (onOpenNote != null && id != null) {
-                onOpenNote.accept(id);
+                onOpenNote.accept(id, newTab);
             }
         });
         // The zoom is kept for next time, as Obsidian does; the local graph keeps its own.
@@ -436,7 +438,7 @@ public class GraphController {
     // ── Wiring from MainController ───────────────────────────────────────────
 
     public void wire(EventBus eventBus, NoteService noteService, TagService tagService, ResourceBundle bundle,
-            Consumer<String> onOpenNote, Runnable onClose, Supplier<String> currentNoteIdSupplier,
+            BiConsumer<String, Boolean> onOpenNote, Runnable onClose, Supplier<String> currentNoteIdSupplier,
             Consumer<GraphData> onDataBuilt) {
         setServices(noteService, tagService);
         setBundle(bundle);
@@ -510,7 +512,7 @@ public class GraphController {
         this.bundle = bundle;
     }
 
-    private void setOnOpenNote(Consumer<String> onOpenNote) {
+    private void setOnOpenNote(BiConsumer<String, Boolean> onOpenNote) {
         this.onOpenNote = onOpenNote;
     }
 
@@ -530,11 +532,23 @@ public class GraphController {
 
     // ── Public actions (called by MainController) ────────────────────────────
 
-    /** Shows the graph with the current theme and rebuilds the data. */
+    /** Opens the graph afresh (see {@link GraphCanvas#openView}) with the current theme. */
     public void show(boolean dark) {
         graphVisible = true;
+        canvas.resume();
         canvas.setDarkTheme(dark);
         openView();
+        rebuild();
+    }
+
+    /**
+     * Shows the graph again where it was left (its tab activated again): same view and same
+     * places, with the data brought up to date. {@link #show} is for opening it afresh.
+     */
+    public void resume(boolean dark) {
+        graphVisible = true;
+        canvas.resume();
+        canvas.setDarkTheme(dark);
         rebuild();
     }
 

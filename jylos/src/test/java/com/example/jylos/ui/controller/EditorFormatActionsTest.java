@@ -26,12 +26,16 @@ import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.tests.FxTestSupport;
+import com.example.jylos.ui.components.EditorTabs;
+import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
 import com.example.jylos.ui.components.MarkdownEditorView;
+import com.example.jylos.ui.components.ViewTabs;
 
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.ButtonBase;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 
 /**
@@ -88,6 +92,33 @@ class EditorFormatActionsTest {
         });
 
         assertEquals("**hola**", textOnceChanged(opened));
+    }
+
+    /** With the graph's tab in front, the palette's formatting leaves the note behind it alone. */
+    @Test
+    void thePaletteDoesNotFormatTheNoteBehindTheGraph(@TempDir Path vault) throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        Opened opened = open(vault);
+
+        runFx(() -> {
+            MainController main = new MainController();
+            Field editor = MainController.class.getDeclaredField("editorController");
+            editor.setAccessible(true);
+            editor.set(main, opened.editor());
+            EditorTabs tabs = new EditorTabs(new HBox(), null, null, key -> key);
+            tabs.open("Nota.md", "Nota", OpenTarget.CURRENT_TAB);
+            tabs.open(ViewTabs.GRAPH, "Grafo", OpenTarget.NEW_TAB);
+            Field views = MainController.class.getDeclaredField("tabsSupport");
+            views.setAccessible(true);
+            ((TabsSupport) views.get(main)).wire(null, null, null, null, () -> false, key -> key, s -> { },
+                    () -> tabs, null, n -> { }, n -> { });
+            Method resolve = MainController.class.getDeclaredMethod("resolveCommandAction", String.class);
+            resolve.setAccessible(true);
+            ((Runnable) resolve.invoke(main, "cmd.bold")).run();
+        });
+        Thread.sleep(500); // a format would have reached the page by now
+
+        assertEquals("hola", onFx(() -> opened.area().getText()));
     }
 
     /** {@link SystemActionEvent} is plugin API: a plugin that publishes BOLD formats the note. */

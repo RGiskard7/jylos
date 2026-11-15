@@ -7,6 +7,7 @@ Los atajos usan `Cmd` en macOS y `Ctrl` en Windows y Linux (mostrados aquí como
 | Atajo | Acción |
 | --- | --- |
 | `Ctrl/Cmd+N` | Nueva nota |
+| `Ctrl/Cmd+T` | Nueva pestaña |
 | `Ctrl/Cmd+Shift+N` | Nueva carpeta |
 | `Ctrl/Cmd+Shift+D` | Nota diaria |
 | `Ctrl/Cmd+S` | Guardar |

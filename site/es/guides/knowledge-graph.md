@@ -9,6 +9,8 @@ El grafo de conocimiento dibuja tus notas y sus wiki-links como una red interact
 - **Ctrl/Cmd+G**
 - Paleta de comandos
 
+El grafo se abre en una pestaña, como en Obsidian, con la regla de las notas: ocupa la pestaña activa, o una nueva con Cmd/Ctrl. Si ya está abierto, su pestaña pasa al frente, donde está como lo dejaste; la × de la pestaña lo cierra. Un espacio de trabajo guardado lo vuelve a abrir con sus notas. Una pestaña nueva (el **+** tras las pestañas, o **Ctrl/Cmd+T**) también lo ofrece.
+
 Los enlaces cuentan tanto en el cuerpo como en las propiedades de la nota (`up: "[[Índice]]"`), como en Obsidian.
 
 ## Vistas global y local
@@ -21,7 +23,7 @@ Los enlaces cuentan tanto en el cuerpo como en las propiedades de la nota (`up: 
 - Zoom y paneo. El grafo abre con el zoom que dejaste, como en Obsidian (el grafo local guarda el suyo). Hasta que eliges uno, o tras **Restablecer vista**, muestra el grafo entero mientras se despliega.
 - Arrastra nodos.
 - Pasa el cursor para resaltar vecinos.
-- Haz clic en un nodo de nota para abrirlo.
+- Haz clic en un nodo de nota para abrirla en la pestaña del grafo; Cmd/Ctrl+clic o el botón central la abren en otra pestaña y el grafo se queda.
 
 ## Ajustes y filtros
 

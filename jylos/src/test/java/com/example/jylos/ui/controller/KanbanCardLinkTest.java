@@ -14,6 +14,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.example.jylos.data.dao.filesystem.FolderDAOFileSystem;
 import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
+import com.example.jylos.data.models.Note;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.service.NoteService;
 
@@ -35,9 +36,11 @@ class KanbanCardLinkTest {
         NoteService notes = new NoteService(new NoteDAOFileSystem(vault.toString()),
                 new FolderDAOFileSystem(vault.toString()));
         List<String> opened = new ArrayList<>();
-        OverlaySupport overlay = new OverlaySupport();
-        overlay.wire(null, null, null, notes, () -> false, key -> key, status -> { },
-                note -> opened.add(note.getId()), note -> { }, note -> { }, null);
+        TabsSupport overlay = new TabsSupport();
+        overlay.wire(null, null, null, notes, () -> false, key -> key, status -> { }, () -> null,
+                new TabsSupport.Host(() -> true, id -> { }, note -> { }, note -> opened.add(note.getId()),
+                        () -> { }, () -> { }),
+                note -> { }, note -> { });
 
         overlay.openLinkedNote("Personal/Reunión");
         overlay.openLinkedNote("Proyectos/Reunión");

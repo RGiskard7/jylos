@@ -222,6 +222,51 @@ class GraphSettingsTest {
         assertTrue(onFx(() -> !Color.web("#ff0000").equals(canvas.fillOf("A.md"))), "only the match");
     }
 
+    /** Coming back to the graph's tab resumes it where it was left; only opening it starts afresh. */
+    @Test
+    void comingBackToTheGraphKeepsItsView() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        Fixture f = onFx(Fixture::new);
+        onFx(() -> {
+            f.controller.show(false);
+            return null;
+        });
+        f.waitForBuild();
+        onFx(() -> {
+            f.canvas().zoomOut();
+            Field offset = GraphCanvas.class.getDeclaredField("offsetX");
+            offset.setAccessible(true);
+            offset.set(f.canvas(), 123.0); // the view dragged aside
+            f.controller.pause();
+            f.controller.resume(false);
+            return null;
+        });
+        f.waitForBuild();
+
+        assertEquals(123.0, (double) onFx(() -> f.<Double>canvasField("offsetX")), 1e-9, "the view stays where it was");
+        assertTrue(onFx(() -> f.<Boolean>canvasField("timerRunning")), "and it moves again, with the new data");
+    }
+
+    /** Opened again after its tab was closed (paused), the graph moves again. */
+    @Test
+    void openingTheGraphAgainAfterClosingItMovesAgain() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        Fixture f = onFx(Fixture::new);
+        onFx(() -> {
+            f.controller.show(false);
+            return null;
+        });
+        f.waitForBuild();
+        onFx(() -> {
+            f.controller.pause();
+            f.controller.show(false);
+            return null;
+        });
+        f.waitForBuild();
+
+        assertTrue(onFx(() -> f.<Boolean>canvasField("timerRunning")));
+    }
+
     private final class Fixture {
         final GraphController controller;
         final List<GraphData> built = new CopyOnWriteArrayList<>();
@@ -232,7 +277,7 @@ class GraphSettingsTest {
                     ResourceBundle.getBundle("com.example.jylos.i18n.messages", Locale.forLanguageTag("es")));
             loader.load();
             controller = loader.getController();
-            controller.wire(null, notes, tags, loader.getResources(), id -> { }, () -> { }, () -> "A.md", built::add);
+            controller.wire(null, notes, tags, loader.getResources(), (id, newTab) -> { }, () -> { }, () -> "A.md", built::add);
         }
 
         @SuppressWarnings("unchecked")
