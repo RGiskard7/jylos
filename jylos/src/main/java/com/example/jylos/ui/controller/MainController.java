@@ -149,11 +149,6 @@ public class MainController {
     private ComboBox<String> sortComboBox;
     private ListView<Note> notesListView;
 
-    private boolean isStackedLayout = false;
-    /** Current layout (Explorer, classic columns or classic stacked), stored in the preferences. */
-    private LayoutMode layoutMode = LayoutMode.CLASSIC_COLUMNS;
-    /** Explorer layout only: whether the notes panel is open to show tag or search results. */
-    private boolean resultsPanelShown = false;
     private final CommandRouting commandRouting = new CommandRouting();
     private final Map<SystemActionEvent.ActionType, Runnable> systemActionHandlers = new EnumMap<>(
             SystemActionEvent.ActionType.class);
@@ -397,6 +392,10 @@ public class MainController {
                 subscribeToShellAndDomainEvents();
             }
             bindBackendSession();
+            // After bindBackendSession(): it is what fetches the notes panel from its controller.
+            uiLayout.wire(new UiLayout.Panes(mainSplitPane, contentSplitPane, navSplitPane, centerRightSplitPane,
+                    sidebarController != null ? sidebarController.getSidebarPane() : null, notesPanel, editor,
+                    rightPanel), () -> toolbarController, this::getString, this::updateStatus);
 
             bindToolbarSearchFieldDebounced();
 
@@ -522,7 +521,7 @@ public class MainController {
     }
 
     private void bindBackendSession() {
-        navigationCommand.wire(this::getString, this::updateStatus, noteService);
+        navigationCommand.wire(this::getString, this::updateStatus);
         documentSupport.wire(noteService, folderService);
         dialogSupport.wire(this::getString, this::updateStatus, tagService);
         tagManagement.wire(this::getString, this::updateStatus, tagService);
@@ -1346,14 +1345,7 @@ public class MainController {
                     UiPreferencesStore.DEFAULT_SPLIT_MAIN);
             persistDivider(contentSplitPane, UiPreferencesStore.SPLIT_CONTENT_KEY,
                     UiPreferencesStore.DEFAULT_SPLIT_CONTENT);
-            navigationCommand.showNavigationPanels(
-                    isStackedLayout,
-                    navSplitPane,
-                    sidebarController != null ? sidebarController.getSidebarPane() : null,
-                    mainSplitPane,
-                    notesPanel,
-                    contentSplitPane,
-                    toolbarController);
+            uiLayout.showNavigationPanels();
         });
     }
 
@@ -1807,10 +1799,7 @@ public class MainController {
 
     @FXML
     private void handleToggleRightPanel(ActionEvent event) {
-        uiLayout.toggleRightPanel(centerRightSplitPane, rightPanel,
-                toolbarController != null ? toolbarController.getRightPanelToggleBtn() : null,
-                getCurrentNote(),
-                () -> updateNoteMetadata(getCurrentNote()));
+        uiLayout.toggleRightPanel(getCurrentNote(), () -> updateNoteMetadata(getCurrentNote()));
     }
 
     private void initializeRightPanelSections() {
@@ -1857,15 +1846,7 @@ public class MainController {
     }
 
     private void initializeRightPanelVisibility() {
-        if (rightPanel != null) {
-            UiNodes.show(rightPanel, true);
-            rightPanel.setMinWidth(0);
-            rightPanel.setMaxWidth(0);
-            rightPanel.setPrefWidth(0);
-        }
-        if (toolbarController != null && toolbarController.getRightPanelToggleBtn() != null) {
-            toolbarController.getRightPanelToggleBtn().setSelected(false);
-        }
+        uiLayout.collapseRightPanel();
         updateRightPanelContext();
     }
 
@@ -1890,7 +1871,7 @@ public class MainController {
             if (folder == null) {
                 return;
             }
-            if (layoutMode.isExplorer()) {
+            if (uiLayout.isExplorer()) {
                 // The Explorer tree browses folders itself; the notes panel only shows results.
                 currentFolder = folder;
                 return;
@@ -1900,29 +1881,7 @@ public class MainController {
                 notesListController.loadNotesForFolder(folder);
             }
 
-            if (notesPanel == null) {
-                return;
-            }
-            if (isStackedLayout) {
-                double[] positions = navSplitPane != null ? navSplitPane.getDividerPositions() : new double[0];
-                boolean dividerCollapsed = positions != null && positions.length > 0 && positions[0] > 0.95;
-                if (notesPanel.getMaxWidth() < 10 || dividerCollapsed) {
-                    notesPanel.setMinWidth(180);
-                    notesPanel.setMaxWidth(Double.MAX_VALUE);
-                    if (navSplitPane != null) {
-                        navSplitPane.setDividerPositions(0.5);
-                    }
-                }
-            } else if (notesPanel.getMaxWidth() < 10) {
-                notesPanel.setMinWidth(180);
-                notesPanel.setMaxWidth(Double.MAX_VALUE);
-                if (contentSplitPane != null) {
-                    contentSplitPane.setDividerPositions(0.25);
-                }
-            }
-            if (toolbarController != null && toolbarController.getNotesPanelToggleBtn() != null) {
-                toolbarController.getNotesPanelToggleBtn().setSelected(true);
-            }
+            uiLayout.revealNotesPanel();
         } catch (Exception e) {
             logger.severe("Failed to handle folder selection "
                     + (folder != null ? folder.getTitle() : "null") + ": " + e.getMessage());
@@ -2660,7 +2619,7 @@ public class MainController {
         }
         boolean sidebarVisible = sidebarController != null && sidebarController.getSidebarPane() != null
                 && sidebarController.getSidebarPane().isVisible();
-        if (sidebarVisible != ws.sidebarVisible() && !isStackedLayout) {
+        if (sidebarVisible != ws.sidebarVisible() && !uiLayout.isStacked()) {
             handleToggleSidebar(null);
         }
     }
@@ -2682,26 +2641,16 @@ public class MainController {
     }
 
     void handleToggleSidebar(ActionEvent event) {
-        navigationCommand.toggleSidebar(
-                isStackedLayout,
-                navSplitPane,
-                sidebarController.getSidebarPane(),
-                mainSplitPane,
-                toolbarController);
+        uiLayout.toggleSidebar();
     }
 
     @FXML
     void handleToggleNotesPanel(ActionEvent event) {
-        if (layoutMode.isExplorer()) {
+        if (uiLayout.isExplorer()) {
             closeResultsPanel();
             return;
         }
-        navigationCommand.toggleNotesPanel(
-                isStackedLayout,
-                notesPanel,
-                contentSplitPane,
-                toolbarController,
-                () -> handleToggleSidebar(event));
+        uiLayout.toggleNotesPanel();
     }
 
     @FXML
@@ -2781,7 +2730,7 @@ public class MainController {
     /** Layout command and menu: moves on to the next layout. */
     @FXML
     void handleViewLayoutSwitch(ActionEvent event) {
-        setLayoutMode(layoutMode.next());
+        setLayoutMode(uiLayout.mode().next());
     }
 
     /** Switches to {@code mode}, stores it and says so in the status bar. */
@@ -2800,17 +2749,13 @@ public class MainController {
 
     /** Rearranges the window for {@code mode}; in the Explorer, with or without the results panel. */
     private void applyLayoutMode(LayoutMode mode, boolean showResults) {
-        layoutMode = mode != null ? mode : LayoutMode.CLASSIC_COLUMNS;
-        isStackedLayout = layoutMode.isStacked();
-        resultsPanelShown = layoutMode.isExplorer() && showResults;
+        uiLayout.arrange(mode, showResults);
+        LayoutMode layoutMode = uiLayout.mode();
         if (layoutMode.isExplorer() && notesListController != null && notesListController.isGridViewActive()
                 && eventBus != null) {
             // Results are a list; the grid belongs to browsing a folder.
             eventBus.publish(new SystemActionEvent(SystemActionEvent.ActionType.LIST_VIEW));
         }
-        navigationCommand.arrangeLayout(layoutMode, resultsPanelShown, mainSplitPane, contentSplitPane,
-                navSplitPane, sidebarController != null ? sidebarController.getSidebarPane() : null,
-                notesPanel, editor);
         if (sidebarController != null) {
             sidebarController.setExplorerMode(layoutMode.isExplorer());
         }
@@ -2824,25 +2769,19 @@ public class MainController {
         }
         if (toolbarController != null) {
             toolbarController.showLayoutMode(layoutMode);
-            if (toolbarController.getSidebarToggleBtn() != null) {
-                toolbarController.getSidebarToggleBtn().setSelected(true);
-            }
-            if (toolbarController.getNotesPanelToggleBtn() != null) {
-                toolbarController.getNotesPanelToggleBtn().setSelected(true);
-            }
         }
     }
 
     /** Explorer layout: opens the notes panel next to the editor to show tag or search results. */
     private void showResultsPanel() {
-        if (layoutMode.isExplorer() && !resultsPanelShown) {
+        if (uiLayout.isExplorer() && !uiLayout.resultsShown()) {
             applyLayoutMode(LayoutMode.EXPLORER, true);
         }
     }
 
     /** Explorer layout: closes the results panel. */
     void closeResultsPanel() {
-        if (layoutMode.isExplorer() && resultsPanelShown) {
+        if (uiLayout.isExplorer() && uiLayout.resultsShown()) {
             applyLayoutMode(LayoutMode.EXPLORER, false);
         }
     }
@@ -2932,7 +2871,7 @@ public class MainController {
                 themes,
                 theme.snippetCatalog(),
                 theme.enabledSnippets(),
-                layoutMode,
+                uiLayout.mode(),
                 uiPreferences.loadShowFormatToolbar(prefs));
         if (result.isEmpty()) {
             return;
@@ -2960,7 +2899,7 @@ public class MainController {
         if (editorController != null) {
             editorController.setFormatToolbarVisible(values.showFormatToolbar());
         }
-        if (values.layoutMode() != null && values.layoutMode() != layoutMode) {
+        if (values.layoutMode() != null && values.layoutMode() != uiLayout.mode()) {
             setLayoutMode(values.layoutMode());
         }
         updateStatus(getString("status.preferences_saved"));

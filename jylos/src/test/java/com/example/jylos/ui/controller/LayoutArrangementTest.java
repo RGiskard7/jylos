@@ -1,6 +1,7 @@
 package com.example.jylos.ui.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static com.example.jylos.tests.FxTestSupport.onFx;
 
@@ -28,16 +29,14 @@ class LayoutArrangementTest {
 
         List<String> arrangements = onFx(() -> {
             Panes p = new Panes();
-            NavigationCommand command = new NavigationCommand();
-            command.arrangeLayout(LayoutMode.CLASSIC_STACKED, false, p.main, p.content, p.nav, p.sidebar, p.notes,
-                    p.editor);
+            UiLayout layout = p.layout();
+            layout.arrange(LayoutMode.CLASSIC_STACKED, false);
             String stacked = p.describe();
-            command.arrangeLayout(LayoutMode.EXPLORER, false, p.main, p.content, p.nav, p.sidebar, p.notes, p.editor);
+            layout.arrange(LayoutMode.EXPLORER, false);
             String explorer = p.describe();
-            command.arrangeLayout(LayoutMode.EXPLORER, true, p.main, p.content, p.nav, p.sidebar, p.notes, p.editor);
+            layout.arrange(LayoutMode.EXPLORER, true);
             String explorerWithResults = p.describe();
-            command.arrangeLayout(LayoutMode.CLASSIC_COLUMNS, false, p.main, p.content, p.nav, p.sidebar, p.notes,
-                    p.editor);
+            layout.arrange(LayoutMode.CLASSIC_COLUMNS, false);
             String columns = p.describe();
             return List.of(stacked, explorer, explorerWithResults, columns);
         });
@@ -57,13 +56,35 @@ class LayoutArrangementTest {
             Panes p = new Panes();
             p.notes.setMaxWidth(0);
             p.sidebar.setMaxWidth(0);
-            new NavigationCommand().arrangeLayout(LayoutMode.EXPLORER, true, p.main, p.content, p.nav, p.sidebar,
-                    p.notes, p.editor);
+            p.layout().arrange(LayoutMode.EXPLORER, true);
             return new double[] { p.sidebar.getMaxWidth(), p.notes.getMaxWidth() };
         });
 
         assertEquals(Double.MAX_VALUE, widths[0]);
         assertEquals(Double.MAX_VALUE, widths[1]);
+    }
+
+    /**
+     * Wiring the layout before a pane exists is a mistake in the window's start-up order: it
+     * fails at once instead of leaving the panels where the FXML put them in every layout.
+     */
+    @Test
+    void wiringWithoutAPaneFails() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        Throwable failure = onFx(() -> {
+            Panes p = new Panes();
+            try {
+                new UiLayout().wire(new UiLayout.Panes(p.main, p.content, p.nav, null, p.sidebar, null, p.editor,
+                        null), () -> null, key -> key, message -> { });
+                return null;
+            } catch (NullPointerException e) {
+                return e;
+            }
+        });
+
+        assertNotNull(failure, "wiring without the notes panel should fail");
+        assertEquals("notes panel", failure.getMessage());
     }
 
     private static final class Panes {
@@ -77,6 +98,13 @@ class LayoutArrangementTest {
         Panes() {
             content.getItems().setAll(notes, editor);
             main.getItems().setAll(sidebar, content);
+        }
+
+        UiLayout layout() {
+            UiLayout layout = new UiLayout();
+            layout.wire(new UiLayout.Panes(main, content, nav, null, sidebar, notes, editor, null), () -> null,
+                    key -> key, message -> { });
+            return layout;
         }
 
         String describe() {
