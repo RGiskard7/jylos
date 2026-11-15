@@ -58,6 +58,9 @@
             <MenuItem text="%action.toggle_reading_view" onAction="#handleToggleReadingMode"/>
             <MenuItem text="%action.open_linked_view" onAction="#handleSplitViewMode"/>
             <MenuItem text="%action.toggle_source_mode" onAction="#handleToggleSourceMode"/>
+            <!-- No accelerator here: the window owns Cmd/Ctrl+Shift+F, which must work while
+                 focus mode hides this menu bar. -->
+            <MenuItem text="%action.focus_mode" onAction="#handleFocusMode"/>
             <SeparatorMenuItem/>
             <MenuItem fx:id="graphViewMenuItem" text="%action.graph_view" onAction="#handleGraphView" accelerator="Shortcut+G"/>
             <MenuItem fx:id="kanbanViewMenuItem" text="%action.kanban_view" onAction="#handleKanbanView" accelerator="Shortcut+K"/>

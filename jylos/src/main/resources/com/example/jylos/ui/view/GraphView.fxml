@@ -15,6 +15,17 @@
             <Insets top="8" right="16" bottom="8" left="16"/>
         </padding>
 
+        <!-- Back and forward in the graph's tab, as in a note's header. -->
+        <Button fx:id="graphBackBtn" onAction="#handleNavigateBack" styleClass="nav-btn" disable="true">
+            <tooltip><Tooltip text="%tooltip.navigate_back"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-chevron-left" styleClass="feather-icon"/></graphic>
+        </Button>
+        <Button fx:id="graphForwardBtn" onAction="#handleNavigateForward" styleClass="nav-btn" disable="true">
+            <tooltip><Tooltip text="%tooltip.navigate_forward"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-chevron-right" styleClass="feather-icon"/></graphic>
+        </Button>
+        <Separator orientation="VERTICAL" styleClass="header-separator"/>
+
         <FontIcon iconLiteral="fth-share-2" styleClass="feather-icon">
             <HBox.margin><Insets left="6"/></HBox.margin>
         </FontIcon>

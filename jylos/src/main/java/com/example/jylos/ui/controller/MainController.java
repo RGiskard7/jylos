@@ -83,9 +83,6 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.Separator;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextInputDialog;
-import javafx.scene.input.KeyCode;
-import javafx.scene.input.KeyCodeCombination;
-import javafx.scene.input.KeyCombination;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
@@ -425,7 +422,7 @@ public class MainController {
                     () -> toolbarController != null ? toolbarController.getToolbarHBox() : null,
                     statusBar, rightPanel,
                     () -> editorController != null ? editorController.getEditorContainer() : null,
-                    prefs, this::getString, this::updateStatus);
+                    prefs, this::getString, this::updateStatus, centerStack);
             updateStatus(getString("status.ready"));
             updateNotifications.wire(centerStack, updateIndicator, this::getString, this::updateStatus,
                     this::openExternalUrl, updateInstallSupport::installUpdate);
@@ -922,11 +919,7 @@ public class MainController {
             commandUI.initializeKeyboardShortcuts(scene, this::showCommandPalette, this::showQuickSwitcher);
 
             // Focus / writing mode: Cmd/Ctrl + Shift + F.
-            scene.getAccelerators().put(
-                    new KeyCodeCombination(KeyCode.F,
-                            KeyCombination.SHORTCUT_DOWN,
-                            KeyCombination.SHIFT_DOWN),
-                    this::handleFocusMode);
+            scene.getAccelerators().put(FocusModeSupport.SHORTCUT, this::handleFocusMode);
         } catch (Exception e) {
             logger.log(Level.WARNING, "Failed to initialize keyboard shortcuts", e);
         }
@@ -1676,9 +1669,13 @@ public class MainController {
 
     /** Syncs the back/forward toolbar-button states to reflect whether the respective navigation stacks are non-empty. */
     private void updateNavigationButtons() {
+        boolean back = editorTabs != null && editorTabs.canGoBack();
+        boolean forward = editorTabs != null && editorTabs.canGoForward();
         if (editorController != null) {
-            editorController.updateNavigationState(editorTabs != null && editorTabs.canGoBack(),
-                    editorTabs != null && editorTabs.canGoForward());
+            editorController.updateNavigationState(back, forward);
+        }
+        if (graphViewController != null) {
+            graphViewController.updateNavigationState(back, forward);
         }
     }
 

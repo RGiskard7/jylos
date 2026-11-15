@@ -4,7 +4,8 @@
 
 - **El grafo se abre en una pestaña, como en Obsidian**, y ya no tapa la barra lateral. Sigue la regla de las notas: ocupa la pestaña activa, o una nueva con Cmd/Ctrl. Una nota pulsada en el grafo ocupa su pestaña, o se abre en otra con Cmd/Ctrl+clic o el botón central. Volver a la pestaña del grafo lo encuentra como lo dejaste, y un espacio de trabajo guardado lo vuelve a abrir con sus notas.
 - **Botón + y Cmd/Ctrl+T para abrir una pestaña nueva**, como en Obsidian: se añade al final y muestra qué se puede abrir (nota nueva, lienzo nuevo, ir a archivo, vista de grafo). Lo que abras desde ella, también una nota o un lienzo recién creados, ocupa esa pestaña.
-- **Atrás y adelante recorren lo que mostró cada pestaña**, como en Obsidian, y no todas las notas abiertas en cualquier pestaña. Desde una nota abierta en el grafo, atrás vuelve al grafo.
+- **Atrás y adelante recorren lo que mostró cada pestaña**, como en Obsidian, y no todas las notas abiertas en cualquier pestaña. Desde una nota abierta en el grafo, atrás vuelve al grafo. El grafo y las pestañas nuevas también tienen sus botones de atrás y adelante.
+- **El modo concentración ya no tiene botón en la cabecera de la nota**: se activa y se sale con Cmd/Ctrl+Shift+F, el menú Ver o la paleta de comandos, y al entrar un aviso recuerda el atajo para salir.
 - **Cerrar el grafo ya no deja la aplicación lenta durante unos segundos.** Si se cerraba antes de terminar de dibujarse, seguía calculando la disposición de todas las notas sin verse.
 - **El comando de la paleta que muestra u oculta la barra de etiquetas (Toggle Tags Panel) funciona**, y el botón de etiquetas de la cabecera queda pulsado o no según corresponda. Antes no hacía nada.
 - **La ventana responde antes al arrancar**: el servidor MCP ya no arranca en el hilo de la interfaz, que quedaba bloqueado medio segundo justo después de abrirse la ventana.

@@ -11,6 +11,7 @@ import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.FolderEvents;
 import com.example.jylos.event.events.NoteEvents;
+import com.example.jylos.event.events.SystemActionEvent;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -91,6 +92,8 @@ public class GraphController {
     @FXML private ToggleButton showTagsBtn;
     @FXML private ToggleButton settingsBtn;
     @FXML private StackPane graphCanvasHolder;
+    @FXML private Button graphBackBtn;
+    @FXML private Button graphForwardBtn;
 
     // Settings panel
     @FXML private ScrollPane settingsScrollPane;
@@ -565,6 +568,32 @@ public class GraphController {
     /** Re-applies dark/light colors without rebuilding the graph data. */
     public void applyTheme(boolean dark) {
         canvas.setDarkTheme(dark);
+    }
+
+    /** Enables back and forward as the graph's tab can go back or forward. */
+    public void updateNavigationState(boolean canGoBack, boolean canGoForward) {
+        if (graphBackBtn != null) {
+            graphBackBtn.setDisable(!canGoBack);
+        }
+        if (graphForwardBtn != null) {
+            graphForwardBtn.setDisable(!canGoForward);
+        }
+    }
+
+    @FXML
+    private void handleNavigateBack() {
+        publish(SystemActionEvent.ActionType.NAVIGATE_BACK);
+    }
+
+    @FXML
+    private void handleNavigateForward() {
+        publish(SystemActionEvent.ActionType.NAVIGATE_FORWARD);
+    }
+
+    private void publish(SystemActionEvent.ActionType action) {
+        if (eventBus != null) {
+            eventBus.publish(new SystemActionEvent(action));
+        }
     }
 
     /** Stops the simulation loop while the graph is hidden (saves CPU). */

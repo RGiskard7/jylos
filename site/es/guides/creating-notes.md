@@ -18,7 +18,7 @@ El editor es CodeMirror 6 y WYSIWYG por defecto: escribes Markdown y se renderiz
 
 Se cambia entre ellos con un clic en el modo del editor, a la derecha de la barra de estado.
 
-El **modo concentración / escritura** (**Ctrl/Cmd+Shift+F**) oculta todo salvo el editor.
+El **modo concentración / escritura** (**Ctrl/Cmd+Shift+F**, o **Ver → Modo concentración** y la paleta de comandos) oculta todo salvo el editor. El mismo atajo lo cierra; al entrar, un aviso lo recuerda.
 
 ## Funciones de Markdown
 

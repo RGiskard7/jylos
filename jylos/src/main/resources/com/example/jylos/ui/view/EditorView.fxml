@@ -36,67 +36,63 @@
             <graphic><FontIcon iconLiteral="fth-chevron-right" styleClass="feather-icon"/></graphic>
         </Button>
 
-        <Separator orientation="VERTICAL" styleClass="header-separator"/>
-
-        <!-- Inline save indicator: amber dot = unsaved, green = saved. -->
-        <!-- Folders of the open note (folder / sub /); the title follows. Clicking reveals
-             the note in the Explorer tree. Replaces the separate path row. The save state is
-             shown in the status bar and on the tab, so there is no dot here. -->
-        <Label fx:id="notePathLabel" styleClass="note-path" minWidth="0" visible="false" managed="false"/>
-
-        <!-- Private note indicator: closed lock = locked, open lock = unlocked this session. -->
-        <Label fx:id="privateIndicator" styleClass="editor-private-indicator"
-               visible="false" managed="false">
-            <graphic><FontIcon fx:id="privateIndicatorIcon" iconLiteral="fth-lock" styleClass="feather-icon"/></graphic>
-            <tooltip><Tooltip fx:id="privateIndicatorTip" text="%tooltip.note_private_locked"/></tooltip>
-        </Label>
-
-        <TextField fx:id="noteTitleField" promptText="%panel.editor.title_placeholder"
-                   HBox.hgrow="ALWAYS" styleClass="title-field"/>
-        <!-- Read (preview-only) view: title shown as a plain heading, not an input. -->
-        <Label fx:id="noteTitleLabel" styleClass="title-heading" HBox.hgrow="ALWAYS"
-               maxWidth="Infinity" visible="false" managed="false"/>
-        <HBox fx:id="noteOnlyControls" alignment="CENTER_LEFT" spacing="6">
+        <!-- What belongs to the open note; a new, empty tab keeps only back and forward. -->
+        <HBox fx:id="noteHeaderControls" alignment="CENTER_LEFT" spacing="6" HBox.hgrow="ALWAYS">
             <Separator orientation="VERTICAL" styleClass="header-separator"/>
 
-            <!-- Obsidian-style view switch: book opens reading view, pencil returns to editing. -->
-            <Button fx:id="readingModeButton" onAction="#handleToggleReadingMode" styleClass="modern-toggle-btn">
-                <tooltip><Tooltip fx:id="readingModeTooltip" text="%tooltip.switch_to_reading"/></tooltip>
-                <graphic><FontIcon fx:id="readingModeIcon" iconLiteral="fth-book-open" styleClass="feather-icon"/></graphic>
-            </Button>
+            <!-- Inline save indicator: amber dot = unsaved, green = saved. -->
+            <!-- Folders of the open note (folder / sub /); the title follows. Clicking reveals
+                 the note in the Explorer tree. Replaces the separate path row. The save state is
+                 shown in the status bar and on the tab, so there is no dot here. -->
+            <Label fx:id="notePathLabel" styleClass="note-path" minWidth="0" visible="false" managed="false"/>
 
-            <Button fx:id="editorSaveBtn" onAction="#handleSave" styleClass="modern-toggle-btn">
-                <tooltip><Tooltip text="%action.save"/></tooltip>
-                <graphic><FontIcon iconLiteral="fth-save" styleClass="feather-icon"/></graphic>
-            </Button>
+            <!-- Private note indicator: closed lock = locked, open lock = unlocked this session. -->
+            <Label fx:id="privateIndicator" styleClass="editor-private-indicator"
+                   visible="false" managed="false">
+                <graphic><FontIcon fx:id="privateIndicatorIcon" iconLiteral="fth-lock" styleClass="feather-icon"/></graphic>
+                <tooltip><Tooltip fx:id="privateIndicatorTip" text="%tooltip.note_private_locked"/></tooltip>
+            </Label>
 
-            <!-- Tags toggle -->
-            <!-- Add a property (the properties section only shows when the note has some). -->
-            <Button fx:id="addPropertyHeaderBtn" onAction="#handleAddProperty" styleClass="modern-toggle-btn">
-                <tooltip><Tooltip text="%action.add_property"/></tooltip>
-                <graphic><FontIcon iconLiteral="fth-sliders" styleClass="feather-icon"/></graphic>
-            </Button>
-            <ToggleButton fx:id="toggleTagsBtn" onAction="#handleToggleTags" styleClass="modern-toggle-btn" selected="false">
-                <tooltip><Tooltip text="%tooltip.toggle_tags"/></tooltip>
-                <graphic><FontIcon iconLiteral="fth-hash" styleClass="feather-icon"/></graphic>
+            <TextField fx:id="noteTitleField" promptText="%panel.editor.title_placeholder"
+                       HBox.hgrow="ALWAYS" styleClass="title-field"/>
+            <!-- Read (preview-only) view: title shown as a plain heading, not an input. -->
+            <Label fx:id="noteTitleLabel" styleClass="title-heading" HBox.hgrow="ALWAYS"
+                   maxWidth="Infinity" visible="false" managed="false"/>
+            <HBox fx:id="noteOnlyControls" alignment="CENTER_LEFT" spacing="6">
+                <Separator orientation="VERTICAL" styleClass="header-separator"/>
+
+                <!-- Obsidian-style view switch: book opens reading view, pencil returns to editing. -->
+                <Button fx:id="readingModeButton" onAction="#handleToggleReadingMode" styleClass="modern-toggle-btn">
+                    <tooltip><Tooltip fx:id="readingModeTooltip" text="%tooltip.switch_to_reading"/></tooltip>
+                    <graphic><FontIcon fx:id="readingModeIcon" iconLiteral="fth-book-open" styleClass="feather-icon"/></graphic>
+                </Button>
+
+                <Button fx:id="editorSaveBtn" onAction="#handleSave" styleClass="modern-toggle-btn">
+                    <tooltip><Tooltip text="%action.save"/></tooltip>
+                    <graphic><FontIcon iconLiteral="fth-save" styleClass="feather-icon"/></graphic>
+                </Button>
+
+                <!-- Tags toggle -->
+                <!-- Add a property (the properties section only shows when the note has some). -->
+                <Button fx:id="addPropertyHeaderBtn" onAction="#handleAddProperty" styleClass="modern-toggle-btn">
+                    <tooltip><Tooltip text="%action.add_property"/></tooltip>
+                    <graphic><FontIcon iconLiteral="fth-sliders" styleClass="feather-icon"/></graphic>
+                </Button>
+                <ToggleButton fx:id="toggleTagsBtn" onAction="#handleToggleTags" styleClass="modern-toggle-btn" selected="false">
+                    <tooltip><Tooltip text="%tooltip.toggle_tags"/></tooltip>
+                    <graphic><FontIcon iconLiteral="fth-hash" styleClass="feather-icon"/></graphic>
+                </ToggleButton>
+            </HBox>
+
+            <ToggleButton fx:id="pinButton" onAction="#handleTogglePin" styleClass="modern-toggle-btn">
+                <tooltip><Tooltip text="%tooltip.pin_note"/></tooltip>
+                <graphic><FontIcon iconLiteral="bi-pin-angle" styleClass="feather-icon"/></graphic>
+            </ToggleButton>
+            <ToggleButton fx:id="favoriteButton" onAction="#handleToggleFavorite" styleClass="modern-toggle-btn">
+                <tooltip><Tooltip text="%tooltip.add_favorite"/></tooltip>
+                <graphic><FontIcon iconLiteral="fth-star" styleClass="feather-icon"/></graphic>
             </ToggleButton>
         </HBox>
-
-        <ToggleButton fx:id="pinButton" onAction="#handleTogglePin" styleClass="modern-toggle-btn">
-            <tooltip><Tooltip text="%tooltip.pin_note"/></tooltip>
-            <graphic><FontIcon iconLiteral="bi-pin-angle" styleClass="feather-icon"/></graphic>
-        </ToggleButton>
-        <ToggleButton fx:id="favoriteButton" onAction="#handleToggleFavorite" styleClass="modern-toggle-btn">
-            <tooltip><Tooltip text="%tooltip.add_favorite"/></tooltip>
-            <graphic><FontIcon iconLiteral="fth-star" styleClass="feather-icon"/></graphic>
-        </ToggleButton>
-        <!-- Lives here, not the main toolbar: focus mode hides the toolbar but keeps the
-             editor container, so a button here (unlike one in the toolbar) stays clickable
-             to exit focus mode too, not just to enter it. -->
-        <ToggleButton fx:id="focusModeToggleBtn" onAction="#handleFocusMode" styleClass="modern-toggle-btn">
-            <tooltip><Tooltip text="%action.focus_mode"/></tooltip>
-            <graphic><FontIcon iconLiteral="fth-maximize-2" styleClass="feather-icon"/></graphic>
-        </ToggleButton>
     </HBox>
 
     <!-- ── Tags Bar (collapsible) ─────────────────────────────────────────── -->

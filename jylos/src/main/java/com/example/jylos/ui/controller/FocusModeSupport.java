@@ -1,5 +1,6 @@
 package com.example.jylos.ui.controller;
 
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -10,9 +11,20 @@ import java.util.prefs.Preferences;
 import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
 
+import javafx.animation.FadeTransition;
+import javafx.animation.PauseTransition;
+import javafx.animation.SequentialTransition;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.control.Label;
 import javafx.scene.control.SplitPane;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
+import javafx.util.Duration;
 
 /**
  * Focus / writing mode: hides everything but the editor (sidebar, notes list, right
@@ -24,10 +36,18 @@ import javafx.scene.layout.Region;
  * before entering focus mode. Owns the focus state, extracted from
  * {@code MainController}.</p>
  *
+ * <p>It has no button: it is entered and left with {@link #SHORTCUT} (or the command palette
+ * and the View menu), and since it hides the toolbar and its menus, entering it shows a hint
+ * with the shortcut that leaves it.</p>
+ *
  * @author Edu Díaz (RGiskard7)
  * @since 2.0.0
  */
 final class FocusModeSupport {
+
+    /** Enters and leaves focus mode: Cmd/Ctrl+Shift+F. */
+    static final KeyCombination SHORTCUT = new KeyCodeCombination(KeyCode.F,
+            KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN);
 
     private SplitPane mainSplitPane;
     private SplitPane contentSplitPane;
@@ -38,6 +58,9 @@ final class FocusModeSupport {
     private Preferences prefs;
     private Function<String, String> i18n;
     private Consumer<String> status;
+    /** Where the hint on how to leave focus mode shows. */
+    private StackPane hintHost;
+    private Label hint;
 
     private boolean focusMode;
     private boolean savedRightVisible;
@@ -48,7 +71,8 @@ final class FocusModeSupport {
 
     void wire(SplitPane mainSplitPane, SplitPane contentSplitPane, Supplier<Node> toolbar,
             Node statusBar, Region rightPanel, Supplier<Node> editorContainer, Preferences prefs,
-            Function<String, String> i18n, Consumer<String> status) {
+            Function<String, String> i18n, Consumer<String> status, StackPane hintHost) {
+        this.hintHost = hintHost;
         this.mainSplitPane = mainSplitPane;
         this.contentSplitPane = contentSplitPane;
         this.toolbar = toolbar;
@@ -101,6 +125,7 @@ final class FocusModeSupport {
 
         focusMode = true;
         updateStatus(getString("status.focus_on"));
+        showHint();
     }
 
     /**
@@ -114,6 +139,33 @@ final class FocusModeSupport {
             }
         }
         return null;
+    }
+
+    /** Says how to leave focus mode, for a few seconds: the toolbar and its menus are hidden. */
+    private void showHint() {
+        if (hintHost == null) {
+            return;
+        }
+        hideHint();
+        hint = new Label(MessageFormat.format(getString("focus.exit_hint"), SHORTCUT.getDisplayText()));
+        hint.getStyleClass().addAll("update-toast", "update-toast-message", "focus-mode-hint");
+        hint.setMouseTransparent(true);
+        StackPane.setAlignment(hint, Pos.TOP_CENTER);
+        StackPane.setMargin(hint, new Insets(16));
+        hintHost.getChildren().add(hint);
+        Label shown = hint;
+        FadeTransition fade = new FadeTransition(Duration.millis(600), shown);
+        fade.setToValue(0);
+        fade.setOnFinished(e -> hintHost.getChildren().remove(shown));
+        SequentialTransition life = new SequentialTransition(new PauseTransition(Duration.seconds(3)), fade);
+        life.play();
+    }
+
+    private void hideHint() {
+        if (hint != null && hintHost != null) {
+            hintHost.getChildren().remove(hint);
+        }
+        hint = null;
     }
 
     private void exit() {
@@ -141,6 +193,7 @@ final class FocusModeSupport {
         // enter() already squeezed it to 0 and nothing since has changed that.
 
         focusMode = false;
+        hideHint();
         updateStatus(getString("status.focus_off"));
     }
 

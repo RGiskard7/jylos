@@ -210,6 +210,11 @@ public class ToolbarController {
     }
 
     @FXML
+    private void handleFocusMode(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.FOCUS_MODE);
+    }
+
+    @FXML
     private void handleNewTab(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.NEW_TAB);
     }

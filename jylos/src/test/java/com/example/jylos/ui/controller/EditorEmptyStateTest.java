@@ -60,4 +60,37 @@ class EditorEmptyStateTest {
             subscription.cancel();
         }
     }
+
+    /** As in Obsidian, a new tab still has back and forward: it can go back to what it showed. */
+    @Test
+    void theEmptyTabKeepsBackAndForward() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/jylos/ui/view/EditorView.fxml"),
+                    ResourceBundle.getBundle("com.example.jylos.i18n.messages", Locale.forLanguageTag("es")));
+            Parent root = loader.load();
+            EditorController controller = loader.getController();
+            controller.updateNavigationState(true, false);
+            Node back = (Node) loader.getNamespace().get("navBackBtn");
+            Node title = (Node) loader.getNamespace().get("noteTitleField");
+            return List.of("back shown " + shown(back, root) + " enabled " + !back.isDisabled(),
+                    "title shown " + shown(title, root));
+        });
+
+        assertEquals(List.of("back shown true enabled true", "title shown false"), seen);
+    }
+
+    /** Whether {@code node} and every parent up to {@code root} are visible. */
+    private static boolean shown(Node node, Parent root) {
+        for (Node current = node; current != null; current = current.getParent()) {
+            if (!current.isVisible()) {
+                return false;
+            }
+            if (current == root) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

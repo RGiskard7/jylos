@@ -27,6 +27,8 @@ import org.junit.jupiter.api.io.TempDir;
 import com.example.jylos.data.dao.filesystem.FolderDAOFileSystem;
 import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
 import com.example.jylos.data.dao.filesystem.TagDAOFileSystem;
+import com.example.jylos.event.EventBus;
+import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.graph.GraphData;
 import com.example.jylos.graph.GraphEdge;
 import com.example.jylos.graph.GraphNode;
@@ -265,6 +267,37 @@ class GraphSettingsTest {
         f.waitForBuild();
 
         assertTrue(onFx(() -> f.<Boolean>canvasField("timerRunning")));
+    }
+
+    /** The graph's tab has back and forward, as a note's has: they ask the window to go back or forward. */
+    @Test
+    void theGraphHasBackAndForward() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        EventBus bus = EventBus.getInstance();
+        List<String> asked = new CopyOnWriteArrayList<>();
+        EventBus.Subscription subscription = bus.subscribe(SystemActionEvent.class,
+                event -> asked.add(event.getActionType().name()));
+
+        List<String> seen = onFx(() -> {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/jylos/ui/view/GraphView.fxml"),
+                    ResourceBundle.getBundle("com.example.jylos.i18n.messages", Locale.forLanguageTag("es")));
+            loader.load();
+            GraphController controller = loader.getController();
+            controller.wire(bus, notes, tags, loader.getResources(), (id, newTab) -> { }, () -> { }, () -> "A.md",
+                    data -> { });
+            Button back = (Button) loader.getNamespace().get("graphBackBtn");
+            Button forward = (Button) loader.getNamespace().get("graphForwardBtn");
+            controller.updateNavigationState(true, false);
+            String state = "back " + !back.isDisabled() + " forward " + !forward.isDisabled();
+            back.fire();
+            controller.updateNavigationState(false, true);
+            forward.fire();
+            return List.of(state, "back " + !back.isDisabled() + " forward " + !forward.isDisabled());
+        });
+
+        assertEquals(List.of("back true forward false", "back false forward true"), seen);
+        subscription.cancel();
+        assertEquals(List.of("NAVIGATE_BACK", "NAVIGATE_FORWARD"), asked);
     }
 
     private final class Fixture {

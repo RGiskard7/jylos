@@ -18,7 +18,7 @@ The editor is CodeMirror 6 and WYSIWYG by default: you write Markdown and it ren
 
 Switch between them by clicking the editor mode at the right of the status bar.
 
-**Focus / writing mode** (**Ctrl/Cmd+Shift+F**) hides everything but the editor.
+**Focus / writing mode** (**Ctrl/Cmd+Shift+F**, or **View → Focus mode** and the command palette) hides everything but the editor. The same shortcut leaves it; a hint says so when you enter it.
 
 ## Markdown features
 

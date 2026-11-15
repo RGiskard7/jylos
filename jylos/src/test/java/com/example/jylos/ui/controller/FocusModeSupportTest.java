@@ -130,7 +130,7 @@ class FocusModeSupportTest {
             FocusModeSupport support = new FocusModeSupport();
             support.wire(main, content, () -> new Label("toolbar"), new Label("status"), new VBox(),
                     () -> editor, Preferences.userRoot().node("/com/example/jylos/test/focus-mode"),
-                    key -> key, message -> { });
+                    key -> key, message -> { }, new StackPane());
             List<String> out = new ArrayList<>();
             support.toggle();
             main.applyCss();
@@ -149,6 +149,36 @@ class FocusModeSupportTest {
                 seen);
     }
 
+    /**
+     * Focus mode hides the toolbar and its menus, so entering it says how to leave it: a hint
+     * with the shortcut, which goes away by itself, or at once when focus mode ends.
+     */
+    @Test
+    void enteringFocusModeSaysHowToLeaveIt() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            StackPane host = new StackPane();
+            FocusModeSupport support = new FocusModeSupport();
+            support.wire(new SplitPane(), new SplitPane(), () -> new Label("toolbar"), new Label("status"),
+                    new VBox(), () -> null, Preferences.userRoot().node("/com/example/jylos/test/focus-mode"),
+                    key -> key.equals("focus.exit_hint") ? "Pulsa {0} para salir" : key, message -> { }, host);
+            List<String> out = new ArrayList<>();
+            support.toggle();
+            out.add(hints(host));
+            support.toggle();
+            out.add(hints(host));
+            return out;
+        });
+
+        assertEquals(List.of("[Pulsa " + FocusModeSupport.SHORTCUT.getDisplayText() + " para salir]", "[]"), seen);
+    }
+
+    private static String hints(StackPane host) {
+        return host.getChildren().stream().filter(node -> node.getStyleClass().contains("focus-mode-hint"))
+                .map(node -> ((Label) node).getText()).toList().toString();
+    }
+
     private static FocusModeSupport wiredSupport(VBox rightPanel) {
         SplitPane mainSplitPane = new SplitPane();
         SplitPane contentSplitPane = new SplitPane();
@@ -162,7 +192,7 @@ class FocusModeSupportTest {
         support.wire(mainSplitPane, contentSplitPane, () -> new Label("toolbar"),
                 new Label("status"), rightPanel, () -> editorPlaceholder,
                 Preferences.userRoot().node("/com/example/jylos/test/focus-mode"),
-                key -> key, message -> { });
+                key -> key, message -> { }, new StackPane());
         return support;
     }
 

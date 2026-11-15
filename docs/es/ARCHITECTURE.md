@@ -52,7 +52,7 @@ ui/ (FXML, controllers, components, GraphCanvas)
 - El grafo es una pestaña, como en Obsidian: `GraphView.fxml` está con el editor en `editorArea` y se ve mientras su pestaña (`ViewTabs.GRAPH`, un id reservado en la misma lista que los de las notas) es la activa. Como en Obsidian, todas las pestañas siguen una regla (lo que se abre ocupa la pestaña activa, o una nueva con Cmd/Ctrl; "pestaña nueva" llena la activa mientras está vacía) y cada una guarda su historial atrás/adelante de lo que mostró, notas, grafo y pestañas nuevas incluidos (`EditorTabsModel`, 20 pasos). El + tras las pestañas y `NEW_TAB` (`Ctrl/Cmd+T`) abren una pestaña vacía (`ViewTabs.newEmptyTab()`) al final, con el estado vacío del editor. `TabsSupport` lo coordina todo (abrir, elegir, cerrar, atrás/adelante, restaurar desde un espacio de trabajo) y termina en un único sitio que muestra lo que tiene la pestaña activa; también lleva el overlay del Kanban (`KanbanBoard`).
 - Editor: `EditorTabs` (reglas en `EditorTabsModel`: abrir en la pestaña actual sustituye su nota, una nota ya abierta activa su pestaña, una pestaña nueva va justo después de la activa), `MarkdownEditorView` como frontera JavaFX para CodeMirror 6 offline en modo fuente/vista previa en vivo, `WebView` de lectura separado y autocompletado `[[`.
 - Panel derecho: metadata, backlinks y paneles de plugins.
-- Focus mode: oculta chrome de UI y deja solo editor.
+- Focus mode: oculta chrome de UI y deja solo el área del editor. Sin botón: atajo, menú Ver o paleta, y al entrar un aviso con el atajo, porque la barra superior y sus menús quedan ocultos.
 
 ### Edición Markdown y vista previa
 

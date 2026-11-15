@@ -166,6 +166,8 @@ public class EditorController implements PreviewEnhancerRegistry,
     @FXML private HBox editorTabBar;
     @FXML private Label notePathLabel;
     @FXML private HBox editorHeaderBar;
+    /** The header's controls for the open note; with none, only back and forward remain. */
+    @FXML private HBox noteHeaderControls;
     @FXML private StackPane editorContentStack;
     @FXML private VBox emptyState;
     @FXML private Button navBackBtn;
@@ -183,7 +185,6 @@ public class EditorController implements PreviewEnhancerRegistry,
     @FXML private Button editorSaveBtn;
     @FXML private ToggleButton pinButton;
     @FXML private ToggleButton favoriteButton;
-    @FXML private ToggleButton focusModeToggleBtn;
 
     // ── FXML — tags bar ──────────────────────────────────────────────────────
     @FXML private VBox tagsContainer;
@@ -308,7 +309,6 @@ public class EditorController implements PreviewEnhancerRegistry,
         applyIconOnly(editorSaveBtn);
         applyIconOnly(pinButton);
         applyIconOnly(favoriteButton);
-        applyIconOnly(focusModeToggleBtn);
     }
 
     private void applyIconOnly(ButtonBase btn) {
@@ -404,7 +404,6 @@ public class EditorController implements PreviewEnhancerRegistry,
     @FXML private void handleToggleTags(ActionEvent e)        { showTagsBar(toggleTagsBtn.isSelected()); }
     @FXML private void handleToggleReadingMode(ActionEvent e) { toggleReadingMode(); }
     @FXML private void handleTogglePin(ActionEvent e)         { publish(SystemActionEvent.ActionType.TOGGLE_PIN); }
-    @FXML private void handleFocusMode(ActionEvent e)         { publish(SystemActionEvent.ActionType.FOCUS_MODE); }
     @FXML private void handleSave(ActionEvent e)               { handleSave(); }
     @FXML private void handleDelete(ActionEvent e)             { publish(SystemActionEvent.ActionType.DELETE); }
     @FXML private void handleToggleFavorite(ActionEvent e)    { publish(SystemActionEvent.ActionType.TOGGLE_FAVORITE); }
@@ -649,7 +648,9 @@ public class EditorController implements PreviewEnhancerRegistry,
      */
     private void setNoteOpen(boolean open) {
         hideAttachmentViewer();
-        UiNodes.show(editorHeaderBar, open);
+        // A new tab keeps back and forward, as in Obsidian; the rest belongs to a note.
+        UiNodes.show(editorHeaderBar, true);
+        UiNodes.show(noteHeaderControls, open);
         UiNodes.show(noteOnlyControls, open);
         UiNodes.show(editorPreviewSplitPane, open);
         if (!open) {
@@ -842,6 +843,7 @@ public class EditorController implements PreviewEnhancerRegistry,
         attachmentViewer.getChildren().setAll(attachmentContent);
 
         UiNodes.show(editorHeaderBar, true);
+        UiNodes.show(noteHeaderControls, true);
         UiNodes.show(noteOnlyControls, false);
         if (noteTitleField != null) {
             UiNodes.show(noteTitleField, true);
