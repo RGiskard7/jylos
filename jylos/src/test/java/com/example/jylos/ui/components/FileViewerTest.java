@@ -5,7 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static com.example.jylos.tests.FxTestSupport.onFx;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
 import java.util.concurrent.TimeUnit;
@@ -110,7 +114,7 @@ class FileViewerTest {
         Assumptions.assumeTrue(fxRuntimeAvailable);
         Path webp = tempDir.resolve("foto.webp");
         // 40x30, lossless.
-        java.nio.file.Files.write(webp, java.util.Base64.getDecoder().decode(
+        Files.write(webp, Base64.getDecoder().decode(
                 "UklGRioAAABXRUJQVlA4TB4AAAAvJ0AHAA8wHvfwvRD3/EcLhASEB/6v9UCO6H+UMAQ="));
 
         Region viewer = onFx(() -> {
@@ -134,14 +138,14 @@ class FileViewerTest {
                 .orElse(null);
     }
 
-    private static java.util.List<Label> findLabels(Node root) {
-        java.util.ArrayList<Label> labels = new java.util.ArrayList<>();
+    private static List<Label> findLabels(Node root) {
+        ArrayList<Label> labels = new ArrayList<>();
         collect(root, Label.class, labels);
         return labels;
     }
 
     private static Button findButtonByText(Node root, String text) {
-        java.util.ArrayList<Button> buttons = new java.util.ArrayList<>();
+        ArrayList<Button> buttons = new ArrayList<>();
         collect(root, Button.class, buttons);
         return buttons.stream()
                 .filter(button -> text.equals(button.getText()))
@@ -150,7 +154,7 @@ class FileViewerTest {
     }
 
     private static <T extends Node> T findByStyleClass(Node root, Class<T> type, String styleClass) {
-        java.util.ArrayList<T> nodes = new java.util.ArrayList<>();
+        ArrayList<T> nodes = new ArrayList<>();
         collect(root, type, nodes);
         return nodes.stream()
                 .filter(node -> node.getStyleClass().contains(styleClass))
@@ -159,12 +163,12 @@ class FileViewerTest {
     }
 
     private static <T extends Node> T findFirst(Node root, Class<T> type) {
-        java.util.ArrayList<T> nodes = new java.util.ArrayList<>();
+        ArrayList<T> nodes = new ArrayList<>();
         collect(root, type, nodes);
         return nodes.isEmpty() ? null : nodes.get(0);
     }
 
-    private static <T extends Node> void collect(Node node, Class<T> type, java.util.List<T> found) {
+    private static <T extends Node> void collect(Node node, Class<T> type, List<T> found) {
         if (type.isInstance(node)) {
             found.add(type.cast(node));
         }

@@ -35,6 +35,9 @@ import com.example.jylos.plugin.EditorBlockRenderer;
  * keystroke, while switching notes renders immediately so a block does not sit visibly as
  * source. Only the newest request survives — an older pending one is cancelled, and a
  * completed one is dropped if a newer request started while it was running.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
  */
 final class EditorBlockRenderSupport {
 

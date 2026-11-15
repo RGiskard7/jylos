@@ -18,6 +18,7 @@ import com.example.jylos.git.GitService;
 import com.example.jylos.git.GitStatus;
 import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.ui.UiNodes;
+import com.example.jylos.ui.components.GitSyncPanel;
 
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
@@ -89,9 +90,7 @@ public final class GitController {
         this.refreshVaultAfterRemoteUpdate = refreshVaultAfterRemoteUpdate;
     }
 
-    // ------------------------------------------------------------------
-    // Public actions (called from MainController's FXML/menu handlers)
-    // ------------------------------------------------------------------
+    // ── Public actions (called from MainController's FXML/menu handlers) ─────
 
     /** Runs a full vault sync for already staged changes asynchronously. */
     public void sync() {
@@ -119,7 +118,7 @@ public final class GitController {
 
     /** Opens the consolidated workspace at its remote setup action. */
     public void addRemote() {
-        showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget.REMOTE);
+        showSyncPanel(GitSyncPanel.FocusTarget.REMOTE);
     }
 
     /**
@@ -127,18 +126,18 @@ public final class GitController {
      * an activity log) for the current vault. No-op outside vault mode.
      */
     public void showSyncPanel() {
-        showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget.OVERVIEW);
+        showSyncPanel(GitSyncPanel.FocusTarget.OVERVIEW);
     }
 
     /** Opens the unified Git workspace focused on a concrete status-bar task. */
-    public void showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget focusTarget) {
+    public void showSyncPanel(GitSyncPanel.FocusTarget focusTarget) {
         Path vault = gitVaultPath();
         if (vault == null) {
             updateStatus(getString("status.git_no_vault"));
             return;
         }
         Scene scene = sceneSupplier != null ? sceneSupplier.get() : null;
-        new com.example.jylos.ui.components.GitSyncPanel(gitService, vault, this::getString, scene,
+        new GitSyncPanel(gitService, vault, this::getString, scene,
                 this::refreshVaultAfterRemoteUpdate).show(focusTarget);
         refreshStatus();
     }
@@ -168,9 +167,7 @@ public final class GitController {
         runDaemon(task, "git-status");
     }
 
-    // ------------------------------------------------------------------
-    // Internals
-    // ------------------------------------------------------------------
+    // ── Internals ────────────────────────────────────────────────────────────
 
     /** Resolves the vault directory eligible for Git, or null (SQLite / no path). */
     private Path gitVaultPath() {
@@ -275,7 +272,7 @@ public final class GitController {
         UiNodes.show(gitCommitLabel, false);
         UiNodes.show(gitHistoryLabel, false);
         UiNodes.show(gitSyncLabel, repo);
-        for (javafx.scene.Node child : gitBar.getChildren()) {
+        for (Node child : gitBar.getChildren()) {
             if (child instanceof Separator) {
                 UiNodes.show(child, false);
             }
@@ -311,9 +308,9 @@ public final class GitController {
     /** The compact Git entry's context menu: what the separate entries used to offer. */
     private ContextMenu compactMenu(GitStatus status) {
         MenuItem changes = new MenuItem(MessageFormat.format(getString("git.changes"), status.modified()));
-        changes.setOnAction(e -> showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget.CHANGES));
+        changes.setOnAction(e -> showSyncPanel(GitSyncPanel.FocusTarget.CHANGES));
         MenuItem commit = new MenuItem(getString("git.commit"));
-        commit.setOnAction(e -> showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget.COMMIT));
+        commit.setOnAction(e -> showSyncPanel(GitSyncPanel.FocusTarget.COMMIT));
         MenuItem history = new MenuItem(getString("git.history"));
         history.setOnAction(e -> showHistoryDialog());
         ContextMenu menu = new ContextMenu(changes, commit, history);

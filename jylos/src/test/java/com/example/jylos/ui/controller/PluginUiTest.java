@@ -17,6 +17,7 @@ import com.example.jylos.data.models.Note;
 import com.example.jylos.tests.FxTestSupport;
 
 import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
@@ -141,8 +142,8 @@ class PluginUiTest {
     /** The bar's items in order: "|" for a separator, the text of each label. */
     private static String texts(HBox bar) {
         StringBuilder out = new StringBuilder();
-        for (javafx.scene.Node item : bar.getChildren()) {
-            for (javafx.scene.Node node : ((HBox) item).getChildren()) {
+        for (Node item : bar.getChildren()) {
+            for (Node node : ((HBox) item).getChildren()) {
                 if (node.getStyleClass().contains("status-separator")) {
                     out.append(out.length() > 0 ? " | " : "| ");
                 } else if (node instanceof Label label) {

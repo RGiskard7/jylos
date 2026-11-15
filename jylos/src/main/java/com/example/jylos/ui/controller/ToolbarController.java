@@ -3,13 +3,21 @@ package com.example.jylos.ui.controller;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.ui.UiNodes;
+import com.example.jylos.ui.preferences.LayoutMode;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.geometry.Side;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 
+import java.util.ResourceBundle;
+import java.util.function.Consumer;
+
 /**
  * Controller for the Top Menu Bar and Toolbar (ToolbarView.fxml).
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class ToolbarController {
 
@@ -60,14 +68,14 @@ public class ToolbarController {
     @FXML
     private Button layoutSwitchBtn;
     @FXML
-    private java.util.ResourceBundle resources;
+    private ResourceBundle resources;
     /** Where the open-note tabs live in the top bar (see TopBarTabsSupport). */
     @FXML
     private HBox tabsHost;
     /** The layout ticked in the layout menu. */
-    private com.example.jylos.ui.preferences.LayoutMode currentLayout =
-            com.example.jylos.ui.preferences.LayoutMode.CLASSIC_COLUMNS;
-    private java.util.function.Consumer<com.example.jylos.ui.preferences.LayoutMode> layoutModeAction = mode -> {
+    private LayoutMode currentLayout =
+            LayoutMode.CLASSIC_COLUMNS;
+    private Consumer<LayoutMode> layoutModeAction = mode -> {
     };
     /** In the Explorer layout the notes panel only shows results, so its toggle is hidden. */
     private boolean notesToggleAvailable = true;
@@ -355,7 +363,7 @@ public class ToolbarController {
     ContextMenu layoutMenu() {
         ContextMenu menu = new ContextMenu();
         ToggleGroup group = new ToggleGroup();
-        for (com.example.jylos.ui.preferences.LayoutMode mode : com.example.jylos.ui.preferences.LayoutMode.values()) {
+        for (LayoutMode mode : LayoutMode.values()) {
             String key = switch (mode) {
                 case EXPLORER -> "layout.mode.explorer";
                 case CLASSIC_COLUMNS -> "layout.mode.columns";
@@ -374,22 +382,22 @@ public class ToolbarController {
     @FXML
     private void handleLayoutMenu(ActionEvent event) {
         if (layoutSwitchBtn != null) {
-            layoutMenu().show(layoutSwitchBtn, javafx.geometry.Side.BOTTOM, 0, 0);
+            layoutMenu().show(layoutSwitchBtn, Side.BOTTOM, 0, 0);
         }
     }
 
     /** What choosing a layout in the layout menu does. */
-    public void setLayoutModeAction(java.util.function.Consumer<com.example.jylos.ui.preferences.LayoutMode> action) {
+    public void setLayoutModeAction(Consumer<LayoutMode> action) {
         this.layoutModeAction = action != null ? action : mode -> {
         };
     }
 
     /** Ticks {@code mode} in the layout menu and shows the notes-panel toggle only where it applies. */
-    public void showLayoutMode(com.example.jylos.ui.preferences.LayoutMode mode) {
+    public void showLayoutMode(LayoutMode mode) {
         if (mode != null) {
             currentLayout = mode;
         }
-        notesToggleAvailable = mode != com.example.jylos.ui.preferences.LayoutMode.EXPLORER;
+        notesToggleAvailable = mode != LayoutMode.EXPLORER;
         applyNotesToggleVisibility();
     }
 

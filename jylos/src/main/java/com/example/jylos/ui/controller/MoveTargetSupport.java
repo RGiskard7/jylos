@@ -1,6 +1,7 @@
 package com.example.jylos.ui.controller;
 
 import com.example.jylos.data.models.Folder;
+import com.example.jylos.service.FolderService;
 import com.example.jylos.ui.UiDialogs;
 import java.text.Normalizer;
 import java.util.ArrayDeque;
@@ -26,6 +27,9 @@ import javafx.scene.layout.VBox;
 /**
  * Shared folder picker for move actions.
  * Keeps the move dialog searchable and uses path labels to disambiguate duplicate folder names.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.4.8
  */
 final class MoveTargetSupport {
 
@@ -36,7 +40,7 @@ final class MoveTargetSupport {
      * Asks where to move something: a note ({@code folderToMove == null}) may go to any folder,
      * a folder only where it can go (not into itself or its own subfolders).
      */
-    static Optional<MoveTarget> choose(com.example.jylos.service.FolderService folderService, Folder folderToMove,
+    static Optional<MoveTarget> choose(FolderService folderService, Folder folderToMove,
             Function<String, String> i18n) {
         if (folderService == null) {
             return Optional.empty();

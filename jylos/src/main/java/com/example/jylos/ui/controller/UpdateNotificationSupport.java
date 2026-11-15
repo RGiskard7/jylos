@@ -1,5 +1,6 @@
 package com.example.jylos.ui.controller;
 
+import java.text.MessageFormat;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -32,6 +33,9 @@ import javafx.util.Duration;
  * a toast in the bottom-right corner of the window (with "install" and "download" links) and
  * keeps a status-bar indicator that brings the toast back. Installing is
  * {@link UpdateInstallSupport}'s job.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 final class UpdateNotificationSupport {
 
@@ -133,7 +137,7 @@ final class UpdateNotificationSupport {
 
         VBox content = new VBox(4);
         content.setAlignment(Pos.CENTER_LEFT);
-        Label title = new Label(java.text.MessageFormat.format(i18n.apply("update.available.title"), release.tagName()));
+        Label title = new Label(MessageFormat.format(i18n.apply("update.available.title"), release.tagName()));
         title.getStyleClass().add("update-toast-title");
         Label message = new Label(i18n.apply("update.available.message"));
         message.getStyleClass().add("update-toast-message");
@@ -180,7 +184,7 @@ final class UpdateNotificationSupport {
             return;
         }
         UiNodes.show(indicator, true);
-        indicator.setTooltip(new Tooltip(java.text.MessageFormat.format(
+        indicator.setTooltip(new Tooltip(MessageFormat.format(
                 i18n.apply("update.indicator.tooltip"), release.tagName())));
     }
 

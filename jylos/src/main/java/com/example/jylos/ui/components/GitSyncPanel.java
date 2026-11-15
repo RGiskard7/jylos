@@ -18,9 +18,12 @@ import com.example.jylos.git.GitStatus;
 import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.ui.UiNodes;
 
+import javafx.application.Platform;
 import javafx.concurrent.Task;
+import javafx.css.PseudoClass;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
@@ -159,7 +162,7 @@ public final class GitSyncPanel {
         dialog.showAndWait();
     }
 
-    // ── Construction ────────────────────────────────────────────────────────────
+    // ── Construction ─────────────────────────────────────────────────────────
 
     /** Assembles the dialog: title, close button, state stack, progress bar, and log area. */
     private void build() {
@@ -323,7 +326,7 @@ public final class GitSyncPanel {
         return r;
     }
 
-    // ── Refresh ─────────────────────────────────────────────────────────────────
+    // ── Refresh ──────────────────────────────────────────────────────────────
 
     /** Reloads availability, repository state and the change list off the FX thread. */
     private void refresh(boolean fetchRemote) {
@@ -358,7 +361,7 @@ public final class GitSyncPanel {
             setBusy(false, message);
             if (initialFocusPending) {
                 initialFocusPending = false;
-                javafx.application.Platform.runLater(this::applyInitialFocus);
+                Platform.runLater(this::applyInitialFocus);
             }
         });
         task.setOnFailed(e -> {
@@ -441,7 +444,7 @@ public final class GitSyncPanel {
         }
     }
 
-    // ── Operations ──────────────────────────────────────────────────────────────
+    // ── Operations ───────────────────────────────────────────────────────────
 
     /** Commits all staged changes using the current commit-message field (or a default timestamp message), then refreshes. */
     private void doCommit() {
@@ -449,7 +452,7 @@ public final class GitSyncPanel {
         runOp("git.panel.commit", () -> {
             GitResult r = git.commit(vault, message);
             if (r.ok()) {
-                javafx.application.Platform.runLater(commitMessage::clear);
+                Platform.runLater(commitMessage::clear);
             }
             return r;
         }, false);
@@ -461,7 +464,7 @@ public final class GitSyncPanel {
         runOp("git.panel.sync", progressListener -> {
             GitResult r = git.sync(vault, message, progressListener);
             if (r.ok()) {
-                javafx.application.Platform.runLater(commitMessage::clear);
+                Platform.runLater(commitMessage::clear);
             }
             return r;
         }, true);
@@ -550,7 +553,7 @@ public final class GitSyncPanel {
         if (!progressUpdatePending.compareAndSet(false, true)) {
             return;
         }
-        javafx.application.Platform.runLater(() -> {
+        Platform.runLater(() -> {
             String message = pendingProgress;
             if (busy) {
                 operationLabel.setText(message);
@@ -580,7 +583,7 @@ public final class GitSyncPanel {
         return glyph + " " + (message.isEmpty() ? result.status().name() : message);
     }
 
-    // ── UI helpers ──────────────────────────────────────────────────────────────
+    // ── UI helpers ───────────────────────────────────────────────────────────
 
     /** Shows operation state and prevents concurrent Git actions while a task is running. */
     private void setBusy(boolean busy, String message) {
@@ -590,7 +593,7 @@ public final class GitSyncPanel {
         operationLabel.setText(message);
         UiNodes.show(cancelBtn, busy);
         cancelBtn.setDisable(!busy);
-        operationLabel.pseudoClassStateChanged(javafx.css.PseudoClass.getPseudoClass("error"),
+        operationLabel.pseudoClassStateChanged(PseudoClass.getPseudoClass("error"),
                 !busy && message.startsWith("✖"));
         if (busy) {
             for (Button b : actionButtons) {
@@ -644,7 +647,7 @@ public final class GitSyncPanel {
                         owner.getWindow().getWidth(), owner.getWindow().getHeight()).stream()
                         .findFirst().orElse(Screen.getPrimary())
                 : Screen.getPrimary();
-        javafx.geometry.Rectangle2D bounds = screen.getVisualBounds();
+        Rectangle2D bounds = screen.getVisualBounds();
         window.setWidth(Math.min(880, Math.max(680, bounds.getWidth() - 64)));
         window.setHeight(Math.min(720, Math.max(560, bounds.getHeight() - 96)));
         window.centerOnScreen();

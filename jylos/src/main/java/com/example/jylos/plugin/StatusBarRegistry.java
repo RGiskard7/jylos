@@ -6,6 +6,9 @@ import javafx.scene.Node;
  * Registry through which plugins show their own items in the status bar (word counts, sync
  * state, a clock…), as Obsidian's {@code addStatusBarItem()}. Keyed by plugin id, so a
  * plugin's items are removed wholesale when it is disabled. Mirrors {@link ToolbarRegistry}.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public interface StatusBarRegistry {
 

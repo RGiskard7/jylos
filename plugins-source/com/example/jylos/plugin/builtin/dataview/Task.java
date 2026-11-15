@@ -12,6 +12,8 @@ import java.util.Map;
  * @param indent    leading whitespace width, used to keep subtasks visually nested
  * @param pageTitle title of the note the task belongs to
  * @param fields    inline fields declared on the task line ({@code [due:: 2026-01-01]})
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
  */
 record Task(String text, boolean completed, String status, int line, int indent,
         String pageTitle, Map<String, Object> fields) {

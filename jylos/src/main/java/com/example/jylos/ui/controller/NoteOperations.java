@@ -15,6 +15,9 @@ import com.example.jylos.service.NoteService;
  *
  * <p>Uses explicit note/folder services supplied at composition time; the controller
  * only supplies the desired title and target folder and reacts to the returned result.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 class NoteOperations {
 

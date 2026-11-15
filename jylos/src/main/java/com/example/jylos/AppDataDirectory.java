@@ -19,6 +19,9 @@ import java.util.stream.Stream;
  * {@code ~/.local/share/jylos}; logs and caches in their own system folders. Development
  * runs and the uber-JAR keep using the working directory, the Windows portable ZIP the
  * folder it was unpacked to, and {@code -Djylos.data.dir} overrides all of them.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public final class AppDataDirectory {
 

@@ -22,6 +22,9 @@ import com.example.jylos.util.MarkdownProcessor;
  * the page's HTML reached this class. Reusing that output, instead of
  * re-recognizing link syntax from scratch, guarantees the exported site resolves
  * links exactly the same way the live app's preview does.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.6
  */
 final class WikiLinkRewriter {
 

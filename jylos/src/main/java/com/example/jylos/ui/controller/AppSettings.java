@@ -20,6 +20,9 @@ import javafx.stage.Window;
  * App settings flows (theme/language/storage menus and dialogs).
  *
  * <p>Receives an i18n callback from the shell controller; no back-reference held.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.3.0
  */
 class AppSettings {
 

@@ -4,6 +4,9 @@ import java.util.List;
 
 /**
  * Catalog of stable command IDs and legacy aliases, registered in one place.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.3.0
  */
 class CommandRegistry {
 

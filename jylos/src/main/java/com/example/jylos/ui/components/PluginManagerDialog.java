@@ -97,7 +97,7 @@ public class PluginManagerDialog {
         VBox root = new VBox();
         root.getStyleClass().add("plugin-manager");
 
-        // ── Header ──────────────────────────────────────────────────────────
+        // ── Header ───────────────────────────────────────────────────────────
         HBox header = new HBox(12);
         header.setAlignment(Pos.CENTER_LEFT);
         header.getStyleClass().add("plugin-manager-header");
@@ -113,7 +113,7 @@ public class PluginManagerDialog {
 
         header.getChildren().addAll(titleLabel, spacer, countLabel);
 
-        // ── List ────────────────────────────────────────────────────────────
+        // ── List ─────────────────────────────────────────────────────────────
         pluginListContainer = new VBox();
         pluginListContainer.getStyleClass().add("plugin-manager-list");
 
@@ -122,7 +122,7 @@ public class PluginManagerDialog {
         scrollPane.getStyleClass().add("plugin-manager-scroll");
         VBox.setVgrow(scrollPane, Priority.ALWAYS);
 
-        // ── Footer ──────────────────────────────────────────────────────────
+        // ── Footer ───────────────────────────────────────────────────────────
         HBox footer = new HBox();
         footer.setAlignment(Pos.CENTER_LEFT);
         footer.getStyleClass().add("plugin-manager-footer");

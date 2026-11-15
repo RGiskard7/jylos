@@ -74,9 +74,7 @@ final class OverlaySupport {
         return kanbanBoard != null && kanbanBoard.isVisible();
     }
 
-    // ------------------------------------------------------------------
-    // Graph overlay
-    // ------------------------------------------------------------------
+    // ── Graph overlay ────────────────────────────────────────────────────────
 
     void toggleGraph() {
         if (graphView == null || graphViewController == null) {
@@ -123,9 +121,7 @@ final class OverlaySupport {
         UiNodes.show(graphView, visible);
     }
 
-    // ------------------------------------------------------------------
-    // Kanban overlay
-    // ------------------------------------------------------------------
+    // ── Kanban overlay ───────────────────────────────────────────────────────
 
     void toggleKanban() {
         if (centerStack == null) {
@@ -181,9 +177,7 @@ final class OverlaySupport {
         });
     }
 
-    // ------------------------------------------------------------------
-    // Helpers
-    // ------------------------------------------------------------------
+    // ── Helpers ──────────────────────────────────────────────────────────────
 
     private void publishOpen(Note note) {
         if (openNote != null && note != null) {

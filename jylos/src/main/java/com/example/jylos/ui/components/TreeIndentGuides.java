@@ -20,6 +20,9 @@ import javafx.scene.layout.Region;
  * after {@code super.layoutChildren()}. The lines live in a non-managed, mouse-transparent
  * layer put first among the cell's children, so they are drawn over the row's background
  * (hover, selection) and under its text, and never move anything.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class TreeIndentGuides {
 

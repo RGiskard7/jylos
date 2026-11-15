@@ -8,6 +8,9 @@ import com.example.jylos.data.models.KeyMaterial;
  * Persistence of the private-notes {@link KeyMaterial}. It lives with the notes it
  * protects (inside the vault, or in the database) so encrypted notes can be unlocked on
  * any machine that has them.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.7
  */
 public interface EncryptionKeyDAO {
 

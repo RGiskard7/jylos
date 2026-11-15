@@ -12,6 +12,9 @@ import javafx.scene.layout.VBox;
  * <p>The shell controller owns the FXML nodes; this helper owns only the repeated
  * layout mechanics so panel toggles stay consistent across startup and toolbar
  * commands.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.3.0
  */
 class UiLayout {
 

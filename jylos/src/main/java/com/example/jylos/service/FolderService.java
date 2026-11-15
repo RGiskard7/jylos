@@ -52,8 +52,7 @@ public class FolderService {
         logger.info("FolderService initialized");
     }
 
-    // ==================== CRUD Operations ====================
-
+    // ── CRUD Operations ─────────────────────────────────────────────────────
     /**
      * Creates a new folder in the root.
      * 
@@ -173,8 +172,7 @@ public class FolderService {
         logger.info("Restored folder ID: " + folderId);
     }
 
-    // ==================== Retrieval Methods ====================
-
+    // ── Retrieval Methods ───────────────────────────────────────────────────
     /**
      * Fetches all folders as a flat list.
      * 
@@ -295,8 +293,7 @@ public class FolderService {
         }
     }
 
-    // ==================== Note Management ====================
-
+    // ── Note Management ─────────────────────────────────────────────────────
     /**
      * Gets all notes in a folder.
      * 
@@ -398,8 +395,7 @@ public class FolderService {
         return true;
     }
 
-    // ==================== Path Methods ====================
-
+    // ── Path Methods ────────────────────────────────────────────────────────
     /**
      * Gets the full path of a folder (e.g., "/Parent/Child/Current").
      * 
@@ -438,8 +434,7 @@ public class FolderService {
         return path;
     }
 
-    // ==================== Utility Methods ====================
-
+    // ── Utility Methods ─────────────────────────────────────────────────────
     /**
      * Checks if a folder name already exists at root level.
      * 

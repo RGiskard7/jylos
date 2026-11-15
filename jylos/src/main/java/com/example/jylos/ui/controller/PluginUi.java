@@ -3,6 +3,7 @@ package com.example.jylos.ui.controller;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -37,10 +38,15 @@ import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
+import org.kordamp.ikonli.javafx.FontIcon;
+
 /**
  * What plugins add to the window: items in the Plugins menu, side panels in the right panel,
  * toolbar buttons and entries in a note's context menu. Keeps each plugin's contributions so
  * they can be taken out again when the plugin is disabled.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 class PluginUi implements PluginMenuRegistry, SidePanelRegistry, ToolbarRegistry, PluginNoteContextMenuRegistry,
         StatusBarRegistry {
@@ -205,8 +211,8 @@ class PluginUi implements PluginMenuRegistry, SidePanelRegistry, ToolbarRegistry
             boolean rendered = false;
             if (iconLiteral.matches("[a-z]{2,5}-[a-z0-9-]+")) {
                 try {
-                    org.kordamp.ikonli.javafx.FontIcon fontIcon =
-                            new org.kordamp.ikonli.javafx.FontIcon(iconLiteral);
+                    FontIcon fontIcon =
+                            new FontIcon(iconLiteral);
                     fontIcon.getStyleClass().add("feather-icon");
                     header.getChildren().add(fontIcon);
                     rendered = true;
@@ -302,7 +308,7 @@ class PluginUi implements PluginMenuRegistry, SidePanelRegistry, ToolbarRegistry
         return pluginPanelsContainer != null && pluginPanelsContainer.isVisible();
     }
 
-    // ── Toolbar buttons ─────────────────────────────────────────────────────
+    // ── Toolbar buttons ──────────────────────────────────────────────────────
 
     @Override
     public void registerToolbarButton(String pluginId, String buttonId, String tooltip,
@@ -324,7 +330,7 @@ class PluginUi implements PluginMenuRegistry, SidePanelRegistry, ToolbarRegistry
                 button.setTooltip(new Tooltip(tooltip));
             }
             if (iconLiteral != null && !iconLiteral.isBlank()) {
-                org.kordamp.ikonli.javafx.FontIcon icon = new org.kordamp.ikonli.javafx.FontIcon(iconLiteral);
+                FontIcon icon = new FontIcon(iconLiteral);
                 icon.getStyleClass().add("feather-icon");
                 icon.setIconSize(16);
                 button.setGraphic(icon);
@@ -354,7 +360,7 @@ class PluginUi implements PluginMenuRegistry, SidePanelRegistry, ToolbarRegistry
         });
     }
 
-    // ── Note context menu entries ───────────────────────────────────────────
+    // ── Note context menu entries ────────────────────────────────────────────
 
     @Override
     public void registerNoteContextMenuItem(String pluginId, String label, Consumer<Note> action) {
@@ -376,10 +382,10 @@ class PluginUi implements PluginMenuRegistry, SidePanelRegistry, ToolbarRegistry
         return all;
     }
 
-    // ── Status bar items ────────────────────────────────────────────────────
+    // ── Status bar items ─────────────────────────────────────────────────────
 
     /** pluginId:itemId → the item shown (its separator and content), in registration order. */
-    private final Map<String, Node> statusBarItems = new java.util.LinkedHashMap<>();
+    private final Map<String, Node> statusBarItems = new LinkedHashMap<>();
 
     @Override
     public void registerStatusBarItem(String pluginId, String itemId, Node content) {

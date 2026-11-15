@@ -4,15 +4,21 @@ import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.data.models.interfaces.Component;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.exceptions.DataAccessException;
+import com.example.jylos.plugin.NoteContextMenuEntry;
+import com.example.jylos.search.AdvancedSearchService;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
+import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.NewTabGesture;
+import com.example.jylos.util.AttachmentType;
+import com.example.jylos.util.FileManager;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
@@ -27,12 +33,20 @@ import javafx.scene.input.Dragboard;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
+import java.nio.file.Path;
+import java.text.MessageFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.ResourceBundle;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
@@ -47,11 +61,20 @@ import java.util.logging.Logger;
 import org.kordamp.ikonli.javafx.FontIcon;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
+import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.control.ContentDisplay;
+import javafx.scene.input.Clipboard;
 import javafx.scene.shape.Rectangle;
 
 /**
  * Notes list column: custom cells (title, preview lines, dates), sorting, drag-and-drop,
  * and context actions. Listens to {@link com.example.jylos.event.EventBus} for refresh.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class NotesListController {
     private static final Logger logger = LoggerConfig.getLogger(NotesListController.class);
@@ -61,7 +84,7 @@ public class NotesListController {
     private NoteService noteService;
     private TagService tagService;
     private FolderService folderService;
-    private com.example.jylos.search.AdvancedSearchService advancedSearch;
+    private AdvancedSearchService advancedSearch;
     private ResourceBundle bundle;
     private Consumer<Note> noteSelectionAction = note -> {
     };
@@ -76,8 +99,8 @@ public class NotesListController {
     };
     private Consumer<String> statusUpdateAction = message -> {
     };
-    private Supplier<List<com.example.jylos.plugin.NoteContextMenuEntry>> noteContextMenuItemsSupplier =
-            java.util.Collections::emptyList;
+    private Supplier<List<NoteContextMenuEntry>> noteContextMenuItemsSupplier =
+            Collections::emptyList;
 
     private String currentFilterType = "all";
     private Folder currentFolder;
@@ -98,7 +121,7 @@ public class NotesListController {
     private volatile List<Note> allNotesSearchCache = List.of();
     private volatile boolean allNotesSearchCacheDirty = true;
     /** Lazy cache of full, lowercased note content for true full-text search. */
-    private final java.util.Map<String, String> fullContentCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, String> fullContentCache = new ConcurrentHashMap<>();
 
     /** Number of body-preview lines shown under each note title (0 hides the preview). */
     private int previewLines = 2;
@@ -171,7 +194,7 @@ public class NotesListController {
         }
         Runnable disableHbar = () -> listView.lookupAll(".scroll-bar").forEach(node -> {
             if (node instanceof ScrollBar scrollBar
-                    && scrollBar.getOrientation() == javafx.geometry.Orientation.HORIZONTAL) {
+                    && scrollBar.getOrientation() == Orientation.HORIZONTAL) {
                 scrollBar.setMin(0);
                 scrollBar.setMax(0);
                 scrollBar.setValue(0);
@@ -194,9 +217,9 @@ public class NotesListController {
             return 0;
         }
         double width = 0;
-        for (javafx.scene.Node node : listView.lookupAll(".scroll-bar")) {
+        for (Node node : listView.lookupAll(".scroll-bar")) {
             if (node instanceof ScrollBar scrollBar
-                    && scrollBar.getOrientation() == javafx.geometry.Orientation.VERTICAL
+                    && scrollBar.getOrientation() == Orientation.VERTICAL
                     && scrollBar.isVisible()) {
                 width = Math.max(width, scrollBar.getWidth());
             }
@@ -255,12 +278,12 @@ public class NotesListController {
 
             {
                 container.getStyleClass().add("note-cell-container");
-                container.setPadding(new javafx.geometry.Insets(4, 6, 4, 4));
-                setAlignment(javafx.geometry.Pos.TOP_LEFT);
-                setContentDisplay(javafx.scene.control.ContentDisplay.GRAPHIC_ONLY);
+                container.setPadding(new Insets(4, 6, 4, 4));
+                setAlignment(Pos.TOP_LEFT);
+                setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
                 setMinWidth(0);
 
-                titleRow.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+                titleRow.setAlignment(Pos.CENTER_LEFT);
                 titleRow.setMinWidth(0);
                 pinIcon.getStyleClass().add("feather-pin-active");
                 pinIcon.setIconSize(12);
@@ -297,12 +320,12 @@ public class NotesListController {
                 modifiedLabel.setMinWidth(0);
                 HBox.setHgrow(modifiedLabel, Priority.ALWAYS);
                 createdLabel.getStyleClass().add("note-cell-date-created");
-                createdLabel.setAlignment(javafx.geometry.Pos.CENTER_RIGHT);
+                createdLabel.setAlignment(Pos.CENTER_RIGHT);
                 createdLabel.setEllipsisString("…");
                 createdLabel.setMinWidth(0);
                 HBox.setHgrow(createdLabel, Priority.NEVER);
 
-                dateRow.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+                dateRow.setAlignment(Pos.CENTER_LEFT);
                 dateRow.setMinWidth(0);
                 dateRow.getChildren().addAll(modifiedLabel, createdLabel);
 
@@ -434,7 +457,7 @@ public class NotesListController {
                     }
                     titleLabel.setText(note.getTitle() != null ? note.getTitle() : "");
                     // Distinguish attachments (PDF/image) from notes with a fitting icon.
-                    switch (com.example.jylos.util.AttachmentType.fromName(note.getId())) {
+                    switch (AttachmentType.fromName(note.getId())) {
                         case IMAGE -> noteIcon.setIconLiteral("fth-image");
                         case PDF -> noteIcon.setIconLiteral("fth-file");
                         case CANVAS -> noteIcon.setIconLiteral("fth-grid");
@@ -457,7 +480,7 @@ public class NotesListController {
                     } else if (contentWidth < NARROW_PANEL_WIDTH) {
                         createdLabel.setText(created);
                     } else {
-                        createdLabel.setText(java.text.MessageFormat.format(getString("panel.notes.created"), created));
+                        createdLabel.setText(MessageFormat.format(getString("panel.notes.created"), created));
                     }
                     layoutCellContent(contentWidth);
 
@@ -494,7 +517,7 @@ public class NotesListController {
             }
         }
 
-        java.util.List<String> previewLines = new java.util.ArrayList<>();
+        List<String> previewLines = new ArrayList<>();
         boolean truncated = false;
         for (String rawLine : text.split("\\R")) {
             String line = stripMarkdownForPreview(rawLine);
@@ -550,7 +573,7 @@ public class NotesListController {
     }
 
     private String wrapPreviewFlow(String flow, int maxLines, boolean alreadyTruncated) {
-        java.util.List<String> lines = new java.util.ArrayList<>();
+        List<String> lines = new ArrayList<>();
         int pos = 0;
         while (pos < flow.length() && lines.size() < maxLines) {
             int end = Math.min(flow.length(), pos + PREVIEW_CHARS_PER_LINE);
@@ -579,10 +602,10 @@ public class NotesListController {
         }
         String datePart = stored.length() >= 10 ? stored.substring(0, 10) : stored;
         try {
-            java.time.LocalDate date = java.time.LocalDate.parse(datePart);
+            LocalDate date = LocalDate.parse(datePart);
             Locale locale = bundle != null ? bundle.getLocale() : Locale.getDefault();
-            return date.format(java.time.format.DateTimeFormatter
-                    .ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
+            return date.format(DateTimeFormatter
+                    .ofLocalizedDate(FormatStyle.MEDIUM)
                     .withLocale(locale));
         } catch (Exception e) {
             return datePart;
@@ -670,7 +693,7 @@ public class NotesListController {
             Consumer<Note> notePrivacyToggleAction,
             BiConsumer<List<Note>, String> notesLoadedAction,
             Consumer<String> statusUpdateAction,
-            Supplier<List<com.example.jylos.plugin.NoteContextMenuEntry>> noteContextMenuItemsSupplier) {
+            Supplier<List<NoteContextMenuEntry>> noteContextMenuItemsSupplier) {
         setServices(noteService, tagService, folderService);
         setBundle(bundle);
         this.noteSelectionAction = noteSelectionAction != null ? noteSelectionAction : note -> {
@@ -684,7 +707,7 @@ public class NotesListController {
         this.statusUpdateAction = statusUpdateAction != null ? statusUpdateAction : message -> {
         };
         this.noteContextMenuItemsSupplier =
-                noteContextMenuItemsSupplier != null ? noteContextMenuItemsSupplier : java.util.Collections::emptyList;
+                noteContextMenuItemsSupplier != null ? noteContextMenuItemsSupplier : Collections::emptyList;
         setEventBus(eventBus);
     }
 
@@ -693,7 +716,7 @@ public class NotesListController {
             return;
 
         subscriptions.add(eventBus.subscribe(SystemActionEvent.class, event -> {
-            javafx.application.Platform.runLater(() -> {
+            Platform.runLater(() -> {
                 if (event.getActionType() == SystemActionEvent.ActionType.DELETE) {
                     handleDelete(null);
                 }
@@ -712,7 +735,7 @@ public class NotesListController {
                 event -> markNotesListStale(componentId(event.getComponent()))));
         subscriptions.add(eventBus.subscribe(NoteEvents.NotesRefreshRequestedEvent.class, event -> {
             markAllNotesSearchCacheDirty();
-            javafx.application.Platform.runLater(this::refreshCurrentView);
+            Platform.runLater(this::refreshCurrentView);
         }));
     }
 
@@ -727,7 +750,7 @@ public class NotesListController {
         this.tagService = tagService;
         this.folderService = folderService;
         this.advancedSearch = this.noteService != null && this.tagService != null
-                ? new com.example.jylos.search.AdvancedSearchService(this.noteService, this.tagService)
+                ? new AdvancedSearchService(this.noteService, this.tagService)
                 : null;
     }
 
@@ -763,7 +786,6 @@ public class NotesListController {
         return notesListView;
     }
 
-    // Phase 3: Migrated Loading Logic
 
     public void loadAllNotes() {
         if (noteService == null) {
@@ -780,7 +802,7 @@ public class NotesListController {
                     List<Note> sorted = sortNotesData(notes, sortOption);
                     applyNotesPreservingSelection(sorted);
                     String msg = bundle != null
-                            ? java.text.MessageFormat.format(bundle.getString("info.notes_count"), sorted.size())
+                            ? MessageFormat.format(bundle.getString("info.notes_count"), sorted.size())
                             : sorted.size() + " notes";
                     if (notesPanelTitleLabel != null) {
                         notesPanelTitleLabel.setText(msg);
@@ -818,7 +840,7 @@ public class NotesListController {
                     }
                     publishNotesLoadedEvent(sorted,
                             bundle != null
-                                    ? java.text.MessageFormat.format(bundle.getString("status.loaded_folder"),
+                                    ? MessageFormat.format(bundle.getString("status.loaded_folder"),
                                             folder.getTitle())
                                     : "Loaded folder");
                 },
@@ -846,13 +868,13 @@ public class NotesListController {
                         notesWithTag -> {
                             List<Note> sorted = sortNotesData(notesWithTag, sortOption);
                             applyNotesPreservingSelection(sorted);
-                            String msg = java.text.MessageFormat.format(getString("info.notes_count"), sorted.size());
+                            String msg = MessageFormat.format(getString("info.notes_count"), sorted.size());
                             if (notesPanelTitleLabel != null) {
                                 notesPanelTitleLabel.setText(msg);
                             }
                             publishNotesLoadedEvent(sorted,
                                     bundle != null
-                                            ? java.text.MessageFormat.format(bundle.getString("status.filtered_tag"),
+                                            ? MessageFormat.format(bundle.getString("status.filtered_tag"),
                                                     tagName)
                                             : msg);
                         },
@@ -906,14 +928,14 @@ public class NotesListController {
                 filteredNotes -> {
                     applyNotesPreservingSelection(filteredNotes);
                     String msg = bundle != null
-                            ? java.text.MessageFormat.format(bundle.getString("info.notes_found"), filteredNotes.size())
+                            ? MessageFormat.format(bundle.getString("info.notes_found"), filteredNotes.size())
                             : filteredNotes.size() + " notes found";
                     if (notesPanelTitleLabel != null) {
                         notesPanelTitleLabel.setText(msg);
                     }
                     publishNotesLoadedEvent(filteredNotes,
                             bundle != null
-                                    ? java.text.MessageFormat.format(bundle.getString("status.search_active"),
+                                    ? MessageFormat.format(bundle.getString("status.search_active"),
                                             searchText)
                                     : "Search active");
                 },
@@ -948,7 +970,7 @@ public class NotesListController {
     }
 
     /** The id of a component from a trash event, or {@code null} when it has none. */
-    private static String componentId(com.example.jylos.data.models.interfaces.Component component) {
+    private static String componentId(Component component) {
         return component != null ? component.getId() : null;
     }
 
@@ -1071,7 +1093,7 @@ public class NotesListController {
         // Tag-filtered results are a small subset of the vault, so a full (but scoped)
         // reload here is cheap and the only way to keep membership correct as you type.
         if ("tag".equals(currentFilterType) && currentTag != null) {
-            javafx.application.Platform.runLater(this::refreshCurrentView);
+            Platform.runLater(this::refreshCurrentView);
             return;
         }
         List<Note> items = notesListView.getItems();
@@ -1247,13 +1269,13 @@ public class NotesListController {
         if (note == null || noteService == null) {
             return;
         }
-        Optional<java.nio.file.Path> pathOpt = noteService.getNoteFilePath(note.getId());
+        Optional<Path> pathOpt = noteService.getNoteFilePath(note.getId());
         if (pathOpt.isEmpty()) {
             publishStatusUpdate(getString("status.reveal_unavailable"));
             return;
         }
         try {
-            com.example.jylos.util.FileManager.reveal(pathOpt.get());
+            FileManager.reveal(pathOpt.get());
             publishStatusUpdate(getString("status.revealed"));
         } catch (Exception ex) {
             logger.log(Level.WARNING, "Failed to reveal note in file manager", ex);
@@ -1277,7 +1299,7 @@ public class NotesListController {
         dialog.setContentText(getString("dialog.rename_note.content"));
         dialog.getDialogPane().setMinWidth(380);
 
-        com.example.jylos.ui.UiDialogs.show(dialog).ifPresent(name -> renameNoteTo(note, name));
+        UiDialogs.show(dialog).ifPresent(name -> renameNoteTo(note, name));
     }
 
     /** Renames the note to {@code name} (trimmed); a blank or unchanged name does nothing. */
@@ -1295,7 +1317,7 @@ public class NotesListController {
                 if (eventBus != null) {
                     eventBus.publish(new NoteEvents.NoteSavedEvent(note, previousNoteId));
                 }
-                publishStatusUpdate(java.text.MessageFormat.format(
+                publishStatusUpdate(MessageFormat.format(
                         getString("status.renamed_note"), note.getTitle()));
             } catch (Exception e) {
                 logger.log(Level.WARNING, "Failed to rename note " + note.getId(), e);
@@ -1327,7 +1349,7 @@ public class NotesListController {
         }
         publishStatusUpdate(destination == null || "ROOT".equals(destination.getId())
                 ? getString("status.note_moved_root")
-                : java.text.MessageFormat.format(getString("status.note_moved_folder"), destination.getTitle()));
+                : MessageFormat.format(getString("status.note_moved_folder"), destination.getTitle()));
     }
 
     private Optional<MoveTargetSupport.MoveTarget> chooseMoveTarget(Folder folderToMove) {
@@ -1386,7 +1408,7 @@ public class NotesListController {
         alert.setHeaderText(getString("dialog.delete_note.header"));
         alert.setContentText(getString("dialog.delete_note.content"));
 
-        Optional<ButtonType> result = com.example.jylos.ui.UiDialogs.show(alert);
+        Optional<ButtonType> result = UiDialogs.show(alert);
         if (result.isPresent() && result.get() == ButtonType.OK) {
             NoteTrashOperations.TrashResult trashed = new NoteTrashOperations(noteService).moveToTrash(note);
             if (!trashed.success()) {
@@ -1546,7 +1568,7 @@ public class NotesListController {
             if (eventBus != null) {
                 eventBus.publish(new NoteEvents.NoteCreatedEvent(copy));
             }
-            publishStatusUpdate(java.text.MessageFormat.format(getString("status.note_duplicated"), copy.getTitle()));
+            publishStatusUpdate(MessageFormat.format(getString("status.note_duplicated"), copy.getTitle()));
         } catch (Exception e) {
             logger.log(Level.WARNING, "Failed to duplicate note " + note.getId(), e);
             publishPersistenceFailure(e, "status.note_duplicate_error");
@@ -1558,9 +1580,9 @@ public class NotesListController {
         if (note == null || note.getId() == null) {
             return;
         }
-        javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+        ClipboardContent content = new ClipboardContent();
         content.putString(note.getId().replace('\\', '/'));
-        javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);
+        Clipboard.getSystemClipboard().setContent(content);
         publishStatusUpdate(getString("status.path_copied"));
     }
 
@@ -1569,7 +1591,7 @@ public class NotesListController {
         if (note == null || noteService == null) {
             return;
         }
-        Optional<java.nio.file.Path> path = noteService.getNoteFilePath(note.getId());
+        Optional<Path> path = noteService.getNoteFilePath(note.getId());
         if (path.isEmpty()) {
             publishStatusUpdate(getString("status.reveal_unavailable"));
             return;

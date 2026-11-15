@@ -8,6 +8,9 @@ import com.example.jylos.plugin.EditorBlockRenderer;
  *
  * <p>The block's source arrives as plain text here — unlike the preview surface, nothing
  * has HTML-escaped it — so it goes straight to the shared runner.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
  */
 final class DataviewBlockRenderer implements EditorBlockRenderer {
 

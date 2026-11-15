@@ -26,6 +26,9 @@ import javafx.stage.Window;
  * <p>The underlying persistence remains in {@link NoteOperations}; this support
  * owns only the shell-level coordination required to open the created note,
  * refresh dependent views and prompt the user when a template must be chosen.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.3.0
  */
 final class NoteCreationSupport {
 

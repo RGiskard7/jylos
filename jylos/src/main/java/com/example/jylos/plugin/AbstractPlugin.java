@@ -2,6 +2,9 @@ package com.example.jylos.plugin;
 
 /**
  * Optional base class for external/built-in plugins with shared metadata defaults.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public abstract class AbstractPlugin implements Plugin {
 

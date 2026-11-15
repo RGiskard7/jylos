@@ -11,6 +11,9 @@ import com.example.jylos.data.dao.interfaces.TagDAO;
 /**
  * Concrete implementation of FactoryDAO for the SQLite storage system.
  * This class provides instances of specific DAO implementations for SQLite.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class FactoryDAOSQLite extends FactoryDAO {
 	

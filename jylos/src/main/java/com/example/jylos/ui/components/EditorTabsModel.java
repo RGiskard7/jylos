@@ -15,6 +15,7 @@ import java.util.List;
  * </ul>
  *
  * @since 2.6.0
+ * @author Edu Díaz (RGiskard7)
  */
 public final class EditorTabsModel {
 

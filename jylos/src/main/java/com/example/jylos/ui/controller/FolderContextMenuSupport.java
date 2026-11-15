@@ -14,6 +14,9 @@ import javafx.scene.control.SeparatorMenuItem;
  *
  * <p>Entries, in order: new note, new canvas, new subfolder, a separator, rename, move
  * (not for the vault root), reveal in files (folder vaults only) and delete.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class FolderContextMenuSupport {
 

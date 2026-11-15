@@ -6,6 +6,9 @@ import javafx.scene.input.MouseEvent;
 /**
  * The mouse gestures that open a note in a new editor tab instead of the current one,
  * as in VS Code and Obsidian: Cmd+click on macOS / Ctrl+click elsewhere, and middle click.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class NewTabGesture {
 

@@ -3,6 +3,7 @@ package com.example.jylos.ui.controller;
 import java.io.File;
 import java.io.FileWriter;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
@@ -12,12 +13,16 @@ import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
+import com.example.jylos.util.NoteExporter;
 
 /**
  * Import/export of notes as Markdown/text files.
  *
  * <p>UI-owned helper that imports/exports notes using explicit note/folder services
  * wired by the shell controller.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 class DocumentSupport {
 
@@ -94,9 +99,9 @@ class DocumentSupport {
 
         String name = targetFile.getName().toLowerCase();
         try {
-            java.nio.file.Path baseDir = resolveBaseDir(note);
+            Path baseDir = resolveBaseDir(note);
             if (name.endsWith(".html") || name.endsWith(".htm")) {
-                com.example.jylos.util.NoteExporter.exportHtml(note, targetFile, baseDir,
+                NoteExporter.exportHtml(note, targetFile, baseDir,
                         link -> resolveEmbedContent(link, note),
                         noteService != null ? noteService.getStorageRoot().orElse(null) : null,
                         noteService != null ? noteService.linkIndex() : null);
@@ -104,7 +109,7 @@ class DocumentSupport {
             }
             if (name.endsWith(".pdf")) {
                 String baseUri = baseDir != null ? baseDir.toUri().toString() : null;
-                com.example.jylos.util.NoteExporter.exportPdf(note, targetFile, baseUri,
+                NoteExporter.exportPdf(note, targetFile, baseUri,
                         link -> resolveEmbedContent(link, note),
                         noteService != null ? noteService.linkIndex() : null);
                 return new ExportResult(true, null);
@@ -127,7 +132,7 @@ class DocumentSupport {
      * The note's source folder, used to resolve relative resources (images) when
      * exporting, so {@code ![](img.png)} resolves correctly. Null if unknown.
      */
-    private java.nio.file.Path resolveBaseDir(Note note) {
+    private Path resolveBaseDir(Note note) {
         try {
             if (noteService == null) {
                 return null;

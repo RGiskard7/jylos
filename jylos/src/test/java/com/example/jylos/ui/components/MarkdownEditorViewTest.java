@@ -244,7 +244,7 @@ class MarkdownEditorViewTest {
                             failure[0] = error instanceof AssertionError assertion
                                     ? assertion : new AssertionError(error);
                         } finally {
-                            new java.util.ArrayList<>(Window.getWindows()).stream()
+                            new ArrayList<>(Window.getWindows()).stream()
                                     .filter(window -> window instanceof PopupWindow)
                                     .forEach(Window::hide);
                             stage.close();

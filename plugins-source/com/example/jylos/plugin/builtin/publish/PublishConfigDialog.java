@@ -65,6 +65,7 @@ import javafx.util.StringConverter;
  * copied or rebuilt.</p>
  *
  * @author Edu Díaz (RGiskard7)
+ * @since 2.5.6
  */
 final class PublishConfigDialog {
 

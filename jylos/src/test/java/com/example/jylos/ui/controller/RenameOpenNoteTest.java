@@ -24,8 +24,10 @@ import com.example.jylos.data.models.Note;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.tests.FxTestSupport;
+import com.example.jylos.ui.components.MarkdownEditorView;
 
 import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.layout.Pane;
 
@@ -52,7 +54,7 @@ class RenameOpenNoteTest {
         List<String> seen = onFx(() -> {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/jylos/ui/view/EditorView.fxml"),
                     ResourceBundle.getBundle("com.example.jylos.i18n.messages", Locale.forLanguageTag("es")));
-            new Scene(new Pane((javafx.scene.Parent) loader.load()), 900, 600);
+            new Scene(new Pane((Parent) loader.load()), 900, 600);
             EditorController editor = loader.getController();
             editor.wire(EventBus.getInstance(), notes, null, loader.getResources(), note -> { }, status::add,
                     List::of, false, enabled -> { }, null, null, null);
@@ -69,7 +71,7 @@ class RenameOpenNoteTest {
             // An edit typed in the editor after the rename.
             Field area = EditorController.class.getDeclaredField("noteContentArea");
             area.setAccessible(true);
-            ((com.example.jylos.ui.components.MarkdownEditorView) area.get(editor)).setText("texto editado\n");
+            ((MarkdownEditorView) area.get(editor)).setText("texto editado\n");
             set(editor, "isModified", true);
             out.add("saved " + editor.handleSave(true));
             return out;
@@ -91,14 +93,14 @@ class RenameOpenNoteTest {
         boolean saved = onFx(() -> {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/jylos/ui/view/EditorView.fxml"),
                     ResourceBundle.getBundle("com.example.jylos.i18n.messages", Locale.forLanguageTag("es")));
-            new Scene(new Pane((javafx.scene.Parent) loader.load()), 900, 600);
+            new Scene(new Pane((Parent) loader.load()), 900, 600);
             EditorController editor = loader.getController();
             editor.wire(EventBus.getInstance(), notes, null, loader.getResources(), note -> { }, status::add,
                     List::of, false, enabled -> { }, null, null, null);
             editor.loadNote(notes.getNoteById("Nota.md").orElseThrow());
             Field area = EditorController.class.getDeclaredField("noteContentArea");
             area.setAccessible(true);
-            ((com.example.jylos.ui.components.MarkdownEditorView) area.get(editor)).setText("sin guardar\n");
+            ((MarkdownEditorView) area.get(editor)).setText("sin guardar\n");
             set(editor, "isModified", true);
 
             Note listed = notes.getNoteById("Nota.md").orElseThrow();

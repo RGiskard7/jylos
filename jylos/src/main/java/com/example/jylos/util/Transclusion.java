@@ -1,5 +1,8 @@
 package com.example.jylos.util;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -115,7 +118,7 @@ public final class Transclusion {
         if (md == null || !md.contains("![[")) {
             return md == null ? "" : md;
         }
-        java.util.BitSet code = WikiLinkResolver.codeRanges(md);
+        BitSet code = WikiLinkResolver.codeRanges(md);
         Matcher m = EMBED.matcher(md);
         StringBuilder sb = new StringBuilder(md.length() + 64);
         while (m.find()) {
@@ -276,7 +279,7 @@ public final class Transclusion {
     }
 
     private static String urlEncode(String value) {
-        return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
 }

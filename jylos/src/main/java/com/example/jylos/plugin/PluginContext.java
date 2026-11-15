@@ -22,12 +22,21 @@ import com.example.jylos.ui.components.CommandPalette;
 
 import javafx.application.Platform;
 import javafx.concurrent.Task;
+import javafx.event.ActionEvent;
 import javafx.scene.Node;
+import javafx.scene.Scene;
 import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.control.TextArea;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
 
 /**
  * Context provided to plugins during initialization.
@@ -474,7 +483,7 @@ public class PluginContext {
      *
      * @param scene the scene to theme
      */
-    public void applyTheme(javafx.scene.Scene scene) {
+    public void applyTheme(Scene scene) {
         UiDialogs.apply(scene);
     }
 
@@ -544,7 +553,7 @@ public class PluginContext {
         alert.setTitle(title);
         alert.setHeaderText(header);
 
-        javafx.scene.control.TextArea textArea = new javafx.scene.control.TextArea(content);
+        TextArea textArea = new TextArea(content);
         textArea.setEditable(false);
         // Sized to the content, so a snippet that fits shows whole with no scrollbar at all.
         // wrapText stays OFF on purpose: this is pre-formatted text (a fenced code block, a
@@ -557,22 +566,22 @@ public class PluginContext {
         textArea.setWrapText(false);
         textArea.setPrefRowCount(Math.min(30, Math.max(2, lines.size())));
         textArea.setPrefColumnCount(Math.min(100, Math.max(20, longestLine)));
-        javafx.scene.layout.VBox.setVgrow(textArea, javafx.scene.layout.Priority.ALWAYS);
+        VBox.setVgrow(textArea, Priority.ALWAYS);
         alert.getDialogPane().setContent(textArea);
         alert.getDialogPane().setExpandableContent(null);
 
-        javafx.scene.control.ButtonType copyButtonType =
-                new javafx.scene.control.ButtonType("Copy", javafx.scene.control.ButtonBar.ButtonData.LEFT);
+        ButtonType copyButtonType =
+                new ButtonType("Copy", ButtonBar.ButtonData.LEFT);
         alert.getDialogPane().getButtonTypes().add(0, copyButtonType);
         // A plain ButtonType closes the dialog on click by default — consume the event
         // on this one so "Copy" copies and leaves the dialog open (the user may want
         // to re-read the content, or copy again after scrolling).
-        javafx.scene.control.Button copyButton =
-                (javafx.scene.control.Button) alert.getDialogPane().lookupButton(copyButtonType);
-        copyButton.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
-            javafx.scene.input.ClipboardContent clipboardContent = new javafx.scene.input.ClipboardContent();
+        Button copyButton =
+                (Button) alert.getDialogPane().lookupButton(copyButtonType);
+        copyButton.addEventFilter(ActionEvent.ACTION, event -> {
+            ClipboardContent clipboardContent = new ClipboardContent();
             clipboardContent.putString(content);
-            javafx.scene.input.Clipboard.getSystemClipboard().setContent(clipboardContent);
+            Clipboard.getSystemClipboard().setContent(clipboardContent);
             event.consume();
         });
 

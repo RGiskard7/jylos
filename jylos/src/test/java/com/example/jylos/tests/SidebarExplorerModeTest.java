@@ -15,8 +15,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
+import java.util.prefs.Preferences;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
@@ -27,7 +29,10 @@ import org.junit.jupiter.api.io.TempDir;
 import com.example.jylos.data.dao.sqlite.FolderDAOSQLite;
 import com.example.jylos.data.dao.sqlite.NoteDAOSQLite;
 import com.example.jylos.data.models.Folder;
+import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.interfaces.Component;
+import com.example.jylos.event.EventBus;
+import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.ui.controller.SidebarController;
@@ -37,7 +42,13 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
 import javafx.scene.input.KeyCode;
@@ -58,11 +69,11 @@ class SidebarExplorerModeTest {
     private FolderService folders;
     private NoteService notes;
 
-    private java.util.prefs.Preferences prefs;
+    private Preferences prefs;
 
     @BeforeEach
     void setUp() throws Exception {
-        prefs = java.util.prefs.Preferences.userRoot().node("/com/example/jylos/test/" + java.util.UUID.randomUUID());
+        prefs = Preferences.userRoot().node("/com/example/jylos/test/" + UUID.randomUUID());
         SidebarController.usePreferences(prefs);
         SQLiteTestSupport.configureFreshDatabase(tempDir.resolve("sidebar.db"));
         connection = SQLiteTestSupport.openConnection();
@@ -143,8 +154,8 @@ class SidebarExplorerModeTest {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
         Fixture f = onFx(() -> new Fixture(folders, notes, new ArrayList<>()));
         onFx(() -> {
-            f.sidebar.setExplorerNoteMenu(n -> new javafx.scene.control.ContextMenu(
-                    new javafx.scene.control.MenuItem("nota " + n.getTitle())));
+            f.sidebar.setExplorerNoteMenu(n -> new ContextMenu(
+                    new MenuItem("nota " + n.getTitle())));
             f.sidebar.setExplorerMode(true);
             return null;
         });
@@ -159,7 +170,7 @@ class SidebarExplorerModeTest {
                 explorer.getScene().getRoot().layout();
                 List<String> out = new ArrayList<>();
                 for (Node node : explorer.lookupAll(".tree-cell")) {
-                    if (node instanceof javafx.scene.control.TreeCell<?> cell && !cell.isEmpty()
+                    if (node instanceof TreeCell<?> cell && !cell.isEmpty()
                             && cell.getContextMenu() != null) {
                         out.add(cell.getContextMenu().getItems().get(0).getText());
                     }
@@ -233,10 +244,10 @@ class SidebarExplorerModeTest {
         explorer.getScene().getRoot().applyCss();
         explorer.getScene().getRoot().layout();
         for (Node node : explorer.lookupAll(".tree-cell")) {
-            if (node instanceof javafx.scene.control.TreeCell<?> cell && !cell.isEmpty()
+            if (node instanceof TreeCell<?> cell && !cell.isEmpty()
                     && cell.getItem() instanceof Component c && folder.equals(c.getTitle())) {
                 for (Node label : cell.lookupAll(".folder-cell-count")) {
-                    if (label.isVisible() && label instanceof javafx.scene.control.Label l) {
+                    if (label.isVisible() && label instanceof Label l) {
                         return l.getText().replace("(", "").replace(")", "");
                     }
                 }
@@ -254,7 +265,7 @@ class SidebarExplorerModeTest {
     @Test
     void trashingANoteOrChangingItOutsideReloadsTheTree() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
-        com.example.jylos.event.EventBus bus = com.example.jylos.event.EventBus.getInstance();
+        EventBus bus = EventBus.getInstance();
         Fixture f = onFx(() -> new Fixture(folders, notes, new ArrayList<>(), bus));
         try {
             onFx(() -> {
@@ -264,19 +275,19 @@ class SidebarExplorerModeTest {
             TreeView<Component> explorer = onFx(() -> f.sidebar.getExplorerTree().getView());
             waitUntil(() -> titles(explorer.getRoot()).equals(List.of("Trabajo", "Inicio")));
 
-            com.example.jylos.data.models.Note inicio = notes.getAllNotes().stream()
+            Note inicio = notes.getAllNotes().stream()
                     .filter(n -> "Inicio".equals(n.getTitle())).findFirst().orElseThrow();
             notes.moveToTrash(inicio.getId());
             onFx(() -> {
-                bus.publish(new com.example.jylos.event.events.NoteEvents.NoteDeletedEvent(inicio.getId(), "Inicio"));
+                bus.publish(new NoteEvents.NoteDeletedEvent(inicio.getId(), "Inicio"));
                 return null;
             });
             waitUntil(() -> titles(explorer.getRoot()).equals(List.of("Trabajo")));
 
             notes.createNote("Externa", "x");
             onFx(() -> {
-                bus.publish(new com.example.jylos.event.events.NoteEvents.NoteUpdatedEvent(
-                        new com.example.jylos.data.models.Note("Externa", "x")));
+                bus.publish(new NoteEvents.NoteUpdatedEvent(
+                        new Note("Externa", "x")));
                 return null;
             });
             waitUntil(() -> titles(explorer.getRoot()).equals(List.of("Trabajo", "Externa")));
@@ -395,13 +406,13 @@ class SidebarExplorerModeTest {
         waitUntil(() -> {
             f.explorer().layout();
             return f.explorer().lookupAll(".tree-cell").stream().anyMatch(node ->
-                    node instanceof javafx.scene.control.TreeCell<?> cell && cell.getItem() instanceof Component c
+                    node instanceof TreeCell<?> cell && cell.getItem() instanceof Component c
                             && "Trabajo".equals(c.getTitle()));
         });
         onFx(() -> {
-            javafx.scene.control.TreeCell<?> row = null;
-            for (javafx.scene.Node node : f.explorer().lookupAll(".tree-cell")) {
-                if (node instanceof javafx.scene.control.TreeCell<?> cell && cell.getItem() instanceof Component c
+            TreeCell<?> row = null;
+            for (Node node : f.explorer().lookupAll(".tree-cell")) {
+                if (node instanceof TreeCell<?> cell && cell.getItem() instanceof Component c
                         && "Trabajo".equals(c.getTitle())) {
                     row = cell;
                 }
@@ -415,8 +426,8 @@ class SidebarExplorerModeTest {
         onFx(() -> {
             TextField field = (TextField) f.explorer().lookup(".explorer-rename-field");
             field.setText("Oficina");
-            javafx.event.Event.fireEvent(field, new javafx.scene.input.KeyEvent(javafx.scene.input.KeyEvent.KEY_PRESSED,
-                    "", "", javafx.scene.input.KeyCode.ENTER, false, false, false, false));
+            Event.fireEvent(field, new KeyEvent(KeyEvent.KEY_PRESSED,
+                    "", "", KeyCode.ENTER, false, false, false, false));
             return null;
         });
         waitUntil(() -> titles(f.explorer().getRoot()).contains("Oficina"));
@@ -437,7 +448,7 @@ class SidebarExplorerModeTest {
         }
 
         Fixture(FolderService folders, NoteService notes, List<String> opened,
-                com.example.jylos.event.EventBus bus) throws Exception {
+                EventBus bus) throws Exception {
             URL fxml = SidebarExplorerModeTest.class.getClassLoader()
                     .getResource("com/example/jylos/ui/view/SidebarView.fxml");
             ResourceBundle bundle = ResourceBundle.getBundle("com.example.jylos.i18n.messages",
@@ -457,12 +468,12 @@ class SidebarExplorerModeTest {
             return (TreeView<?>) field("folderTreeView");
         }
 
-        javafx.scene.control.ToggleButton revealButton() throws Exception {
-            return (javafx.scene.control.ToggleButton) field("revealActiveNoteBtn");
+        ToggleButton revealButton() throws Exception {
+            return (ToggleButton) field("revealActiveNoteBtn");
         }
 
-        javafx.scene.control.Button expandCollapseButton() throws Exception {
-            return (javafx.scene.control.Button) field("expandCollapseBtn");
+        Button expandCollapseButton() throws Exception {
+            return (Button) field("expandCollapseBtn");
         }
 
         TreeView<Component> explorer() {

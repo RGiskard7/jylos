@@ -19,6 +19,9 @@ import com.example.jylos.service.NoteService.SortOption;
  * picked. Names compare the way people read them: runs of digits compare by value ("Nota 2"
  * before "Nota 10"), and case and accents do not change the order of letters ("Árbol"
  * between "apple" and "banana", not after every unaccented name).</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class ExplorerOrdering {
 

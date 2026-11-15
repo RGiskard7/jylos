@@ -36,6 +36,9 @@ import javafx.scene.text.TextFlow;
  * The editor's properties panel: one row per property of the open note, editable in the
  * editing views and read-only (with clickable {@code [[links]]}) in the reading view, folded
  * or open, and the dialog that adds a property.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 final class PropertiesPanelSupport {
 

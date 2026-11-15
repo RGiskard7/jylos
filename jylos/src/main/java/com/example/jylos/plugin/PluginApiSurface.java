@@ -25,7 +25,7 @@ import java.util.Set;
  * of which (a `WebView`-facing HTML builder, for one) has no business being plugin-facing.</p>
  *
  * @author Edu Díaz (RGiskard7)
- * @since 4.6.0
+ * @since 2.5.6
  */
 public final class PluginApiSurface {
 

@@ -62,7 +62,7 @@ public final class WorkspaceController {
         this.sceneSupplier = sceneSupplier;
     }
 
-    // ── Actions (called from MainController's menu handlers) ──────────────────────
+    // ── Actions (called from MainController's menu handlers) ─────────────────
 
     /** Saves into the current workspace, or falls back to "Save As" when there is none. */
     public void saveCurrent() {
@@ -173,7 +173,7 @@ public final class WorkspaceController {
         dialog.showAndWait();
     }
 
-    // ── Internals ────────────────────────────────────────────────────────────────
+    // ── Internals ────────────────────────────────────────────────────────────
 
     private void open(Workspace ws) {
         if (applier != null && ws != null) {

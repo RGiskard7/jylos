@@ -26,6 +26,9 @@ import com.google.gson.reflect.TypeToken;
  *
  * <p>Nothing here is the source of truth: the file is a cache that can be deleted at any
  * time, and a missing or unreadable one is simply an empty cache.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class LinkCache {
 

@@ -28,6 +28,9 @@ import com.example.jylos.exceptions.InvalidParameterException;
  *
  * <p>All methods that access the shared {@link Connection} are synchronized on the
  * connection object. See {@link NoteDAOSQLite} for the rationale.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class TagDAOSQLite implements TagDAO {
 

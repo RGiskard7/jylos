@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.ui.controller.EditorController;
+import com.example.jylos.ui.web.JavaFxHtmlView;
 
 import javafx.application.Platform;
 import javafx.scene.layout.VBox;
@@ -37,7 +38,7 @@ class EditorControllerPreviewShutdownTest {
             Thread.currentThread().setUncaughtExceptionHandler((t, e) -> uncaught[0] = e);
             try {
                 EditorController controller = new EditorController();
-                setField(controller, "previewWebView", new com.example.jylos.ui.web.JavaFxHtmlView());
+                setField(controller, "previewWebView", new JavaFxHtmlView());
                 VBox previewPane = new VBox();
                 previewPane.setVisible(true);
                 previewPane.setManaged(true);

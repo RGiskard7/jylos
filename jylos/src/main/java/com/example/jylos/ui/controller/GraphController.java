@@ -11,15 +11,22 @@ import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.FolderEvents;
 import com.example.jylos.event.events.NoteEvents;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.MissingResourceException;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.DoubleConsumer;
+import java.util.function.DoubleFunction;
+import java.util.prefs.Preferences;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.graph.GraphBuilder;
+import com.example.jylos.graph.GraphColorGroups;
 import com.example.jylos.graph.GraphData;
 import com.example.jylos.graph.GraphEdge;
 import com.example.jylos.graph.GraphNode;
@@ -28,19 +35,28 @@ import com.example.jylos.service.TagService;
 import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.graph.GraphCanvas;
 
+import javafx.animation.PauseTransition;
+import javafx.beans.property.BooleanProperty;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ColorPicker;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.control.Tooltip;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.util.Duration;
 
 /**
  * Hosts the Obsidian-style knowledge graph, rendered natively on a JavaFX
@@ -52,17 +68,18 @@ import javafx.scene.paint.Color;
  * node clicks back to the app.</p>
  *
  * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class GraphController {
 
     private static final Logger logger = LoggerConfig.getLogger(GraphController.class);
     /** Where the graph's settings are kept between sessions. */
-    private static java.util.prefs.Preferences prefs =
-            java.util.prefs.Preferences.userNodeForPackage(GraphController.class);
+    private static Preferences prefs =
+            Preferences.userNodeForPackage(GraphController.class);
 
     /** Keeps the graph's settings somewhere else (tests); {@code null} goes back to the user's. */
-    static void usePreferences(java.util.prefs.Preferences other) {
-        prefs = other != null ? other : java.util.prefs.Preferences.userNodeForPackage(GraphController.class);
+    static void usePreferences(Preferences other) {
+        prefs = other != null ? other : Preferences.userNodeForPackage(GraphController.class);
     }
 
     private static final String GROUPS_KEY = "graph.color_groups";
@@ -97,12 +114,12 @@ public class GraphController {
     @FXML private CheckBox localOutgoingCheck;
     @FXML private CheckBox localNeighborCheck;
     @FXML private VBox colorGroupsBox;
-    @FXML private javafx.scene.control.Button addColorGroupBtn;
+    @FXML private Button addColorGroupBtn;
     /** Colour group edits are applied and saved a moment after the last change. */
-    private final javafx.animation.PauseTransition groupsDebounce =
-            new javafx.animation.PauseTransition(javafx.util.Duration.millis(250));
+    private final PauseTransition groupsDebounce =
+            new PauseTransition(Duration.millis(250));
     /** The tags of each note, read only once a group asks for them ("tag:"); null until then. */
-    private java.util.Map<String, Set<String>> noteTags;
+    private Map<String, Set<String>> noteTags;
 
     private final GraphCanvas canvas = new GraphCanvas();
 
@@ -212,7 +229,7 @@ public class GraphController {
         slider.valueProperty().addListener((o, was, now) -> prefs.putDouble(key, now.doubleValue()));
     }
 
-    private void remember(javafx.beans.property.BooleanProperty selected, String key, Runnable apply) {
+    private void remember(BooleanProperty selected, String key, Runnable apply) {
         if (prefs.get(key, null) != null) {
             selected.set(prefs.getBoolean(key, selected.get()));
             if (apply != null) {
@@ -241,16 +258,16 @@ public class GraphController {
         TextField query = new TextField(queryText);
         query.getStyleClass().add("graph-color-group-query");
         query.setPromptText(text("graph.group_query", "Query: text, path:, file: or tag:"));
-        javafx.scene.control.ColorPicker picker = new javafx.scene.control.ColorPicker(color);
+        ColorPicker picker = new ColorPicker(color);
         picker.getStyleClass().add("graph-color-group-color");
         picker.setMaxWidth(44);
-        javafx.scene.control.Button remove = new javafx.scene.control.Button("\u2715");
+        Button remove = new Button("\u2715");
         remove.getStyleClass().addAll("icon-btn", "graph-color-group-remove");
-        remove.setTooltip(new javafx.scene.control.Tooltip(text("graph.group_remove", "Remove group")));
-        javafx.scene.layout.HBox row = new javafx.scene.layout.HBox(4, query, picker, remove);
+        remove.setTooltip(new Tooltip(text("graph.group_remove", "Remove group")));
+        HBox row = new HBox(4, query, picker, remove);
         row.getStyleClass().add("graph-color-group");
-        row.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
-        javafx.scene.layout.HBox.setHgrow(query, Priority.ALWAYS);
+        row.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(query, Priority.ALWAYS);
         query.textProperty().addListener((o, was, now) -> groupsDebounce.playFromStart());
         picker.valueProperty().addListener((o, was, now) -> groupsDebounce.playFromStart());
         remove.setOnAction(e -> {
@@ -264,15 +281,15 @@ public class GraphController {
     }
 
     /** The groups as shown, in order. */
-    private List<com.example.jylos.graph.GraphColorGroups.Group> colorGroups() {
-        List<com.example.jylos.graph.GraphColorGroups.Group> groups = new ArrayList<>();
+    private List<GraphColorGroups.Group> colorGroups() {
+        List<GraphColorGroups.Group> groups = new ArrayList<>();
         if (colorGroupsBox == null) {
             return groups;
         }
-        for (javafx.scene.Node node : colorGroupsBox.getChildren()) {
+        for (Node node : colorGroupsBox.getChildren()) {
             if (node.lookup(".graph-color-group-query") instanceof TextField query
-                    && node.lookup(".graph-color-group-color") instanceof javafx.scene.control.ColorPicker picker) {
-                groups.add(new com.example.jylos.graph.GraphColorGroups.Group(query.getText(), hex(picker.getValue())));
+                    && node.lookup(".graph-color-group-color") instanceof ColorPicker picker) {
+                groups.add(new GraphColorGroups.Group(query.getText(), hex(picker.getValue())));
             }
         }
         return groups;
@@ -280,7 +297,7 @@ public class GraphController {
 
     private void saveColorGroups() {
         StringBuilder stored = new StringBuilder();
-        for (com.example.jylos.graph.GraphColorGroups.Group group : colorGroups()) {
+        for (GraphColorGroups.Group group : colorGroups()) {
             stored.append(group.color()).append('\t')
                     .append(group.query() == null ? "" : group.query().replace('\n', ' ')).append('\n');
         }
@@ -302,13 +319,13 @@ public class GraphController {
 
     /** Paints the nodes the groups match (reading the notes' tags first if a group needs them). */
     private void applyColorGroups() {
-        List<com.example.jylos.graph.GraphColorGroups.Group> groups = colorGroups();
+        List<GraphColorGroups.Group> groups = colorGroups();
         boolean needsTags = groups.stream().anyMatch(g -> g.query() != null
                 && g.query().strip().toLowerCase(Locale.ROOT).startsWith("tag:"));
         if (needsTags && noteTags == null && tagService != null) {
-            Task<java.util.Map<String, Set<String>>> read = new Task<>() {
+            Task<Map<String, Set<String>>> read = new Task<>() {
                 @Override
-                protected java.util.Map<String, Set<String>> call() {
+                protected Map<String, Set<String>> call() {
                     return readNoteTags();
                 }
             };
@@ -321,15 +338,15 @@ public class GraphController {
             thread.start();
             return;
         }
-        java.util.Map<String, Color> colors = new java.util.HashMap<>();
-        com.example.jylos.graph.GraphColorGroups.assign(lastBuilt.nodes(), groups,
+        Map<String, Color> colors = new HashMap<>();
+        GraphColorGroups.assign(lastBuilt.nodes(), groups,
                 id -> noteTags != null ? noteTags.get(id) : null)
                 .forEach((id, color) -> colors.put(id, Color.web(color)));
         canvas.setNodeColors(colors);
     }
 
-    private java.util.Map<String, Set<String>> readNoteTags() {
-        java.util.Map<String, Set<String>> tagsByNote = new java.util.HashMap<>();
+    private Map<String, Set<String>> readNoteTags() {
+        Map<String, Set<String>> tagsByNote = new HashMap<>();
         try {
             for (Tag tag : tagService.getAllTags()) {
                 if (tag == null || tag.getTitle() == null) {
@@ -355,7 +372,7 @@ public class GraphController {
     private String text(String key, String fallback) {
         try {
             return bundle != null ? bundle.getString(key) : fallback;
-        } catch (java.util.MissingResourceException e) {
+        } catch (MissingResourceException e) {
             return fallback;
         }
     }
@@ -401,13 +418,13 @@ public class GraphController {
      * and shows a hover tooltip with the current (mapped) numeric value.
      */
     private void bindSlider(Slider slider, double initial,
-            java.util.function.DoubleConsumer setter,
-            java.util.function.DoubleFunction<String> format) {
+            DoubleConsumer setter,
+            DoubleFunction<String> format) {
         if (slider == null) {
             return;
         }
-        javafx.scene.control.Tooltip tip = new javafx.scene.control.Tooltip(format.apply(initial));
-        tip.setShowDelay(javafx.util.Duration.millis(120));
+        Tooltip tip = new Tooltip(format.apply(initial));
+        tip.setShowDelay(Duration.millis(120));
         slider.setTooltip(tip);
         slider.setValue(initial);
         slider.valueProperty().addListener((o, a, b) -> {
@@ -416,9 +433,7 @@ public class GraphController {
         });
     }
 
-    // ------------------------------------------------------------------
-    // Wiring from MainController
-    // ------------------------------------------------------------------
+    // ── Wiring from MainController ───────────────────────────────────────────
 
     public void wire(EventBus eventBus, NoteService noteService, TagService tagService, ResourceBundle bundle,
             Consumer<String> onOpenNote, Runnable onClose, Supplier<String> currentNoteIdSupplier,
@@ -487,7 +502,7 @@ public class GraphController {
         }
     }
 
-    private static String idOf(com.example.jylos.data.models.Note note) {
+    private static String idOf(Note note) {
         return note != null ? note.getId() : null;
     }
 
@@ -513,9 +528,7 @@ public class GraphController {
         return graphRoot;
     }
 
-    // ------------------------------------------------------------------
-    // Public actions (called by MainController)
-    // ------------------------------------------------------------------
+    // ── Public actions (called by MainController) ────────────────────────────
 
     /** Shows the graph with the current theme and rebuilds the data. */
     public void show(boolean dark) {
@@ -546,9 +559,7 @@ public class GraphController {
         canvas.pause();
     }
 
-    // ------------------------------------------------------------------
-    // FXML handlers
-    // ------------------------------------------------------------------
+    // ── FXML handlers ────────────────────────────────────────────────────────
 
     @FXML
     private void handleToggleScope() {
@@ -619,9 +630,7 @@ public class GraphController {
         canvas.setShowArrows(arrowsCheck != null && arrowsCheck.isSelected());
     }
 
-    // ------------------------------------------------------------------
-    // Graph building (model off the FX thread, render on it)
-    // ------------------------------------------------------------------
+    // ── Graph building (model off the FX thread, render on it) ───────────────
 
     private void rebuild() {
         if (graphBuilder == null) {

@@ -86,6 +86,7 @@ import com.example.jylos.service.UpdateChecker.AssetInfo;
  * </ol>
  *
  * @author Edu Díaz (RGiskard7)
+ * @since 2.5.5
  */
 public final class UpdateInstaller {
 

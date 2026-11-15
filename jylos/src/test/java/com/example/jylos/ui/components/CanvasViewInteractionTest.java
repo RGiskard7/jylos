@@ -20,11 +20,14 @@ import com.example.jylos.util.CanvasModel;
 import com.example.jylos.util.CanvasModel.CanvasNode;
 
 import javafx.event.Event;
+import javafx.event.EventType;
 import javafx.geometry.Bounds;
 import javafx.geometry.Point2D;
 import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.CheckMenuItem;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
@@ -34,6 +37,8 @@ import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.shape.CubicCurve;
+import javafx.stage.Stage;
+import javafx.stage.Window;
 
 /**
  * Using the canvas as in Obsidian: edges are curves, a box dragged on the background selects
@@ -362,10 +367,10 @@ class CanvasViewInteractionTest {
             Event.fireEvent(grip, mouse(MouseEvent.MOUSE_RELEASED, to, MouseButton.PRIMARY, false));
         }
 
-        private javafx.stage.Stage stage;
+        private Stage stage;
 
         void show() {
-            stage = new javafx.stage.Stage();
+            stage = new Stage();
             stage.setScene(view.getScene());
             stage.show();
             view.getScene().getRoot().applyCss();
@@ -373,8 +378,8 @@ class CanvasViewInteractionTest {
         }
 
         void close() {
-            for (javafx.stage.Window window : List.copyOf(javafx.stage.Window.getWindows())) {
-                if (window instanceof javafx.scene.control.ContextMenu menu) {
+            for (Window window : List.copyOf(Window.getWindows())) {
+                if (window instanceof ContextMenu menu) {
                     menu.hide();
                 }
             }
@@ -383,8 +388,8 @@ class CanvasViewInteractionTest {
 
         /** The item of the menu that is open now with this key. */
         MenuItem openMenuItem(String key) {
-            for (javafx.stage.Window window : javafx.stage.Window.getWindows()) {
-                if (window instanceof javafx.scene.control.ContextMenu menu && menu.isShowing()) {
+            for (Window window : Window.getWindows()) {
+                if (window instanceof ContextMenu menu && menu.isShowing()) {
                     for (MenuItem item : menu.getItems()) {
                         if (key.equals(item.getUserData())) {
                             return item;
@@ -483,7 +488,7 @@ class CanvasViewInteractionTest {
         }
 
         CheckMenuItem setting(String key) {
-            javafx.scene.control.Button settings = (javafx.scene.control.Button) view.lookup(".canvas-settings");
+            Button settings = (Button) view.lookup(".canvas-settings");
             for (MenuItem item : settings.getContextMenu().getItems()) {
                 if (key.equals(item.getUserData()) && item instanceof CheckMenuItem check) {
                     return check;
@@ -492,7 +497,7 @@ class CanvasViewInteractionTest {
             throw new AssertionError("no setting " + key);
         }
 
-        private MouseEvent mouse(javafx.event.EventType<MouseEvent> type, Point2D p, MouseButton button,
+        private MouseEvent mouse(EventType<MouseEvent> type, Point2D p, MouseButton button,
                 boolean shift) {
             boolean down = type != MouseEvent.MOUSE_RELEASED && type != MouseEvent.MOUSE_CLICKED;
             return new MouseEvent(type, p.getX(), p.getY(), p.getX(), p.getY(), button, 1, shift, false, false,

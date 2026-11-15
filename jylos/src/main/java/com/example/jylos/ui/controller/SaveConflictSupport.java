@@ -14,6 +14,9 @@ import javafx.scene.control.ButtonType;
  * Guards a save against overwriting a note file that changed on disk after it was opened
  * (edited in another app, synced from another device, updated by {@code git pull}).
  * A manual save asks what to do; an autosave never overwrites and pauses instead.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.7
  */
 final class SaveConflictSupport {
 

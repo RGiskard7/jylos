@@ -60,7 +60,7 @@ public final class SearchQueryParser {
         return new SearchQuery(raw, List.copyOf(filters), List.copyOf(warnings));
     }
 
-    // ── Tokenizing ────────────────────────────────────────────────────────────
+    // ── Tokenizing ───────────────────────────────────────────────────────────
 
     /** Splits on whitespace while keeping {@code "quoted phrases"} (and their quotes) intact. */
     static List<String> tokenize(String raw) {
@@ -87,7 +87,7 @@ public final class SearchQueryParser {
         return tokens;
     }
 
-    // ── Classification ──────────────────────────────────────────────────────────
+    // ── Classification ───────────────────────────────────────────────────────
 
     private static void classify(String token, List<SearchFilter> filters, List<String> warnings) {
         if (token.equals("-") || token.equals("\"") || token.equals("\"\"")) {
@@ -170,7 +170,7 @@ public final class SearchQueryParser {
         }
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────────
+    // ── Helpers ──────────────────────────────────────────────────────────────
 
     /** Removes surrounding (or a single leading, when unterminated) double quotes. */
     static String stripQuotes(String s) {

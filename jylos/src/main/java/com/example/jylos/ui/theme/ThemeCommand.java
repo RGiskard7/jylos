@@ -13,10 +13,14 @@ import java.util.prefs.Preferences;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
 
+import javafx.scene.Node;
 import javafx.scene.Scene;
 
 /**
  * Theme selection, OS-theme detection and stylesheet application.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public final class ThemeCommand {
 
@@ -258,7 +262,7 @@ public final class ThemeCommand {
             String externalThemeId,
             ThemeCatalog themeCatalog,
             Class<?> resourceAnchor,
-            javafx.scene.Node previewWebView,
+            Node previewWebView,
             Runnable refreshPreview,
             List<String> snippetCssUris) {
         if (scene == null || themeCatalog == null || resourceAnchor == null) {
@@ -354,7 +358,7 @@ public final class ThemeCommand {
                 && !UiPreferencesStore.THEME_SOURCE_EXTERNAL.equals(themeSource);
     }
 
-    private void ensurePreviewThemeClass(javafx.scene.Node previewWebView) {
+    private void ensurePreviewThemeClass(Node previewWebView) {
         if (previewWebView != null && !previewWebView.getStyleClass().contains("webview-theme")) {
             previewWebView.getStyleClass().add("webview-theme");
         }

@@ -3,6 +3,7 @@ package com.example.jylos.plugin.builtin.mcp;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.URI;
+import java.net.URL;
 import java.net.URLClassLoader;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -70,7 +71,7 @@ public final class McpServerPluginTest {
         HttpClient http = HttpClient.newHttpClient();
 
         try (URLClassLoader classLoader = new URLClassLoader(
-                new java.net.URL[] { jar.toUri().toURL() }, McpServerPluginTest.class.getClassLoader())) {
+                new URL[] { jar.toUri().toURL() }, McpServerPluginTest.class.getClassLoader())) {
 
             Class<?> pluginClass = classLoader.loadClass("com.example.jylos.plugin.builtin.mcp.McpServerPlugin");
             Plugin plugin = (Plugin) pluginClass.getDeclaredConstructor().newInstance();
@@ -83,7 +84,16 @@ public final class McpServerPluginTest {
                     plugin.getId(), noteService, folderService, tagService, eventBus,
                     null, null, null, null, null, null, null, note -> { }, null, null, null);
 
+            long beforeInit = System.nanoTime();
             plugin.initialize(context);
+            long initMillis = (System.nanoTime() - beforeInit) / 1_000_000;
+            // The server starts in the background: initialize() returns before it listens.
+            long until = System.nanoTime() + 10_000_000_000L;
+            while (!portReachable(http) && System.nanoTime() < until) {
+                Thread.sleep(25);
+            }
+            check("initialize() does not wait for the server to start (" + initMillis + " ms)", initMillis < 150,
+                    initMillis + " ms");
 
             System.out.println("\n-- MCP protocol over real HTTP --");
             String sessionId = null;

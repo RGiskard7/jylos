@@ -4,10 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static com.example.jylos.tests.FxTestSupport.onFx;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -28,7 +30,7 @@ class EditorEmptyStateTest {
     @Test
     void theEmptyTabOffersANewNoteANewCanvasAndGoToFile() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
-        List<String> asked = new java.util.concurrent.CopyOnWriteArrayList<>();
+        List<String> asked = new CopyOnWriteArrayList<>();
         EventBus.Subscription subscription = EventBus.getInstance().subscribe(SystemActionEvent.class,
                 event -> asked.add(event.getActionType().name()));
         try {
@@ -37,7 +39,7 @@ class EditorEmptyStateTest {
                         ResourceBundle.getBundle("com.example.jylos.i18n.messages", Locale.forLanguageTag("es")));
                 Parent root = loader.load();
                 EditorController controller = loader.getController();
-                java.lang.reflect.Field bus = EditorController.class.getDeclaredField("eventBus");
+                Field bus = EditorController.class.getDeclaredField("eventBus");
                 bus.setAccessible(true);
                 bus.set(controller, EventBus.getInstance());
                 List<Button> buttons = new ArrayList<>();

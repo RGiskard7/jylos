@@ -20,11 +20,14 @@ import com.example.jylos.tests.FxTestSupport;
 
 import javafx.event.ActionEvent;
 import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Labeled;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.text.Text;
+import javafx.stage.Stage;
 
 /** The links panel draws the three sections, folds them, and reports clicks to its owner. */
 class LinksPanelTest {
@@ -58,7 +61,7 @@ class LinksPanelTest {
             panel.showLinked(List.of(new LinkGroup(source, LinkOccurrences.links(text))));
             List<String> linked = new ArrayList<>();
             for (Node row : panel.lookupAll(".links-match-row")) {
-                linked.add(String.join("+", texts((javafx.scene.Parent) row, "links-match-highlight")));
+                linked.add(String.join("+", texts((Parent) row, "links-match-highlight")));
             }
             String mentions = "Target y Target";
             panel.showUnlinked(List.of(new LinkGroup(source, LinkOccurrences.mentions(mentions, List.of("Target")))));
@@ -173,8 +176,8 @@ class LinksPanelTest {
             String text = "Y de Alias Target también, y de target en minúsculas y mucho más texto hasta que no quepa";
             panel.showUnlinked(List.of(new LinkGroup(note("m.md", "Menciona"),
                     LinkOccurrences.mentions(text, List.of("Target")))));
-            javafx.stage.Stage stage = new javafx.stage.Stage();
-            stage.setScene(new javafx.scene.Scene(panel, 230, 400));
+            Stage stage = new Stage();
+            stage.setScene(new Scene(panel, 230, 400));
             stage.show();
             panel.applyCss();
             panel.layout();
@@ -221,7 +224,7 @@ class LinksPanelTest {
         throw new AssertionError("no section " + title);
     }
 
-    private static List<String> texts(javafx.scene.Parent panel, String styleClass) {
+    private static List<String> texts(Parent panel, String styleClass) {
         List<String> out = new ArrayList<>();
         for (Node node : panel.lookupAll("." + styleClass)) {
             if (node instanceof Labeled labeled) {

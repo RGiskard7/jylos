@@ -21,6 +21,9 @@ import com.example.jylos.plugin.builtin.dataview.DqlLexer.Type;
  * source  := sourceAnd ('or' sourceAnd)*
  * expr    := or | and | comparison | additive | multiplicative | unary | postfix | primary
  * </pre>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
  */
 final class DqlParser {
 

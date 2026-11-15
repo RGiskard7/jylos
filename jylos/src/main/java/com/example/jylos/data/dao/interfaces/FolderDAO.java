@@ -22,6 +22,9 @@ import com.example.jylos.data.models.Folder;
  * <li>Arguments that make no sense ({@code null} where an object is required) throw
  * {@code IllegalArgumentException} or {@code InvalidParameterException}.</li>
  * </ul>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public interface FolderDAO {
 

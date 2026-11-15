@@ -1,11 +1,13 @@
 package com.example.jylos.ui.controller;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.NoteContextMenuEntry;
+import com.example.jylos.util.AttachmentType;
 
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
@@ -19,6 +21,9 @@ import javafx.scene.control.SeparatorMenuItem;
  * in files (folder vaults only), export, then the move-to-trash entry behind a separator, and
  * finally any plugin entries behind another separator. A private note cannot be moved to the
  * trash (it has to be made normal first), so that entry is disabled for it.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class NoteContextMenuSupport {
 
@@ -66,8 +71,8 @@ public final class NoteContextMenuSupport {
         }
         // Images and PDFs are files, not notes: only notes and canvases are copied.
         String title = note.getTitle() != null ? note.getTitle() : "";
-        if (!com.example.jylos.util.AttachmentType.isAttachment(title)
-                || title.toLowerCase(java.util.Locale.ROOT).endsWith(".canvas")) {
+        if (!AttachmentType.isAttachment(title)
+                || title.toLowerCase(Locale.ROOT).endsWith(".canvas")) {
             menu.getItems().add(item(i18n.apply("action.duplicate"), note, actions.duplicate()));
         }
         if (fileVault) {

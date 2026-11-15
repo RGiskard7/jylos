@@ -203,9 +203,7 @@ public final class EncryptionService {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Master password lifecycle
-    // ------------------------------------------------------------------
+    // ── Master password lifecycle ────────────────────────────────────────────
 
     /** True once a master password has been set up (salt + verifier stored). */
     public boolean isConfigured() {
@@ -328,9 +326,7 @@ public final class EncryptionService {
         logger.info("Encryption locked.");
     }
 
-    // ------------------------------------------------------------------
-    // Content encryption
-    // ------------------------------------------------------------------
+    // ── Content encryption ───────────────────────────────────────────────────
 
     /** True if {@code text} is an encrypted payload produced by this service. */
     public static boolean isEncrypted(String text) {
@@ -372,9 +368,7 @@ public final class EncryptionService {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Internals
-    // ------------------------------------------------------------------
+    // ── Internals ────────────────────────────────────────────────────────────
 
     private SecretKey deriveKey(char[] password, byte[] salt, int iterations) {
         PBEKeySpec spec = null;

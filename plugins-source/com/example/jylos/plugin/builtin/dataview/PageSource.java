@@ -7,6 +7,9 @@ import java.util.List;
  *
  * <p>Kept separate from {@link DataviewIndex} so the query engine depends on the set of
  * pages, not on how they are cached, invalidated or read from storage.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
  */
 interface PageSource {
 

@@ -7,7 +7,12 @@ import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.interfaces.Component;
 
-/** The vault's trash as a whole: emptying it. */
+/**
+ * The vault's trash as a whole: emptying it.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
+ */
 public final class TrashService {
 
     private final NoteService notes;

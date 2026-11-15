@@ -28,6 +28,9 @@ import io.modelcontextprotocol.spec.McpSchema.Tool;
  * is the recoverable one. Moving and renaming folders are left out too — both reshape the
  * vault around notes the agent was not asked about, and a note can already be relocated
  * one at a time with {@code move_note}.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.2
  */
 final class FolderTools {
 

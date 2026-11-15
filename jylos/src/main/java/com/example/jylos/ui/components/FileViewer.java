@@ -5,9 +5,11 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ResourceBundle;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -28,6 +30,7 @@ import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressIndicator;
@@ -79,14 +82,14 @@ public final class FileViewer {
     }
 
     /** Builds the appropriate viewer for {@code path} given its {@code type}. */
-    public static Region forAttachment(Path path, AttachmentType type, java.util.ResourceBundle bundle) {
+    public static Region forAttachment(Path path, AttachmentType type, ResourceBundle bundle) {
         if (type == AttachmentType.PDF) {
             return pdfViewer(path, bundle);
         }
         return imageViewer(path);
     }
 
-    private static String tr(java.util.ResourceBundle bundle, String key, String fallback) {
+    private static String tr(ResourceBundle bundle, String key, String fallback) {
         try {
             return bundle != null ? bundle.getString(key) : fallback;
         } catch (Exception e) {
@@ -94,7 +97,7 @@ public final class FileViewer {
         }
     }
 
-    // ── Image viewer ──────────────────────────────────────────────────────────
+    // ── Image viewer ─────────────────────────────────────────────────────────
 
     private static Region imageViewer(Path path) {
         ImageView view = new ImageView();
@@ -178,9 +181,9 @@ public final class FileViewer {
         return root;
     }
 
-    // ── PDF viewer ──────────────────────────────────────────────────────────
+    // ── PDF viewer ───────────────────────────────────────────────────────────
 
-    private static Region pdfViewer(Path path, java.util.ResourceBundle bundle) {
+    private static Region pdfViewer(Path path, ResourceBundle bundle) {
         String positionKey = path.toAbsolutePath().normalize().toString();
         VBox pages = new VBox(12);
         pages.setAlignment(Pos.TOP_CENTER);
@@ -480,7 +483,7 @@ public final class FileViewer {
         }
 
         List<PdfPageSlot> createSlots() {
-            List<PdfPageSlot> slots = new java.util.ArrayList<>();
+            List<PdfPageSlot> slots = new ArrayList<>();
             for (PDPage page : document.getPages()) {
                 float width = page.getMediaBox().getWidth();
                 float height = page.getMediaBox().getHeight();
@@ -490,7 +493,7 @@ public final class FileViewer {
         }
 
         List<PdfThumbnailSlot> createThumbnailSlots() {
-            List<PdfThumbnailSlot> slots = new java.util.ArrayList<>();
+            List<PdfThumbnailSlot> slots = new ArrayList<>();
             for (int i = 0; i < pageCount(); i++) {
                 slots.add(new PdfThumbnailSlot(i + 1));
             }
@@ -718,7 +721,7 @@ public final class FileViewer {
         void setImage(Image image) {
             imageView.setImage(image);
             Label badge = null;
-            for (javafx.scene.Node node : getChildren()) {
+            for (Node node : getChildren()) {
                 if (node instanceof Label label && label.getStyleClass().contains("viewer-thumbnail-number")) {
                     badge = label;
                     break;

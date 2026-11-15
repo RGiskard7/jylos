@@ -11,6 +11,9 @@ import java.util.Optional;
  * <li>{@link #CLASSIC_COLUMNS}: folders, notes list and editor side by side.</li>
  * <li>{@link #CLASSIC_STACKED}: folders above the notes list, beside the editor.</li>
  * </ul>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public enum LayoutMode {
     EXPLORER("explorer"),

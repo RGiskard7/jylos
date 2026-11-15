@@ -90,8 +90,7 @@ public class NoteService {
         this.noteTitleIndex = noteTitleIndex;
     }
 
-    // ==================== CRUD Operations ====================
-
+    // ── CRUD Operations ─────────────────────────────────────────────────────
     /**
      * Creates a new note with the given title and content.
      *
@@ -397,9 +396,7 @@ public class NoteService {
         return historyService;
     }
 
-    // ------------------------------------------------------------------
-    // Encryption hooks (private notes) — see EncryptionService
-    // ------------------------------------------------------------------
+    // ── Encryption hooks (private notes) — see EncryptionService ─────────────
 
     /**
      * Encrypts the note body in place when it is private, the session is unlocked, and
@@ -511,8 +508,7 @@ public class NoteService {
         logger.info("Trash emptied: " + trash.size() + " notes deleted permanently");
     }
 
-    // ==================== Retrieval Methods ====================
-
+    // ── Retrieval Methods ───────────────────────────────────────────────────
     /**
      * Fetches all notes from the database.
      * 
@@ -604,8 +600,7 @@ public class NoteService {
                 .collect(Collectors.toList());
     }
 
-    // ==================== WikiLinks Support ====================
-
+    // ── WikiLinks Support ───────────────────────────────────────────────────
     /**
      * Finds a note by its exact title (case-insensitive).
      * Used by WikiLinks resolution to navigate to linked notes.
@@ -633,8 +628,7 @@ public class NoteService {
                 .findFirst();
     }
 
-    // ==================== Link resolution ====================
-
+    // ── Link resolution ─────────────────────────────────────────────────────
     /**
      * The note a link written in note {@code sourceNoteId} points to, resolved the way
      * Obsidian does: by path, preferring the source note's folder, then aliases (see
@@ -719,8 +713,7 @@ public class NoteService {
         }
     }
 
-    // ==================== Search Methods ====================
-
+    // ── Search Methods ──────────────────────────────────────────────────────
     /**
      * Searches notes by title and content.
      * 
@@ -784,8 +777,7 @@ public class NoteService {
         return false;
     }
 
-    // ==================== Sorting Methods ====================
-
+    // ── Sorting Methods ─────────────────────────────────────────────────────
     /**
      * Sorts a list of notes according to the specified option.
      * 
@@ -856,8 +848,7 @@ public class NoteService {
         return note.getCreatedDate() != null ? note.getCreatedDate() : "";
     }
 
-    // ==================== Favorites Management ====================
-
+    // ── Favorites Management ────────────────────────────────────────────────
     /**
      * Toggles the favorite status of a note.
      * 
@@ -894,8 +885,7 @@ public class NoteService {
         return newStatus;
     }
 
-    // ==================== Utility Methods ====================
-
+    // ── Utility Methods ─────────────────────────────────────────────────────
     /**
      * Counts words in text content.
      * 

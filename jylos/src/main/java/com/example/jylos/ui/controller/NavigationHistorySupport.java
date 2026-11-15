@@ -7,6 +7,9 @@ import java.util.Deque;
  * The back and forward arrows: the notes opened, as a browser keeps the pages visited. Opening
  * a note records the one left and forgets what was forward; going back makes the current note
  * reachable forward. The back/forward jumps themselves are not recorded.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 final class NavigationHistorySupport {
 

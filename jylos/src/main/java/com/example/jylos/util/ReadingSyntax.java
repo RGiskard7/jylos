@@ -20,6 +20,9 @@ import java.util.regex.Pattern;
  *   <li>{@code #tag} becomes a link that opens the notes with that tag.</li>
  * </ul>
  * The inserted HTML passes through CommonMark untouched.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class ReadingSyntax {
 

@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.models.Note;
@@ -35,6 +36,9 @@ import javafx.util.Duration;
  *
  * <p>Public, as is {@link PreviewJavaBridge}: JavaScript in a WebView only reaches methods of
  * a class that is public all the way out.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class EditorPreviewSupport {
 
@@ -47,7 +51,7 @@ public final class EditorPreviewSupport {
      * Ids assigned by MarkdownProcessor's heading AttributeProvider: lowercase Unicode
      * letters/digits (accented letters included) and hyphens.
      */
-    private static final java.util.regex.Pattern VALID_HEADING_SLUG = java.util.regex.Pattern.compile("[\\p{L}\\p{N}-]+");
+    private static final Pattern VALID_HEADING_SLUG = Pattern.compile("[\\p{L}\\p{N}-]+");
 
     /** What the reading view reads from the editor that owns it. */
     interface Host {

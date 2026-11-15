@@ -18,6 +18,9 @@ import com.example.jylos.data.models.Note;
  * <p>The path of a note is its file path in a folder vault and its folder chain plus title in
  * SQLite; the caller supplies it. Aliases come from the {@code aliases} (or {@code alias})
  * property, as a list or a single value. Immutable; rebuilt when notes change.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class LinkIndex {
 

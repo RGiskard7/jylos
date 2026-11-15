@@ -11,6 +11,9 @@ import com.example.jylos.config.VersionConfig;
  *
  * <p>Release builds may override the version through filtered resources; when the
  * properties file is absent or unresolved, values fall back to safe defaults.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public final class AppConfig {
     

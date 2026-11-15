@@ -16,6 +16,7 @@ import javafx.scene.Node;
 import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.Separator;
 import javafx.scene.control.Tooltip;
 
 /**
@@ -33,11 +34,11 @@ final class StatusBarSupport {
      * in front of it is hidden too, so the bar does not end in a dangling "|". A long message
      * (the label truncates it when narrow) gets its full text as a tooltip.
      */
-    static void showMessage(javafx.scene.control.Label label, javafx.scene.control.Separator separator,
+    static void showMessage(Label label, Separator separator,
             String message) {
         String text = message != null ? message : "";
         label.setText(text);
-        label.setTooltip(text.length() > 40 ? new javafx.scene.control.Tooltip(text) : null);
+        label.setTooltip(text.length() > 40 ? new Tooltip(text) : null);
         if (separator != null) {
             boolean shown = !text.isBlank();
             UiNodes.show(separator, shown);

@@ -4,8 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static com.example.jylos.tests.FxTestSupport.onFx;
 
+import java.awt.image.BufferedImage;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 
@@ -60,7 +64,7 @@ class LivePreviewMathAndTagsTest {
     @Test
     void aTagFromTheEditorReachesTheHandler() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
-        List<String> tags = new java.util.concurrent.CopyOnWriteArrayList<>(); // filled on the FX thread, read here
+        List<String> tags = new CopyOnWriteArrayList<>(); // filled on the FX thread, read here
         AtomicReference<MarkdownEditorView> editor = new AtomicReference<>();
         AtomicReference<Stage> stage = new AtomicReference<>();
         onFx(() -> {
@@ -212,9 +216,9 @@ class LivePreviewMathAndTagsTest {
     @Test
     void aClickBelowAnImageLandsWhereItIsAimedOnceTheImageHasLoaded() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
-        java.nio.file.Path image = java.nio.file.Files.createTempFile("jylos-image", ".png");
-        javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(600, 400,
-                java.awt.image.BufferedImage.TYPE_INT_RGB), "png", image.toFile());
+        Path image = Files.createTempFile("jylos-image", ".png");
+        javax.imageio.ImageIO.write(new BufferedImage(600, 400,
+                BufferedImage.TYPE_INT_RGB), "png", image.toFile());
         String doc = "![captura](" + image.toUri() + ")\n\nTexto **negrita** fin";
         AtomicReference<MarkdownEditorView> editor = new AtomicReference<>();
         AtomicReference<Stage> stage = new AtomicReference<>();
@@ -246,7 +250,7 @@ class LivePreviewMathAndTagsTest {
                 stage.get().close();
                 return null;
             });
-            java.nio.file.Files.deleteIfExists(image);
+            Files.deleteIfExists(image);
         }
     }
 

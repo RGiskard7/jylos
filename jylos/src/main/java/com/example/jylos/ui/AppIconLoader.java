@@ -9,6 +9,9 @@ import javafx.scene.image.Image;
 
 /**
  * Loads the application window icon from {@link AppConfig#getWindowIconPath()}.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public final class AppIconLoader {
 

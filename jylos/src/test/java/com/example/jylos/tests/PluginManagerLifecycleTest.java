@@ -9,6 +9,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
@@ -21,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.example.jylos.AppDataDirectory;
+import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.EditorHook;
 import com.example.jylos.plugin.EditorHookRegistry;
 import com.example.jylos.plugin.NoteContextMenuEntry;
@@ -33,6 +39,7 @@ import com.example.jylos.plugin.PluginNoteContextMenuRegistry;
 import com.example.jylos.plugin.PreviewEnhancer;
 import com.example.jylos.plugin.PreviewEnhancerRegistry;
 import com.example.jylos.plugin.SidePanelRegistry;
+import com.example.jylos.plugin.StatusBarRegistry;
 import com.example.jylos.plugin.ToolbarRegistry;
 
 import javafx.scene.Node;
@@ -109,7 +116,7 @@ class PluginManagerLifecycleTest {
             manager.registerPlugin(plugin);
             assertTrue(manager.initializePlugin(id));
 
-            java.util.List<NoteContextMenuEntry> registered = noteContextMenu.getNoteContextMenuItems();
+            List<NoteContextMenuEntry> registered = noteContextMenu.getNoteContextMenuItems();
             assertEquals(1, registered.size(), "expected exactly one registered entry, found: " + registered);
             assertEquals("Publish this note", registered.get(0).label());
             assertEquals(id, registered.get(0).pluginId());
@@ -129,10 +136,10 @@ class PluginManagerLifecycleTest {
      */
     @Test
     void aStatusBarItemRegisteredByAPluginIsShownThenRemovedOnDisable() {
-        java.util.Map<String, javafx.scene.Node> shown = new java.util.LinkedHashMap<>();
-        com.example.jylos.plugin.StatusBarRegistry bar = new com.example.jylos.plugin.StatusBarRegistry() {
+        Map<String, Node> shown = new LinkedHashMap<>();
+        StatusBarRegistry bar = new StatusBarRegistry() {
             @Override
-            public void registerStatusBarItem(String pluginId, String itemId, javafx.scene.Node content) {
+            public void registerStatusBarItem(String pluginId, String itemId, Node content) {
                 shown.put(pluginId + ":" + itemId, content);
             }
 
@@ -164,7 +171,7 @@ class PluginManagerLifecycleTest {
         try {
             manager.registerPlugin(plugin);
             assertTrue(manager.initializePlugin(id));
-            assertEquals(java.util.List.of(id + ":contador"), new java.util.ArrayList<>(shown.keySet()));
+            assertEquals(List.of(id + ":contador"), new ArrayList<>(shown.keySet()));
 
             assertTrue(manager.disablePlugin(id));
             assertTrue(shown.isEmpty(), "removed on disable: " + shown);
@@ -464,12 +471,12 @@ class PluginManagerLifecycleTest {
     }
 
     private static final class RecordingNoteContextMenuRegistry implements PluginNoteContextMenuRegistry {
-        private final java.util.List<NoteContextMenuEntry> entries = new java.util.ArrayList<>();
+        private final List<NoteContextMenuEntry> entries = new ArrayList<>();
         private int removeCalls = 0;
 
         @Override
         public void registerNoteContextMenuItem(String pluginId, String label,
-                java.util.function.Consumer<com.example.jylos.data.models.Note> action) {
+                Consumer<Note> action) {
             entries.add(new NoteContextMenuEntry(pluginId, label, action));
         }
 
@@ -480,7 +487,7 @@ class PluginManagerLifecycleTest {
         }
 
         @Override
-        public java.util.List<NoteContextMenuEntry> getNoteContextMenuItems() {
+        public List<NoteContextMenuEntry> getNoteContextMenuItems() {
             return entries;
         }
     }

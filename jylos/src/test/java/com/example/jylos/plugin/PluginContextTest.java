@@ -21,12 +21,16 @@ import com.example.jylos.tests.FxTestSupport;
 
 import javafx.application.Platform;
 import javafx.concurrent.Task;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.layout.VBox;
 
 /**
  * {@link PluginContext#showCopyableInfo}: a plugin (Dataview/Mermaid's "Insert Template",
@@ -76,7 +80,7 @@ class PluginContextTest {
             // ran (or copied the wrong thing), this stale value would still be there
             // and the assertion below would catch it, instead of trivially passing
             // because the clipboard happened to be empty.
-            javafx.scene.input.ClipboardContent poison = new javafx.scene.input.ClipboardContent();
+            ClipboardContent poison = new ClipboardContent();
             poison.putString("unrelated stale clipboard content");
             Clipboard.getSystemClipboard().setContent(poison);
 
@@ -132,11 +136,11 @@ class PluginContextTest {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
 
         PluginContext context = testContext("test-apply-theme-scene");
-        AtomicReference<javafx.scene.Parent> rootRef = new AtomicReference<>();
+        AtomicReference<Parent> rootRef = new AtomicReference<>();
         CountDownLatch done = new CountDownLatch(1);
         Platform.runLater(() -> {
-            javafx.scene.layout.VBox root = new javafx.scene.layout.VBox();
-            javafx.scene.Scene scene = new javafx.scene.Scene(root, 200, 100);
+            VBox root = new VBox();
+            Scene scene = new Scene(root, 200, 100);
             context.applyTheme(scene);
             rootRef.set(scene.getRoot());
             done.countDown();

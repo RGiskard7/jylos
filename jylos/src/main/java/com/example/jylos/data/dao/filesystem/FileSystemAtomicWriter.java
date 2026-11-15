@@ -11,6 +11,9 @@ import java.nio.file.StandardOpenOption;
 /**
  * Writes text files through a same-directory temporary file before replacing
  * the target. This prevents truncate-first writes from corrupting vault files.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.4.8
  */
 final class FileSystemAtomicWriter {
 

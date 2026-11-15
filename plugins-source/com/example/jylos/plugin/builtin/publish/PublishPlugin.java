@@ -26,6 +26,7 @@ import javafx.stage.DirectoryChooser;
  * pattern as the built-in Auto Backup plugin's own export flow.
  *
  * @author Edu Díaz (RGiskard7)
+ * @since 2.5.6
  */
 public final class PublishPlugin implements Plugin {
 

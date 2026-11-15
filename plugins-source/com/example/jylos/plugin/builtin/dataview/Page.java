@@ -16,6 +16,9 @@ import java.util.Set;
  * treated as equivalent, so {@code due-date}, {@code Due Date} and {@code due_date} all
  * resolve to the same field. Frontmatter is hand-written prose, not a schema, and users
  * are not consistent about the separator.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
  */
 final class Page {
 

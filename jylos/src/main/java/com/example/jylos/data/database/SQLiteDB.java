@@ -5,6 +5,8 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -16,6 +18,9 @@ import com.example.jylos.exceptions.DataAccessException;
  * SQLiteDB is a singleton class that manages the SQLite database connection and
  * initialization. It includes methods for opening and closing connections, as
  * well as initializing the database schema.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class SQLiteDB {
 
@@ -363,7 +368,7 @@ public class SQLiteDB {
 
                 // Dynamically build INSERT to match columns (Fix for column mismatch during
                 // migration)
-                java.util.List<String> columns = new java.util.ArrayList<>();
+                List<String> columns = new ArrayList<>();
                 try (ResultSet rsOld = stmt.executeQuery("PRAGMA table_info(" + tableName + "_old)")) {
                     while (rsOld.next()) {
                         columns.add(rsOld.getString("name"));

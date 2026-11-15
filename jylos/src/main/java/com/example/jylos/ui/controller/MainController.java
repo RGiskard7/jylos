@@ -1,20 +1,25 @@
 package com.example.jylos.ui.controller;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.sql.Connection;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.ResourceBundle;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 
+import com.example.jylos.AppDataDirectory;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.dao.interfaces.FactoryDAO;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
@@ -30,25 +35,42 @@ import com.example.jylos.event.events.FolderEvents;
 import com.example.jylos.graph.GraphData;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
+import com.example.jylos.insights.KnowledgeInsightsService;
+import com.example.jylos.plugin.EditorHooks;
+import com.example.jylos.plugin.PluginLoader;
 import com.example.jylos.plugin.PluginManager;
+import com.example.jylos.service.BacklinkService;
 import com.example.jylos.service.EncryptionService;
 import com.example.jylos.service.FolderService;
+import com.example.jylos.service.ImportService;
+import com.example.jylos.service.NoteHistoryService;
 import com.example.jylos.service.NoteService;
+import com.example.jylos.service.NoteTitleIndex;
 import com.example.jylos.service.TagService;
+import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.CommandPalette;
+import com.example.jylos.ui.components.EditorTabs;
 import com.example.jylos.ui.components.EditorTabsModel;
+import com.example.jylos.ui.components.GitSyncPanel;
+import com.example.jylos.ui.components.KnowledgeInsightsPanel;
 import com.example.jylos.ui.components.PluginManagerDialog;
 import com.example.jylos.ui.components.QuickSwitcher;
 import com.example.jylos.ui.preferences.LayoutMode;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
 import com.example.jylos.ui.theme.ThemeCatalog;
+import com.example.jylos.util.NoteAnchors;
 import com.example.jylos.util.SystemBrowser;
+import com.example.jylos.util.WikiLinkResolver;
+import com.example.jylos.workspace.Workspace;
+import com.example.jylos.workspace.WorkspaceService;
 
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.geometry.Orientation;
+import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
@@ -60,10 +82,16 @@ import javafx.scene.control.Separator;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 import javafx.util.Duration;
 
 /**
@@ -71,6 +99,9 @@ import javafx.util.Duration;
  * and {@link com.example.jylos.event.EventBus} subscriptions. Business logic
  * for persistence is delegated to DAOs and {@link com.example.jylos.service.NoteService}
  * where possible; this class focuses on UI state and command routing.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class MainController {
 
@@ -113,7 +144,7 @@ public class MainController {
     private GraphController graphViewController;
 
     /** Open-note tab strip (one tab per open note). Driven by this controller. */
-    private com.example.jylos.ui.components.EditorTabs editorTabs;
+    private EditorTabs editorTabs;
 
     private VBox notesPanel;
     private ComboBox<String> sortComboBox;
@@ -134,9 +165,9 @@ public class MainController {
     @FXML
     private VBox rightPanel;
     @FXML
-    private javafx.scene.layout.HBox statusBar;
+    private HBox statusBar;
     @FXML
-    private javafx.scene.layout.StackPane centerStack;
+    private StackPane centerStack;
 
     private final FocusModeSupport focusModeSupport = new FocusModeSupport();
     @FXML
@@ -224,7 +255,7 @@ public class MainController {
     private final StatusBarSupport statusBarSupport = new StatusBarSupport();
     private final BacklinksSupport backlinksSupport = new BacklinksSupport();
     /** Editor hook dispatcher shared by the plugin system and the editor. */
-    private final com.example.jylos.plugin.EditorHooks editorHooks = new com.example.jylos.plugin.EditorHooks();
+    private final EditorHooks editorHooks = new EditorHooks();
     private final ImportSupport importSupport = new ImportSupport();
     // REMOVABLE: in-app updater — a workaround for shipping unsigned installers, not
     // meant to be permanent. Delete alongside every other spot tagged "REMOVABLE:
@@ -249,7 +280,7 @@ public class MainController {
     private NoteService noteService;
     private FolderService folderService;
     private TagService tagService;
-    private com.example.jylos.service.BacklinkService backlinkService;
+    private BacklinkService backlinkService;
     private EventBus eventBus;
     private PluginManager pluginManager;
     private NoteOperations noteOperations;
@@ -279,7 +310,7 @@ public class MainController {
     private EventBus.Subscription pluginUiRefreshSubscription = EventBus.Subscription.NO_OP;
 
     @FXML
-    private java.util.ResourceBundle resources;
+    private ResourceBundle resources;
 
     private double uiFontSize = 13.0;
     /** Custom accent ({@code #rrggbb}) or "" for the theme default. */
@@ -333,7 +364,7 @@ public class MainController {
             configureToolbarSearchDebounce();
             configureAutosaveDebounce();
             navSplitPane = new SplitPane();
-            navSplitPane.setOrientation(javafx.geometry.Orientation.VERTICAL);
+            navSplitPane.setOrientation(Orientation.VERTICAL);
 
             initializeBackendSession();
             appSettings.wire(this::getString);
@@ -401,7 +432,7 @@ public class MainController {
 
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Failed to initialize MainController", e);
-            updateStatus(java.text.MessageFormat.format(getString("status.error_details"), e.getMessage()));
+            updateStatus(MessageFormat.format(getString("status.error_details"), e.getMessage()));
         }
     }
     /** Selects the configured storage backend, opens the active session, then builds all DAOs and services. */
@@ -414,7 +445,7 @@ public class MainController {
             if ("filesystem".equalsIgnoreCase(storageType)) {
                 vaultLocationSupport.wire(this::getString);
                 String dataDir = vaultLocationSupport.chooseVaultDirectory(prefs,
-                        com.example.jylos.AppDataDirectory.getDataDirectory(), getMainWindow());
+                        AppDataDirectory.getDataDirectory(), getMainWindow());
                 logger.info("Using File System Storage at " + dataDir);
 
                 factory = FactoryDAO.getFactory(FactoryDAO.FILE_SYSTEM_FACTORY, dataDir);
@@ -434,15 +465,15 @@ public class MainController {
             EncryptionService.getInstance().wire(factory.getEncryptionKeyDAO(),
                     EncryptionService.legacyUserPreferencesStore(), sessionNoteDAO::hasPrivateNotes);
             noteService = new NoteService(noteDAO, folderDAO);
-            noteService.setHistoryService(new com.example.jylos.service.NoteHistoryService(
-                    java.nio.file.Path.of(com.example.jylos.AppDataDirectory.getBaseDirectory(), "history")));
+            noteService.setHistoryService(new NoteHistoryService(
+                    Path.of(AppDataDirectory.getBaseDirectory(), "history")));
             folderService = new FolderService(folderDAO, noteDAO);
             tagService = new TagService(tagDAO, noteDAO);
             noteOperations = new NoteOperations(noteService, folderService);
             eventBus = EventBus.getInstance();
-            backlinkService = new com.example.jylos.service.BacklinkService(noteService, eventBus);
-            com.example.jylos.service.NoteTitleIndex titleIndex =
-                    com.example.jylos.service.NoteTitleIndex.getInstance();
+            backlinkService = new BacklinkService(noteService, eventBus);
+            NoteTitleIndex titleIndex =
+                    NoteTitleIndex.getInstance();
             titleIndex.wire(noteService, eventBus);
             noteService.setNoteTitleIndex(titleIndex);
 
@@ -529,7 +560,7 @@ public class MainController {
         if (editorController != null) {
             editorController.wire(eventBus, noteService, tagService, resources,
                     this::handleUiNoteModified, this::updateStatus,
-                    com.example.jylos.service.NoteTitleIndex.getInstance()::titlesSorted,
+                    NoteTitleIndex.getInstance()::titlesSorted,
                     uiPreferences.loadLivePreviewEnabled(prefs),
                     enabled -> uiPreferences.saveLivePreviewEnabled(prefs, enabled),
                     // A link opens the note it names by path, resolved from the note it is
@@ -537,10 +568,10 @@ public class MainController {
                     this::openLink, this::loadNotesForTag, editorHooks);
             if (editorTabs == null) {
                 editorController.initializeTagsBarCollapsed();
-                editorTabs = new com.example.jylos.ui.components.EditorTabs(
+                editorTabs = new EditorTabs(
                         editorController.getEditorTabBar(),
                         editorController.getEditorTabScroll(),
-                        new com.example.jylos.ui.components.EditorTabs.Listener() {
+                        new EditorTabs.Listener() {
                             @Override public void onSelect(String noteId) {
                                 // Tabs stay visible over the graph and the Kanban; picking one shows the note.
                                 if (overlaySupport.isGraphVisible()) {
@@ -577,7 +608,7 @@ public class MainController {
                 wordCharSeparator, prefs, this::getString);
         statusBarSupport.wireEditorIndicators(saveStateLabel, editorModeLabel, editorIndicatorsBox,
                 this::applyEditorMode);
-        java.util.function.Supplier<javafx.scene.Scene> sceneSupplier =
+        Supplier<Scene> sceneSupplier =
                 () -> mainSplitPane != null ? mainSplitPane.getScene() : null;
         gitController.wire(gitSeparator, gitBar, gitInitLabel, gitRemoteLabel, gitChangesLabel,
                 gitCommitLabel, gitSyncLabel, gitHistoryLabel, prefs, this::getString, this::updateStatus,
@@ -664,7 +695,7 @@ public class MainController {
                         sidebarController.loadRecentNotes();
                     }
                 });
-        importSupport.wire(new com.example.jylos.service.ImportService(noteService, folderService),
+        importSupport.wire(new ImportService(noteService, folderService),
                 this::getString, this::updateStatus,
                 this::getMainWindow,
                 () -> {
@@ -711,7 +742,7 @@ public class MainController {
         gitController.refreshStatus();
     }
 
-    private javafx.stage.Window getMainWindow() {
+    private Window getMainWindow() {
         return mainSplitPane != null && mainSplitPane.getScene() != null ? mainSplitPane.getScene().getWindow() : null;
     }
 
@@ -744,7 +775,7 @@ public class MainController {
             if (backlinkService != null) {
                 backlinkService.invalidate();
             }
-            com.example.jylos.service.NoteTitleIndex.getInstance().invalidate();
+            NoteTitleIndex.getInstance().invalidate();
         });
     }
 
@@ -827,7 +858,7 @@ public class MainController {
         try {
             prefs.put("filesystem_path", newVaultPath);
             reloadBackendSession();
-            updateStatus(java.text.MessageFormat.format(getString("status.vault_switched"),
+            updateStatus(MessageFormat.format(getString("status.vault_switched"),
                     new File(newVaultPath).getName()));
             logger.info("Switched vault without restart: " + newVaultPath + " [session=" + generation + "]");
         } catch (Exception e) {
@@ -840,11 +871,11 @@ public class MainController {
             } catch (Exception rollbackError) {
                 logger.log(Level.SEVERE, "Failed to restore previous vault after switch error", rollbackError);
             }
-            updateStatus(java.text.MessageFormat.format(getString("status.error_details"), e.getMessage()));
+            updateStatus(MessageFormat.format(getString("status.error_details"), e.getMessage()));
             showAlert(Alert.AlertType.ERROR,
                     getString("status.error"),
                     getString("status.error"),
-                    java.text.MessageFormat.format(getString("status.error_details"), e.getMessage()));
+                    MessageFormat.format(getString("status.error_details"), e.getMessage()));
         }
     }
 
@@ -866,7 +897,7 @@ public class MainController {
     /** Registers global keyboard accelerators (command palette, quick-switcher, focus mode) on the primary scene. */
     private void initializeKeyboardShortcuts() {
         try {
-            javafx.scene.Scene scene = null;
+            Scene scene = null;
             if (mainSplitPane != null && mainSplitPane.getScene() != null) {
                 scene = mainSplitPane.getScene();
             }
@@ -887,9 +918,9 @@ public class MainController {
 
             // Focus / writing mode: Cmd/Ctrl + Shift + F.
             scene.getAccelerators().put(
-                    new javafx.scene.input.KeyCodeCombination(javafx.scene.input.KeyCode.F,
-                            javafx.scene.input.KeyCombination.SHORTCUT_DOWN,
-                            javafx.scene.input.KeyCombination.SHIFT_DOWN),
+                    new KeyCodeCombination(KeyCode.F,
+                            KeyCombination.SHORTCUT_DOWN,
+                            KeyCombination.SHIFT_DOWN),
                     this::handleFocusMode);
         } catch (Exception e) {
             logger.log(Level.WARNING, "Failed to initialize keyboard shortcuts", e);
@@ -1050,7 +1081,7 @@ public class MainController {
         // the left status label (avoids the message being duplicated in both spots).
         if (noteCountLabel != null) {
             int count = notes != null ? notes.size() : 0;
-            noteCountLabel.setText(java.text.MessageFormat.format(getString("info.notes_count"), count));
+            noteCountLabel.setText(MessageFormat.format(getString("info.notes_count"), count));
         }
         if (statusMessage != null && !statusMessage.isBlank()) {
             updateStatus(statusMessage);
@@ -1358,7 +1389,7 @@ public class MainController {
             alert.setTitle(getString("dialog.plugin_manager.title"));
             alert.setHeaderText(getString("dialog.plugin_manager.not_initialized_header"));
             alert.setContentText(getString("dialog.plugin_manager.restart_required_content"));
-            com.example.jylos.ui.UiDialogs.apply(alert.getDialogPane());
+            UiDialogs.apply(alert.getDialogPane());
             alert.showAndWait();
         }
     }
@@ -1380,7 +1411,7 @@ public class MainController {
             return;
         }
         logger.warning("Unknown command: " + result.resolvedToken());
-        updateStatus(java.text.MessageFormat.format(getString("status.unknown_command"), result.resolvedToken()));
+        updateStatus(MessageFormat.format(getString("status.unknown_command"), result.resolvedToken()));
     }
 
     private boolean executePluginCommandToken(String token) {
@@ -1639,9 +1670,7 @@ public class MainController {
         systemActionHandlers.put(SystemActionEvent.ActionType.GIT_ADD_REMOTE, gitController::addRemote);
     }
 
-    // ------------------------------------------------------------------
-    // Navigation history
-    // ------------------------------------------------------------------
+    // ── Navigation history ───────────────────────────────────────────────────
 
     private void navigateBack() {
         loadNoteById(navigationHistory.back(getCurrentNote() != null ? getCurrentNote().getId() : null));
@@ -1673,11 +1702,9 @@ public class MainController {
         }
     }
 
-    // ------------------------------------------------------------------
-
     private Stage getPrimaryStage() {
         if (mainSplitPane != null && mainSplitPane.getScene() != null) {
-            javafx.stage.Window window = mainSplitPane.getScene().getWindow();
+            Window window = mainSplitPane.getScene().getWindow();
             if (window instanceof Stage stage) {
                 return stage;
             }
@@ -1841,11 +1868,11 @@ public class MainController {
     /** Refreshes the graph baseline section's node/edge counts (graph rebuild callback). */
     private void updateGraphInfoSection(GraphData data) {
         if (graphNodeCountLabel != null) {
-            graphNodeCountLabel.setText(java.text.MessageFormat.format(
+            graphNodeCountLabel.setText(MessageFormat.format(
                     getString("info.graph_nodes"), data != null ? data.nodes().size() : 0));
         }
         if (graphEdgeCountLabel != null) {
-            graphEdgeCountLabel.setText(java.text.MessageFormat.format(
+            graphEdgeCountLabel.setText(MessageFormat.format(
                     getString("info.graph_edges"), data != null ? data.edges().size() : 0));
         }
     }
@@ -1974,39 +2001,37 @@ public class MainController {
 
     /** Click on the storage indicator → open the storage switcher (Obsidian-style). */
     @FXML
-    private void handleStorageClick(javafx.scene.input.MouseEvent event) {
+    private void handleStorageClick(MouseEvent event) {
         handleSwitchStorage();
     }
 
-    // ------------------------------------------------------------------
-    // Git vault synchronization — logic lives in GitController; these are the
-    // FXML-bound status-bar click handlers, which simply delegate.
-    // ------------------------------------------------------------------
+    // ── Git vault synchronization ───────────────────────────────────────
+    // The logic lives in GitController; these FXML status-bar click handlers delegate.
 
-    @FXML private void handleGitStatusClick(javafx.scene.input.MouseEvent event)  {
+    @FXML private void handleGitStatusClick(MouseEvent event)  {
         // Right click opens the entry's context menu (changes, commit, history), not the panel.
-        if (event != null && event.getButton() != javafx.scene.input.MouseButton.PRIMARY) {
+        if (event != null && event.getButton() != MouseButton.PRIMARY) {
             return;
         }
-        gitController.showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget.BRANCH);
+        gitController.showSyncPanel(GitSyncPanel.FocusTarget.BRANCH);
     }
-    @FXML private void handleGitInitClick(javafx.scene.input.MouseEvent event)    { gitController.init(); }
-    @FXML private void handleGitRemoteClick(javafx.scene.input.MouseEvent event)  { gitController.addRemote(); }
-    @FXML private void handleGitCommitClick(javafx.scene.input.MouseEvent event)  {
-        gitController.showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget.COMMIT);
+    @FXML private void handleGitInitClick(MouseEvent event)    { gitController.init(); }
+    @FXML private void handleGitRemoteClick(MouseEvent event)  { gitController.addRemote(); }
+    @FXML private void handleGitCommitClick(MouseEvent event)  {
+        gitController.showSyncPanel(GitSyncPanel.FocusTarget.COMMIT);
     }
-    @FXML private void handleGitChangesClick(javafx.scene.input.MouseEvent event) {
-        gitController.showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget.CHANGES);
+    @FXML private void handleGitChangesClick(MouseEvent event) {
+        gitController.showSyncPanel(GitSyncPanel.FocusTarget.CHANGES);
     }
-    @FXML private void handleGitHistoryClick(javafx.scene.input.MouseEvent event) { gitController.showHistoryDialog(); }
+    @FXML private void handleGitHistoryClick(MouseEvent event) { gitController.showHistoryDialog(); }
 
     /** Applies the active theme stylesheet to a dialog and sets its owner window. */
     private void styleDialog(Dialog<?> dialog) {
-        javafx.scene.Scene scene = mainSplitPane != null ? mainSplitPane.getScene() : null;
+        Scene scene = mainSplitPane != null ? mainSplitPane.getScene() : null;
         if (scene != null) {
             dialog.initOwner(scene.getWindow());
         }
-        com.example.jylos.ui.UiDialogs.apply(dialog);
+        UiDialogs.apply(dialog);
     }
 
     /** Opens {@code note} in the active tab (or activates its tab when it is already open). */
@@ -2096,9 +2121,7 @@ public class MainController {
         updateStatus("");
     }
 
-    // ============================================================
-    // Editor tabs (multiple open notes)
-    // ============================================================
+    // ── Editor tabs (multiple open notes) ────────────────────────────────────
 
     /** Loads the note with {@code noteId} into the editor (used by tab selection). */
     private void openNoteInTab(String noteId) {
@@ -2190,9 +2213,9 @@ public class MainController {
      */
     private void openLink(String link) {
         Note current = getCurrentNote();
-        String subpath = com.example.jylos.util.WikiLinkResolver.subpathOf(link);
+        String subpath = WikiLinkResolver.subpathOf(link);
         boolean sameNote = link != null && link.strip().startsWith("#") && current != null;
-        java.util.Optional<Note> target = sameNote ? java.util.Optional.of(current)
+        Optional<Note> target = sameNote ? Optional.of(current)
                 : noteService.resolveLink(link, current != null ? current.getId() : null);
         if (target.isEmpty()) {
             updateStatus("Note not found: " + link);
@@ -2202,10 +2225,10 @@ public class MainController {
             handleUiNoteOpenRequest(target.get());
         }
         Note opened = getCurrentNote();
-        if (subpath == null || opened == null || !java.util.Objects.equals(opened.getId(), target.get().getId())) {
+        if (subpath == null || opened == null || !Objects.equals(opened.getId(), target.get().getId())) {
             return;
         }
-        com.example.jylos.util.NoteAnchors.locate(opened.getContent(), subpath)
+        NoteAnchors.locate(opened.getContent(), subpath)
                 .ifPresent(anchor -> editorController.navigateToHeading(anchor.offset(), anchor.elementId()));
     }
 
@@ -2280,7 +2303,7 @@ public class MainController {
         ButtonType cancelButton = new ButtonType(getString("action.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
 
         alert.getButtonTypes().setAll(saveButton, dontSaveButton, cancelButton);
-        com.example.jylos.ui.UiDialogs.apply(alert.getDialogPane());
+        UiDialogs.apply(alert.getDialogPane());
         Optional<ButtonType> result = alert.showAndWait();
         if (result.isEmpty()) {
             return SaveDialogDecision.CANCEL;
@@ -2364,7 +2387,7 @@ public class MainController {
         dialog.setTitle(getString("dialog.new_folder.title"));
         dialog.setHeaderText(createInRoot
                 ? getString("dialog.new_folder.header_root")
-                : java.text.MessageFormat.format(getString("dialog.new_folder.header_sub"), currentFolder.getTitle()));
+                : MessageFormat.format(getString("dialog.new_folder.header_sub"), currentFolder.getTitle()));
         dialog.setContentText(getString("dialog.new_folder.content"));
         dialog.getDialogPane().setMinWidth(380);
         styleDialog(dialog);
@@ -2379,7 +2402,7 @@ public class MainController {
         if (!creation.success() || creation.folder() == null) {
             String detail = creation.errorMessage();
             updateStatus(detail != null && !detail.isBlank()
-                    ? java.text.MessageFormat.format(getString("status.error_details"), detail)
+                    ? MessageFormat.format(getString("status.error_details"), detail)
                     : getString("status.error_creating_folder"));
             return;
         }
@@ -2390,7 +2413,7 @@ public class MainController {
         if (sidebarController.getFolderTreeView() != null) {
             sidebarController.getFolderTreeView().refresh();
         }
-        updateStatus(java.text.MessageFormat.format(getString("status.folder_created"), creation.folder().getTitle()));
+        updateStatus(MessageFormat.format(getString("status.folder_created"), creation.folder().getTitle()));
     }
 
     @FXML
@@ -2480,7 +2503,7 @@ public class MainController {
             if (pluginManager != null) {
                 pluginManager.shutdownAll();
             }
-            com.example.jylos.plugin.PluginLoader.closeAllClassLoaders();
+            PluginLoader.closeAllClassLoaders();
             if (editorController != null) {
                 editorController.teardown();
             }
@@ -2496,7 +2519,7 @@ public class MainController {
             if (backlinkService != null) {
                 backlinkService.shutdown();
             }
-            com.example.jylos.service.NoteTitleIndex.getInstance().shutdown();
+            NoteTitleIndex.getInstance().shutdown();
             quickSwitcherExecutor.shutdownNow();
             updateNotifications.shutdown();
 
@@ -2529,7 +2552,7 @@ public class MainController {
         alert.setTitle(title);
         alert.setHeaderText(header);
         alert.setContentText(content);
-        com.example.jylos.ui.UiDialogs.apply(alert.getDialogPane());
+        UiDialogs.apply(alert.getDialogPane());
         alert.showAndWait();
     }
 
@@ -2573,13 +2596,11 @@ public class MainController {
         focusModeSupport.toggle();
     }
 
-    // ------------------------------------------------------------------
-    // Workspaces — capture/restore the working context (logic in WorkspaceController)
-    // ------------------------------------------------------------------
+    // ── Workspaces — capture/restore the working context (logic in WorkspaceController) ───
 
     /** Snapshots the current tabs, active note and basic layout into a live workspace. */
-    private com.example.jylos.workspace.Workspace captureLiveWorkspace() {
-        java.util.List<String> openIds = editorTabs != null ? editorTabs.getOpenIds() : java.util.List.of();
+    private Workspace captureLiveWorkspace() {
+        List<String> openIds = editorTabs != null ? editorTabs.getOpenIds() : List.of();
         String activeId = editorTabs != null ? editorTabs.getActiveId() : null;
         double splitMain = mainSplitPane != null && mainSplitPane.getDividers().size() > 0
                 ? mainSplitPane.getDividerPositions()[0] : UiPreferencesStore.DEFAULT_SPLIT_MAIN;
@@ -2588,7 +2609,7 @@ public class MainController {
         boolean sidebarVisible = sidebarController != null && sidebarController.getSidebarPane() != null
                 && sidebarController.getSidebarPane().isVisible();
         String storageMode = prefs.get("storage_type", System.getProperty("jylos.storage", "sqlite"));
-        return com.example.jylos.workspace.WorkspaceService.liveState(openIds, activeId,
+        return WorkspaceService.liveState(openIds, activeId,
                 currentViewMode.name(), sidebarVisible, focusModeSupport.isActive(),
                 splitMain, splitContent, storageMode);
     }
@@ -2599,7 +2620,7 @@ public class MainController {
      * non-blocking status warning; a storage-mode mismatch is also flagged. Existing tabs
      * are kept (open is additive — it never closes notes you already had open).
      */
-    private void applyWorkspace(com.example.jylos.workspace.Workspace ws) {
+    private void applyWorkspace(Workspace ws) {
         if (ws == null || noteService == null) {
             return;
         }
@@ -2612,7 +2633,7 @@ public class MainController {
         int missing = 0;
         String lastOpened = null;
         for (String id : ws.openNoteIds()) {
-            java.util.Optional<Note> note = noteService.getNoteById(id);
+            Optional<Note> note = noteService.getNoteById(id);
             if (note.isPresent()) {
                 // Each saved tab gets its own tab (a plain open would replace the previous one).
                 loadNoteInEditor(note.get(), EditorTabsModel.OpenTarget.NEW_TAB);
@@ -2631,14 +2652,14 @@ public class MainController {
         applyWorkspaceLayout(ws);
 
         if (missing > 0) {
-            updateStatus(java.text.MessageFormat.format(getString("workspace.status.missing"), missing));
+            updateStatus(MessageFormat.format(getString("workspace.status.missing"), missing));
         } else {
-            updateStatus(java.text.MessageFormat.format(getString("workspace.status.opened"), ws.name()));
+            updateStatus(MessageFormat.format(getString("workspace.status.opened"), ws.name()));
         }
     }
 
     /** Reapplies a workspace's basic layout (view mode, focus, splits, sidebar). */
-    private void applyWorkspaceLayout(com.example.jylos.workspace.Workspace ws) {
+    private void applyWorkspaceLayout(Workspace ws) {
         try {
             currentViewMode = UiLayout.ViewMode.valueOf(ws.viewMode());
             applyViewMode();
@@ -2671,9 +2692,9 @@ public class MainController {
         if (noteService == null || tagService == null) {
             return;
         }
-        var service = new com.example.jylos.insights.KnowledgeInsightsService(noteService, tagService);
-        javafx.scene.Scene scene = centerStack != null ? centerStack.getScene() : null;
-        new com.example.jylos.ui.components.KnowledgeInsightsPanel(
+        var service = new KnowledgeInsightsService(noteService, tagService);
+        Scene scene = centerStack != null ? centerStack.getScene() : null;
+        new KnowledgeInsightsPanel(
                 service, this::getString, this::openNoteInTab, scene).show();
     }
 
@@ -2727,7 +2748,7 @@ public class MainController {
     private void applyUiZoom() {
         if (toolbarController != null && toolbarController.getToolbarHBox() != null
                 && toolbarController.getToolbarHBox().getScene() != null) {
-            javafx.scene.Scene scene = toolbarController.getToolbarHBox().getScene();
+            Scene scene = toolbarController.getToolbarHBox().getScene();
             StringBuilder style = new StringBuilder("-fx-font-size: ").append(uiFontSize).append("px;");
             if (uiAccentColor != null && !uiAccentColor.isBlank()) {
                 style.append(" -fx-accent: ").append(uiAccentColor).append(';')
@@ -2740,7 +2761,7 @@ public class MainController {
             // inherit the main window's root) needs this same inline style re-captured right
             // away, not just on the next theme switch, or a dialog opened right after a live
             // zoom change would still render at the old size.
-            com.example.jylos.ui.UiDialogs.syncFromScene(scene);
+            UiDialogs.syncFromScene(scene);
         }
         // Keep the persisted font size in sync so Ctrl+/- zoom survives a restart.
         prefs.putInt(UiPreferencesStore.UI_FONT_SIZE_KEY, (int) Math.round(uiFontSize));
@@ -2883,7 +2904,7 @@ public class MainController {
      * Applies the persisted theme after the scene is attached but before the first
      * window paint, avoiding a visible flash from the default stylesheet.
      */
-    public void applyInitialThemeBeforeShow(javafx.scene.Scene scene) {
+    public void applyInitialThemeBeforeShow(Scene scene) {
         theme.applyBeforeShow(scene);
         if (editorController != null) {
             editorController.applyEditorTheme(isDarkThemeActive(), uiAccentColor);
@@ -3019,7 +3040,7 @@ public class MainController {
         if (current == null || current.getId() == null || noteService == null || editorController == null) {
             return;
         }
-        java.util.Optional<Note> refreshed = noteService.getNoteById(current.getId());
+        Optional<Note> refreshed = noteService.getNoteById(current.getId());
         if (refreshed.isEmpty()) {
             handleMissingOpenNoteAfterStorageRefresh(current);
             return;
@@ -3133,7 +3154,7 @@ public class MainController {
     }
 
     private void handleSystemAction(SystemActionEvent event) {
-        javafx.application.Platform.runLater(() -> {
+        Platform.runLater(() -> {
             if (event == null || event.getActionType() == null) {
                 return;
             }

@@ -21,6 +21,9 @@ import java.util.Set;
  *
  * <p>Paths use {@code /} and are relative to the vault root, with extension
  * ({@code Carpeta/Nota.md}, {@code Adjuntos/foto.png}). Pure and immutable.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class LinkResolver {
 

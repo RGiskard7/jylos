@@ -29,6 +29,9 @@ import com.example.jylos.data.models.Tag;
  *
  * <p>Fenced code blocks are skipped when scanning the body: a shell comment or a CSS
  * colour inside a code sample is not a tag, and {@code ::} in code is not a field.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
  */
 final class PageParser {
 

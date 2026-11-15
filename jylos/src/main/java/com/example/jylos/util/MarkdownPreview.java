@@ -1,16 +1,27 @@
 package com.example.jylos.util;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Base64;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.plugin.PreviewContext;
 import com.example.jylos.plugin.PreviewEnhancer;
+import com.example.jylos.service.LinkIndex;
 
 /**
  * Builds the complete HTML document loaded into the JavaFX {@code WebView} preview.
@@ -19,6 +30,9 @@ import com.example.jylos.plugin.PreviewEnhancer;
  * transclusion and rich links), delegates CommonMark rendering to
  * {@link MarkdownProcessor}, then injects preview-only assets such as syntax
  * highlighting, KaTeX and plugin enhancers.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class MarkdownPreview {
     private static final Logger logger = LoggerConfig.getLogger(MarkdownPreview.class);
@@ -39,8 +53,8 @@ public class MarkdownPreview {
     private static final String EMOJI_FONT_RESOURCE =
             "/com/example/jylos/ui/preview/fonts/NotoEmoji-Regular.ttf";
     private static final java.awt.Font EMOJI_AWT_FONT = loadEmojiAwtFont();
-    private static final java.util.Map<String, String> EMOJI_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
-    private static final java.util.regex.Pattern EMOJI_RUN = java.util.regex.Pattern.compile(
+    private static final Map<String, String> EMOJI_CACHE = new ConcurrentHashMap<>();
+    private static final Pattern EMOJI_RUN = Pattern.compile(
             "[\\x{1F000}-\\x{1FAFF}\\x{2600}-\\x{27BF}\\x{2B00}-\\x{2BFF}\\x{2300}-\\x{23FF}"
             + "\\x{2190}-\\x{21FF}\\x{FE00}-\\x{FE0F}\\x{20E3}\\x{200D}\\x{1F1E6}-\\x{1F1FF}\\x{1F3FB}-\\x{1F3FF}]+");
 
@@ -67,16 +81,16 @@ public class MarkdownPreview {
      * @param links                   the vault's link index, to tell links to existing notes
      *                                from links to notes to create; {@code null} for none
      */
-    public record PreviewOptions(java.nio.file.Path baseDir, Function<String, String> embeddedContentResolver,
+    public record PreviewOptions(Path baseDir, Function<String, String> embeddedContentResolver,
             PreviewContext context, boolean readableLineLength, int contentFontSize,
-            java.nio.file.Path imageContainmentRoot, com.example.jylos.service.LinkIndex links) {
+            Path imageContainmentRoot, LinkIndex links) {
 
         /** No images inlined, no embeds, no note, no links. */
         public static PreviewOptions none() {
             return new PreviewOptions(null, null, null, false, 0, null, null);
         }
 
-        public PreviewOptions withBaseDir(java.nio.file.Path dir) {
+        public PreviewOptions withBaseDir(Path dir) {
             return new PreviewOptions(dir, embeddedContentResolver, context, readableLineLength, contentFontSize,
                     imageContainmentRoot, links);
         }
@@ -88,7 +102,7 @@ public class MarkdownPreview {
 
     /** Same, inlining the local images the note references, resolved against {@code baseDir}. */
     public static String buildPreviewHtml(String markdownContent, boolean isDarkTheme,
-            Collection<PreviewEnhancer> enhancers, java.nio.file.Path baseDir) {
+            Collection<PreviewEnhancer> enhancers, Path baseDir) {
         return buildPreviewHtml(markdownContent, isDarkTheme, enhancers, PreviewOptions.none().withBaseDir(baseDir));
     }
 
@@ -105,10 +119,10 @@ public class MarkdownPreview {
 
         // Links resolve by path from the note shown, as in Obsidian, against the vault's link
         // index (kept warm by the caller's NoteService, not rebuilt on every keystroke).
-        com.example.jylos.service.LinkIndex links = o.links() != null ? o.links()
-                : com.example.jylos.service.LinkIndex.EMPTY;
+        LinkIndex links = o.links() != null ? o.links()
+                : LinkIndex.EMPTY;
         String sourceId = o.context() != null && o.context().note() != null ? o.context().note().getId() : null;
-        java.util.function.Predicate<String> exists = link -> links.exists(link, sourceId);
+        Predicate<String> exists = link -> links.exists(link, sourceId);
 
         // Obsidian syntax resolved on the source (outside code): comments hidden, footnotes
         // numbered (their list is appended after rendering), ^block anchors, #tags as links.
@@ -297,7 +311,7 @@ public class MarkdownPreview {
     private static String newNonce() {
         byte[] bytes = new byte[18];
         NONCE_RANDOM.nextBytes(bytes);
-        return java.util.Base64.getEncoder().encodeToString(bytes);
+        return Base64.getEncoder().encodeToString(bytes);
     }
 
     /**
@@ -619,7 +633,7 @@ public class MarkdownPreview {
         if (EMOJI_AWT_FONT == null || bodyHtml == null || bodyHtml.isEmpty()) {
             return bodyHtml;
         }
-        java.util.regex.Matcher m = EMOJI_RUN.matcher(bodyHtml);
+        Matcher m = EMOJI_RUN.matcher(bodyHtml);
         if (!m.find()) {
             return bodyHtml;
         }
@@ -631,7 +645,7 @@ public class MarkdownPreview {
             String dataUri = EMOJI_CACHE.computeIfAbsent(colorKey + "|" + run, k -> renderEmoji(run, dark));
             String replacement = dataUri == null ? run
                     : "<img class=\"emoji\" alt=\"emoji\" src=\"" + dataUri + "\"/>";
-            m.appendReplacement(out, java.util.regex.Matcher.quoteReplacement(replacement));
+            m.appendReplacement(out, Matcher.quoteReplacement(replacement));
         }
         m.appendTail(out);
         return out.toString();
@@ -657,8 +671,8 @@ public class MarkdownPreview {
     /** Rasterises an emoji run to a transparent PNG data URI, tinted for the theme. */
     private static String renderEmoji(String run, boolean dark) {
         try {
-            java.awt.image.BufferedImage probe = new java.awt.image.BufferedImage(1, 1,
-                    java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            BufferedImage probe = new BufferedImage(1, 1,
+                    BufferedImage.TYPE_INT_ARGB);
             java.awt.Graphics2D pg = probe.createGraphics();
             pg.setFont(EMOJI_AWT_FONT);
             java.awt.FontMetrics fm = pg.getFontMetrics();
@@ -668,8 +682,8 @@ public class MarkdownPreview {
             pg.dispose();
 
             int pad = 4;
-            java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(
-                    width + pad * 2, height + pad, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            BufferedImage img = new BufferedImage(
+                    width + pad * 2, height + pad, BufferedImage.TYPE_INT_ARGB);
             java.awt.Graphics2D g = img.createGraphics();
             g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
                     java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
@@ -680,9 +694,9 @@ public class MarkdownPreview {
             g.drawString(run, pad, pad + ascent);
             g.dispose();
 
-            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
             javax.imageio.ImageIO.write(img, "png", baos);
-            return "data:image/png;base64," + java.util.Base64.getEncoder().encodeToString(baos.toByteArray());
+            return "data:image/png;base64," + Base64.getEncoder().encodeToString(baos.toByteArray());
         } catch (Exception e) {
             logger.fine("Could not rasterise emoji: " + e.getMessage());
             return null;
@@ -705,7 +719,7 @@ public class MarkdownPreview {
      * @param baseDir directory of the note containing the reference
      * @return a WebView-safe URI, or an empty string when it cannot be resolved
      */
-    public static String resolveImageSource(String source, java.nio.file.Path baseDir) {
+    public static String resolveImageSource(String source, Path baseDir) {
         return resolveImageSource(source, baseDir, null);
     }
 
@@ -715,8 +729,8 @@ public class MarkdownPreview {
      * A {@code null} root contains the lookup to {@code baseDir}. The note's Markdown picks
      * the path, so without this bound {@code ../../.ssh/id_rsa} would be read into the page.
      */
-    public static String resolveImageSource(String source, java.nio.file.Path baseDir,
-            java.nio.file.Path containmentRoot) {
+    public static String resolveImageSource(String source, Path baseDir,
+            Path containmentRoot) {
         String value = source != null ? source.trim() : "";
         if (value.isEmpty()) {
             return "";
@@ -729,19 +743,19 @@ public class MarkdownPreview {
         }
         try {
             String decoded = WikiLinkResolver.urlDecode(value);
-            java.nio.file.Path imagePath = baseDir.resolve(decoded).normalize();
-            java.nio.file.Path bound = containmentRoot != null ? containmentRoot : baseDir;
+            Path imagePath = baseDir.resolve(decoded).normalize();
+            Path bound = containmentRoot != null ? containmentRoot : baseDir;
             if (!PathContainment.isInside(bound, imagePath)) {
                 logger.fine("Refusing to inline image outside the vault: " + value);
                 return "";
             }
-            if (!java.nio.file.Files.isRegularFile(imagePath)
-                    || java.nio.file.Files.size(imagePath) > MAX_INLINE_IMAGE_BYTES) {
+            if (!Files.isRegularFile(imagePath)
+                    || Files.size(imagePath) > MAX_INLINE_IMAGE_BYTES) {
                 return "";
             }
-            byte[] bytes = java.nio.file.Files.readAllBytes(imagePath);
+            byte[] bytes = Files.readAllBytes(imagePath);
             return "data:" + guessImageMime(imagePath.getFileName().toString()) + ";base64,"
-                    + java.util.Base64.getEncoder().encodeToString(bytes);
+                    + Base64.getEncoder().encodeToString(bytes);
         } catch (Exception e) {
             logger.fine("Could not resolve image '" + value + "': " + e.getMessage());
             return "";
@@ -753,8 +767,8 @@ public class MarkdownPreview {
      * URIs resolved against {@code baseDir}. Remote ({@code http(s)}), {@code data:}
      * and {@code file:} sources are left untouched.
      */
-    private static String embedLocalImages(String bodyHtml, java.nio.file.Path baseDir,
-            java.nio.file.Path containmentRoot) {
+    private static String embedLocalImages(String bodyHtml, Path baseDir,
+            Path containmentRoot) {
         if (baseDir == null || bodyHtml == null || !bodyHtml.contains("<img")) {
             return bodyHtml;
         }
@@ -843,11 +857,11 @@ public class MarkdownPreview {
         private static final String DARK_CSS = loadResourceText(HLJS_DARK_CSS_RESOURCE);
     }
 
-    // ── KaTeX (offline math rendering) ──────────────────────────────────────────
+    // ── KaTeX (offline math rendering) ───────────────────────────────────────
 
     private static final String KATEX_DIR = "/com/example/jylos/ui/preview/katex/";
     /** Matches a likely math delimiter so KaTeX is only injected when needed. */
-    private static final java.util.regex.Pattern MATH_HINT = java.util.regex.Pattern.compile(
+    private static final Pattern MATH_HINT = Pattern.compile(
             "\\$\\$[\\s\\S]+?\\$\\$|\\$[^\\$\\n]+\\$|\\\\\\([\\s\\S]+?\\\\\\)|\\\\\\[[\\s\\S]+?\\\\\\]");
 
     private static boolean containsMath(String markdown) {
@@ -895,11 +909,11 @@ public class MarkdownPreview {
         css = css.replaceAll(",url\\(fonts/[^)]+\\.woff\\) format\\(\"woff\"\\)", "");
         css = css.replaceAll(",url\\(fonts/[^)]+\\.ttf\\) format\\(\"truetype\"\\)", "");
         // ...then inline each woff2 file as a data URI.
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("url\\(fonts/([^)]+\\.woff2)\\)").matcher(css);
+        Matcher m = Pattern.compile("url\\(fonts/([^)]+\\.woff2)\\)").matcher(css);
         StringBuilder out = new StringBuilder(css.length() + 350_000);
         while (m.find()) {
             String dataUri = katexFontDataUri(m.group(1));
-            m.appendReplacement(out, java.util.regex.Matcher.quoteReplacement(
+            m.appendReplacement(out, Matcher.quoteReplacement(
                     dataUri != null ? "url(" + dataUri + ")" : m.group()));
         }
         m.appendTail(out);
@@ -911,7 +925,7 @@ public class MarkdownPreview {
             if (in == null) {
                 return null;
             }
-            return "data:font/woff2;base64," + java.util.Base64.getEncoder().encodeToString(in.readAllBytes());
+            return "data:font/woff2;base64," + Base64.getEncoder().encodeToString(in.readAllBytes());
         } catch (Exception e) {
             logger.fine("Could not inline KaTeX font " + fileName + ": " + e.getMessage());
             return null;

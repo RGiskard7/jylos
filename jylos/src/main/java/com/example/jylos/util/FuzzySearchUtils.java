@@ -115,7 +115,7 @@ public final class FuzzySearchUtils {
         return matches(query, target, 1);
     }
 
-    // ------------------------------------------------------------------
+    // ── Helpers ─────────────────────────────────────────────────────────────
 
     private static boolean isSeparator(char c) {
         return c == ' ' || c == '-' || c == '_' || c == '/' || c == '\\' || c == '.';

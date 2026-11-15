@@ -21,6 +21,9 @@ import netscape.javascript.JSObject;
 /**
  * {@link HtmlView} on JavaFX's own WebView (WebKit). A node itself, so FXML can place it where
  * a page is shown. The only place, with this package, that knows the engine.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public class JavaFxHtmlView extends StackPane implements HtmlView {
 

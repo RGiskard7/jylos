@@ -3,10 +3,13 @@ package com.example.jylos.ui.controller;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -20,19 +23,30 @@ import org.kordamp.ikonli.javafx.FontIcon;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
+import com.example.jylos.event.AppEvent;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
+import com.example.jylos.plugin.EditorBlockRenderer;
+import com.example.jylos.plugin.EditorBlockRendererRegistry;
+import com.example.jylos.plugin.EditorHooks;
 import com.example.jylos.plugin.PreviewEnhancer;
+import com.example.jylos.plugin.PreviewEnhancerRegistry;
 import com.example.jylos.service.CanvasReferences;
+import com.example.jylos.service.EncryptionService;
 import com.example.jylos.service.FileFingerprint;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.RichLinkService;
 import com.example.jylos.service.TagService;
+import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.CanvasView;
+import com.example.jylos.ui.components.FileViewer;
 import com.example.jylos.ui.components.MarkdownEditorView;
+import com.example.jylos.ui.web.HtmlView;
+import com.example.jylos.ui.web.JavaFxHtmlView;
 import com.example.jylos.util.AttachmentType;
+import com.example.jylos.util.CanvasModel;
 import com.example.jylos.util.MarkdownPreview;
 import com.example.jylos.util.RichLinks;
 import com.example.jylos.util.SystemBrowser;
@@ -42,11 +56,13 @@ import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
+import javafx.scene.Cursor;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBase;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
+import javafx.scene.control.OverrunStyle;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
@@ -74,12 +90,12 @@ import javafx.scene.layout.VBox;
  * @author Edu Díaz (RGiskard7)
  * @since 1.3.0
  */
-public class EditorController implements com.example.jylos.plugin.PreviewEnhancerRegistry,
-        com.example.jylos.plugin.EditorBlockRendererRegistry {
+public class EditorController implements PreviewEnhancerRegistry,
+        EditorBlockRendererRegistry {
 
     private static final Logger logger = LoggerConfig.getLogger(EditorController.class);
 
-    // ── Service / state ─────────────────────────────────────────────────────
+    // ── Service / state ──────────────────────────────────────────────────────
     private EventBus eventBus;
     private NoteService noteService;
     private TagService tagService;
@@ -117,7 +133,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
 
     private final EditorBlockRenderSupport blockRenderSupport = new EditorBlockRenderSupport();
     private WikiLinkHandler wikiLinkHandler;
-    private java.util.function.Consumer<String> tagLinkHandler;
+    private Consumer<String> tagLinkHandler;
     /** The reading view: renders, scroll, heading jumps, its page bridge and plugin enhancers. */
     private final EditorPreviewSupport preview = new EditorPreviewSupport(new PreviewHost());
     private final RichLinkService richLinkService = new RichLinkService();
@@ -135,7 +151,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
         void openNoteByTitle(String title);
     }
 
-    // ── FXML — header ───────────────────────────────────────────────────────
+    // ── FXML — header ────────────────────────────────────────────────────────
     @FXML private VBox editorContainer;
     @FXML private ScrollPane editorTabScroll;
     @FXML private HBox editorTabBar;
@@ -160,12 +176,12 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
     @FXML private ToggleButton favoriteButton;
     @FXML private ToggleButton focusModeToggleBtn;
 
-    // ── FXML — tags bar ─────────────────────────────────────────────────────
+    // ── FXML — tags bar ──────────────────────────────────────────────────────
     @FXML private VBox tagsContainer;
     @FXML private FlowPane tagsFlowPane;
     @FXML private Label modifiedDateLabel;
 
-    // ── FXML — properties panel ─────────────────────────────────────────────
+    // ── FXML — properties panel ──────────────────────────────────────────────
     @FXML private VBox  propertiesSection;   // outer, shown when note has custom props
     @FXML private HBox  propertiesHeader;    // always-visible header row
     @FXML private Label propertiesCollapseIcon;
@@ -174,18 +190,16 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
     @FXML private Button addPropertyBtn;
     @FXML private Button addPropertyHeaderBtn;
 
-    // ── FXML — editor / preview ─────────────────────────────────────────────
+    // ── FXML — editor / preview ──────────────────────────────────────────────
     @FXML private SplitPane editorPreviewSplitPane;
     @FXML private VBox      editorPane;
     @FXML private MarkdownEditorView noteContentArea;
     @FXML private HBox      formatToolbarContainer;
     @FXML private VBox      previewPane;
     /** The reading view's page. */
-    @FXML private com.example.jylos.ui.web.JavaFxHtmlView previewWebView;
+    @FXML private JavaFxHtmlView previewWebView;
 
-    // ============================================================
-    // Setters
-    // ============================================================
+    // ── Setters ──────────────────────────────────────────────────────────────
 
     private void setEventBus(EventBus eventBus) {
         subscriptions.forEach(EventBus.Subscription::cancel);
@@ -237,7 +251,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
             Consumer<Note> noteModifiedAction, Consumer<String> statusAction,
             Supplier<List<String>> autocompleteTitlesSupplier, boolean livePreviewEnabled,
             Consumer<Boolean> livePreviewPreferenceAction, WikiLinkHandler wikiLinkHandler,
-            Consumer<String> tagLinkHandler, com.example.jylos.plugin.EditorHooks editorHooks) {
+            Consumer<String> tagLinkHandler, EditorHooks editorHooks) {
         setNoteService(noteService);
         setTagService(tagService);
         setBundle(bundle);
@@ -260,7 +274,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
     }
 
     /** Plugin editor-hook dispatcher (nullable; wired by MainController). */
-    private com.example.jylos.plugin.EditorHooks editorHooks;
+    private EditorHooks editorHooks;
 
     /**
      * Runs plugin {@code onBeforeTextInsert} hooks over a snippet about to be inserted
@@ -274,9 +288,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
         return editorHooks.applyBeforeTextInsert(currentNote, snippet);
     }
 
-    // ============================================================
-    // Header control presentation
-    // ============================================================
+    // ── Header control presentation ──────────────────────────────────────────
 
     /**
      * Renders the compact editor-header controls as icon-only buttons.
@@ -299,9 +311,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
         }
     }
 
-    // ============================================================
-    // Navigation state (called from MainController)
-    // ============================================================
+    // ── Navigation state (called from MainController) ────────────────────────
 
     /**
      * Enables or disables the back/forward navigation arrow buttons.
@@ -312,9 +322,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
         if (navForwardBtn != null) navForwardBtn.setDisable(!canGoForward);
     }
 
-    // ============================================================
-    // State accessors
-    // ============================================================
+    // ── State accessors ──────────────────────────────────────────────────────
 
     public Note getCurrentNote() { return currentNote; }
 
@@ -370,7 +378,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
     // FXML node getters (used by MainController for layout delegation)
     public VBox            getEditorContainer()        { return editorContainer; }
     public HBox            getEditorTabBar()           { return editorTabBar; }
-    public javafx.scene.control.ScrollPane getEditorTabScroll() { return editorTabScroll; }
+    public ScrollPane getEditorTabScroll() { return editorTabScroll; }
 
     /** Leaves the title of the open note selected in its field, ready to type a new name. */
     public void beginTitleRename() {
@@ -385,11 +393,9 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
     public SplitPane       getEditorPreviewSplitPane()  { return editorPreviewSplitPane; }
     public VBox            getEditorPane()              { return editorPane; }
     public VBox            getPreviewPane()             { return previewPane; }
-    public com.example.jylos.ui.web.HtmlView getPreviewWebView() { return previewWebView; }
+    public HtmlView getPreviewWebView() { return previewWebView; }
 
-    // ============================================================
-    // FXML action handlers
-    // ============================================================
+    // ── FXML action handlers ─────────────────────────────────────────────────
 
     @FXML private void handleToggleTags(ActionEvent e)        { publish(SystemActionEvent.ActionType.TOGGLE_TAGS); }
     @FXML private void handleToggleReadingMode(ActionEvent e) { publish(SystemActionEvent.ActionType.TOGGLE_READING_MODE); }
@@ -422,9 +428,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
     /** Forward arrow — delegates history logic to MainController via EventBus. */
     @FXML private void handleNavigateForward(ActionEvent e) { publish(SystemActionEvent.ActionType.NAVIGATE_FORWARD); }
 
-    // ============================================================
-    // Properties panel handlers
-    // ============================================================
+    // ── Properties panel handlers ────────────────────────────────────────────
 
     /** Toggles (collapses/expands) the properties content area. */
     @FXML
@@ -465,9 +469,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
         properties.rebuild();
     }
 
-    // ============================================================
-    // Note loading and saving
-    // ============================================================
+    // ── Note loading and saving ──────────────────────────────────────────────
 
     /** FXML lifecycle hook: start in the empty state (no note open). */
     @FXML
@@ -533,7 +535,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
             if (action != null) {
                 notePathLabel.getStyleClass().add("note-path-link");
             }
-            notePathLabel.setCursor(action != null ? javafx.scene.Cursor.HAND : javafx.scene.Cursor.DEFAULT);
+            notePathLabel.setCursor(action != null ? Cursor.HAND : Cursor.DEFAULT);
         }
     }
 
@@ -623,7 +625,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
         int lastSlash = path.lastIndexOf('/');
         String folders = lastSlash > 0 ? path.substring(0, lastSlash).replace("/", " / ") + " /" : "";
         notePathLabel.setText(folders);
-        notePathLabel.setTextOverrun(javafx.scene.control.OverrunStyle.LEADING_ELLIPSIS);
+        notePathLabel.setTextOverrun(OverrunStyle.LEADING_ELLIPSIS);
         if (editorHeaderBar != null && !notePathLabel.maxWidthProperty().isBound()) {
             // A deep path never takes more than 40% of the row; the title keeps the rest.
             notePathLabel.maxWidthProperty().bind(editorHeaderBar.widthProperty().multiply(0.4));
@@ -730,7 +732,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
         if (!isPrivate) {
             return;
         }
-        boolean readable = com.example.jylos.service.EncryptionService.getInstance().canRead(currentNote.getId());
+        boolean readable = EncryptionService.getInstance().canRead(currentNote.getId());
         if (privateIndicatorIcon != null) {
             privateIndicatorIcon.setIconLiteral(readable ? "fth-unlock" : "fth-lock");
         }
@@ -768,10 +770,10 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
         currentAttachmentType = type;
         ensureAttachmentViewer();
 
-        java.nio.file.Path path = (noteService != null)
+        Path path = (noteService != null)
                 ? noteService.getNoteFilePath(note.getId()).orElse(null)
                 : null;
-        javafx.scene.Node attachmentContent;
+        Node attachmentContent;
         if (path != null && type == AttachmentType.CANVAS) {
             if (canReuseCurrentCanvas(path)) {
                 attachmentContent = currentCanvasView;
@@ -779,7 +781,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
                 attachmentContent = buildCanvasView(path);
             }
         } else if (path != null) {
-            attachmentContent = com.example.jylos.ui.components.FileViewer.forAttachment(path, type, bundle);
+            attachmentContent = FileViewer.forAttachment(path, type, bundle);
         } else {
             Label missing = new Label(getString("viewer.file_not_found", "File not found"));
             missing.getStyleClass().add("viewer-info");
@@ -839,7 +841,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
     }
 
     /** Reads, parses and renders a {@code .canvas} file; file nodes open the referenced note. */
-    private javafx.scene.Node buildCanvasView(java.nio.file.Path path) {
+    private Node buildCanvasView(Path path) {
         try {
             String json = canvasContent(path);
             if (NoteService.LOCKED_PLACEHOLDER.equals(json)) {
@@ -850,13 +852,13 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
                 locked.getStyleClass().add("viewer-info");
                 return locked;
             }
-            com.example.jylos.util.CanvasModel.Document canvasDoc =
-                    com.example.jylos.util.CanvasModel.Document.parse(json);
+            CanvasModel.Document canvasDoc =
+                    CanvasModel.Document.parse(json);
             CanvasReferences refs = new CanvasReferences(noteService,
                     CanvasReferences.vaultRootFor(path, currentNote != null ? currentNote.getId() : ""));
             final Supplier<List<String>> canvasReferenceSuggestions = memoizedCanvasReferenceSuggestions(refs);
             currentCanvasPath = path;
-            currentCanvasView = new com.example.jylos.ui.components.CanvasView(
+            currentCanvasView = new CanvasView(
                     canvasDoc,
                     file -> openNoteByTitle(refs.linkToOpen(file)),
                     refs::resolve,
@@ -884,9 +886,9 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
      * The canvas's JSON. Read through the note service, which decrypts a private canvas (or
      * gives the lock placeholder while locked); straight from the file without one.
      */
-    private String canvasContent(java.nio.file.Path path) throws IOException {
+    private String canvasContent(Path path) throws IOException {
         if (noteService != null && currentNote != null && currentNote.getId() != null) {
-            java.util.Optional<String> content = noteService.getNoteById(currentNote.getId()).map(Note::getContent);
+            Optional<String> content = noteService.getNoteById(currentNote.getId()).map(Note::getContent);
             if (content.isPresent()) {
                 return content.get();
             }
@@ -1074,7 +1076,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
             if (eventBus != null) {
                 eventBus.publish(new NoteEvents.NoteCreatedEvent(created));
             }
-            reportStatus(java.text.MessageFormat.format(safeI18n("status.save_conflict_copy"), created.getTitle()));
+            reportStatus(MessageFormat.format(safeI18n("status.save_conflict_copy"), created.getTitle()));
             return true;
         } catch (RuntimeException e) {
             reportSaveFailure(e);
@@ -1133,10 +1135,10 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
             reportSaveFailure(e);
             return;
         }
-        if (noteContentArea != null && !java.util.Objects.equals(noteContentArea.getText(), currentNote.getContent())) {
+        if (noteContentArea != null && !Objects.equals(noteContentArea.getText(), currentNote.getContent())) {
             noteContentArea.replaceDocument(currentNote.getContent());
         }
-        if (noteTitleField != null && !java.util.Objects.equals(noteTitleField.getText(), currentNote.getTitle())) {
+        if (noteTitleField != null && !Objects.equals(noteTitleField.getText(), currentNote.getTitle())) {
             noteTitleField.setText(currentNote.getTitle());
         }
         properties.rebuild();
@@ -1160,9 +1162,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
         }
     }
 
-    // ============================================================
-    // Properties panel — internal
-    // ============================================================
+    // ── Properties panel — internal ──────────────────────────────────────────
 
     /** Opens a note by title via the owning shell callback. */
     private void openNoteByTitle(String title) {
@@ -1180,9 +1180,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
         noteContentArea.setAutocompleteTitles(titles != null ? titles : List.of());
     }
 
-    // ============================================================
-    // EventBus subscriptions
-    // ============================================================
+    // ── EventBus subscriptions ───────────────────────────────────────────────
 
     private void subscribeToEvents() {
         if (eventBus == null) return;
@@ -1223,7 +1221,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
 
         // A rendered block can summarise the whole vault, so its result goes stale when
         // any note changes — not only when the note holding the block is edited.
-        for (Class<? extends com.example.jylos.event.AppEvent> vaultEvent : java.util.List.of(
+        for (Class<? extends AppEvent> vaultEvent : List.of(
                 NoteEvents.NoteCreatedEvent.class, NoteEvents.NoteSavedEvent.class,
                 NoteEvents.NoteUpdatedEvent.class, NoteEvents.NoteDeletedEvent.class,
                 NoteEvents.NotesRefreshRequestedEvent.class)) {
@@ -1248,9 +1246,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
         subscriptions.clear();
     }
 
-    // ============================================================
-    // Markdown formatting
-    // ============================================================
+    // ── Markdown formatting ──────────────────────────────────────────────────
 
     private void insertMarkdownFormat(String prefix, String suffix) {
         if (noteContentArea == null) return;
@@ -1318,7 +1314,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
         d.setTitle(getString("dialog.link.title", "Insert Link"));
         d.setHeaderText(getString("dialog.link.header", "Enter URL:"));
         d.setContentText(getString("dialog.link.content", "URL:"));
-        com.example.jylos.ui.UiDialogs.show(d).filter(s -> !s.trim().isEmpty()).ifPresent(url -> {
+        UiDialogs.show(d).filter(s -> !s.trim().isEmpty()).ifPresent(url -> {
             String sel = noteContentArea.getSelectedText();
             String label = (sel != null && !sel.isEmpty()) ? sel
                     : getString("dialog.link.default_text", "link text");
@@ -1345,7 +1341,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
         d.setTitle(getString("dialog.rich_link.title", "Insert rich link"));
         d.setHeaderText(getString("dialog.rich_link.header", "Paste a URL:"));
         d.setContentText(getString("dialog.rich_link.content", "URL:"));
-        com.example.jylos.ui.UiDialogs.show(d)
+        UiDialogs.show(d)
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .ifPresent(this::fetchAndInsertRichLink);
@@ -1387,7 +1383,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
         d.setTitle(getString("dialog.image.title", "Insert Image"));
         d.setHeaderText(getString("dialog.image.header", "Enter image URL or path:"));
         d.setContentText(getString("dialog.image.content", "Image:"));
-        com.example.jylos.ui.UiDialogs.show(d).filter(s -> !s.trim().isEmpty()).ifPresent(path -> {
+        UiDialogs.show(d).filter(s -> !s.trim().isEmpty()).ifPresent(path -> {
             String sel = noteContentArea.getSelectedText();
             String alt = (sel != null && !sel.isEmpty()) ? sel
                     : getString("dialog.image.default_alt", "image");
@@ -1402,13 +1398,9 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
         });
     }
 
-    // ============================================================
-    // Editor commands (called from other controllers)
-    // ============================================================
+    // ── Editor commands (called from other controllers) ──────────────────────
 
-    // ============================================================
-    // Tag management & metadata (called from MainController)
-    // ============================================================
+    // ── Tag management & metadata (called from MainController) ───────────────
 
     public void loadNoteTags(Note note, FlowPane fp, Runnable onAdd, Consumer<Tag> onRemove) {
         if (fp == null) return;
@@ -1445,13 +1437,11 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
         setLabelSafe(modified, orDash(note.getModifiedDate()));
     }
 
-    // ============================================================
-    // Preview, word count, editor chrome
-    // ============================================================
+    // ── Preview, word count, editor chrome ───────────────────────────────────
 
     @Override
     public void registerEditorBlockRenderer(String pluginId, String language,
-            com.example.jylos.plugin.EditorBlockRenderer renderer) {
+            EditorBlockRenderer renderer) {
         blockRenderSupport.registerRenderer(pluginId, language, renderer);
         Platform.runLater(() -> refreshEditorBlockRenders(true));
     }
@@ -1686,7 +1676,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
     /** What the reading view reads from this editor. */
     private final class PreviewHost implements EditorPreviewSupport.Host {
         @Override
-        public com.example.jylos.ui.web.HtmlView previewWebView() {
+        public HtmlView previewWebView() {
             return previewWebView;
         }
 
@@ -1739,9 +1729,7 @@ public class EditorController implements com.example.jylos.plugin.PreviewEnhance
         if (bus != null && type != null) bus.publish(new SystemActionEvent(type));
     }
 
-    // ============================================================
-    // Private utilities
-    // ============================================================
+    // ── Private utilities ────────────────────────────────────────────────────
 
     private void publish(SystemActionEvent.ActionType type) {
         if (eventBus != null) eventBus.publish(new SystemActionEvent(type));

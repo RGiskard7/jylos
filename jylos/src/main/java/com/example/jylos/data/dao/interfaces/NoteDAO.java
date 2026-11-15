@@ -1,6 +1,8 @@
 package com.example.jylos.data.dao.interfaces;
 
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.data.models.Note;
@@ -23,6 +25,9 @@ import com.example.jylos.data.models.Folder;
  * <li>Arguments that make no sense ({@code null} where an object is required) throw
  * {@code IllegalArgumentException} or {@code InvalidParameterException}.</li>
  * </ul>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public interface NoteDAO {
 
@@ -216,8 +221,8 @@ public interface NoteDAO {
      * @return the note's file path, or empty for storage backends without files
      *         (e.g. SQLite)
      */
-    default java.util.Optional<java.nio.file.Path> resolveFilePath(String id) {
-        return java.util.Optional.empty();
+    default Optional<Path> resolveFilePath(String id) {
+        return Optional.empty();
     }
 
     /**
@@ -226,8 +231,8 @@ public interface NoteDAO {
      *
      * @return the storage root, or empty for backends without files (e.g. SQLite)
      */
-    default java.util.Optional<java.nio.file.Path> storageRoot() {
-        return java.util.Optional.empty();
+    default Optional<Path> storageRoot() {
+        return Optional.empty();
     }
 
     /**

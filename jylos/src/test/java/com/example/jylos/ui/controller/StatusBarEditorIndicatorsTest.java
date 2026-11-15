@@ -7,6 +7,7 @@ import static com.example.jylos.tests.FxTestSupport.onFx;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.junit.jupiter.api.Assumptions;
@@ -125,7 +126,7 @@ class StatusBarEditorIndicatorsTest {
         final Separator separator = new Separator();
         final StatusBarSupport support = new StatusBarSupport();
 
-        Fixture(java.util.function.Consumer<EditorMode> onModeChosen) {
+        Fixture(Consumer<EditorMode> onModeChosen) {
             support.wire(null, null, null, null, null, null, I18N);
             support.wireEditorIndicators(save, mode, separator, onModeChosen);
         }

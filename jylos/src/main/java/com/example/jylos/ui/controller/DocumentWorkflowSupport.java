@@ -29,6 +29,9 @@ import javafx.stage.Window;
  * <p>{@link DocumentSupport} keeps the low-level file import/export mechanics.
  * This support owns only the file pickers, background export task and UI status
  * updates extracted from {@link MainController}.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.3.0
  */
 final class DocumentWorkflowSupport {
 

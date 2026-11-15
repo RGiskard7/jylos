@@ -11,6 +11,9 @@ import com.example.jylos.event.AppEvent;
  *   avoid re-publication loops.
  * - Controllers should not re-publish the same action from their action
  *   handler.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class SystemActionEvent extends AppEvent {
     /** Application-level action requested by menus, toolbar buttons or shortcuts. */

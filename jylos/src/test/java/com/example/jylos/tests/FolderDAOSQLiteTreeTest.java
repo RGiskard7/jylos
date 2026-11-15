@@ -45,9 +45,9 @@ class FolderDAOSQLiteTreeTest {
             s.folderDAO.addSubFolder(nivel1, nivel2);
 
             Folder pedida = new Folder(raiz.getId(), "Raíz");
-            java.util.List<Folder> hijos = s.folderDAO.fetchDirectSubfolders(pedida);
+            List<Folder> hijos = s.folderDAO.fetchDirectSubfolders(pedida);
 
-            assertEquals(java.util.List.of("Nivel 1"), hijos.stream().map(Folder::getTitle).toList());
+            assertEquals(List.of("Nivel 1"), hijos.stream().map(Folder::getTitle).toList());
             assertTrue(hijos.get(0).isEmpty(), "no baja a los nietos");
             assertTrue(pedida.isEmpty(), "no cambia la carpeta que se pasa");
         }

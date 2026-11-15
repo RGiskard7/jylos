@@ -47,7 +47,7 @@ import javafx.scene.text.TextAlignment;
  */
 public final class GraphCanvas extends Region {
 
-    // ── Physics tuning (close to Obsidian's defaults) ───────────────────────
+    // ── Physics tuning (close to Obsidian's defaults) ────────────────────────
     private static final double ALPHA_INIT     = 1.0;
     // Obsidian's simulation (its graph worker): alpha 1 down to .001 in about 300 steps,
     // keeping 60 % of the velocity each step.
@@ -67,7 +67,7 @@ public final class GraphCanvas extends Region {
                                                              // cooled down, or an overlap in an already-settled
                                                              // layout would never get corrected
 
-    // ── Interaction tuning ──────────────────────────────────────────────────
+    // ── Interaction tuning ───────────────────────────────────────────────────
     private static final double MIN_SCALE = 0.02;
     private static final double MAX_SCALE = 8.0;
     private static final double GHOST_ALPHA = 0.5;         // opacity of a note that does not exist yet (Obsidian's)
@@ -88,20 +88,20 @@ public final class GraphCanvas extends Region {
     private final Canvas canvas = new Canvas();
     private final GraphicsContext g = canvas.getGraphicsContext2D();
 
-    // ── Live-adjustable forces (defaults from the constants above) ──────────
+    // ── Live-adjustable forces (defaults from the constants above) ───────────
     private double charge = CHARGE;
     private double linkDistance = LINK_DISTANCE;
     private double centerGravity = CENTER_GRAVITY;
     private double linkForce = 1.0;        // spring strength multiplier (Obsidian "link force")
     private boolean colorByFolder = false;
 
-    // ── Live-adjustable display options ─────────────────────────────────────
+    // ── Live-adjustable display options ──────────────────────────────────────
     private double nodeScale = 1.0;        // node radius multiplier
     private double lineThickness = 1.0;    // edge width multiplier
     private boolean showArrows = false;    // draw directional arrowheads on edges
     private double labelThreshold = 0.4;   // min zoom at which labels appear (text fade)
 
-    // ── Node arrays (struct-of-arrays for cache-friendly physics) ───────────
+    // ── Node arrays (struct-of-arrays for cache-friendly physics) ────────────
     private int n = 0;
     private double[] x = new double[0];
     private double[] y = new double[0];
@@ -125,12 +125,12 @@ public final class GraphCanvas extends Region {
     private static final int KIND_TAG = 1;
     private static final int KIND_GHOST = 2;
 
-    // ── Edges (index pairs) + per-node link counts (for spring strength) ────
+    // ── Edges (index pairs) + per-node link counts (for spring strength) ─────
     private int[] edgeA = new int[0];
     private int[] edgeB = new int[0];
     private int[] linkCount = new int[0];
 
-    // ── View transform (world → screen): screen = world*scale + offset ──────
+    // ── View transform (world → screen): screen = world*scale + offset ───────
     private double scale = 1.0;
     private double offsetX = 0;
     private double offsetY = 0;
@@ -145,7 +145,7 @@ public final class GraphCanvas extends Region {
     private double lastWidth = 0;
     private double lastHeight = 0;
 
-    // ── Simulation / interaction state ──────────────────────────────────────
+    // ── Simulation / interaction state ───────────────────────────────────────
     private double alpha = 0;
     private boolean timerRunning = false;
     private int hoverIndex = -1;
@@ -569,7 +569,7 @@ public final class GraphCanvas extends Region {
         stopTimer();
     }
 
-    // ── Model construction ─────────────────────────────────────────────────────
+    // ── Model construction ───────────────────────────────────────────────────
 
     private void buildModel(GraphData data) {
         List<GraphNode> ns = data.nodes();
@@ -723,7 +723,7 @@ public final class GraphCanvas extends Region {
         startTimer();
     }
 
-    // ── Simulation step ────────────────────────────────────────────────────────
+    // ── Simulation step ──────────────────────────────────────────────────────
 
     /** The radius of a note node with {@code degree} connections, before zoom and the size slider. */
     static double nodeSize(int degree) {
@@ -807,7 +807,7 @@ public final class GraphCanvas extends Region {
         }
     }
 
-    // ── Barnes–Hut many-body repulsion ──────────────────────────────────────────
+    // ── Barnes–Hut many-body repulsion ───────────────────────────────────────
 
     private void applyManyBody(QuadNode root) {
         if (n < 2 || root == null) {
@@ -818,7 +818,7 @@ public final class GraphCanvas extends Region {
         }
     }
 
-    // ── Collision (node circles never overlap once the layout settles) ─────────
+    // ── Collision (node circles never overlap once the layout settles) ───────
 
     private void applyCollisions(QuadNode root) {
         if (n < 2 || root == null) {
@@ -1210,7 +1210,7 @@ public final class GraphCanvas extends Region {
         g.fillText(labels[idx], cx, cy);
     }
 
-    // ── Interaction ────────────────────────────────────────────────────────────
+    // ── Interaction ──────────────────────────────────────────────────────────
 
     private void installInteraction() {
         canvas.setOnScroll(e -> {
@@ -1308,7 +1308,7 @@ public final class GraphCanvas extends Region {
         return best;
     }
 
-    // ── Timer / helpers ────────────────────────────────────────────────────────
+    // ── Timer / helpers ──────────────────────────────────────────────────────
 
     private void startTimer() {
         if (!timerRunning) {

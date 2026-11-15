@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static com.example.jylos.tests.FxTestSupport.onFx;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.junit.jupiter.api.Assumptions;
@@ -57,9 +58,9 @@ class GraphCanvasViewTest {
             return canvas.screenBounds();
         });
         // Inside the view, and filling a good part of it: not a speck in the middle.
-        assertTrue(box[0] >= 0 && box[1] >= 0 && box[2] <= W && box[3] <= H, "on screen: " + java.util.Arrays.toString(box));
+        assertTrue(box[0] >= 0 && box[1] >= 0 && box[2] <= W && box[3] <= H, "on screen: " + Arrays.toString(box));
         assertTrue(Math.max((box[2] - box[0]) / W, (box[3] - box[1]) / H) > 0.7,
-                "fills the view: " + java.util.Arrays.toString(box));
+                "fills the view: " + Arrays.toString(box));
     }
 
     @Test

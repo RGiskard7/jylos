@@ -27,6 +27,9 @@ import com.example.jylos.service.NoteService;
  * <p>Attachments and canvas files carry no Markdown metadata, and private notes are left
  * out deliberately: a query is rendered into a preview that may be exported or shared,
  * and silently surfacing the contents of a note the user marked private would leak it.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
  */
 final class DataviewIndex implements PageSource {
 

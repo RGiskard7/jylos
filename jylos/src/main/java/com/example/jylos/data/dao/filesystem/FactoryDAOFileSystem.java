@@ -12,6 +12,9 @@ import com.example.jylos.data.dao.interfaces.TagDAO;
  * <p>The factory creates one shared note DAO instance and wires folder/tag DAOs
  * against it so path caches, metadata sidecars and tag extraction stay consistent
  * within the active vault session.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class FactoryDAOFileSystem extends FactoryDAO {
 

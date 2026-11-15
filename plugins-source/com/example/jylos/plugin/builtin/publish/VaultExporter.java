@@ -1,6 +1,7 @@
 package com.example.jylos.plugin.builtin.publish;
 
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,6 +30,7 @@ import com.example.jylos.graph.GraphNode;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
+import com.example.jylos.util.AttachmentType;
 import com.example.jylos.util.MarkdownProcessor;
 import com.example.jylos.util.WikiLinkResolver;
 
@@ -73,6 +75,9 @@ import com.example.jylos.util.WikiLinkResolver;
  * rewrites those into real relative hrefs afterward. This guarantees the
  * exported site resolves links exactly the way the app's own preview does,
  * instead of a second, potentially divergent, link-syntax implementation.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.6
  */
 final class VaultExporter {
 
@@ -288,7 +293,7 @@ final class VaultExporter {
             // check as isContentComplete() — that flag also covers a Markdown note
             // that simply hasn't had its full content read from disk yet (see the
             // force-load below), which on a large vault is most of getAllNotes().
-            if (com.example.jylos.util.AttachmentType.isAttachment(note.getTitle())) {
+            if (AttachmentType.isAttachment(note.getTitle())) {
                 skippedAttachments++;
                 continue;
             }
@@ -461,9 +466,7 @@ final class VaultExporter {
         Files.writeString(assetsDir.resolve("mini-graph.js"), PublishTemplates.miniGraphJs(), StandardCharsets.UTF_8);
     }
 
-    // ------------------------------------------------------------------
-    // Publish options manifest — see PublishOptions' own doc
-    // ------------------------------------------------------------------
+    // ── Publish options manifest — see PublishOptions' own doc ───────────────
 
     private static final String MANIFEST_FILE_NAME = ".jylos-publish.manifest";
 
@@ -539,9 +542,7 @@ final class VaultExporter {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Folder tree walking
-    // ------------------------------------------------------------------
+    // ── Folder tree walking ──────────────────────────────────────────────────
 
     private void walkFolders(List<Folder> folders, List<String> pathSoFar, Map<String, List<String>> out) {
         for (Folder folder : folders) {
@@ -556,9 +557,7 @@ final class VaultExporter {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Wiki-link href resolution (title -> relative href from a given note)
-    // ------------------------------------------------------------------
+    // ── Wiki-link href resolution (title -> relative href from a given note) ───
 
     /**
      * Resolves a wiki-link's target title to an href relative to the note
@@ -598,9 +597,7 @@ final class VaultExporter {
         return relativize(fromRelativePath, targetPath);
     }
 
-    // ------------------------------------------------------------------
-    // Table of contents, breadcrumb, backlinks
-    // ------------------------------------------------------------------
+    // ── Table of contents, breadcrumb, backlinks ─────────────────────────────
 
     /**
      * Builds the note's own "On this page" outline from the headings
@@ -756,7 +753,7 @@ final class VaultExporter {
     }
 
     private static String urlEncode(String value) {
-        return java.net.URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
+        return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
     /**
@@ -796,9 +793,7 @@ final class VaultExporter {
         return depth;
     }
 
-    // ------------------------------------------------------------------
-    // Graph + index
-    // ------------------------------------------------------------------
+    // ── Graph + index ────────────────────────────────────────────────────────
 
     private String writeGraph(Path outputDir, NoteSlugs slugs, List<Note> exportable) throws IOException {
         Set<String> exportableIds = new LinkedHashSet<>();

@@ -16,6 +16,9 @@ import com.example.jylos.plugin.PreviewEnhancer;
  * Markdown) means the query text is located exactly where the Markdown parser decided a
  * code block really was — a fence inside a blockquote or a list stays correctly scoped,
  * and a query shown as an example inside a nested fence is not executed by mistake.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
  */
 final class DataviewEnhancer implements PreviewEnhancer {
 

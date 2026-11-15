@@ -17,6 +17,7 @@ import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.PreviewContext;
 import com.example.jylos.plugin.PreviewEnhancer;
 import com.example.jylos.ui.controller.EditorController;
+import com.example.jylos.ui.web.JavaFxHtmlView;
 
 import javafx.scene.Scene;
 import javafx.scene.layout.VBox;
@@ -125,14 +126,14 @@ class EditorControllerPreviewStaleNoteTest {
         final Note noteA = note("a.md", "A", "Texto de A");
         final Note noteB = note("b.md", "B", "Texto de B");
         EditorController controller;
-        com.example.jylos.ui.web.JavaFxHtmlView webView;
+        JavaFxHtmlView webView;
         Stage stage;
 
         static Fixture open() throws Exception {
             Fixture fixture = new Fixture();
             runFx(() -> {
                 fixture.controller = new EditorController();
-                fixture.webView = new com.example.jylos.ui.web.JavaFxHtmlView();
+                fixture.webView = new JavaFxHtmlView();
                 VBox previewPane = new VBox(fixture.webView);
                 set(fixture.controller, "previewWebView", fixture.webView);
                 set(fixture.controller, "previewPane", previewPane);

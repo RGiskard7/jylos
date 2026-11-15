@@ -29,6 +29,9 @@ import javafx.scene.input.TransferMode;
  * <p>A folder cannot be dropped onto itself or into one of its own descendants, and nothing
  * can be dropped onto the tree's invisible root. After a successful move the folder tree,
  * the notes list and every other listener are told to reload.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class FolderDropSupport {
 

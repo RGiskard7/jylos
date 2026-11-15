@@ -2,7 +2,12 @@ package com.example.jylos.ui;
 
 import javafx.scene.Node;
 
-/** Small helpers for JavaFX nodes shared by the UI. */
+/**
+ * Small helpers for JavaFX nodes shared by the UI.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
+ */
 public final class UiNodes {
 
     private UiNodes() {

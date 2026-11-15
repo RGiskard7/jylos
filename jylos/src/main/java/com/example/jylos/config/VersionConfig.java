@@ -8,6 +8,9 @@ import java.util.logging.Logger;
 
 /**
  * Reads the application version embedded at build time.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.4.1
  */
 public final class VersionConfig {
 

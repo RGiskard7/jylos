@@ -3,6 +3,7 @@ package com.example.jylos.tests;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -93,7 +94,7 @@ class FileSystemDAOErrorReportingTest {
     }
 
     private static void assumePosix() {
-        Assumptions.assumeTrue(java.nio.file.FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
+        Assumptions.assumeTrue(FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
     }
 
     private void write(String path, String content) throws Exception {

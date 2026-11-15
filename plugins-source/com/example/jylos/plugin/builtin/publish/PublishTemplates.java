@@ -11,6 +11,9 @@ package com.example.jylos.plugin.builtin.publish;
  * network access once published. That matters for a "publish anywhere" export —
  * a CDN script blocked by a viewer's network, or a broken CDN link years later,
  * would silently break every page.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.6
  */
 final class PublishTemplates {
 
@@ -687,7 +690,7 @@ final class PublishTemplates {
                     return 'rgba(' + r + ',' + g + ',' + bl + ',' + al + ')';
                   }
 
-                  // ── Barnes–Hut quadtree — same structure/pruning as GraphCanvas.java's QuadNode ──
+                  // ── Barnes–Hut quadtree — same structure/pruning as GraphCanvas.java's QuadNode ───
                   function QuadNode(x0, y0, size) {
                     this.x0 = x0; this.y0 = y0; this.size = size;
                     this.children = null; this.index = -1; this.count = 0;

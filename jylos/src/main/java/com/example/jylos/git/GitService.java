@@ -52,7 +52,7 @@ public final class GitService {
     private final GitBranchService branchService =
             new GitBranchService(runner, probe, pathResolver, statusService);
 
-    // ── Availability ────────────────────────────────────────────────────────
+    // ── Availability ─────────────────────────────────────────────────────────
 
     /** True if the {@code git} executable is available on PATH. */
     public boolean isGitAvailable() {
@@ -64,7 +64,7 @@ public final class GitService {
         return probe.isRepository(dir);
     }
 
-    // ── Status ──────────────────────────────────────────────────────────────
+    // ── Status ───────────────────────────────────────────────────────────────
 
     /** Reads local Git state without performing network I/O. */
     public GitStatus status(Path dir) {
@@ -84,7 +84,7 @@ public final class GitService {
         return statusService.fetchRemote(dir);
     }
 
-    // ── Repository setup ──────────────────────────────────────────────────────
+    // ── Repository setup ─────────────────────────────────────────────────────
 
     /**
      * Initializes a new repository in {@code dir}: {@code git init}, author config,
@@ -129,7 +129,7 @@ public final class GitService {
         return branchService.switchBranch(dir, branch);
     }
 
-    // ── Commit / pull / push ──────────────────────────────────────────────────
+    // ── Commit / pull / push ─────────────────────────────────────────────────
 
     /** Commits the vault files that are already staged in Git's index. */
     public GitResult commit(Path dir, String message) {
@@ -178,7 +178,7 @@ public final class GitService {
         return remoteSyncService.sync(dir, commitMessage, progressListener);
     }
 
-    // ── Changes, staging & history ────────────────────────────────────────────
+    // ── Changes, staging & history ───────────────────────────────────────────
 
     /**
      * Lists every uncommitted change beneath the vault, with best-effort line statistics.

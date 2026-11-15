@@ -8,6 +8,9 @@ import java.util.function.Predicate;
  * Decides where Jylos keeps its files, following each platform's convention for an
  * installed application. Pure: everything it looks at comes in through {@link Environment},
  * so every case can be tested without touching the real machine.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.8
  */
 public final class AppDirectories {
 

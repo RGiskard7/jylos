@@ -39,6 +39,9 @@ import javax.imageio.stream.ImageInputStream;
  * <p>Work runs on a background thread; the result is an empty string when the image cannot be
  * read, so the page shows its fallback. Successful conversions are kept for the session: the
  * reading view is rendered again on every edit, and each render would otherwise fetch again.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class WebImageConverter {
 

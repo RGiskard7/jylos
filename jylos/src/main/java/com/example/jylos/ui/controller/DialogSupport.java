@@ -45,6 +45,9 @@ import javafx.stage.Stage;
 
 /**
  * Lightweight application dialogs (preferences, about, docs, new tag).
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 class DialogSupport {
 

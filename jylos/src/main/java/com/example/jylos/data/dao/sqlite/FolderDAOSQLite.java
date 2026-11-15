@@ -5,6 +5,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -33,6 +34,9 @@ import com.example.jylos.exceptions.InvalidParameterException;
  *
  * <p>All methods that access the shared {@link Connection} are synchronized on the
  * connection object. See {@link NoteDAOSQLite} for the rationale.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class FolderDAOSQLite implements FolderDAO {
 
@@ -106,7 +110,7 @@ public class FolderDAOSQLite implements FolderDAO {
 						&& !"ROOT".equals(folder.getParent().getId())) {
 					pstmt.setString(2, folder.getParent().getId());
 				} else {
-					pstmt.setNull(2, java.sql.Types.VARCHAR);
+					pstmt.setNull(2, Types.VARCHAR);
 				}
 				pstmt.setString(3, folder.getTitle());
 				pstmt.setString(4, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
@@ -309,8 +313,8 @@ public class FolderDAOSQLite implements FolderDAO {
 	public List<Folder> fetchDirectSubfolders(Folder parent) {
 		Folder probe = new Folder(parent.getId(), parent.getTitle());
 		loadSubFolders(probe, 0);
-		List<Folder> subfolders = new java.util.ArrayList<>();
-		for (com.example.jylos.data.models.interfaces.Component child : probe.getChildren()) {
+		List<Folder> subfolders = new ArrayList<>();
+		for (Component child : probe.getChildren()) {
 			if (child instanceof Folder folder) {
 				folder.setParent(parent);
 				subfolders.add(folder);
@@ -439,7 +443,7 @@ public class FolderDAOSQLite implements FolderDAO {
 		SQLiteDB.inTransaction(connection, "Failed to add note " + noteId + " to folder " + folderId, () -> {
 			try (PreparedStatement pstmt = connection.prepareStatement(UPDATE_FOLDER_ADD_NOTE_SQL)) {
 				if ("ROOT".equals(folderId)) {
-					pstmt.setNull(1, java.sql.Types.VARCHAR);
+					pstmt.setNull(1, Types.VARCHAR);
 				} else {
 					pstmt.setString(1, folderId);
 				}

@@ -32,6 +32,9 @@ import com.example.jylos.exceptions.InvalidParameterException;
  * connection object. The same connection instance is shared with {@link FolderDAOSQLite}
  * and {@link TagDAOSQLite}; synchronizing on the connection itself ensures correctness
  * regardless of how many DAO instances are created from the same connection.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class NoteDAOSQLite implements NoteDAO {
 
@@ -506,7 +509,7 @@ public class NoteDAOSQLite implements NoteDAO {
 
 			String parentId = rs.getString("parent_id");
 			if (parentId != null && !parentId.isEmpty()) {
-				note.setParent(new com.example.jylos.data.models.Folder(parentId, ""));
+				note.setParent(new Folder(parentId, ""));
 			}
 
 			return note;

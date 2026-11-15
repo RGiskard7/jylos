@@ -7,6 +7,7 @@ import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.ToggleButton;
@@ -20,6 +21,9 @@ import com.example.jylos.ui.UiNodes;
  *
  * <p>This class initializes controls that do not own business state: sort choices,
  * toolbar overflow behavior, collapsible sections and startup toggle groups.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 class UiInitialization {
 
@@ -192,7 +196,7 @@ class UiInitialization {
                 toggleRightPanel.setOnAction(e -> overflowActions.toggleRightPanel().run());
                 // Same three layouts as the toolbar's layout button, rebuilt on each opening so
                 // the tick follows the current layout.
-                javafx.scene.control.Menu switchLayout = new javafx.scene.control.Menu(i18n("action.switch_layout"));
+                Menu switchLayout = new Menu(i18n("action.switch_layout"));
                 switchLayout.getItems().setAll(toolbarController.layoutMenu().getItems());
                 switchLayout.setOnShowing(e -> switchLayout.getItems().setAll(toolbarController.layoutMenu().getItems()));
                 toolbarController.getToolbarOverflowBtn().getItems().addAll(

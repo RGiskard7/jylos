@@ -38,6 +38,9 @@ import org.commonmark.renderer.html.HtmlWriter;
  *       of a type ({@code faq} for {@code question}…) share its colour and icon; an unknown
  *       type looks like a note.</li>
  * </ul>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class CalloutsAndHighlights {
 
@@ -87,7 +90,7 @@ public final class CalloutsAndHighlights {
         return renderer.nodeRendererFactory(HtmlNodes::new);
     }
 
-    // ── highlight ──────────────────────────────────────────────────────────
+    // ── highlight ────────────────────────────────────────────────────────────
 
     /** {@code ==text==}. */
     static final class Highlight extends CustomNode {
@@ -129,7 +132,7 @@ public final class CalloutsAndHighlights {
         }
     }
 
-    // ── callouts ───────────────────────────────────────────────────────────
+    // ── callouts ─────────────────────────────────────────────────────────────
 
     /** A callout box: its first child is the {@link CalloutTitle}, the rest is the content. */
     static final class Callout extends CustomBlock {

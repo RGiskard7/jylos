@@ -14,6 +14,9 @@ import java.util.regex.Pattern;
  * {@code ^block-id}) is in a note: the character offset, for the editor, and the element id
  * the reading view gives it ({@link MarkdownProcessor#slugifyHeading} with the same
  * de-duplication, or {@link ReadingSyntax#BLOCK_ID_PREFIX} plus the id).
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class NoteAnchors {
 

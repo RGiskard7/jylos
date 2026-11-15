@@ -10,8 +10,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -26,9 +29,13 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.TabPane;
 import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
+import javafx.scene.layout.Region;
+import javafx.scene.paint.Color;
+import javafx.scene.paint.Paint;
 import javafx.stage.Stage;
 
 /**
@@ -113,7 +120,7 @@ class TreeIndentGuidesTest {
             folder.getChildren().add(new TreeItem<>(new Note("n", "Dentro", "x")));
             folder.setExpanded(true);
             tree.getRoot().getChildren().add(folder);
-            javafx.scene.control.TabPane tabs = (javafx.scene.control.TabPane) field(controller, "navigationTabPane");
+            TabPane tabs = (TabPane) field(controller, "navigationTabPane");
             tabs.getSelectionModel().select(tabs.getTabs().size() - 1);
             return describe(tree);
         });
@@ -147,10 +154,10 @@ class TreeIndentGuidesTest {
                         cell.layout();
                         List<String> out = new ArrayList<>();
                         for (Node guide : cell.lookupAll(".tree-indent-guide")) {
-                            javafx.scene.layout.Region r = (javafx.scene.layout.Region) guide;
-                            javafx.scene.paint.Paint fill = r.getBackground() == null || r.getBackground().getFills().isEmpty()
+                            Region r = (Region) guide;
+                            Paint fill = r.getBackground() == null || r.getBackground().getFills().isEmpty()
                                     ? null : r.getBackground().getFills().get(0).getFill();
-                            boolean painted = fill instanceof javafx.scene.paint.Color c && c.getOpacity() > 0;
+                            boolean painted = fill instanceof Color c && c.getOpacity() > 0;
                             out.add("painted=" + painted + " w=" + r.getWidth() + " h>0=" + (r.getHeight() > 0)
                                     + " parentVisible=" + guide.getParent().isVisible()
                                     + " inCell=" + (guide.getParent().getParent() == cell));
@@ -173,12 +180,12 @@ class TreeIndentGuidesTest {
         return describe(tree, title -> true);
     }
 
-    private static String describe(TreeView<?> tree, java.util.function.Predicate<String> include) {
+    private static String describe(TreeView<?> tree, Predicate<String> include) {
         Parent root = tree.getScene().getRoot();
         root.applyCss();
         root.layout();
         TreeMap<String, Integer> counts = new TreeMap<>();
-        TreeMap<Integer, java.util.Set<Double>> xByLevel = new TreeMap<>();
+        TreeMap<Integer, Set<Double>> xByLevel = new TreeMap<>();
         for (Node node : tree.lookupAll(".tree-cell")) {
             if (!(node instanceof TreeCell<?> cell) || cell.isEmpty() || cell.getItem() == null) {
                 continue;
@@ -196,7 +203,7 @@ class TreeIndentGuidesTest {
             }
             counts.put(title, xs.size());
             for (int i = 0; i < xs.size(); i++) {
-                xByLevel.computeIfAbsent(i, k -> new java.util.TreeSet<>()).add(Math.rint(xs.get(i)));
+                xByLevel.computeIfAbsent(i, k -> new TreeSet<>()).add(Math.rint(xs.get(i)));
             }
         }
         StringBuilder out = new StringBuilder();

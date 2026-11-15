@@ -30,6 +30,9 @@ import com.example.jylos.ui.theme.ThemeCommand;
 /**
  * JavaFX application entry point. Use {@link Launcher} or {@code scripts/launch-jylos.*}
  * so the JavaFX module path is configured correctly.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class Main extends Application {
 

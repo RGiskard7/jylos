@@ -26,6 +26,9 @@ import com.example.jylos.AppDirectories.Mode;
  * folder on Linux. Only files Jylos itself creates are moved, nothing is overwritten, and
  * whatever is not recognised stays where it is: a home folder's {@code data/} may well
  * hold the user's own files.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.8
  */
 public final class LegacyDataMigration {
 

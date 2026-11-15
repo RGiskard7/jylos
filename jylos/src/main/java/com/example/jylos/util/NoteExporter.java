@@ -5,6 +5,7 @@ import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.function.Function;
 
 import org.jsoup.Jsoup;
@@ -12,6 +13,8 @@ import org.jsoup.helper.W3CDom;
 import org.jsoup.nodes.Document;
 
 import com.example.jylos.data.models.Note;
+import com.example.jylos.plugin.PreviewContext;
+import com.example.jylos.service.LinkIndex;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 
 /**
@@ -37,7 +40,7 @@ public final class NoteExporter {
      *
      * @param baseDir folder to resolve relative image paths against, or {@code null}
      */
-    public static void exportHtml(Note note, File target, java.nio.file.Path baseDir) throws Exception {
+    public static void exportHtml(Note note, File target, Path baseDir) throws Exception {
         exportHtml(note, target, baseDir, null);
     }
 
@@ -45,7 +48,7 @@ public final class NoteExporter {
      * Writes the note as a self-contained, styled HTML document using the provided
      * embed resolver for {@code ![[transclusions]]}.
      */
-    public static void exportHtml(Note note, File target, java.nio.file.Path baseDir,
+    public static void exportHtml(Note note, File target, Path baseDir,
             Function<String, String> embeddedContentResolver) throws Exception {
         exportHtml(note, target, baseDir, embeddedContentResolver, null);
     }
@@ -55,8 +58,8 @@ public final class NoteExporter {
      * {@code imageContainmentRoot} (normally the vault root) bounding which local images
      * get embedded; {@code null} contains them to {@code baseDir}.
      */
-    public static void exportHtml(Note note, File target, java.nio.file.Path baseDir,
-            Function<String, String> embeddedContentResolver, java.nio.file.Path imageContainmentRoot)
+    public static void exportHtml(Note note, File target, Path baseDir,
+            Function<String, String> embeddedContentResolver, Path imageContainmentRoot)
             throws Exception {
         exportHtml(note, target, baseDir, embeddedContentResolver, imageContainmentRoot, null);
     }
@@ -65,13 +68,13 @@ public final class NoteExporter {
      * Same as {@link #exportHtml(Note, File, java.nio.file.Path, Function, java.nio.file.Path)},
      * with the vault's {@code links} telling links to existing notes from links to notes to create.
      */
-    public static void exportHtml(Note note, File target, java.nio.file.Path baseDir,
-            Function<String, String> embeddedContentResolver, java.nio.file.Path imageContainmentRoot,
-            com.example.jylos.service.LinkIndex links) throws Exception {
+    public static void exportHtml(Note note, File target, Path baseDir,
+            Function<String, String> embeddedContentResolver, Path imageContainmentRoot,
+            LinkIndex links) throws Exception {
         // The note as context, so its links resolve from its own folder, as in the reading view.
         String html = MarkdownPreview.buildPreviewHtml(content(note), false, null,
                 new MarkdownPreview.PreviewOptions(baseDir, embeddedContentResolver,
-                        new com.example.jylos.plugin.PreviewContext(note, false), false, 0, imageContainmentRoot, links));
+                        new PreviewContext(note, false), false, 0, imageContainmentRoot, links));
         Files.writeString(target.toPath(), html, StandardCharsets.UTF_8);
     }
 
@@ -101,10 +104,10 @@ public final class NoteExporter {
 
     /** Same, with the vault's {@code links} to resolve the note's links from its folder. */
     public static void exportPdf(Note note, File target, String baseUri,
-            Function<String, String> embeddedContentResolver, com.example.jylos.service.LinkIndex links)
+            Function<String, String> embeddedContentResolver, LinkIndex links)
             throws Exception {
         String xhtml = buildPrintHtml(note, new MarkdownPreview.PreviewOptions(null, embeddedContentResolver,
-                new com.example.jylos.plugin.PreviewContext(note, false), false, 0, null, links));
+                new PreviewContext(note, false), false, 0, null, links));
         Document jsoupDoc = Jsoup.parse(xhtml);
         jsoupDoc.outputSettings()
                 .syntax(Document.OutputSettings.Syntax.xml)

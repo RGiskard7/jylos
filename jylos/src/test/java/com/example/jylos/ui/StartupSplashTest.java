@@ -7,8 +7,10 @@ import static com.example.jylos.tests.FxTestSupport.onFx;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Assumptions;
@@ -58,11 +60,11 @@ class StartupSplashTest {
     @Test
     void runsTheBuildOnceAfterTheSplashHasBeenPainted() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
-        List<String> events = new java.util.concurrent.CopyOnWriteArrayList<>();
+        List<String> events = new CopyOnWriteArrayList<>();
         CountDownLatch built = new CountDownLatch(1);
         AtomicReference<StartupSplash> splash = new AtomicReference<>();
-        java.util.concurrent.atomic.AtomicLong shownAt = new java.util.concurrent.atomic.AtomicLong();
-        java.util.concurrent.atomic.AtomicLong builtAt = new java.util.concurrent.atomic.AtomicLong();
+        AtomicLong shownAt = new AtomicLong();
+        AtomicLong builtAt = new AtomicLong();
         onFx(() -> {
             splash.set(StartupSplash.show(true, "Cargando…"));
             shownAt.set(System.nanoTime());

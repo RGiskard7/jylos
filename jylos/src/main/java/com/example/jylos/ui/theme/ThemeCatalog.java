@@ -18,6 +18,9 @@ import com.example.jylos.AppDirectories;
 
 /**
  * Scans built-in and external theme descriptors.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.3.0
  */
 public final class ThemeCatalog {
 

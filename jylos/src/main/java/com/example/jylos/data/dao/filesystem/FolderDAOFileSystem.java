@@ -19,14 +19,19 @@ import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
+import com.example.jylos.data.models.interfaces.Component;
 import com.example.jylos.exceptions.DataAccessException;
 import com.example.jylos.exceptions.InvalidParameterException;
+import com.example.jylos.util.AttachmentType;
 import com.example.jylos.util.PathContainment;
 
 /**
  * File System implementation of FolderDAO.
  * Maps application folders to filesystem directories.
  * Stores metadata in .folder.yaml inside each directory.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class FolderDAOFileSystem implements FolderDAO {
 
@@ -553,7 +558,7 @@ public class FolderDAOFileSystem implements FolderDAO {
             return;
         }
 
-        List<com.example.jylos.data.models.interfaces.Component> notes = new java.util.ArrayList<>();
+        List<Component> notes = new ArrayList<>();
         try (Stream<Path> stream = Files.list(path)) {
             stream.filter(Files::isRegularFile)
                     .filter(p -> p.toString().endsWith(".md"))
@@ -662,7 +667,7 @@ public class FolderDAOFileSystem implements FolderDAO {
         if (path == null || !Files.isDirectory(path)) {
             return List.of();
         }
-        List<Folder> subfolders = new java.util.ArrayList<>();
+        List<Folder> subfolders = new ArrayList<>();
         try (Stream<Path> stream = Files.list(path)) {
             stream.filter(Files::isDirectory)
                     .filter(p -> !p.getFileName().toString().startsWith("."))
@@ -835,8 +840,8 @@ public class FolderDAOFileSystem implements FolderDAO {
         if (targetPath == null || !Files.isRegularFile(targetPath)) {
             return;
         }
-        if (com.example.jylos.util.AttachmentType.fromName(targetPath.getFileName().toString())
-                == com.example.jylos.util.AttachmentType.MARKDOWN) {
+        if (AttachmentType.fromName(targetPath.getFileName().toString())
+                == AttachmentType.MARKDOWN) {
             return;
         }
         metadataStore.moveDocumentMetadata(previousId, currentId);
@@ -850,8 +855,8 @@ public class FolderDAOFileSystem implements FolderDAO {
         try (Stream<Path> walk = Files.walk(directoryRoot)) {
             walk.filter(Files::isRegularFile)
                     .filter(path -> {
-                        com.example.jylos.util.AttachmentType type =
-                                com.example.jylos.util.AttachmentType.fromName(path.getFileName().toString());
+                        AttachmentType type =
+                                AttachmentType.fromName(path.getFileName().toString());
                         return type.isAttachment();
                     })
                     .forEach(path -> ids.add(FileSystemNames.normalizeId(rootPath.relativize(path).toString())));

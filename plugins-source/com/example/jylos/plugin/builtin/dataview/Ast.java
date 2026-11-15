@@ -3,7 +3,12 @@ package com.example.jylos.plugin.builtin.dataview;
 import java.util.List;
 import java.util.Map;
 
-/** Abstract syntax tree for the query language: sources, expressions and query shape. */
+/**
+ * Abstract syntax tree for the query language: sources, expressions and query shape.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
+ */
 final class Ast {
 
     private Ast() {

@@ -8,6 +8,9 @@ import com.example.jylos.ui.theme.CssSnippetCatalog;
 
 /**
  * Centralizes UI preference keys, defaults and persistence.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public final class UiPreferencesStore {
 

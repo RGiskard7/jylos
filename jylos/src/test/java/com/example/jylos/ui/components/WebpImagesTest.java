@@ -18,6 +18,7 @@ import com.example.jylos.ui.web.HtmlView;
 import com.example.jylos.ui.web.JavaFxHtmlView;
 import com.example.jylos.util.MarkdownPreview;
 
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
@@ -87,7 +88,7 @@ public class WebpImagesTest {
         }
     }
 
-    private static void show(javafx.scene.Parent content) {
+    private static void show(Parent content) {
         Stage stage = new Stage();
         stage.setScene(new Scene(new StackPane(content), 800, 600));
         stage.show();

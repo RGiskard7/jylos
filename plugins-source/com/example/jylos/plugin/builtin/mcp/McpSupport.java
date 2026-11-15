@@ -17,6 +17,9 @@ import io.modelcontextprotocol.spec.McpSchema.ToolAnnotations;
  * <p>These started out private to {@code NoteTools}. They live here now that folder and
  * tag tools need the same ones, so the three tool classes stay comparable — a reader who
  * has understood one can read the next without re-learning its conventions.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.2
  */
 final class McpSupport {
 

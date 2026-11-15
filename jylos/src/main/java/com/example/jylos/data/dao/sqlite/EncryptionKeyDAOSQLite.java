@@ -8,12 +8,16 @@ import java.sql.Statement;
 import java.util.Optional;
 
 import com.example.jylos.data.dao.interfaces.EncryptionKeyDAO;
+import com.example.jylos.data.database.SQLiteDB;
 import com.example.jylos.data.models.KeyMaterial;
 import com.example.jylos.exceptions.DataAccessException;
 
 /**
  * Keeps the private-notes key material in the SQLite database itself (table
  * {@code app_settings}), so a copied or restored database can still be unlocked.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.7
  */
 public class EncryptionKeyDAOSQLite implements EncryptionKeyDAO {
 
@@ -30,7 +34,7 @@ public class EncryptionKeyDAOSQLite implements EncryptionKeyDAO {
 
     public EncryptionKeyDAOSQLite(Connection connection) {
         this.connection = connection;
-        com.example.jylos.data.database.SQLiteDB.inTransaction(connection,
+        SQLiteDB.inTransaction(connection,
                 "Could not prepare encryption settings table", () -> {
                     try (Statement statement = connection.createStatement()) {
                         statement.executeUpdate(CREATE_TABLE);
@@ -57,7 +61,7 @@ public class EncryptionKeyDAOSQLite implements EncryptionKeyDAO {
 
     @Override
     public void save(KeyMaterial material) {
-        com.example.jylos.data.database.SQLiteDB.inTransaction(connection, "Could not write encryption settings",
+        SQLiteDB.inTransaction(connection, "Could not write encryption settings",
                 () -> {
                     write(SALT, material.salt());
                     write(VERIFIER, material.verifier());

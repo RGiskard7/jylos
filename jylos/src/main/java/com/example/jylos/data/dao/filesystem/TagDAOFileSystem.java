@@ -12,6 +12,9 @@ import com.example.jylos.data.models.Tag;
 /**
  * File System implementation of TagDAO.
  * Derives tags from existing notes.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class TagDAOFileSystem implements TagDAO {
 

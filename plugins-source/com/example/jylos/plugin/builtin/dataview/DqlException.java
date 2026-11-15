@@ -5,6 +5,9 @@ package com.example.jylos.plugin.builtin.dataview;
  *
  * <p>Carries a reader-facing message: it is rendered into the note preview as an error
  * box, so it must explain what is wrong with the query rather than leak Java internals.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
  */
 final class DqlException extends RuntimeException {
 

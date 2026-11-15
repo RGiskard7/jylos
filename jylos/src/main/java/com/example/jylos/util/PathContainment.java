@@ -15,6 +15,9 @@ import java.util.regex.Pattern;
  *
  * <p>The check is lexical ({@link Path#normalize()}), not {@code toRealPath()}: symlinked
  * folders inside a vault keep working, as they do in other Markdown vault apps.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.7
  */
 public final class PathContainment {
 

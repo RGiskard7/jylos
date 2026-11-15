@@ -1,6 +1,7 @@
 package com.example.jylos.event.events;
 
 import com.example.jylos.data.models.Note;
+import com.example.jylos.data.models.interfaces.Component;
 import com.example.jylos.event.AppEvent;
 
 /**
@@ -96,14 +97,14 @@ public final class NoteEvents {
      * Event fired when an item has been permanently deleted from trash.
      */
     public static class TrashItemDeletedEvent extends AppEvent {
-        private final com.example.jylos.data.models.interfaces.Component component;
+        private final Component component;
 
-        public TrashItemDeletedEvent(com.example.jylos.data.models.interfaces.Component component) {
+        public TrashItemDeletedEvent(Component component) {
             super("TrashList");
             this.component = component;
         }
 
-        public com.example.jylos.data.models.interfaces.Component getComponent() {
+        public Component getComponent() {
             return component;
         }
     }

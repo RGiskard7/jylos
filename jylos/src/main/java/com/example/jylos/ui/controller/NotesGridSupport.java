@@ -1,5 +1,6 @@
 package com.example.jylos.ui.controller;
 
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -11,13 +12,20 @@ import com.example.jylos.data.models.Note;
 import com.example.jylos.ui.components.NewTabGesture;
 
 import javafx.application.Platform;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Cursor;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.Dragboard;
 import javafx.scene.input.MouseButton;
+import javafx.scene.input.TransferMode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -27,6 +35,9 @@ import javafx.scene.paint.Color;
  * The notes list's grid view: the notes as cards in rows, built only for the rows on screen,
  * re-flowed when the panel's width changes, and swapped with the list in the notes panel. A
  * card opens its note, shows the note's context menu and can be dragged onto a folder.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 final class NotesGridSupport {
 
@@ -138,7 +149,7 @@ final class NotesGridSupport {
         private final HBox row = new HBox(GRID_GAP);
 
         private GridRowCell() {
-            row.setPadding(new javafx.geometry.Insets(GRID_GAP / 2, GRID_GAP, GRID_GAP / 2, GRID_GAP));
+            row.setPadding(new Insets(GRID_GAP / 2, GRID_GAP, GRID_GAP / 2, GRID_GAP));
             getStyleClass().add("notes-grid-row");
             setStyle("-fx-background-color: transparent; -fx-padding: 0;");
         }
@@ -161,14 +172,14 @@ final class NotesGridSupport {
     /**
      * Builds a card for one note, capturing the theme/i18n/callbacks the last refresh was
      * given. Cells are created lazily as the user scrolls, long after
-     * {@link #refreshGridView} returned, so those arguments have to be reachable from here.
+     * {@link #refresh} returned, so those arguments have to be reachable from here.
      */
     private Function<Note, VBox> gridCardFactory;
 
     private VBox applyNotesViewMode(
             boolean isGridMode,
             ListView<Note> notesListView,
-            javafx.scene.Node gridNode,
+            Node gridNode,
             VBox currentNotesPanelContainer,
             Runnable refreshGridViewAction,
             Consumer<String> warningLogger) {
@@ -273,12 +284,12 @@ final class NotesGridSupport {
         VBox card = new VBox(8);
         card.setPrefWidth(180);
         card.setPrefHeight(140);
-        card.setPadding(new javafx.geometry.Insets(12));
+        card.setPadding(new Insets(12));
         card.getStyleClass().add("note-card");
-        card.setCursor(javafx.scene.Cursor.HAND);
+        card.setCursor(Cursor.HAND);
 
         HBox titleRow = new HBox(5);
-        titleRow.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        titleRow.setAlignment(Pos.CENTER_LEFT);
 
         if (note.isPinned()) {
             FontIcon pinIcon = new FontIcon("bi-pin-angle");
@@ -358,8 +369,8 @@ final class NotesGridSupport {
             Consumer<String> statusUpdate) {
         card.setOnDragDetected(event -> {
             host.setDragInProgress(true);
-            javafx.scene.input.Dragboard db = card.startDragAndDrop(javafx.scene.input.TransferMode.MOVE);
-            javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+            Dragboard db = card.startDragAndDrop(TransferMode.MOVE);
+            ClipboardContent content = new ClipboardContent();
             content.putString("note:" + note.getId());
             db.setContent(content);
 
@@ -368,12 +379,12 @@ final class NotesGridSupport {
             db.setDragView(card.snapshot(params, null));
 
             event.consume();
-            statusUpdate.accept(java.text.MessageFormat.format(i18n.apply("status.dragging"), note.getTitle()));
+            statusUpdate.accept(MessageFormat.format(i18n.apply("status.dragging"), note.getTitle()));
         });
 
         card.setOnDragDone(event -> {
             host.setDragInProgress(false);
-            if (event.getTransferMode() == javafx.scene.input.TransferMode.MOVE) {
+            if (event.getTransferMode() == TransferMode.MOVE) {
                 statusUpdate.accept(i18n.apply("status.note_moved"));
             }
             event.consume();

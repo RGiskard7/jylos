@@ -18,6 +18,9 @@ import com.example.jylos.data.models.abstractLayers.LeafModel;
  * service/UI level: title, body/content when available, tags, workflow status,
  * privacy and document metadata such as favorite/pinned. Storage-specific details
  * live in the DAO implementations.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class Note extends LeafModel implements Serializable {
 	private static final long serialVersionUID = 1L;

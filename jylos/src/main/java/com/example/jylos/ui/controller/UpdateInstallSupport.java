@@ -5,6 +5,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.MessageFormat;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -17,8 +18,12 @@ import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.service.UpdateChecker;
 import com.example.jylos.service.UpdateInstaller;
 import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.ui.web.ExternalLinksBridge;
+import com.example.jylos.ui.web.HtmlView;
+import com.example.jylos.ui.web.JavaFxHtmlView;
 import com.example.jylos.util.MarkdownPreview;
 
+import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.scene.control.Alert;
@@ -28,6 +33,7 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 /**
@@ -44,6 +50,7 @@ import javafx.scene.layout.VBox;
  * matching {@link ImportSupport}.</p>
  *
  * @author Edu Díaz (RGiskard7)
+ * @since 2.5.5
  */
 final class UpdateInstallSupport {
 
@@ -107,7 +114,7 @@ final class UpdateInstallSupport {
             // last thing someone updating from inside the app sees before installing.
             Label notesTitle = new Label(getString("update.install.release_notes"));
             notesTitle.setStyle("-fx-font-weight: bold;");
-            javafx.scene.layout.Region notes = (javafx.scene.layout.Region) releaseNotesView(release.notes()).node();
+            Region notes = (Region) releaseNotesView(release.notes()).node();
             notes.setPrefSize(560, 320);
             Label contentLabel = new Label(content);
             contentLabel.setWrapText(true);
@@ -125,12 +132,12 @@ final class UpdateInstallSupport {
     }
 
     /** The release notes as the reading view shows them; their links open in the browser. */
-    com.example.jylos.ui.web.HtmlView releaseNotesView(String notes) {
-        com.example.jylos.ui.web.JavaFxHtmlView view = new com.example.jylos.ui.web.JavaFxHtmlView();
+    HtmlView releaseNotesView(String notes) {
+        JavaFxHtmlView view = new JavaFxHtmlView();
         // Its links open in the browser, as the reading view's do.
-        view.exposeBridge("javaApp", new com.example.jylos.ui.web.ExternalLinksBridge(
+        view.exposeBridge("javaApp", new ExternalLinksBridge(
                 url -> openBrowser.accept(url)));
-        view.loadHtml(MarkdownPreview.buildPreviewHtml(notes, darkTheme.getAsBoolean(), java.util.List.of()));
+        view.loadHtml(MarkdownPreview.buildPreviewHtml(notes, darkTheme.getAsBoolean(), List.of()));
         return view;
     }
 
@@ -158,7 +165,7 @@ final class UpdateInstallSupport {
                 if (isCancelled()) {
                     return null;
                 }
-                javafx.application.Platform.runLater(() -> progressDialog.setHeaderText(getString("update.install.verifying")));
+                Platform.runLater(() -> progressDialog.setHeaderText(getString("update.install.verifying")));
                 if (!UpdateInstaller.verifyDigest(destination, asset.digest())) {
                     Files.deleteIfExists(destination);
                     throw new java.security.GeneralSecurityException("Downloaded update failed checksum verification");
@@ -183,7 +190,7 @@ final class UpdateInstallSupport {
                 // callback that closes the previous one is a known JavaFX glitch — the
                 // new dialog renders as a blank white window (nothing laid out yet).
                 // Platform.runLater lets that loop finish exiting first.
-                javafx.application.Platform.runLater(() -> offerToInstall(release.tagName(), downloaded));
+                Platform.runLater(() -> offerToInstall(release.tagName(), downloaded));
             }
         });
         task.setOnCancelled(e -> progressDialog.close());
@@ -193,7 +200,7 @@ final class UpdateInstallSupport {
             logger.log(Level.WARNING, "Update download/verification failed", ex);
             // Same deferral as setOnSucceeded above, same reason: showError() opens
             // another modal Alert right after this one closes.
-            javafx.application.Platform.runLater(() -> {
+            Platform.runLater(() -> {
                 if (ex instanceof java.security.GeneralSecurityException) {
                     showError(getString("update.install.verify_failed.title"), getString("update.install.verify_failed.content"));
                 } else {

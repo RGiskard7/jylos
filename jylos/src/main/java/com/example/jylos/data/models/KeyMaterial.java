@@ -7,6 +7,8 @@ package com.example.jylos.data.models;
  * @param salt Base64 PBKDF2 salt
  * @param verifier a known plaintext encrypted with the derived key, to check a password
  * @param iterations PBKDF2 iteration count the key was derived with
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.7
  */
 public record KeyMaterial(String salt, String verifier, int iterations) {
 }

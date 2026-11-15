@@ -5,7 +5,12 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/** The name a new note or folder gets, as in Obsidian: the base name, or the first free "base N". */
+/**
+ * The name a new note or folder gets, as in Obsidian: the base name, or the first free "base N".
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
+ */
 public final class UntitledNames {
 
     private UntitledNames() {

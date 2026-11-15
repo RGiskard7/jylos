@@ -16,6 +16,9 @@ import com.example.jylos.util.AttachmentType;
 /**
  * The files a canvas's file nodes point to. A file node names a vault-relative path, as
  * Obsidian writes it ({@code Folder/Note.md}, {@code Assets/photo.png}).
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class CanvasReferences {
 

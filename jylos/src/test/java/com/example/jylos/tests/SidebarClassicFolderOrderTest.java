@@ -9,6 +9,7 @@ import java.net.URL;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
@@ -94,7 +95,7 @@ class SidebarClassicFolderOrderTest {
             return null;
         });
         List<String> descending = new ArrayList<>(ascending);
-        java.util.Collections.reverse(descending);
+        Collections.reverse(descending);
         assertEquals(descending, waitForTitles(vaultRoot.get(), descending));
     }
 

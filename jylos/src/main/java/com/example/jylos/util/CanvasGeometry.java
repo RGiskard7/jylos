@@ -6,6 +6,9 @@ import java.util.List;
  * The geometry of a canvas, in canvas coordinates and without any UI: the curve an edge
  * draws between two cards, where a card snaps to while it is moved, and which cards a
  * selection box takes.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class CanvasGeometry {
 

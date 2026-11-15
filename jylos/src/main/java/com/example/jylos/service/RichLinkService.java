@@ -36,7 +36,7 @@ public final class RichLinkService {
     /** A desktop-browser User-Agent; some sites omit OpenGraph tags for unknown agents. */
     private static final String USER_AGENT =
             "Mozilla/5.0 (compatible; Jylos/1.0; +https://github.com/RGiskard7/jylos)";
-    /** Cap the body we parse; OpenGraph tags live in <head>, so 512 KB is plenty. */
+    /** Cap the body we parse; OpenGraph tags live in {@code <head>}, so 512 KB is plenty. */
     private static final int MAX_BYTES = 512 * 1024;
 
     private final HttpClient client = HttpClient.newBuilder()

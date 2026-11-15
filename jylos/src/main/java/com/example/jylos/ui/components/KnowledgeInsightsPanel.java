@@ -97,7 +97,7 @@ public final class KnowledgeInsightsPanel {
         dialog.showAndWait();
     }
 
-    // ── Views ─────────────────────────────────────────────────────────────────
+    // ── Views ────────────────────────────────────────────────────────────────
 
     private TabPane buildReportView(KnowledgeHealthReport r) {
         TabPane tabs = new TabPane();
@@ -199,7 +199,7 @@ public final class KnowledgeInsightsPanel {
         return box;
     }
 
-    // ── Helpers ─────────────────────────────────────────────────────────────────
+    // ── Helpers ──────────────────────────────────────────────────────────────
 
     private Tab tab(String key, javafx.scene.Node body) {
         Tab t = new Tab(str(key), body);

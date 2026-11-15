@@ -9,6 +9,9 @@ import javafx.scene.Node;
  * <p>Every part of the app that shows a web page (the editor, the reading view, the release
  * notes) goes through this interface, so the engine behind it is in one place
  * ({@link JavaFxHtmlView} today; see {@code docs/WEBVIEW.md}).</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public interface HtmlView {
 

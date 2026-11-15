@@ -1,6 +1,7 @@
 package com.example.jylos.data.dao.filesystem;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -17,6 +18,8 @@ import org.yaml.snakeyaml.resolver.Resolver;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.data.models.ToDoNote;
+import com.example.jylos.util.ReadingSyntax;
+import com.example.jylos.util.WikiLinkResolver;
 
 /**
  * Parses and generates Obsidian-compatible YAML frontmatter in Markdown files.
@@ -24,6 +27,9 @@ import com.example.jylos.data.models.ToDoNote;
  * <p>Known note fields are mapped to {@link Note} properties. Every non-system
  * frontmatter entry is preserved through round-trips, including nested YAML
  * structures that the flat properties UI cannot edit directly.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public final class FrontmatterHandler {
 
@@ -188,13 +194,13 @@ public final class FrontmatterHandler {
             return List.of();
         }
         FrontmatterBlock block = extractLeadingFrontmatter(fileContent);
-        java.util.LinkedHashSet<String> links = new java.util.LinkedHashSet<>();
+        LinkedHashSet<String> links = new LinkedHashSet<>();
         if (block != null) {
             for (String value : textValues(block.yaml())) {
-                links.addAll(com.example.jylos.util.WikiLinkResolver.extractRawLinks(value));
+                links.addAll(WikiLinkResolver.extractRawLinks(value));
             }
         }
-        links.addAll(com.example.jylos.util.WikiLinkResolver.extractRawLinks(
+        links.addAll(WikiLinkResolver.extractRawLinks(
                 block != null ? block.body() : fileContent));
         return List.copyOf(links);
     }
@@ -214,11 +220,11 @@ public final class FrontmatterHandler {
         return values;
     }
 
-    private static void collectText(java.util.Collection<?> items, List<String> into) {
+    private static void collectText(Collection<?> items, List<String> into) {
         for (Object item : items) {
             if (item instanceof String text) {
                 into.add(text);
-            } else if (item instanceof java.util.Collection<?> list) {
+            } else if (item instanceof Collection<?> list) {
                 collectText(list, into);
             } else if (item instanceof Map<?, ?> map) {
                 collectText(map.values(), into);
@@ -603,7 +609,7 @@ public final class FrontmatterHandler {
         if (content == null || content.isBlank() || note == null) {
             return;
         }
-        for (String tag : com.example.jylos.util.ReadingSyntax.inlineTags(content)) {
+        for (String tag : ReadingSyntax.inlineTags(content)) {
             note.addTag(new Tag(tag));
         }
     }

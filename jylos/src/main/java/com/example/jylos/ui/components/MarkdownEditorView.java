@@ -15,6 +15,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.ui.web.HtmlView;
+import com.example.jylos.ui.web.JavaFxHtmlView;
 import com.example.jylos.util.MarkdownPreview;
 import com.example.jylos.util.WikiLinkResolver;
 import com.google.gson.Gson;
@@ -34,11 +36,11 @@ import javafx.scene.layout.StackPane;
  * JavaFX host for the offline CodeMirror 6 Markdown editor.
  *
  * <p>The component is the only Java-to-JavaScript boundary for text editing. It
- * owns the embedded {@link WebView}, keeps a Java-side text snapshot, and exposes
- * typed operations used by the editor controller. Domain state and persistence
- * remain outside this class.</p>
+ * owns the embedded editor page (an {@link HtmlView}), keeps a Java-side text
+ * snapshot, and exposes typed operations used by the editor controller. Domain
+ * state and persistence remain outside this class.</p>
  *
- * @author Edu Diaz (RGiskard7)
+ * @author Edu Díaz (RGiskard7)
  * @since 2.5.0
  */
 public final class MarkdownEditorView extends StackPane {
@@ -50,7 +52,7 @@ public final class MarkdownEditorView extends StackPane {
     private static final String BUNDLE_PLACEHOLDER = "/*__JYLOS_EDITOR_BUNDLE__*/";
 
     /** The editor page (CodeMirror) and the way to talk to it. */
-    private final com.example.jylos.ui.web.JavaFxHtmlView page = new com.example.jylos.ui.web.JavaFxHtmlView();
+    private final JavaFxHtmlView page = new JavaFxHtmlView();
     private final EditorBridge bridge = new EditorBridge();
     private final Queue<Runnable> pendingActions = new ArrayDeque<>();
     private final ContextMenu editorContextMenu = new ContextMenu();
@@ -153,13 +155,13 @@ public final class MarkdownEditorView extends StackPane {
      * tells Live Preview it can draw it. Notes without math never pay for it.
      */
     private void loadMathIfNeeded(String content) {
-        if (mathLoaded || !ready || !com.example.jylos.util.MarkdownPreview.mightContainMath(content)) {
+        if (mathLoaded || !ready || !MarkdownPreview.mightContainMath(content)) {
             return;
         }
         mathLoaded = true;
-        execute(com.example.jylos.util.MarkdownPreview.katexScript());
+        execute(MarkdownPreview.katexScript());
         execute("(function(){var s=document.createElement('style');s.textContent="
-                + GSON.toJson(com.example.jylos.util.MarkdownPreview.katexStylesheet())
+                + GSON.toJson(MarkdownPreview.katexStylesheet())
                 + ";document.head.appendChild(s);})()");
         execute("window.JylosEditor.setMathReady()");
     }
@@ -329,7 +331,7 @@ public final class MarkdownEditorView extends StackPane {
     }
 
     /** The editor page, for tests that look into it. */
-    com.example.jylos.ui.web.HtmlView page() {
+    HtmlView page() {
         return page;
     }
 

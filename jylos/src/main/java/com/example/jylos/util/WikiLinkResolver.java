@@ -6,7 +6,9 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -88,9 +90,7 @@ public final class WikiLinkResolver {
     private WikiLinkResolver() {
     }
 
-    // ------------------------------------------------------------------
-    // Public API
-    // ------------------------------------------------------------------
+    // ── Public API ───────────────────────────────────────────────────────────
 
     /**
      * Resolves all internal links ({@code [[wiki]]} and {@code [label](path)})
@@ -171,7 +171,7 @@ public final class WikiLinkResolver {
             return new ArrayList<>();
         }
         BitSet code = codeRanges(markdown);
-        java.util.TreeMap<Integer, LinkMatch> byPosition = new java.util.TreeMap<>();
+        TreeMap<Integer, LinkMatch> byPosition = new TreeMap<>();
 
         Matcher wiki = WIKI_LINK.matcher(markdown);
         while (wiki.find()) {
@@ -263,7 +263,7 @@ public final class WikiLinkResolver {
         if (decoded == null || FILE_EXTENSIONS.contains(AttachmentType.extensionOf(decoded))) {
             return null;
         }
-        if (decoded.toLowerCase(java.util.Locale.ROOT).endsWith(".md")) {
+        if (decoded.toLowerCase(Locale.ROOT).endsWith(".md")) {
             decoded = decoded.substring(0, decoded.length() - 3).trim();
         }
         return extractTitle(decoded).isBlank() ? null : decoded;
@@ -288,7 +288,7 @@ public final class WikiLinkResolver {
             return new ArrayList<>();
         }
         BitSet code = codeRanges(markdown);
-        java.util.TreeMap<Integer, String> byPosition = new java.util.TreeMap<>();
+        TreeMap<Integer, String> byPosition = new TreeMap<>();
         Matcher wiki = WIKI_LINK.matcher(markdown);
         while (wiki.find()) {
             String path = code.get(wiki.start()) ? null : fileLinkPath(wiki.group(1).trim());
@@ -496,9 +496,7 @@ public final class WikiLinkResolver {
         return bracket > 0 && markdown.charAt(bracket - 1) == '!';
     }
 
-    // ------------------------------------------------------------------
-    // Wiki-link resolution
-    // ------------------------------------------------------------------
+    // ── Wiki-link resolution ─────────────────────────────────────────────────
 
     private static String resolveWikiLinks(String markdown, Predicate<String> exists) {
         BitSet code = codeRanges(markdown);
@@ -571,9 +569,7 @@ public final class WikiLinkResolver {
         return sb.toString();
     }
 
-    // ------------------------------------------------------------------
-    // Markdown internal-link resolution
-    // ------------------------------------------------------------------
+    // ── Markdown internal-link resolution ────────────────────────────────────
 
     private static String resolveMarkdownInternalLinks(String markdown, Predicate<String> exists) {
         BitSet code = codeRanges(markdown);
@@ -608,9 +604,7 @@ public final class WikiLinkResolver {
         return sb.toString();
     }
 
-    // ------------------------------------------------------------------
-    // Helpers
-    // ------------------------------------------------------------------
+    // ── Helpers ──────────────────────────────────────────────────────────────
 
     /**
      * Extracts the bare note title from a path-like string:

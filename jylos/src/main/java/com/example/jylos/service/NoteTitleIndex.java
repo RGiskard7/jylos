@@ -8,6 +8,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
@@ -136,7 +137,7 @@ public final class NoteTitleIndex {
             if (ns == null) {
                 return new Snapshot(List.of(), Set.of(), Map.of(), LinkIndex.EMPTY);
             }
-            Set<String> titles = new java.util.TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+            Set<String> titles = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
             Map<String, String> noteIdsByNormalizedTitle = new LinkedHashMap<>();
             List<Note> notes = ns.getAllNotes();
             for (Note note : notes) {

@@ -7,12 +7,14 @@ import java.net.URL;
 import java.util.Locale;
 import java.util.ResourceBundle;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.tests.FxTestSupport;
+import com.example.jylos.ui.web.HtmlView;
 
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -78,7 +80,7 @@ class PreviewAnchorNavigationTest {
         assertTrue(Math.abs(top) < 5, "heading should be at the top of the view, is at " + top);
     }
 
-    private static com.example.jylos.ui.web.HtmlView webView(EditorController editor) {
+    private static HtmlView webView(EditorController editor) {
         return editor.getPreviewWebView();
     }
 
@@ -94,7 +96,7 @@ class PreviewAnchorNavigationTest {
         }
     }
 
-    private static void waitFor(java.util.function.BooleanSupplier condition) throws Exception {
+    private static void waitFor(BooleanSupplier condition) throws Exception {
         long deadline = System.currentTimeMillis() + 20_000;
         while (!condition.getAsBoolean()) {
             if (System.currentTimeMillis() > deadline) {

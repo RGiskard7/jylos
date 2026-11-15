@@ -15,6 +15,9 @@ import java.util.function.Function;
  * <p>Queries: {@code tag:name} (the note has the tag, or it is that tag's node),
  * {@code path:text} (in the note's path), {@code file:text} (in its name), or plain text
  * (in the name or the path). Matching ignores case.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class GraphColorGroups {
 

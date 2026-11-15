@@ -26,6 +26,9 @@ import java.util.Map;
  * such as wiki-links, transclusion, local-image embedding, emoji fallback and
  * plugin preview enhancers are layered in {@link MarkdownPreview} before or after
  * this renderer.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class MarkdownProcessor {
     
@@ -41,7 +44,7 @@ public class MarkdownProcessor {
         .extensions(EXTENSIONS))
         .build();
     
-    /*
+        /*
      * escapeHtml and sanitizeUrls are intentionally disabled for preview parity with
      * Markdown apps such as Obsidian: users may author raw HTML, and Jylos wiki-links
      * use a custom jylos:// protocol that URL sanitizing would remove.

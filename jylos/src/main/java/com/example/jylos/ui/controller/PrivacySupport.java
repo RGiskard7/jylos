@@ -11,6 +11,7 @@ import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.service.EncryptionService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.util.AttachmentType;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -127,10 +128,10 @@ final class PrivacySupport {
      * are binary files that encrypting would break, as in Obsidian, which has no private files.
      */
     static boolean canBePrivate(Note note) {
-        com.example.jylos.util.AttachmentType type =
-                com.example.jylos.util.AttachmentType.fromName(note != null ? note.getId() : null);
-        return type == com.example.jylos.util.AttachmentType.MARKDOWN
-                || type == com.example.jylos.util.AttachmentType.CANVAS;
+        AttachmentType type =
+                AttachmentType.fromName(note != null ? note.getId() : null);
+        return type == AttachmentType.MARKDOWN
+                || type == AttachmentType.CANVAS;
     }
 
     /** Asks for the master password and makes every private note readable this session. */

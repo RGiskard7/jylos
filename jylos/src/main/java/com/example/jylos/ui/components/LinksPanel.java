@@ -1,5 +1,6 @@
 package com.example.jylos.ui.components;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
@@ -29,6 +30,9 @@ import javafx.scene.text.TextFlow;
  * each link, the notes that mention it without linking (loaded only when that section is
  * opened, with a button that turns each mention into a link), and the notes it links to.
  * Only draws what it is given; fetching and saving are the owner's job ({@link Actions}).
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class LinksPanel extends VBox {
 
@@ -176,13 +180,13 @@ public final class LinksPanel extends VBox {
 
         // Links share a row when they are on the same line; each mention has its own row
         // because each one has its own button.
-        List<List<Occurrence>> rows = new java.util.ArrayList<>();
+        List<List<Occurrence>> rows = new ArrayList<>();
         for (Occurrence occurrence : group.occurrences()) {
             List<Occurrence> last = rows.isEmpty() ? null : rows.get(rows.size() - 1);
             if (!withLinkButton && last != null && last.get(0).line() == occurrence.line()) {
                 last.add(occurrence);
             } else {
-                rows.add(new java.util.ArrayList<>(List.of(occurrence)));
+                rows.add(new ArrayList<>(List.of(occurrence)));
             }
         }
         for (List<Occurrence> rowOccurrences : rows) {
@@ -238,7 +242,7 @@ public final class LinksPanel extends VBox {
         int last = matches.get(matches.size() - 1).end();
         int from = Math.max(0, first - CONTEXT_BEFORE);
         int to = Math.min(line.length(), last + CONTEXT_AFTER);
-        List<Segment> out = new java.util.ArrayList<>();
+        List<Segment> out = new ArrayList<>();
         String before = line.substring(from, first);
         out.add(new Segment(from > 0 ? "…" + before.stripLeading() : before, false));
         int position = first;

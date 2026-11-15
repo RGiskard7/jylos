@@ -112,7 +112,7 @@ class CommandActionsTest {
     @Test
     void everyPaletteCommandHasAnAction() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
-        List<String> missing = com.example.jylos.tests.FxTestSupport.onFx(() -> {
+        List<String> missing = FxTestSupport.onFx(() -> {
             MainController main = new MainController();
             Method resolve = MainController.class.getDeclaredMethod("resolveCommandAction", String.class);
             resolve.setAccessible(true);

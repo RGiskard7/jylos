@@ -14,10 +14,12 @@ import java.util.ResourceBundle;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
+import com.example.jylos.data.models.Note;
 import com.example.jylos.tests.FxTestSupport;
 
 import javafx.fxml.FXMLLoader;
 import javafx.scene.control.ButtonBase;
+import javafx.scene.control.ListView;
 
 /**
  * In the Explorer layout the notes panel only shows the results of a tag or a search. It
@@ -71,7 +73,7 @@ class NotesListResultsPanelModeTest {
             FXMLLoader loader = new FXMLLoader(fxml, bundle);
             loader.load();
             NotesListController controller = loader.getController();
-            com.example.jylos.data.models.Note open = new com.example.jylos.data.models.Note("abierta", "x");
+            Note open = new Note("abierta", "x");
             open.setId("abierta");
             controller.setCurrentNoteSupplier(() -> open);
             List<String> out = new ArrayList<>();
@@ -80,9 +82,9 @@ class NotesListResultsPanelModeTest {
             Field field = NotesListController.class.getDeclaredField("notesListView");
             field.setAccessible(true);
             @SuppressWarnings("unchecked")
-            javafx.scene.control.ListView<com.example.jylos.data.models.Note> list =
-                    (javafx.scene.control.ListView<com.example.jylos.data.models.Note>) field.get(controller);
-            com.example.jylos.data.models.Note selected = new com.example.jylos.data.models.Note("lista", "x");
+            ListView<Note> list =
+                    (ListView<Note>) field.get(controller);
+            Note selected = new Note("lista", "x");
             selected.setId("lista");
             list.getItems().setAll(selected);
             list.getSelectionModel().select(0);

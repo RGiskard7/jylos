@@ -26,6 +26,7 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.ButtonBase;
 import javafx.scene.control.ContextMenu;
+import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.RadioMenuItem;
 import javafx.stage.Stage;
@@ -91,8 +92,8 @@ class LayoutButtonTest {
             ui.wire(bundle::getString, new UiInitialization.OverflowActions(none, none, none, none, none, none,
                     none, none, none, none));
             ui.updateToolbarOverflow(f.controller, 350);
-            javafx.scene.control.Menu layouts = f.controller.getToolbarOverflowBtn().getItems().stream()
-                    .filter(i -> i instanceof javafx.scene.control.Menu).map(i -> (javafx.scene.control.Menu) i)
+            Menu layouts = f.controller.getToolbarOverflowBtn().getItems().stream()
+                    .filter(i -> i instanceof Menu).map(i -> (Menu) i)
                     .findFirst().orElseThrow(() -> new AssertionError("no layout submenu in the overflow menu"));
             List<String> out = new ArrayList<>();
             out.add(layouts.getText());

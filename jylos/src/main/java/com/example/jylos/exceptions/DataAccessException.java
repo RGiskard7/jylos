@@ -8,6 +8,8 @@ package com.example.jylos.exceptions;
  *
  * It extends {@link RuntimeException}, allowing it to be thrown without explicit handling.
  *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class DataAccessException extends RuntimeException {
 

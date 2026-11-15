@@ -16,6 +16,9 @@ import javafx.scene.layout.Priority;
  * the margin follows the editor's real position in the window. When the editor starts left
  * of the end of the buttons (sidebar hidden), the margin is zero and the tabs start right
  * after the buttons rather than covering them.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 final class TopBarTabsSupport {
 

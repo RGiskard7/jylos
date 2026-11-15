@@ -1,9 +1,16 @@
 package com.example.jylos.ui.components;
 
+import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.BiConsumer;
@@ -28,11 +35,14 @@ import com.example.jylos.util.AttachmentType;
 import javafx.application.Platform;
 import javafx.scene.input.DragEvent;
 import javafx.animation.PauseTransition;
+import javafx.beans.property.IntegerProperty;
+import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
 import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
@@ -43,6 +53,7 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
+import javafx.util.Duration;
 
 /**
  * One tree with the vault's folders and notes, as in Obsidian's file explorer.
@@ -57,13 +68,16 @@ import javafx.scene.layout.StackPane;
  * {@link ExplorerOrdering}. A click on a note opens it in the current tab; Cmd/Ctrl+click
  * or a middle click opens it in a new one. A click on a folder row expands or collapses it.
  * Enter does the same for the selected row (Cmd/Ctrl+Enter opens a note in a new tab).</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class ExplorerTree {
 
     private static final Logger logger = LoggerConfig.getLogger(ExplorerTree.class);
 
     /** How long a drag has to stay over a closed folder for it to open. */
-    static final javafx.util.Duration DRAG_HOLD_TO_OPEN = javafx.util.Duration.millis(750);
+    static final Duration DRAG_HOLD_TO_OPEN = Duration.millis(750);
 
     /** Style class of the row showing the note open in the editor. */
     public static final String ACTIVE_NOTE_STYLE = "explorer-active-note";
@@ -98,13 +112,13 @@ public final class ExplorerTree {
     private final Function<String, String> i18n;
     private final TreeView<Component> view = new TreeView<>();
     /** The folders left open, by key, so they open again (also in the next session). */
-    private final java.util.Set<String> openFolders = new java.util.LinkedHashSet<>();
-    private Consumer<java.util.Set<String>> onOpenFoldersChanged = keys -> {
+    private final Set<String> openFolders = new LinkedHashSet<>();
+    private Consumer<Set<String>> onOpenFoldersChanged = keys -> {
     };
     private BiConsumer<Component, String> onRename = (item, name) -> {
     };
     /** The name field shown in the row being renamed, and the item it renames (or null). */
-    private final javafx.scene.control.TextField renameField = new javafx.scene.control.TextField();
+    private final TextField renameField = new TextField();
     private Component renaming;
     /** An item to rename as soon as it appears in the tree (it was just created). */
     private String pendingRenameKey;
@@ -123,8 +137,8 @@ public final class ExplorerTree {
      * in place. {@code view.refresh()} would recreate the rows instead, and a recreated row
      * under a still mouse loses its hover while a reused one may keep a stale hover.
      */
-    private final javafx.beans.property.IntegerProperty decorationsRevision =
-            new javafx.beans.property.SimpleIntegerProperty();
+    private final IntegerProperty decorationsRevision =
+            new SimpleIntegerProperty();
     /** The tree of the whole vault, read lazily; kept while a filter shows another root. */
     private FolderItem lazyRoot;
     private String filterQuery = "";
@@ -180,13 +194,13 @@ public final class ExplorerTree {
     }
 
     /** The folders left open (their keys), opened again as they are shown. Call before {@link #setRoot}. */
-    public void setOpenFolders(java.util.Collection<String> keys) {
+    public void setOpenFolders(Collection<String> keys) {
         openFolders.clear();
         openFolders.addAll(keys);
     }
 
     /** Told the open folders (their keys) whenever one is opened or closed, to remember them. */
-    public void setOnOpenFoldersChanged(Consumer<java.util.Set<String>> listener) {
+    public void setOnOpenFoldersChanged(Consumer<Set<String>> listener) {
         onOpenFoldersChanged = listener != null ? listener : keys -> {
         };
     }
@@ -444,7 +458,7 @@ public final class ExplorerTree {
             loader.execute(() -> {
                 List<Entry> entries = new ArrayList<>();
                 try {
-                    walk(root, new ArrayList<>(), entries, sort, new java.util.HashSet<>());
+                    walk(root, new ArrayList<>(), entries, sort, new HashSet<>());
                 } catch (RuntimeException e) {
                     logger.log(Level.WARNING, "Failed to read the vault for the Explorer filter", e);
                 }
@@ -461,7 +475,7 @@ public final class ExplorerTree {
     }
 
     private void walk(Folder folder, List<Folder> path, List<Entry> out, SortOption sort,
-            java.util.Set<String> seen) {
+            Set<String> seen) {
         List<Component> ordered = ExplorerOrdering.order(source.subfolders(folder), source.notes(folder), sort);
         for (Component child : ordered) {
             out.add(new Entry(child, List.copyOf(path)));
@@ -482,7 +496,7 @@ public final class ExplorerTree {
         TreeItem<Component> root = new TreeItem<>(lazyRoot != null ? lazyRoot.getValue() : null);
         root.setExpanded(true);
         Map<String, TreeItem<Component>> folders = new HashMap<>();
-        java.util.Set<String> matchedFolders = new java.util.HashSet<>();
+        Set<String> matchedFolders = new HashSet<>();
         for (Entry entry : entries) {
             Component item = entry.item();
             if (!normalize(pathOf(entry)).contains(query)
@@ -528,9 +542,9 @@ public final class ExplorerTree {
         if (text == null) {
             return "";
         }
-        return java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD)
+        return Normalizer.normalize(text, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "")
-                .toLowerCase(java.util.Locale.ROOT)
+                .toLowerCase(Locale.ROOT)
                 .trim();
     }
 
@@ -610,7 +624,7 @@ public final class ExplorerTree {
                 expandedProperty().addListener((obs, was, now) -> {
                     boolean changed = now ? openFolders.add(folderKey) : openFolders.remove(folderKey);
                     if (changed) {
-                        onOpenFoldersChanged.accept(java.util.Set.copyOf(openFolders));
+                        onOpenFoldersChanged.accept(Set.copyOf(openFolders));
                     }
                 });
                 if (openFolders.contains(folderKey)) {
@@ -814,7 +828,7 @@ public final class ExplorerTree {
             super.updateItem(item, empty);
             observe(empty ? null : getTreeItem());
             String key = empty || item == null ? null : key(item);
-            if (!java.util.Objects.equals(key, shownKey) && isHover()) {
+            if (!Objects.equals(key, shownKey) && isHover()) {
                 // JavaFX only updates :hover on mouse moves, so a row reused for another item
                 // (scrolling under a still mouse) would keep highlighting the wrong item.
                 setHover(false);

@@ -26,6 +26,9 @@ import javafx.util.Duration;
  * The small window shown while the main window is being built. Building it (the editor, the
  * vault, the first paint) takes a few seconds and blocks the UI thread, so without this the app
  * shows nothing at all meanwhile. It uses the colours of the theme the app opens in.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class StartupSplash {
 

@@ -9,6 +9,9 @@ import java.util.Map;
  * {@code notes/}, mirroring the vault's own folder structure. Built once per
  * export (see {@link VaultExporter}), then used both to write each note's HTML
  * file at that path and to rewrite wiki-links pointing at it.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.6
  */
 final class NoteSlugs {
 

@@ -7,17 +7,30 @@ import javafx.scene.layout.*;
 import javafx.scene.input.*;
 import javafx.application.Platform;
 import javafx.animation.PauseTransition;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
 import javafx.event.ActionEvent;
+import javafx.geometry.Pos;
+import javafx.geometry.Side;
+import javafx.scene.Node;
+import javafx.scene.control.ToggleButton;
 import javafx.util.Duration;
 import java.util.*;
 import java.io.File;
+import java.nio.file.Path;
+import java.text.MessageFormat;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 import java.util.prefs.Preferences;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import org.kordamp.ikonli.javafx.FontIcon;
 
 import com.example.jylos.config.LoggerConfig;
@@ -33,6 +46,8 @@ import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
+import com.example.jylos.service.TrashService;
+import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.EditorTabsModel;
 import com.example.jylos.ui.components.ExplorerOrdering;
@@ -40,11 +55,15 @@ import com.example.jylos.ui.components.ExplorerTree;
 import com.example.jylos.ui.components.TreeDisclosureArrow;
 import com.example.jylos.ui.components.TreeIndentGuides;
 import com.example.jylos.ui.components.NewTabGesture;
+import com.example.jylos.util.FileManager;
 
 /**
  * Sidebar: folders, tags, recent, favorites, and trash.
  * Uses explicit callbacks for single-owner selections and typed events where fan-out
  * or cross-feature coordination is useful.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class SidebarController {
 
@@ -103,7 +122,7 @@ public class SidebarController {
     private ListView<String> tagListView;
     @FXML
     private TextField filterTagsField;
-    private final javafx.collections.ObservableList<String> masterTagsList = javafx.collections.FXCollections
+    private final ObservableList<String> masterTagsList = FXCollections
             .observableArrayList();
     private final Map<String, Tag> tagsByTitleCache = new HashMap<>();
     private boolean tagSortAscending = true;
@@ -113,7 +132,7 @@ public class SidebarController {
     private ListView<String> recentNotesListView;
     @FXML
     private TextField filterRecentField;
-    private final javafx.collections.ObservableList<String> masterRecentList = javafx.collections.FXCollections
+    private final ObservableList<String> masterRecentList = FXCollections
             .observableArrayList();
     private boolean recentSortAscending = true;
     private List<Note> cachedRecentNotes = new ArrayList<>();
@@ -123,7 +142,7 @@ public class SidebarController {
     private ListView<String> favoritesListView;
     @FXML
     private TextField filterFavoritesField;
-    private final javafx.collections.ObservableList<String> masterFavoritesList = javafx.collections.FXCollections
+    private final ObservableList<String> masterFavoritesList = FXCollections
             .observableArrayList();
     private boolean favoritesSortAscending = true;
     private List<Note> cachedFavoriteNotes = new ArrayList<>();
@@ -219,7 +238,7 @@ public class SidebarController {
     @FXML
     private Button sortFoldersBtn;
     @FXML
-    private javafx.scene.control.ToggleButton revealActiveNoteBtn;
+    private ToggleButton revealActiveNoteBtn;
     /** Expands everything, or collapses it when something is open. */
     @FXML
     private Button expandCollapseBtn;
@@ -238,15 +257,15 @@ public class SidebarController {
     /** Preference: the Explorer folders left open, one key per line. */
     private static final String OPEN_FOLDERS_KEY = "ui.explorer.open_folders";
     private final PauseTransition openFoldersSave = new PauseTransition(Duration.millis(300));
-    private java.util.Set<String> openFoldersToSave = java.util.Set.of();
+    private Set<String> openFoldersToSave = Set.of();
     private boolean explorerMode;
     private String explorerActiveNoteId;
-    private java.util.function.BiConsumer<Note, EditorTabsModel.OpenTarget> explorerOpenAction = (note, target) -> {
+    private BiConsumer<Note, EditorTabsModel.OpenTarget> explorerOpenAction = (note, target) -> {
     };
-    private java.util.function.Function<Note, ContextMenu> explorerNoteMenu = note -> null;
+    private Function<Note, ContextMenu> explorerNoteMenu = note -> null;
     private Consumer<Folder> explorerFolderContextAction = folder -> {
     };
-    private java.util.function.BiConsumer<Note, String> explorerRenameNoteAction = (note, name) -> {
+    private BiConsumer<Note, String> explorerRenameNoteAction = (note, name) -> {
     };
     private final PauseTransition explorerRefreshDebounce = new PauseTransition(Duration.millis(200));
 
@@ -260,9 +279,9 @@ public class SidebarController {
             return;
         }
         explorerMode = on;
-        javafx.scene.Node explorerView = ensureExplorerTree().getView();
-        javafx.scene.Node from = on ? folderTreeView : explorerView;
-        javafx.scene.Node to = on ? explorerView : folderTreeView;
+        Node explorerView = ensureExplorerTree().getView();
+        Node from = on ? folderTreeView : explorerView;
+        Node to = on ? explorerView : folderTreeView;
         if (from.getParent() instanceof Pane parent) {
             parent.getChildren().set(parent.getChildren().indexOf(from), to);
             VBox.setVgrow(to, Priority.ALWAYS);
@@ -293,13 +312,13 @@ public class SidebarController {
     }
 
     /** What opening a note from the Explorer tree does. */
-    public void setExplorerOpenAction(java.util.function.BiConsumer<Note, EditorTabsModel.OpenTarget> action) {
+    public void setExplorerOpenAction(BiConsumer<Note, EditorTabsModel.OpenTarget> action) {
         this.explorerOpenAction = action != null ? action : (note, target) -> {
         };
     }
 
     /** The note context menu used by the Explorer tree's note rows. */
-    public void setExplorerNoteMenu(java.util.function.Function<Note, ContextMenu> menu) {
+    public void setExplorerNoteMenu(Function<Note, ContextMenu> menu) {
         this.explorerNoteMenu = menu != null ? menu : note -> null;
         if (explorerTree != null) {
             explorerTree.setNoteMenu(this.explorerNoteMenu);
@@ -370,7 +389,7 @@ public class SidebarController {
             return;
         }
         boolean collapsed = allCollapsed();
-        if (expandCollapseBtn.getGraphic() instanceof org.kordamp.ikonli.javafx.FontIcon icon) {
+        if (expandCollapseBtn.getGraphic() instanceof FontIcon icon) {
             icon.setIconLiteral(collapsed ? "fth-chevrons-down" : "fth-chevrons-up");
         }
         String text = getString(collapsed ? "action.expand_all" : "action.collapse_all");
@@ -382,7 +401,7 @@ public class SidebarController {
     }
 
     /** Saves the open Explorer folders a moment after the last change. */
-    private void rememberOpenFolders(java.util.Set<String> keys) {
+    private void rememberOpenFolders(Set<String> keys) {
         openFoldersToSave = keys;
         openFoldersSave.playFromStart();
     }
@@ -422,7 +441,7 @@ public class SidebarController {
             });
             menu.getItems().add(item);
         }
-        menu.show(sortFoldersBtn, javafx.geometry.Side.BOTTOM, 0, 0);
+        menu.show(sortFoldersBtn, Side.BOTTOM, 0, 0);
     }
 
     private static NoteService.SortOption storedExplorerSort() {
@@ -535,12 +554,12 @@ public class SidebarController {
      * that note in a new tab. The press is consumed so the list does not also select the
      * entry, which would open it in the current tab.
      */
-    private void installNewTabGesture(ListView<String> list, java.util.function.Supplier<List<Note>> notes) {
+    private void installNewTabGesture(ListView<String> list, Supplier<List<Note>> notes) {
         list.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
             if (!NewTabGesture.opensInNewTab(event)) {
                 return;
             }
-            javafx.scene.Node node = event.getPickResult().getIntersectedNode();
+            Node node = event.getPickResult().getIntersectedNode();
             while (node != null && !(node instanceof ListCell<?>)) {
                 node = node.getParent();
             }
@@ -816,7 +835,7 @@ public class SidebarController {
                                 + (folder != null ? folder.getId() : "null") + ": " + e.getMessage());
                     }
                     HBox container = new HBox(6);
-                    container.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+                    container.setAlignment(Pos.CENTER_LEFT);
                     Label nameLabel = new Label(folder.getTitle());
                     nameLabel.getStyleClass().add("folder-cell-name");
                     // The name is the flexible element, not a separate spacer: growing to
@@ -922,7 +941,7 @@ public class SidebarController {
                     return;
                 }
                 HBox container = new HBox(6);
-                container.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+                container.setAlignment(Pos.CENTER_LEFT);
                 String title = item.getTitle();
                 FontIcon icon;
                 if (item instanceof Folder) {
@@ -1060,9 +1079,9 @@ public class SidebarController {
         sidebarLoadExecutor.shutdownNow();
     }
 
-    private void setupFilteredList(ListView<String> listView, javafx.collections.ObservableList<String> masterList,
+    private void setupFilteredList(ListView<String> listView, ObservableList<String> masterList,
             TextField filterField) {
-        javafx.collections.transformation.FilteredList<String> filteredList = new javafx.collections.transformation.FilteredList<>(
+        FilteredList<String> filteredList = new FilteredList<>(
                 masterList, p -> true);
         listView.setItems(filteredList);
         if (filterField != null) {
@@ -1628,7 +1647,7 @@ public class SidebarController {
         alert.setHeaderText(getString("dialog.empty_trash.header"));
         alert.setContentText(getString("dialog.empty_trash.content"));
         alert.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
-        com.example.jylos.ui.UiDialogs.show(alert).filter(r -> r == ButtonType.OK).ifPresent(r -> {
+        UiDialogs.show(alert).filter(r -> r == ButtonType.OK).ifPresent(r -> {
             try {
                 emptyTrashNow();
                 publishStatusUpdate(getString("status.trash_emptied"));
@@ -1643,7 +1662,7 @@ public class SidebarController {
      * update, and this sidebar reloads its trees when it hears it.
      */
     void emptyTrashNow() {
-        for (Component deleted : new com.example.jylos.service.TrashService(noteService, folderService).emptyTrash()) {
+        for (Component deleted : new TrashService(noteService, folderService).emptyTrash()) {
             publishEvent(new NoteEvents.TrashItemDeletedEvent(deleted));
         }
     }
@@ -1682,10 +1701,10 @@ public class SidebarController {
             }
             Alert a = new Alert(Alert.AlertType.CONFIRMATION);
             a.setTitle(getString("dialog.delete_permanently.title"));
-            a.setHeaderText(java.text.MessageFormat.format(getString("dialog.delete_permanently.header"), c.getTitle()));
+            a.setHeaderText(MessageFormat.format(getString("dialog.delete_permanently.header"), c.getTitle()));
             a.setContentText(getString("dialog.delete_permanently.content"));
             a.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
-            if (com.example.jylos.ui.UiDialogs.show(a).orElse(ButtonType.CANCEL) == ButtonType.OK) {
+            if (UiDialogs.show(a).orElse(ButtonType.CANCEL) == ButtonType.OK) {
                 try {
                     deleteFromTrashNow(c);
                     publishStatusUpdate(getString("status.item_deleted"));
@@ -1725,7 +1744,7 @@ public class SidebarController {
     }
 
     /** What renaming a note in the Explorer row does (the notes list renames it). */
-    public void setExplorerRenameNoteAction(java.util.function.BiConsumer<Note, String> action) {
+    public void setExplorerRenameNoteAction(BiConsumer<Note, String> action) {
         this.explorerRenameNoteAction = action != null ? action : (note, name) -> {
         };
     }
@@ -1762,7 +1781,7 @@ public class SidebarController {
             }
             publishStatusUpdate(destination == null || "ROOT".equals(destination.getId())
                     ? getString("status.folder_moved_root")
-                    : java.text.MessageFormat.format(getString("status.folder_moved"), destination.getTitle()));
+                    : MessageFormat.format(getString("status.folder_moved"), destination.getTitle()));
         } catch (Exception e) {
             logger.log(Level.WARNING, "Failed to move folder " + folder.getId(), e);
             publishStatusUpdate(getString("status.folder_move_error"));
@@ -1788,7 +1807,7 @@ public class SidebarController {
             return;
         }
         try {
-            com.example.jylos.util.FileManager.open(java.nio.file.Path.of(pathOpt.get()));
+            FileManager.open(Path.of(pathOpt.get()));
             publishStatusUpdate(getString("status.revealed"));
         } catch (Exception ex) {
             logger.log(Level.WARNING, "Failed to reveal folder in file manager", ex);
@@ -1831,7 +1850,7 @@ public class SidebarController {
         d.setHeaderText(getString("dialog.rename_folder.header"));
         d.setContentText(getString("dialog.rename_folder.content"));
         d.getDialogPane().setMinWidth(380);
-        com.example.jylos.ui.UiDialogs.show(d).ifPresent(name -> renameFolderTo(f, name));
+        UiDialogs.show(d).ifPresent(name -> renameFolderTo(f, name));
     }
 
     /** Renames the folder to {@code name}; a blank or unchanged name does nothing. */
@@ -1865,7 +1884,7 @@ public class SidebarController {
         a.setHeaderText(getString("dialog.delete_folder.header"));
         a.setContentText(getString("dialog.delete_folder.content"));
         a.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
-        com.example.jylos.ui.UiDialogs.show(a).filter(r -> r == ButtonType.OK).ifPresent(r -> {
+        UiDialogs.show(a).filter(r -> r == ButtonType.OK).ifPresent(r -> {
             try {
                 deleteFolderNow(f);
             } catch (Exception e) {
@@ -1898,9 +1917,9 @@ public class SidebarController {
         Alert a = new Alert(Alert.AlertType.CONFIRMATION);
         a.setTitle(getString("dialog.delete_tag.title"));
         a.setHeaderText(getString("dialog.delete_tag.header"));
-        a.setContentText(java.text.MessageFormat.format(getString("dialog.delete_tag.content"), tagName));
+        a.setContentText(MessageFormat.format(getString("dialog.delete_tag.content"), tagName));
         a.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
-        com.example.jylos.ui.UiDialogs.show(a).filter(r -> r == ButtonType.OK).ifPresent(r -> {
+        UiDialogs.show(a).filter(r -> r == ButtonType.OK).ifPresent(r -> {
             Optional.ofNullable(tagsByTitleCache.get(tagName)).ifPresent(t -> {
                 try {
                     tagService.deleteTag(t.getId());

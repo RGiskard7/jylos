@@ -3,7 +3,12 @@ package com.example.jylos;
 import java.util.List;
 import java.util.function.UnaryOperator;
 
-/** The project's public links, and the runtime details people are asked for in bug reports. */
+/**
+ * The project's public links, and the runtime details people are asked for in bug reports.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.8
+ */
 public final class AppLinks {
 
     public static final String WEBSITE = "https://jylos.es";

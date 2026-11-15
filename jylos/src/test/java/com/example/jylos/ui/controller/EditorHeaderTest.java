@@ -22,10 +22,14 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.Background;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Region;
+import javafx.scene.paint.Color;
 
 /**
  * The editor header takes one row: the note's folders appear in the title row (no separate
@@ -147,23 +151,23 @@ class EditorHeaderTest {
                 f.controller.loadNote(withProps);
                 f.layout();
                 List<String> out = new ArrayList<>();
-                javafx.scene.layout.Region panel = (javafx.scene.layout.Region) f.root.lookup(".properties-panel");
+                Region panel = (Region) f.root.lookup(".properties-panel");
                 if (painted(panel.getBackground())) {
                     out.add("panel has its own background band");
                 }
                 if (panel.getBorder() != null && !panel.getBorder().getStrokes().isEmpty()
                         && panel.getBorder().getStrokes().stream().anyMatch(st -> st.getWidths().getBottom() > 0
-                                && !(st.getBottomStroke() instanceof javafx.scene.paint.Color c && c.getOpacity() == 0))) {
+                                && !(st.getBottomStroke() instanceof Color c && c.getOpacity() == 0))) {
                     out.add("panel has a border line");
                 }
-                javafx.scene.control.Button add = (javafx.scene.control.Button) f.root.lookup("#addPropertyBtn");
+                Button add = (Button) f.root.lookup("#addPropertyBtn");
                 if (add.getBorder() != null && add.getBorder().getStrokes().stream()
                         .anyMatch(st -> st.getWidths().getTop() > 0
-                                && !(st.getTopStroke() instanceof javafx.scene.paint.Color c && c.getOpacity() == 0))) {
+                                && !(st.getTopStroke() instanceof Color c && c.getOpacity() == 0))) {
                     out.add("add button has a border");
                 }
                 for (Node node : f.root.lookupAll(".property-value")) {
-                    if (node instanceof javafx.scene.layout.Region r && painted(r.getBackground())) {
+                    if (node instanceof Region r && painted(r.getBackground())) {
                         out.add("value field is a filled box at rest");
                         break;
                     }
@@ -174,9 +178,9 @@ class EditorHeaderTest {
         }
     }
 
-    private static boolean painted(javafx.scene.layout.Background background) {
+    private static boolean painted(Background background) {
         return background != null && background.getFills().stream()
-                .anyMatch(fill -> !(fill.getFill() instanceof javafx.scene.paint.Color c && c.getOpacity() == 0));
+                .anyMatch(fill -> !(fill.getFill() instanceof Color c && c.getOpacity() == 0));
     }
 
     private static final class Fixture {

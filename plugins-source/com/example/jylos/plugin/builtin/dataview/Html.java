@@ -3,7 +3,12 @@ package com.example.jylos.plugin.builtin.dataview;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** HTML escaping/unescaping shared by the renderer and the block extractor. */
+/**
+ * HTML escaping/unescaping shared by the renderer and the block extractor.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
+ */
 final class Html {
 
     private static final Pattern WIKI_LINK = Pattern.compile("\\[\\[([^\\[\\]\\n]+?)\\]\\]");

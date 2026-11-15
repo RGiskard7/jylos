@@ -28,6 +28,9 @@ import javafx.scene.layout.VBox;
 
 /**
  * Tag dialogs (manager, add/remove tag on the current note).
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.3.0
  */
 class TagManagement {
 

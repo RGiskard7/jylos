@@ -1,8 +1,15 @@
 package com.example.jylos.ui.components;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -10,13 +17,19 @@ import java.util.regex.Pattern;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.service.NoteService;
+import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.util.KanbanModel;
 
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Side;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.ColorPicker;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Dialog;
@@ -26,13 +39,18 @@ import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.Tooltip;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 
 import org.kordamp.ikonli.javafx.FontIcon;
 
@@ -85,17 +103,15 @@ public final class KanbanBoard extends VBox {
         setFocusTraversable(true);
         getChildren().addAll(buildToolbar(), buildScrollableLanes());
 
-        addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
-            if (e.getCode() == javafx.scene.input.KeyCode.ESCAPE && onClose != null) {
+        addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.ESCAPE && onClose != null) {
                 onClose.run();
                 e.consume();
             }
         });
     }
 
-    // ------------------------------------------------------------------
-    // Toolbar
-    // ------------------------------------------------------------------
+    // ── Toolbar ──────────────────────────────────────────────────────────────
 
     private HBox buildToolbar() {
         HBox toolbar = new HBox();
@@ -145,7 +161,7 @@ public final class KanbanBoard extends VBox {
     }
 
     private static Button iconButton(String iconLiteral, String iconStyle, String tip,
-            javafx.event.EventHandler<javafx.event.ActionEvent> onAction) {
+            EventHandler<ActionEvent> onAction) {
         FontIcon fi = new FontIcon(iconLiteral);
         fi.getStyleClass().add(iconStyle);
         fi.setIconSize(16);
@@ -176,9 +192,7 @@ public final class KanbanBoard extends VBox {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Board loading / persistence
-    // ------------------------------------------------------------------
+    // ── Board loading / persistence ──────────────────────────────────────────
 
     /** Reloads the list of board notes and re-renders the current (or first) board. */
     public void reload() {
@@ -264,9 +278,7 @@ public final class KanbanBoard extends VBox {
         reload();
     }
 
-    // ------------------------------------------------------------------
-    // Rendering
-    // ------------------------------------------------------------------
+    // ── Rendering ────────────────────────────────────────────────────────────
 
     private void renderEmpty() {
         lanes.getChildren().clear();
@@ -388,7 +400,7 @@ public final class KanbanBoard extends VBox {
         card.getChildren().add(label);
 
         // Image/PDF reference in the card text → embedded thumbnail.
-        javafx.scene.Node thumbnail = thumbnailFor(text);
+        Node thumbnail = thumbnailFor(text);
         if (thumbnail != null) {
             card.getChildren().add(thumbnail);
         }
@@ -496,7 +508,7 @@ public final class KanbanBoard extends VBox {
         });
     }
 
-    private void showColumnMenu(KanbanModel.Column col, javafx.event.ActionEvent e) {
+    private void showColumnMenu(KanbanModel.Column col, ActionEvent e) {
         ContextMenu menu = new ContextMenu();
         MenuItem rename = new MenuItem(str("kanban.rename_column", "Rename column"));
         rename.setOnAction(ev -> {
@@ -524,24 +536,24 @@ public final class KanbanBoard extends VBox {
         MenuItem delete = new MenuItem(str("kanban.delete_column", "Delete column"));
         delete.setOnAction(ev -> { model.getColumns().remove(col); save(); render(); });
         menu.getItems().addAll(rename, wip, colorItem, delete);
-        if (e.getSource() instanceof javafx.scene.Node node) {
-            menu.show(node, javafx.geometry.Side.BOTTOM, 0, 0);
+        if (e.getSource() instanceof Node node) {
+            menu.show(node, Side.BOTTOM, 0, 0);
         }
     }
 
     /** Color picker dialog with an explicit "clear" choice for the column color. */
     private void chooseColumnColor(KanbanModel.Column col) {
-        javafx.scene.control.Dialog<javafx.scene.control.ButtonType> dialog =
-                new javafx.scene.control.Dialog<>();
+        Dialog<ButtonType> dialog =
+                new Dialog<>();
         dialog.setTitle(str("kanban.column_color", "Column color…"));
-        com.example.jylos.ui.UiDialogs.apply(dialog);
-        javafx.scene.control.ButtonType clearType = new javafx.scene.control.ButtonType(
-                str("kanban.color_clear", "No color"), javafx.scene.control.ButtonBar.ButtonData.OTHER);
+        UiDialogs.apply(dialog);
+        ButtonType clearType = new ButtonType(
+                str("kanban.color_clear", "No color"), ButtonBar.ButtonData.OTHER);
         dialog.getDialogPane().getButtonTypes().addAll(
-                javafx.scene.control.ButtonType.OK, clearType, javafx.scene.control.ButtonType.CANCEL);
-        javafx.scene.control.ColorPicker picker = new javafx.scene.control.ColorPicker();
+                ButtonType.OK, clearType, ButtonType.CANCEL);
+        ColorPicker picker = new ColorPicker();
         try {
-            picker.setValue(javafx.scene.paint.Color.web(col.getColor() != null ? col.getColor() : "#7c3aed"));
+            picker.setValue(Color.web(col.getColor() != null ? col.getColor() : "#7c3aed"));
         } catch (IllegalArgumentException ignored) {
             // fall back to the picker default
         }
@@ -551,8 +563,8 @@ public final class KanbanBoard extends VBox {
         dialog.showAndWait().ifPresent(choice -> {
             if (choice == clearType) {
                 col.setColor(null);
-            } else if (choice == javafx.scene.control.ButtonType.OK) {
-                javafx.scene.paint.Color c = picker.getValue();
+            } else if (choice == ButtonType.OK) {
+                Color c = picker.getValue();
                 col.setColor(String.format("#%02x%02x%02x",
                         (int) Math.round(c.getRed() * 255),
                         (int) Math.round(c.getGreen() * 255),
@@ -565,9 +577,7 @@ public final class KanbanBoard extends VBox {
         });
     }
 
-    // ------------------------------------------------------------------
-    // Helpers
-    // ------------------------------------------------------------------
+    // ── Helpers ──────────────────────────────────────────────────────────────
 
     private String prompt(String title, String header, String initial) {
         Dialog<String> dialog = new Dialog<>();
@@ -585,8 +595,8 @@ public final class KanbanBoard extends VBox {
         area.setPromptText(str("kanban.card_placeholder",
                 "Card text… supports lists (- item), checkboxes (- [ ] task), wiki-links ([[Note]])"));
         // Tab inserts 2 spaces instead of moving focus, so indented lists work
-        area.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
-            if (e.getCode() == javafx.scene.input.KeyCode.TAB) {
+        area.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.TAB) {
                 int pos = area.getCaretPosition();
                 area.insertText(pos, "  ");
                 e.consume();
@@ -608,7 +618,7 @@ public final class KanbanBoard extends VBox {
 
         dialog.setResultConverter(bt -> bt == ok ? area.getText() : null);
 
-        return com.example.jylos.ui.UiDialogs.show(dialog).orElse(null);
+        return UiDialogs.show(dialog).orElse(null);
     }
 
     /** Id of the board note shown, or {@code null}: the note card links resolve from. */
@@ -624,9 +634,7 @@ public final class KanbanBoard extends VBox {
         return m.find() ? m.group(1).strip() : null;
     }
 
-    // ------------------------------------------------------------------
-    // Card thumbnails (image / PDF references)
-    // ------------------------------------------------------------------
+    // ── Card thumbnails (image / PDF references) ─────────────────────────────
 
     /** Matches the first image/PDF reference: {@code ![alt](file.png)} or {@code [[file.pdf]]}. */
     private static final Pattern ATTACHMENT_REF = Pattern.compile(
@@ -642,7 +650,7 @@ public final class KanbanBoard extends VBox {
      * a few levels covers vault-root-relative attachment links). PDF thumbnails render
      * the first page at low DPI via PDFBox. Any failure simply yields no thumbnail.
      */
-    private javafx.scene.Node thumbnailFor(String cardText) {
+    private Node thumbnailFor(String cardText) {
         if (cardText == null) {
             return null;
         }
@@ -651,18 +659,18 @@ public final class KanbanBoard extends VBox {
             return null;
         }
         String ref = m.group(1) != null ? m.group(1) : m.group(2);
-        java.nio.file.Path file = resolveAttachment(ref.strip());
+        Path file = resolveAttachment(ref.strip());
         if (file == null) {
             return null;
         }
         try {
-            javafx.scene.image.Image image = ref.toLowerCase(Locale.ROOT).endsWith(".pdf")
+            Image image = ref.toLowerCase(Locale.ROOT).endsWith(".pdf")
                     ? pdfThumbnail(file)
-                    : new javafx.scene.image.Image(file.toUri().toString(), THUMB_WIDTH, 0, true, true);
+                    : new Image(file.toUri().toString(), THUMB_WIDTH, 0, true, true);
             if (image == null || image.isError()) {
                 return null;
             }
-            javafx.scene.image.ImageView view = new javafx.scene.image.ImageView(image);
+            ImageView view = new ImageView(image);
             view.setFitWidth(THUMB_WIDTH);
             view.setPreserveRatio(true);
             view.getStyleClass().add("kanban-card-thumb");
@@ -672,44 +680,44 @@ public final class KanbanBoard extends VBox {
         }
     }
 
-    private java.nio.file.Path resolveAttachment(String ref) {
+    private Path resolveAttachment(String ref) {
         try {
-            java.nio.file.Path p = java.nio.file.Path.of(ref);
+            Path p = Path.of(ref);
             if (p.isAbsolute()) {
-                return java.nio.file.Files.exists(p) ? p : null;
+                return Files.exists(p) ? p : null;
             }
             if (noteService != null && currentBoard != null && currentBoard.getId() != null) {
-                java.util.Optional<java.nio.file.Path> boardFile =
+                Optional<Path> boardFile =
                         noteService.getNoteFilePath(currentBoard.getId());
                 if (boardFile.isPresent()) {
-                    java.nio.file.Path base = boardFile.get().getParent();
+                    Path base = boardFile.get().getParent();
                     for (int depth = 0; base != null && depth < 4; depth++, base = base.getParent()) {
-                        java.nio.file.Path candidate = base.resolve(ref);
-                        if (java.nio.file.Files.exists(candidate)) {
+                        Path candidate = base.resolve(ref);
+                        if (Files.exists(candidate)) {
                             return candidate;
                         }
                     }
                 }
             }
-        } catch (java.nio.file.InvalidPathException ignored) {
+        } catch (InvalidPathException ignored) {
             // malformed reference — no thumbnail
         }
         return null;
     }
 
     /** First PDF page as a small image (PDFBox render + PNG round-trip into JavaFX). */
-    private static javafx.scene.image.Image pdfThumbnail(java.nio.file.Path pdf) {
+    private static Image pdfThumbnail(Path pdf) {
         try (org.apache.pdfbox.pdmodel.PDDocument doc =
                 org.apache.pdfbox.pdmodel.PDDocument.load(pdf.toFile())) {
             if (doc.getNumberOfPages() == 0) {
                 return null;
             }
-            java.awt.image.BufferedImage page = new org.apache.pdfbox.rendering.PDFRenderer(doc)
+            BufferedImage page = new org.apache.pdfbox.rendering.PDFRenderer(doc)
                     .renderImageWithDPI(0, PDF_THUMB_DPI, org.apache.pdfbox.rendering.ImageType.RGB);
-            try (java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream()) {
+            try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
                 javax.imageio.ImageIO.write(page, "png", baos);
-                return new javafx.scene.image.Image(
-                        new java.io.ByteArrayInputStream(baos.toByteArray()), THUMB_WIDTH, 0, true, true);
+                return new Image(
+                        new ByteArrayInputStream(baos.toByteArray()), THUMB_WIDTH, 0, true, true);
             }
         } catch (Exception e) {
             return null;

@@ -2,6 +2,7 @@ package com.example.jylos.data.dao.filesystem;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,12 +15,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
@@ -32,6 +36,7 @@ import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.exceptions.DataAccessException;
 import com.example.jylos.exceptions.InvalidParameterException;
+import com.example.jylos.service.EncryptionService;
 import com.example.jylos.util.AttachmentType;
 import com.example.jylos.util.PathContainment;
 import com.example.jylos.util.WikiLinkResolver;
@@ -39,6 +44,9 @@ import com.example.jylos.util.WikiLinkResolver;
 /**
  * File System implementation of NoteDAO.
  * Stores notes as Markdown files with YAML frontmatter.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class NoteDAOFileSystem implements NoteDAO {
 
@@ -65,7 +73,7 @@ public class NoteDAOFileSystem implements NoteDAO {
     // Notes longer than the head read for the list: their links come from the persistent
     // cache, or from a full read in the background (see indexLongNotes).
     /** Reads the stored cache; called once, on first use (see {@link #linkCache()}). */
-    private final java.util.function.Supplier<LinkCache> linkCacheLoader;
+    private final Supplier<LinkCache> linkCacheLoader;
     private final Object linkCacheLock = new Object();
     private volatile LinkCache linkCache;
     /** Long notes whose links so far cover only the head read. */
@@ -121,7 +129,7 @@ public class NoteDAOFileSystem implements NoteDAO {
      *        built, and the cache of a big vault is megabytes of JSON.
      */
     NoteDAOFileSystem(String rootDirectory, boolean deferContentLoad,
-            java.util.function.Supplier<LinkCache> linkCacheLoader) {
+            Supplier<LinkCache> linkCacheLoader) {
         this.linkCacheLoader = linkCacheLoader;
         this.autoIndexLongNotes = deferContentLoad;
         this.rootPath = Paths.get(rootDirectory);
@@ -200,9 +208,9 @@ public class NoteDAOFileSystem implements NoteDAO {
             try {
                 // Stat before reading: if the file changes meanwhile the entry is merely
                 // outdated and the next start reads it again.
-                java.nio.file.attribute.BasicFileAttributes attrs =
-                        Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class);
-                String content = Files.readString(path, java.nio.charset.StandardCharsets.UTF_8);
+                BasicFileAttributes attrs =
+                        Files.readAttributes(path, BasicFileAttributes.class);
+                String content = Files.readString(path, StandardCharsets.UTF_8);
                 List<String> links = FrontmatterHandler.linksOf(content);
                 linkCache().put(id, attrs.lastModifiedTime().toMillis(), attrs.size(), links);
                 cachedNotes.computeIfPresent(id, (key, note) -> {
@@ -288,7 +296,7 @@ public class NoteDAOFileSystem implements NoteDAO {
      * file (full head read vs metadata only) — that is the only difference between the
      * full and metadata-only refreshes.
      */
-    private void rebuildCache(java.util.function.BiFunction<String, Path, Note> noteFactory) {
+    private void rebuildCache(BiFunction<String, Path, Note> noteFactory) {
         FileSystemIoLock.LOCK.lock();
         try {
             idToPathMap.clear();
@@ -301,7 +309,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                         // Markdown notes plus viewable attachments (PDF, images) so the vault
                         // lists them alongside notes (Obsidian-style).
                         .filter(p -> p.toString().endsWith(".md")
-                                || com.example.jylos.util.AttachmentType.isAttachment(p.getFileName().toString()))
+                                || AttachmentType.isAttachment(p.getFileName().toString()))
                         // Exclude hidden entries inside the vault (.trash, .git); a hidden
                         // directory *above* the vault (e.g. ~/.config) must not hide it all.
                         .filter(p -> !FileSystemNames.isHiddenWithinVault(rootPath, p))
@@ -421,7 +429,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         Note note = new Note(id, title, "");
         note.setContentComplete(false);
         applyFileTimestampsIfMissing(note, path);
-        if (com.example.jylos.util.AttachmentType.isAttachment(filename)) {
+        if (AttachmentType.isAttachment(filename)) {
             metadataStore.applyDocumentMetadata(id, note);
         }
         return note;
@@ -439,7 +447,7 @@ public class NoteDAOFileSystem implements NoteDAO {
 
         // Attachments (PDF, images) are binary: never parse them as Markdown/frontmatter.
         // Keep the full filename as title so the list shows "report.pdf", "diagram.png".
-        if (com.example.jylos.util.AttachmentType.isAttachment(filename)) {
+        if (AttachmentType.isAttachment(filename)) {
             Note attachment = new Note(id, title, "");
             attachment.setContentComplete(false);
             applyFileTimestampsIfMissing(attachment, path);
@@ -464,11 +472,11 @@ public class NoteDAOFileSystem implements NoteDAO {
             List<String> links = FrontmatterHandler.linksOf(head);
             // A longer file has links the head does not show: take them from the cache when the
             // file is unchanged, and queue it for a full read in the background otherwise.
-            java.nio.file.attribute.BasicFileAttributes attrs =
-                    Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class);
+            BasicFileAttributes attrs =
+                    Files.readAttributes(path, BasicFileAttributes.class);
             if (attrs.size() > LIGHTWEIGHT_READ_BYTES && filename.endsWith(".md")) {
                 longNoteIds.add(id);
-                java.util.Optional<List<String>> cached =
+                Optional<List<String>> cached =
                         linkCache().get(id, attrs.lastModifiedTime().toMillis(), attrs.size());
                 if (cached.isPresent()) {
                     links = cached.get();
@@ -489,7 +497,7 @@ public class NoteDAOFileSystem implements NoteDAO {
     }
 
     private static boolean isCanvasFile(String filename) {
-        return com.example.jylos.util.AttachmentType.fromName(filename) == com.example.jylos.util.AttachmentType.CANVAS;
+        return AttachmentType.fromName(filename) == AttachmentType.CANVAS;
     }
 
     private Note readCanvasNote(String id, Path path) throws IOException {
@@ -569,7 +577,7 @@ public class NoteDAOFileSystem implements NoteDAO {
 
             // Attachments (e.g. .canvas) keep their own extension and are written as raw
             // bytes — no ".md" suffix and no frontmatter wrapper.
-            boolean attachment = com.example.jylos.util.AttachmentType.isAttachment(note.getTitle());
+            boolean attachment = AttachmentType.isAttachment(note.getTitle());
             String base;
             String ext;
             if (attachment) {
@@ -627,8 +635,8 @@ public class NoteDAOFileSystem implements NoteDAO {
     }
 
     @Override
-    public java.util.Optional<Path> storageRoot() {
-        return java.util.Optional.of(rootPath.toAbsolutePath().normalize());
+    public Optional<Path> storageRoot() {
+        return Optional.of(rootPath.toAbsolutePath().normalize());
     }
 
     /**
@@ -641,7 +649,7 @@ public class NoteDAOFileSystem implements NoteDAO {
             return walk.filter(Files::isRegularFile)
                     .filter(p -> p.getFileName().toString().endsWith(".md"))
                     .anyMatch(this::isPrivateNoteFile);
-        } catch (IOException | java.io.UncheckedIOException e) {
+        } catch (IOException | UncheckedIOException e) {
             logger.log(Level.WARNING, "Could not scan vault for private notes", e);
             return false;
         }
@@ -657,9 +665,9 @@ public class NoteDAOFileSystem implements NoteDAO {
     }
 
     @Override
-    public java.util.Optional<Path> resolveFilePath(String id) {
+    public Optional<Path> resolveFilePath(String id) {
         if (id == null || !isInsideVault(id)) {
-            return java.util.Optional.empty();
+            return Optional.empty();
         }
         Path path = idToPathMap.get(id);
         if (path == null) {
@@ -671,7 +679,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                 path = potential.toAbsolutePath().normalize();
             }
         }
-        return java.util.Optional.ofNullable(path).filter(Files::exists);
+        return Optional.ofNullable(path).filter(Files::exists);
     }
 
     /** Reads and fully parses the Markdown file for {@code id}, resolving the path from the cache or disk. */
@@ -707,7 +715,7 @@ public class NoteDAOFileSystem implements NoteDAO {
 
         // Attachments (PDF, images) are binary — return their metadata, never decode
         // the bytes as Markdown text.
-        if (com.example.jylos.util.AttachmentType.isAttachment(path.getFileName().toString())) {
+        if (AttachmentType.isAttachment(path.getFileName().toString())) {
             if (isCanvasFile(path.getFileName().toString())) {
                 try {
                     return readCanvasNote(normalizedId, path);
@@ -871,7 +879,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                         try {
                             // A private canvas is stored encrypted, as a private note's body: written
                             // as it is, not as canvas JSON.
-                            String stored = com.example.jylos.service.EncryptionService.isEncrypted(content)
+                            String stored = EncryptionService.isEncrypted(content)
                                     ? content
                                     : metadataStore.normalizeCanvasDocument(content);
                             FileSystemAtomicWriter.writeString(path, stored, StandardCharsets.UTF_8);
@@ -1348,18 +1356,18 @@ public class NoteDAOFileSystem implements NoteDAO {
     }
 
     private boolean isAttachmentNote(Path path, Note note) {
-        return (path != null && com.example.jylos.util.AttachmentType.isAttachment(path.getFileName().toString()))
-                || (note != null && com.example.jylos.util.AttachmentType.isAttachment(note.getTitle()));
+        return (path != null && AttachmentType.isAttachment(path.getFileName().toString()))
+                || (note != null && AttachmentType.isAttachment(note.getTitle()));
     }
 
     private boolean usesSidecarMetadata(Path path) {
         return path != null
-                && com.example.jylos.util.AttachmentType.isAttachment(path.getFileName().toString());
+                && AttachmentType.isAttachment(path.getFileName().toString());
     }
 
     private String expectedAttachmentFilename(String currentFilename, String requestedTitle) {
         String sanitized = sanitizeFilename(requestedTitle);
-        String currentExtension = com.example.jylos.util.AttachmentType.extensionOf(currentFilename);
+        String currentExtension = AttachmentType.extensionOf(currentFilename);
         String extension = currentExtension;
         String base = sanitized;
 

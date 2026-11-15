@@ -20,10 +20,12 @@ import org.junit.jupiter.api.io.TempDir;
 import com.example.jylos.data.dao.filesystem.FolderDAOFileSystem;
 import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
 import com.example.jylos.data.models.Note;
+import com.example.jylos.service.EncryptionService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.tests.FxTestSupport;
 
 import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.layout.Pane;
 
@@ -43,7 +45,7 @@ class CanvasSaveStateTest {
         List<String> seen = onFx(() -> {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/jylos/ui/view/EditorView.fxml"),
                     ResourceBundle.getBundle("com.example.jylos.i18n.messages", Locale.forLanguageTag("es")));
-            new Scene(new Pane((javafx.scene.Parent) loader.load()), 900, 600);
+            new Scene(new Pane((Parent) loader.load()), 900, 600);
             EditorController editor = loader.getController();
             List<Boolean> reported = new ArrayList<>();
             set(editor, "noteService", notes);
@@ -66,7 +68,7 @@ class CanvasSaveStateTest {
     void aPrivateCanvasOpensAsACanvasWhileUnlocked(@TempDir Path vault) throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
         Files.writeString(vault.resolve("Mapa.canvas"), "{\"nodes\":[],\"edges\":[]}", StandardCharsets.UTF_8);
-        com.example.jylos.service.EncryptionService encryption = com.example.jylos.service.EncryptionService.getInstance();
+        EncryptionService encryption = EncryptionService.getInstance();
         encryption.configure("clave-canvas-editor".toCharArray());
         try {
             NoteService notes = new NoteService(new NoteDAOFileSystem(vault.toString()),
@@ -83,7 +85,7 @@ class CanvasSaveStateTest {
                     }
                     FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/jylos/ui/view/EditorView.fxml"),
                             ResourceBundle.getBundle("com.example.jylos.i18n.messages", Locale.forLanguageTag("es")));
-                    new Scene(new Pane((javafx.scene.Parent) loader.load()), 900, 600);
+                    new Scene(new Pane((Parent) loader.load()), 900, 600);
                     EditorController editor = loader.getController();
                     set(editor, "noteService", notes);
                     editor.loadNote(notes.getNoteById("Mapa.canvas").orElseThrow());

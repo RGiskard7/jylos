@@ -10,6 +10,9 @@ import java.util.List;
  * punctuation by the parser: {@code [[Some Note]]} and {@code #project/active} both
  * contain characters that are operators everywhere else, and treating them atomically
  * here keeps that ambiguity out of the grammar.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
  */
 final class DqlLexer {
 

@@ -8,6 +8,9 @@ import java.util.Locale;
 /**
  * Shows a file or a folder in the system's file manager (Finder, Explorer, the desktop's own
  * on Linux).
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class FileManager {
 

@@ -14,6 +14,7 @@ import java.util.ResourceBundle;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
+import org.kordamp.ikonli.javafx.FontIcon;
 
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
@@ -25,9 +26,13 @@ import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Cell;
+import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.TabPane;
+import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
+import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
 
 /**
@@ -98,7 +103,7 @@ class StaleHoverOnScrollTest {
             SidebarController sidebar = (SidebarController) controller;
             Field tab = SidebarController.class.getDeclaredField("navigationTabPane");
             tab.setAccessible(true);
-            javafx.scene.control.TabPane tabs = (javafx.scene.control.TabPane) tab.get(sidebar);
+            TabPane tabs = (TabPane) tab.get(sidebar);
             tabs.getSelectionModel().select(tabs.getTabs().size() - 1);
             show(root);
             hoverRowShowing(tree, "Borrada 10");
@@ -122,12 +127,12 @@ class StaleHoverOnScrollTest {
             inside.setId("n");
             folder.getChildren().add(new TreeItem<>(inside));
             tree.getRoot().getChildren().add(folder);
-            javafx.scene.control.TabPane tabs = (javafx.scene.control.TabPane) field(SidebarController.class,
+            TabPane tabs = (TabPane) field(SidebarController.class,
                     controller, "navigationTabPane");
             tabs.getSelectionModel().select(tabs.getTabs().size() - 1);
             show(root);
             List<String> out = new ArrayList<>();
-            javafx.scene.control.TreeCell<?> row = (javafx.scene.control.TreeCell<?>) rowShowing(tree, "Borrada");
+            TreeCell<?> row = (TreeCell<?>) rowShowing(tree, "Borrada");
             out.add(iconOf(row));
             out.add(String.valueOf(row.getDisclosureNode().getRotate()));
             folder.setExpanded(true);
@@ -150,12 +155,12 @@ class StaleHoverOnScrollTest {
 
     private static String iconOf(Node row) {
         for (Node node : row.lookupAll(".ikonli-font-icon")) {
-            if (node instanceof org.kordamp.ikonli.javafx.FontIcon icon && icon.getParent() instanceof javafx.scene.layout.HBox) {
+            if (node instanceof FontIcon icon && icon.getParent() instanceof HBox) {
                 return icon.getIconLiteral();
             }
         }
         for (Node node : row.lookupAll(".label")) {
-            if (node instanceof javafx.scene.control.Label label && label.getText() != null
+            if (node instanceof Label label && label.getText() != null
                     && label.getText().startsWith("[")) {
                 return label.getText();
             }

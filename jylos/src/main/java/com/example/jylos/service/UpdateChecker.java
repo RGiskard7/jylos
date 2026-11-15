@@ -25,6 +25,9 @@ import com.google.gson.JsonParser;
  * <p>The checker is deliberately UI-agnostic: it fetches release metadata,
  * compares semantic versions numerically and returns a small result object. The
  * controller decides how and when to notify the user.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.4.1
  */
 public final class UpdateChecker {
 

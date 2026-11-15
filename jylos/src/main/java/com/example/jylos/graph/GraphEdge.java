@@ -6,6 +6,8 @@ package com.example.jylos.graph;
  * @param source origin node id
  * @param target destination node id
  * @param type   {@link Type} of relationship
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public record GraphEdge(String source, String target, Type type) {
 

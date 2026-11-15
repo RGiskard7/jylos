@@ -22,6 +22,9 @@ import com.google.gson.JsonParser;
  * keep Jylos-only document metadata in a private sidecar index inside the vault
  * so metadata changes never rewrite binary payloads or Obsidian canvas JSON by
  * accident.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.4.0
  */
 final class FileSystemDocumentMetadataStore {
 

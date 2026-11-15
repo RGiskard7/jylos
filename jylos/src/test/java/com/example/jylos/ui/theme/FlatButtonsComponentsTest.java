@@ -25,16 +25,21 @@ import com.example.jylos.ui.components.CanvasView;
 import com.example.jylos.ui.components.FileViewer;
 import com.example.jylos.ui.components.KanbanBoard;
 import com.example.jylos.util.AttachmentType;
+import com.example.jylos.util.CanvasModel;
 
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBase;
 import javafx.scene.control.Toggle;
 import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.BorderStroke;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.Paint;
 import javafx.stage.Stage;
@@ -81,25 +86,25 @@ class FlatButtonsComponentsTest {
                 // A board's lane needs a stored board; this is the same structure and classes
                 // the board builds for "+ Add card" / "+ Add column".
                 case "kanban-lane" -> {
-                    javafx.scene.control.Button addCard = new javafx.scene.control.Button("+ Añadir tarjeta");
+                    Button addCard = new Button("+ Añadir tarjeta");
                     addCard.getStyleClass().add("kanban-add-card");
-                    javafx.scene.layout.VBox lane = new javafx.scene.layout.VBox(addCard);
+                    VBox lane = new VBox(addCard);
                     lane.getStyleClass().add("kanban-lane");
-                    javafx.scene.layout.VBox board = new javafx.scene.layout.VBox(lane);
+                    VBox board = new VBox(lane);
                     board.getStyleClass().add("kanban-board");
                     yield board;
                 }
                 // The editor's tags bar, as EditorController builds it.
                 case "tags-bar" -> {
-                    javafx.scene.control.Button add = new javafx.scene.control.Button("+ Añadir etiqueta");
+                    Button add = new Button("+ Añadir etiqueta");
                     add.getStyleClass().add("add-tag-button");
-                    javafx.scene.layout.FlowPane flow = new javafx.scene.layout.FlowPane(add);
+                    FlowPane flow = new FlowPane(add);
                     flow.getStyleClass().add("tags-flow");
-                    javafx.scene.layout.HBox bar = new javafx.scene.layout.HBox(flow);
+                    HBox bar = new HBox(flow);
                     bar.getStyleClass().add("tags-bar");
                     yield bar;
                 }
-                default -> new CanvasView(com.example.jylos.util.CanvasModel.Document.parse("{}"), f -> { }, f -> null, f -> f, f -> f, List::of, List::of, s -> { },
+                default -> new CanvasView(CanvasModel.Document.parse("{}"), f -> { }, f -> null, f -> f, f -> f, List::of, List::of, s -> { },
                         () -> { }, k -> k);
             };
             Pane host = new Pane(content);

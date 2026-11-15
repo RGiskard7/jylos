@@ -16,6 +16,7 @@ import com.example.jylos.tests.FxTestSupport;
 
 import javafx.scene.Node;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.Separator;
 import javafx.scene.layout.HBox;
 
@@ -83,13 +84,13 @@ class GitStatusBarSeparatorsTest {
             apply.invoke(git, new GitStatus(true, false, false, "", "master", 107, 0, 0));
 
             List<String> out = new ArrayList<>();
-            for (javafx.scene.Node node : bar.getChildren()) {
+            for (Node node : bar.getChildren()) {
                 if (node.isVisible() && node.isManaged()) {
                     out.add(node instanceof Label l ? l.getText() : "|");
                 }
             }
             out.add("tooltip: " + (sync.getTooltip() != null ? sync.getTooltip().getText().replace("\n", " / ") : ""));
-            for (javafx.scene.control.MenuItem item : sync.getContextMenu().getItems()) {
+            for (MenuItem item : sync.getContextMenu().getItems()) {
                 out.add("menu: " + item.getText());
             }
             return out;

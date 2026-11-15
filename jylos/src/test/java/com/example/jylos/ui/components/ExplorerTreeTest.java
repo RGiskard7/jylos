@@ -7,17 +7,21 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static com.example.jylos.tests.FxTestSupport.onFx;
 
+import java.lang.reflect.Method;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
+import org.kordamp.ikonli.javafx.FontIcon;
 
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
@@ -26,16 +30,25 @@ import com.example.jylos.service.NoteService.SortOption;
 import com.example.jylos.tests.FxTestSupport;
 
 import javafx.event.Event;
+import javafx.event.EventType;
+import javafx.geometry.Bounds;
+import javafx.geometry.Point2D;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.ContextMenu;
+import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.TextField;
 import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeItem;
+import javafx.scene.input.DragEvent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.input.TransferMode;
+import javafx.scene.paint.Color;
+import javafx.scene.paint.Paint;
 import javafx.stage.Stage;
 
 /**
@@ -385,10 +398,10 @@ class ExplorerTreeTest {
         assumeFx();
         FakeVault vault = nestedVault();
         Holder h = new Holder();
-        List<java.util.Set<String>> reported = new ArrayList<>();
+        List<Set<String>> reported = new ArrayList<>();
         onFx(() -> {
             h.tree = new ExplorerTree(vault, Runnable::run, key -> key);
-            h.tree.setOpenFolders(java.util.Set.of("folder:t", "folder:t/r"));
+            h.tree.setOpenFolders(Set.of("folder:t", "folder:t/r"));
             h.tree.setOnOpenFoldersChanged(reported::add);
             h.tree.setRoot(new Folder("ROOT", "Vault"));
             return null;
@@ -402,7 +415,7 @@ class ExplorerTreeTest {
             return null;
         });
         settle(() -> null);
-        assertEquals(java.util.Set.of("folder:a", "folder:t/r"), reported.get(reported.size() - 1),
+        assertEquals(Set.of("folder:a", "folder:t/r"), reported.get(reported.size() - 1),
                 "a closed folder is forgotten; the folder inside it keeps its own state");
     }
 
@@ -411,9 +424,9 @@ class ExplorerTreeTest {
         assumeFx();
         Holder h = shown(nestedVault(), new ArrayList<>());
         onFx(() -> {
-            fireDrag(h.cell("Trabajo"), javafx.scene.input.DragEvent.DRAG_ENTERED);
-            fireDrag(h.cell("Trabajo"), javafx.scene.input.DragEvent.DRAG_EXITED);
-            fireDrag(h.cell("Árbol genealógico"), javafx.scene.input.DragEvent.DRAG_ENTERED);
+            fireDrag(h.cell("Trabajo"), DragEvent.DRAG_ENTERED);
+            fireDrag(h.cell("Trabajo"), DragEvent.DRAG_EXITED);
+            fireDrag(h.cell("Árbol genealógico"), DragEvent.DRAG_ENTERED);
             return null;
         });
         Thread.sleep(400);
@@ -430,10 +443,10 @@ class ExplorerTreeTest {
         assertEquals(List.of(true, false), after, "the folder held over opens; the one left does not");
     }
 
-    private static void fireDrag(Node target, javafx.event.EventType<javafx.scene.input.DragEvent> type) {
-        javafx.geometry.Bounds b = target.localToScene(target.getLayoutBounds());
-        javafx.event.Event.fireEvent(target, new javafx.scene.input.DragEvent(type, null, b.getCenterX(), b.getCenterY(),
-                b.getCenterX(), b.getCenterY(), javafx.scene.input.TransferMode.MOVE, null, null, null));
+    private static void fireDrag(Node target, EventType<DragEvent> type) {
+        Bounds b = target.localToScene(target.getLayoutBounds());
+        Event.fireEvent(target, new DragEvent(type, null, b.getCenterX(), b.getCenterY(),
+                b.getCenterX(), b.getCenterY(), TransferMode.MOVE, null, null, null));
     }
 
     @Test
@@ -445,14 +458,14 @@ class ExplorerTreeTest {
             h.tree.setOnRename((item, name) -> renamed.add(item.getTitle() + " -> " + name));
             TreeItem<Component> inicio = h.tree.getView().getRoot().getChildren().get(2);
             h.tree.getView().getSelectionModel().select(inicio);
-            key(h.tree.getView(), javafx.scene.input.KeyCode.F2);
+            key(h.tree.getView(), KeyCode.F2);
             return null;
         });
-        javafx.scene.control.TextField field = settle(() -> renameField(h));
+        TextField field = settle(() -> renameField(h));
         String shownText = onFx(field::getText);
         onFx(() -> {
             field.setText("Portada");
-            key(field, javafx.scene.input.KeyCode.ENTER);
+            key(field, KeyCode.ENTER);
             return null;
         });
         boolean fieldGone = settle(() -> h.tree.getView().lookup(".explorer-rename-field") == null
@@ -478,10 +491,10 @@ class ExplorerTreeTest {
             h.tree.startRename(h.tree.getView().getRoot().getChildren().get(1).getValue());
             return null;
         });
-        javafx.scene.control.TextField field = settle(() -> renameField(h));
+        TextField field = settle(() -> renameField(h));
         onFx(() -> {
             field.setText("Otra cosa");
-            key(field, javafx.scene.input.KeyCode.ESCAPE);
+            key(field, KeyCode.ESCAPE);
             return null;
         });
         String label = settle(() -> h.cell("Trabajo").getText() == null ? "Trabajo" : h.cell("Trabajo").getText());
@@ -505,7 +518,7 @@ class ExplorerTreeTest {
             h.tree.refresh();
             return null;
         });
-        javafx.scene.control.TextField field = settle(() -> renameField(h));
+        TextField field = settle(() -> renameField(h));
         String text = onFx(field::getText);
         onFx(() -> {
             h.stage.close();
@@ -514,15 +527,15 @@ class ExplorerTreeTest {
         assertEquals("Sin nombre", text);
     }
 
-    private static javafx.scene.control.TextField renameField(Holder h) {
+    private static TextField renameField(Holder h) {
         h.layout();
         Node node = h.tree.getView().lookup(".explorer-rename-field");
-        assertTrue(node instanceof javafx.scene.control.TextField && node.getScene() != null, "no rename field shown");
-        return (javafx.scene.control.TextField) node;
+        assertTrue(node instanceof TextField && node.getScene() != null, "no rename field shown");
+        return (TextField) node;
     }
 
-    private static void key(Node target, javafx.scene.input.KeyCode code) {
-        javafx.event.Event.fireEvent(target, new javafx.scene.input.KeyEvent(javafx.scene.input.KeyEvent.KEY_PRESSED,
+    private static void key(Node target, KeyCode code) {
+        Event.fireEvent(target, new KeyEvent(KeyEvent.KEY_PRESSED,
                 "", "", code, false, false, false, false));
     }
 
@@ -651,10 +664,10 @@ class ExplorerTreeTest {
             String second = badge(h.cell("Trabajo"));
             h.tree.setFolderBadge(null);
             h.layout();
-            return java.util.Arrays.asList(first, note, second, badge(h.cell("Trabajo")));
+            return Arrays.asList(first, note, second, badge(h.cell("Trabajo")));
         });
 
-        assertEquals(java.util.Arrays.asList("3", null, "4", null), badges);
+        assertEquals(Arrays.asList("3", null, "4", null), badges);
     }
 
     // ------------------------------------------------------------------ fixtures
@@ -692,9 +705,9 @@ class ExplorerTreeTest {
                     }
                     List<String> marks = new ArrayList<>();
                     for (Node icon : cell.lookupAll(".explorer-mark")) {
-                        org.kordamp.ikonli.javafx.FontIcon font = (org.kordamp.ikonli.javafx.FontIcon) icon;
+                        FontIcon font = (FontIcon) icon;
                         marks.add(font.getIconLiteral());
-                        javafx.scene.paint.Color background = selectionColour(cell);
+                        Color background = selectionColour(cell);
                         if (cell.isSelected() && font.getIconColor().equals(background)) {
                             marks.add("invisible");
                         }
@@ -708,13 +721,13 @@ class ExplorerTreeTest {
     }
 
     /** The colour the selected row is painted with (its first background fill). */
-    private static javafx.scene.paint.Color selectionColour(TreeCell<Component> cell) {
+    private static Color selectionColour(TreeCell<Component> cell) {
         if (cell.getBackground() == null || cell.getBackground().getFills().isEmpty()) {
             return null;
         }
-        javafx.scene.paint.Paint fill = cell.getBackground().getFills().get(cell.getBackground().getFills().size() - 1)
+        Paint fill = cell.getBackground().getFills().get(cell.getBackground().getFills().size() - 1)
                 .getFill();
-        return fill instanceof javafx.scene.paint.Color color ? color : null;
+        return fill instanceof Color color ? color : null;
     }
 
     private static final class Holder {
@@ -857,7 +870,7 @@ class ExplorerTreeTest {
 
     private static String badge(TreeCell<Component> cell) {
         for (Node node : cell.lookupAll(".folder-cell-count")) {
-            if (node.isVisible() && node instanceof javafx.scene.control.Label label) {
+            if (node.isVisible() && node instanceof Label label) {
                 return label.getText().replace("(", "").replace(")", "");
             }
         }
@@ -865,7 +878,7 @@ class ExplorerTreeTest {
     }
 
     private static void setHover(Node node, boolean hover) throws Exception {
-        java.lang.reflect.Method m = Node.class.getDeclaredMethod("setHover", boolean.class);
+        Method m = Node.class.getDeclaredMethod("setHover", boolean.class);
         m.setAccessible(true);
         m.invoke(node, hover);
     }
@@ -886,7 +899,7 @@ class ExplorerTreeTest {
     }
 
     private static void click(Node node, MouseButton button, boolean shortcut) {
-        javafx.geometry.Point2D at = node.localToScene(node.getBoundsInLocal().getWidth() - 4,
+        Point2D at = node.localToScene(node.getBoundsInLocal().getWidth() - 4,
                 node.getBoundsInLocal().getHeight() / 2);
         for (var type : List.of(MouseEvent.MOUSE_PRESSED, MouseEvent.MOUSE_RELEASED, MouseEvent.MOUSE_CLICKED)) {
             boolean down = type == MouseEvent.MOUSE_PRESSED;

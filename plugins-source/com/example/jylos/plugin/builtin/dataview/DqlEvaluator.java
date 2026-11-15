@@ -22,6 +22,9 @@ import java.util.regex.PatternSyntaxException;
  * dates yields the number of days between them. A full duration type would buy little
  * here — every practical vault query works in days — while adding a second numeric
  * hierarchy to every arithmetic and comparison path.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
  */
 final class DqlEvaluator {
 

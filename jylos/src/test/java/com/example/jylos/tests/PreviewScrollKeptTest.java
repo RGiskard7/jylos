@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.ui.controller.EditorController;
+import com.example.jylos.ui.web.JavaFxHtmlView;
 
 import javafx.scene.Scene;
 import javafx.scene.layout.VBox;
@@ -32,11 +33,11 @@ class PreviewScrollKeptTest {
         Note longNote = note("larga.md", "Larga", "Párrafo\n\n".repeat(400));
         Note other = note("otra.md", "Otra", "Párrafo\n\n".repeat(400));
         AtomicReference<EditorController> controller = new AtomicReference<>();
-        AtomicReference<com.example.jylos.ui.web.JavaFxHtmlView> webView = new AtomicReference<>();
+        AtomicReference<JavaFxHtmlView> webView = new AtomicReference<>();
         AtomicReference<Stage> stage = new AtomicReference<>();
         runFx(() -> {
             EditorController editor = new EditorController();
-            com.example.jylos.ui.web.JavaFxHtmlView view = new com.example.jylos.ui.web.JavaFxHtmlView();
+            JavaFxHtmlView view = new JavaFxHtmlView();
             VBox pane = new VBox(view);
             set(editor, "previewWebView", view);
             set(editor, "previewPane", pane);
@@ -79,15 +80,15 @@ class PreviewScrollKeptTest {
         return note;
     }
 
-    private static int scrollY(com.example.jylos.ui.web.JavaFxHtmlView view) {
+    private static int scrollY(JavaFxHtmlView view) {
         return number(view, "window.scrollY || 0");
     }
 
-    private static int scrollHeight(com.example.jylos.ui.web.JavaFxHtmlView view) {
+    private static int scrollHeight(JavaFxHtmlView view) {
         return number(view, "document.body ? document.body.scrollHeight : 0");
     }
 
-    private static Object body(com.example.jylos.ui.web.JavaFxHtmlView view) {
+    private static Object body(JavaFxHtmlView view) {
         try {
             return onFx(() -> view.evaluate("document.body ? document.body.innerText : ''"));
         } catch (Exception e) {
@@ -95,7 +96,7 @@ class PreviewScrollKeptTest {
         }
     }
 
-    private static int number(com.example.jylos.ui.web.JavaFxHtmlView view, String script) {
+    private static int number(JavaFxHtmlView view, String script) {
         try {
             return ((Number) onFx(() -> view.evaluate(script))).intValue();
         } catch (Exception e) {

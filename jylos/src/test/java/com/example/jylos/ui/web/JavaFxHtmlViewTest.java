@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -41,7 +42,7 @@ class JavaFxHtmlViewTest {
         assertEquals(List.of("primera", "segunda"), seen);
     }
 
-    private static void waitFor(java.util.function.BooleanSupplier done) throws InterruptedException {
+    private static void waitFor(BooleanSupplier done) throws InterruptedException {
         long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         while (System.nanoTime() < until && !done.getAsBoolean()) {
             Thread.sleep(50);

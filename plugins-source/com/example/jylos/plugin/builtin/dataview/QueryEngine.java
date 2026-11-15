@@ -15,6 +15,9 @@ import com.example.jylos.plugin.builtin.dataview.DqlEvaluator.Row;
  * expands rows, {@code WHERE} filters, {@code SORT} orders, {@code GROUP BY} buckets and
  * {@code LIMIT} caps. Filtering after flattening is what makes
  * {@code FLATTEN authors AS author WHERE author = "X"} behave as written.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
  */
 final class QueryEngine {
 

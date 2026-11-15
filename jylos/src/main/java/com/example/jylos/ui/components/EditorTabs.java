@@ -3,6 +3,7 @@ package com.example.jylos.ui.components;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
@@ -52,12 +53,12 @@ public final class EditorTabs {
     private final Region visibilityNode;
     private final Listener listener;
     /** i18n lookup for the close tooltip (nullable; falls back to English). */
-    private final java.util.function.Function<String, String> i18n;
+    private final Function<String, String> i18n;
     private final EditorTabsModel model = new EditorTabsModel();
     private final Map<String, TabNode> nodes = new HashMap<>();
 
     public EditorTabs(HBox container, Region visibilityNode, Listener listener,
-            java.util.function.Function<String, String> i18n) {
+            Function<String, String> i18n) {
         this.container = container;
         this.visibilityNode = visibilityNode != null ? visibilityNode : container;
         this.listener = listener;
@@ -119,9 +120,7 @@ public final class EditorTabs {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Queries
-    // ------------------------------------------------------------------
+    // ── Queries ──────────────────────────────────────────────────────────────
 
     public boolean isOpen(String id) {
         return model.isOpen(id);
@@ -148,9 +147,7 @@ public final class EditorTabs {
         return model.neighborOf(id);
     }
 
-    // ------------------------------------------------------------------
-    // Mutations (called by MainController)
-    // ------------------------------------------------------------------
+    // ── Mutations (called by MainController) ─────────────────────────────────
 
     /**
      * Shows {@code id} as the active tab, opening it where {@code target} says (see
@@ -222,9 +219,7 @@ public final class EditorTabs {
         render();
     }
 
-    // ------------------------------------------------------------------
-    // Helpers
-    // ------------------------------------------------------------------
+    // ── Helpers ──────────────────────────────────────────────────────────────
 
     /** Lays the tab nodes out in the model's order, marks the active one and drops closed ones. */
     private void render() {

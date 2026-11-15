@@ -38,6 +38,9 @@ import io.modelcontextprotocol.spec.McpStreamableServerTransportProvider;
  * <p>Loopback only. This is a local integration point for tools running on the same
  * machine, not a service meant to be reachable from the network — {@link ServerConnector}
  * is bound to the loopback address explicitly, never the wildcard address.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
  */
 final class JylosMcpServer {
 

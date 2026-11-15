@@ -1,6 +1,8 @@
 package com.example.jylos.ui.controller;
 
+import java.text.MessageFormat;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -14,6 +16,7 @@ import com.example.jylos.ui.theme.ThemeCatalog;
 import com.example.jylos.ui.theme.ThemeCommand;
 
 import javafx.application.Platform;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.ToggleGroup;
 import javafx.stage.Window;
@@ -24,6 +27,9 @@ import javafx.stage.Window;
  * the View menu's theme items in step, and follows the system's appearance while "system" is
  * chosen. What else depends on the theme (editor, notes grid, graph) is redrawn through the
  * {@code refreshDependents} callback.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 final class ThemeSupport {
 
@@ -34,9 +40,9 @@ final class ThemeSupport {
             this::applyAndRefresh);
 
     private Preferences prefs;
-    private java.util.function.BooleanSupplier ready = () -> false;
+    private BooleanSupplier ready = () -> false;
     private Supplier<Scene> mainScene = () -> null;
-    private Supplier<javafx.scene.Node> previewWebView = () -> null;
+    private Supplier<Node> previewWebView = () -> null;
     private Supplier<Runnable> previewRefresh = () -> null;
     private Runnable refreshDependents = () -> { };
     private Supplier<ToolbarController> toolbar = () -> null;
@@ -63,7 +69,7 @@ final class ThemeSupport {
      * @param refreshDependents redraws what else depends on the theme
      * @param ready             whether the window's controls are in place to be themed
      */
-    void wire(Preferences prefs, java.util.function.BooleanSupplier ready, Supplier<Scene> mainScene, Supplier<javafx.scene.Node> previewWebView,
+    void wire(Preferences prefs, BooleanSupplier ready, Supplier<Scene> mainScene, Supplier<Node> previewWebView,
             Supplier<Runnable> previewRefresh, Runnable refreshDependents, Supplier<ToolbarController> toolbar,
             AppSettings appSettings, Function<String, String> i18n, Consumer<String> status) {
         this.prefs = prefs;
@@ -129,7 +135,7 @@ final class ThemeSupport {
     void setSystem() {
         ThemeCommand.SystemThemeResult result = command.setSystemTheme(prefs);
         currentTheme = result.currentTheme();
-        chosen(java.text.MessageFormat.format(i18n.apply("status.theme_system"), result.detectedTheme()));
+        chosen(MessageFormat.format(i18n.apply("status.theme_system"), result.detectedTheme()));
     }
 
     private void chosen(String message) {

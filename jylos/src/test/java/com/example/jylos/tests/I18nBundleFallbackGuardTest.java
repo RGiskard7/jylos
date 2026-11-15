@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.ResourceBundle;
@@ -151,8 +152,8 @@ class I18nBundleFallbackGuardTest {
                 InputStream english = getClass().getResourceAsStream(BUNDLES[1])) {
             assertNotNull(base);
             assertNotNull(english);
-            assertEquals(new String(english.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8),
-                    new String(base.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8),
+            assertEquals(new String(english.readAllBytes(), StandardCharsets.UTF_8),
+                    new String(base.readAllBytes(), StandardCharsets.UTF_8),
                     "messages.properties must stay identical to messages_en.properties");
         }
     }
@@ -169,7 +170,7 @@ class I18nBundleFallbackGuardTest {
             }
             long rawKeyLines;
             try (InputStream in = getClass().getResourceAsStream(path)) {
-                rawKeyLines = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+                rawKeyLines = new String(in.readAllBytes(), StandardCharsets.UTF_8)
                         .lines()
                         .filter(l -> l.matches("^[A-Za-z][A-Za-z0-9._-]*=.*"))
                         .count();

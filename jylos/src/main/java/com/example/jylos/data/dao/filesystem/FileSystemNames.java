@@ -5,6 +5,9 @@ import java.util.regex.Pattern;
 
 /**
  * Naming rules shared by the filesystem DAOs, so notes and folders follow the same ones.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.7
  */
 final class FileSystemNames {
 

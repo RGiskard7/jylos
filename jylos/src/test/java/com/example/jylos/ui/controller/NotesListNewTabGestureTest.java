@@ -20,6 +20,7 @@ import com.example.jylos.tests.FxTestSupport;
 
 import javafx.event.Event;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Point2D;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -140,7 +141,7 @@ class NotesListNewTabGestureTest {
 
     /** Presses and releases at the centre of {@code node} (events carry scene coordinates). */
     private static void press(Node node, MouseButton button, boolean shortcut) {
-        javafx.geometry.Point2D at = node.localToScene(node.getBoundsInLocal().getWidth() / 2,
+        Point2D at = node.localToScene(node.getBoundsInLocal().getWidth() / 2,
                 node.getBoundsInLocal().getHeight() / 2);
         Event.fireEvent(node, new MouseEvent(MouseEvent.MOUSE_PRESSED, at.getX(), at.getY(), at.getX(), at.getY(),
                 button, 1, false, shortcut && !MAC, false, shortcut && MAC,

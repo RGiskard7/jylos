@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
@@ -133,6 +134,6 @@ class PrivacySupportTest {
         runFx(() -> privacy.toggle(notes.getNoteById("foto.png").orElseThrow()));
 
         assertEquals(List.of("status.private_not_supported"), seen);
-        assertEquals(java.util.Arrays.toString(png), java.util.Arrays.toString(Files.readAllBytes(vault.resolve("foto.png"))));
+        assertEquals(Arrays.toString(png), Arrays.toString(Files.readAllBytes(vault.resolve("foto.png"))));
     }
 }

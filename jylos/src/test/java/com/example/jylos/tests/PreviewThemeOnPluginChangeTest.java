@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.PreviewContext;
 import com.example.jylos.plugin.PreviewEnhancer;
 import com.example.jylos.ui.controller.EditorController;
+import com.example.jylos.ui.web.JavaFxHtmlView;
 
 import javafx.scene.Scene;
 import javafx.scene.layout.VBox;
@@ -40,11 +42,11 @@ class PreviewThemeOnPluginChangeTest {
             }
         };
         AtomicReference<EditorController> controller = new AtomicReference<>();
-        AtomicReference<com.example.jylos.ui.web.JavaFxHtmlView> webView = new AtomicReference<>();
+        AtomicReference<JavaFxHtmlView> webView = new AtomicReference<>();
         AtomicReference<Stage> stage = new AtomicReference<>();
         runFx(() -> {
             EditorController editor = new EditorController();
-            com.example.jylos.ui.web.JavaFxHtmlView view = new com.example.jylos.ui.web.JavaFxHtmlView();
+            JavaFxHtmlView view = new JavaFxHtmlView();
             VBox pane = new VBox(view);
             set(editor, "previewWebView", view);
             set(editor, "previewPane", pane);
@@ -80,7 +82,7 @@ class PreviewThemeOnPluginChangeTest {
         }
     }
 
-    private static String background(com.example.jylos.ui.web.JavaFxHtmlView view) {
+    private static String background(JavaFxHtmlView view) {
         AtomicReference<String> color = new AtomicReference<>("");
         try {
             runFx(() -> {
@@ -98,7 +100,7 @@ class PreviewThemeOnPluginChangeTest {
         return color.startsWith("rgb(");
     }
 
-    private static boolean waitFor(java.util.function.BooleanSupplier condition) throws InterruptedException {
+    private static boolean waitFor(BooleanSupplier condition) throws InterruptedException {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         while (System.nanoTime() < deadline) {
             if (condition.getAsBoolean()) {

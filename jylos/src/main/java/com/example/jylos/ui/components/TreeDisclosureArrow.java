@@ -23,6 +23,9 @@ import javafx.scene.layout.StackPane;
  * it once every arrow measures exactly that). Any other fixed value — including a
  * smaller one — makes branch rows and leaf rows use two different, merely
  * consistently-wrong offsets instead of matching.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class TreeDisclosureArrow {
 

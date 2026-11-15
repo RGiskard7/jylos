@@ -30,6 +30,7 @@ import com.example.jylos.service.NoteService;
 import com.example.jylos.tests.FxTestSupport;
 
 import javafx.fxml.FXMLLoader;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.ListView;
 
 /**
@@ -67,7 +68,7 @@ class NotesListMarksTest {
             Field sort = NotesListController.class.getDeclaredField("sortComboBox");
             sort.setAccessible(true);
             @SuppressWarnings("unchecked")
-            javafx.scene.control.ComboBox<String> combo = (javafx.scene.control.ComboBox<String>) sort.get(controller);
+            ComboBox<String> combo = (ComboBox<String>) sort.get(controller);
             combo.setValue(loader.getResources().getString("sort.title_az"));
             return controller;
         });

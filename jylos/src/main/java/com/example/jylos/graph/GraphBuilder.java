@@ -31,6 +31,7 @@ import com.example.jylos.util.WikiLinkResolver;
  * JavaFX thread for large vaults.</p>
  *
  * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class GraphBuilder {
 

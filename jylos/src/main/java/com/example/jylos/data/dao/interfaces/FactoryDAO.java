@@ -8,6 +8,9 @@ import com.example.jylos.data.dao.filesystem.FactoryDAOFileSystem;
 /**
  * Abstract Factory class for creating DAO instances.
  * This class defines the contract for DAO factory implementations.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public abstract class FactoryDAO {
 

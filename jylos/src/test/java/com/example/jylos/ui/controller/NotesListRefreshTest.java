@@ -24,6 +24,7 @@ import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
 import com.example.jylos.data.dao.filesystem.TagDAOFileSystem;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.event.EventBus;
+import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
@@ -90,7 +91,7 @@ class NotesListRefreshTest {
     private static void refresh(NoteService notes) throws Exception {
         notes.refreshStorageCache();
         runFx(() -> EventBus.getInstance().publish(
-                new com.example.jylos.event.events.NoteEvents.NotesRefreshRequestedEvent()));
+                new NoteEvents.NotesRefreshRequestedEvent()));
     }
 
     /** Waits until the list last shown is {@code expected}; fails with what it shows otherwise. */

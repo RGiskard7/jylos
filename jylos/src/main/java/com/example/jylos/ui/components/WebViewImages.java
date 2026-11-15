@@ -13,6 +13,9 @@ import com.example.jylos.ui.web.HtmlView;
  * the bridge hands them here. The image is converted to PNG off the UI thread
  * ({@link WebImageConverter}) and the answer — a PNG {@code data:} URI, or {@code ""} when it
  * cannot be read — goes back to the page through {@code receiver.imageConverted(id, png)}.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class WebViewImages {
 

@@ -11,6 +11,8 @@ import org.junit.jupiter.api.Test;
 
 import com.example.jylos.tests.FxTestSupport;
 
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.layout.HBox;
@@ -134,8 +136,8 @@ class TopBarTabsSupportTest {
             tabStrip.setPrefHeight(28);
             tabStrip.setMaxHeight(28);
             HBox topBar = new HBox(GAP, buttons, tabsHost);
-            topBar.setPadding(new javafx.geometry.Insets(4, 16, 4, 16));
-            topBar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+            topBar.setPadding(new Insets(4, 16, 4, 16));
+            topBar.setAlignment(Pos.CENTER_LEFT);
             Region editor = new Region();
             HBox.setHgrow(editor, Priority.ALWAYS);
             VBox window = new VBox(topBar, new HBox(fixed(250), editor));
@@ -154,7 +156,7 @@ class TopBarTabsSupportTest {
     }
 
     private static double margin(HBox tabsHost) {
-        javafx.geometry.Insets m = HBox.getMargin(tabsHost);
+        Insets m = HBox.getMargin(tabsHost);
         return m != null ? m.getLeft() : 0;
     }
 

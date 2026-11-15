@@ -46,7 +46,7 @@ import com.example.jylos.config.LoggerConfig;
  * </ul>
  * 
  * @author Edu Díaz (RGiskard7)
- * @since 4.4.0
+ * @since 1.0.0
  */
 public class PluginLoader {
 

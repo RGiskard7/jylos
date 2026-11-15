@@ -69,9 +69,7 @@ public class ImportService {
         this.folderService = folderService;
     }
 
-    // ------------------------------------------------------------------
-    // Obsidian vault
-    // ------------------------------------------------------------------
+    // ── Obsidian vault ───────────────────────────────────────────────────────
 
     /**
      * Imports every {@code .md} note under {@code vaultDir}, recreating the folder
@@ -178,9 +176,7 @@ public class ImportService {
         return dot > 0 ? fileName.substring(0, dot) : fileName;
     }
 
-    // ------------------------------------------------------------------
-    // Evernote .enex
-    // ------------------------------------------------------------------
+    // ── Evernote .enex ───────────────────────────────────────────────────────
 
     /**
      * Imports the notes of an Evernote {@code .enex} export file. Bodies are converted

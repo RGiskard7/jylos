@@ -11,6 +11,8 @@ import java.util.List;
  *
  * @param nodes graph nodes
  * @param edges graph edges
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public record GraphData(List<GraphNode> nodes, List<GraphEdge> edges) {
 

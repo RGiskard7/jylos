@@ -16,6 +16,9 @@ import com.example.jylos.util.WikiLinkResolver;
  * Where the links and the unlinked mentions of a note are: the line they are on, to show as
  * context in the backlinks panel, and their place in it, to highlight them and to turn a
  * mention into a link. Pure text work, no storage.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.6.0
  */
 public final class LinkOccurrences {
 

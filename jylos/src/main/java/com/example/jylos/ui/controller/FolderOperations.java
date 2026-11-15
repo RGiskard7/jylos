@@ -13,6 +13,9 @@ import com.example.jylos.service.FolderService;
  *
  * <p>Pure persistence orchestration: results are returned as records and the
  * controller decides how to reflect them in the UI.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.3.0
  */
 class FolderOperations {
 

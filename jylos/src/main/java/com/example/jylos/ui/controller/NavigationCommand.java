@@ -6,9 +6,11 @@ import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.service.NoteService;
+import com.example.jylos.ui.preferences.LayoutMode;
 
 import javafx.scene.Node;
 import javafx.scene.control.SplitPane;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 /**
@@ -16,6 +18,9 @@ import javafx.scene.layout.VBox;
  *
  * <p>Receives i18n and status callbacks from the shell controller; node
  * references are passed in per-call by the controller that owns them.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.3.0
  */
 class NavigationCommand {
 
@@ -191,7 +196,7 @@ class NavigationCommand {
      * Panels collapsed with their toggle are shown again, since the toggle state does not
      * carry over to a different arrangement.
      */
-    void arrangeLayout(com.example.jylos.ui.preferences.LayoutMode mode, boolean resultsShown, SplitPane mainSplitPane,
+    void arrangeLayout(LayoutMode mode, boolean resultsShown, SplitPane mainSplitPane,
             SplitPane contentSplitPane, SplitPane navSplitPane, Node sidebarPane, Node notesPanel, Node editorArea) {
         if (mainSplitPane == null || contentSplitPane == null || navSplitPane == null || sidebarPane == null
                 || notesPanel == null || editorArea == null) {
@@ -230,7 +235,7 @@ class NavigationCommand {
     }
 
     private static void expand(Node pane, double minWidth) {
-        if (pane instanceof javafx.scene.layout.Region region) {
+        if (pane instanceof Region region) {
             region.setMinWidth(minWidth);
             region.setMaxWidth(Double.MAX_VALUE);
         }

@@ -11,6 +11,9 @@ import com.example.jylos.data.models.interfaces.Component;
  * Abstract class that represents a composite model in a hierarchical structure.
  * It extends {@link BaseModel} and implements {@link Component}, allowing
  * objects to have parent-child relationships.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public abstract class CompositeModel extends BaseModel implements Component {
 
@@ -28,7 +31,6 @@ public abstract class CompositeModel extends BaseModel implements Component {
 	 * Constructs a CompositeModel with an ID, title, creation date, and
 	 * modification date.
 	 *
-	 * @param id           The unique identifier of the model.
 	 * @param id           The unique identifier of the model.
 	 * @param title        The title of the model.
 	 * @param createdDate  The creation date of the model.

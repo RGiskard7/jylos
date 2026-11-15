@@ -12,6 +12,9 @@ import com.example.jylos.plugin.PluginManager;
 
 /**
  * Loads the core and external plugins and registers them with the {@link PluginManager}.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.3.0
  */
 class PluginLifecycle {
 
