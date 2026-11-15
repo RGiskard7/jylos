@@ -110,8 +110,8 @@ class EditorFormatActionsTest {
             tabs.open(ViewTabs.GRAPH, "Grafo", OpenTarget.NEW_TAB);
             Field views = MainController.class.getDeclaredField("tabsSupport");
             views.setAccessible(true);
-            ((TabsSupport) views.get(main)).wire(null, null, null, null, () -> false, key -> key, s -> { },
-                    () -> tabs, null, n -> { }, n -> { });
+            ((TabsSupport) views.get(main)).wire(null, null, null, () -> false, key -> key, s -> { },
+                    () -> tabs, null);
             Method resolve = MainController.class.getDeclaredMethod("resolveCommandAction", String.class);
             resolve.setAccessible(true);
             ((Runnable) resolve.invoke(main, "cmd.bold")).run();

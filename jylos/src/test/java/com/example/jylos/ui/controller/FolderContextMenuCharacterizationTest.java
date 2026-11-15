@@ -68,25 +68,26 @@ class FolderContextMenuCharacterizationTest {
         List<String> calls = new ArrayList<>();
         List<List<String>> menus = onFx(() -> {
             FolderContextMenuSupport.Actions actions = new FolderContextMenuSupport.Actions(f -> { }, f -> { },
-                    f -> { }, f -> { }, f -> calls.add("move " + f.getId()), f -> calls.add("reveal " + f.getId()),
-                    f -> { });
+                    f -> calls.add("board " + f.getId()), f -> { }, f -> { }, f -> calls.add("move " + f.getId()),
+                    f -> calls.add("reveal " + f.getId()), f -> { });
             Folder folder = new Folder("t1", "Trabajo");
             ContextMenu files = FolderContextMenuSupport.create(folder, actions, true, key -> key);
             ContextMenu database = FolderContextMenuSupport.create(folder, actions, false, key -> key);
+            item(files, "action.new_kanban_board").fire();
             item(files, "action.move_to").fire();
             item(files, "action.reveal_in_files").fire();
             return List.of(describe(files), describe(database));
         });
 
-        assertEquals(List.of("action.new_note", "action.new_canvas", "action.new_subfolder", "---",
+        assertEquals(List.of("action.new_note", "action.new_canvas", "action.new_kanban_board", "action.new_subfolder", "---",
                 "action.rename", "action.move_to", "action.reveal_in_files", "action.delete"), menus.get(0));
-        assertEquals(List.of("action.new_note", "action.new_canvas", "action.new_subfolder", "---",
+        assertEquals(List.of("action.new_note", "action.new_canvas", "action.new_kanban_board", "action.new_subfolder", "---",
                 "action.rename", "action.move_to", "action.delete"), menus.get(1));
-        assertEquals(List.of("move t1", "reveal t1"), calls);
+        assertEquals(List.of("board t1", "move t1", "reveal t1"), calls);
     }
 
     private static List<String> expected(boolean movable) {
-        List<String> expected = new ArrayList<>(List.of("Nueva Nota", "Nuevo Canvas", "Nueva Subcarpeta", "---",
+        List<String> expected = new ArrayList<>(List.of("Nueva Nota", "Nuevo Canvas", "Nuevo tablero Kanban", "Nueva Subcarpeta", "---",
                 "Renombrar"));
         if (movable) {
             expected.add("Mover a Carpeta...");

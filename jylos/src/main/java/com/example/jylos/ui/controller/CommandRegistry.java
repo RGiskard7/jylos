@@ -31,6 +31,7 @@ class CommandRegistry {
             new CommandDef("cmd.new_note", "New Note"),
             new CommandDef("cmd.new_tab", "New Tab"),
             new CommandDef("cmd.new_canvas", "New Canvas"),
+            new CommandDef("cmd.new_kanban_board", "New Kanban Board"),
             new CommandDef("cmd.new_folder", "New Folder"),
             new CommandDef("cmd.save", "Save"),
             new CommandDef("cmd.save_all", "Save All"),

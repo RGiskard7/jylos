@@ -15,6 +15,7 @@ import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.util.KanbanModel;
 import com.example.jylos.util.NoteTemplates;
 import com.example.jylos.util.UntitledNames;
 
@@ -92,7 +93,11 @@ final class NoteCreationSupport {
 
     /** "Sin título", or the first "Sin título N" that no note in {@code folder} has. */
     private String untitledTitle(Folder folder) {
-        String base = getString("app.untitled");
+        return untitledTitle(folder, getString("app.untitled"));
+    }
+
+    /** {@code base}, or the first "{@code base} N" that no note in {@code folder} has. */
+    private String untitledTitle(Folder folder, String base) {
         if (noteService == null) {
             return base;
         }
@@ -131,6 +136,24 @@ final class NoteCreationSupport {
 
     void createNewCanvas() {
         createNewCanvasInFolder(currentFolder());
+    }
+
+    /** A new Kanban board, as a new note: in the current folder, its title ready to rename. */
+    void createNewBoard() {
+        createNewBoardInFolder(currentFolder());
+    }
+
+    /**
+     * Creates a Kanban board in {@code folder} ("Untitled board", or the first free "Untitled
+     * board N") with three columns (to do, doing, done) and opens it, its title ready to rename.
+     */
+    void createNewBoardInFolder(Folder folder) {
+        String board = KanbanModel.withDefaults(getString("kanban.col_todo"), getString("kanban.col_doing"),
+                getString("kanban.col_done")).toMarkdown();
+        if (createAndOpenNote(untitledTitle(folder, getString("kanban.untitled_board")), board, folder,
+                "status.board_created")) {
+            Platform.runLater(beginTitleRename);
+        }
     }
 
     /** Creates an empty Obsidian-compatible canvas in the supplied destination folder. */

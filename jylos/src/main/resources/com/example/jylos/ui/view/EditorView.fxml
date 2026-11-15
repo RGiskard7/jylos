@@ -84,6 +84,12 @@
                 </ToggleButton>
             </HBox>
 
+            <!-- Only for a board note: view it as Markdown, and back as its board. -->
+            <Button fx:id="boardViewBtn" onAction="#handleBoardView" styleClass="modern-toggle-btn"
+                    visible="false" managed="false">
+                <tooltip><Tooltip fx:id="boardViewTooltip" text="%kanban.view_markdown"/></tooltip>
+                <graphic><FontIcon fx:id="boardViewIcon" iconLiteral="fth-file-text" styleClass="feather-icon"/></graphic>
+            </Button>
             <ToggleButton fx:id="pinButton" onAction="#handleTogglePin" styleClass="modern-toggle-btn">
                 <tooltip><Tooltip text="%tooltip.pin_note"/></tooltip>
                 <graphic><FontIcon iconLiteral="bi-pin-angle" styleClass="feather-icon"/></graphic>
@@ -266,6 +272,9 @@
             </Button>
             <Button text="%empty.open_graph" onAction="#handleEmptyOpenGraph" styleClass="empty-state-btn-secondary">
                 <graphic><FontIcon iconLiteral="fth-share-2" styleClass="feather-icon"/></graphic>
+            </Button>
+            <Button text="%empty.open_kanban" onAction="#handleEmptyOpenKanban" styleClass="empty-state-btn-secondary">
+                <graphic><FontIcon iconLiteral="fth-columns" styleClass="feather-icon"/></graphic>
             </Button>
         </VBox>
     </StackPane>

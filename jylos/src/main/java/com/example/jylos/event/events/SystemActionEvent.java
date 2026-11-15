@@ -114,7 +114,9 @@ public class SystemActionEvent extends AppEvent {
         WORKSPACE_OPEN,
         WORKSPACE_MANAGE,
         /** A new empty tab (the + after the tabs, Cmd/Ctrl+T). */
-        NEW_TAB
+        NEW_TAB,
+        /** A new Kanban board note in the current folder. */
+        NEW_KANBAN_BOARD
     }
 
     private final ActionType actionType;

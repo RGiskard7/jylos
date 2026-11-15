@@ -48,6 +48,7 @@ import com.example.jylos.service.NoteHistoryService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.NoteTitleIndex;
 import com.example.jylos.service.TagService;
+import com.example.jylos.ui.NoteIcons;
 import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.CommandPalette;
@@ -249,6 +250,9 @@ public class MainController {
     private final VaultLocationSupport vaultLocationSupport = new VaultLocationSupport();
     /** The editor's tabs (notes, the graph, new tabs) and their back/forward; and the Kanban board. */
     private final TabsSupport tabsSupport = new TabsSupport();
+    /** Which Kanban board to open, or a new one. */
+    private final KanbanPickerSupport kanbanPicker = new KanbanPickerSupport(this::getPrimaryStage,
+            () -> this.resources, this::handleUiNoteOpenRequest, () -> this.noteCreationSupport.createNewBoard());
     private final StatusBarSupport statusBarSupport = new StatusBarSupport();
     private final BacklinksSupport backlinksSupport = new BacklinksSupport();
     /** Editor hook dispatcher shared by the plugin system and the editor. */
@@ -537,6 +541,7 @@ public class MainController {
                     noteCreationSupport::createNewCanvasInFolder,
                     this::updateStatus);
             sidebarController.setOpenInNewTabAction(this::openNoteInNewTab);
+            sidebarController.setCreateBoardInFolderAction(noteCreationSupport::createNewBoardInFolder);
             sidebarController.setExplorerOpenAction(this::loadNoteInEditor);
             sidebarController.setExplorerFolderContextAction(folder -> currentFolder = folder);
         }
@@ -590,15 +595,15 @@ public class MainController {
             }
             editorController.setFormatToolbarVisible(uiPreferences.loadShowFormatToolbar(prefs));
         }
-        tabsSupport.wire(centerStack, graphView, graphViewController, noteService,
+        tabsSupport.wire(graphView, graphViewController, noteService,
                 this::isDarkThemeActive, this::getString, this::updateStatus, () -> editorTabs,
                 new TabsSupport.Host(this::confirmLeaveCurrent, this::openNoteInTab, this::openNoteInNewTab,
                         this::handleUiNoteOpenRequest, this::clearEditorToEmpty, () -> {
                             updateRightPanelContext();
                             refreshEditorIndicators();
                             updateNavigationButtons();
-                        }),
-                this::publishNoteCreated, this::publishNoteUpdated);
+                        },
+                        kanbanPicker::show));
         if (graphViewController != null) {
             graphViewController.wire(eventBus, noteService, tagService, resources,
                     tabsSupport::openNoteFromGraph, tabsSupport::closeGraph,
@@ -1217,11 +1222,6 @@ public class MainController {
         }
     }
 
-    private void publishNoteCreated(Note note) {
-        if (eventBus != null && note != null) {
-            eventBus.publish(new NoteEvents.NoteCreatedEvent(note));
-        }
-    }
 
     private void publishNoteSelected(Note note) {
         if (eventBus != null && note != null) {
@@ -1229,11 +1229,6 @@ public class MainController {
         }
     }
 
-    private void publishNoteUpdated(Note note) {
-        if (eventBus != null && note != null) {
-            eventBus.publish(new NoteEvents.NoteUpdatedEvent(note));
-        }
-    }
 
     private void configureNoteModifiedDebounce() {
         noteModifiedDebounce.setOnFinished(e -> {
@@ -1430,6 +1425,7 @@ public class MainController {
             Map.entry("cmd.new_note", SystemActionEvent.ActionType.NEW_NOTE),
             Map.entry("cmd.new_tab", SystemActionEvent.ActionType.NEW_TAB),
             Map.entry("cmd.new_canvas", SystemActionEvent.ActionType.NEW_CANVAS),
+            Map.entry("cmd.new_kanban_board", SystemActionEvent.ActionType.NEW_KANBAN_BOARD),
             Map.entry("cmd.new_folder", SystemActionEvent.ActionType.NEW_FOLDER),
             Map.entry("cmd.save_all", SystemActionEvent.ActionType.SAVE_ALL),
             Map.entry("cmd.import", SystemActionEvent.ActionType.IMPORT),
@@ -1641,13 +1637,14 @@ public class MainController {
         systemActionHandlers.put(SystemActionEvent.ActionType.NAVIGATE_FORWARD, tabsSupport::forward);
         systemActionHandlers.put(SystemActionEvent.ActionType.GRAPH_VIEW, tabsSupport::openGraph);
         systemActionHandlers.put(SystemActionEvent.ActionType.NEW_TAB, tabsSupport::newTab);
+        systemActionHandlers.put(SystemActionEvent.ActionType.NEW_KANBAN_BOARD, noteCreationSupport::createNewBoard);
         systemActionHandlers.put(SystemActionEvent.ActionType.KNOWLEDGE_INSIGHTS, this::showKnowledgeInsights);
         systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_SAVE, workspaceController::saveCurrent);
         systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_SAVE_AS, workspaceController::saveCurrentAs);
         systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_OPEN, workspaceController::openWorkspaceDialog);
         systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_MANAGE, workspaceController::manageDialog);
         systemActionHandlers.put(SystemActionEvent.ActionType.FOCUS_MODE, this::handleFocusMode);
-        systemActionHandlers.put(SystemActionEvent.ActionType.KANBAN_VIEW, tabsSupport::toggleKanban);
+        systemActionHandlers.put(SystemActionEvent.ActionType.KANBAN_VIEW, tabsSupport::openKanban);
         systemActionHandlers.put(SystemActionEvent.ActionType.PRIVATE_TOGGLE, () -> privacySupport.toggle(getCurrentNote()));
         systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_UNLOCK, privacySupport::unlockAll);
         systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_LOCK, privacySupport::lockAll);
@@ -1804,7 +1801,7 @@ public class MainController {
      */
     private void updateRightPanelContext() {
         boolean graph = tabsSupport.isGraphVisible();
-        boolean editorContext = !graph && !tabsSupport.isKanbanVisible();
+        boolean editorContext = !graph;
         UiNodes.show(noteInfoSection, editorContext);
         UiNodes.show(backlinksSection, editorContext);
         UiNodes.show(graphInfoSection, graph);
@@ -1997,7 +1994,7 @@ public class MainController {
         }
 
         if (editorTabs != null) {
-            editorTabs.open(activeNote.getId(), activeNote.getTitle(), target);
+            editorTabs.open(activeNote.getId(), activeNote.getTitle(), NoteIcons.tabIconFor(activeNote), target);
             editorTabs.setDirty(activeNote.getId(), false);
         }
         tabsSupport.noteShown();

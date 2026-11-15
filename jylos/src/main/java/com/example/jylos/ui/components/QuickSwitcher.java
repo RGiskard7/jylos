@@ -20,6 +20,7 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ListCell;
@@ -56,6 +57,11 @@ public class QuickSwitcher {
     private List<Note> allNotes = new ArrayList<>();
     private Consumer<Note> onNoteSelected;
     private ResourceBundle bundle;
+    /** What the search field says; the switcher's own text when {@code null}. */
+    private String placeholder;
+    /** One more thing offered at the foot (the board picker's "New board"), or none. */
+    private String footerActionText;
+    private Runnable footerAction;
     
     public QuickSwitcher(Stage parentStage) {
         this.parentStage = parentStage;
@@ -79,6 +85,17 @@ public class QuickSwitcher {
         this.allNotes = notes != null ? new ArrayList<>(notes) : new ArrayList<>();
     }
     
+    /** What the search field says, for a switcher that lists one kind of note (the boards). */
+    public void setPlaceholder(String placeholder) {
+        this.placeholder = placeholder;
+    }
+
+    /** Offers {@code action} at the foot as a button labelled {@code text}; it closes the switcher and runs. */
+    public void setFooterAction(String text, Runnable action) {
+        this.footerActionText = text;
+        this.footerAction = action;
+    }
+
     /** Registers the callback invoked (on the FX thread) when the user confirms a note selection. */
     public void setOnNoteSelected(Consumer<Note> callback) {
         this.onNoteSelected = callback;
@@ -135,7 +152,7 @@ public class QuickSwitcher {
         searchIcon.getStyleClass().add("overlay-search-icon");
         
         searchField = new TextField();
-        searchField.setPromptText(i18n("switcher.search_placeholder"));
+        searchField.setPromptText(placeholder != null ? placeholder : i18n("switcher.search_placeholder"));
         searchField.getStyleClass().add("overlay-search-field");
         HBox.setHgrow(searchField, Priority.ALWAYS);
         
@@ -163,7 +180,17 @@ public class QuickSwitcher {
         Label helpHint = new Label(i18n("switcher.hint"));
         helpHint.getStyleClass().add("overlay-hint");
         
-        footer.getChildren().addAll(statusLabel, helpHint);
+        footer.getChildren().add(statusLabel);
+        if (footerAction != null) {
+            Button action = new Button(footerActionText);
+            action.getStyleClass().addAll("overlay-footer-action", "empty-state-btn-secondary");
+            action.setOnAction(e -> {
+                hide();
+                footerAction.run();
+            });
+            footer.getChildren().add(action);
+        }
+        footer.getChildren().add(helpHint);
         
         mainContainer.getChildren().addAll(searchContainer, separator, noteListView, footer);
         

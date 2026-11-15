@@ -173,6 +173,8 @@ public class SidebarController {
     };
     private Consumer<Folder> createNoteInFolderAction = folder -> {
     };
+    private Consumer<Folder> createBoardInFolderAction = folder -> {
+    };
     private Consumer<Folder> createCanvasInFolderAction = folder -> {
     };
     private Consumer<String> statusUpdateAction = message -> {
@@ -1727,8 +1729,9 @@ public class SidebarController {
     /** What the folder context menu entries do. */
     private FolderContextMenuSupport.Actions explorerFolderMenuActions() {
         return new FolderContextMenuSupport.Actions(
-                this::handleCreateNoteInFolder,
-                this::handleCreateCanvasInFolder,
+                folder -> createInFolder(folder, createNoteInFolderAction),
+                folder -> createInFolder(folder, createCanvasInFolderAction),
+                folder -> createInFolder(folder, createBoardInFolderAction),
                 this::handleCreateSubfolderInFolder,
                 this::renameInExplorer,
                 this::handleMoveFolder,
@@ -1751,8 +1754,9 @@ public class SidebarController {
 
     private FolderContextMenuSupport.Actions folderMenuActions() {
         return new FolderContextMenuSupport.Actions(
-                this::handleCreateNoteInFolder,
-                this::handleCreateCanvasInFolder,
+                folder -> createInFolder(folder, createNoteInFolderAction),
+                folder -> createInFolder(folder, createCanvasInFolderAction),
+                folder -> createInFolder(folder, createBoardInFolderAction),
                 this::handleCreateSubfolderInFolder,
                 this::handleRenameFolder,
                 this::handleMoveFolder,
@@ -1815,20 +1819,18 @@ public class SidebarController {
         }
     }
 
-    private void handleCreateNoteInFolder(Folder folder) {
-        if (folder == null) {
-            return;
+    /** "New note", "New canvas", "New Kanban board" on a folder: selects it, then creates there. */
+    private void createInFolder(Folder folder, Consumer<Folder> create) {
+        if (folder != null) {
+            folderSelectionAction.accept(folder);
+            create.accept(folder);
         }
-        folderSelectionAction.accept(folder);
-        createNoteInFolderAction.accept(folder);
     }
 
-    private void handleCreateCanvasInFolder(Folder folder) {
-        if (folder == null) {
-            return;
-        }
-        folderSelectionAction.accept(folder);
-        createCanvasInFolderAction.accept(folder);
+    /** What "New Kanban board" on a folder does (the window creates the board there and opens it). */
+    public void setCreateBoardInFolderAction(Consumer<Folder> action) {
+        this.createBoardInFolderAction = action != null ? action : folder -> {
+        };
     }
 
     private void handleCreateSubfolderInFolder(Folder folder) {

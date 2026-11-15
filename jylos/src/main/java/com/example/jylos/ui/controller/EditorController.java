@@ -33,7 +33,6 @@ import com.example.jylos.plugin.EditorHooks;
 import com.example.jylos.plugin.PreviewEnhancer;
 import com.example.jylos.plugin.PreviewEnhancerRegistry;
 import com.example.jylos.service.CanvasReferences;
-import com.example.jylos.service.EncryptionService;
 import com.example.jylos.service.FileFingerprint;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
@@ -55,13 +54,11 @@ import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
-import javafx.scene.Cursor;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBase;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
-import javafx.scene.control.OverrunStyle;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
@@ -144,6 +141,21 @@ public class EditorController implements PreviewEnhancerRegistry,
     /** The reading view: renders, scroll, heading jumps, its page bridge and plugin enhancers. */
     private final EditorPreviewSupport preview = new EditorPreviewSupport(new PreviewHost());
     /** Bold, headings, lists, and the link and image dialogs. */
+    /** A board note shown as its board (Kanban), or as Markdown on request. */
+    private final EditorKanbanSupport kanban = new EditorKanbanSupport(new EditorKanbanSupport.Host(
+            this::boardLayer, this::getCurrentContent, text -> {
+                if (this.noteContentArea != null) {
+                    this.noteContentArea.setText(text);
+                }
+            },
+            () -> {
+                reevaluateModifiedState();
+                handleSave(true);
+            },
+            this::showBoard, this::openNoteByTitle, this::publishCreated, () -> preview.lastDarkTheme()),
+            () -> this.noteService, key -> getString(key, key));
+    /** The note's folders and its lock, in the title row. */
+    private final EditorTitleRowSupport titleRow = new EditorTitleRowSupport();
     private final EditorFormattingSupport formatting = new EditorFormattingSupport(() -> this.noteContentArea,
             this::applyInsertHooks, this::reevaluateModifiedState, this::getString);
     private CanvasView currentCanvasView;
@@ -168,6 +180,9 @@ public class EditorController implements PreviewEnhancerRegistry,
     @FXML private HBox editorHeaderBar;
     /** The header's controls for the open note; with none, only back and forward remain. */
     @FXML private HBox noteHeaderControls;
+    @FXML private Button boardViewBtn;
+    @FXML private Tooltip boardViewTooltip;
+    @FXML private FontIcon boardViewIcon;
     @FXML private StackPane editorContentStack;
     @FXML private VBox emptyState;
     @FXML private Button navBackBtn;
@@ -228,6 +243,7 @@ public class EditorController implements PreviewEnhancerRegistry,
 
     private void setBundle(ResourceBundle bundle) {
         this.bundle = bundle;
+        titleRow.setBundle(bundle);
         if (noteContentArea != null) {
             noteContentArea.setEditorLabels(Map.ofEntries(
                     Map.entry("undo", getString("action.undo", "Undo")),
@@ -357,7 +373,7 @@ public class EditorController implements PreviewEnhancerRegistry,
         if (noteTitleField != null) {
             noteTitleField.setText(note.getTitle() != null ? note.getTitle() : "");
         }
-        updateBreadcrumb(currentNote);
+        titleRow.showPath(currentNote);
         if (!isModified) {
             capturePersistedBaseline(currentNote);
         }
@@ -534,6 +550,7 @@ public class EditorController implements PreviewEnhancerRegistry,
     /** FXML lifecycle hook: start in the empty state (no note open). */
     @FXML
     private void initialize() {
+        titleRow.wire(notePathLabel, editorHeaderBar, privateIndicator, privateIndicatorIcon, privateIndicatorTip);
         setNoteOpen(false);
         setViewMode(viewMode.get());
         // Live Preview shows a note embedded on its own line rendered, as the reading view does.
@@ -579,9 +596,6 @@ public class EditorController implements PreviewEnhancerRegistry,
         setLivePreviewEnabled(enabled, true);
     }
 
-    /** Applies the persisted default editing mode without writing the preference again. */
-    /** Runs when the folder path in the title row is clicked (null: the path is plain text). */
-    private Runnable pathRevealAction;
     /** Preference: whether the format bar under the editor is shown. */
     private boolean formatToolbarVisible = true;
 
@@ -590,14 +604,7 @@ public class EditorController implements PreviewEnhancerRegistry,
      * the note in its tree). {@code null} makes the path plain text, not a link.
      */
     public void setPathRevealAction(Runnable action) {
-        this.pathRevealAction = action;
-        if (notePathLabel != null) {
-            notePathLabel.getStyleClass().remove("note-path-link");
-            if (action != null) {
-                notePathLabel.getStyleClass().add("note-path-link");
-            }
-            notePathLabel.setCursor(action != null ? Cursor.HAND : Cursor.DEFAULT);
-        }
+        titleRow.setPathRevealAction(action);
     }
 
     /** Shows or hides the format bar under the editor (Preferences). */
@@ -606,6 +613,7 @@ public class EditorController implements PreviewEnhancerRegistry,
         UiNodes.show(formatToolbarContainer, visible);
     }
 
+    /** Applies the persisted default editing mode without writing the preference again. */
     public void applyLivePreviewPreference(boolean enabled) {
         setLivePreviewEnabled(enabled, false);
     }
@@ -667,48 +675,14 @@ public class EditorController implements PreviewEnhancerRegistry,
         }
     }
 
-    /**
-     * Shows the note's folders ({@code folder / sub /}) in the title row, before the title;
-     * hidden for a note at the root of the vault. The tooltip has the full file path.
-     */
-    private void updateBreadcrumb(Note note) {
-        if (notePathLabel == null) return;
-        String id = note.getId();
-        String path;
-        if (id != null && (id.contains("/") || id.contains("\\"))) {
-            path = id.replace('\\', '/');
-            // Keep the real extension for attachments; only assume .md when there is none.
-            if (AttachmentType.extensionOf(path).isEmpty()) {
-                path = path + ".md";
-            }
-        } else {
-            String title = note.getTitle() != null ? note.getTitle() : "";
-            path = title.isBlank() ? "" : (AttachmentType.extensionOf(title).isEmpty() ? title + ".md" : title);
-        }
-        int lastSlash = path.lastIndexOf('/');
-        String folders = lastSlash > 0 ? path.substring(0, lastSlash).replace("/", " / ") + " /" : "";
-        notePathLabel.setText(folders);
-        notePathLabel.setTextOverrun(OverrunStyle.LEADING_ELLIPSIS);
-        if (editorHeaderBar != null && !notePathLabel.maxWidthProperty().isBound()) {
-            // A deep path never takes more than 40% of the row; the title keeps the rest.
-            notePathLabel.maxWidthProperty().bind(editorHeaderBar.widthProperty().multiply(0.4));
-        }
-        notePathLabel.setTooltip(path.isBlank() ? null : new Tooltip(path));
-        if (notePathLabel.getOnMouseClicked() == null) {
-            notePathLabel.setOnMouseClicked(e -> {
-                if (pathRevealAction != null) {
-                    pathRevealAction.run();
-                }
-            });
-        }
-        UiNodes.show(notePathLabel, !folders.isEmpty());
-    }
 
 
+    @FXML private void handleBoardView(ActionEvent e) { kanban.toggle(currentNote); }
     @FXML private void handleEmptyCreate(ActionEvent e)       { publish(SystemActionEvent.ActionType.NEW_NOTE); }
     @FXML private void handleEmptyCreateCanvas(ActionEvent e) { publish(SystemActionEvent.ActionType.NEW_CANVAS); }
     @FXML private void handleEmptyGoToFile(ActionEvent e)     { publish(SystemActionEvent.ActionType.QUICK_SWITCHER); }
     @FXML private void handleEmptyOpenGraph(ActionEvent e)    { publish(SystemActionEvent.ActionType.GRAPH_VIEW); }
+    @FXML private void handleEmptyOpenKanban(ActionEvent e)   { publish(SystemActionEvent.ActionType.KANBAN_VIEW); }
 
     public void loadNote(Note note) {
         // The tags bar is per-note UI state, not a sticky global preference: it must
@@ -727,7 +701,7 @@ public class EditorController implements PreviewEnhancerRegistry,
             properties.clear();
             setNoteOpen(false);
             setModifiedState(false);
-            updatePrivateIndicator();
+            titleRow.showLock(currentNote, viewingAttachment);
             syncFavoritePinButtons(key -> getString(key, key));
             return;
         }
@@ -748,7 +722,7 @@ public class EditorController implements PreviewEnhancerRegistry,
             showAttachment(currentNote, type);
             capturePersistedBaseline(currentNote);
             setModifiedState(false);
-            updatePrivateIndicator();
+            titleRow.showLock(currentNote, viewingAttachment);
             syncFavoritePinButtons(key -> getString(key, key));
             return;
         }
@@ -763,39 +737,15 @@ public class EditorController implements PreviewEnhancerRegistry,
         }
 
         setNoteOpen(true);
-        updateBreadcrumb(currentNote);
+        UiNodes.show(boardViewBtn, kanban.show(currentNote));
+        titleRow.showPath(currentNote);
         properties.rebuild();
         capturePersistedBaseline(currentNote);
         setModifiedState(false);
-        updatePrivateIndicator();
+        titleRow.showLock(currentNote, viewingAttachment);
         syncFavoritePinButtons(key -> getString(key, key));
     }
 
-    /**
-     * Shows a lock badge next to the title for private notes: a closed lock when the body
-     * is still locked (🔒 placeholder), an open lock when it is readable this session.
-     * Hidden for normal notes.
-     */
-    private void updatePrivateIndicator() {
-        if (privateIndicator == null) {
-            return;
-        }
-        boolean isPrivate = currentNote != null && currentNote.isPrivate() && !viewingAttachment;
-        UiNodes.show(privateIndicator, isPrivate);
-        if (!isPrivate) {
-            return;
-        }
-        boolean readable = EncryptionService.getInstance().canRead(currentNote.getId());
-        if (privateIndicatorIcon != null) {
-            privateIndicatorIcon.setIconLiteral(readable ? "fth-unlock" : "fth-lock");
-        }
-        if (privateIndicatorTip != null && bundle != null) {
-            String key = readable ? "tooltip.note_private_unlocked" : "tooltip.note_private_locked";
-            if (bundle.containsKey(key)) {
-                privateIndicatorTip.setText(bundle.getString(key));
-            }
-        }
-    }
 
     /** True while a non-editable attachment (PDF/image) is being shown. */
     public boolean isViewingAttachment() {
@@ -857,7 +807,7 @@ public class EditorController implements PreviewEnhancerRegistry,
         UiNodes.show(propertiesSection, false);
         UiNodes.show(emptyState, false);
         UiNodes.show(attachmentViewer, true);
-        updateBreadcrumb(note);
+        titleRow.showPath(note);
     }
 
     /**
@@ -985,7 +935,7 @@ public class EditorController implements PreviewEnhancerRegistry,
         currentCanvasFingerprint = fingerprint(currentCanvasPath);
         // Through setModifiedState, as a note's save: the window hears it and stops saying "Unsaved".
         setModifiedState(false);
-        updateBreadcrumb(currentNote);
+        titleRow.showPath(currentNote);
         if (eventBus != null) {
             eventBus.publish(new NoteEvents.NoteSavedEvent(currentNote, previousNoteId));
         }
@@ -1034,7 +984,28 @@ public class EditorController implements PreviewEnhancerRegistry,
         return bundle.containsKey(key) ? bundle.getString(key) : key;
     }
 
+    /** Where a board is drawn: the layer over the note's panes that attachments also use. */
+    private StackPane boardLayer() {
+        ensureAttachmentViewer();
+        return attachmentViewer;
+    }
+
+    /** Shows the open board note as its board, or its panes (source and reading view). */
+    private void showBoard(boolean board) {
+        UiNodes.show(editorPreviewSplitPane, !board);
+        UiNodes.show(noteOnlyControls, !board);
+        UiNodes.show(boardLayer(), board);
+        if (!board) {
+            attachmentViewer.getChildren().clear();
+        }
+        boardViewIcon.setIconLiteral(board ? "fth-file-text" : "fth-columns");
+        boardViewTooltip.setText(board ? getString("kanban.view_markdown", "View as Markdown")
+                : getString("kanban.view_board", "View as board"));
+    }
+
     private void hideAttachmentViewer() {
+        kanban.clear();
+        UiNodes.show(boardViewBtn, false);
         viewingAttachment = false;
         currentAttachmentType = AttachmentType.MARKDOWN;
         if (noteTitleField != null) {
@@ -1164,7 +1135,7 @@ public class EditorController implements PreviewEnhancerRegistry,
             }
             capturePersistedBaseline(currentNote);
             setModifiedState(false);
-            updateBreadcrumb(currentNote);
+            titleRow.showPath(currentNote);
             if (eventBus != null) eventBus.publish(new NoteEvents.NoteSavedEvent(currentNote, previousNoteId));
             return;
         }
@@ -1198,7 +1169,7 @@ public class EditorController implements PreviewEnhancerRegistry,
         properties.rebuild();
         capturePersistedBaseline(currentNote);
         setModifiedState(false);
-        updateBreadcrumb(currentNote);
+        titleRow.showPath(currentNote);
         if (eventBus != null) eventBus.publish(new NoteEvents.NoteSavedEvent(currentNote, previousNoteId));
         if (editorHooks != null && !editorHooks.isEmpty()) {
             editorHooks.fireAfterSave(currentNote, currentNote.getContent());
@@ -1449,6 +1420,7 @@ public class EditorController implements PreviewEnhancerRegistry,
     /** Applies the active JavaFX theme values inside the embedded editor page. */
     public void applyEditorTheme(boolean darkTheme, String accentColor) {
         preview.setDarkTheme(darkTheme);
+        kanban.applyTheme(darkTheme);
         if (noteContentArea != null) {
             noteContentArea.setEditorTheme(darkTheme, accentColor);
         }
@@ -1644,6 +1616,10 @@ public class EditorController implements PreviewEnhancerRegistry,
     }
 
     // ── Private utilities ────────────────────────────────────────────────────
+
+    private void publishCreated(Note note) {
+        if (eventBus != null && note != null) eventBus.publish(new NoteEvents.NoteCreatedEvent(note));
+    }
 
     private void publish(SystemActionEvent.ActionType type) {
         if (eventBus != null) eventBus.publish(new SystemActionEvent(type));

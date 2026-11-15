@@ -28,6 +28,7 @@ import com.example.jylos.data.models.interfaces.Component;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.NoteService.SortOption;
+import com.example.jylos.ui.NoteIcons;
 import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
 import com.example.jylos.util.AttachmentType;
@@ -850,12 +851,7 @@ public final class ExplorerTree {
             }
             name.setText(item.getTitle() != null ? item.getTitle() : "");
             if (item instanceof Note note) {
-                noteIcon.setIconLiteral(switch (AttachmentType.fromName(note.getId())) {
-                    case IMAGE -> "fth-image";
-                    case PDF -> "fth-file";
-                    case CANVAS -> "fth-grid";
-                    default -> "fth-file-text";
-                });
+                noteIcon.setIconLiteral(NoteIcons.literalFor(note));
                 content.getChildren().setAll(noteIcon, name);
                 if (note.isPinned()) {
                     content.getChildren().add(pinMark);

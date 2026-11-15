@@ -16,7 +16,6 @@ import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
 import com.example.jylos.ui.components.KanbanBoard;
 import com.example.jylos.ui.components.ViewTabs;
 
-import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
 /**
@@ -24,8 +23,7 @@ import javafx.scene.layout.VBox;
  * tab), and keeps its own back and forward ({@link EditorTabsModel}). Picking a tab, closing
  * one, going back or forward and reopening a workspace all come through here, and end in the
  * one place that shows what a tab holds: the note in the editor, the graph in the editor area,
- * or the editor's empty state. Also, until boards open in their own tabs, the Kanban board
- * shown over the window.
+ * or the editor's empty state. A Kanban board is a note, shown as its board by the editor.
  *
  * <p>The window keeps owning the editor and the notes; it is asked through {@link Host}.</p>
  *
@@ -45,12 +43,13 @@ final class TabsSupport {
      * @param showEmptyState      the editor shows its empty state (a new tab, or no tab left)
      * @param tabsChanged         what is shown changed: the right panel, the status bar and the
      *                            back/forward buttons follow it
+     * @param chooseBoard         asks which of these Kanban boards to open, or to make a new one
      */
     record Host(BooleanSupplier confirmLeaveCurrent, Consumer<String> showNote, Consumer<Note> openNoteInNewTab,
-            Consumer<Note> openNote, Runnable showEmptyState, Runnable tabsChanged) {
+            Consumer<Note> openNote, Runnable showEmptyState, Runnable tabsChanged,
+            Consumer<List<Note>> chooseBoard) {
     }
 
-    private StackPane centerStack;
     private VBox graphView;
     private GraphController graph;
     private NoteService noteService;
@@ -59,18 +58,11 @@ final class TabsSupport {
     private Consumer<String> status;
     private Supplier<EditorTabs> tabs = () -> null;
     private Host host;
-    private Consumer<Note> noteCreated;
-    private Consumer<Note> noteUpdated;
     /** Whether the graph has been opened since it was last closed: then it resumes. */
     private boolean graphStarted;
 
-    /** Lazy-created Kanban board overlay, added to {@link #centerStack} on first use. */
-    private KanbanBoard kanbanBoard;
-
-    void wire(StackPane centerStack, VBox graphView, GraphController graph, NoteService noteService,
-            Supplier<Boolean> darkTheme, Function<String, String> i18n, Consumer<String> status,
-            Supplier<EditorTabs> tabs, Host host, Consumer<Note> noteCreated, Consumer<Note> noteUpdated) {
-        this.centerStack = centerStack;
+    void wire(VBox graphView, GraphController graph, NoteService noteService, Supplier<Boolean> darkTheme,
+            Function<String, String> i18n, Consumer<String> status, Supplier<EditorTabs> tabs, Host host) {
         this.graphView = graphView;
         this.graph = graph;
         this.noteService = noteService;
@@ -79,8 +71,6 @@ final class TabsSupport {
         this.status = status;
         this.tabs = tabs != null ? tabs : () -> null;
         this.host = host;
-        this.noteCreated = noteCreated;
-        this.noteUpdated = noteUpdated;
         UiNodes.show(graphView, false);
     }
 
@@ -93,11 +83,6 @@ final class TabsSupport {
     /** True while the graph is on screen. */
     boolean isGraphVisible() {
         return graphView != null && graphView.isVisible();
-    }
-
-    /** True while the Kanban overlay is shown. */
-    boolean isKanbanVisible() {
-        return kanbanBoard != null && kanbanBoard.isVisible();
     }
 
     // ── Opening ──────────────────────────────────────────────────────────────
@@ -281,7 +266,6 @@ final class TabsSupport {
         if (id == null) {
             return;
         }
-        hideKanban();
         if (ViewTabs.GRAPH.equals(id)) {
             strip.open(id, getString("graph.title"), "fth-share-2", OpenTarget.CURRENT_TAB);
             showGraph();
@@ -335,62 +319,16 @@ final class TabsSupport {
         }
     }
 
-    // ── Kanban overlay ───────────────────────────────────────────────────────
-
-    void toggleKanban() {
-        if (centerStack == null) {
-            return;
-        }
-        ensureKanban();
-        if (kanbanBoard == null) {
-            return;
-        }
-        if (kanbanBoard.isVisible()) {
-            hideKanban();
-        } else {
-            kanbanBoard.setDarkTheme(isDark());
-            kanbanBoard.reload();
-            UiNodes.show(kanbanBoard, true);
-            kanbanBoard.toFront();
-            kanbanBoard.requestFocus(); // so Escape closes the board
-            updateStatus(getString("status.kanban_opened"));
-            tabsChanged();
-        }
-    }
-
-    void hideKanban() {
-        if (!isKanbanVisible()) {
-            return;
-        }
-        UiNodes.show(kanbanBoard, false);
-        tabsChanged();
-    }
-
-    private void ensureKanban() {
-        if (kanbanBoard != null || centerStack == null || noteService == null) {
-            return;
-        }
-        kanbanBoard = new KanbanBoard(noteService, this::openLinkedNote, this::hideKanban,
-                this::publishCreated, this::publishUpdated, i18n);
-        UiNodes.show(kanbanBoard, false);
-        centerStack.getChildren().add(kanbanBoard);
-    }
+    // ── Kanban ───────────────────────────────────────────────────────────────
 
     /**
-     * Opens the note a Kanban card links to ({@code [[Note]]}, {@code [[Folder/Note]]}), resolved
-     * by path from the board's note as any link is.
+     * The Kanban command: asks which board to open (the one changed last first), or to make a
+     * new one. A board is a note: the one picked opens in the active tab, as a note does.
      */
-    void openLinkedNote(String link) {
-        if (link == null || link.isBlank() || noteService == null) {
-            return;
+    void openKanban() {
+        if (noteService != null && host != null) {
+            host.chooseBoard().accept(KanbanBoard.boards(noteService));
         }
-        String boardId = kanbanBoard != null ? kanbanBoard.currentBoardId() : null;
-        noteService.resolveLink(link, boardId).ifPresent(note -> {
-            hideKanban();
-            if (host != null) {
-                host.openNote().accept(note);
-            }
-        });
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -398,18 +336,6 @@ final class TabsSupport {
     private void tabsChanged() {
         if (host != null) {
             host.tabsChanged().run();
-        }
-    }
-
-    private void publishCreated(Note note) {
-        if (noteCreated != null && note != null) {
-            noteCreated.accept(note);
-        }
-    }
-
-    private void publishUpdated(Note note) {
-        if (noteUpdated != null && note != null) {
-            noteUpdated.accept(note);
         }
     }
 

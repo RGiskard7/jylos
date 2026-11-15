@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -32,11 +33,9 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ColorPicker;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
-import javafx.scene.control.ListCell;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
@@ -60,14 +59,14 @@ import org.apache.pdfbox.rendering.PDFRenderer;
 import org.kordamp.ikonli.javafx.FontIcon;
 
 /**
- * A Kanban board overlay in the spirit of Obsidian/Trello: a board is a note whose
- * Markdown body holds columns ({@code ## Heading}) of free-text cards. The user
- * picks/creates boards, adds columns and cards, drags cards between columns, and a
- * card may link to a note ({@code [[Title]]}) or be converted into one.
+ * A Kanban board in the spirit of Obsidian's Kanban plugin: a board is a note whose Markdown
+ * body holds columns ({@code ## Heading}) of free-text cards, shown as a board in the note's
+ * own tab. The user adds columns and cards, drags cards between columns, and a card may link
+ * to a note ({@code [[Title]]}) or be converted into one.
  *
- * <p>Each change is serialised back to the board note via {@link NoteService}; the
- * board parsing/format lives in {@link KanbanModel}. The toolbar mirrors the graph
- * overlay (same style classes and padding).</p>
+ * <p>It does not write the note: each change hands the board's new Markdown to its owner
+ * (the editor), which saves it as it saves any edit. The format lives in
+ * {@link KanbanModel}.</p>
  *
  * @author Edu Díaz (RGiskard7)
  * @since 2.0.0
@@ -77,92 +76,74 @@ public final class KanbanBoard extends VBox {
     private static final Pattern WIKILINK = Pattern.compile("\\[\\[([^\\]|#]+)");
 
     private final NoteService noteService;
+    /** Id of the board's note: what card links and images resolve from. */
+    private final String boardId;
     private final Consumer<String> onOpenNoteTitle;
-    private final Runnable onClose;
+    private final Consumer<String> onChanged;
     private final Consumer<Note> onNoteCreated;
-    private final Consumer<Note> onNoteUpdated;
     private final Function<String, String> i18n;
 
-    private final ComboBox<Note> boardSelector = new ComboBox<>();
     private final HBox lanes = new HBox();
 
-    private Note currentBoard;
-    private KanbanModel model = new KanbanModel();
-    /** Guards selector listener while we repopulate it programmatically. */
-    private boolean populatingSelector = false;
+    private KanbanModel model;
 
-    public KanbanBoard(NoteService noteService,
-            Consumer<String> onOpenNoteTitle,
-            Runnable onClose,
-            Consumer<Note> onNoteCreated,
-            Consumer<Note> onNoteUpdated,
-            Function<String, String> i18n) {
+    /**
+     * @param noteService     where card notes are created and attachments found
+     * @param boardId         the board's note id
+     * @param markdown        the board note's text
+     * @param onOpenNoteTitle a card's link clicked
+     * @param onChanged       the board changed: its new Markdown, for the owner to save
+     * @param onNoteCreated   a card was turned into a note
+     * @param i18n            translations by key
+     */
+    public KanbanBoard(NoteService noteService, String boardId, String markdown,
+            Consumer<String> onOpenNoteTitle, Consumer<String> onChanged,
+            Consumer<Note> onNoteCreated, Function<String, String> i18n) {
         this.noteService = noteService;
+        this.boardId = boardId;
         this.onOpenNoteTitle = onOpenNoteTitle;
-        this.onClose = onClose;
+        this.onChanged = onChanged;
         this.onNoteCreated = onNoteCreated;
-        this.onNoteUpdated = onNoteUpdated;
         this.i18n = i18n;
+        this.model = KanbanModel.parse(markdown);
 
         getStyleClass().add("kanban-board");
         setFocusTraversable(true);
-        getChildren().addAll(buildToolbar(), buildScrollableLanes());
-
-        addEventFilter(KeyEvent.KEY_PRESSED, e -> {
-            if (e.getCode() == KeyCode.ESCAPE && onClose != null) {
-                onClose.run();
-                e.consume();
-            }
-        });
+        getChildren().add(buildScrollableLanes());
+        render();
     }
 
-    // ── Toolbar ──────────────────────────────────────────────────────────────
-
-    private HBox buildToolbar() {
-        HBox toolbar = new HBox();
-        toolbar.getStyleClass().add("graph-toolbar");
-        toolbar.setAlignment(Pos.CENTER_LEFT);
-        toolbar.setSpacing(6);
-        toolbar.setPadding(new Insets(8, 16, 8, 16)); // match GraphView.fxml toolbar, both match the main toolbar
-
-        FontIcon icon = new FontIcon("fth-columns");
-        icon.getStyleClass().add("feather-icon");
-        HBox.setMargin(icon, new Insets(0, 0, 0, 6));
-        Label title = new Label(str("kanban.title", "Kanban"));
-        title.getStyleClass().add("graph-title");
-
-        boardSelector.getStyleClass().add("kanban-board-selector");
-        boardSelector.setPromptText(str("kanban.select_board", "Select board…"));
-        boardSelector.setButtonCell(boardCell());
-        boardSelector.setCellFactory(lv -> boardCell());
-        boardSelector.valueProperty().addListener((obs, old, sel) -> {
-            if (!populatingSelector && sel != null) {
-                loadBoard(sel);
-            }
-        });
-
-        Button newBoard = iconButton("fth-plus", "feather-icon",
-                str("kanban.new_board", "New board"), e -> createBoard());
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-        Button refresh = iconButton("fth-refresh-cw", "feather-icon",
-                str("kanban.refresh", "Refresh"), e -> reload());
-        Button close = iconButton("fth-x", "feather-icon",
-                str("kanban.close", "Close board"), e -> { if (onClose != null) onClose.run(); });
-
-        toolbar.getChildren().addAll(icon, title, boardSelector, newBoard, spacer, refresh, close);
-        return toolbar;
+    /** The board as Markdown, as it would be saved. */
+    public String markdown() {
+        return model.toMarkdown();
     }
 
-    private ListCell<Note> boardCell() {
-        return new ListCell<>() {
-            @Override protected void updateItem(Note n, boolean empty) {
-                super.updateItem(n, empty);
-                setText(empty || n == null ? null
-                        : (n.getTitle() == null || n.getTitle().isBlank()
-                                ? str("kanban.untitled", "(untitled)") : n.getTitle()));
+    /** Adds a card at the end of a column, as the column's "Add card" does. */
+    public void addCard(int column, String text) {
+        if (column < 0 || column >= model.getColumns().size() || text == null || text.isBlank()) {
+            return;
+        }
+        model.getColumns().get(column).getCards().add(text.trim());
+        save();
+        render();
+    }
+
+    // ── Boards ───────────────────────────────────────────────────────────────
+
+    /** The vault's board notes, the most recently changed first. */
+    public static List<Note> boards(NoteService noteService) {
+        List<Note> boards = new ArrayList<>();
+        if (noteService == null) {
+            return boards;
+        }
+        for (Note n : noteService.getAllNotes()) {
+            if (n != null && !n.isDeleted() && KanbanModel.isBoard(n.getContent())) {
+                boards.add(n);
             }
-        };
+        }
+        boards.sort(Comparator.comparing((Note n) -> n.getModifiedDate() != null ? n.getModifiedDate() : "")
+                .reversed());
+        return boards;
     }
 
     private static Button iconButton(String iconLiteral, String iconStyle, String tip,
@@ -197,107 +178,13 @@ public final class KanbanBoard extends VBox {
         }
     }
 
-    // ── Board loading / persistence ──────────────────────────────────────────
-
-    /** Reloads the list of board notes and re-renders the current (or first) board. */
-    public void reload() {
-        List<Note> boards = findBoards();
-        populatingSelector = true;
-        boardSelector.getItems().setAll(boards);
-        populatingSelector = false;
-
-        Note toShow = null;
-        if (currentBoard != null) {
-            for (Note b : boards) {
-                if (b.getId() != null && b.getId().equals(currentBoard.getId())) {
-                    toShow = b;
-                    break;
-                }
-            }
-        }
-        if (toShow == null && !boards.isEmpty()) {
-            toShow = boards.get(0);
-        }
-        if (toShow != null) {
-            boardSelector.setValue(toShow);
-            loadBoard(toShow);
-        } else {
-            currentBoard = null;
-            model = new KanbanModel();
-            renderEmpty();
-        }
-    }
-
-    private List<Note> findBoards() {
-        List<Note> boards = new ArrayList<>();
-        if (noteService == null) {
-            return boards;
-        }
-        for (Note n : noteService.getAllNotes()) {
-            if (n != null && !n.isDeleted() && KanbanModel.isBoard(n.getContent())) {
-                boards.add(n);
-            }
-        }
-        boards.sort((a, b) -> safeTitle(a).compareToIgnoreCase(safeTitle(b)));
-        return boards;
-    }
-
-    private void loadBoard(Note boardRef) {
-        // Read full content (getAllNotes may return a truncated body in vault mode).
-        Note full = noteService != null && boardRef.getId() != null
-                ? noteService.getNoteById(boardRef.getId()).orElse(boardRef) : boardRef;
-        currentBoard = full;
-        model = KanbanModel.parse(full.getContent());
-        render();
-    }
-
     private void save() {
-        if (currentBoard == null || noteService == null) {
-            return;
+        if (onChanged != null) {
+            onChanged.accept(model.toMarkdown());
         }
-        currentBoard.setContent(model.toMarkdown());
-        noteService.updateNote(currentBoard);
-        if (onNoteUpdated != null) {
-            onNoteUpdated.accept(currentBoard);
-        }
-    }
-
-    private void createBoard() {
-        if (noteService == null) {
-            return;
-        }
-        String name = prompt(str("kanban.new_board", "New board"),
-                str("kanban.board_name", "Board name:"), str("kanban.board_default", "My board"));
-        if (name == null || name.isBlank()) {
-            return;
-        }
-        KanbanModel fresh = KanbanModel.withDefaults(
-                str("kanban.col_todo", "To do"),
-                str("kanban.col_doing", "Doing"),
-                str("kanban.col_done", "Done"));
-        Note board = noteService.createNote(new Note(name.trim(), fresh.toMarkdown()));
-        if (onNoteCreated != null) {
-            onNoteCreated.accept(board);
-        }
-        currentBoard = board;
-        reload();
     }
 
     // ── Rendering ────────────────────────────────────────────────────────────
-
-    private void renderEmpty() {
-        lanes.getChildren().clear();
-        VBox empty = new VBox(12);
-        empty.setAlignment(Pos.CENTER);
-        empty.setPadding(new Insets(40));
-        Label msg = new Label(str("kanban.no_boards", "No boards yet."));
-        msg.getStyleClass().add("kanban-lane-header");
-        Button create = new Button("+ " + str("kanban.new_board", "New board"));
-        create.getStyleClass().add("kanban-add-card");
-        create.setOnAction(e -> createBoard());
-        empty.getChildren().addAll(msg, create);
-        lanes.getChildren().add(empty);
-    }
 
     private void render() {
         lanes.getChildren().clear();
@@ -360,11 +247,7 @@ public final class KanbanBoard extends VBox {
         addCard.setOnAction(e -> {
             String text = prompt(str("kanban.add_card", "Add card"),
                     str("kanban.card_text", "Card text:"), "");
-            if (text != null && !text.isBlank()) {
-                col.getCards().add(text.trim());
-                save();
-                render();
-            }
+            addCard(model.getColumns().indexOf(col), text);
         });
 
         lane.getChildren().addAll(header, scroll, addCard);
@@ -626,9 +509,9 @@ public final class KanbanBoard extends VBox {
         return UiDialogs.show(dialog).orElse(null);
     }
 
-    /** Id of the board note shown, or {@code null}: the note card links resolve from. */
-    public String currentBoardId() {
-        return currentBoard != null ? currentBoard.getId() : null;
+    /** Id of the board's note: the note card links resolve from. */
+    public String boardId() {
+        return boardId;
     }
 
     private static String firstLink(String text) {
@@ -691,9 +574,8 @@ public final class KanbanBoard extends VBox {
             if (p.isAbsolute()) {
                 return Files.exists(p) ? p : null;
             }
-            if (noteService != null && currentBoard != null && currentBoard.getId() != null) {
-                Optional<Path> boardFile =
-                        noteService.getNoteFilePath(currentBoard.getId());
+            if (noteService != null && boardId != null) {
+                Optional<Path> boardFile = noteService.getNoteFilePath(boardId);
                 if (boardFile.isPresent()) {
                     Path base = boardFile.get().getParent();
                     for (int depth = 0; base != null && depth < 4; depth++, base = base.getParent()) {
@@ -737,15 +619,11 @@ public final class KanbanBoard extends VBox {
         }
     }
 
-    private static String safeTitle(Note n) {
-        return n.getTitle() != null ? n.getTitle() : "";
-    }
-
     private String str(String key, String fallback) {
         if (i18n == null) {
             return fallback;
         }
         String v = i18n.apply(key);
-        return v != null ? v : fallback;
+        return v != null && !v.equals(key) ? v : fallback;
     }
 }

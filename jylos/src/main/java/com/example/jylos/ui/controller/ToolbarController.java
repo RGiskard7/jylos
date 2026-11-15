@@ -210,6 +210,11 @@ public class ToolbarController {
     }
 
     @FXML
+    private void handleNewKanbanBoard(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.NEW_KANBAN_BOARD);
+    }
+
+    @FXML
     private void handleFocusMode(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.FOCUS_MODE);
     }

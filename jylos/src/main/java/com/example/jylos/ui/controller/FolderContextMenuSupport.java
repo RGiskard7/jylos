@@ -21,7 +21,8 @@ import javafx.scene.control.SeparatorMenuItem;
 public final class FolderContextMenuSupport {
 
     /** What each entry does with the folder it was opened on. */
-    public record Actions(Consumer<Folder> newNote, Consumer<Folder> newCanvas, Consumer<Folder> newSubfolder,
+    public record Actions(Consumer<Folder> newNote, Consumer<Folder> newCanvas, Consumer<Folder> newBoard,
+            Consumer<Folder> newSubfolder,
             Consumer<Folder> rename, Consumer<Folder> move, Consumer<Folder> reveal, Consumer<Folder> delete) {
     }
 
@@ -35,6 +36,7 @@ public final class FolderContextMenuSupport {
         menu.getItems().addAll(
                 item(i18n.apply("action.new_note"), folder, actions.newNote()),
                 item(i18n.apply("action.new_canvas"), folder, actions.newCanvas()),
+                item(i18n.apply("action.new_kanban_board"), folder, actions.newBoard()),
                 item(i18n.apply("action.new_subfolder"), folder, actions.newSubfolder()),
                 new SeparatorMenuItem(),
                 item(i18n.apply("action.rename"), folder, actions.rename()));

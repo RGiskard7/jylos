@@ -14,10 +14,10 @@ import com.example.jylos.search.AdvancedSearchService;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
+import com.example.jylos.ui.NoteIcons;
 import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.NewTabGesture;
-import com.example.jylos.util.AttachmentType;
 import com.example.jylos.util.FileManager;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -456,13 +456,8 @@ public class NotesListController {
                         titleRow.getChildren().add(lockIcon);
                     }
                     titleLabel.setText(note.getTitle() != null ? note.getTitle() : "");
-                    // Distinguish attachments (PDF/image) from notes with a fitting icon.
-                    switch (AttachmentType.fromName(note.getId())) {
-                        case IMAGE -> noteIcon.setIconLiteral("fth-image");
-                        case PDF -> noteIcon.setIconLiteral("fth-file");
-                        case CANVAS -> noteIcon.setIconLiteral("fth-grid");
-                        default -> noteIcon.setIconLiteral("fth-file-text");
-                    }
+                    // Attachments, canvases and Kanban boards each have their icon.
+                    noteIcon.setIconLiteral(NoteIcons.literalFor(note));
                     titleRow.getChildren().addAll(titleLabel, noteIconHolder);
 
                     boolean showPreview = previewLines > 0;

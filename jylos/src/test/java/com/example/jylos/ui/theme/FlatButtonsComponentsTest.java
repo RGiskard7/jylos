@@ -82,7 +82,8 @@ class FlatButtonsComponentsTest {
                         bundle).load();
                 case "pdf" -> FileViewer.forAttachment(pdf, AttachmentType.PDF, bundle);
                 case "image" -> FileViewer.forAttachment(png, AttachmentType.IMAGE, bundle);
-                case "kanban" -> new KanbanBoard(null, t -> { }, () -> { }, n -> { }, n -> { }, k -> k);
+                case "kanban" -> new KanbanBoard(null, "Tablero.md", "%% jylos-kanban %%\n## Por hacer\n- Escribir\n",
+                        t -> { }, md -> { }, n -> { }, k -> k);
                 // A board's lane needs a stored board; this is the same structure and classes
                 // the board builds for "+ Add card" / "+ Add column".
                 case "kanban-lane" -> {

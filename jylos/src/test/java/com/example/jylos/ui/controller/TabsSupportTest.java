@@ -7,6 +7,7 @@ import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.io.TempDir;
 import com.example.jylos.data.dao.filesystem.FolderDAOFileSystem;
 import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
 import com.example.jylos.data.dao.filesystem.TagDAOFileSystem;
+import com.example.jylos.data.models.Note;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
 import com.example.jylos.tests.FxTestSupport;
@@ -312,6 +314,31 @@ class TabsSupportTest {
                 "tabs [GRAPH, A.md] active A.md graph hidden"), seen);
     }
 
+    /**
+     * The Kanban command asks which board to open: the vault's boards, the one changed last
+     * first. It opens none by itself.
+     */
+    @Test
+    void theKanbanCommandAsksWhichBoardToOpen() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        String board = "%% jylos-kanban %%\n## Por hacer\n";
+        Files.writeString(vault.resolve("Viejo.md"), board, StandardCharsets.UTF_8);
+        Files.writeString(vault.resolve("Nuevo.md"), board, StandardCharsets.UTF_8);
+        Files.setLastModifiedTime(vault.resolve("Viejo.md"), FileTime.fromMillis(1_000_000_000_000L));
+        Files.setLastModifiedTime(vault.resolve("Nuevo.md"), FileTime.fromMillis(1_700_000_000_000L));
+        notes.refreshStorageCache();
+
+        List<String> seen = onFx(() -> {
+            Fixture f = new Fixture();
+            f.notes("A.md");
+            f.host.calls.clear();
+            f.views.openKanban();
+            return List.of(String.valueOf(f.host.calls), f.state());
+        });
+
+        assertEquals(List.of("[choose [Nuevo.md, Viejo.md]]", "tabs [A.md] active A.md graph hidden"), seen);
+    }
+
     /** Coming back to the graph's tab finds it as it was left: the view is not opened afresh. */
     @Test
     void comingBackToTheGraphKeepsItsView() throws Exception {
@@ -363,7 +390,8 @@ class TabsSupportTest {
                         views.noteShown();
                     },
                     () -> calls.add("empty"),
-                    () -> calls.add("changed"));
+                    () -> calls.add("changed"),
+                    boards -> calls.add("choose " + boards.stream().map(Note::getId).toList()));
         }
     }
 
@@ -382,8 +410,7 @@ class TabsSupportTest {
             graph = loader.getController();
             graph.wire(null, notes, tags, loader.getResources(), (id, newTab) -> { }, () -> { }, () -> "A.md",
                     builds::add);
-            views.wire(null, graphView, graph, notes, () -> false, key -> key, status -> { }, () -> tabs, host.host(),
-                    note -> { }, note -> { });
+            views.wire(graphView, graph, notes, () -> false, key -> key, status -> { }, () -> tabs, host.host());
             host.views = views;
         }
 
