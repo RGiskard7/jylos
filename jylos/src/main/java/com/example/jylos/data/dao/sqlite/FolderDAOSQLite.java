@@ -343,6 +343,21 @@ public class FolderDAOSQLite implements FolderDAO {
 		}
 	}
 
+	/** One query: here depth 0 is the first level. */
+	@Override
+	public List<Folder> fetchDirectSubfolders(Folder parent) {
+		Folder probe = new Folder(parent.getId(), parent.getTitle());
+		loadSubFolders(probe, 0);
+		List<Folder> subfolders = new java.util.ArrayList<>();
+		for (com.example.jylos.data.models.interfaces.Component child : probe.getChildren()) {
+			if (child instanceof Folder folder) {
+				folder.setParent(parent);
+				subfolders.add(folder);
+			}
+		}
+		return subfolders;
+	}
+
 	@Override
 	public void loadSubFolders(Folder folder, int maxDepth) {
 		if (folder == null) {

@@ -130,6 +130,24 @@ public interface FolderDAO {
     public void loadSubFolders(Folder folder);
 
     /**
+     * The direct subfolders of {@code parent}, without reading the folders below them and
+     * without changing {@code parent}. For callers that walk the tree a level at a time (the
+     * Explorer), where reading the whole subtree on every call costs seconds on a vault in a
+     * cloud folder.
+     *
+     * <p>The default still reads the whole subtree (into a copy of {@code parent}), so the
+     * folders it returns come with theirs; the filesystem and SQLite DAOs read one level.</p>
+     */
+    default List<Folder> fetchDirectSubfolders(Folder parent) {
+        Folder probe = new Folder(parent.getId(), parent.getTitle());
+        loadSubFolders(probe);
+        return probe.getChildren().stream()
+                .filter(Folder.class::isInstance)
+                .map(Folder.class::cast)
+                .toList();
+    }
+
+    /**
      * Loads subfolders up to a specified depth.
      *
      * @param folder   The folder whose subfolders should be loaded.

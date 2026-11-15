@@ -418,7 +418,7 @@ public class SidebarController {
             item.setSelected(explorerTree.getNoteSort() == sort);
             item.setOnAction(ev -> {
                 explorerTree.setNoteSort(sort);
-                Preferences.userNodeForPackage(SidebarController.class).put(EXPLORER_NOTE_SORT_KEY, sort.name());
+                explorerPrefs.put(EXPLORER_NOTE_SORT_KEY, sort.name());
             });
             menu.getItems().add(item);
         }
@@ -426,7 +426,7 @@ public class SidebarController {
     }
 
     private static NoteService.SortOption storedExplorerSort() {
-        String stored = Preferences.userNodeForPackage(SidebarController.class).get(EXPLORER_NOTE_SORT_KEY, "");
+        String stored = explorerPrefs.get(EXPLORER_NOTE_SORT_KEY, "");
         for (NoteService.SortOption option : NoteService.SortOption.values()) {
             if (option.name().equals(stored)) {
                 return option;
@@ -1643,18 +1643,8 @@ public class SidebarController {
      * update, and this sidebar reloads its trees when it hears it.
      */
     void emptyTrashNow() {
-        for (Note n : noteService.getTrashNotes()) {
-            noteService.permanentlyDeleteNote(n.getId());
-            publishEvent(new NoteEvents.TrashItemDeletedEvent(n));
-        }
-        Folder root = folderService.getTrashFolders();
-        if (root != null) {
-            for (Component c : root.getChildren()) {
-                if (c instanceof Folder) {
-                    folderService.permanentlyDeleteFolder(c.getId());
-                    publishEvent(new NoteEvents.TrashItemDeletedEvent(c));
-                }
-            }
+        for (Component deleted : new com.example.jylos.service.TrashService(noteService, folderService).emptyTrash()) {
+            publishEvent(new NoteEvents.TrashItemDeletedEvent(deleted));
         }
     }
 
@@ -1780,14 +1770,7 @@ public class SidebarController {
     }
 
     private Optional<MoveTargetSupport.MoveTarget> chooseMoveTarget(Folder folderToMove) {
-        if (folderService == null) {
-            return Optional.empty();
-        }
-        return MoveTargetSupport.show(
-                folderService.getAllFolders(),
-                folder -> folderService.canMoveFolder(folderToMove, folder),
-                folderService::getParentFolder,
-                this::getString);
+        return MoveTargetSupport.choose(folderService, folderToMove, this::getString);
     }
 
     private boolean isFileSystemStorage() {
@@ -1804,16 +1787,8 @@ public class SidebarController {
             publishStatusUpdate(getString("status.reveal_unavailable"));
             return;
         }
-        String absolute = pathOpt.get();
-        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
         try {
-            if (os.contains("mac")) {
-                new ProcessBuilder("open", absolute).start();
-            } else if (os.contains("win")) {
-                new ProcessBuilder("explorer.exe", absolute).start();
-            } else {
-                new ProcessBuilder("xdg-open", absolute).start();
-            }
+            com.example.jylos.util.FileManager.open(java.nio.file.Path.of(pathOpt.get()));
             publishStatusUpdate(getString("status.revealed"));
         } catch (Exception ex) {
             logger.log(Level.WARNING, "Failed to reveal folder in file manager", ex);
@@ -2074,29 +2049,14 @@ public class SidebarController {
         return sidebarPane;
     }
 
-    public TabPane getNavigationTabPane() {
-        return navigationTabPane;
-    }
 
     public TreeView<Folder> getFolderTreeView() {
         return folderTreeView;
     }
 
-    public TreeView<Component> getTrashTreeView() {
-        return trashTreeView;
-    }
 
-    public TextField getFilterFoldersField() {
-        return filterFoldersField;
-    }
 
-    public ListView<String> getTagListView() {
-        return tagListView;
-    }
 
-    public TextField getFilterTrashField() {
-        return filterTrashField;
-    }
 
     /**
      * Keeps the custom sidebar nav bar in sync with {@link TabPane} selection.

@@ -2,11 +2,8 @@ package com.example.jylos.ui.controller;
 
 import java.io.File;
 import java.sql.Connection;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -19,7 +16,6 @@ import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 
 import com.example.jylos.config.LoggerConfig;
-import com.example.jylos.config.VersionConfig;
 import com.example.jylos.data.dao.interfaces.FactoryDAO;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
@@ -35,15 +31,10 @@ import com.example.jylos.graph.GraphData;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.plugin.PluginManager;
-import com.example.jylos.plugin.PluginMenuRegistry;
-import com.example.jylos.plugin.PreviewEnhancer;
-import com.example.jylos.plugin.PreviewEnhancerRegistry;
-import com.example.jylos.plugin.SidePanelRegistry;
 import com.example.jylos.service.EncryptionService;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
-import com.example.jylos.service.UpdateChecker;
 import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.CommandPalette;
 import com.example.jylos.ui.components.EditorTabsModel;
@@ -51,35 +42,24 @@ import com.example.jylos.ui.components.PluginManagerDialog;
 import com.example.jylos.ui.components.QuickSwitcher;
 import com.example.jylos.ui.preferences.LayoutMode;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
-import com.example.jylos.ui.theme.CssSnippetCatalog;
-import com.example.jylos.ui.theme.SystemThemeMonitor;
 import com.example.jylos.ui.theme.ThemeCatalog;
-import com.example.jylos.ui.theme.ThemeCommand;
 import com.example.jylos.util.SystemBrowser;
 
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
-import javafx.geometry.Pos;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
-import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
-import javafx.scene.control.Menu;
-import javafx.scene.control.MenuItem;
 import javafx.scene.control.Separator;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.ToggleButton;
-import javafx.scene.control.ToggleGroup;
-import javafx.scene.control.Tooltip;
-import javafx.scene.control.TreeItem;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -111,8 +91,6 @@ public class MainController {
         return editorController != null && editorController.isModified();
     }
 
-    private String currentFilterType = "all"; // "all", "folder", "tag", "favorites", "search"
-    private Tag currentTag = null;
 
     @FXML
     private SplitPane mainSplitPane;
@@ -809,8 +787,6 @@ public class MainController {
             toolbarController.getSearchField().clear();
         }
         currentFolder = null;
-        currentTag = null;
-        currentFilterType = "all";
         if (editorTabs != null) {
             editorTabs.clear();
         }
@@ -1137,8 +1113,6 @@ public class MainController {
             return;
         }
         currentFolder = null;
-        currentTag = tag;
-        currentFilterType = "tag";
         if (notesListController != null) {
             notesListController.loadNotesForTag(tag.getTitle());
         }
@@ -1256,7 +1230,7 @@ public class MainController {
             }
             String query = pendingSearchText != null ? pendingSearchText : "";
             if (query.trim().isEmpty()) {
-                if ("search".equals(currentFilterType)) {
+                if (notesListController.isShowingSearch()) {
                     refreshNotesList();
                 }
                 return;
@@ -1893,8 +1867,6 @@ public class MainController {
     private void loadAllNotes() {
         if (notesListController != null) {
             currentFolder = null;
-            currentTag = null;
-            currentFilterType = "all";
             notesListController.loadAllNotes();
         }
     }
@@ -1918,8 +1890,6 @@ public class MainController {
                 return;
             }
             currentFolder = folder;
-            currentTag = null;
-            currentFilterType = "folder";
             if (notesListController != null) {
                 notesListController.loadNotesForFolder(folder);
             }
@@ -2248,8 +2218,6 @@ public class MainController {
             return;
         }
         currentFolder = null;
-        currentTag = new Tag(tagName);
-        currentFilterType = "tag";
         if (notesListController != null) {
             notesListController.loadNotesForTag(tagName);
         }
@@ -2259,7 +2227,6 @@ public class MainController {
     /** Sets the filter type to "search" and delegates full-text search to {@link NotesListController}. */
     private void performSearch(String searchText) {
         if (notesListController != null) {
-            currentFilterType = "search";
             notesListController.performSearch(searchText);
             if (searchText != null && !searchText.isBlank()) {
                 showResultsPanel();
@@ -2467,25 +2434,11 @@ public class MainController {
     }
 
     /** Refreshes the notes list according to the active filter (all / folder / tag / search) and view mode. */
+    /** Loads again what the notes list shows (the list keeps which filter that is). */
     private void refreshNotesList() {
-        if (notesListController == null) {
-            return;
+        if (notesListController != null) {
+            notesListController.refreshCurrentView();
         }
-        String searchText = toolbarController != null && toolbarController.getSearchField() != null
-                ? toolbarController.getSearchField().getText()
-                : "";
-        notesListController.refreshNotesList(
-                currentFilterType,
-                currentFolder,
-                currentTag,
-                searchText,
-                notesListController.isGridViewActive(),
-                () -> {
-                    if (sidebarController != null) {
-                        sidebarController.loadFavorites();
-                    }
-                },
-                this::refreshNotesGridIfActive);
     }
 
     @FXML
@@ -3057,28 +3010,7 @@ public class MainController {
             eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
         }
         refreshOpenNoteAfterStorageRefresh();
-        navigationCommand.refreshByContext(
-                currentFilterType,
-                currentFolder,
-                currentTag,
-                notesListView,
-                noteCountLabel,
-                this::refreshNotesList,
-                this::handleFolderSelection,
-                this::loadNotesForTag,
-                filterType -> toolbarController != null && toolbarController.getSearchField() != null
-                        ? toolbarController.getSearchField().getText()
-                        : "",
-                this::performSearch,
-                message -> {
-                    if ("favorites".equals(currentFilterType)) {
-                        currentFilterType = "favorites";
-                        currentFolder = null;
-                        currentTag = null;
-                        sortNotes(sortComboBox.getValue());
-                    }
-                    updateStatus(message);
-                });
+        // The refresh event above makes the notes list load again what it shows.
     }
 
     private void refreshOpenNoteAfterStorageRefresh() {
@@ -3155,23 +3087,10 @@ public class MainController {
         toggleFavorite(getCurrentNote());
     }
 
+    /** The notes list owns the favourite and pin marks (see {@link NotesListController#toggleFavorite}). */
     private void toggleFavorite(Note note) {
-        if (note == null)
-            return;
-        try {
-            boolean newState = noteService.toggleFavorite(note);
-            if (getCurrentNote() != null && getCurrentNote().getId().equals(note.getId())) {
-                editorController.syncFavoritePinButtons(this::getString);
-            }
-            if (eventBus != null) {
-                eventBus.publish(new NoteEvents.NoteSavedEvent(note));
-            }
-            if ("favorites".equals(currentFilterType)) {
-                refreshNotesList();
-            }
-            updateStatus(getString(newState ? "status.note_marked_favorite" : "status.note_unmarked_favorite"));
-        } catch (Exception e) {
-            updateStatus(getString("status.fav_error"));
+        if (notesListController != null) {
+            notesListController.toggleFavorite(note);
         }
     }
 
@@ -3185,23 +3104,8 @@ public class MainController {
     }
 
     private void togglePin(Note note) {
-        if (note == null)
-            return;
-        try {
-            boolean newState = noteService.togglePinned(note);
-            if (getCurrentNote() != null && getCurrentNote().getId().equals(note.getId())) {
-                editorController.syncFavoritePinButtons(this::getString);
-            }
-            if (eventBus != null) {
-                eventBus.publish(new NoteEvents.NoteSavedEvent(note));
-            }
-            if (notesListController != null) {
-                notesListController.resortVisibleNotes();
-            }
-            refreshNotesGridIfActive();
-            updateStatus(getString(newState ? "status.note_pinned" : "status.note_unpinned"));
-        } catch (Exception e) {
-            updateStatus(getString("status.pin_error"));
+        if (notesListController != null) {
+            notesListController.togglePin(note);
         }
     }
 

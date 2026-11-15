@@ -32,6 +32,20 @@ final class MoveTargetSupport {
     private MoveTargetSupport() {
     }
 
+    /**
+     * Asks where to move something: a note ({@code folderToMove == null}) may go to any folder,
+     * a folder only where it can go (not into itself or its own subfolders).
+     */
+    static Optional<MoveTarget> choose(com.example.jylos.service.FolderService folderService, Folder folderToMove,
+            Function<String, String> i18n) {
+        if (folderService == null) {
+            return Optional.empty();
+        }
+        return show(folderService.getAllFolders(),
+                folder -> folderToMove == null || folderService.canMoveFolder(folderToMove, folder),
+                folderService::getParentFolder, i18n);
+    }
+
     static Optional<MoveTarget> show(
             List<Folder> folders,
             Predicate<Folder> folderFilter,

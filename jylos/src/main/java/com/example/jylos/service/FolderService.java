@@ -238,11 +238,8 @@ public class FolderService {
             return new ArrayList<>();
         }
 
-        folderDAO.loadSubFolders(parentFolder);
-        return parentFolder.getChildren().stream()
-                .filter(c -> c instanceof Folder)
-                .map(c -> (Folder) c)
-                .collect(Collectors.toList());
+        // One level: callers that want deeper folders ask for them in turn.
+        return new ArrayList<>(folderDAO.fetchDirectSubfolders(parentFolder));
     }
 
     /**

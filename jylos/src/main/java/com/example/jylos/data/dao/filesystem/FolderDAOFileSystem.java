@@ -648,6 +648,29 @@ public class FolderDAOFileSystem implements FolderDAO {
         loadSubFolders(folder, Integer.MAX_VALUE);
     }
 
+    /** One {@code Files.list} of the folder: its directories, hidden ones left out. */
+    @Override
+    public List<Folder> fetchDirectSubfolders(Folder parent) {
+        Path path = ROOT_ID.equals(parent.getId()) ? rootPath : resolveFolderPath(parent.getId());
+        if (path == null || !Files.isDirectory(path)) {
+            return List.of();
+        }
+        List<Folder> subfolders = new java.util.ArrayList<>();
+        try (Stream<Path> stream = Files.list(path)) {
+            stream.filter(Files::isDirectory)
+                    .filter(p -> !p.getFileName().toString().startsWith("."))
+                    .forEach(p -> {
+                        Folder sub = new Folder(FileSystemNames.normalizeId(rootPath.relativize(p).toString()),
+                                p.getFileName().toString());
+                        sub.setParent(parent);
+                        subfolders.add(sub);
+                    });
+        } catch (IOException e) {
+            logger.warning("Error listing subfolders of " + parent.getTitle());
+        }
+        return subfolders;
+    }
+
     @Override
     public void loadSubFolders(Folder folder, int maxDepth) {
         if (maxDepth <= 0)

@@ -1,21 +1,13 @@
 package com.example.jylos.ui.controller;
 
-import java.text.MessageFormat;
-import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
-import com.example.jylos.data.models.Folder;
-import com.example.jylos.data.models.Note;
-import com.example.jylos.data.models.Tag;
 import com.example.jylos.service.NoteService;
 
 import javafx.scene.Node;
-import javafx.scene.control.Label;
-import javafx.scene.control.ListView;
 import javafx.scene.control.SplitPane;
 import javafx.scene.layout.VBox;
 
@@ -186,66 +178,6 @@ class NavigationCommand {
 
     double resetUiZoom() {
         return 13.0;
-    }
-
-    void refreshByContext(String currentFilterType, Folder currentFolder, Tag currentTag,
-            ListView<Note> notesListView, Label noteCountLabel,
-            Runnable refreshNotesListAction, Consumer<Folder> folderSelectionAction,
-            Consumer<String> loadNotesForTagAction, Function<String, String> searchTextProvider,
-            Consumer<String> performSearchAction, Consumer<String> onContextRefreshed) {
-        try {
-            switch (currentFilterType) {
-                case "folder":
-                    if (currentFolder != null && folderSelectionAction != null) {
-                        folderSelectionAction.accept(currentFolder);
-                    } else if (refreshNotesListAction != null) {
-                        refreshNotesListAction.run();
-                    }
-                    break;
-                case "tag":
-                    if (currentTag != null && loadNotesForTagAction != null) {
-                        loadNotesForTagAction.accept(currentTag.getTitle());
-                    } else if (refreshNotesListAction != null) {
-                        refreshNotesListAction.run();
-                    }
-                    break;
-                case "favorites":
-                    if (noteService == null) {
-                        if (refreshNotesListAction != null) {
-                            refreshNotesListAction.run();
-                        }
-                        break;
-                    }
-                    List<Note> favoriteNotes = noteService.getAllNotes().stream()
-                            .filter(Note::isFavorite).toList();
-                    notesListView.getSelectionModel().clearSelection();
-                    notesListView.getItems().setAll(favoriteNotes);
-                    if (noteCountLabel != null) {
-                        noteCountLabel.setText(
-                                MessageFormat.format(i18n("info.favorite_notes_count"), favoriteNotes.size()));
-                    }
-                    if (onContextRefreshed != null) {
-                        onContextRefreshed.accept(i18n("status.favs_refreshed"));
-                    }
-                    break;
-                case "search":
-                    String searchText = searchTextProvider != null ? searchTextProvider.apply(currentFilterType) : "";
-                    if (searchText != null && !searchText.trim().isEmpty() && performSearchAction != null) {
-                        performSearchAction.accept(searchText);
-                    } else if (refreshNotesListAction != null) {
-                        refreshNotesListAction.run();
-                    }
-                    break;
-                default:
-                    if (refreshNotesListAction != null) {
-                        refreshNotesListAction.run();
-                    }
-                    break;
-            }
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Failed to refresh", e);
-            updateStatus.accept(i18n("status.refresh_error"));
-        }
     }
 
     /**

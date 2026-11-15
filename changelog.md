@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- **El explorador abre sus carpetas al momento en vaults grandes o en la nube**: pedía cada vez el árbol entero de carpetas que colgaba de la que abría, y en un vault en iCloud la primera carga tardaba más de dos segundos.
+- **Fijar una nota o marcarla como favorita desde el menú contextual de la lista lo dice en la barra de estado**, como desde los botones del editor.
 - **Los enlaces de las notas de versión que se muestran antes de actualizar se abren en el navegador**; antes no hacían nada.
 - **Un Canvas se puede hacer privado**, como una nota: se guarda cifrado, se abre normalmente mientras las notas privadas están desbloqueadas y muestra el candado mientras están bloqueadas. Antes, hacer privado un Canvas daba un error y no se guardaba. Las imágenes y los PDF ya no ofrecen "Hacer privada": son ficheros binarios y cifrarlos los rompería.
 - **Guardar un Canvas quita el aviso amarillo "Sin guardar"** de la barra de estado, como al guardar una nota.

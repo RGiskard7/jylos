@@ -31,6 +31,28 @@ import com.example.jylos.data.models.interfaces.Component;
  */
 class FolderDAOSQLiteTreeTest {
 
+    /** Los hijos directos, sin leer los nietos y sin tocar la carpeta que se pasa. */
+    @Test
+    void fetchDirectSubfoldersSoloTraeLosHijosDirectos(@TempDir Path tmp) throws Exception {
+        try (Sesion s = Sesion.abrir(tmp, "directos.sqlite")) {
+            Folder raiz = new Folder("Raíz");
+            raiz.setId(s.folderDAO.createFolder(raiz));
+            Folder nivel1 = new Folder("Nivel 1");
+            nivel1.setId(s.folderDAO.createFolder(nivel1));
+            s.folderDAO.addSubFolder(raiz, nivel1);
+            Folder nivel2 = new Folder("Nivel 2");
+            nivel2.setId(s.folderDAO.createFolder(nivel2));
+            s.folderDAO.addSubFolder(nivel1, nivel2);
+
+            Folder pedida = new Folder(raiz.getId(), "Raíz");
+            java.util.List<Folder> hijos = s.folderDAO.fetchDirectSubfolders(pedida);
+
+            assertEquals(java.util.List.of("Nivel 1"), hijos.stream().map(Folder::getTitle).toList());
+            assertTrue(hijos.get(0).isEmpty(), "no baja a los nietos");
+            assertTrue(pedida.isEmpty(), "no cambia la carpeta que se pasa");
+        }
+    }
+
     @Test
     void loadSubFoldersConProfundidadCeroSoloTraeElPrimerNivel(@TempDir Path tmp) throws Exception {
         try (Sesion s = Sesion.abrir(tmp, "profundidad.sqlite")) {
