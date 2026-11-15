@@ -111,6 +111,11 @@ public final class NoteEvents {
     /**
      * Event fired when a note's favorite status changes.
      */
+    /**
+     * @deprecated never published; a favourite change is announced as a
+     *             {@link NoteSavedEvent} of the note.
+     */
+    @Deprecated
     public static class NoteFavoriteChangedEvent extends AppEvent {
         private final Note note;
         private final boolean isFavorite;

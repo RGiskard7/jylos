@@ -11,6 +11,18 @@ import com.example.jylos.data.models.Folder;
  * notes.
  * It provides methods for creating, retrieving, updating, and deleting notes,
  * as well as managing their relationships with folders and tags.
+ *
+ * <h2>Errors</h2>
+ * <ul>
+ * <li><b>Writes</b> (create, update, move, trash, restore, delete) either happen or throw
+ * {@link com.example.jylos.exceptions.DataAccessException}: a write the storage refuses (a
+ * read-only folder, a full disk, a database error) is never silently skipped. On SQLite a
+ * failed write leaves nothing behind (see {@code SQLiteDB.inTransaction}).</li>
+ * <li><b>Reads</b> do not throw for something that is not there or cannot be read: they give
+ * {@code null} (single items, where the method says so) or an empty list.</li>
+ * <li>Arguments that make no sense ({@code null} where an object is required) throw
+ * {@code IllegalArgumentException} or {@code InvalidParameterException}.</li>
+ * </ul>
  */
 public interface NoteDAO {
 

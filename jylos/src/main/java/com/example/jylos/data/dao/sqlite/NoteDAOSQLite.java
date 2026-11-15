@@ -16,11 +16,11 @@ import java.util.logging.Logger;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
+import com.example.jylos.data.database.SQLiteDB;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.data.models.ToDoNote;
-import com.example.jylos.exceptions.DataAccessException;
 import com.example.jylos.exceptions.InvalidParameterException;
 
 /**
@@ -98,9 +98,8 @@ public class NoteDAOSQLite implements NoteDAO {
 		}
 		String newId = note.getId();
 
-		synchronized (connection) {
+		SQLiteDB.inTransaction(connection, "Failed to create note: " + note.getTitle(), () -> {
 			try (PreparedStatement pstmt = connection.prepareStatement(INSERT_NOTE_SQL)) {
-
 				pstmt.setString(1, newId);
 				pstmt.setString(2, note.getTitle());
 				pstmt.setString(3, note.getContent());
@@ -136,17 +135,8 @@ public class NoteDAOSQLite implements NoteDAO {
 								: null);
 
 				pstmt.executeUpdate();
-				connection.commit();
-			} catch (SQLException e) {
-				logger.log(Level.SEVERE, "Error createNote(): " + e.getMessage(), e);
-				try {
-					connection.rollback();
-				} catch (SQLException rollbackEx) {
-					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
-				}
-				throw new DataAccessException("Failed to create note: " + note.getTitle(), e);
 			}
-		}
+		});
 
 		return newId;
 	}
@@ -178,7 +168,7 @@ public class NoteDAOSQLite implements NoteDAO {
 			throw new IllegalArgumentException("Note object cannot be null");
 		}
 
-		synchronized (connection) {
+		SQLiteDB.inTransaction(connection, "Failed to update note: " + note.getId(), () -> {
 			try (PreparedStatement pstmt = connection.prepareStatement(UPDATE_NOTE_SQL)) {
 				pstmt.setString(1, note.getTitle());
 				pstmt.setString(2, note.getContent());
@@ -203,17 +193,8 @@ public class NoteDAOSQLite implements NoteDAO {
 						todoStmt.executeUpdate();
 					}
 				}
-				connection.commit();
-			} catch (SQLException e) {
-				logger.log(Level.SEVERE, "Error updateNote(): " + e.getMessage(), e);
-				try {
-					connection.rollback();
-				} catch (SQLException rollbackEx) {
-					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
-				}
-				throw new DataAccessException("Failed to update note: " + note.getId(), e);
 			}
-		}
+		});
 	}
 
 	@Override
@@ -222,16 +203,9 @@ public class NoteDAOSQLite implements NoteDAO {
 			throw new IllegalArgumentException("Note ID cannot be null or empty");
 		}
 
-		synchronized (connection) {
-			try {
+		SQLiteDB.inTransaction(connection, "Failed to move note to trash: " + id, () -> {
 				softDeleteNoteWithoutCommit(id);
-				connection.commit();
-			} catch (SQLException e) {
-				logger.log(Level.SEVERE, "Error deleteNote() (Soft Delete): " + e.getMessage(), e);
-				rollbackQuietly();
-				throw new DataAccessException("Failed to move note to trash: " + id, e);
-			}
-		}
+		});
 	}
 
 	/** Called within a synchronized(connection) block by callers managing their own transaction. */
@@ -251,35 +225,18 @@ public class NoteDAOSQLite implements NoteDAO {
 		}
 	}
 
-	private void rollbackQuietly() {
-		try {
-			connection.rollback();
-		} catch (SQLException rollbackEx) {
-			logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
-		}
-	}
-
 	@Override
 	public void permanentlyDeleteNote(String id) {
 		if (id == null || id.isEmpty()) {
 			throw new IllegalArgumentException("Note ID cannot be null or empty");
 		}
 
-		synchronized (connection) {
+		SQLiteDB.inTransaction(connection, "Failed to permanently delete note: " + id, () -> {
 			try (PreparedStatement pstmt = connection.prepareStatement(DELETE_NOTE_SQL)) {
 				pstmt.setString(1, id);
 				pstmt.executeUpdate();
-				connection.commit();
-			} catch (SQLException e) {
-				logger.log(Level.SEVERE, "Error permanentlyDeleteNote(): " + e.getMessage(), e);
-				try {
-					connection.rollback();
-				} catch (SQLException rollbackEx) {
-					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
-				}
-				throw new DataAccessException("Failed to permanently delete note: " + id, e);
 			}
-		}
+		});
 	}
 
 	@Override
@@ -288,21 +245,12 @@ public class NoteDAOSQLite implements NoteDAO {
 			throw new IllegalArgumentException("Note ID cannot be null or empty");
 		}
 
-		synchronized (connection) {
+		SQLiteDB.inTransaction(connection, "Failed to restore note: " + id, () -> {
 			try (PreparedStatement pstmt = connection.prepareStatement(RESTORE_NOTE_SQL)) {
 				pstmt.setString(1, id);
 				pstmt.executeUpdate();
-				connection.commit();
-			} catch (SQLException e) {
-				logger.log(Level.SEVERE, "Error restoreNote(): " + e.getMessage(), e);
-				try {
-					connection.rollback();
-				} catch (SQLException rollbackEx) {
-					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
-				}
-				throw new DataAccessException("Failed to restore note: " + id, e);
 			}
-		}
+		});
 	}
 
 	@Override
@@ -401,24 +349,15 @@ public class NoteDAOSQLite implements NoteDAO {
 			throw new IllegalArgumentException("Note ID and tag ID must not be null or empty");
 		}
 
-		synchronized (connection) {
+		SQLiteDB.inTransaction(connection, "Failed to add tag " + tagId + " to note " + noteId, () -> {
 			try (PreparedStatement pstmt = connection.prepareStatement(INSERT_TAG_NOTE_SQL)) {
 				pstmt.setString(1, UUID.randomUUID().toString());
 				pstmt.setString(2, tagId);
 				pstmt.setString(3, noteId);
 				pstmt.setString(4, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
 				pstmt.executeUpdate();
-				connection.commit();
-			} catch (SQLException e) {
-				logger.log(Level.SEVERE, "Error addTag(): " + e.getMessage(), e);
-				try {
-					connection.rollback();
-				} catch (SQLException rollbackEx) {
-					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
-				}
-				throw new DataAccessException("Failed to add tag " + tagId + " to note " + noteId, e);
 			}
-		}
+		});
 	}
 
 	@Override
@@ -435,22 +374,13 @@ public class NoteDAOSQLite implements NoteDAO {
 			throw new IllegalArgumentException("Note ID and tag ID must not be null or empty");
 		}
 
-		synchronized (connection) {
+		SQLiteDB.inTransaction(connection, "Failed to remove tag " + tagId + " from note " + noteId, () -> {
 			try (PreparedStatement pstmt = connection.prepareStatement(DELETE_TAG_NOTE_SQL)) {
 				pstmt.setString(1, tagId);
 				pstmt.setString(2, noteId);
 				pstmt.executeUpdate();
-				connection.commit();
-			} catch (SQLException e) {
-				logger.log(Level.SEVERE, "Error removeTag(): " + e.getMessage(), e);
-				try {
-					connection.rollback();
-				} catch (SQLException rollbackEx) {
-					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
-				}
-				throw new DataAccessException("Failed to remove tag " + tagId + " from note " + noteId, e);
 			}
-		}
+		});
 	}
 
 	@Override

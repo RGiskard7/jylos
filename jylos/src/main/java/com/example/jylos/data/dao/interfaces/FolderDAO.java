@@ -10,6 +10,18 @@ import com.example.jylos.data.models.Folder;
  * folders (notebooks).
  * It provides methods for creating, updating, deleting, and retrieving folders,
  * as well as managing folder hierarchy and associated notes.
+ *
+ * <h2>Errors</h2>
+ * <ul>
+ * <li><b>Writes</b> (create, update, move, trash, restore, delete) either happen or throw
+ * {@link com.example.jylos.exceptions.DataAccessException}: a write the storage refuses (a
+ * read-only folder, a full disk, a database error) is never silently skipped. On SQLite a
+ * failed write leaves nothing behind (see {@code SQLiteDB.inTransaction}).</li>
+ * <li><b>Reads</b> do not throw for something that is not there or cannot be read: they give
+ * {@code null} (single items, where the method says so) or an empty list.</li>
+ * <li>Arguments that make no sense ({@code null} where an object is required) throw
+ * {@code IllegalArgumentException} or {@code InvalidParameterException}.</li>
+ * </ul>
  */
 public interface FolderDAO {
 
@@ -127,7 +139,9 @@ public interface FolderDAO {
      *
      * @param folder The folder whose subfolders should be loaded.
      */
-    public void loadSubFolders(Folder folder);
+    public default void loadSubFolders(Folder folder) {
+        loadSubFolders(folder, Integer.MAX_VALUE);
+    }
 
     /**
      * The direct subfolders of {@code parent}, without reading the folders below them and
@@ -168,7 +182,9 @@ public interface FolderDAO {
      *
      * @param folder The folder whose parent folders should be loaded.
      */
-    public void loadParentFolders(Folder folder);
+    public default void loadParentFolders(Folder folder) {
+        loadParentFolders(folder, Integer.MAX_VALUE);
+    }
 
     /**
      * Loads the immediate parent folder of a given folder.

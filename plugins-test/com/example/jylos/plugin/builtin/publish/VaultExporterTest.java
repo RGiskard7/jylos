@@ -441,7 +441,8 @@ public final class VaultExporterTest {
 
     private static Object defaultValue(Class<?> type) {
         if (!type.isPrimitive()) {
-            return type == List.class ? List.of() : null;
+            // What a real DAO gives for "nothing": an empty list or Optional, never null.
+            return type == List.class ? List.of() : type == Optional.class ? Optional.empty() : null;
         }
         if (type == boolean.class) return false;
         if (type == int.class) return 0;

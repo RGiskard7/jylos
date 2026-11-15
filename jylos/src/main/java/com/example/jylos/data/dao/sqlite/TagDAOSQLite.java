@@ -15,9 +15,9 @@ import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.dao.interfaces.TagDAO;
+import com.example.jylos.data.database.SQLiteDB;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.data.models.Note;
-import com.example.jylos.exceptions.DataAccessException;
 import com.example.jylos.exceptions.InvalidParameterException;
 
 /**
@@ -64,8 +64,6 @@ public class TagDAOSQLite implements TagDAO {
 	// CRUD Methods
 	@Override
 	public String createTag(Tag tag) {
-		String newId = null;
-
 		if (tag == null) {
 			throw new InvalidParameterException("Tag object cannot be null");
 		}
@@ -73,28 +71,17 @@ public class TagDAOSQLite implements TagDAO {
 		if (tag.getId() == null || tag.getId().isEmpty()) {
 			tag.setId(UUID.randomUUID().toString());
 		}
-		newId = tag.getId();
+		String newId = tag.getId();
 
-		synchronized (connection) {
+		SQLiteDB.inTransaction(connection, "Failed to create tag: " + tag.getTitle(), () -> {
 			try (PreparedStatement pstmt = connection.prepareStatement(INSERT_TAG_SQL)) {
-
 				pstmt.setString(1, newId);
 				pstmt.setString(2, tag.getTitle());
 				pstmt.setString(3, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
 				pstmt.executeUpdate();
 
-				connection.commit();
-
-			} catch (SQLException e) {
-				logger.log(Level.SEVERE, "Error createTag(): " + e.getMessage(), e);
-				try {
-					connection.rollback();
-				} catch (SQLException rollbackEx) {
-					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
-				}
-				throw new DataAccessException("Failed to create tag: " + tag.getTitle(), e);
 			}
-		}
+		});
 
 		return newId;
 	}
@@ -105,24 +92,14 @@ public class TagDAOSQLite implements TagDAO {
 			throw new InvalidParameterException("Tag object cannot be null");
 		}
 
-		synchronized (connection) {
+		SQLiteDB.inTransaction(connection, "Failed to update tag: " + tag.getId(), () -> {
 			try (PreparedStatement pstmt = connection.prepareStatement(UPDATE_TAG_SQL)) {
 				pstmt.setString(1, tag.getTitle());
 				pstmt.setString(2, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
 				pstmt.setString(3, tag.getId());
 				pstmt.executeUpdate();
-				connection.commit();
-
-			} catch (SQLException e) {
-				logger.log(Level.SEVERE, "Error updateTag(): " + e.getMessage(), e);
-				try {
-					connection.rollback();
-				} catch (SQLException rollbackEx) {
-					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
-				}
-				throw new DataAccessException("Failed to update tag: " + tag.getId(), e);
 			}
-		}
+		});
 	}
 
 	@Override
@@ -131,22 +108,12 @@ public class TagDAOSQLite implements TagDAO {
 			throw new IllegalArgumentException("Tag ID cannot be null or empty");
 		}
 
-		synchronized (connection) {
+		SQLiteDB.inTransaction(connection, "Failed to delete tag: " + id, () -> {
 			try (PreparedStatement pstmt = connection.prepareStatement(DELETE_TAG_SQL)) {
 				pstmt.setString(1, id);
 				pstmt.executeUpdate();
-				connection.commit();
-
-			} catch (SQLException e) {
-				logger.log(Level.SEVERE, "Error deleteTag(): " + e.getMessage(), e);
-				try {
-					connection.rollback();
-				} catch (SQLException rollbackEx) {
-					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
-				}
-				throw new DataAccessException("Failed to delete tag: " + id, e);
 			}
-		}
+		});
 	}
 
 	@Override

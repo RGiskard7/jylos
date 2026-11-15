@@ -1,5 +1,6 @@
 package com.example.jylos.tests;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -140,6 +141,22 @@ class I18nBundleFallbackGuardTest {
     }
 
     /** No duplicate keys in any bundle (a Properties load would silently drop them). */
+    /**
+     * The base bundle is the English one: what a language without its own bundle gets. Kept
+     * identical, text and all, so an English fix made in one is not missing from the other.
+     */
+    @Test
+    void theBaseBundleIsTheEnglishOne() throws Exception {
+        try (InputStream base = getClass().getResourceAsStream(BUNDLES[0]);
+                InputStream english = getClass().getResourceAsStream(BUNDLES[1])) {
+            assertNotNull(base);
+            assertNotNull(english);
+            assertEquals(new String(english.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8),
+                    new String(base.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8),
+                    "messages.properties must stay identical to messages_en.properties");
+        }
+    }
+
     @Test
     void bundlesHaveNoDuplicateKeys() throws Exception {
         for (String path : BUNDLES) {

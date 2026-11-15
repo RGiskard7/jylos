@@ -135,6 +135,42 @@ public class SQLiteDB {
         return instance;
     }
 
+    /** Database work done inside a transaction. */
+    @FunctionalInterface
+    public interface SqlWork {
+        void run() throws SQLException;
+    }
+
+    /**
+     * Runs {@code work} as one transaction on {@code connection} (whose auto-commit is off,
+     * see {@link #openConnection()}): commits it, or, if it fails, rolls it back and reports
+     * it as a {@link DataAccessException} with {@code failure} as the message. On a connection
+     * left in auto-commit mode each statement is already its own transaction, so there is
+     * nothing to commit or roll back. Holds the connection's lock throughout, as every DAO
+     * writing on a shared connection must.
+     */
+    public static void inTransaction(Connection connection, String failure, SqlWork work) {
+        synchronized (connection) {
+            try {
+                work.run();
+                if (!connection.getAutoCommit()) {
+                    connection.commit();
+                }
+            } catch (SQLException e) {
+                logger.log(Level.SEVERE, failure + ": " + e.getMessage(), e);
+                try {
+                    if (!connection.getAutoCommit()) {
+                        connection.rollback();
+                    }
+                } catch (SQLException rollbackError) {
+                    logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackError.getMessage(),
+                            rollbackError);
+                }
+                throw new DataAccessException(failure, e);
+            }
+        }
+    }
+
     /**
      * Opens a new connection to the SQLite database.
      * 

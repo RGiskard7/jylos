@@ -352,7 +352,12 @@ final class VaultExporter {
                     fullNote = noteService.getNoteById(note.getId()).orElse(note);
                 }
 
-                String withAnchors = WikiLinkResolver.resolve(fullNote.getContent(), model.knownTitles());
+                // A link is resolved by its path from this note, as in the app; it counts as
+                // existing only if the note it names is part of this export.
+                String fromId = note.getId();
+                String withAnchors = WikiLinkResolver.resolve(fullNote.getContent(),
+                        link -> noteService.resolveLink(link, fromId)
+                                .map(target -> model.slugs().pathFor(target.getId()) != null).orElse(false));
                 String bodyHtml = MarkdownProcessor.markdownToHtml(withAnchors);
                 String sourceId = note.getId();
                 WikiLinkRewriter rewriter = new WikiLinkRewriter(title -> hrefFromNoteToTitle(
@@ -558,7 +563,7 @@ final class VaultExporter {
     /**
      * Resolves a wiki-link's target title to an href relative to the note
      * currently being rendered, or {@code null} if the target is not part of this
-     * export. Uses {@link NoteService#findNoteByTitle}, the exact same lookup the
+     * export. Uses {@link NoteService#resolveLink}, the exact same lookup the
      * live app uses to open a wiki-link — an ambiguous title (two notes sharing
      * it) resolves to whichever note the app itself would open, not a different,
      * export-only disambiguation.
@@ -574,7 +579,8 @@ final class VaultExporter {
     private String hrefFromNoteToTitle(String fromNoteId, String fromRelativePath, String title, NoteSlugs slugs,
             Map<String, LinkedHashSet<String>> backlinksByTargetId,
             Map<String, LinkedHashSet<String>> outgoingByNoteId) {
-        Optional<Note> target = noteService.findNoteByTitle(title);
+        // The link as written, resolved by path from the note it is in (see renderAll).
+        Optional<Note> target = noteService.resolveLink(title, fromNoteId);
         if (target.isEmpty()) {
             return null;
         }

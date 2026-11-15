@@ -1019,6 +1019,7 @@ public class NoteDAOFileSystem implements NoteDAO {
 
             } catch (IOException e) {
                 logger.log(Level.SEVERE, "Failed to move note to trash: " + sourcePath, e);
+                throw new DataAccessException("Could not move note to the trash: " + id, e);
             }
         } else {
             // Idempotent delete: if already in trash or already gone, do not treat as warning.
@@ -1131,6 +1132,7 @@ public class NoteDAOFileSystem implements NoteDAO {
             }
         } catch (IOException e) {
             logger.log(Level.SEVERE, "Failed to restore note: " + id, e);
+            throw new DataAccessException("Could not restore note: " + id, e);
         }
         } finally {
             FileSystemIoLock.LOCK.unlock();
@@ -1174,6 +1176,7 @@ public class NoteDAOFileSystem implements NoteDAO {
             notesByFolderIndexDirty = true;
         } catch (IOException e) {
             logger.log(Level.SEVERE, "Failed to permanently delete note: " + id, e);
+            throw new DataAccessException("Could not delete note: " + id, e);
         }
         } finally {
             FileSystemIoLock.LOCK.unlock();

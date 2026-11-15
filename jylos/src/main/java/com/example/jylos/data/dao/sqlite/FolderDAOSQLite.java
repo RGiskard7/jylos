@@ -18,6 +18,7 @@ import java.util.logging.Logger;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
+import com.example.jylos.data.database.SQLiteDB;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.interfaces.Component;
@@ -98,9 +99,8 @@ public class FolderDAOSQLite implements FolderDAO {
 		}
 		String newId = folder.getId();
 
-		synchronized (connection) {
+		SQLiteDB.inTransaction(connection, "Failed to create folder: " + folder.getTitle(), () -> {
 			try (PreparedStatement pstmt = connection.prepareStatement(INSERT_FOLDER_SQL)) {
-
 				pstmt.setString(1, newId);
 				if (folder.getParent() != null && folder.getParent().getId() != null
 						&& !"ROOT".equals(folder.getParent().getId())) {
@@ -111,18 +111,8 @@ public class FolderDAOSQLite implements FolderDAO {
 				pstmt.setString(3, folder.getTitle());
 				pstmt.setString(4, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
 				pstmt.executeUpdate();
-				connection.commit();
-
-			} catch (SQLException e) {
-				logger.log(Level.SEVERE, "Error createFolder(): " + e.getMessage(), e);
-				try {
-					connection.rollback();
-				} catch (SQLException rollbackEx) {
-					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
-				}
-				throw new DataAccessException("Failed to create folder: " + folder.getTitle(), e);
 			}
-		}
+		});
 
 		return newId;
 	}
@@ -154,24 +144,14 @@ public class FolderDAOSQLite implements FolderDAO {
 			throw new InvalidParameterException("Folder object cannot be null");
 		}
 
-		synchronized (connection) {
+		SQLiteDB.inTransaction(connection, "Failed to update folder: " + folder.getId(), () -> {
 			try (PreparedStatement pstmt = connection.prepareStatement(UPDATE_FOLDER_SQL)) {
 				pstmt.setString(1, folder.getTitle());
 				pstmt.setString(2, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
 				pstmt.setString(3, folder.getId());
 				pstmt.executeUpdate();
-				connection.commit();
-
-			} catch (SQLException e) {
-				logger.log(Level.SEVERE, "Error updateFolder(): " + e.getMessage(), e);
-				try {
-					connection.rollback();
-				} catch (SQLException rollbackEx) {
-					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
-				}
-				throw new DataAccessException("Failed to update folder: " + folder.getId(), e);
 			}
-		}
+		});
 	}
 
 	@Override
@@ -181,20 +161,9 @@ public class FolderDAOSQLite implements FolderDAO {
 		}
 
 		NoteDAOSQLite noteDAO = new NoteDAOSQLite(connection);
-		synchronized (connection) {
-			try {
+		SQLiteDB.inTransaction(connection, "Failed to delete folder: " + id, () -> {
 				deleteFolderInTransaction(id, noteDAO);
-				connection.commit();
-			} catch (SQLException e) {
-				logger.log(Level.SEVERE, "Error deleteFolder(): " + e.getMessage(), e);
-				try {
-					connection.rollback();
-				} catch (SQLException rollbackEx) {
-					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
-				}
-				throw new DataAccessException("Failed to delete folder: " + id, e);
-			}
-		}
+		});
 	}
 
 	private void deleteFolderInTransaction(String id, NoteDAOSQLite noteDAO) throws SQLException {
@@ -324,23 +293,15 @@ public class FolderDAOSQLite implements FolderDAO {
 		if (folder == null || folder.getId() == null || folder.getId().isEmpty()) {
 			throw new IllegalArgumentException("Folder object and folder ID can't be null or empty");
 		}
-		synchronized (connection) {
+		SQLiteDB.inTransaction(connection, "Failed to move folder to the root: " + folder.getId(), () -> {
 			try (PreparedStatement pstmt = connection.prepareStatement(
 					"UPDATE folders SET parent_id = NULL, modified_date = ? WHERE folder_id = ?")) {
 				pstmt.setString(1, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
 				pstmt.setString(2, folder.getId());
 				pstmt.executeUpdate();
-				connection.commit();
-				folder.setParent(null);
-			} catch (SQLException e) {
-				logger.log(Level.SEVERE, "Error moveFolderToRoot(): " + e.getMessage(), e);
-				try {
-					connection.rollback();
-				} catch (SQLException rollbackEx) {
-					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
-				}
 			}
-		}
+		});
+		folder.setParent(null);
 	}
 
 	/** One query: here depth 0 is the first level. */
@@ -475,7 +436,7 @@ public class FolderDAOSQLite implements FolderDAO {
 			throw new IllegalArgumentException("Folder ID and note ID must not be null or empty");
 		}
 
-		synchronized (connection) {
+		SQLiteDB.inTransaction(connection, "Failed to add note " + noteId + " to folder " + folderId, () -> {
 			try (PreparedStatement pstmt = connection.prepareStatement(UPDATE_FOLDER_ADD_NOTE_SQL)) {
 				if ("ROOT".equals(folderId)) {
 					pstmt.setNull(1, java.sql.Types.VARCHAR);
@@ -485,19 +446,11 @@ public class FolderDAOSQLite implements FolderDAO {
 				pstmt.setString(2, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
 				pstmt.setString(3, noteId);
 				pstmt.executeUpdate();
-				connection.commit();
-
-				if (!"ROOT".equals(folderId)) {
-					updateModifiedDateFolder(folderId);
-				}
-			} catch (SQLException e) {
-				logger.log(Level.SEVERE, "Error addNote(): " + e.getMessage(), e);
-				try {
-					connection.rollback();
-				} catch (SQLException rollbackEx) {
-					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
-				}
 			}
+		});
+
+		if (!"ROOT".equals(folderId)) {
+			updateModifiedDateFolder(folderId);
 		}
 	}
 
@@ -524,23 +477,15 @@ public class FolderDAOSQLite implements FolderDAO {
 			throw new IllegalArgumentException("Note ID and folder ID must not be null or empty");
 		}
 
-		synchronized (connection) {
+		SQLiteDB.inTransaction(connection, "Failed to remove note " + noteId + " from folder " + folderId, () -> {
 			try (PreparedStatement pstmt = connection.prepareStatement(UPDATE_FOLDER_REMOVE_NOTE_SQL)) {
 				pstmt.setString(1, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
 				pstmt.setString(2, noteId);
 				pstmt.setString(3, folderId);
 				pstmt.executeUpdate();
-				connection.commit();
-				updateModifiedDateFolder(folderId);
-			} catch (SQLException e) {
-				logger.log(Level.SEVERE, "Error removeNote(): " + e.getMessage(), e);
-				try {
-					connection.rollback();
-				} catch (SQLException rollbackEx) {
-					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
-				}
 			}
-		}
+		});
+		updateModifiedDateFolder(folderId);
 	}
 
 	protected void addSubFolder(String parentId, String subFolderId) {
@@ -550,23 +495,15 @@ public class FolderDAOSQLite implements FolderDAO {
 					"Parent folder ID and subfolder ID must not be null or empty and can't be the same");
 		}
 
-		synchronized (connection) {
+		SQLiteDB.inTransaction(connection, "Failed to move folder " + subFolderId + " into " + parentId, () -> {
 			try (PreparedStatement pstmt = connection.prepareStatement(UPDATE_FOLDER_ADD_SUBFOLDER_SQL)) {
 				pstmt.setString(1, parentId);
 				pstmt.setString(2, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
 				pstmt.setString(3, subFolderId);
 				pstmt.executeUpdate();
-				connection.commit();
-				updateModifiedDateFolder(parentId);
-			} catch (SQLException e) {
-				logger.log(Level.SEVERE, "Error addSubFolder(): " + e.getMessage(), e);
-				try {
-					connection.rollback();
-				} catch (SQLException rollbackEx) {
-					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
-				}
 			}
-		}
+		});
+		updateModifiedDateFolder(parentId);
 	}
 
 	protected void removeSubFolder(String parentId, String subFolderId) {
@@ -576,23 +513,15 @@ public class FolderDAOSQLite implements FolderDAO {
 					"Parent folder ID and subfolder ID must not be null or empty and can't be the same");
 		}
 
-		synchronized (connection) {
+		SQLiteDB.inTransaction(connection, "Failed to take folder " + subFolderId + " out of " + parentId, () -> {
 			try (PreparedStatement pstmt = connection.prepareStatement(UPDATE_FOLDER_REMOVE_SUBFOLDER_SQL)) {
 				pstmt.setString(1, DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
 				pstmt.setString(2, subFolderId);
 				pstmt.setString(3, parentId);
 				pstmt.executeUpdate();
-				connection.commit();
-				updateModifiedDateFolder(parentId);
-			} catch (SQLException e) {
-				logger.log(Level.SEVERE, "removeSubFolder(): " + e.getMessage(), e);
-				try {
-					connection.rollback();
-				} catch (SQLException rollbackEx) {
-					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
-				}
 			}
-		}
+		});
+		updateModifiedDateFolder(parentId);
 	}
 
 	/** Must be called within a synchronized(connection) block. */
@@ -721,19 +650,9 @@ public class FolderDAOSQLite implements FolderDAO {
 		}
 
 		NoteDAOSQLite noteDAO = new NoteDAOSQLite(connection);
-		synchronized (connection) {
-			try {
+		SQLiteDB.inTransaction(connection, "Failed to restore folder: " + id, () -> {
 				restoreFolderInTransaction(id, noteDAO);
-				connection.commit();
-			} catch (SQLException e) {
-				logger.log(Level.SEVERE, "Error restoreFolder: " + e.getMessage(), e);
-				try {
-					connection.rollback();
-				} catch (SQLException rollbackEx) {
-					logger.log(Level.SEVERE, "Error rolling back transaction: " + rollbackEx.getMessage(), rollbackEx);
-				}
-			}
-		}
+		});
 	}
 
 	private void restoreFolderInTransaction(String id, NoteDAOSQLite noteDAO) throws SQLException {

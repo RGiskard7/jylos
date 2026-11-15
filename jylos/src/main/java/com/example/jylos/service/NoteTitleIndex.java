@@ -63,7 +63,12 @@ public final class NoteTitleIndex {
      * Returns the set of known note titles (never {@code null}). Rebuilds the cache
      * from the current {@link NoteService} when stale. Returns an empty set until
      * the index is wired to a note service.
+     *
+     * @deprecated titles alone cannot tell two notes of the same name apart; use
+     *             {@link #linkIndex()}, which resolves links by path, or {@link #titlesSorted()}
+     *             for a list to show.
      */
+    @Deprecated
     public Set<String> titles() {
         return snapshot().titles();
     }

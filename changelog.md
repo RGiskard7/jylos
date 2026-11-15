@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- **Si el disco o la base de datos rechaza un cambio, Jylos lo dice** (mover una nota o carpeta, renombrarla, mandarla a la papelera, restaurarla o borrarla para siempre). Antes, en algunos casos el cambio no se hacía pero parecía hecho, por ejemplo en una carpeta de solo lectura.
+- **Publicar el vault enlaza a la nota que nombra cada enlace por su ruta**: con dos notas llamadas igual en carpetas distintas, `[[Reunión]]` lleva a la de su carpeta y `[[Personal/Reunión]]` a esa, como en la app. Antes un enlace con carpeta quedaba muerto y uno sin carpeta podía llevar a la otra.
 - **El explorador abre sus carpetas al momento en vaults grandes o en la nube**: pedía cada vez el árbol entero de carpetas que colgaba de la que abría, y en un vault en iCloud la primera carga tardaba más de dos segundos.
 - **Fijar una nota o marcarla como favorita desde el menú contextual de la lista lo dice en la barra de estado**, como desde los botones del editor.
 - **Los enlaces de las notas de versión que se muestran antes de actualizar se abren en el navegador**; antes no hacían nada.

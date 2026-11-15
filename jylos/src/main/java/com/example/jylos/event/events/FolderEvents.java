@@ -18,6 +18,8 @@ public final class FolderEvents {
     /**
      * Event fired when a folder is created.
      */
+    /** @deprecated never published: nothing announces it, so listening to it does nothing. */
+    @Deprecated
     public static class FolderCreatedEvent extends AppEvent {
         private final Folder folder;
         private final Folder parentFolder;
@@ -39,6 +41,8 @@ public final class FolderEvents {
     /**
      * Event fired when a folder is renamed.
      */
+    /** @deprecated never published: nothing announces it, so listening to it does nothing. */
+    @Deprecated
     public static class FolderRenamedEvent extends AppEvent {
         private final Folder folder;
         private final String oldName;

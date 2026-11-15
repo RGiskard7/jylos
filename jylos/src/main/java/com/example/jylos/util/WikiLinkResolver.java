@@ -99,7 +99,12 @@ public final class WikiLinkResolver {
      * @param markdown    raw Markdown content (may be null)
      * @param knownTitles set of existing note titles for styling
      * @return Markdown with internal links replaced by HTML anchors
+     * @deprecated resolves links by title, so with two notes of the same name it can pick the
+     *             wrong one; use {@link #resolve(String, Predicate)} with the vault's link
+     *             index ({@code NoteService.linkIndex().exists(link, sourceNoteId)}), which
+     *             resolves each link by its path from the note it is in.
      */
+    @Deprecated
     public static String resolve(String markdown, Set<String> knownTitles) {
         return resolve(markdown, link -> noteExists(extractTitle(link), knownTitles));
     }
@@ -211,7 +216,10 @@ public final class WikiLinkResolver {
      *
      * @param markdown raw Markdown content (may be null)
      * @return ordered, de-duplicated list of linked note titles (never null)
+     * @deprecated gives titles, losing the folder a link names; use {@link #extractRawLinks}
+     *             and {@link #internalLinkPath} for the links as written, resolved by path.
      */
+    @Deprecated
     public static List<String> extractLinkTargets(String markdown) {
         Set<String> titles = new LinkedHashSet<>();
         for (String link : extractRawLinks(markdown)) {
@@ -232,7 +240,9 @@ public final class WikiLinkResolver {
      * ({@code .png}, {@code .pdf}, …), and hashtag-only fragments. Accepts
      * {@code [[wiki]]} paths and {@code [label](Note.md)} / {@code [label](folder/Note)}
      * style targets.</p>
+     * @deprecated gives the title, losing the folder; use {@link #internalLinkPath}.
      */
+    @Deprecated
     public static String internalNoteTarget(String rawReference) {
         String path = internalLinkPath(rawReference);
         if (path == null) {
@@ -484,11 +494,6 @@ public final class WikiLinkResolver {
     /** True when the {@code [} at {@code bracket} is the start of an image ({@code ![…](…)}). */
     private static boolean isImage(String markdown, int bracket) {
         return bracket > 0 && markdown.charAt(bracket - 1) == '!';
-    }
-
-    /** @see #internalNoteTarget(String) */
-    static String markdownNoteTarget(String rawUrl) {
-        return internalNoteTarget(rawUrl);
     }
 
     // ------------------------------------------------------------------

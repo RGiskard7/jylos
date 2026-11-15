@@ -9,7 +9,9 @@ import com.example.jylos.event.AppEvent;
  * 
  * @author Edu Díaz (RGiskard7)
  * @since 1.1.0
+ * @deprecated none of these events is published: tag changes are announced as note saves.
  */
+@Deprecated
 public final class TagEvents {
 
     private TagEvents() {

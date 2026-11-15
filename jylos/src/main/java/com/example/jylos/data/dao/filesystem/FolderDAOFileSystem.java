@@ -117,7 +117,7 @@ public class FolderDAOFileSystem implements FolderDAO {
                 return newId;
             } catch (IOException e) {
                 logger.log(Level.SEVERE, "Failed to create folder directory: " + dirPath, e);
-                return null;
+                throw new DataAccessException("Could not create folder: " + folder.getTitle(), e);
             }
         } finally {
             FileSystemIoLock.LOCK.unlock();
@@ -152,6 +152,7 @@ public class FolderDAOFileSystem implements FolderDAO {
                     folder.setId(FileSystemNames.normalizeId(rootPath.relativize(newPath).toString()));
                 } catch (IOException e) {
                     logger.warning("Failed to rename folder: " + e.getMessage());
+                    throw new DataAccessException("Could not rename folder: " + folder.getId(), e);
                 }
             }
         }
@@ -338,6 +339,10 @@ public class FolderDAOFileSystem implements FolderDAO {
                 walk.sorted(Comparator.reverseOrder())
                         .map(Path::toFile)
                         .forEach(File::delete);
+                // File.delete reports a refusal by returning false: what is still there was not deleted.
+                if (Files.exists(path)) {
+                    throw new IOException("files left in " + path);
+                }
 
                 for (String documentId : metadataDocumentIds) {
                     metadataStore.deleteDocumentMetadata(documentId);
@@ -351,6 +356,7 @@ public class FolderDAOFileSystem implements FolderDAO {
                 });
             } catch (IOException e) {
                 logger.log(Level.SEVERE, "Failed to permanently delete folder: " + id, e);
+                throw new DataAccessException("Could not delete folder: " + id, e);
             }
         }
         } finally {
@@ -448,6 +454,7 @@ public class FolderDAOFileSystem implements FolderDAO {
                 }
             } catch (IOException e) {
                 logger.log(Level.SEVERE, "Failed to move note file to folder: " + folder.getId(), e);
+                throw new DataAccessException("Could not move note into folder: " + folder.getId(), e);
             }
         } finally {
             FileSystemIoLock.LOCK.unlock();
@@ -486,6 +493,7 @@ public class FolderDAOFileSystem implements FolderDAO {
                 note.setParent(getFolderById(ROOT_ID));
             } catch (IOException e) {
                 logger.log(Level.SEVERE, "Failed to move note file to root: " + note.getId(), e);
+                throw new DataAccessException("Could not move note to the root: " + note.getId(), e);
             }
         } finally {
             FileSystemIoLock.LOCK.unlock();
@@ -524,6 +532,7 @@ public class FolderDAOFileSystem implements FolderDAO {
                 note.setParent(getFolderById(ROOT_ID));
             } catch (IOException e) {
                 logger.log(Level.SEVERE, "Failed to remove note from folder: " + folder.getId(), e);
+                throw new DataAccessException("Could not take note out of folder: " + folder.getId(), e);
             }
         } finally {
             FileSystemIoLock.LOCK.unlock();
@@ -596,6 +605,7 @@ public class FolderDAOFileSystem implements FolderDAO {
                 subFolder.setParent(parent);
             } catch (IOException e) {
                 logger.warning("Failed to move subfolder under parent: " + e.getMessage());
+                throw new DataAccessException("Could not move folder: " + subFolder.getId(), e);
             }
         } finally {
             FileSystemIoLock.LOCK.unlock();
@@ -632,6 +642,7 @@ public class FolderDAOFileSystem implements FolderDAO {
                 folder.setParent(null);
             } catch (IOException e) {
                 logger.warning("Failed to move folder to root: " + e.getMessage());
+                throw new DataAccessException("Could not move folder to the root: " + folder.getId(), e);
             }
         } finally {
             FileSystemIoLock.LOCK.unlock();
@@ -643,10 +654,6 @@ public class FolderDAOFileSystem implements FolderDAO {
         deleteFolder(subFolder.getId());
     }
 
-    @Override
-    public void loadSubFolders(Folder folder) {
-        loadSubFolders(folder, Integer.MAX_VALUE);
-    }
 
     /** One {@code Files.list} of the folder: its directories, hidden ones left out. */
     @Override
@@ -695,10 +702,6 @@ public class FolderDAOFileSystem implements FolderDAO {
         }
     }
 
-    @Override
-    public void loadParentFolders(Folder folder) {
-        loadParentFolders(folder, Integer.MAX_VALUE);
-    }
 
     @Override
     public void loadParentFolders(Folder folder, int maxDepth) {

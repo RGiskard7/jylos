@@ -30,14 +30,12 @@ public class EncryptionKeyDAOSQLite implements EncryptionKeyDAO {
 
     public EncryptionKeyDAOSQLite(Connection connection) {
         this.connection = connection;
-        synchronized (connection) {
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate(CREATE_TABLE);
-                commitIfNeeded();
-            } catch (SQLException e) {
-                throw new DataAccessException("Could not prepare encryption settings table", e);
-            }
-        }
+        com.example.jylos.data.database.SQLiteDB.inTransaction(connection,
+                "Could not prepare encryption settings table", () -> {
+                    try (Statement statement = connection.createStatement()) {
+                        statement.executeUpdate(CREATE_TABLE);
+                    }
+                });
     }
 
     @Override
@@ -59,17 +57,12 @@ public class EncryptionKeyDAOSQLite implements EncryptionKeyDAO {
 
     @Override
     public void save(KeyMaterial material) {
-        synchronized (connection) {
-            try {
-                write(SALT, material.salt());
-                write(VERIFIER, material.verifier());
-                write(ITERATIONS, Integer.toString(material.iterations()));
-                commitIfNeeded();
-            } catch (SQLException e) {
-                rollbackQuietly();
-                throw new DataAccessException("Could not write encryption settings", e);
-            }
-        }
+        com.example.jylos.data.database.SQLiteDB.inTransaction(connection, "Could not write encryption settings",
+                () -> {
+                    write(SALT, material.salt());
+                    write(VERIFIER, material.verifier());
+                    write(ITERATIONS, Integer.toString(material.iterations()));
+                });
     }
 
     private String read(String key) throws SQLException {
@@ -86,22 +79,6 @@ public class EncryptionKeyDAOSQLite implements EncryptionKeyDAO {
             statement.setString(1, key);
             statement.setString(2, value);
             statement.executeUpdate();
-        }
-    }
-
-    private void commitIfNeeded() throws SQLException {
-        if (!connection.getAutoCommit()) {
-            connection.commit();
-        }
-    }
-
-    private void rollbackQuietly() {
-        try {
-            if (!connection.getAutoCommit()) {
-                connection.rollback();
-            }
-        } catch (SQLException ignored) {
-            // the original failure is what gets reported
         }
     }
 }

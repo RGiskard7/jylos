@@ -65,7 +65,10 @@ public final class Transclusion {
      * @param markdown       host Markdown (may be null)
      * @param contentByTitle resolves a note title to its raw Markdown (or null if absent)
      * @param knownTitles    titles used to resolve {@code [[wiki-links]]} inside embeds
+     * @deprecated tells links apart by title only; use {@link #protect(String, Function, Predicate)}
+     *             with the vault's link index.
      */
+    @Deprecated
     public static Result protect(String markdown, Function<String, String> contentByTitle, Set<String> knownTitles) {
         return protect(markdown, contentByTitle,
                 link -> knownTitles != null && knownTitles.stream()
