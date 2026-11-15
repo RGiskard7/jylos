@@ -1,9 +1,11 @@
 package com.example.jylos.ui.graph;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.function.Consumer;
 
 import com.example.jylos.graph.GraphData;
@@ -11,6 +13,7 @@ import com.example.jylos.graph.GraphEdge;
 import com.example.jylos.graph.GraphNode;
 
 import javafx.animation.AnimationTimer;
+import javafx.scene.Cursor;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.layout.Region;
@@ -646,7 +649,7 @@ public final class GraphCanvas extends Region {
         for (int i = 0; i < n; i++) {
             boxed[i] = i;
         }
-        java.util.Arrays.sort(boxed, (a, b) -> Double.compare(radius[b], radius[a]));
+        Arrays.sort(boxed, (a, b) -> Double.compare(radius[b], radius[a]));
         labelOrder = new int[n];
         for (int i = 0; i < n; i++) {
             labelOrder[i] = boxed[i];
@@ -667,7 +670,7 @@ public final class GraphCanvas extends Region {
      * layout can be reproduced.
      */
     private void seedLayout(Map<String, double[]> kept) {
-        java.util.Random rnd = new java.util.Random(0x5DEECE66DL ^ n);
+        Random rnd = new Random(0x5DEECE66DL ^ n);
         boolean[] placed = new boolean[n];
         double keptRadius2 = 0;
         int fresh = 0;
@@ -1278,7 +1281,7 @@ public final class GraphCanvas extends Region {
                 if (hit >= 0) {
                     displayHoverIndex = hit; // switch immediately — only the fade *out* holds the old value
                 }
-                canvas.setCursor(hit >= 0 ? javafx.scene.Cursor.HAND : javafx.scene.Cursor.DEFAULT);
+                canvas.setCursor(hit >= 0 ? Cursor.HAND : Cursor.DEFAULT);
                 setHoverTarget(hit >= 0 ? 1.0 : 0.0);
             }
         });

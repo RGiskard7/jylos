@@ -1,5 +1,6 @@
 package com.example.jylos.plugin.builtin.dataview;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -151,7 +152,7 @@ final class Page {
 
     private static Object dayOf(Object timestamp) {
         Object date = DqlValue.asDate(timestamp);
-        if (date instanceof java.time.LocalDateTime dateTime) {
+        if (date instanceof LocalDateTime dateTime) {
             return dateTime.toLocalDate();
         }
         return date;

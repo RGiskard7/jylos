@@ -81,7 +81,6 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.Separator;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextInputDialog;
-import javafx.scene.control.ToggleButton;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
@@ -271,7 +270,6 @@ public class MainController {
     @FXML
     private HBox pluginStatusBarContainer;
 
-    private UiLayout.ViewMode currentViewMode = UiLayout.ViewMode.EDITOR_ONLY;
 
 
     private CommandPalette commandPalette;
@@ -566,6 +564,7 @@ public class MainController {
                     // A link opens the note it names by path, resolved from the note it is
                     // written in, and scrolls to its heading or block when it names one.
                     this::openLink, this::loadNotesForTag, editorHooks);
+            editorController.viewModeProperty().addListener((obs, old, mode) -> refreshEditorIndicators());
             if (editorTabs == null) {
                 editorController.initializeTagsBarCollapsed();
                 editorTabs = new EditorTabs(
@@ -1526,21 +1525,21 @@ public class MainController {
             case "cmd.delete_note":
                 return () -> handleDelete(null);
             case "cmd.bold":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.BOLD);
+                return () -> formatInEditor(SystemActionEvent.ActionType.BOLD);
             case "cmd.italic":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.ITALIC);
+                return () -> formatInEditor(SystemActionEvent.ActionType.ITALIC);
             case "cmd.underline":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.UNDERLINE);
+                return () -> formatInEditor(SystemActionEvent.ActionType.UNDERLINE);
             case "cmd.insert_link":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.LINK);
+                return () -> formatInEditor(SystemActionEvent.ActionType.LINK);
             case "cmd.insert_rich_link":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.RICH_LINK);
+                return () -> formatInEditor(SystemActionEvent.ActionType.RICH_LINK);
             case "cmd.insert_image":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.IMAGE);
+                return () -> formatInEditor(SystemActionEvent.ActionType.IMAGE);
             case "cmd.insert_todo":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.TODO_LIST);
+                return () -> formatInEditor(SystemActionEvent.ActionType.TODO_LIST);
             case "cmd.insert_list":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.NUMBERED_LIST);
+                return () -> formatInEditor(SystemActionEvent.ActionType.NUMBERED_LIST);
             case "cmd.theme_light":
                 return () -> handleLightTheme(null);
             case "cmd.theme_dark":
@@ -1568,15 +1567,15 @@ public class MainController {
             case "cmd.keyboard_shortcuts":
                 return () -> handleKeyboardShortcuts(null);
             case "cmd.strike":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.STRIKE);
+                return () -> formatInEditor(SystemActionEvent.ActionType.STRIKE);
             case "cmd.highlight":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.HIGHLIGHT);
+                return () -> formatInEditor(SystemActionEvent.ActionType.HIGHLIGHT);
             case "cmd.quote":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.QUOTE);
+                return () -> formatInEditor(SystemActionEvent.ActionType.QUOTE);
             case "cmd.code":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.CODE);
+                return () -> formatInEditor(SystemActionEvent.ActionType.CODE);
             case "cmd.insert_bullet_list":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.BULLET_LIST);
+                return () -> formatInEditor(SystemActionEvent.ActionType.BULLET_LIST);
             default:
                 return null;
         }
@@ -1636,10 +1635,18 @@ public class MainController {
         systemActionHandlers.put(SystemActionEvent.ActionType.SORT_TRASH, () -> sidebarController.handleSortTrash(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.EMPTY_TRASH, () -> sidebarController.handleEmptyTrash(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.REFRESH_NOTES, () -> handleRefresh(null));
-        systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_TAGS, () -> handleToggleTags(null));
-        systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_READING_MODE, () -> handleToggleReadingMode(null));
+        systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_TAGS, () -> {
+            if (editorController != null) {
+                editorController.toggleTagsBar();
+            }
+        });
+        systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_READING_MODE, () -> {
+            if (editorController != null) {
+                editorController.toggleReadingMode();
+            }
+        });
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_SOURCE_MODE, this::handleToggleSourceMode);
-        systemActionHandlers.put(SystemActionEvent.ActionType.SPLIT_VIEW_MODE, () -> handleSplitViewMode(null));
+        systemActionHandlers.put(SystemActionEvent.ActionType.SPLIT_VIEW_MODE, this::handleSplitViewMode);
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_PIN, () -> handleTogglePin(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_FAVORITE, () -> handleToggleFavorite(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL, () -> handleToggleRightPanel(null));
@@ -1733,7 +1740,7 @@ public class MainController {
             return;
         }
         notesListController.initializeNotesGrid();
-        applyViewMode();
+        refreshEditorIndicators();
         applyEditorControlsPresentation();
     }
 
@@ -1775,22 +1782,6 @@ public class MainController {
         uiInitialization.updateToolbarOverflow(toolbarController, width);
     }
 
-    private void applyViewMode() {
-        uiLayout.applyViewMode(
-                currentViewMode,
-                editorController.getEditorPreviewSplitPane(),
-                editorController.getEditorPane(),
-                editorController.getPreviewPane(),
-                this::refreshEditorPreview);
-        // "Read" mode (preview-only) makes the properties panel read-only with
-        // clickable internal links; editor/split modes keep it editable.
-        if (editorController != null) {
-            editorController.setReadOnlyView(currentViewMode == UiLayout.ViewMode.PREVIEW_ONLY);
-            editorController.updateReadingModeControl(currentViewMode == UiLayout.ViewMode.EDITOR_ONLY);
-        }
-        refreshEditorIndicators();
-    }
-
     private void applyEditorControlsPresentation() {
         if (editorController == null) {
             return;
@@ -1798,29 +1789,17 @@ public class MainController {
         editorController.applyHeaderControlsPresentation();
     }
 
-    @FXML
-    private void handleToggleReadingMode(ActionEvent event) {
-        currentViewMode = currentViewMode == UiLayout.ViewMode.EDITOR_ONLY
-                ? UiLayout.ViewMode.PREVIEW_ONLY
-                : UiLayout.ViewMode.EDITOR_ONLY;
-        applyViewMode();
-        updateStatus(getString(currentViewMode == UiLayout.ViewMode.EDITOR_ONLY
-                ? "status.mode_editor"
-                : "status.mode_preview"));
-    }
-
-    @FXML
-    private void handleSplitViewMode(ActionEvent event) {
-        currentViewMode = UiLayout.ViewMode.SPLIT;
-        applyViewMode();
-        updateStatus(getString("status.mode_split"));
+    private void handleSplitViewMode() {
+        if (editorController != null) {
+            editorController.setViewMode(EditorController.ViewMode.SPLIT);
+            updateStatus(getString("status.mode_split"));
+        }
     }
 
     /** Makes source-mode changes visible when invoked from the reading-only surface. */
     private void handleToggleSourceMode() {
-        if (currentViewMode == UiLayout.ViewMode.PREVIEW_ONLY) {
-            currentViewMode = UiLayout.ViewMode.EDITOR_ONLY;
-            applyViewMode();
+        if (editorController.getViewMode() == EditorController.ViewMode.PREVIEW_ONLY) {
+            editorController.setViewMode(EditorController.ViewMode.EDITOR_ONLY);
         }
         editorController.toggleLivePreview();
         refreshEditorIndicators();
@@ -1973,7 +1952,8 @@ public class MainController {
     private void refreshEditorIndicators() {
         boolean livePreview = editorController == null || editorController.isLivePreviewEnabled();
         statusBarSupport.updateEditorIndicators(getCurrentNote() != null, isModified(),
-                StatusBarSupport.EditorMode.of(currentViewMode, livePreview), autosaveEnabled, autosaveIdleMs);
+                StatusBarSupport.EditorMode.of(editorController != null ? editorController.getViewMode()
+                        : EditorController.ViewMode.EDITOR_ONLY, livePreview), autosaveEnabled, autosaveIdleMs);
     }
 
     /** Switches the editor to the mode picked from the status bar. */
@@ -1982,16 +1962,17 @@ public class MainController {
             return;
         }
         switch (mode) {
-            case READING -> currentViewMode = UiLayout.ViewMode.PREVIEW_ONLY;
-            case SPLIT -> currentViewMode = UiLayout.ViewMode.SPLIT;
+            case READING -> editorController.setViewMode(EditorController.ViewMode.PREVIEW_ONLY);
+            case SPLIT -> editorController.setViewMode(EditorController.ViewMode.SPLIT);
             case LIVE_PREVIEW, SOURCE -> {
-                currentViewMode = UiLayout.ViewMode.EDITOR_ONLY;
+                editorController.setViewMode(EditorController.ViewMode.EDITOR_ONLY);
                 if (editorController.isLivePreviewEnabled() != (mode == StatusBarSupport.EditorMode.LIVE_PREVIEW)) {
                     editorController.toggleLivePreview();
                 }
             }
         }
-        applyViewMode();
+        // Switching Live Preview keeps the view mode, so nothing else redraws the indicator.
+        refreshEditorIndicators();
     }
 
     /** Updates the storage-type indicator label in the status bar. */
@@ -2610,7 +2591,8 @@ public class MainController {
                 && sidebarController.getSidebarPane().isVisible();
         String storageMode = prefs.get("storage_type", System.getProperty("jylos.storage", "sqlite"));
         return WorkspaceService.liveState(openIds, activeId,
-                currentViewMode.name(), sidebarVisible, focusModeSupport.isActive(),
+                editorController != null ? editorController.getViewMode().name()
+                        : EditorController.ViewMode.EDITOR_ONLY.name(), sidebarVisible, focusModeSupport.isActive(),
                 splitMain, splitContent, storageMode);
     }
 
@@ -2661,8 +2643,9 @@ public class MainController {
     /** Reapplies a workspace's basic layout (view mode, focus, splits, sidebar). */
     private void applyWorkspaceLayout(Workspace ws) {
         try {
-            currentViewMode = UiLayout.ViewMode.valueOf(ws.viewMode());
-            applyViewMode();
+            if (editorController != null) {
+                editorController.setViewMode(EditorController.ViewMode.valueOf(ws.viewMode()));
+            }
         } catch (IllegalArgumentException | NullPointerException ignored) {
             // unknown/blank view mode → leave the current one
         }
@@ -2861,25 +2844,6 @@ public class MainController {
     void closeResultsPanel() {
         if (layoutMode.isExplorer() && resultsPanelShown) {
             applyLayoutMode(LayoutMode.EXPLORER, false);
-        }
-    }
-
-    @FXML
-    private void handleToggleTags(ActionEvent event) {
-        if (editorController == null) {
-            return;
-        }
-        boolean show = true;
-        ToggleButton toggleBtn = editorController.getToggleTagsBtn();
-        VBox tagsBox = editorController.getTagsContainer();
-        if (toggleBtn != null) {
-            show = toggleBtn.isSelected();
-        } else if (tagsBox != null) {
-            show = !tagsBox.isVisible();
-        }
-        if (tagsBox != null) {
-            UiNodes.show(tagsBox, show);
-            updateStatus(show ? getString("status.tags_bar_shown") : getString("status.tags_bar_hidden"));
         }
     }
 
@@ -3146,10 +3110,10 @@ public class MainController {
         updateStatus(getString("status.saved_all"));
     }
 
-    /** Publishes a {@link SystemActionEvent} of the given type to the editor via the event bus. */
-    private void publishEditorAction(SystemActionEvent.ActionType actionType) {
-        if (editorController != null && eventBus != null && actionType != null) {
-            editorController.publishAction(eventBus, actionType);
+    /** Runs a palette formatting command (bold, a list, a link…) in the editor. */
+    private void formatInEditor(SystemActionEvent.ActionType actionType) {
+        if (editorController != null) {
+            editorController.applyFormat(actionType);
         }
     }
 

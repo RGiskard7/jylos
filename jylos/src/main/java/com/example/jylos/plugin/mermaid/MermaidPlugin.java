@@ -1,5 +1,7 @@
 package com.example.jylos.plugin.mermaid;
 
+import java.nio.charset.StandardCharsets;
+
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginContext;
 import com.example.jylos.plugin.PreviewEnhancer;
@@ -91,7 +93,7 @@ public class MermaidPlugin implements Plugin {
                 // Read the bundled JS file
                 var is = getClass().getResourceAsStream("/com/example/jylos/plugin/mermaid/mermaid.min.js");
                 if (is != null) {
-                    mermaidScript = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                    mermaidScript = new String(is.readAllBytes(), StandardCharsets.UTF_8);
                 } else {
                     return "<script>console.error('Mermaid JS resource not found');</script>";
                 }

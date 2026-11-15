@@ -2,6 +2,7 @@ package com.example.jylos.ui.components;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -124,7 +125,7 @@ public class CommandPalette {
             if (category == null || category.isBlank()) {
                 return "";
             }
-            return i18n(bundle, "palette.category." + category.toLowerCase(java.util.Locale.ROOT), category);
+            return i18n(bundle, "palette.category." + category.toLowerCase(Locale.ROOT), category);
         }
         public void setAction(Runnable action) { this.action = action; }
         public void execute() { if (action != null) action.run(); }

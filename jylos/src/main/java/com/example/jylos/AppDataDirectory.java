@@ -1,6 +1,7 @@
 package com.example.jylos;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -119,7 +120,7 @@ public final class AppDataDirectory {
                 jars.map(p -> p.getFileName().toString())
                         .filter(n -> n.toLowerCase().endsWith(".jar") && !n.contains("jylos") && !n.contains("uber"))
                         .forEach(names::add);
-            } catch (java.io.IOException ignored) {
+            } catch (IOException ignored) {
                 // An unreadable folder only means fewer names to exclude.
             }
         }

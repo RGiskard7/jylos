@@ -12,6 +12,7 @@ import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.service.TagService;
+import com.example.jylos.ui.UiDialogs;
 
 import javafx.geometry.Insets;
 import javafx.scene.control.Alert;
@@ -90,7 +91,7 @@ class TagManagement {
                     ? tagComboBox.getEditor().getText()
                     : null);
 
-            Optional<String> result = com.example.jylos.ui.UiDialogs.show(dialog);
+            Optional<String> result = UiDialogs.show(dialog);
             if (result.isEmpty() || result.get().trim().isEmpty()) {
                 return;
             }
@@ -114,7 +115,7 @@ class TagManagement {
                 Alert alert = new Alert(Alert.AlertType.INFORMATION);
                 alert.setTitle(i18n("dialog.tag_already_assigned.title"));
                 alert.setHeaderText(MessageFormat.format(i18n("dialog.tag_already_assigned.header"), tagName));
-                com.example.jylos.ui.UiDialogs.show(alert);
+                UiDialogs.show(alert);
                 return;
             }
 
@@ -148,7 +149,7 @@ class TagManagement {
         confirm.setHeaderText(MessageFormat.format(i18n("dialog.remove_tag.header"), tag.getTitle()));
         confirm.setContentText(i18n("dialog.remove_tag.content"));
 
-        Optional<ButtonType> result = com.example.jylos.ui.UiDialogs.show(confirm);
+        Optional<ButtonType> result = UiDialogs.show(confirm);
         if (result.isPresent() && result.get() == ButtonType.OK) {
             try {
                 if (tagService == null) {
@@ -201,14 +202,14 @@ class TagManagement {
                         dateLabel.getStyleClass().add("dialog-muted-label");
 
                         ButtonType deleteType = new ButtonType(i18n("action.delete"), ButtonBar.ButtonData.OK_DONE);
-                        javafx.scene.control.Button deleteButton = new javafx.scene.control.Button(i18n("action.delete"));
+                        Button deleteButton = new Button(i18n("action.delete"));
                         deleteButton.setOnAction(e -> {
                             Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
                             confirm.setTitle(i18n("dialog.delete_tag.title"));
                             confirm.setHeaderText(i18n("dialog.tags_manager.delete_header"));
                             confirm.setContentText(i18n("dialog.tags_manager.delete_content"));
                             confirm.getButtonTypes().setAll(deleteType, ButtonType.CANCEL);
-                            Optional<ButtonType> confirmResult = com.example.jylos.ui.UiDialogs.show(confirm);
+                            Optional<ButtonType> confirmResult = UiDialogs.show(confirm);
                             if (confirmResult.isPresent() && confirmResult.get() == deleteType) {
                                 try {
                                     tagService.deleteTag(tag.getId());
@@ -235,7 +236,7 @@ class TagManagement {
             dialog.getDialogPane().setContent(content);
             dialog.getDialogPane().setPrefSize(500, 400);
 
-            com.example.jylos.ui.UiDialogs.show(dialog);
+            UiDialogs.show(dialog);
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Failed to open tags manager", e);
             updateStatus.accept(i18n("status.tags_manager_error"));

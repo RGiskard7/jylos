@@ -1,7 +1,9 @@
 package com.example.jylos.ui.controller;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -10,6 +12,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -18,6 +21,7 @@ import java.util.regex.Pattern;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.EditorBlockRenderer;
+import com.example.jylos.util.MarkdownProcessor;
 
 /**
  * Produces the rendered HTML that the editor's Live Preview shows in place of fenced
@@ -58,7 +62,7 @@ final class EditorBlockRenderSupport {
     private final Map<String, Registration> renderersByLanguage = new ConcurrentHashMap<>();
 
     /** Renders a note embedded on a line of its own ({@code ![[link]]}), or null to leave it as source. */
-    private volatile java.util.function.Function<String, String> embedRenderer = link -> null;
+    private volatile Function<String, String> embedRenderer = link -> null;
 
     private static final Pattern FENCE_LINE = Pattern.compile("^[ \\t]{0,3}(`{3,}|~{3,})");
     private static final Pattern CALLOUT_START = Pattern.compile("^[ \\t]{0,3}>[ \\t]?\\[![^\\]\\n]+\\]");
@@ -94,7 +98,7 @@ final class EditorBlockRenderSupport {
     }
 
     /** How to render a note embedded on its own line, given the link as written (without display text). */
-    void setEmbedRenderer(java.util.function.Function<String, String> renderer) {
+    void setEmbedRenderer(Function<String, String> renderer) {
         this.embedRenderer = renderer != null ? renderer : link -> null;
     }
 
@@ -155,7 +159,7 @@ final class EditorBlockRenderSupport {
             }
             try {
                 String html = "callout".equals(block.kind())
-                        ? com.example.jylos.util.MarkdownProcessor.markdownToHtml(block.source())
+                        ? MarkdownProcessor.markdownToHtml(block.source())
                         : embedRenderer.apply(block.source());
                 if (html != null && !html.isBlank()) {
                     rendered.put(block.key(), html);
@@ -199,7 +203,7 @@ final class EditorBlockRenderSupport {
      * the editor's {@code scanHostBlocks} finds them. Embeds of images are left to the editor.
      */
     static List<HostBlock> hostBlocks(String markdown) {
-        List<HostBlock> blocks = new java.util.ArrayList<>();
+        List<HostBlock> blocks = new ArrayList<>();
         if (markdown == null || markdown.isEmpty()) {
             return blocks;
         }
@@ -259,12 +263,12 @@ final class EditorBlockRenderSupport {
     }
 
     static String normalizeLanguage(String language) {
-        return language == null ? "" : language.trim().toLowerCase(java.util.Locale.ROOT);
+        return language == null ? "" : language.trim().toLowerCase(Locale.ROOT);
     }
 
     /** Finds every fenced block carrying an info string, in document order. */
     static List<Block> extractBlocks(String markdown) {
-        List<Block> blocks = new java.util.ArrayList<>();
+        List<Block> blocks = new ArrayList<>();
         if (markdown == null || markdown.isEmpty()) {
             return blocks;
         }

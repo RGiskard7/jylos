@@ -2,7 +2,9 @@ package com.example.jylos.plugin.builtin.dataview;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.ResourceBundle;
 
+import com.example.jylos.data.models.Note;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.plugin.Plugin;
@@ -54,7 +56,7 @@ public class DataviewPlugin implements Plugin {
     private PluginContext context;
     private DataviewIndex index;
 
-    private static java.util.ResourceBundle bundle;
+    private static ResourceBundle bundle;
 
     private static String tr(String key, String fallback) {
         if (bundle == null) {
@@ -158,7 +160,7 @@ public class DataviewPlugin implements Plugin {
                 event -> index.clear()));
     }
 
-    private void invalidateNote(com.example.jylos.data.models.Note note) {
+    private void invalidateNote(Note note) {
         if (note != null) {
             index.invalidate(note.getId());
         } else {

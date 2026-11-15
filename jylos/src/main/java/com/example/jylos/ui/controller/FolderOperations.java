@@ -7,6 +7,7 @@ import java.util.logging.Logger;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.service.FolderService;
+import com.example.jylos.util.UntitledNames;
 
 /**
  * Folder creation logic, free of controller/UI state.
@@ -70,6 +71,6 @@ class FolderOperations {
         } catch (RuntimeException e) {
             logger.warning("Could not list folders before creating one: " + e.getMessage());
         }
-        return createFolder(com.example.jylos.util.UntitledNames.next(base, taken), parent, root);
+        return createFolder(UntitledNames.next(base, taken), parent, root);
     }
 }

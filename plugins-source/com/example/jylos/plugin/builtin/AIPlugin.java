@@ -7,7 +7,11 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.ResourceBundle;
+import java.util.prefs.BackingStoreException;
+import java.util.prefs.Preferences;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.Plugin;
@@ -25,6 +29,7 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
@@ -67,7 +72,7 @@ public class AIPlugin implements Plugin {
     
     private PluginContext context;
     private HttpClient httpClient;
-    private java.util.prefs.Preferences preferences;
+    private Preferences preferences;
     
     // Progress dialog reference (to close it when done)
     private Stage progressStage;
@@ -101,7 +106,7 @@ public class AIPlugin implements Plugin {
     
     // Loaded once, lazily — getDescription() can be called by the Plugin Manager before
     // initialize() ever runs, so this cannot wait for that.
-    private static java.util.ResourceBundle bundle;
+    private static ResourceBundle bundle;
 
     private static String tr(String key, String fallback) {
         if (bundle == null) {
@@ -296,7 +301,7 @@ public class AIPlugin implements Plugin {
                 @Override
                 public String toString(String lang) {
                     if (lang == null) return "";
-                    return tr("ai.lang." + lang.toLowerCase(java.util.Locale.ROOT), lang);
+                    return tr("ai.lang." + lang.toLowerCase(Locale.ROOT), lang);
                 }
 
                 @Override
@@ -513,7 +518,7 @@ public class AIPlugin implements Plugin {
         try {
             preferences.flush();
             context.log("AI configuration saved");
-        } catch (java.util.prefs.BackingStoreException e) {
+        } catch (BackingStoreException e) {
             context.logError("Failed to save AI configuration", e);
         }
     }
@@ -933,8 +938,8 @@ public class AIPlugin implements Plugin {
     /**
      * Creates a ListCell for Note objects.
      */
-    private javafx.scene.control.ListCell<Note> createNoteListCell() {
-        return new javafx.scene.control.ListCell<Note>() {
+    private ListCell<Note> createNoteListCell() {
+        return new ListCell<Note>() {
             @Override
             protected void updateItem(Note note, boolean empty) {
                 super.updateItem(note, empty);

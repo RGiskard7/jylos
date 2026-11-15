@@ -4,17 +4,22 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
+import com.example.jylos.service.LinkIndex;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
+import com.example.jylos.util.AttachmentType;
 import com.example.jylos.util.WikiLinkResolver;
 
 /**
@@ -48,7 +53,7 @@ public class GraphBuilder {
      * <p>Concurrent because builds run off the JavaFX thread while invalidation is
      * driven from note/folder events on the FX thread (perf P3).</p>
      */
-    private final Map<String, CachedLinks> linkCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, CachedLinks> linkCache = new ConcurrentHashMap<>();
 
     private record CachedLinks(String modified, List<String> targets, List<String> files) {
     }
@@ -93,7 +98,7 @@ public class GraphBuilder {
         String id = note.getId();
         String modified = note.getModifiedDate();
         CachedLinks cached = linkCache.get(id);
-        if (cached != null && java.util.Objects.equals(cached.modified(), modified)) {
+        if (cached != null && Objects.equals(cached.modified(), modified)) {
             return cached;
         }
         String content = note.getContent();
@@ -181,9 +186,9 @@ public class GraphBuilder {
             out.computeIfAbsent(edge.source(), k -> new ArrayList<>()).add(edge);
             in.computeIfAbsent(edge.target(), k -> new ArrayList<>()).add(edge);
         }
-        Set<String> keep = new java.util.LinkedHashSet<>();
+        Set<String> keep = new LinkedHashSet<>();
         keep.add(rootId);
-        Set<GraphEdge> shown = new java.util.LinkedHashSet<>();
+        Set<GraphEdge> shown = new LinkedHashSet<>();
         List<String> frontier = List.of(rootId);
         int depth = Math.max(1, Math.min(5, local.depth()));
         for (int hop = 0; hop < depth && !frontier.isEmpty(); hop++) {
@@ -241,7 +246,7 @@ public class GraphBuilder {
 
         List<Note> notes = noteService.getAllNotes();
 
-        com.example.jylos.service.LinkIndex links = noteService.linkIndex();
+        LinkIndex links = noteService.linkIndex();
         Map<String, GraphNode> nodes = new LinkedHashMap<>();
         for (Note note : notes) {
             if (note == null || note.getId() == null) {
@@ -301,9 +306,9 @@ public class GraphBuilder {
 
     /** An image, PDF or other file that is not a note, left out unless attachments are shown. */
     private static boolean isHiddenAttachment(String id, Options options) {
-        com.example.jylos.util.AttachmentType type = com.example.jylos.util.AttachmentType.fromName(id);
-        return type != com.example.jylos.util.AttachmentType.MARKDOWN
-                && type != com.example.jylos.util.AttachmentType.CANVAS
+        AttachmentType type = AttachmentType.fromName(id);
+        return type != AttachmentType.MARKDOWN
+                && type != AttachmentType.CANVAS
                 && !options.includeAttachments();
     }
 

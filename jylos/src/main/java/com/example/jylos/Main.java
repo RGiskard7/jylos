@@ -9,10 +9,14 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.stage.Stage;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.MessageFormat;
+import java.util.List;
+import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
@@ -24,6 +28,7 @@ import com.example.jylos.service.DatabaseBackupService;
 import com.example.jylos.ui.AppIconLoader;
 import com.example.jylos.ui.StartupSplash;
 import com.example.jylos.ui.controller.MainController;
+import com.example.jylos.ui.preferences.UiPreferencesStore;
 import com.example.jylos.ui.theme.ThemeCatalog;
 import com.example.jylos.ui.theme.ThemeCommand;
 
@@ -46,7 +51,7 @@ public class Main extends Application {
             report = AppDataDirectory.migrateLegacyData();
         } catch (RuntimeException e) {
             report = new LegacyDataMigration.Report(
-                    java.util.List.of("Legacy data migration failed: " + e), java.util.Optional.empty());
+                    List.of("Legacy data migration failed: " + e), Optional.empty());
         }
         LEGACY_MIGRATION = report;
         if (!AppDataDirectory.ensureDirectoriesExist()) {
@@ -62,7 +67,7 @@ public class Main extends Application {
 
         Preferences prefs = Preferences.userNodeForPackage(MainController.class);
         // Before anything else writes preferences: an empty node means a new install.
-        new com.example.jylos.ui.preferences.UiPreferencesStore().initLayoutMode(prefs);
+        new UiPreferencesStore().initLayoutMode(prefs);
         String lang = prefs.get("language", Locale.getDefault().getLanguage());
         Locale locale = Locale.forLanguageTag(lang);
         Locale.setDefault(locale);
@@ -139,10 +144,10 @@ public class Main extends Application {
     private void showStartupDatabaseError(ResourceBundle bundle, RuntimeException error) {
         Throwable cause = error.getCause() != null ? error.getCause() : error;
         String detail = cause.getMessage() != null ? cause.getMessage() : cause.toString();
-        javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.ERROR);
+        Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle(bundle.getString("startup.database_error.title"));
         alert.setHeaderText(bundle.getString("startup.database_error.header"));
-        alert.setContentText(java.text.MessageFormat.format(bundle.getString("startup.database_error.content"),
+        alert.setContentText(MessageFormat.format(bundle.getString("startup.database_error.content"),
                 detail, AppDataDirectory.getBackupsDirectory()));
         Stage alertStage = (Stage) alert.getDialogPane().getScene().getWindow();
         AppIconLoader.load().ifPresent(img -> alertStage.getIcons().add(img));

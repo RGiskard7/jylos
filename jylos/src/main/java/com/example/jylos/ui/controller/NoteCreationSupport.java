@@ -14,9 +14,13 @@ import java.util.function.Supplier;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.service.NoteService;
+import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.util.NoteTemplates;
+import com.example.jylos.util.UntitledNames;
 
 import javafx.scene.control.Alert;
 import javafx.scene.control.ChoiceDialog;
+import javafx.scene.control.Dialog;
 import javafx.stage.Window;
 
 /**
@@ -114,7 +118,7 @@ final class NoteCreationSupport {
         } catch (RuntimeException e) {
             // Without the list, the storage still avoids overwriting: it numbers the file.
         }
-        return com.example.jylos.util.UntitledNames.next(base, taken);
+        return UntitledNames.next(base, taken);
     }
 
     /** Creates an empty note named {@code title} (a link to it that did not exist yet) and opens it. */
@@ -143,7 +147,7 @@ final class NoteCreationSupport {
         if (noteService == null) {
             return;
         }
-        String title = com.example.jylos.util.NoteTemplates.dailyNoteTitle();
+        String title = NoteTemplates.dailyNoteTitle();
         Note existing = noteService.findNoteByTitle(title).orElse(null);
         if (existing != null) {
             // Opening the note clears the status bar (see MainController), so no "loaded" message.
@@ -152,7 +156,7 @@ final class NoteCreationSupport {
         }
         String template = templateContentByName("daily");
         String content = template != null
-                ? com.example.jylos.util.NoteTemplates.applyPlaceholders(template, title)
+                ? NoteTemplates.applyPlaceholders(template, title)
                 : "# " + title + "\n\n";
         createAndOpenNote(title, content, currentFolder(), "status.note_created");
     }
@@ -185,7 +189,7 @@ final class NoteCreationSupport {
                 return;
             }
             Note full = noteService.getNoteById(template.getId()).orElse(template);
-            String content = com.example.jylos.util.NoteTemplates.applyPlaceholders(
+            String content = NoteTemplates.applyPlaceholders(
                     full.getContent() != null ? full.getContent() : "", choice);
             createAndOpenNote(choice, content, currentFolder(), "status.note_created");
         });
@@ -264,7 +268,7 @@ final class NoteCreationSupport {
         }
     }
 
-    private void styleDialog(javafx.scene.control.Dialog<?> dialog) {
+    private void styleDialog(Dialog<?> dialog) {
         if (dialog == null) {
             return;
         }
@@ -272,7 +276,7 @@ final class NoteCreationSupport {
         if (window != null) {
             dialog.initOwner(window);
         }
-        com.example.jylos.ui.UiDialogs.apply(dialog);
+        UiDialogs.apply(dialog);
     }
 
     private void showAlert(Alert.AlertType type, String title, String header, String content) {
@@ -280,7 +284,7 @@ final class NoteCreationSupport {
         alert.setTitle(title);
         alert.setHeaderText(header);
         alert.setContentText(content);
-        com.example.jylos.ui.UiDialogs.apply(alert.getDialogPane());
+        UiDialogs.apply(alert.getDialogPane());
         alert.showAndWait();
     }
 

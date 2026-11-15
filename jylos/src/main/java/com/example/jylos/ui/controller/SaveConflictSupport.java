@@ -1,5 +1,6 @@
 package com.example.jylos.ui.controller;
 
+import java.text.MessageFormat;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -71,7 +72,7 @@ final class SaveConflictSupport {
 
         Alert alert = new Alert(Alert.AlertType.WARNING, "", overwrite, reload, saveCopy, cancel);
         alert.setTitle(i18n.apply("dialog.save_conflict.title"));
-        alert.setHeaderText(java.text.MessageFormat.format(i18n.apply("dialog.save_conflict.header"), noteTitle));
+        alert.setHeaderText(MessageFormat.format(i18n.apply("dialog.save_conflict.header"), noteTitle));
         alert.setContentText(i18n.apply("dialog.save_conflict.content"));
         Optional<ButtonType> answer = UiDialogs.show(alert);
         if (answer.isEmpty() || answer.get() == cancel) {

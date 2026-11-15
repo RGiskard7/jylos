@@ -10,6 +10,7 @@ import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.service.ImportService;
+import com.example.jylos.ui.UiDialogs;
 
 import javafx.concurrent.Task;
 import javafx.scene.control.Alert;
@@ -117,7 +118,7 @@ final class ImportSupport {
         }
         alert.setContentText(sb.toString());
         alert.setResizable(true);
-        com.example.jylos.ui.UiDialogs.show(alert);
+        UiDialogs.show(alert);
     }
 
     private Window window() {

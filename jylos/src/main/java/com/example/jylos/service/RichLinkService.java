@@ -8,6 +8,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Locale;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -85,7 +86,7 @@ public final class RichLinkService {
         String contentType = response.headers().firstValue("Content-Type").orElse("");
         for (String part : contentType.split(";")) {
             String param = part.trim();
-            if (param.toLowerCase(java.util.Locale.ROOT).startsWith("charset=")) {
+            if (param.toLowerCase(Locale.ROOT).startsWith("charset=")) {
                 try {
                     return Charset.forName(param.substring("charset=".length()).replace("\"", "").trim());
                 } catch (IllegalArgumentException unknownCharset) {
@@ -97,7 +98,7 @@ public final class RichLinkService {
     }
 
     private static boolean isHttp(String url) {
-        String u = url.toLowerCase(java.util.Locale.ROOT);
+        String u = url.toLowerCase(Locale.ROOT);
         return u.startsWith("http://") || u.startsWith("https://");
     }
 }

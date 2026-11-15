@@ -1,10 +1,14 @@
 package com.example.jylos.service;
 
 import java.nio.charset.StandardCharsets;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.security.spec.InvalidKeySpecException;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
@@ -93,7 +97,7 @@ public final class EncryptionService {
     /** True when every private note is readable (global unlock), set by {@link #unlock}. */
     private volatile boolean globallyUnlocked;
     /** Note ids individually revealed via {@link #revealNote} (when not globally unlocked). */
-    private final java.util.Set<String> revealedNoteIds = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Set<String> revealedNoteIds = ConcurrentHashMap.newKeySet();
 
     private EncryptionService() {
         this.store = new InMemoryKeyStore();
@@ -377,7 +381,7 @@ public final class EncryptionService {
             spec = new PBEKeySpec(password, salt, iterations, KEY_BITS);
             byte[] keyBytes = factory.generateSecret(spec).getEncoded();
             return new SecretKeySpec(keyBytes, "AES");
-        } catch (java.security.NoSuchAlgorithmException | java.security.spec.InvalidKeySpecException e) {
+        } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
             throw new IllegalStateException("Key derivation failed", e);
         } finally {
             if (spec != null) {

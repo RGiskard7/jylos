@@ -48,8 +48,7 @@ class PreviewAnchorNavigationTest {
                     Locale.forLanguageTag("es")));
             Parent root = loader.load();
             EditorController editor = loader.getController();
-            editor.getPreviewPane().setVisible(true);
-            editor.getPreviewPane().setManaged(true);
+            editor.setViewMode(EditorController.ViewMode.SPLIT);
             Stage window = new Stage();
             window.setScene(new Scene(root, 900, 600));
             window.show();

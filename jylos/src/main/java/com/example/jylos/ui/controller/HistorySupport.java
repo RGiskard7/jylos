@@ -12,6 +12,7 @@ import com.example.jylos.data.models.Note;
 import com.example.jylos.service.EncryptionService;
 import com.example.jylos.service.NoteHistoryService;
 import com.example.jylos.service.NoteService;
+import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.util.LineDiff;
 
 import javafx.geometry.Insets;
@@ -23,6 +24,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.SplitPane;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 /**
@@ -99,14 +101,14 @@ final class HistorySupport {
         split.setDividerPositions(0.28);
         VBox box = new VBox(split);
         box.setPadding(new Insets(8));
-        VBox.setVgrow(split, javafx.scene.layout.Priority.ALWAYS);
+        VBox.setVgrow(split, Priority.ALWAYS);
 
         Dialog<ButtonType> dialog = new Dialog<>();
         Scene scene = sceneSupplier != null ? sceneSupplier.get() : null;
         if (scene != null) {
             dialog.initOwner(scene.getWindow());
         }
-        com.example.jylos.ui.UiDialogs.apply(dialog);
+        UiDialogs.apply(dialog);
         dialog.setTitle(getString("history.title"));
         dialog.setHeaderText(note.getTitle());
         ButtonType restoreType = new ButtonType(getString("history.restore"), ButtonBar.ButtonData.OK_DONE);

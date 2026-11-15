@@ -1,6 +1,7 @@
 package com.example.jylos.config;
 
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 import java.util.logging.Level;
@@ -28,7 +29,7 @@ public final class VersionConfig {
                 logger.warning("version.properties not found, using fallback version");
                 return FALLBACK_VERSION;
             }
-            try (var reader = new java.io.InputStreamReader(input, StandardCharsets.UTF_8)) {
+            try (var reader = new InputStreamReader(input, StandardCharsets.UTF_8)) {
                 properties.load(reader);
             }
             String version = properties.getProperty("app.version", "").trim();

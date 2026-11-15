@@ -98,7 +98,10 @@ public final class EditorPreviewSupport {
 
     /** Cancels any in-flight render so the FX thread is never blocked by Markdown parsing. */
     private volatile Task<String> currentTask;
-    /** Theme of the most recent render, so a preference toggle can render again without a caller. */
+    /**
+     * Theme to draw in: the one last rendered or applied, so a render that has no caller
+     * (a preference toggle, a plugin, a view-mode change) uses the theme on screen.
+     */
     private boolean lastDarkTheme = false;
     private boolean bridgeInstalled;
     private Double pendingScrollY;
@@ -114,6 +117,11 @@ public final class EditorPreviewSupport {
 
     boolean lastDarkTheme() {
         return lastDarkTheme;
+    }
+
+    /** Remembers the theme to draw in without drawing; the next render uses it. */
+    void setDarkTheme(boolean darkTheme) {
+        lastDarkTheme = darkTheme;
     }
 
     void registerEnhancer(String pluginId, PreviewEnhancer enhancer) {

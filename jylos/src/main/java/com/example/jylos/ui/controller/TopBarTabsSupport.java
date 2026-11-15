@@ -2,6 +2,7 @@ package com.example.jylos.ui.controller;
 
 import javafx.beans.value.ChangeListener;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
@@ -38,7 +39,7 @@ final class TopBarTabsSupport {
         tabsHost.setMinWidth(0);
         // The tabs sit on the bar's bottom line (as in Obsidian), not centred with the buttons.
         if (tabsHost instanceof HBox box) {
-            box.setAlignment(javafx.geometry.Pos.BOTTOM_LEFT);
+            box.setAlignment(Pos.BOTTOM_LEFT);
         }
 
         // Change listeners, not invalidation listeners: the transforms are lazy properties that

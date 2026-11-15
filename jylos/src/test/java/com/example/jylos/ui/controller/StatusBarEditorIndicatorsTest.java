@@ -43,13 +43,13 @@ class StatusBarEditorIndicatorsTest {
 
     @Test
     void theEditorModeFollowsTheViewModeAndTheLivePreviewSwitch() {
-        assertEquals(EditorMode.LIVE_PREVIEW, EditorMode.of(UiLayout.ViewMode.EDITOR_ONLY, true));
-        assertEquals(EditorMode.SOURCE, EditorMode.of(UiLayout.ViewMode.EDITOR_ONLY, false));
+        assertEquals(EditorMode.LIVE_PREVIEW, EditorMode.of(EditorController.ViewMode.EDITOR_ONLY, true));
+        assertEquals(EditorMode.SOURCE, EditorMode.of(EditorController.ViewMode.EDITOR_ONLY, false));
         // Reading and split show the rendered note whatever the editing preference is.
-        assertEquals(EditorMode.READING, EditorMode.of(UiLayout.ViewMode.PREVIEW_ONLY, true));
-        assertEquals(EditorMode.READING, EditorMode.of(UiLayout.ViewMode.PREVIEW_ONLY, false));
-        assertEquals(EditorMode.SPLIT, EditorMode.of(UiLayout.ViewMode.SPLIT, true));
-        assertEquals(EditorMode.SPLIT, EditorMode.of(UiLayout.ViewMode.SPLIT, false));
+        assertEquals(EditorMode.READING, EditorMode.of(EditorController.ViewMode.PREVIEW_ONLY, true));
+        assertEquals(EditorMode.READING, EditorMode.of(EditorController.ViewMode.PREVIEW_ONLY, false));
+        assertEquals(EditorMode.SPLIT, EditorMode.of(EditorController.ViewMode.SPLIT, true));
+        assertEquals(EditorMode.SPLIT, EditorMode.of(EditorController.ViewMode.SPLIT, false));
     }
 
     @Test

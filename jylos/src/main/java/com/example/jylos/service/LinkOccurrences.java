@@ -3,6 +3,7 @@ package com.example.jylos.service;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -188,7 +189,7 @@ public final class LinkOccurrences {
         }
 
         Occurrence occurrence(int from, int to, String target) {
-            int line = java.util.Collections.binarySearch(starts, from);
+            int line = Collections.binarySearch(starts, from);
             if (line < 0) {
                 line = -line - 2;
             }

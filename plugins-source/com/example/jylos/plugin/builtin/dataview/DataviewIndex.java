@@ -1,5 +1,6 @@
 package com.example.jylos.plugin.builtin.dataview;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -185,7 +186,7 @@ final class DataviewIndex implements PageSource {
     private String pathOf(Note note) {
         try {
             return noteService.getNoteFilePath(note.getId())
-                    .map(java.nio.file.Path::toString)
+                    .map(Path::toString)
                     .orElse(note.getId());
         } catch (RuntimeException e) {
             return note.getId();

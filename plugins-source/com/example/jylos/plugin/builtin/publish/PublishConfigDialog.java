@@ -1,21 +1,28 @@
 package com.example.jylos.plugin.builtin.publish;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.ResourceBundle;
 import java.util.Set;
 
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
+import com.example.jylos.plugin.PluginContext;
 import com.example.jylos.plugin.PluginI18n;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
+import com.example.jylos.util.AttachmentType;
 
+import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonBase;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.CheckBoxTreeItem;
@@ -75,7 +82,7 @@ final class PublishConfigDialog {
     // Shares its bundle (and the "messages*.properties" resource files, packaged by
     // scripts/build-plugins.sh) with PublishPlugin — see that class's own bundle field
     // for why Locale.getDefault() alone, no PluginContext, is enough.
-    private static java.util.ResourceBundle bundle;
+    private static ResourceBundle bundle;
 
     private static String tr(String key, String fallback) {
         if (bundle == null) {
@@ -97,7 +104,7 @@ final class PublishConfigDialog {
      *                dialog builds its own {@link Dialog}, so it needs the theming call every
      *                other plugin dialog gets for free through {@code showInfo}/{@code showError}
      */
-    static Optional<VaultExporter.PublishOptions> show(com.example.jylos.plugin.PluginContext context,
+    static Optional<VaultExporter.PublishOptions> show(PluginContext context,
             String defaultSiteTitle, boolean defaultGenerateGraph) {
         Dialog<VaultExporter.PublishOptions> dialog = new Dialog<>();
         dialog.setTitle(tr("dialog.title", "Publish Vault as Static Site"));
@@ -162,7 +169,7 @@ final class PublishConfigDialog {
         // just buried under a duplicate of almost the whole vault sitting in front of it —
         // which is indistinguishable from the flat "All notes" view at a glance, exactly the
         // "looks exactly like All notes" bug this fixes.
-        Set<String> placedInFolder = new java.util.HashSet<>();
+        Set<String> placedInFolder = new HashSet<>();
         List<CheckBoxTreeItem<Object>> folderItems =
                 buildFolderItems(folderService.getRootFolders(), noteService, folderService, allNoteItems, placedInFolder);
 
@@ -270,9 +277,9 @@ final class PublishConfigDialog {
                         matches.add(item);
                     }
                 }
-                flatView.setItems(javafx.collections.FXCollections.observableArrayList(matches));
+                flatView.setItems(FXCollections.observableArrayList(matches));
             } else if (flatModeButton.isSelected()) {
-                flatView.setItems(javafx.collections.FXCollections.observableArrayList(allNoteItems));
+                flatView.setItems(FXCollections.observableArrayList(allNoteItems));
             }
             boolean showTree = !searching && treeModeButton.isSelected();
             tree.setVisible(showTree);
@@ -299,7 +306,7 @@ final class PublishConfigDialog {
         // "Seleccionar ..."), which is unreadable. Two rows, and nothing may shrink below
         // its text: the mode toggles on their own line (they choose what the box below
         // shows), the four tree actions under them.
-        for (javafx.scene.control.ButtonBase b : List.of(treeModeButton, flatModeButton,
+        for (ButtonBase b : List.of(treeModeButton, flatModeButton,
                 expandAllButton, collapseAllButton, selectAllButton, deselectAllButton)) {
             b.setMinWidth(Region.USE_PREF_SIZE); // never ellipsise the label
         }
@@ -328,7 +335,7 @@ final class PublishConfigDialog {
 
     private static boolean isSelectable(Note note) {
         return note != null && !note.isPrivate()
-                && !com.example.jylos.util.AttachmentType.isAttachment(note.getTitle());
+                && !AttachmentType.isAttachment(note.getTitle());
     }
 
     private static String labelFor(Object value) {
@@ -396,8 +403,8 @@ final class PublishConfigDialog {
 
     /** Case-insensitive by display name, matching SidebarController's own folder comparator so the
      *  publish tree reads in the same order as the sidebar tree the user already knows. */
-    private static final java.util.Comparator<Object> BY_TITLE =
-            java.util.Comparator.comparing(PublishConfigDialog::sortKey, String.CASE_INSENSITIVE_ORDER);
+    private static final Comparator<Object> BY_TITLE =
+            Comparator.comparing(PublishConfigDialog::sortKey, String.CASE_INSENSITIVE_ORDER);
 
     private static String sortKey(Object value) {
         if (value instanceof Note note) {

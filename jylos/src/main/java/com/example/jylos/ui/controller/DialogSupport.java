@@ -18,6 +18,8 @@ import com.example.jylos.AppLinks;
 import com.example.jylos.ui.AppIconLoader;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.service.TagService;
+import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.ui.preferences.LayoutMode;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
 import com.example.jylos.ui.theme.CssSnippetCatalog;
 import com.example.jylos.ui.theme.ThemeCatalog;
@@ -30,10 +32,12 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ColorPicker;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.image.ImageView;
@@ -41,7 +45,10 @@ import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
+import javafx.util.StringConverter;
 
 /**
  * Lightweight application dialogs (preferences, about, docs, new tag).
@@ -96,7 +103,7 @@ class DialogSupport {
             int contentFontSize,
             boolean showFolderNoteCounts,
             boolean alwaysOpenInNewTab,
-            com.example.jylos.ui.preferences.LayoutMode layoutMode,
+            LayoutMode layoutMode,
             boolean showFormatToolbar,
             Set<String> enabledSnippets) {
     }
@@ -106,7 +113,7 @@ class DialogSupport {
             List<ThemeCatalog.ThemeDescriptor> themes,
             CssSnippetCatalog snippetCatalog,
             Set<String> enabledSnippets,
-            com.example.jylos.ui.preferences.LayoutMode currentLayout,
+            LayoutMode currentLayout,
             boolean currentShowFormatToolbar) {
         Dialog<PreferencesDialogResult> dialog = new Dialog<>();
         dialog.setTitle(i18n("dialog.preferences.title"));
@@ -166,11 +173,11 @@ class DialogSupport {
 
         // Same three layouts as the toolbar's layout menu.
         Label layoutLabel = new Label(i18n("dialog.preferences.layout"));
-        ComboBox<com.example.jylos.ui.preferences.LayoutMode> layoutCombo = new ComboBox<>();
-        layoutCombo.getItems().setAll(com.example.jylos.ui.preferences.LayoutMode.values());
-        layoutCombo.setConverter(new javafx.util.StringConverter<>() {
+        ComboBox<LayoutMode> layoutCombo = new ComboBox<>();
+        layoutCombo.getItems().setAll(LayoutMode.values());
+        layoutCombo.setConverter(new StringConverter<>() {
             @Override
-            public String toString(com.example.jylos.ui.preferences.LayoutMode mode) {
+            public String toString(LayoutMode mode) {
                 return mode == null ? "" : i18n(switch (mode) {
                     case EXPLORER -> "layout.mode.explorer";
                     case CLASSIC_COLUMNS -> "layout.mode.columns";
@@ -179,12 +186,12 @@ class DialogSupport {
             }
 
             @Override
-            public com.example.jylos.ui.preferences.LayoutMode fromString(String text) {
+            public LayoutMode fromString(String text) {
                 return null;
             }
         });
         layoutCombo.setValue(currentLayout != null ? currentLayout
-                : com.example.jylos.ui.preferences.LayoutMode.CLASSIC_COLUMNS);
+                : LayoutMode.CLASSIC_COLUMNS);
 
         Label fontSizeLabel = new Label(i18n("dialog.preferences.font_size"));
         ComboBox<Integer> fontSizeCombo = new ComboBox<>();
@@ -204,15 +211,15 @@ class DialogSupport {
 
         // Accent color: opt-in override of the theme's -fx-accent (Obsidian-style).
         CheckBox customAccentCheck = new CheckBox(i18n("dialog.preferences.accent_custom"));
-        javafx.scene.control.ColorPicker accentPicker = new javafx.scene.control.ColorPicker();
+        ColorPicker accentPicker = new ColorPicker();
         boolean hasCustomAccent = current.accentColor() != null && !current.accentColor().isBlank();
         customAccentCheck.setSelected(hasCustomAccent);
         accentPicker.setDisable(!hasCustomAccent);
         try {
-            accentPicker.setValue(javafx.scene.paint.Color.web(
+            accentPicker.setValue(Color.web(
                     hasCustomAccent ? current.accentColor() : "#7c3aed"));
         } catch (IllegalArgumentException ignored) {
-            accentPicker.setValue(javafx.scene.paint.Color.web("#7c3aed"));
+            accentPicker.setValue(Color.web("#7c3aed"));
         }
         customAccentCheck.selectedProperty()
                 .addListener((obs, oldVal, newVal) -> accentPicker.setDisable(!newVal));
@@ -317,9 +324,9 @@ class DialogSupport {
 
         // The settings list has outgrown a fixed pane: scroll vertically when needed
         // so no row is ever clipped (no horizontal bar — content fits the width).
-        javafx.scene.control.ScrollPane scroll = new javafx.scene.control.ScrollPane(content);
+        ScrollPane scroll = new ScrollPane(content);
         scroll.setFitToWidth(true);
-        scroll.setHbarPolicy(javafx.scene.control.ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.getStyleClass().add("preferences-scroll");
         dialog.getDialogPane().setContent(scroll);
         dialog.getDialogPane().setPrefSize(500, 620);
@@ -356,7 +363,7 @@ class DialogSupport {
             Integer contentFontSize = contentFontSizeCombo.getSelectionModel().getSelectedItem();
             String accent = "";
             if (customAccentCheck.isSelected() && accentPicker.getValue() != null) {
-                javafx.scene.paint.Color c = accentPicker.getValue();
+                Color c = accentPicker.getValue();
                 accent = String.format("#%02x%02x%02x",
                         (int) Math.round(c.getRed() * 255),
                         (int) Math.round(c.getGreen() * 255),
@@ -379,7 +386,7 @@ class DialogSupport {
                     showFormatToolbarCheck.isSelected(),
                     new LinkedHashSet<>(selectedSnippets));
         });
-        return com.example.jylos.ui.UiDialogs.show(dialog);
+        return UiDialogs.show(dialog);
     }
 
     /** Opens a folder in the OS file manager (best-effort, mirrors the notes-list reveal). */
@@ -408,7 +415,7 @@ class DialogSupport {
         alert.setContentText(i18n("dialog.documentation.content"));
         alert.setResizable(true);
         alert.getDialogPane().setPrefSize(500, 400);
-        com.example.jylos.ui.UiDialogs.show(alert);
+        UiDialogs.show(alert);
     }
 
     void showKeyboardShortcuts() {
@@ -418,7 +425,7 @@ class DialogSupport {
         alert.setContentText(i18n("dialog.shortcuts.content"));
         alert.setResizable(true);
         alert.getDialogPane().setPrefSize(450, 500);
-        com.example.jylos.ui.UiDialogs.show(alert);
+        UiDialogs.show(alert);
     }
 
     void showAbout() {
@@ -474,7 +481,7 @@ class DialogSupport {
         runtimeLabel.setWrapText(true);
         runtimeLabel.setMaxWidth(380);
         runtimeLabel.setAlignment(Pos.CENTER);
-        runtimeLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+        runtimeLabel.setTextAlignment(TextAlignment.CENTER);
         Button copyButton = new Button(i18n("about.copy_info"));
         copyButton.setOnAction(e -> {
             ClipboardContent clip = new ClipboardContent();
@@ -498,7 +505,7 @@ class DialogSupport {
                 AppIconLoader.load().ifPresent(img -> stage.getIcons().add(img));
             }
         });
-        com.example.jylos.ui.UiDialogs.show(dialog);
+        UiDialogs.show(dialog);
     }
 
     private static Hyperlink aboutLink(String text, String url) {
@@ -514,7 +521,7 @@ class DialogSupport {
         dialog.setContentText(i18n("dialog.new_tag.content"));
         dialog.getDialogPane().setMinWidth(380);
 
-        Optional<String> result = com.example.jylos.ui.UiDialogs.show(dialog);
+        Optional<String> result = UiDialogs.show(dialog);
         if (result.isEmpty() || result.get().trim().isEmpty()) {
             return;
         }
@@ -530,7 +537,7 @@ class DialogSupport {
                 alert.setTitle(i18n("dialog.tag_exists.title"));
                 alert.setHeaderText(i18n("dialog.tag_exists.header"));
                 alert.setContentText(i18n("dialog.tag_exists.content"));
-                com.example.jylos.ui.UiDialogs.show(alert);
+                UiDialogs.show(alert);
                 return;
             }
 

@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.ResourceBundle;
 import java.util.Set;
 
 import com.example.jylos.data.models.Note;
@@ -68,7 +69,7 @@ public class CalendarPlugin implements Plugin {
 
     // Loaded once, lazily — getDescription() can be called by the Plugin Manager before
     // initialize() ever runs, so this cannot wait for that.
-    private static java.util.ResourceBundle bundle;
+    private static ResourceBundle bundle;
 
     private static String tr(String key, String fallback) {
         if (bundle == null) {

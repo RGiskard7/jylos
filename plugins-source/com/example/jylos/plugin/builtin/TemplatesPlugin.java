@@ -1,7 +1,11 @@
 package com.example.jylos.plugin.builtin;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.WeekFields;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.ResourceBundle;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.Plugin;
@@ -64,7 +68,7 @@ public class TemplatesPlugin implements Plugin {
     
     // Loaded once, lazily — getDescription() can be called by the Plugin Manager before
     // initialize() ever runs, so this cannot wait for that.
-    private static java.util.ResourceBundle bundle;
+    private static ResourceBundle bundle;
 
     private static String tr(String key, String fallback) {
         if (bundle == null) {
@@ -462,12 +466,12 @@ public class TemplatesPlugin implements Plugin {
      * Processes template content, replacing placeholders.
      */
     private String processTemplateContent(String content, String title) {
-        java.time.LocalDate today = java.time.LocalDate.now();
-        java.time.format.DateTimeFormatter dateFormatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        LocalDate today = LocalDate.now();
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         
         return content
             .replace("{{title}}", title)
             .replace("{{date}}", today.format(dateFormatter))
-            .replace("{{week}}", String.valueOf(today.get(java.time.temporal.WeekFields.ISO.weekOfWeekBasedYear())));
+            .replace("{{week}}", String.valueOf(today.get(WeekFields.ISO.weekOfWeekBasedYear())));
     }
 }

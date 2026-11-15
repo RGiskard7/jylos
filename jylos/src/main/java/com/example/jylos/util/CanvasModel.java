@@ -1,7 +1,15 @@
 package com.example.jylos.util;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -256,7 +264,7 @@ public final class CanvasModel {
         }
 
         /** Applies {@code action} to the node object with the given id, if present. */
-        private void forNode(String id, java.util.function.Consumer<JsonObject> action) {
+        private void forNode(String id, Consumer<JsonObject> action) {
             if (id == null || !root.get("nodes").isJsonArray()) {
                 return;
             }
@@ -335,8 +343,8 @@ public final class CanvasModel {
          * The cards {@code ids} and the edges between them, as a canvas JSON fragment to paste
          * later (also in another canvas). Every field of each card and edge is copied as is.
          */
-        public String copyFragment(java.util.Collection<String> ids) {
-            java.util.Set<String> wanted = new java.util.HashSet<>(ids);
+        public String copyFragment(Collection<String> ids) {
+            Set<String> wanted = new HashSet<>(ids);
             JsonObject fragment = new JsonObject();
             fragment.add("nodes", filtered(root.getAsJsonArray("nodes"), o -> wanted.contains(str(o, "id"))).deepCopy());
             fragment.add("edges", filtered(root.getAsJsonArray("edges"),
@@ -356,7 +364,7 @@ public final class CanvasModel {
             if (fragment == null || !fragment.has("nodes") || !fragment.get("nodes").isJsonArray()) {
                 return List.of();
             }
-            java.util.Map<String, String> newIds = new java.util.LinkedHashMap<>();
+            Map<String, String> newIds = new LinkedHashMap<>();
             List<JsonObject> cards = new ArrayList<>();
             for (JsonElement el : fragment.getAsJsonArray("nodes")) {
                 if (!el.isJsonObject() || str(el.getAsJsonObject(), "id").isEmpty()) {
@@ -394,7 +402,7 @@ public final class CanvasModel {
         }
 
         /** Returns a new array keeping only the object elements that satisfy {@code keep}. */
-        private static JsonArray filtered(JsonArray array, java.util.function.Predicate<JsonObject> keep) {
+        private static JsonArray filtered(JsonArray array, Predicate<JsonObject> keep) {
             JsonArray out = new JsonArray();
             for (JsonElement el : array) {
                 if (el.isJsonObject() && keep.test(el.getAsJsonObject())) {
@@ -405,7 +413,7 @@ public final class CanvasModel {
         }
 
         private static String newId() {
-            return java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+            return UUID.randomUUID().toString().replace("-", "").substring(0, 16);
         }
 
         /** Replaces the whole document from JSON while keeping this mutable wrapper instance alive. */

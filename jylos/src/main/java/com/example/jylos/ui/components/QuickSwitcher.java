@@ -1,5 +1,6 @@
 package com.example.jylos.ui.components;
 
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -373,9 +374,9 @@ public class QuickSwitcher {
         int showing = noteListView.getItems().size();
         int total = allNotes.size();
         if (showing == total) {
-            statusLabel.setText(java.text.MessageFormat.format(i18n("info.notes_count"), total));
+            statusLabel.setText(MessageFormat.format(i18n("info.notes_count"), total));
         } else {
-            statusLabel.setText(java.text.MessageFormat.format(i18n("switcher.notes_filtered"), showing, total));
+            statusLabel.setText(MessageFormat.format(i18n("switcher.notes_filtered"), showing, total));
         }
     }
     

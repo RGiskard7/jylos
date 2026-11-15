@@ -2,6 +2,7 @@ package com.example.jylos.data.dao.filesystem;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -10,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -117,10 +119,10 @@ public final class LinkCache {
                 Files.createDirectories(parent);
             }
             Path temp = file.resolveSibling(file.getFileName() + ".tmp");
-            Files.writeString(temp, GSON.toJson(new java.util.TreeMap<>(entries)), StandardCharsets.UTF_8);
+            Files.writeString(temp, GSON.toJson(new TreeMap<>(entries)), StandardCharsets.UTF_8);
             try {
                 Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+            } catch (AtomicMoveNotSupportedException e) {
                 Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING);
             }
             dirty = false;

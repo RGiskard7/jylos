@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
+import java.util.ResourceBundle;
 
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
@@ -48,7 +49,7 @@ public class DailyNotesPlugin implements Plugin {
 
     // Loaded once, lazily — getDescription() can be called by the Plugin Manager before
     // initialize() ever runs, so this cannot wait for that.
-    private static java.util.ResourceBundle bundle;
+    private static ResourceBundle bundle;
 
     private static String tr(String key, String fallback) {
         if (bundle == null) {

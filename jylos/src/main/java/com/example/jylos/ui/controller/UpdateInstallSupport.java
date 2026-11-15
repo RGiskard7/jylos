@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.GeneralSecurityException;
 import java.text.MessageFormat;
 import java.util.List;
 import java.util.Optional;
@@ -168,7 +169,7 @@ final class UpdateInstallSupport {
                 Platform.runLater(() -> progressDialog.setHeaderText(getString("update.install.verifying")));
                 if (!UpdateInstaller.verifyDigest(destination, asset.digest())) {
                     Files.deleteIfExists(destination);
-                    throw new java.security.GeneralSecurityException("Downloaded update failed checksum verification");
+                    throw new GeneralSecurityException("Downloaded update failed checksum verification");
                 }
                 return destination;
             }
@@ -201,7 +202,7 @@ final class UpdateInstallSupport {
             // Same deferral as setOnSucceeded above, same reason: showError() opens
             // another modal Alert right after this one closes.
             Platform.runLater(() -> {
-                if (ex instanceof java.security.GeneralSecurityException) {
+                if (ex instanceof GeneralSecurityException) {
                     showError(getString("update.install.verify_failed.title"), getString("update.install.verify_failed.content"));
                 } else {
                     showError(getString("update.install.download_failed.title"), getString("update.install.download_failed.content"));

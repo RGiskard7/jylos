@@ -1,5 +1,10 @@
 package com.example.jylos.util;
 
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -7,6 +12,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Map;
@@ -17,6 +23,12 @@ import java.util.function.Predicate;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import javax.imageio.ImageIO;
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.plugin.PreviewContext;
@@ -52,7 +64,7 @@ public class MarkdownPreview {
      */
     private static final String EMOJI_FONT_RESOURCE =
             "/com/example/jylos/ui/preview/fonts/NotoEmoji-Regular.ttf";
-    private static final java.awt.Font EMOJI_AWT_FONT = loadEmojiAwtFont();
+    private static final Font EMOJI_AWT_FONT = loadEmojiAwtFont();
     private static final Map<String, String> EMOJI_CACHE = new ConcurrentHashMap<>();
     private static final Pattern EMOJI_RUN = Pattern.compile(
             "[\\x{1F000}-\\x{1FAFF}\\x{2600}-\\x{27BF}\\x{2B00}-\\x{2BFF}\\x{2300}-\\x{23FF}"
@@ -305,7 +317,7 @@ public class MarkdownPreview {
                 nonce, highlightAsset, highlightScript, mathScript, bodyInjections);
     }
 
-    private static final java.security.SecureRandom NONCE_RANDOM = new java.security.SecureRandom();
+    private static final SecureRandom NONCE_RANDOM = new SecureRandom();
 
     /** A fresh, unguessable CSP nonce for one rendered page. */
     private static String newNonce() {
@@ -610,13 +622,13 @@ public class MarkdownPreview {
     }
 
     /** Loads the bundled emoji font as an AWT font (sized for crisp rasterisation). */
-    private static java.awt.Font loadEmojiAwtFont() {
+    private static Font loadEmojiAwtFont() {
         try (InputStream in = MarkdownPreview.class.getResourceAsStream(EMOJI_FONT_RESOURCE)) {
             if (in == null) {
                 logger.warning("Emoji font asset not found — emojis may not render in the preview");
                 return null;
             }
-            return java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, in).deriveFont(64f);
+            return Font.createFont(Font.TRUETYPE_FONT, in).deriveFont(64f);
         } catch (Exception e) {
             logger.warning("Could not load emoji font: " + e.getMessage());
             return null;
@@ -673,9 +685,9 @@ public class MarkdownPreview {
         try {
             BufferedImage probe = new BufferedImage(1, 1,
                     BufferedImage.TYPE_INT_ARGB);
-            java.awt.Graphics2D pg = probe.createGraphics();
+            Graphics2D pg = probe.createGraphics();
             pg.setFont(EMOJI_AWT_FONT);
-            java.awt.FontMetrics fm = pg.getFontMetrics();
+            FontMetrics fm = pg.getFontMetrics();
             int width = Math.max(1, fm.stringWidth(run));
             int ascent = fm.getAscent();
             int height = Math.max(1, ascent + fm.getDescent());
@@ -684,18 +696,18 @@ public class MarkdownPreview {
             int pad = 4;
             BufferedImage img = new BufferedImage(
                     width + pad * 2, height + pad, BufferedImage.TYPE_INT_ARGB);
-            java.awt.Graphics2D g = img.createGraphics();
-            g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
-                    java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
-            g.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING,
-                    java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            Graphics2D g = img.createGraphics();
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                    RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                    RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             g.setFont(EMOJI_AWT_FONT);
-            g.setColor(dark ? new java.awt.Color(0xE0, 0xE0, 0xE0) : new java.awt.Color(0x24, 0x29, 0x2e));
+            g.setColor(dark ? new Color(0xE0, 0xE0, 0xE0) : new Color(0x24, 0x29, 0x2e));
             g.drawString(run, pad, pad + ascent);
             g.dispose();
 
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            javax.imageio.ImageIO.write(img, "png", baos);
+            ImageIO.write(img, "png", baos);
             return "data:image/png;base64," + Base64.getEncoder().encodeToString(baos.toByteArray());
         } catch (Exception e) {
             logger.fine("Could not rasterise emoji: " + e.getMessage());
@@ -773,9 +785,9 @@ public class MarkdownPreview {
             return bodyHtml;
         }
         try {
-            org.jsoup.nodes.Document doc = org.jsoup.Jsoup.parseBodyFragment(bodyHtml);
+            Document doc = Jsoup.parseBodyFragment(bodyHtml);
             boolean changed = false;
-            for (org.jsoup.nodes.Element img : doc.select("img[src]")) {
+            for (Element img : doc.select("img[src]")) {
                 String src = img.attr("src").trim();
                 if (src.isEmpty() || src.startsWith("data:") || src.startsWith("http://")
                         || src.startsWith("https://") || src.startsWith("file:")) {

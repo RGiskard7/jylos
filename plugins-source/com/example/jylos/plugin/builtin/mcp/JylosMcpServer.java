@@ -1,5 +1,6 @@
 package com.example.jylos.plugin.builtin.mcp;
 
+import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
@@ -105,7 +106,7 @@ final class JylosMcpServer {
 
             Server server = new Server();
             ServerConnector connector = new ServerConnector(server);
-            connector.setHost(java.net.InetAddress.getLoopbackAddress().getHostAddress());
+            connector.setHost(InetAddress.getLoopbackAddress().getHostAddress());
             connector.setPort(port);
             server.addConnector(connector);
 

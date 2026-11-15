@@ -2,6 +2,8 @@ package com.example.jylos.plugin.builtin;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.ResourceBundle;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -55,7 +57,7 @@ public class OutlinePlugin implements Plugin {
 
     // Loaded once, lazily — getDescription() can be called by the Plugin Manager before
     // initialize() ever runs, so this cannot wait for that.
-    private static java.util.ResourceBundle bundle;
+    private static ResourceBundle bundle;
 
     private static String tr(String key, String fallback) {
         if (bundle == null) {
@@ -103,7 +105,7 @@ public class OutlinePlugin implements Plugin {
         
         // Subscribe to note content changes (if available)
         EventBus.Subscription saveSub = context.subscribe(NoteEvents.NoteSavedEvent.class, event -> {
-            if (currentNote != null && java.util.Objects.equals(event.getNote().getId(), currentNote.getId())) {
+            if (currentNote != null && Objects.equals(event.getNote().getId(), currentNote.getId())) {
                 this.currentNote = event.getNote();
                 Platform.runLater(() -> updateOutline(currentNote.getContent()));
             }

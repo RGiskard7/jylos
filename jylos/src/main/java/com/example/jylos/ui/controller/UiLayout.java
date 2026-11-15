@@ -7,75 +7,14 @@ import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.VBox;
 
 /**
- * Encapsulates editor/preview layout modes and side-panel visibility changes.
- *
- * <p>The shell controller owns the FXML nodes; this helper owns only the repeated
- * layout mechanics so panel toggles stay consistent across startup and toolbar
- * commands.</p>
+ * Side-panel visibility changes. The shell controller owns the FXML nodes; this helper
+ * owns only the repeated layout mechanics so panel toggles stay consistent across
+ * startup and toolbar commands.
  *
  * @author Edu Díaz (RGiskard7)
  * @since 2.3.0
  */
 class UiLayout {
-
-    /** Editor surface arrangement selected by the shell. */
-    public enum ViewMode {
-        EDITOR_ONLY,
-        SPLIT,
-        PREVIEW_ONLY
-    }
-
-    /**
-     * Applies one of the three editor surface arrangements.
-     */
-    public void applyViewMode(
-            ViewMode mode,
-            SplitPane editorPreviewSplitPane,
-            VBox editorPane,
-            VBox previewPane,
-            Runnable updatePreviewAction) {
-        if (editorPreviewSplitPane == null || editorPane == null || previewPane == null || mode == null) {
-            return;
-        }
-
-        switch (mode) {
-            case EDITOR_ONLY:
-                UiNodes.show(editorPane, true);
-                UiNodes.show(previewPane, false);
-                if (editorPreviewSplitPane.getItems().contains(previewPane)) {
-                    editorPreviewSplitPane.getItems().remove(previewPane);
-                }
-                if (!editorPreviewSplitPane.getItems().contains(editorPane)) {
-                    editorPreviewSplitPane.getItems().add(editorPane);
-                }
-                break;
-            case PREVIEW_ONLY:
-                UiNodes.show(editorPane, false);
-                UiNodes.show(previewPane, true);
-                if (editorPreviewSplitPane.getItems().contains(editorPane)) {
-                    editorPreviewSplitPane.getItems().remove(editorPane);
-                }
-                if (!editorPreviewSplitPane.getItems().contains(previewPane)) {
-                    editorPreviewSplitPane.getItems().add(previewPane);
-                }
-                if (updatePreviewAction != null) {
-                    updatePreviewAction.run();
-                }
-                break;
-            case SPLIT:
-            default:
-                UiNodes.show(editorPane, true);
-                UiNodes.show(previewPane, true);
-                editorPreviewSplitPane.getItems().clear();
-                editorPreviewSplitPane.getItems().addAll(editorPane, previewPane);
-                editorPreviewSplitPane.setDividerPositions(0.5);
-                if (updatePreviewAction != null) {
-                    updatePreviewAction.run();
-                }
-                break;
-        }
-
-    }
 
     /**
      * Opens or collapses the right panel without recreating it, preserving plugin

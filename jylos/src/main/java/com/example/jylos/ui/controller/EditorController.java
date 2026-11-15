@@ -36,7 +36,6 @@ import com.example.jylos.service.CanvasReferences;
 import com.example.jylos.service.EncryptionService;
 import com.example.jylos.service.FileFingerprint;
 import com.example.jylos.service.NoteService;
-import com.example.jylos.service.RichLinkService;
 import com.example.jylos.service.TagService;
 import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.ui.UiNodes;
@@ -48,11 +47,11 @@ import com.example.jylos.ui.web.JavaFxHtmlView;
 import com.example.jylos.util.AttachmentType;
 import com.example.jylos.util.CanvasModel;
 import com.example.jylos.util.MarkdownPreview;
-import com.example.jylos.util.RichLinks;
 import com.example.jylos.util.SystemBrowser;
 
 import javafx.application.Platform;
-import javafx.concurrent.Task;
+import javafx.beans.property.ReadOnlyObjectProperty;
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
@@ -66,7 +65,6 @@ import javafx.scene.control.OverrunStyle;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
-import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.MouseEvent;
@@ -107,6 +105,15 @@ public class EditorController implements PreviewEnhancerRegistry,
     private Consumer<Boolean> livePreviewPreferenceAction = enabled -> {
     };
 
+    /** How the note is shown: as source, side by side with the reading view, or only read. */
+    public enum ViewMode {
+        EDITOR_ONLY,
+        SPLIT,
+        PREVIEW_ONLY
+    }
+
+    private final ReadOnlyObjectWrapper<ViewMode> viewMode = new ReadOnlyObjectWrapper<>(ViewMode.EDITOR_ONLY);
+
     /** Obsidian-style centered content column, toggled from Preferences. */
     private boolean readableLineLength = false;
     /** Editor/preview font size, independent from the native JavaFX chrome's own font size. */
@@ -136,7 +143,9 @@ public class EditorController implements PreviewEnhancerRegistry,
     private Consumer<String> tagLinkHandler;
     /** The reading view: renders, scroll, heading jumps, its page bridge and plugin enhancers. */
     private final EditorPreviewSupport preview = new EditorPreviewSupport(new PreviewHost());
-    private final RichLinkService richLinkService = new RichLinkService();
+    /** Bold, headings, lists, and the link and image dialogs. */
+    private final EditorFormattingSupport formatting = new EditorFormattingSupport(() -> this.noteContentArea,
+            this::applyInsertHooks, this::reevaluateModifiedState, this::getString);
     private CanvasView currentCanvasView;
     private Path currentCanvasPath;
     private DocumentFingerprint currentCanvasFingerprint;
@@ -387,40 +396,35 @@ public class EditorController implements PreviewEnhancerRegistry,
             noteTitleField.selectAll();
         }
     }
-    public ToggleButton    getToggleTagsBtn()           { return toggleTagsBtn; }
-    public VBox            getTagsContainer()           { return tagsContainer; }
     public Label           getModifiedDateLabel()       { return modifiedDateLabel; }
-    public SplitPane       getEditorPreviewSplitPane()  { return editorPreviewSplitPane; }
-    public VBox            getEditorPane()              { return editorPane; }
-    public VBox            getPreviewPane()             { return previewPane; }
     public HtmlView getPreviewWebView() { return previewWebView; }
 
     // ── FXML action handlers ─────────────────────────────────────────────────
 
-    @FXML private void handleToggleTags(ActionEvent e)        { publish(SystemActionEvent.ActionType.TOGGLE_TAGS); }
-    @FXML private void handleToggleReadingMode(ActionEvent e) { publish(SystemActionEvent.ActionType.TOGGLE_READING_MODE); }
+    @FXML private void handleToggleTags(ActionEvent e)        { showTagsBar(toggleTagsBtn.isSelected()); }
+    @FXML private void handleToggleReadingMode(ActionEvent e) { toggleReadingMode(); }
     @FXML private void handleTogglePin(ActionEvent e)         { publish(SystemActionEvent.ActionType.TOGGLE_PIN); }
     @FXML private void handleFocusMode(ActionEvent e)         { publish(SystemActionEvent.ActionType.FOCUS_MODE); }
-    @FXML private void handleSave(ActionEvent e)               { publish(SystemActionEvent.ActionType.SAVE); }
+    @FXML private void handleSave(ActionEvent e)               { handleSave(); }
     @FXML private void handleDelete(ActionEvent e)             { publish(SystemActionEvent.ActionType.DELETE); }
     @FXML private void handleToggleFavorite(ActionEvent e)    { publish(SystemActionEvent.ActionType.TOGGLE_FAVORITE); }
     @FXML private void handleToggleRightPanel(ActionEvent e)  { publish(SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL); }
-    @FXML private void handleHeading1(ActionEvent e)          { publish(SystemActionEvent.ActionType.HEADING1); }
-    @FXML private void handleHeading2(ActionEvent e)          { publish(SystemActionEvent.ActionType.HEADING2); }
-    @FXML private void handleHeading3(ActionEvent e)          { publish(SystemActionEvent.ActionType.HEADING3); }
-    @FXML private void handleBold(ActionEvent e)              { publish(SystemActionEvent.ActionType.BOLD); }
-    @FXML private void handleItalic(ActionEvent e)            { publish(SystemActionEvent.ActionType.ITALIC); }
-    @FXML private void handleStrike(ActionEvent e)            { publish(SystemActionEvent.ActionType.STRIKE); }
-    @FXML private void handleUnderline(ActionEvent e)         { publish(SystemActionEvent.ActionType.UNDERLINE); }
-    @FXML private void handleHighlight(ActionEvent e)         { publish(SystemActionEvent.ActionType.HIGHLIGHT); }
-    @FXML private void handleLink(ActionEvent e)              { publish(SystemActionEvent.ActionType.LINK); }
-    @FXML private void handleRichLink(ActionEvent e)          { publish(SystemActionEvent.ActionType.RICH_LINK); }
-    @FXML private void handleImage(ActionEvent e)             { publish(SystemActionEvent.ActionType.IMAGE); }
-    @FXML private void handleTodoList(ActionEvent e)          { publish(SystemActionEvent.ActionType.TODO_LIST); }
-    @FXML private void handleBulletList(ActionEvent e)        { publish(SystemActionEvent.ActionType.BULLET_LIST); }
-    @FXML private void handleNumberedList(ActionEvent e)      { publish(SystemActionEvent.ActionType.NUMBERED_LIST); }
-    @FXML private void handleQuote(ActionEvent e)             { publish(SystemActionEvent.ActionType.QUOTE); }
-    @FXML private void handleCode(ActionEvent e)              { publish(SystemActionEvent.ActionType.CODE); }
+    @FXML private void handleHeading1(ActionEvent e)          { applyFormat(SystemActionEvent.ActionType.HEADING1); }
+    @FXML private void handleHeading2(ActionEvent e)          { applyFormat(SystemActionEvent.ActionType.HEADING2); }
+    @FXML private void handleHeading3(ActionEvent e)          { applyFormat(SystemActionEvent.ActionType.HEADING3); }
+    @FXML private void handleBold(ActionEvent e)              { applyFormat(SystemActionEvent.ActionType.BOLD); }
+    @FXML private void handleItalic(ActionEvent e)            { applyFormat(SystemActionEvent.ActionType.ITALIC); }
+    @FXML private void handleStrike(ActionEvent e)            { applyFormat(SystemActionEvent.ActionType.STRIKE); }
+    @FXML private void handleUnderline(ActionEvent e)         { applyFormat(SystemActionEvent.ActionType.UNDERLINE); }
+    @FXML private void handleHighlight(ActionEvent e)         { applyFormat(SystemActionEvent.ActionType.HIGHLIGHT); }
+    @FXML private void handleLink(ActionEvent e)              { applyFormat(SystemActionEvent.ActionType.LINK); }
+    @FXML private void handleRichLink(ActionEvent e)          { applyFormat(SystemActionEvent.ActionType.RICH_LINK); }
+    @FXML private void handleImage(ActionEvent e)             { applyFormat(SystemActionEvent.ActionType.IMAGE); }
+    @FXML private void handleTodoList(ActionEvent e)          { applyFormat(SystemActionEvent.ActionType.TODO_LIST); }
+    @FXML private void handleBulletList(ActionEvent e)        { applyFormat(SystemActionEvent.ActionType.BULLET_LIST); }
+    @FXML private void handleNumberedList(ActionEvent e)      { applyFormat(SystemActionEvent.ActionType.NUMBERED_LIST); }
+    @FXML private void handleQuote(ActionEvent e)             { applyFormat(SystemActionEvent.ActionType.QUOTE); }
+    @FXML private void handleCode(ActionEvent e)              { applyFormat(SystemActionEvent.ActionType.CODE); }
 
     /** Back arrow — delegates history logic to MainController via EventBus. */
     @FXML private void handleNavigateBack(ActionEvent e)    { publish(SystemActionEvent.ActionType.NAVIGATE_BACK); }
@@ -442,14 +446,71 @@ public class EditorController implements PreviewEnhancerRegistry,
         properties.addProperty();
     }
 
+    /** The view mode; the window listens to it to show the mode in the status bar. */
+    public ReadOnlyObjectProperty<ViewMode> viewModeProperty() {
+        return viewMode.getReadOnlyProperty();
+    }
+
+    public ViewMode getViewMode() {
+        return viewMode.get();
+    }
+
+    /**
+     * Shows the note as source, as the reading view, or both side by side. The reading view
+     * is read-only.
+     *
+     * @param mode the view mode; {@code null} is ignored
+     */
+    public void setViewMode(ViewMode mode) {
+        if (mode == null) {
+            return;
+        }
+        layoutPanes(mode);
+        if (mode != ViewMode.EDITOR_ONLY && isPreviewVisible()) {
+            refreshPreview(preview.lastDarkTheme());
+        }
+        setReadOnlyView(mode == ViewMode.PREVIEW_ONLY);
+        updateReadingModeControl(mode == ViewMode.EDITOR_ONLY);
+        viewMode.set(mode);
+    }
+
+    /** Switches between editing and the reading view; from the split view, back to editing. */
+    public void toggleReadingMode() {
+        ViewMode next = getViewMode() == ViewMode.EDITOR_ONLY ? ViewMode.PREVIEW_ONLY : ViewMode.EDITOR_ONLY;
+        setViewMode(next);
+        statusAction.accept(next == ViewMode.EDITOR_ONLY
+                ? getString("status.mode_editor", "Editing view")
+                : getString("status.mode_preview", "Reading view"));
+    }
+
+    /** Puts the source pane, the reading pane or both in the editor's split pane. */
+    private void layoutPanes(ViewMode mode) {
+        if (editorPreviewSplitPane == null || editorPane == null || previewPane == null) {
+            return;
+        }
+        boolean source = mode != ViewMode.PREVIEW_ONLY;
+        boolean reading = mode != ViewMode.EDITOR_ONLY;
+        UiNodes.show(editorPane, source);
+        UiNodes.show(previewPane, reading);
+        editorPreviewSplitPane.getItems().clear();
+        if (source) {
+            editorPreviewSplitPane.getItems().add(editorPane);
+        }
+        if (reading) {
+            editorPreviewSplitPane.getItems().add(previewPane);
+        }
+        if (mode == ViewMode.SPLIT) {
+            editorPreviewSplitPane.setDividerPositions(0.5);
+        }
+    }
+
     /**
      * Switches the properties panel between editable and read-only presentations.
-     * Called by {@link MainController} when the editor view mode changes
-     * (preview-only = read-only).
+     * Set with the view mode (preview-only = read-only).
      *
      * @param readOnly {@code true} for the "read" view
      */
-    public void setReadOnlyView(boolean readOnly) {
+    void setReadOnlyView(boolean readOnly) {
         if (this.readOnlyView == readOnly) {
             return;
         }
@@ -475,6 +536,7 @@ public class EditorController implements PreviewEnhancerRegistry,
     @FXML
     private void initialize() {
         setNoteOpen(false);
+        setViewMode(viewMode.get());
         // Live Preview shows a note embedded on its own line rendered, as the reading view does.
         blockRenderSupport.setEmbedRenderer(preview::renderEditorEmbed);
         if (noteContentArea != null) {
@@ -571,7 +633,7 @@ public class EditorController implements PreviewEnhancerRegistry,
     }
 
     /** Updates the single book/pencil action to reflect the visible editor layout. */
-    public void updateReadingModeControl(boolean editingOnly) {
+    private void updateReadingModeControl(boolean editingOnly) {
         if (readingModeIcon != null) {
             readingModeIcon.setIconLiteral(editingOnly ? "fth-book-open" : "fth-edit-3");
         }
@@ -1185,26 +1247,13 @@ public class EditorController implements PreviewEnhancerRegistry,
     private void subscribeToEvents() {
         if (eventBus == null) return;
 
+        // The toolbar's Save and plugins reach the editor through the bus; the editor's own
+        // buttons and the palette call it directly.
         subscriptions.add(eventBus.subscribe(SystemActionEvent.class, event -> Platform.runLater(() -> {
-            switch (event.getActionType()) {
-                case BOLD      -> insertMarkdownFormat("**", "**");
-                case ITALIC    -> insertMarkdownFormat("*", "*");
-                case UNDERLINE -> insertMarkdownFormat("<u>", "</u>");
-                case STRIKE    -> insertMarkdownFormat("~~", "~~");
-                case HIGHLIGHT -> insertMarkdownFormat("==", "==");
-                case HEADING1  -> insertLinePrefix("# ");
-                case HEADING2  -> insertLinePrefix("## ");
-                case HEADING3  -> insertLinePrefix("### ");
-                case BULLET_LIST   -> insertLinePrefix("- ");
-                case NUMBERED_LIST -> insertLinePrefix("1. ");
-                case TODO_LIST -> insertTodoList();
-                case QUOTE     -> insertLinePrefix("> ");
-                case CODE      -> insertCodeBlock();
-                case LINK      -> handleLinkDialog();
-                case RICH_LINK -> handleRichLinkDialog();
-                case IMAGE     -> handleImageDialog();
-                case SAVE      -> handleSave();
-                default        -> { /* not handled here */ }
+            if (event.getActionType() == SystemActionEvent.ActionType.SAVE) {
+                handleSave();
+            } else {
+                applyFormat(event.getActionType());
             }
         })));
 
@@ -1246,159 +1295,17 @@ public class EditorController implements PreviewEnhancerRegistry,
         subscriptions.clear();
     }
 
-    // ── Markdown formatting ──────────────────────────────────────────────────
-
-    private void insertMarkdownFormat(String prefix, String suffix) {
-        if (noteContentArea == null) return;
-        String sel = noteContentArea.getSelectedText();
-        if (sel != null && !sel.isEmpty()) {
-            noteContentArea.replaceSelection(prefix + sel + suffix);
-        } else {
-            noteContentArea.replaceSelection(prefix + suffix, prefix.length());
-        }
-        noteContentArea.requestFocus();
-        reevaluateModifiedState();
-    }
-
-    private void insertLinePrefix(String prefix) {
-        if (noteContentArea == null) return;
-        int pos = noteContentArea.getCaretPosition();
-        String t = orEmpty(noteContentArea.getText());
-        int lineStart = t.lastIndexOf('\n', pos - 1) + 1;
-        if (t.substring(lineStart, pos).trim().isEmpty() && lineStart == pos) {
-            noteContentArea.replaceRange(pos, pos, prefix, pos + prefix.length());
-        } else {
-            String insertion = "\n" + prefix;
-            noteContentArea.replaceRange(pos, pos, insertion, pos + insertion.length());
-        }
-        noteContentArea.requestFocus();
-        reevaluateModifiedState();
-    }
-
-    private void insertTodoList() {
-        if (noteContentArea == null) return;
-        int pos = noteContentArea.getCaretPosition();
-        String t = orEmpty(noteContentArea.getText());
-        String item = applyInsertHooks("- [ ] ");
-        int lineStart = t.lastIndexOf('\n', pos - 1) + 1;
-        if (t.substring(lineStart, pos).trim().isEmpty()) {
-            noteContentArea.replaceRange(pos, pos, item, pos + item.length());
-        } else {
-            String insertion = "\n" + item;
-            noteContentArea.replaceRange(pos, pos, insertion, pos + insertion.length());
-        }
-        noteContentArea.requestFocus();
-        reevaluateModifiedState();
-    }
-
-    // Always inserts a fenced code block, matching the toolbar tooltip
-    // ("Code block") — inline code has its own affordance via backticks typed
-    // directly, so this button no longer silently falls back to inline code
-    // for a single-line or empty selection.
-    private void insertCodeBlock() {
-        if (noteContentArea == null) return;
-        String sel = noteContentArea.getSelectedText();
-        if (sel != null && !sel.isEmpty()) {
-            noteContentArea.replaceSelection("```\n" + sel + "\n```");
-        } else {
-            String insertion = "```\n\n```";
-            noteContentArea.replaceSelection(insertion, 4);
-        }
-        noteContentArea.requestFocus();
-        reevaluateModifiedState();
-    }
-
-    private void handleLinkDialog() {
-        if (noteContentArea == null) return;
-        TextInputDialog d = new TextInputDialog(getString("dialog.link.default_url", "https://"));
-        d.setTitle(getString("dialog.link.title", "Insert Link"));
-        d.setHeaderText(getString("dialog.link.header", "Enter URL:"));
-        d.setContentText(getString("dialog.link.content", "URL:"));
-        UiDialogs.show(d).filter(s -> !s.trim().isEmpty()).ifPresent(url -> {
-            String sel = noteContentArea.getSelectedText();
-            String label = (sel != null && !sel.isEmpty()) ? sel
-                    : getString("dialog.link.default_text", "link text");
-            String link = applyInsertHooks("[" + label + "](" + url.trim() + ")");
-            if (sel != null && !sel.isEmpty()) noteContentArea.replaceSelection(link);
-            else {
-                int pos = noteContentArea.getCaretPosition();
-                noteContentArea.replaceRange(pos, pos, link, pos + link.length());
-            }
-            noteContentArea.requestFocus();
-            reevaluateModifiedState();
-        });
-    }
+    // ── Editor commands (called from other controllers) ──────────────────────
 
     /**
-     * Prompts for a URL, fetches its metadata off the FX thread, and inserts a
-     * {@code ::: rich-link} block at the caret. Fetching never blocks the UI; on any
-     * failure the service returns a minimal card (URL + host) so a block is still
-     * inserted.
+     * Applies a formatting action (bold, a heading, a list, a link…) to the open note at the
+     * cursor or selection. Other action types are ignored.
+     *
+     * @param type the formatting action
      */
-    private void handleRichLinkDialog() {
-        if (noteContentArea == null) return;
-        TextInputDialog d = new TextInputDialog("https://");
-        d.setTitle(getString("dialog.rich_link.title", "Insert rich link"));
-        d.setHeaderText(getString("dialog.rich_link.header", "Paste a URL:"));
-        d.setContentText(getString("dialog.rich_link.content", "URL:"));
-        UiDialogs.show(d)
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .ifPresent(this::fetchAndInsertRichLink);
+    public void applyFormat(SystemActionEvent.ActionType type) {
+        formatting.apply(type);
     }
-
-    private void fetchAndInsertRichLink(String url) {
-        Task<RichLinks.RichLink> task = new Task<>() {
-            @Override
-            protected RichLinks.RichLink call() {
-                return richLinkService.fetch(url);
-            }
-        };
-        task.setOnSucceeded(e -> insertRichLinkBlock(task.getValue()));
-        task.setOnFailed(e -> insertRichLinkBlock(
-                new RichLinks.RichLink(url, "", "", "", RichLinks.hostOf(url))));
-        Thread thread = new Thread(task, "rich-link-fetch");
-        thread.setDaemon(true);
-        thread.start();
-    }
-
-    /** Inserts the rich-link block on its own paragraph at the caret. */
-    private void insertRichLinkBlock(RichLinks.RichLink link) {
-        if (noteContentArea == null || link == null) return;
-        String block = RichLinks.toMarkdown(link);
-        int pos = noteContentArea.getCaretPosition();
-        String text = orEmpty(noteContentArea.getText());
-        String before = text.substring(0, pos);
-        // Keep the block as its own paragraph (CommonMark needs a blank line around it).
-        String lead = before.isEmpty() || before.endsWith("\n\n") ? "" : before.endsWith("\n") ? "\n" : "\n\n";
-        String insertion = lead + block + "\n";
-        noteContentArea.replaceRange(pos, pos, insertion, pos + insertion.length());
-        noteContentArea.requestFocus();
-        reevaluateModifiedState();
-    }
-
-    private void handleImageDialog() {
-        if (noteContentArea == null) return;
-        TextInputDialog d = new TextInputDialog("");
-        d.setTitle(getString("dialog.image.title", "Insert Image"));
-        d.setHeaderText(getString("dialog.image.header", "Enter image URL or path:"));
-        d.setContentText(getString("dialog.image.content", "Image:"));
-        UiDialogs.show(d).filter(s -> !s.trim().isEmpty()).ifPresent(path -> {
-            String sel = noteContentArea.getSelectedText();
-            String alt = (sel != null && !sel.isEmpty()) ? sel
-                    : getString("dialog.image.default_alt", "image");
-            String img = applyInsertHooks("![" + alt + "](" + path.trim() + ")");
-            if (sel != null && !sel.isEmpty()) noteContentArea.replaceSelection(img);
-            else {
-                int pos = noteContentArea.getCaretPosition();
-                noteContentArea.replaceRange(pos, pos, img, pos + img.length());
-            }
-            noteContentArea.requestFocus();
-            reevaluateModifiedState();
-        });
-    }
-
-    // ── Editor commands (called from other controllers) ──────────────────────
 
     // ── Tag management & metadata (called from MainController) ───────────────
 
@@ -1549,6 +1456,7 @@ public class EditorController implements PreviewEnhancerRegistry,
 
     /** Applies the active JavaFX theme values inside the embedded editor page. */
     public void applyEditorTheme(boolean darkTheme, String accentColor) {
+        preview.setDarkTheme(darkTheme);
         if (noteContentArea != null) {
             noteContentArea.setEditorTheme(darkTheme, accentColor);
         }
@@ -1560,6 +1468,24 @@ public class EditorController implements PreviewEnhancerRegistry,
         }
         if (tagsContainer != null) {
             UiNodes.show(tagsContainer, false);
+        }
+    }
+
+    /** Opens the tags bar if it is closed and closes it if it is open (the palette's "Toggle tags"). */
+    public void toggleTagsBar() {
+        if (tagsContainer != null) {
+            showTagsBar(!tagsContainer.isVisible());
+        }
+    }
+
+    private void showTagsBar(boolean show) {
+        if (toggleTagsBtn != null) {
+            toggleTagsBtn.setSelected(show);
+        }
+        if (tagsContainer != null) {
+            UiNodes.show(tagsContainer, show);
+            statusAction.accept(show ? getString("status.tags_bar_shown", "Tags bar shown")
+                    : getString("status.tags_bar_hidden", "Tags bar hidden"));
         }
     }
 
@@ -1723,10 +1649,6 @@ public class EditorController implements PreviewEnhancerRegistry,
                 tagLinkHandler.accept(tag);
             }
         }
-    }
-
-    public void publishAction(EventBus bus, SystemActionEvent.ActionType type) {
-        if (bus != null && type != null) bus.publish(new SystemActionEvent(type));
     }
 
     // ── Private utilities ────────────────────────────────────────────────────

@@ -1,5 +1,11 @@
 package com.example.jylos.data.dao.filesystem;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+
 import com.example.jylos.data.dao.interfaces.EncryptionKeyDAO;
 import com.example.jylos.data.dao.interfaces.FactoryDAO;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
@@ -28,7 +34,7 @@ public class FactoryDAOFileSystem extends FactoryDAO {
         this.noteDAO = new NoteDAOFileSystem(rootDirectory, true, linkCacheFile(rootDirectory));
         this.folderDAO = new FolderDAOFileSystem(rootDirectory);
         this.tagDAO = new TagDAOFileSystem(this.noteDAO);
-        this.encryptionKeyDAO = new EncryptionKeyDAOFileSystem(java.nio.file.Path.of(rootDirectory));
+        this.encryptionKeyDAO = new EncryptionKeyDAOFileSystem(Path.of(rootDirectory));
     }
 
     /**
@@ -36,15 +42,15 @@ public class FactoryDAOFileSystem extends FactoryDAO {
      * cache folder, named after a hash of the vault path (as Obsidian keeps its index outside
      * the vault, so nothing is added to the user's notes folder).
      */
-    static java.nio.file.Path linkCacheFile(String rootDirectory) {
+    static Path linkCacheFile(String rootDirectory) {
         try {
-            String key = java.nio.file.Path.of(rootDirectory).toAbsolutePath().normalize().toString();
-            byte[] hash = java.security.MessageDigest.getInstance("SHA-256")
-                    .digest(key.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            String name = java.util.HexFormat.of().formatHex(hash, 0, 8) + ".json";
-            return java.nio.file.Path.of(com.example.jylos.AppDataDirectory.layout().cacheDir().toString(),
+            String key = Path.of(rootDirectory).toAbsolutePath().normalize().toString();
+            byte[] hash = MessageDigest.getInstance("SHA-256")
+                    .digest(key.getBytes(StandardCharsets.UTF_8));
+            String name = HexFormat.of().formatHex(hash, 0, 8) + ".json";
+            return Path.of(com.example.jylos.AppDataDirectory.layout().cacheDir().toString(),
                     "links", name);
-        } catch (java.security.NoSuchAlgorithmException | RuntimeException e) {
+        } catch (NoSuchAlgorithmException | RuntimeException e) {
             return null;
         }
     }

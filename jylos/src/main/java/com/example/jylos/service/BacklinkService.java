@@ -3,15 +3,22 @@ package com.example.jylos.service;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiFunction;
+import java.util.function.BooleanSupplier;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
+import com.example.jylos.util.AttachmentType;
 import com.example.jylos.util.WikiLinkResolver;
 
 /**
@@ -58,7 +65,7 @@ public class BacklinkService {
     /** True once the whole current vault snapshot has been indexed. */
     private volatile boolean fullIndexBuilt;
     /** Bumped whenever {@link #forward} changes, so the inverse map knows it is stale. */
-    private final java.util.concurrent.atomic.AtomicLong forwardRevision = new java.util.concurrent.atomic.AtomicLong();
+    private final AtomicLong forwardRevision = new AtomicLong();
     private Inverse inverse;
 
     private record CachedLinks(String modified, List<String> links) {
@@ -170,7 +177,7 @@ public class BacklinkService {
      * linking it, with each mention. Reads every note in full, so it is meant for a
      * background thread; {@code cancelled} is polled between notes.
      */
-    public List<LinkGroup> unlinkedMentions(Note target, java.util.function.BooleanSupplier cancelled) {
+    public List<LinkGroup> unlinkedMentions(Note target, BooleanSupplier cancelled) {
         if (target == null || target.getId() == null || target.getTitle() == null || target.getTitle().isBlank()) {
             return List.of();
         }
@@ -183,8 +190,8 @@ public class BacklinkService {
                 return List.of();
             }
             if (candidate == null || candidate.getId() == null || candidate.getId().equals(target.getId())
-                    || com.example.jylos.util.AttachmentType.fromName(candidate.getId())
-                            != com.example.jylos.util.AttachmentType.MARKDOWN) {
+                    || AttachmentType.fromName(candidate.getId())
+                            != AttachmentType.MARKDOWN) {
                 continue;
             }
             Note full = noteService.getNoteById(candidate.getId()).orElse(null);
@@ -210,12 +217,12 @@ public class BacklinkService {
         }
         Note full = noteService.getNoteById(note.getId()).orElse(note);
         LinkIndex links = noteService.linkIndex();
-        java.util.Map<String, int[]> counts = new java.util.LinkedHashMap<>();
-        java.util.Map<String, String> names = new java.util.HashMap<>();
-        java.util.Map<String, String> ids = new java.util.HashMap<>();
+        Map<String, int[]> counts = new LinkedHashMap<>();
+        Map<String, String> names = new HashMap<>();
+        Map<String, String> ids = new HashMap<>();
         for (LinkOccurrences.Occurrence o : LinkOccurrences.links(full.getContent())) {
-            java.util.Optional<String> id = links.resolveId(o.target(), full.getId());
-            String key = id.map(i -> "id:" + i).orElse("name:" + o.target().toLowerCase(java.util.Locale.ROOT));
+            Optional<String> id = links.resolveId(o.target(), full.getId());
+            String key = id.map(i -> "id:" + i).orElse("name:" + o.target().toLowerCase(Locale.ROOT));
             counts.computeIfAbsent(key, k -> new int[1])[0]++;
             names.putIfAbsent(key, WikiLinkResolver.extractTitle(o.target()));
             id.ifPresent(i -> ids.putIfAbsent(key, i));
@@ -254,7 +261,7 @@ public class BacklinkService {
         if (!links.resolveId(title, sourceNoteId).filter(target.getId()::equals).isPresent()) {
             String path = links.pathOf(target.getId());
             if (path != null) {
-                link = path.toLowerCase(java.util.Locale.ROOT).endsWith(".md")
+                link = path.toLowerCase(Locale.ROOT).endsWith(".md")
                         ? path.substring(0, path.length() - 3) : path;
             }
         }
@@ -303,7 +310,7 @@ public class BacklinkService {
             return current.byTarget();
         }
         Map<String, Set<String>> byTarget = new HashMap<>();
-        java.util.function.BiFunction<String, String, java.util.Optional<String>> resolve = links.batchResolver();
+        BiFunction<String, String, Optional<String>> resolve = links.batchResolver();
         forward.forEach((sourceId, cached) -> {
             for (String link : cached.links()) {
                 resolve.apply(link, sourceId)

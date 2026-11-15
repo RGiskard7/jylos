@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- **El comando de la paleta que muestra u oculta la barra de etiquetas (Toggle Tags Panel) funciona**, y el botón de etiquetas de la cabecera queda pulsado o no según corresponda. Antes no hacía nada.
 - **La ventana responde antes al arrancar**: el servidor MCP ya no arranca en el hilo de la interfaz, que quedaba bloqueado medio segundo justo después de abrirse la ventana.
 - **Si el disco o la base de datos rechaza un cambio, Jylos lo dice** (mover una nota o carpeta, renombrarla, mandarla a la papelera, restaurarla o borrarla para siempre). Antes, en algunos casos el cambio no se hacía pero parecía hecho, por ejemplo en una carpeta de solo lectura.
 - **Publicar el vault enlaza a la nota que nombra cada enlace por su ruta**: con dos notas llamadas igual en carpetas distintas, `[[Reunión]]` lleva a la de su carpeta y `[[Personal/Reunión]]` a esa, como en la app. Antes un enlace con carpeta quedaba muerto y uno sin carpeta podía llevar a la otra.

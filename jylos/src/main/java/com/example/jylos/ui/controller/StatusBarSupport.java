@@ -78,11 +78,11 @@ final class StatusBarSupport {
         }
 
         /** Reading and split render the note, so the editing preference only matters in the editor. */
-        static EditorMode of(UiLayout.ViewMode viewMode, boolean livePreview) {
-            if (viewMode == UiLayout.ViewMode.PREVIEW_ONLY) {
+        static EditorMode of(EditorController.ViewMode viewMode, boolean livePreview) {
+            if (viewMode == EditorController.ViewMode.PREVIEW_ONLY) {
                 return READING;
             }
-            if (viewMode == UiLayout.ViewMode.SPLIT) {
+            if (viewMode == EditorController.ViewMode.SPLIT) {
                 return SPLIT;
             }
             return livePreview ? LIVE_PREVIEW : SOURCE;

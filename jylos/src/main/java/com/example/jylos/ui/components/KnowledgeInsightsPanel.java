@@ -1,6 +1,7 @@
 package com.example.jylos.ui.components;
 
 import java.text.MessageFormat;
+import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -12,18 +13,23 @@ import com.example.jylos.insights.KnowledgeInsightsService;
 import com.example.jylos.insights.NoteConnectivityInfo;
 import com.example.jylos.ui.UiDialogs;
 
+import javafx.beans.property.ReadOnlyObjectWrapper;
+import javafx.beans.property.SimpleIntegerProperty;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
@@ -145,7 +151,7 @@ public final class KnowledgeInsightsPanel {
         table.getColumns().add(column("insights.col_inbound", NoteConnectivityInfo::inbound, 70));
         table.getColumns().add(column("insights.col_outbound", NoteConnectivityInfo::outbound, 70));
         TableColumn<NoteConnectivityInfo, Integer> totalCol = new TableColumn<>(str("insights.col_total"));
-        totalCol.setCellValueFactory(c -> new javafx.beans.property.SimpleIntegerProperty(
+        totalCol.setCellValueFactory(c -> new SimpleIntegerProperty(
                 c.getValue().total()).asObject());
         totalCol.setPrefWidth(70);
         table.getColumns().add(totalCol);
@@ -174,11 +180,11 @@ public final class KnowledgeInsightsPanel {
         return wrapTable(table);
     }
 
-    private VBox noteListTab(java.util.List<NoteRef> refs, String emptyKey) {
+    private VBox noteListTab(List<NoteRef> refs, String emptyKey) {
         ListView<NoteRef> list = new ListView<>();
         list.getItems().setAll(refs);
         list.setPlaceholder(new Label(str(emptyKey)));
-        list.setCellFactory(lv -> new javafx.scene.control.ListCell<>() {
+        list.setCellFactory(lv -> new ListCell<>() {
             @Override
             protected void updateItem(NoteRef ref, boolean empty) {
                 super.updateItem(ref, empty);
@@ -201,14 +207,14 @@ public final class KnowledgeInsightsPanel {
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private Tab tab(String key, javafx.scene.Node body) {
+    private Tab tab(String key, Node body) {
         Tab t = new Tab(str(key), body);
         return t;
     }
 
     private <T, V> TableColumn<T, V> column(String headerKey, Function<T, V> valueOf, double width) {
         TableColumn<T, V> col = new TableColumn<>(str(headerKey));
-        col.setCellValueFactory(cell -> new javafx.beans.property.ReadOnlyObjectWrapper<>(valueOf.apply(cell.getValue())));
+        col.setCellValueFactory(cell -> new ReadOnlyObjectWrapper<>(valueOf.apply(cell.getValue())));
         col.setPrefWidth(width);
         return col;
     }
@@ -216,7 +222,7 @@ public final class KnowledgeInsightsPanel {
     /** Wires double-click on a table row to open the note returned by {@code idOf}. */
     private <T> void onRowOpen(TableView<T> table, Function<T, String> idOf) {
         table.setRowFactory(tv -> {
-            javafx.scene.control.TableRow<T> row = new javafx.scene.control.TableRow<>();
+            TableRow<T> row = new TableRow<>();
             row.setOnMouseClicked(e -> {
                 if (e.getClickCount() == 2 && !row.isEmpty()) {
                     open(idOf.apply(row.getItem()));

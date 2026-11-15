@@ -1,5 +1,6 @@
 package com.example.jylos.ui.controller;
 
+import java.text.MessageFormat;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -222,7 +223,7 @@ public final class WorkspaceController {
     }
 
     private String format(String key, Object arg) {
-        return java.text.MessageFormat.format(getString(key), arg);
+        return MessageFormat.format(getString(key), arg);
     }
 
     private void updateStatus(String message) {

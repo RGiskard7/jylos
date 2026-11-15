@@ -1,7 +1,9 @@
 package com.example.jylos.ui.preferences;
 
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Set;
+import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
 import com.example.jylos.ui.theme.CssSnippetCatalog;
@@ -201,7 +203,7 @@ public final class UiPreferencesStore {
             return "";
         }
         String v = value.trim();
-        return v.matches("#[0-9a-fA-F]{6}") ? v.toLowerCase(java.util.Locale.ROOT) : "";
+        return v.matches("#[0-9a-fA-F]{6}") ? v.toLowerCase(Locale.ROOT) : "";
     }
 
     public static int clampPreviewLines(int lines) {
@@ -226,7 +228,7 @@ public final class UiPreferencesStore {
         boolean existingInstall;
         try {
             existingInstall = prefs.keys().length > 0;
-        } catch (java.util.prefs.BackingStoreException e) {
+        } catch (BackingStoreException e) {
             existingInstall = true;
         }
         LayoutMode mode = LayoutMode.resolveDefault(stored, existingInstall);

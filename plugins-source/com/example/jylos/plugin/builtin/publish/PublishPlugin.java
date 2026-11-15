@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Optional;
+import java.util.ResourceBundle;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.Plugin;
@@ -59,7 +60,7 @@ public final class PublishPlugin implements Plugin {
     // initialize() ever runs, so this cannot wait for that. See PluginI18n's own doc for
     // why Locale.getDefault() alone (no PluginContext involved) is enough to pick the
     // right language: Main/AppSettings keep it in sync with the user's Settings choice.
-    private static java.util.ResourceBundle bundle;
+    private static ResourceBundle bundle;
 
     private static String tr(String key, String fallback) {
         if (bundle == null) {

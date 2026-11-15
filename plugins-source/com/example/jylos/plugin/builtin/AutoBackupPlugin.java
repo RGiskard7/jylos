@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.ResourceBundle;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.Plugin;
@@ -14,7 +15,9 @@ import com.example.jylos.plugin.PluginI18n;
 import com.example.jylos.service.DatabaseBackupService;
 
 import javafx.application.Platform;
+import javafx.scene.control.ChoiceDialog;
 import javafx.stage.DirectoryChooser;
+import javafx.stage.FileChooser;
 
 /**
  * Auto Backup Plugin - Automatically backs up notes to files.
@@ -44,7 +47,7 @@ public class AutoBackupPlugin implements Plugin {
 
     // Loaded once, lazily — getDescription() can be called by the Plugin Manager before
     // initialize() ever runs, so this cannot wait for that.
-    private static java.util.ResourceBundle bundle;
+    private static ResourceBundle bundle;
 
     private static String tr(String key, String fallback) {
         if (bundle == null) {
@@ -315,7 +318,7 @@ public class AutoBackupPlugin implements Plugin {
         }
 
         Platform.runLater(() -> {
-            javafx.scene.control.ChoiceDialog<Note> dialog = new javafx.scene.control.ChoiceDialog<>(
+            ChoiceDialog<Note> dialog = new ChoiceDialog<>(
                 allNotes.get(0), allNotes
             );
             dialog.setTitle(tr("autobackup.exportNote.title", "Export Note"));
@@ -323,12 +326,12 @@ public class AutoBackupPlugin implements Plugin {
             dialog.setContentText(tr("autobackup.exportNote.content", "Note:"));
 
             context.showThemed(dialog).ifPresent(note -> {
-                javafx.stage.FileChooser fileChooser = new javafx.stage.FileChooser();
+                FileChooser fileChooser = new FileChooser();
                 fileChooser.setTitle(tr("autobackup.saveNote.title", "Save Note As"));
                 fileChooser.setInitialFileName(sanitizeFileName(note.getTitle()) + ".md");
                 fileChooser.getExtensionFilters().addAll(
-                    new javafx.stage.FileChooser.ExtensionFilter("Markdown", "*.md"),
-                    new javafx.stage.FileChooser.ExtensionFilter(tr("autobackup.filter.text", "Text"), "*.txt")
+                    new FileChooser.ExtensionFilter("Markdown", "*.md"),
+                    new FileChooser.ExtensionFilter(tr("autobackup.filter.text", "Text"), "*.txt")
                 );
 
                 File file = fileChooser.showSaveDialog(null);

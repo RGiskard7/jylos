@@ -15,6 +15,8 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.imageio.ImageIO;
+
 import com.example.jylos.data.models.Note;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.ui.UiDialogs;
@@ -52,6 +54,9 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.rendering.ImageType;
+import org.apache.pdfbox.rendering.PDFRenderer;
 import org.kordamp.ikonli.javafx.FontIcon;
 
 /**
@@ -707,15 +712,15 @@ public final class KanbanBoard extends VBox {
 
     /** First PDF page as a small image (PDFBox render + PNG round-trip into JavaFX). */
     private static Image pdfThumbnail(Path pdf) {
-        try (org.apache.pdfbox.pdmodel.PDDocument doc =
-                org.apache.pdfbox.pdmodel.PDDocument.load(pdf.toFile())) {
+        try (PDDocument doc =
+                PDDocument.load(pdf.toFile())) {
             if (doc.getNumberOfPages() == 0) {
                 return null;
             }
-            BufferedImage page = new org.apache.pdfbox.rendering.PDFRenderer(doc)
-                    .renderImageWithDPI(0, PDF_THUMB_DPI, org.apache.pdfbox.rendering.ImageType.RGB);
+            BufferedImage page = new PDFRenderer(doc)
+                    .renderImageWithDPI(0, PDF_THUMB_DPI, ImageType.RGB);
             try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-                javax.imageio.ImageIO.write(page, "png", baos);
+                ImageIO.write(page, "png", baos);
                 return new Image(
                         new ByteArrayInputStream(baos.toByteArray()), THUMB_WIDTH, 0, true, true);
             }

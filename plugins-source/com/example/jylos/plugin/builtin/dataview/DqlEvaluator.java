@@ -5,11 +5,13 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -569,7 +571,7 @@ final class DqlEvaluator {
             return number.doubleValue();
         }
         String text = DqlValue.toDisplayString(value).trim().toLowerCase(Locale.ROOT);
-        java.util.regex.Matcher matcher =
+        Matcher matcher =
                 Pattern.compile("(\\d+(?:\\.\\d+)?)\\s*([a-z]*)").matcher(text);
         double days = 0;
         boolean matched = false;
@@ -613,7 +615,7 @@ final class DqlEvaluator {
 
     private static Object reverseList(Object value) {
         List<Object> reversed = new ArrayList<>(DqlValue.asList(value));
-        java.util.Collections.reverse(reversed);
+        Collections.reverse(reversed);
         return reversed;
     }
 

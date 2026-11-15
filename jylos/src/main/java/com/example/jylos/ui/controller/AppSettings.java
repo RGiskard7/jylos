@@ -8,6 +8,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.prefs.Preferences;
 
+import com.example.jylos.ui.UiDialogs;
+
 import javafx.application.Platform;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonBar;
@@ -52,7 +54,7 @@ class AppSettings {
 
         alert.getButtonTypes().setAll(sqliteBtn, filesystemBtn, cancelBtn);
 
-        Optional<ButtonType> result = com.example.jylos.ui.UiDialogs.show(alert);
+        Optional<ButtonType> result = UiDialogs.show(alert);
         if (result.isEmpty() || result.get() == cancelBtn) {
             return;
         }
@@ -102,7 +104,7 @@ class AppSettings {
         restartAlert.setTitle(i18n("app.restart_required"));
         restartAlert.setHeaderText(null);
         restartAlert.setContentText(i18n("app.restart_storage_message"));
-        com.example.jylos.ui.UiDialogs.show(restartAlert);
+        UiDialogs.show(restartAlert);
     }
 
     static StorageSwitchPlan planStorageSwitch(String currentType, String currentPath, String newType, String newPath) {
@@ -149,7 +151,7 @@ class AppSettings {
     }
 
     ToggleGroup initializeLanguageMenu(ToolbarController toolbarController, Preferences prefs,
-            java.util.function.Consumer<String> onLanguageSelected) {
+            Consumer<String> onLanguageSelected) {
         ToggleGroup languageToggleGroup = new ToggleGroup();
         if (toolbarController == null) {
             return languageToggleGroup;

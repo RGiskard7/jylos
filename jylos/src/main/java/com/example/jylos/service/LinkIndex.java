@@ -3,9 +3,13 @@ package com.example.jylos.service;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import com.example.jylos.data.models.Note;
@@ -59,7 +63,7 @@ public final class LinkIndex {
                 continue;
             }
             pathById.put(note.getId(), path);
-            entries.add(new LinkResolver.Entry(path, path.toLowerCase(java.util.Locale.ROOT).endsWith(".md")));
+            entries.add(new LinkResolver.Entry(path, path.toLowerCase(Locale.ROOT).endsWith(".md")));
             for (String alias : aliasesOf(note)) {
                 aliases.putIfAbsent(alias, path);
             }
@@ -79,9 +83,9 @@ public final class LinkIndex {
      * point to the same note whichever folder they are written in (no other file has that
      * name): those are resolved once. For one pass; not thread-safe.
      */
-    public java.util.function.BiFunction<String, String, Optional<String>> batchResolver() {
+    public BiFunction<String, String, Optional<String>> batchResolver() {
         Map<String, Optional<String>> fromAnyFolder = new HashMap<>();
-        java.util.Set<String> dependsOnFolder = new java.util.HashSet<>();
+        Set<String> dependsOnFolder = new HashSet<>();
         return (rawLink, sourceNoteId) -> {
             if (rawLink == null) {
                 return Optional.empty();

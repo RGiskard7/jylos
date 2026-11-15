@@ -1,13 +1,25 @@
 package com.example.jylos.service;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.data.dao.filesystem.FrontmatterHandler;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.models.Folder;
@@ -141,14 +153,14 @@ public class NoteService {
         String title = source.getTitle() != null ? source.getTitle() : "";
         String extension = "";
         int dot = title.lastIndexOf('.');
-        if (com.example.jylos.util.AttachmentType.isAttachment(title) && dot > 0) {
+        if (AttachmentType.isAttachment(title) && dot > 0) {
             extension = title.substring(dot);
             title = title.substring(0, dot);
         }
-        Optional<java.nio.file.Path> file = getNoteFilePath(id);
-        java.nio.file.Path dir = file.map(java.nio.file.Path::getParent).orElse(null);
+        Optional<Path> file = getNoteFilePath(id);
+        Path dir = file.map(Path::getParent).orElse(null);
         Folder folder = file.isEmpty() ? noteDAO.getFolderOfNote(id) : null;
-        java.util.Set<String> siblingTitles = new java.util.HashSet<>();
+        Set<String> siblingTitles = new HashSet<>();
         if (dir == null) {
             List<Note> siblings = folder != null ? getNotesByFolder(folder)
                     : getAllNotes().stream().filter(n -> n.getParent() == null).toList();
@@ -160,22 +172,22 @@ public class NoteService {
         while (true) {
             copyTitle = title + " " + number++;
             boolean taken = dir != null
-                    ? java.nio.file.Files.exists(dir.resolve(copyTitle + fileExtension))
+                    ? Files.exists(dir.resolve(copyTitle + fileExtension))
                     : siblingTitles.contains(copyTitle + extension);
             if (!taken) {
                 break;
             }
         }
         Note copy = new Note(copyTitle + extension, source.getContent());
-        copy.setTags(source.getTags() != null ? new java.util.ArrayList<>(source.getTags()) : new java.util.ArrayList<>());
+        copy.setTags(source.getTags() != null ? new ArrayList<>(source.getTags()) : new ArrayList<>());
         if (source.getCustomProperties() != null) {
-            copy.setCustomProperties(new java.util.LinkedHashMap<>(source.getCustomProperties()));
+            copy.setCustomProperties(new LinkedHashMap<>(source.getCustomProperties()));
         }
         if (source.getStructuredFrontmatterProperties() != null) {
-            copy.setStructuredFrontmatterProperties(new java.util.LinkedHashMap<>(source.getStructuredFrontmatterProperties()));
+            copy.setStructuredFrontmatterProperties(new LinkedHashMap<>(source.getStructuredFrontmatterProperties()));
         }
         if (source.getDisplayableFrontmatterPropertyKeys() != null) {
-            copy.setDisplayableFrontmatterPropertyKeys(new java.util.LinkedHashSet<>(source.getDisplayableFrontmatterPropertyKeys()));
+            copy.setDisplayableFrontmatterPropertyKeys(new LinkedHashSet<>(source.getDisplayableFrontmatterPropertyKeys()));
         }
         copy.setAuthor(source.getAuthor());
         copy.setSource(source.getSource());
@@ -185,7 +197,7 @@ public class NoteService {
         copy.setLatitude(source.getLatitude());
         copy.setLongitude(source.getLongitude());
         copy.setPrivate(source.isPrivate());
-        java.nio.file.Path root = getStorageRoot().orElse(null);
+        Path root = getStorageRoot().orElse(null);
         if (dir != null && root != null && !root.toAbsolutePath().normalize().equals(dir.toAbsolutePath().normalize())) {
             // File storage takes the folder from the id it is given (see NoteDAOFileSystem.createNote).
             String folderPath = root.toAbsolutePath().normalize().relativize(dir.toAbsolutePath().normalize())
@@ -241,20 +253,20 @@ public class NoteService {
      * otherwise), to show where a link in the properties is.
      */
     public String propertiesText(String id) {
-        Optional<java.nio.file.Path> file = getNoteFilePath(id);
+        Optional<Path> file = getNoteFilePath(id);
         if (file.isEmpty()) {
             return "";
         }
         try {
-            return com.example.jylos.data.dao.filesystem.FrontmatterHandler.frontmatterText(
-                    java.nio.file.Files.readString(file.get(), java.nio.charset.StandardCharsets.UTF_8));
-        } catch (java.io.IOException | RuntimeException e) {
+            return FrontmatterHandler.frontmatterText(
+                    Files.readString(file.get(), StandardCharsets.UTF_8));
+        } catch (IOException | RuntimeException e) {
             logger.fine("Could not read the properties of " + id + ": " + e.getMessage());
             return "";
         }
     }
 
-    public Optional<java.nio.file.Path> getNoteFilePath(String id) {
+    public Optional<Path> getNoteFilePath(String id) {
         return noteDAO.resolveFilePath(id);
     }
 
@@ -270,7 +282,7 @@ public class NoteService {
     }
 
     /** Vault root for file-backed storage; empty in SQLite mode. */
-    public Optional<java.nio.file.Path> getStorageRoot() {
+    public Optional<Path> getStorageRoot() {
         return noteDAO.storageRoot();
     }
 
@@ -654,7 +666,7 @@ public class NoteService {
         if (target.isEmpty() || target.contains("/")) {
             return Optional.empty();
         }
-        if (target.toLowerCase(java.util.Locale.ROOT).endsWith(".md")) {
+        if (target.toLowerCase(Locale.ROOT).endsWith(".md")) {
             target = target.substring(0, target.length() - 3);
         }
         return findNoteByTitle(target);
@@ -671,7 +683,7 @@ public class NoteService {
     /** Builds a link index for {@code notes}, giving each note its path in the vault. */
     public LinkIndex buildLinkIndex(List<Note> notes) {
         boolean fileVault = getStorageRoot().isPresent();
-        java.util.Map<String, String> folderPaths = new java.util.HashMap<>();
+        Map<String, String> folderPaths = new HashMap<>();
         return LinkIndex.build(notes, note -> vaultPathOf(note, fileVault, folderPaths));
     }
 
@@ -679,7 +691,7 @@ public class NoteService {
      * The path of a note in the vault, as a link would write it: the file path in a folder
      * vault, the folder chain plus the title in SQLite ({@code Carpeta/Sub/Nota.md}).
      */
-    private String vaultPathOf(Note note, boolean fileVault, java.util.Map<String, String> folderPaths) {
+    private String vaultPathOf(Note note, boolean fileVault, Map<String, String> folderPaths) {
         if (fileVault) {
             return note.getId();
         }
