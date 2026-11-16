@@ -155,7 +155,7 @@
                             styleClass="format-toolbar-scroll" HBox.hgrow="ALWAYS">
                     <HBox alignment="CENTER_LEFT" spacing="2" styleClass="format-toolbar">
                         <padding>
-                            <Insets top="6" right="8" bottom="6" left="8"/>
+                            <Insets top="0" right="8" bottom="0" left="8"/>
                         </padding>
                         <Button fx:id="undoBtn" onAction="#handleFormatToolbarUndo" styleClass="format-btn">
                             <graphic><FontIcon iconLiteral="fth-rotate-ccw" styleClass="feather-icon"/></graphic>
