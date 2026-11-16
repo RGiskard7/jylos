@@ -2,158 +2,118 @@
 
 ## [Unreleased]
 
-- **Las propiedades se abren y se cierran con un botón de la cabecera de la nota**, como la barra de etiquetas, en edición y en lectura. El botón lleva un punto cuando la nota tiene propiedades, y su descripción dice cuántas. Una propiedad nueva se escribe en el propio panel, con "+ Añadir propiedad", en lugar de en un diálogo. En lectura, una nota sin propiedades lo dice. El panel sigue abierto o cerrado al cambiar de nota.
-- **La pestaña nueva muestra sus accesos en tarjetas**: "Nueva nota" destacada y debajo nuevo lienzo, ir a archivo, vista de grafo y tablero Kanban, con su atajo. Caben cuatro por fila; en una ventana más estrecha pasan a dos por fila, y en una muy estrecha, a una.
-- **Los emojis se ven en color en macOS**, en el editor y en la vista de lectura, en lugar de en blanco y negro. Los tonos de piel, las banderas y las familias siguen en blanco y negro, porque el motor de la app no sabe componerlos. En Windows y Linux se activa solo si el motor los pinta en color; si no, todo sigue como antes. Las flechas y símbolos como ↩ o ✔ se ven como texto.
-- **Cada tablero Kanban se abre en su propia pestaña**, como con el plugin Kanban de Obsidian: abrir una nota-tablero (desde el árbol, el selector rápido o un enlace) la muestra como tablero, y un botón de la cabecera la muestra como Markdown y vuelta. Los cambios del tablero se guardan como cualquier edición. Ctrl/Cmd+K, el menú Ver y "Tablero Kanban" en una pestaña nueva muestran la lista de tableros para elegir uno o crear otro; un tablero nuevo también se crea desde el menú Archivo, la paleta o el menú de una carpeta, como una nota nueva. Los tableros tienen su icono en el árbol, la lista de notas y la pestaña. Ya no hay un tablero que tape toda la ventana. Al pulsar una tarjeta enlazada, la nota se abre en la pestaña del tablero y atrás vuelve a él.
-- **El grafo se abre en una pestaña, como en Obsidian**, y ya no tapa la barra lateral. Sigue la regla de las notas: ocupa la pestaña activa, o una nueva con Cmd/Ctrl. Una nota pulsada en el grafo ocupa su pestaña, o se abre en otra con Cmd/Ctrl+clic o el botón central. Volver a la pestaña del grafo lo encuentra como lo dejaste, y un espacio de trabajo guardado lo vuelve a abrir con sus notas.
-- **Botón + y Cmd/Ctrl+T para abrir una pestaña nueva**, como en Obsidian: se añade al final y muestra qué se puede abrir (nota nueva, lienzo nuevo, ir a archivo, vista de grafo). Lo que abras desde ella, también una nota o un lienzo recién creados, ocupa esa pestaña.
-- **Atrás y adelante recorren lo que mostró cada pestaña**, como en Obsidian, y no todas las notas abiertas en cualquier pestaña. Desde una nota abierta en el grafo, atrás vuelve al grafo. El grafo y las pestañas nuevas también tienen sus botones de atrás y adelante.
-- **El modo concentración ya no tiene botón en la cabecera de la nota**: se activa y se sale con Cmd/Ctrl+Shift+F, el menú Ver o la paleta de comandos, y al entrar un aviso recuerda el atajo para salir.
-- **Cerrar el grafo ya no deja la aplicación lenta durante unos segundos.** Si se cerraba antes de terminar de dibujarse, seguía calculando la disposición de todas las notas sin verse.
-- **El comando de la paleta que muestra u oculta la barra de etiquetas (Toggle Tags Panel) funciona**, y el botón de etiquetas de la cabecera queda pulsado o no según corresponda. Antes no hacía nada.
-- **La ventana responde antes al arrancar**: el servidor MCP ya no arranca en el hilo de la interfaz, que quedaba bloqueado medio segundo justo después de abrirse la ventana.
-- **Si el disco o la base de datos rechaza un cambio, Jylos lo dice** (mover una nota o carpeta, renombrarla, mandarla a la papelera, restaurarla o borrarla para siempre). Antes, en algunos casos el cambio no se hacía pero parecía hecho, por ejemplo en una carpeta de solo lectura.
-- **Publicar el vault enlaza a la nota que nombra cada enlace por su ruta**: con dos notas llamadas igual en carpetas distintas, `[[Reunión]]` lleva a la de su carpeta y `[[Personal/Reunión]]` a esa, como en la app. Antes un enlace con carpeta quedaba muerto y uno sin carpeta podía llevar a la otra.
-- **El explorador abre sus carpetas al momento en vaults grandes o en la nube**: pedía cada vez el árbol entero de carpetas que colgaba de la que abría, y en un vault en iCloud la primera carga tardaba más de dos segundos.
-- **Fijar una nota o marcarla como favorita desde el menú contextual de la lista lo dice en la barra de estado**, como desde los botones del editor.
-- **Los enlaces de las notas de versión que se muestran antes de actualizar se abren en el navegador**; antes no hacían nada.
-- **Un Canvas se puede hacer privado**, como una nota: se guarda cifrado, se abre normalmente mientras las notas privadas están desbloqueadas y muestra el candado mientras están bloqueadas. Antes, hacer privado un Canvas daba un error y no se guardaba. Las imágenes y los PDF ya no ofrecen "Hacer privada": son ficheros binarios y cifrarlos los rompería.
-- **Guardar un Canvas quita el aviso amarillo "Sin guardar"** de la barra de estado, como al guardar una nota.
-- **Renombrar desde el explorador la nota abierta ya no salta el aviso de que se modificó fuera de Jylos**, ni al renombrar ni al guardar después, aunque tuviera cambios sin guardar.
-- **El explorador muestra si una nota está fijada, en favoritos o es privada**, con los mismos iconos que la lista de notas, y pone primero las fijadas de cada carpeta. En la lista de notas, la estrella y el candado ya se ven sobre una nota seleccionada; antes tomaban el color de la selección.
+## [2.6.0] - 2026-11-16
 
-- **Los plugins pueden mostrar elementos en la barra de estado**, como `addStatusBarItem()` en Obsidian: `registerStatusBarItem(id, nodo)` lo añade a la derecha de la barra, el plugin lo actualiza cuando quiere y desaparece solo al desactivar el plugin.
-- **Exportar a PDF imprime la nota como se lee:** `[[Nota|texto]]` sale como su texto, no con los corchetes, y `![[Nota]]` imprime el contenido de la nota incrustada, buscada desde la carpeta de la nota exportada. También se imprimen las tarjetas de enlace.
-- **Una tarjeta de nota en un Canvas abre la nota de su ruta:** con dos notas llamadas igual en carpetas distintas, antes podía abrirse la otra. Una tarjeta que apunta a `Carpeta/Nota` sin `.md` también se resuelve.
-- **Un enlace en una tarjeta del Kanban abre la nota que nombra su ruta:** `[[Personal/Reunión]]` abre esa y no otra con el mismo nombre; antes un enlace con carpeta no abría nada.
+- **Nuevo diseño Explorador:** un solo árbol en la barra lateral con las carpetas y las notas juntas. **Las instalaciones nuevas empiezan en Explorador; si actualizas, sigues en el diseño clásico hasta que lo cambies** con el botón de diseño de la barra superior (Explorador, clásico en columnas o clásico apilado) o en Preferencias. El diseño elegido se recuerda; antes volvía siempre a columnas.
+  - Un clic en una carpeta la despliega y uno en una nota la abre. Cada carpeta se lee al desplegarla, así que una bóveda grande no tarda más en abrir. Los menús contextuales y el arrastrar y soltar son los del diseño clásico.
+  - En la cabecera: un filtro que busca por nombre y por ruta ("trabajo/acta" encuentra las actas de la carpeta Trabajo), sin distinguir mayúsculas ni acentos; el orden (nombre, edición o creación); "Mostrar automáticamente el archivo actual", que abre las carpetas de la nota abierta y la selecciona; y un botón para expandir o colapsar todo.
+  - Se renombra en la propia fila: F2 o "Renombrar", Enter para aplicar y Escape para cancelar. Una nota o carpeta nueva se crea como "Sin título" o "Sin nombre", con el nombre listo para escribir.
+  - Marca las notas fijadas, favoritas y privadas con los iconos de la lista de notas, y pone primero las fijadas. Las carpetas que dejas abiertas siguen abiertas la próxima vez, y una carpeta cerrada se abre si mantienes una nota encima al arrastrarla.
+  - El panel de notas solo aparece para los resultados de una búsqueda o de una etiqueta, y se cierra con la ✕.
+  - Nuevas opciones en el menú de las notas: "Duplicar" (también canvas), "Copiar ruta" y "Abrir en la app por defecto".
 
-- **Lo mismo se trata igual en todas partes.**
-  - **Exportar a HTML incrusta la nota correcta:** `![[Reunión]]` se busca desde la carpeta de la nota exportada y `![[Carpeta/Nota]]` respeta la carpeta, como en la vista de lectura. Antes se buscaba solo por título y podía incrustar otra nota con el mismo nombre, o ninguna. Los enlaces relativos (`[[./Nota]]`) también se resuelven desde la carpeta de la nota.
-  - **Un `+` en la ruta de una imagen o en el encabezado de un enlace Markdown es un `+`:** `![](C++.png)` encuentra `C++.png` y `[C++](Lenguajes.md#C++)` lleva a ese encabezado. Antes el `+` se leía como un espacio.
-  - **La vista de lectura conserva el tema oscuro** cuando un plugin se activa o se desactiva; antes se volvía a dibujar en claro.
-  - **`![[Nota#Encabezado]]` incrusta la misma sección a la que lleva `[[Nota#Encabezado]]`:** una línea que empieza por `#` dentro de un bloque de código (un comentario de bash, por ejemplo) ya no corta la sección ni se toma por el encabezado, y se reconocen los encabezados con sangría o cerrados con `#`. Un `^id` dentro de código ya no marca un bloque.
-  - **Las etiquetas que se indexan son las que se ven:** `#foo.bar` es la etiqueta `foo`, como en Obsidian y como la muestran el editor y la vista de lectura (antes se indexaba `foobar`), y una etiqueta dentro de un bloque de código cercado con más de tres comillas ya no cuenta.
-  - **Borrar una carpeta, borrar algo de la papelera para siempre o vaciarla actualiza el grafo y la lista de notas**, no solo la barra lateral.
-  - **Las imágenes `.webp` de la bóveda aparecen en el explorador y se abren en el visor de imágenes.**
+- **Pestañas:**
+  - **Están en la barra superior**, justo encima del editor, y siguen al editor al mover un divisor u ocultar un panel. En modo concentración se ocultan con la barra.
+  - **Un clic abre la nota en la pestaña actual**, en lugar de añadir una pestaña cada vez. Si la nota ya está abierta, se activa su pestaña. Cmd/Ctrl+clic, el clic central o "Abrir en pestaña nueva" la abren en otra, a la derecha. El clic central sobre una pestaña la cierra. Quien prefiera lo anterior puede activar "Abrir siempre las notas en una pestaña nueva" en Preferencias.
+  - **El grafo y cada tablero Kanban se abren en su pestaña**, como las notas, y ya no tapan la ventana. El grafo se encuentra como lo dejaste al volver a su pestaña, y un espacio de trabajo guardado lo vuelve a abrir.
+  - **Botón + y Cmd/Ctrl+T abren una pestaña nueva**, con "Nueva nota" destacada y tarjetas para nuevo lienzo, ir a archivo, vista de grafo y tablero Kanban, cada una con su atajo. Las tarjetas se recolocan según el ancho: cuatro por fila, dos o una.
+  - **Atrás y adelante recorren lo que mostró cada pestaña**, no todas las notas abiertas.
 
-- **Las imágenes WebP se ven en el editor y en la vista de lectura.** Antes solo aparecía su enlace en un recuadro. Pasaba con muchas imágenes de la web, como las de los artículos de Medium guardados con el clipper, que se sirven en WebP aunque la dirección termine en `.png`, y también con los `.webp` de la bóveda. El visor que usa Jylos no sabe dibujar WebP, así que cuando una imagen falla, Jylos la convierte a PNG en segundo plano y la muestra. Si no puede (sin conexión, o la imagen no existe), sigue saliendo el recuadro con el enlace.
+- **Kanban:** abrir una nota-tablero (desde el árbol, el selector rápido o un enlace) la muestra como tablero, y un botón de la cabecera la muestra como Markdown y vuelta. Los cambios se guardan como cualquier edición. Ctrl/Cmd+K y el menú Ver muestran la lista de tableros para elegir uno o crear otro, y un tablero nuevo también se crea desde el menú Archivo, la paleta o el menú de una carpeta. Los tableros tienen su icono en el árbol, la lista y la pestaña. Al pulsar una tarjeta enlazada, la nota se abre en la pestaña del tablero, y atrás vuelve a él.
 
-- **El grafo abre y se reparte como el de Obsidian.**
-  - **Las notas conectadas se reparten por todo el círculo** en lugar de apiñarse en el centro: cada nota empieza junto a las notas que enlaza, como en Obsidian, y cada grupo de notas enlazadas queda donde cayó, no en medio.
-  - **Al cambiar un filtro, las notas que ya estaban se quedan donde estaban** y solo se colocan las nuevas.
-  - **El grafo abre con el zoom que dejaste**, centrado, alejándose desde cerca como en Obsidian. El grafo local guarda el suyo. La primera vez, o tras "Restablecer vista", la vista sigue al grafo mientras se despliega para mostrarlo entero, hasta que haces zoom o lo arrastras.
-  - **Se dibuja como el de Obsidian:** las notas que aún no existen son puntos rellenos y tenues en lugar de aros, y los enlaces miden un píxel con cualquier zoom, así que ya no se desvanecen al alejarse.
+- **Editor:**
+  - **La vista previa en vivo solo enseña el Markdown de lo que estás editando**, por elemento y no por bloque: con el cursor en una `**negrita**`, solo esa negrita muestra sus asteriscos. Sin el foco en el editor, todo se ve renderizado. También dibuja callouts, notas incrustadas e imágenes `![[…]]`, fórmulas con KaTeX, notas al pie, `#etiquetas` (Cmd/Ctrl+clic muestra sus notas), comentarios `%%…%%` y `^id` atenuados, y el lenguaje de cada bloque de código. Nada de esto se aplica dentro de código.
+  - **Propiedades con su botón en la cabecera**, como la barra de etiquetas, en edición y en lectura. El botón lleva un punto cuando la nota tiene propiedades, y su descripción dice cuántas. Una propiedad nueva se escribe en el propio panel, con "+ Añadir propiedad". El panel forma parte del documento, sin franja ni cajas en los valores hasta pasar el ratón.
+  - **La barra de formato es más baja y se puede plegar:** su flecha la oculta y deja una pequeña muesca en el borde inferior del editor para volver a mostrarla. También responde a F7, al menú Ver, a la paleta y a Preferencias, y se recuerda.
+  - **Emojis en color en macOS**, en el editor y en la vista de lectura. Los tonos de piel, las banderas y las familias siguen en blanco y negro. En Windows y Linux se activa si el sistema los pinta en color; si no, todo sigue como antes.
+  - **Imágenes WebP**, en el editor, en la vista de lectura y en el visor de imágenes. Muchas imágenes de la web se sirven en WebP aunque la dirección acabe en `.png`, como las de los artículos de Medium guardados con el clipper, y antes solo salía su enlace en un recuadro. Ahora Jylos las convierte en segundo plano. Los `.webp` de la bóveda aparecen en el explorador.
+  - **Más fluido:** escribir ya no vuelve a dibujar las fórmulas, imágenes y bloques de alrededor (cada tecla cuesta la mitad en una nota de dos mil líneas). El scroll ya no da saltos al entrar en pantalla una imagen, un callout o una fórmula, y cada imagen se lee del disco una sola vez.
+  - **Corregido:**
+    - la negrita y los títulos no se veían en negrita;
+    - un clic bajo una imagen, una fórmula o un bloque renderizado caía en otra línea;
+    - el cursor dentro de un elemento no mostraba su Markdown;
+    - bajo cada imagen aparecía su nombre de fichero;
+    - Cmd/Ctrl+clic en un enlace recién editado abría el destino anterior.
 
-- **Los enlaces se leen como en Obsidian, y el grafo deja fuera los adjuntos.**
-  - **"Mostrar adjuntos" en los filtros del grafo, desactivado por defecto como en Obsidian.** Antes cada imagen, PDF o audio de la bóveda era un nodo suelto, y cientos de ellos formaban un anillo que apiñaba en el centro las notas conectadas. Activado, cada adjunto aparece unido a las notas que lo incrustan o enlazan. Los canvas siguen apareciendo siempre.
-  - **Un punto en el nombre de una nota ya no rompe el enlace:** `[[12.12a1]]`, `[[Guía 5.0]]`, `[[Python vs. Java]]` o `[[Mapa.excalidraw]]` se tomaban por ficheros y no contaban. Ahora solo apuntan a un fichero los enlaces que terminan en una extensión de imagen, audio, vídeo, PDF o canvas.
-  - **Un `+` en un enlace es un `+`:** `[[AutoGen + LangChain]]` ya no se lee como "AutoGen   LangChain".
-  - **Enlaces Markdown como los lee Obsidian:** se reconocen los que envuelven la ruta en `< >` (`[texto](<Mi nota.md>)`). Ya no cuentan como enlace a una nota los que tienen espacios sin `< >` ni `%20`, ni las rutas con `:` (`C:/…`, `app.py:12`), que Obsidian tampoco cuenta.
-  - **`../Nota.md` que no está en la carpeta de arriba se busca en la carpeta de la propia nota**, como hace Obsidian.
-  - **En las propiedades solo cuentan los enlaces entre comillas** (`up: "[[Índice]]"`). Sin comillas, `[[Índice]]` es una lista para YAML, y Obsidian tampoco lo toma como enlace.
-  - Todo esto vale también para los backlinks, la vista previa y el clic en los enlaces.
+- **Sintaxis en la vista de lectura**, también en las notas incrustadas y al exportar a HTML:
+  - **Callouts** (`> [!tip] Título`), con los tipos y alias de Obsidian, plegables (`[!tipo]-`, `[!tipo]+`) y anidables.
+  - **`==resaltado==`**, y **comentarios `%%…%%`**, que no se muestran.
+  - **Notas al pie** (`[^1]` y `^[texto]`), numeradas por orden y listadas al final.
+  - **Bloques y secciones:** `^id` marca un bloque, `![[Nota#^id]]` lo incrusta, y `[[Nota#Encabezado]]`, `[[Nota#^id]]` o `[[#Encabezado]]` llevan a ese punto, también con Cmd/Ctrl+clic en el editor.
+  - **Etiquetas clicables**, que muestran las notas con esa etiqueta.
 
-- **Grafo como en Obsidian: grupos de color, opciones del grafo local y ajustes que se recuerdan.**
-  - **Grupos de color:** en el panel de ajustes, "Nuevo grupo" añade una consulta (texto, `path:`, `file:` o `tag:`) con un color. Se prueban en orden y cada nota toma el color del primero con el que coincide.
-  - **Grafo local con profundidad de 1 a 5** (antes, siempre 2) y casillas de **enlaces entrantes**, **salientes** y **adyacentes**. Ahora sigue la dirección de los enlaces y, salvo que actives "adyacentes", solo muestra los enlaces que llevan desde la nota a cada vecina. Por defecto, como en Obsidian: profundidad 1, entrantes y salientes. La nota abierta aparece aunque no tenga enlaces.
-  - **Los enlaces escritos en las propiedades cuentan como enlaces**, como en Obsidian (`up: "[[Índice]]"`, una lista de `"[[Nota]]"`): son aristas del grafo, la nota enlazada los ve en sus backlinks y el panel de enlaces muestra la línea de la propiedad. Antes solo contaban los del cuerpo, y en una bóveda que enlaza desde las propiedades faltaban la mayoría de aristas. Las notas largas se releen una vez para recogerlos.
-  - **El grafo se distribuye como el de Obsidian:** mismas fuerzas (repulsión, distancia y fuerza de enlace, atracción al centro, espacio alrededor de cada nota) y mismos tamaños de nodo. Los deslizadores de fuerzas usan la escala de Obsidian.
-  - **Los ajustes del grafo se guardan:** fuerzas, tamaños, flechas, color por carpeta, filtros, opciones del grafo local y grupos siguen igual la próxima vez.
+  En el PDF los comentarios no salen, las notas al pie se listan y los callouts se imprimen con su contenido.
 
-- **Explorador de archivos como en Obsidian.**
-  - **Renombrar en la propia fila:** F2 o "Renombrar" en el menú del Explorador ponen el nombre en un campo dentro de la fila; Enter (o hacer clic fuera) lo aplica y Escape lo deja como estaba. Sin diálogo.
-  - **Nota y carpeta nuevas sin pedir nombre:** una nota nueva se crea como "Sin título" (o "Sin título 1", "Sin título 2"…, el primero libre) con el título seleccionado para escribir el nombre; en el Explorador, una carpeta nueva se crea como "Sin nombre" con su nombre listo para cambiar en la fila.
-  - **"Mostrar automáticamente el archivo actual":** un interruptor en la cabecera del Explorador que, activado, abre las carpetas de la nota que abres y la selecciona. Se recuerda. Sustituye al botón de mostrar la nota abierta.
-  - **Un solo botón "Expandir todo" / "Colapsar todo"**, que cambia de icono y de texto según lo que hará.
-  - **Las carpetas que dejas abiertas siguen abiertas** la próxima vez que abres la aplicación.
-  - **El filtro busca también en la ruta:** "trabajo/acta" encuentra las notas "Acta…" de la carpeta Trabajo.
-  - **Al arrastrar una nota y mantenerla sobre una carpeta cerrada, la carpeta se abre** a los tres cuartos de segundo, para poder soltarla más adentro.
-  - **Nuevas opciones en el menú de las notas:** "Duplicar" (crea "Nota 1" junto a la original, con el mismo contenido y propiedades; también para canvas), "Copiar ruta" y "Abrir en la app por defecto".
-  - **Crear una subcarpeta con el mismo nombre que otra de la raíz ya no le añade "(1)".** Se creaba en la raíz y luego se movía.
+- **Enlaces:**
+  - **Por ruta:** con dos notas "Reunión" en carpetas distintas, `[[Reunión]]` lleva a la de la misma carpeta (o, si no hay, a la de ruta más corta), y `[[Proyectos/Reunión]]` a esa. `[[../Plan]]` y `[[./Sub/Nota]]` son relativos a la carpeta de la nota. No importan las mayúsculas ni los acentos, y los `aliases` cuentan como último recurso (en bóvedas de carpetas; SQLite no guarda propiedades). Antes todo iba a la primera nota con ese nombre.
+    - Vale en backlinks, grafo, vista de lectura, incrustaciones, clic en enlaces, exportar a HTML, publicar la bóveda y las tarjetas de Canvas y de Kanban.
+  - **Desde las propiedades:** `up: "[[Índice]]"` cuenta como enlace en el grafo y los backlinks. Solo cuentan los enlaces entre comillas, porque sin comillas YAML lo lee como una lista.
+  - **Notas largas:** un enlace escrito más allá de los primeros 16 KB de una nota ya cuenta como backlink. Jylos las lee en segundo plano y guarda el resultado en su caché, nunca en la bóveda.
+  - **Se leen bien:**
+    - un punto en el nombre (`[[Guía 5.0]]`, `[[Python vs. Java]]`) ya no lo convierte en un fichero;
+    - un `+` es un `+`, en enlaces, rutas de imagen y encabezados;
+    - se reconocen los enlaces Markdown con `< >` (`[texto](<Mi nota.md>)`), y dejan de contar los que tienen espacios sin `< >` ni `%20` o rutas con `:`, que Obsidian tampoco cuenta;
+    - un `[[enlace]]` o un `^id` dentro de código es texto;
+    - una línea con `#` dentro de un bloque de código ya no corta la sección que incrusta `![[Nota#Encabezado]]`.
+  - **Etiquetas:** `#foo.bar` es la etiqueta `foo`, como la muestran el editor y la lectura (antes se indexaba `foobar`).
 
-- **Canvas más cómodo, como en Obsidian.**
-  - **Aristas curvas:** salen y llegan a cada tarjeta perpendiculares a su lado, con la flecha orientada según la curva y la etiqueta en su centro.
-  - **Selección múltiple:** arrastrar sobre el fondo dibuja un recuadro que selecciona las tarjetas que toca; Mayús+clic o Cmd/Ctrl+clic añade o quita tarjetas, y Cmd/Ctrl+A las selecciona todas. Al arrastrar una tarjeta seleccionada se mueve toda la selección, y Supr la borra entera.
-  - **Copiar, cortar y pegar** tarjetas con Cmd/Ctrl+C, X y V, con las aristas que las unen; también entre canvas distintos.
-  - **Ajuste al mover:** las tarjetas se ajustan a una rejilla que se hace más amplia al alejar el zoom, y se alinean con los bordes y centros de las tarjetas cercanas. Los dos ajustes se activan o desactivan en el nuevo botón de ajustes de la barra del canvas y se recuerdan.
-  - **Conectar arrastrando:** al pasar el ratón por una tarjeta (o al seleccionarla) aparece un punto en cada lado; arrástralo hasta otra tarjeta para unirlas, y la arista entra por el lado que mira hacia el origen. Si lo sueltas en el vacío, un menú ofrece crear allí una tarjeta de texto o de nota ya conectada. Sustituye al botón "Conectar nodos" y su clic en origen y destino.
-  - **Redimensionar desde cualquier lado o esquina** de la tarjeta seleccionada (antes solo desde la esquina inferior derecha), con el lado opuesto quieto y ajustado a la rejilla.
-  - **Cmd/Ctrl+Z deshace y Cmd/Ctrl+Mayús+Z rehace** en el canvas.
-  - **La pestaña vacía ofrece "Nuevo lienzo"** entre "Nueva nota" e "Ir a archivo", con los mismos textos que Obsidian.
-  - **Desplazarse como en Obsidian:** la rueda o dos dedos en el trackpad desplazan el lienzo (antes hacían zoom); el zoom es Cmd/Ctrl + rueda o pellizcar. Arrastrar el fondo con el botón central, o con el izquierdo manteniendo Espacio, también desplaza.
+- **Panel de enlaces completo:** la sección "Enlaces" del panel derecho tiene ahora tres apartados.
+  - **Menciones con enlaces:** las notas que enlazan a la abierta, con la línea de cada enlace.
+  - **Menciones sin enlace:** las notas que nombran la abierta (por su título o un alias) sin `[[ ]]`, cada una con un botón **Enlazar** que la convierte en enlace.
+  - **Enlaces salientes:** a dónde enlaza la nota; un clic en uno que aún no existe crea la nota.
 
-- **Editor y arranque más fluidos.**
-  - **Escribir en la vista previa en vivo ya no redibuja lo que hay alrededor.** Cada tecla volvía a crear las fórmulas, imágenes, callouts, tablas y enlaces que había por debajo del cursor: KaTeX dibujaba otra vez, las imágenes se recargaban y el texto parpadeaba. Ahora se conservan, y cada tecla cuesta la mitad en una nota de dos mil líneas.
-  - **El scroll hacia arriba por una nota con imágenes ya no da saltos.** Una imagen que volvía a entrar en pantalla ocupaba una línea hasta cargarse y luego empujaba el texto cientos de píxeles; ahora reserva el alto que tenía.
-  - **El scroll por una nota con callouts, fórmulas o bloques renderizados ya no da tirones al entrar uno en pantalla.** El editor contaba cada bloque que no estaba a la vista como una sola línea y, al llegar a él, recolocaba la página según su alto real. Ahora usa el alto con el que se dibujó la última vez y, si aún no se ha dibujado, el de sus líneas.
-  - **Cmd/Ctrl+clic en un enlace recién editado abre el destino nuevo**, no el que tenía antes de cambiarlo.
-  - **Bajo cada imagen del editor ya no aparece su nombre de fichero**, que solo debía verse cuando la imagen no se puede cargar.
-  - **Un clic debajo de una imagen recién cargada cae donde apuntas**, también en notas más cortas que la ventana. El editor no se enteraba de que la imagen había crecido y mandaba el clic a otra línea.
-  - **Cada imagen de la nota abierta se lee del disco una sola vez**, en lugar de cada vez que vuelve a entrar en pantalla. Y una pausa al escribir ya no rehace los callouts, fórmulas y bloques renderizados si no han cambiado.
-  - **Al arrancar se ve una ventana de carga con el icono y el nombre de la aplicación**, en el tema con el que se abre, mientras se prepara la ventana principal. Antes no aparecía nada durante esos segundos.
-  - **La cabecera del editor mide lo mismo que la del panel lateral**, y sus líneas inferiores quedan alineadas. **La barra de formato llega hasta el borde inferior**, sin el hueco de un píxel que dejaba debajo.
-  - **El menú Ver > Tema marca el tema con el que se abre la aplicación.** Siempre marcaba Claro, aunque se abriera en Oscuro o Sistema.
-  - **Cerrar la aplicación ya no deja errores en el registro** por los bloques de los plugins que se descargan al salir.
-  - **Al arrancar en tema oscuro la ventana ya no aparece un instante en tema claro.** En el diseño Explorador el tema se aplicaba después de mostrar la ventana.
-  - **Abrir una bóveda de carpetas no espera a la caché de enlaces de las notas largas**, que se lee en segundo plano. Extraer los enlaces de cada nota y recalcular los backlinks al guardar también es más rápido en bóvedas grandes.
+- **Grafo:**
+  - **Mismas fuerzas, tamaños y dibujo:** las notas conectadas se reparten por todo el círculo en lugar de apiñarse en el centro. Al cambiar un filtro, las notas que ya estaban no se mueven. Abre con el zoom que dejaste.
+  - **Grupos de color:** una consulta (texto, `path:`, `file:` o `tag:`) con un color; cada nota toma el del primero que coincide.
+  - **Grafo local:** profundidad de 1 a 5, y enlaces entrantes, salientes y adyacentes.
+  - **"Mostrar adjuntos"**, desactivado por defecto: las imágenes y PDF ya no forman un anillo de nodos sueltos.
+  - **Los ajustes se guardan:** fuerzas, filtros, grupos y opciones del grafo local.
+  - **Corregido:**
+    - cerrar el grafo antes de que terminara de dibujarse dejaba la aplicación lenta unos segundos;
+    - borrar una carpeta o vaciar la papelera no actualizaba el grafo ni la lista de notas.
 
-- **Vista previa en vivo como en Obsidian.** El editor muestra la nota renderizada y solo enseña el Markdown de lo que estás editando:
-  - **Por elemento, no por bloque:** con el cursor en una palabra en `**negrita**`, solo esa negrita muestra sus asteriscos; el resto de la línea sigue renderizado. Encabezados, citas y listas muestran su marca cuando el cursor está en esa línea. Mientras el editor no tiene el foco, todo se ve renderizado. Seleccionar arrastrando no hace saltar el texto bajo el ratón: el cambio se aplica al soltar.
-  - **Callouts** (`> [!tipo] Título`, también plegables) y **notas incrustadas** en su propia línea (`![[Nota]]`, `![[Nota#Sección]]`, `![[Nota#^id]]`) se ven como en la vista de lectura. Las **imágenes** incrustadas con `![[foto.png]]` se ven como imagen.
-  - **Fórmulas:** `$…$` en línea y `$$…$$` en bloque se dibujan con el KaTeX que ya incluye Jylos, que solo se carga en el editor si la nota tiene fórmulas.
-  - **Notas al pie** como superíndices numerados por orden de aparición (igual que en la lectura), **`#etiquetas`** como etiquetas (Cmd/Ctrl+clic muestra las notas con esa etiqueta), **`%%comentarios%%`** e **identificadores de bloque** `^id` atenuados, y el **lenguaje** de cada bloque de código en su esquina.
-  - Nada de esto se renderiza **dentro de código**: un `[[enlace]]` o una `#etiqueta` en un bloque de código o entre comillas invertidas se quedan como texto.
+- **Canvas más cómodo:**
+  - **Edición:**
+    - aristas curvas;
+    - selección múltiple con un recuadro, Mayús+clic o Cmd/Ctrl+A;
+    - copiar, cortar y pegar tarjetas, también entre canvas;
+    - deshacer y rehacer.
+  - **Colocar:**
+    - ajuste a la rejilla y a las tarjetas cercanas;
+    - conectar arrastrando el punto de un lado, que al soltarlo en el vacío ofrece crear una tarjeta conectada;
+    - redimensionar desde cualquier lado o esquina.
+  - **Moverse:** la rueda y el trackpad desplazan el lienzo; el zoom es Cmd/Ctrl + rueda o pellizcar.
+  - **Un Canvas se puede hacer privado**, como una nota. Las imágenes y los PDF ya no ofrecen "Hacer privada", porque cifrarlos los rompería.
 
-  Además se corrigen tres fallos del editor: la **negrita y los títulos no se veían en negrita** (el WebView ignoraba el grosor de letra que se le pedía); un **clic bajo una fórmula, una imagen o un bloque renderizado caía en otra línea**; y el cursor dentro de un elemento no mostraba su Markdown porque el editor nunca se daba por enfocado.
+- **Interfaz más ligera:**
+  - **Botones y barras:** los botones de icono son planos, con un fondo suave al pasar el ratón y el icono en color de acento cuando están activados. La barra superior es 8 px más baja, y la cabecera del editor mide lo mismo que la del panel lateral.
+  - **Fila del título:** las carpetas de la nota aparecen delante del título, en lugar de en una fila aparte; en el diseño Explorador, un clic en ellas muestra la nota en el árbol.
+  - **Barra de estado:**
+    - muestra si la nota está guardada y el modo del editor, que se cambia con un clic;
+    - ya no repite el título de la nota abierta;
+    - en una bóveda con Git, tiene una sola entrada con la rama, la sincronización y los cambios.
+  - **Árboles:** muestran líneas guía bajo cada carpeta abierta y ordenan los acentos y los números de forma natural, también en el árbol clásico. La papelera usa los iconos de carpeta del Explorador.
+  - **Arranque:** una ventana de carga muestra el icono y el nombre mientras se prepara la ventana principal, ya sin destello en tema claro al abrir en oscuro. La ventana responde antes.
+  - **Modo concentración:** ya no tiene botón; se activa y se sale con Cmd/Ctrl+Shift+F, el menú Ver o la paleta.
 
-- **Sintaxis de Obsidian en la vista de lectura.** Lo que antes salía como texto literal ahora se ve como en Obsidian:
-  - **Callouts:** `> [!tip] Título` dibuja un recuadro de color con icono y título. Los tipos y sus alias son los de Obsidian (nota, resumen, info, tarea, consejo, éxito, pregunta, aviso, fallo, peligro, error, ejemplo, cita); un tipo desconocido se ve como una nota. Con `[!tipo]-` empieza plegado y con `[!tipo]+` es plegable pero empieza abierto. Se pueden anidar.
-  - **`==resaltado==`** se marca en amarillo.
-  - **Comentarios `%%…%%`**, en línea o de varias líneas, no se muestran.
-  - **Notas al pie:** `[^1]` con su definición `[^1]: texto` (las líneas sangradas que siguen forman parte de ella) y las notas en línea `^[texto]`. Se numeran por orden de aparición y se listan al final con un enlace de vuelta. Antes, la definición desaparecía y la referencia se convertía en un enlace roto.
-  - **Referencias a bloque:** `^id` al final de un párrafo, de un elemento de lista o en la línea siguiente a una tabla o cita marca ese bloque y no se muestra. `![[Nota#^id]]` incrusta solo ese bloque.
-  - **Enlaces a una sección:** `[[Nota#Encabezado]]` y `[[Nota#^id]]` abren la nota en ese punto, con un clic en la vista de lectura y con Cmd/Ctrl+clic en el editor (antes abrían la nota por arriba). `[[#Encabezado]]` y `[[#^id]]` saltan dentro de la propia nota (antes salían como texto).
-  - **Etiquetas clicables:** un `#etiqueta` en el texto es un enlace que muestra las notas con esa etiqueta, igual que elegirla en la barra lateral.
+- **Plugins:** `registerStatusBarItem(id, nodo)` añade un elemento a la barra de estado, como `addStatusBarItem()` en Obsidian.
 
-  Nada de esto se aplica dentro de código (bloques o código en línea), y también funciona en las notas incrustadas y al exportar a HTML. En el PDF los comentarios tampoco salen, las notas al pie se listan y los callouts se imprimen con su contenido, aunque estén plegados; las etiquetas quedan como texto. La vista previa en vivo del editor todavía no lo muestra así.
+- **Exportar a PDF imprime la nota como se lee:** `[[Nota|texto]]` sale como su texto, `![[Nota]]` imprime la nota incrustada y se imprimen las tarjetas de enlace.
 
-- **Panel de enlaces completo: menciones con contexto, menciones sin enlace y enlaces salientes.** La sección del panel derecho, que ahora se llama "Enlaces" (antes "Enlaces entrantes"), tenía solo una lista de títulos de las notas que enlazan a la abierta. Ahora tiene tres apartados plegables con su contador:
-  - **Menciones con enlaces:** las notas que enlazan a la abierta, agrupadas por nota, con la línea de cada enlace y el enlace resaltado (varios enlaces de una misma línea comparten fila). Un clic abre la nota.
-  - **Menciones sin enlace:** las notas que nombran la abierta (su título o cualquiera de sus alias) en texto normal, sin `[[ ]]`. Se buscan al desplegar el apartado, para no leer toda la bóveda cada vez que cambias de nota. Cada mención tiene un botón **Enlazar**, que la reescribe como `[[Nota]]` (o `[[Nota|texto]]` si dice otra cosa, por ejemplo un alias o una mayúscula distinta; con `[[Carpeta/Nota|texto]]` si hay otra nota con el mismo nombre que ganaría el enlace desde esa carpeta). Cuenta solo palabras completas y no cuenta lo que está dentro de enlaces, de código, de direcciones web ni de las propiedades.
-  - **Enlaces salientes:** a dónde enlaza la nota abierta, cada destino una sola vez. Los que ya existen llevan icono de enlace y un clic abre la nota; los que aún no existen llevan icono de nota nueva ("No creado aún") y un clic crea la nota y la abre.
-
-  El panel se actualiza al guardar la nota, y también al crear o borrar notas en otro sitio (un enlace que no existía pasa a existir, o al revés). Al enlazar una mención se guarda la nota que la contenía y los backlinks se actualizan al momento.
-
-- **Los enlaces de las notas largas también cuentan.** La lista de notas solo lee los primeros 16 KB de cada fichero, así que un `[[enlace]]` escrito más abajo en una nota larga no aparecía como backlink de la nota enlazada. Ahora, tras cargar la bóveda, Jylos lee en segundo plano las notas que superan ese tamaño, extrae sus enlaces y actualiza los backlinks sin que haya que hacer nada. El resultado se guarda entre sesiones, en la carpeta de caché de la aplicación (nunca dentro de tu bóveda), y en los arranques siguientes solo se vuelven a leer las notas cuya fecha o tamaño cambió, también si las modificaste fuera de Jylos. Borrar esa carpeta es inocuo: se reconstruye sola. Las bóvedas SQLite no lo necesitan, porque ya cargan el contenido completo.
-
-- **Los enlaces se resuelven por ruta, como en Obsidian.** Hasta ahora un enlace se reducía al nombre de la nota, y con dos notas "Reunión" en carpetas distintas todo iba a la primera que se encontraba: los backlinks se mezclaban, el grafo unía la nota equivocada y el clic abría la que no era. Ahora `[[Reunión]]` lleva a la de la misma carpeta que la nota donde está escrito y, si no la hay, a la de ruta más corta; `[[Proyectos/Reunión]]` (o una parte de la ruta) elige esa; `[[../Plan]]` y `[[./Sub/Nota]]` son relativos a la carpeta de la nota; no importan las mayúsculas ni cómo esté escrito un acento. Los alias de la propiedad `aliases` (o `alias`) cuentan como último recurso. Esto se aplica a los backlinks, al grafo, a la vista de lectura (un enlace a una ruta que no existe se marca como inexistente aunque haya otra nota con ese nombre), a las incrustaciones `![[…]]`, a los enlaces de las propiedades y al clic en los enlaces del editor y de la vista de lectura. Un `[[enlace]]` dentro de código, en línea o en un bloque, es texto: ya no cuenta como backlink ni en el grafo, y la vista de lectura lo muestra tal cual (antes aparecía el HTML del enlace dentro del bloque). En bóvedas SQLite no hay alias, porque SQLite no guarda las propiedades de las notas.
-
-- **Pestañas en la barra superior, como en Obsidian.** Las pestañas de las notas abiertas pasan a la barra superior, justo encima del editor: en el diseño Explorador empiezan al final de la barra lateral; en el clásico, al final de la lista de notas; y siguen al editor al mover un divisor u ocultar un panel. Si la barra lateral está oculta, empiezan a continuación de los botones de la izquierda. El editor gana la fila que ocupaban. Las pestañas siguen visibles sobre el grafo y el Kanban, y pulsar una cierra esa vista y muestra la nota. En modo concentración se ocultan con la barra superior. Se apoyan sobre la línea inferior de la barra, redondeadas solo por arriba.
-
-- **El árbol Explorador se actualiza al mandar una nota a la papelera.** La nota seguía en el árbol hasta que se cerraba la carpeta o se reiniciaba la app: la barra lateral refrescaba la papelera, recientes y etiquetas, pero no el árbol. Ahora el árbol se actualiza ante cualquier cambio de notas o carpetas, también cuando una nota se modifica fuera de Jylos. Además, en el diseño Explorador el botón de papelera del editor y la orden de borrar no hacían nada (borraban la nota seleccionada en la lista de notas, que ahí no tiene selección); ahora borran la nota abierta.
-
-- **Interfaz más ligera.** Los botones de icono de la barra superior, la barra lateral, la cabecera de la lista de notas, la cabecera del editor, la barra de formato, los visores de PDF e imágenes, el grafo, el Canvas y el Kanban pasan a ser planos: sin borde, con un fondo suave al pasar el ratón; un botón activado muestra su icono en el color de acento. La fila de la ruta encima del editor desaparece: las carpetas de la nota aparecen en la fila del título, delante de él ("Carpeta / Subcarpeta /"), y en el diseño Explorador un clic en ellas muestra la nota en el árbol. Se quita el punto de guardado junto al título (el estado ya se ve en la barra de estado y en la pestaña). La sección "Propiedades" solo aparece si la nota tiene alguna y forma parte del documento (sin franja de fondo ni cajas en los valores hasta pasar el ratón). La primera propiedad se añade con un botón de la fila del título; a partir de ahí, con la línea "+ Añadir propiedad" bajo la lista, y ese botón deja de mostrarse. La barra de formato bajo el editor se puede ocultar en Preferencias. En una bóveda con Git, la barra de estado muestra una sola entrada (rama, estado de sincronización y número de cambios): un clic abre el panel de Git y el clic derecho ofrece cambios, confirmar, historial y, si falta, añadir remoto. "Historial de commits" está también en el menú Git. "+ Añadir etiqueta", en la barra de etiquetas de la nota, también es texto plano y ya aparece traducido (antes decía siempre "+ Add Tag"). Los árboles (Explorador, carpetas clásico y papelera) muestran líneas guía verticales bajo cada carpeta abierta, para ver qué cuelga de cada una.
-
-- **Nuevo diseño Explorador, como en Obsidian.** Un solo árbol en la barra lateral con las carpetas y las notas juntas: un clic en una carpeta la despliega y un clic en una nota la abre (Cmd/Ctrl+clic o clic central, en una pestaña nueva). Cada carpeta se lee al desplegarla, así que una bóveda grande no tarda más en abrir. La nota abierta queda marcada en el árbol, y los menús contextuales y el arrastrar y soltar son los mismos que en el diseño clásico. La cabecera del árbol ocupa una sola fila: un filtro que busca por nombre entre todas las notas y carpetas de la bóveda (sin distinguir mayúsculas ni acentos) y las muestra dentro de sus carpetas, el orden de las notas (nombre, edición o creación), un botón para mostrar en el árbol la nota abierta, y expandir y plegar. "Mostrar el número de notas junto a cada carpeta" se aplica también aquí. El panel de notas ya no ocupa sitio: solo aparece para mostrar los resultados de una búsqueda o de una etiqueta, y se cierra con la ✕.
-
-  El botón de diseño de la barra superior abre ahora un menú con los tres diseños: Explorador, clásico en columnas y clásico apilado. También se elige en **Herramientas → Preferencias**, y la elección se recuerda entre sesiones (antes el diseño volvía siempre a columnas). **Las instalaciones nuevas empiezan en Explorador; si actualizas, sigues en el diseño clásico hasta que lo cambies desde ese botón o desde Preferencias.**
-
-- **Pestañas como en VS Code.** Hasta ahora cada nota que se abría añadía una pestaña al final, y en poco rato había decenas. Ahora un clic abre la nota en la pestaña actual, sustituyendo la que había; si la nota ya está abierta en otra pestaña, se activa esa en lugar de duplicarla. Para abrirla en una pestaña nueva (justo a la derecha de la actual): Cmd+clic en macOS o Ctrl+clic en Windows y Linux, clic con el botón central, o "Abrir en pestaña nueva" en el menú contextual de la nota. Funciona en el árbol Explorador, la lista de notas, la cuadrícula, Recientes y Favoritas. Las notas recién creadas y las de un espacio de trabajo se abren cada una en su pestaña. El clic central sobre una pestaña la cierra. Quien prefiera el comportamiento anterior puede activar "Abrir siempre las notas en una pestaña nueva" en Preferencias. Los enlaces entre notas abren en la pestaña actual: en modo fuente, Cmd/Ctrl+clic ya es el gesto para seguir un enlace.
-
-- **Autoguardado y modo del editor, visibles en la barra de estado.** Varios usuarios no sabían que Jylos guarda solo ni que el editor tiene vista previa en vivo, porque lo único visible era un punto de color junto al título. Con una nota abierta, la barra de estado muestra a la derecha "Guardado" o "Sin guardar" (al pasar el ratón explica cada cuánto se autoguarda, o que está desactivado y dónde activarlo) y el modo del editor: vista previa en vivo, fuente, lectura o lectura enlazada. Al hacer clic en el modo aparece un menú para cambiarlo.
-
-- **La barra de estado ya no repite el título de la nota.** Al abrir una nota aparecía "Nota cargada: <título>", que ya se ve en la pestaña, en el campo de título y en la ruta encima del editor; con un título largo, además, ocupaba toda la barra y dejaba el resto (bóveda, número de notas, palabras, caracteres) reducido a "…". Ahora abrir una nota deja libre esa zona para los mensajes que sí aportan algo (búsquedas, errores, avisos), que solo usan el espacio que sobra y se recortan ellos, y la raya que la separaba se oculta mientras está vacía. En una bóveda de carpetas sin Git, la barra tampoco muestra ya una fila de separadores sueltos ("| | | |") detrás de "Inicializar Git".
-
-- **"Mover a Carpeta..." vuelve al menú contextual de las carpetas.** La opción existía, pero no aparecía nunca: el menú decidía si mostrarla al crear la fila del árbol, antes de que esta tuviera una carpeta. Ahora aparece en todas las carpetas salvo en la raíz de la bóveda. Además, en la vista de cuadrícula, "Mover a la Papelera" aparece desactivado en las notas privadas, como ya ocurría en la lista (antes se podía pulsar y solo mostraba un aviso).
-
-- **Orden natural también en el árbol de carpetas clásico.** Las carpetas que empiezan por una letra acentuada (por ejemplo "Árbol") aparecían al final, después de la "z", y "Capítulo 10" iba antes que "Capítulo 9". Ahora el árbol clásico ordena igual que el Explorador: sin que importen las mayúsculas ni los acentos, y los números por su valor. El botón de orden sigue invirtiéndolo (Z-A).
-
-- **El resaltado ya no se queda en filas sin el ratón encima.** Al desplazarse por la lista de notas, el árbol de carpetas, la papelera o el árbol Explorador sin mover el ratón, una fila podía quedarse resaltada como si el ratón estuviera sobre ella: JavaFX reutiliza las filas al desplazarse y solo actualiza el resaltado cuando el ratón se mueve. Ahora una fila pierde el resaltado en cuanto pasa a mostrar otro elemento. Tampoco se resaltan ya las filas vacías con las que las listas y los árboles rellenan su altura, en los dos temas.
-
-- **Papelera con los iconos del Explorador.** Las carpetas borradas se mostraban con `[+]`/`[/]` (que además no cambiaban al desplegarlas) junto a notas con icono de documento; ahora usan el icono de carpeta, y la flecha gira al desplegar. El árbol de carpetas clásico conserva sus `[+]`/`[/]`.
-
-- **Barra superior más baja.** La barra de botones superior ocupa 8 px menos de alto, y la barra de menús de Windows y Linux, 2 px menos. El botón de la barra lateral que muestra las etiquetas usa ahora el icono de etiqueta en lugar de `#`, que se confundía con el `#` de la barra superior, que sirve para crear una etiqueta.
+- **Corregido:**
+  - **Errores visibles:**
+    - si el disco o la base de datos rechaza un cambio (mover, renombrar, borrar o restaurar), Jylos lo dice, en lugar de parecer hecho;
+    - "Mover a Carpeta..." vuelve al menú contextual de las carpetas;
+    - la paleta "Toggle Tags Panel" no hacía nada.
+  - **Detalles de la interfaz:**
+    - fijar una nota o marcarla como favorita desde la lista lo dice en la barra de estado;
+    - una fila ya no se queda resaltada al desplazarse sin mover el ratón;
+    - los enlaces de las notas de versión que se muestran antes de actualizar se abren en el navegador;
+    - "+ Añadir etiqueta" aparecía siempre en inglés.
+  - **Temas:**
+    - la vista de lectura conserva el tema oscuro al activar o desactivar un plugin;
+    - el menú Ver > Tema marca el tema con el que se abre la aplicación.
+  - **Carpetas:** crear una subcarpeta con el mismo nombre que otra de la raíz ya no le añade "(1)".
 
 ## [2.5.8] - 2026-11-04
 

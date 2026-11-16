@@ -593,7 +593,8 @@ public class MainController {
                             editorController.getEditorTabScroll(), editorArea);
                 }
             }
-            editorController.setFormatToolbarVisible(uiPreferences.loadShowFormatToolbar(prefs));
+            editorController.formatToolbar().bind(uiPreferences.loadShowFormatToolbar(prefs),
+                    shown -> uiPreferences.saveShowFormatToolbar(prefs, shown));
         }
         tabsSupport.wire(graphView, graphViewController, noteService,
                 this::isDarkThemeActive, this::getString, this::updateStatus, () -> editorTabs,
@@ -1481,6 +1482,7 @@ public class MainController {
             Map.entry("cmd.toggle_pin", SystemActionEvent.ActionType.TOGGLE_PIN),
             Map.entry("cmd.toggle_notes_list", SystemActionEvent.ActionType.TOGGLE_NOTES_LIST),
             Map.entry("cmd.toggle_tags", SystemActionEvent.ActionType.TOGGLE_TAGS),
+            Map.entry("cmd.toggle_format_toolbar", SystemActionEvent.ActionType.TOGGLE_FORMAT_TOOLBAR),
             Map.entry("cmd.new_tag", SystemActionEvent.ActionType.NEW_TAG),
             Map.entry("cmd.list_view", SystemActionEvent.ActionType.LIST_VIEW),
             Map.entry("cmd.grid_view", SystemActionEvent.ActionType.GRID_VIEW),
@@ -1618,16 +1620,7 @@ public class MainController {
         systemActionHandlers.put(SystemActionEvent.ActionType.SORT_TRASH, () -> sidebarController.handleSortTrash(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.EMPTY_TRASH, () -> sidebarController.handleEmptyTrash(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.REFRESH_NOTES, () -> handleRefresh(null));
-        systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_TAGS, () -> {
-            if (editorController != null) {
-                editorController.toggleTagsBar();
-            }
-        });
-        systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_READING_MODE, () -> {
-            if (editorController != null) {
-                editorController.toggleReadingMode();
-            }
-        });
+        EditorCommandSupport.register(systemActionHandlers, () -> editorController);
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_SOURCE_MODE, this::handleToggleSourceMode);
         systemActionHandlers.put(SystemActionEvent.ActionType.SPLIT_VIEW_MODE, this::handleSplitViewMode);
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_PIN, () -> handleTogglePin(null));
@@ -2836,7 +2829,7 @@ public class MainController {
         theme.syncSystemMonitoring();
         uiPreferences.saveShowFormatToolbar(prefs, values.showFormatToolbar());
         if (editorController != null) {
-            editorController.setFormatToolbarVisible(values.showFormatToolbar());
+            editorController.formatToolbar().setVisible(values.showFormatToolbar());
         }
         if (values.layoutMode() != null && values.layoutMode() != uiLayout.mode()) {
             setLayoutMode(values.layoutMode());

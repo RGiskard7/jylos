@@ -550,6 +550,7 @@ public class EditorController implements PreviewEnhancerRegistry,
     @FXML
     private void initialize() {
         titleRow.wire(notePathLabel, editorHeaderBar, privateIndicator, privateIndicatorIcon, privateIndicatorTip);
+        formatToolbar.wire(formatToolbarContainer, editorPane);
         setNoteOpen(false);
         setViewMode(viewMode.get());
         // Live Preview shows a note embedded on its own line rendered, as the reading view does.
@@ -595,8 +596,8 @@ public class EditorController implements PreviewEnhancerRegistry,
         setLivePreviewEnabled(enabled, true);
     }
 
-    /** Preference: whether the format bar under the editor is shown. */
-    private boolean formatToolbarVisible = true;
+    /** The format bar under the editor: shown or folded, with its arrow and notch. */
+    private final FormatToolbarSupport formatToolbar = new FormatToolbarSupport();
 
     /**
      * What clicking the note's folder path in the title row does (the Explorer layout reveals
@@ -606,10 +607,9 @@ public class EditorController implements PreviewEnhancerRegistry,
         titleRow.setPathRevealAction(action);
     }
 
-    /** Shows or hides the format bar under the editor (Preferences). */
-    public void setFormatToolbarVisible(boolean visible) {
-        this.formatToolbarVisible = visible;
-        UiNodes.show(formatToolbarContainer, visible);
+    /** The format bar under the editor, shown or folded (Preferences, its arrow, the palette). */
+    FormatToolbarSupport formatToolbar() {
+        return formatToolbar;
     }
 
     /** Applies the persisted default editing mode without writing the preference again. */

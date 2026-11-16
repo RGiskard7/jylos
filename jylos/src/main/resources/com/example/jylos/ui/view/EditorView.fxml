@@ -147,7 +147,15 @@
 
         <!-- Editor Pane -->
         <VBox fx:id="editorPane" VBox.vgrow="ALWAYS" styleClass="editor-pane">
-            <MarkdownEditorView fx:id="noteContentArea" VBox.vgrow="ALWAYS" styleClass="editor-area"/>
+            <!-- The notch over the editor's bottom edge brings back a folded format bar. -->
+            <StackPane VBox.vgrow="ALWAYS">
+                <MarkdownEditorView fx:id="noteContentArea" styleClass="editor-area"/>
+                <Button fx:id="formatToolbarNotch" styleClass="format-toolbar-notch" StackPane.alignment="BOTTOM_CENTER"
+                        visible="false">
+                    <graphic><FontIcon iconLiteral="fth-chevron-up" styleClass="feather-icon"/></graphic>
+                    <tooltip><Tooltip text="%tooltip.show_format_toolbar"/></tooltip>
+                </Button>
+            </StackPane>
 
             <!-- Format Toolbar -->
             <HBox fx:id="formatToolbarContainer" styleClass="format-toolbar-container">
@@ -240,6 +248,11 @@
                         <Button fx:id="editorDeleteBtn" onAction="#handleDelete" styleClass="format-btn">
                             <graphic><FontIcon iconLiteral="fth-trash-2" styleClass="feather-icon-danger"/></graphic>
                             <tooltip><Tooltip text="%action.delete"/></tooltip>
+                        </Button>
+                        <!-- Folds the bar away; the notch it leaves brings it back. -->
+                        <Button fx:id="collapseFormatToolbarBtn" styleClass="format-btn">
+                            <graphic><FontIcon iconLiteral="fth-chevron-down" styleClass="feather-icon"/></graphic>
+                            <tooltip><Tooltip text="%tooltip.hide_format_toolbar"/></tooltip>
                         </Button>
                 </HBox>
             </HBox>

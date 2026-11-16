@@ -290,6 +290,11 @@ public class ToolbarController {
     }
 
     @FXML
+    private void handleToggleFormatToolbar(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.TOGGLE_FORMAT_TOOLBAR);
+    }
+
+    @FXML
     private void handleToggleNotesPanel(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.TOGGLE_NOTES_LIST);
     }

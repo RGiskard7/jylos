@@ -4854,3 +4854,26 @@
     -fx-text-fill: -fx-text-faint;
     -fx-font-size: 0.846em;
 }
+
+/* The notch a folded format bar leaves on the editor's bottom edge: a small tab that brings it back. */
+.root .format-toolbar-notch {
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-width: 1 1 0 1;
+    -fx-background-radius: 6 6 0 0;
+    -fx-border-radius: 6 6 0 0;
+    -fx-padding: 0 14;
+    -fx-min-height: 14px;
+    -fx-pref-height: 14px;
+    -fx-max-height: 14px;
+    -fx-cursor: hand;
+}
+.root .format-toolbar-notch .feather-icon {
+    -fx-icon-size: 12;
+    -fx-icon-color: -fx-text-faint;
+    -fx-fill: -fx-text-faint;
+}
+.root .format-toolbar-notch:hover .feather-icon {
+    -fx-icon-color: -fx-text-main;
+    -fx-fill: -fx-text-main;
+}

@@ -237,6 +237,8 @@ public class CommandPalette {
         // View commands
         commands.add(
                 new Command("cmd.toggle_sidebar", "Toggle Sidebar", "Show/hide sidebar", "F9", "|", "View", null));
+        commands.add(new Command("cmd.toggle_format_toolbar", "Toggle Format Bar",
+                "Show/hide the format bar under the editor", "F7", "\u2261", "View", null));
         commands.add(new Command("cmd.graph_view", "Graph View",
                 "Open the knowledge graph", "Ctrl+G", "\u2b21", "View", null));
         commands.add(new Command("cmd.knowledge_insights", "Knowledge Insights",

@@ -63,6 +63,7 @@ public class SystemActionEvent extends AppEvent {
         EMPTY_TRASH,
         REFRESH_NOTES,
         TOGGLE_TAGS,
+        TOGGLE_FORMAT_TOOLBAR,
         TOGGLE_READING_MODE,
         TOGGLE_SOURCE_MODE,
         SPLIT_VIEW_MODE,

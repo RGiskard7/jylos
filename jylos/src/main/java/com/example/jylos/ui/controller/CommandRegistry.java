@@ -109,6 +109,7 @@ class CommandRegistry {
             new CommandDef("cmd.toggle_pin", "Toggle Pin"),
             new CommandDef("cmd.toggle_notes_list", "Toggle Notes List"),
             new CommandDef("cmd.toggle_tags", "Toggle Tags Panel"),
+            new CommandDef("cmd.toggle_format_toolbar", "Toggle Format Bar"),
             new CommandDef("cmd.new_tag", "New Tag"),
             new CommandDef("cmd.list_view", "Switch to List View"),
             new CommandDef("cmd.grid_view", "Switch to Grid View"),

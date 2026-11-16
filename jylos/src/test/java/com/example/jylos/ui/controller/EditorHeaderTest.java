@@ -121,13 +121,13 @@ class EditorHeaderTest {
             f.controller.loadNote(new Note("a.md", "A", "x"));
             f.layout();
             boolean byDefault = f.shown("format-toolbar-container");
-            f.controller.setFormatToolbarVisible(false);
+            f.controller.formatToolbar().setVisible(false);
             f.layout();
             boolean off = f.shown("format-toolbar-container");
             f.controller.loadNote(new Note("b.md", "B", "x"));
             f.layout();
             boolean stillOff = f.shown("format-toolbar-container");
-            f.controller.setFormatToolbarVisible(true);
+            f.controller.formatToolbar().setVisible(true);
             f.layout();
             return List.of(byDefault, off, stillOff, f.shown("format-toolbar-container"));
         });

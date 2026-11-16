@@ -55,6 +55,7 @@
         <Menu text="%menu.view">
             <MenuItem fx:id="toggleSidebarMenuItem" text="%action.toggle_sidebar" onAction="#handleToggleSidebar" accelerator="F9"/>
             <MenuItem fx:id="toggleNotesListMenuItem" text="%action.toggle_notes_list" onAction="#handleToggleNotesPanel" accelerator="F8"/>
+            <MenuItem text="%action.toggle_format_toolbar" onAction="#handleToggleFormatToolbar" accelerator="F7"/>
             <SeparatorMenuItem/>
             <MenuItem text="%action.toggle_reading_view" onAction="#handleToggleReadingMode"/>
             <MenuItem text="%action.open_linked_view" onAction="#handleSplitViewMode"/>
