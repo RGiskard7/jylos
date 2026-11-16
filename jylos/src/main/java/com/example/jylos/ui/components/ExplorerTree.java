@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -83,6 +84,20 @@ public final class ExplorerTree {
     /** Style class of the row showing the note open in the editor. */
     public static final String ACTIVE_NOTE_STYLE = "explorer-active-note";
     private static final String LOADING_STYLE = "explorer-loading-row";
+    /**
+     * The thread the app's Explorer reads folders on, apart from the sidebar's other loads: a
+     * folder opened while the whole vault is being read (note counts, recent notes, a cloud
+     * vault) does not queue behind them. One for the whole app, idle between reads.
+     */
+    private static final Executor BACKGROUND_LOADER = Executors.newSingleThreadExecutor(r -> {
+        Thread thread = new Thread(r, "jylos-explorer-loader");
+        thread.setDaemon(true);
+        return thread;
+    });
+    /** A read still running after this long is reported with where its thread is waiting. */
+    private static final Duration STUCK_READ = Duration.seconds(10);
+    /** A folder read slower than this is logged, to tell a slow disk or cloud vault apart. */
+    private static final long SLOW_READ_MILLIS = 2_000;
     private static final String FOLDER_STYLE = "explorer-folder-row";
     private static final String NOTE_STYLE = "explorer-note-row";
 
@@ -176,6 +191,11 @@ public final class ExplorerTree {
                 commitRename();
             }
         });
+    }
+
+    /** The loader the app's Explorer reads folders with (see {@link #BACKGROUND_LOADER}). */
+    public static Executor backgroundLoader() {
+        return BACKGROUND_LOADER;
     }
 
     public TreeView<Component> getView() {
@@ -660,21 +680,71 @@ public final class ExplorerTree {
             }
             Folder folder = (Folder) getValue();
             SortOption sort = noteSort;
+            reportIfStuck(thisRead, folder);
             try {
                 loader.execute(() -> {
-                    List<Component> ordered;
+                    // Subfolders first: listing them is quick, while the notes can take long (a
+                    // cloud vault the app is still reading), and the folders must not wait.
+                    long started = System.nanoTime();
+                    List<Folder> subfolders;
+                    List<Note> notes;
                     try {
-                        ordered = ExplorerOrdering.order(source.subfolders(folder), source.notes(folder), sort);
+                        subfolders = source.subfolders(folder);
+                        List<Component> folders = ExplorerOrdering.order(subfolders, List.of(), sort);
+                        Platform.runLater(() -> applyFolders(thisRead, folders));
+                        notes = source.notes(folder);
                     } catch (RuntimeException e) {
                         logger.log(Level.WARNING, "Failed to read folder " + folder.getId(), e);
                         Platform.runLater(() -> failed(thisRead));
                         return;
                     }
+                    long millis = (System.nanoTime() - started) / 1_000_000;
+                    if (millis > SLOW_READ_MILLIS) {
+                        logger.info("Explorer: reading folder " + folder.getId() + " took " + millis + " ms");
+                    }
+                    List<Component> ordered = ExplorerOrdering.order(subfolders, notes, sort);
                     Platform.runLater(() -> apply(thisRead, ordered));
                 });
             } catch (RejectedExecutionException e) {
                 failed(thisRead);
             }
+        }
+
+        /**
+         * If the read has not finished after {@link #STUCK_READ}, logs where the reading thread
+         * is, so a folder left on "Loading…" (a cloud vault, a lock) can be told apart in the log.
+         */
+        private void reportIfStuck(long read, Folder folder) {
+            PauseTransition check = new PauseTransition(STUCK_READ);
+            check.setOnFinished(e -> {
+                if (read != generation || loaded) {
+                    return;
+                }
+                StringBuilder where = new StringBuilder();
+                Thread.getAllStackTraces().forEach((thread, frames) -> {
+                    if (thread.getName().startsWith("jylos-explorer-loader")) {
+                        for (StackTraceElement frame : frames) {
+                            where.append("\n    at ").append(frame);
+                        }
+                    }
+                });
+                logger.warning("Explorer: folder " + folder.getId() + " still loading after "
+                        + (long) STUCK_READ.toSeconds() + " s" + where);
+            });
+            check.play();
+        }
+
+        /** Shows the subfolders, with "Loading…" under them, until the notes are read. */
+        private void applyFolders(long read, List<Component> folders) {
+            if (read != generation || loaded) {
+                return;
+            }
+            List<TreeItem<Component>> next = new ArrayList<>(folders.size() + 1);
+            for (Component component : folders) {
+                next.add(new FolderItem((Folder) component));
+            }
+            next.add(new TreeItem<>());
+            getChildren().setAll(next);
         }
 
         private void apply(long read, List<Component> ordered) {

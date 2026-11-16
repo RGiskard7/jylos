@@ -18,6 +18,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.CountDownLatch;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -76,6 +80,56 @@ class ExplorerTreeTest {
         });
 
         assertEquals(List.of("ROOT"), settle(() -> new ArrayList<>(vault.queries)));
+    }
+
+    /**
+     * Listing a folder's subfolders is quick; its notes can take long (a cloud vault while the
+     * app reads it). The subfolders show as soon as they are listed, with "Loading…" under them
+     * until the notes arrive.
+     */
+    @Test
+    void slowNotesDoNotHoldBackTheFolders() throws Exception {
+        assumeFx();
+        CountDownLatch notesReady = new CountDownLatch(1);
+        FakeVault vault = new FakeVault() {
+            @Override
+            public List<Note> notes(Folder folder) {
+                try {
+                    notesReady.await(10, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return super.notes(folder);
+            }
+        };
+        vault.folder("ROOT", "Trabajo", "t");
+        vault.note("ROOT", "Inicio");
+        ExecutorService loader = Executors.newSingleThreadExecutor();
+        Holder h = new Holder();
+        try {
+            onFx(() -> {
+                h.tree = new ExplorerTree(vault, loader, key -> key);
+                h.tree.setRoot(new Folder("ROOT", "Vault"));
+                return null;
+            });
+            List<String> whileWaiting = null;
+            for (int i = 0; i < 50 && (whileWaiting == null || !whileWaiting.contains("Trabajo")); i++) {
+                Thread.sleep(20);
+                whileWaiting = settle(() -> titles(h.tree.getView().getRoot()));
+            }
+            assertEquals(List.of("Trabajo", "explorer.loading"), whileWaiting);
+
+            notesReady.countDown();
+            List<String> done = null;
+            for (int i = 0; i < 50 && (done == null || !done.contains("Inicio")); i++) {
+                Thread.sleep(20);
+                done = settle(() -> titles(h.tree.getView().getRoot()));
+            }
+            assertEquals(List.of("Trabajo", "Inicio"), done);
+        } finally {
+            notesReady.countDown();
+            loader.shutdownNow();
+        }
     }
 
     @Test
@@ -778,7 +832,7 @@ class ExplorerTreeTest {
     }
 
     /** An in-memory vault that records which folders were read. */
-    private static final class FakeVault implements ExplorerTree.Source {
+    private static class FakeVault implements ExplorerTree.Source {
         final Map<String, List<Folder>> folders = new HashMap<>();
         final Map<String, List<Note>> notes = new HashMap<>();
         final List<String> queries = new ArrayList<>();

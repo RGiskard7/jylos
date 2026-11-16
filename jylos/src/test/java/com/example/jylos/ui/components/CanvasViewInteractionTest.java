@@ -29,6 +29,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
+import javafx.scene.input.ContextMenuEvent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
@@ -226,6 +227,64 @@ class CanvasViewInteractionTest {
         });
         assertEquals(-150.0, (Double) seen.get(0), 1e-6, "middle drag pans");
         assertEquals(0.0, (Double) seen.get(1), 1e-6, "left drag draws a selection box instead");
+    }
+
+    /**
+     * As in Obsidian: dragging with the right button pans, and a right click that does not move
+     * opens the menu. JavaFX asks for the menu on press (macOS) or on release (Windows); either
+     * way a drag must not leave a menu behind.
+     */
+    @Test
+    void theRightButtonPansWhenDraggedAndOpensTheMenuWhenItDoesNot() throws Exception {
+        assumeFx();
+        List<Object> seen = onFx(() -> {
+            Fixture f = new Fixture(DOC);
+            f.show();
+            Bounds before = f.boxInScene("c");
+            Point2D empty = f.sceneOf("b", 0.5, 4.0);
+            f.rightDrag(empty, empty.add(0, -150), true);
+            f.rightDrag(empty, empty.add(0, -150), false);
+            double panned = f.boxInScene("c").getMinY() - before.getMinY();
+            int menusAfterDrags = f.openMenus();
+            f.rightDrag(empty, empty, false);
+            int menusAfterClick = f.openMenus();
+            f.close();
+            return List.of(panned, menusAfterDrags, menusAfterClick);
+        });
+        assertEquals(List.of(-300.0, 0, 1), seen);
+    }
+
+    /** Only one menu is open at a time, and pressing the canvas closes it. */
+    @Test
+    void onlyOneMenuIsOpenAndPressingTheCanvasClosesIt() throws Exception {
+        assumeFx();
+        List<Integer> seen = onFx(() -> {
+            Fixture f = new Fixture(DOC);
+            f.show();
+            Point2D empty = f.sceneOf("b", 0.5, 4.0);
+            f.rightDrag(empty, empty, false);
+            f.rightDrag(empty.add(40, 0), empty.add(40, 0), false);
+            int afterTwo = f.openMenus();
+            f.dragOnBackground(empty.add(80, 0), empty.add(80, 0), MouseButton.PRIMARY);
+            int afterPress = f.openMenus();
+            f.close();
+            return List.of(afterTwo, afterPress);
+        });
+        assertEquals(List.of(1, 0), seen);
+    }
+
+    @Test
+    void shiftWheelPansSideways() throws Exception {
+        assumeFx();
+        List<Double> seen = onFx(() -> {
+            Fixture f = new Fixture(DOC);
+            Bounds before = f.boxInScene("a");
+            f.scrollShift(0, -100);
+            Bounds after = f.boxInScene("a");
+            return List.of(after.getMinX() - before.getMinX(), after.getMinY() - before.getMinY());
+        });
+        assertTrue(seen.get(0) < -50, "Shift + wheel moves the canvas sideways: " + seen);
+        assertEquals(0.0, seen.get(1), 1e-6, "and not up or down");
     }
 
     @Test
@@ -472,6 +531,49 @@ class CanvasViewInteractionTest {
             Event.fireEvent(viewport, mouse(MouseEvent.MOUSE_DRAGGED, from.midpoint(to), button, false));
             Event.fireEvent(viewport, mouse(MouseEvent.MOUSE_DRAGGED, to, button, false));
             Event.fireEvent(viewport, mouse(MouseEvent.MOUSE_RELEASED, to, button, false));
+        }
+
+        /**
+         * A right-button press, drag and release on the background, with the menu request
+         * JavaFX sends: on press as on macOS ({@code requestOnPress}), or on release as on Windows.
+         */
+        void rightDrag(Point2D from, Point2D to, boolean requestOnPress) {
+            Event.fireEvent(viewport, mouse(MouseEvent.MOUSE_PRESSED, from, MouseButton.SECONDARY, false));
+            if (requestOnPress) {
+                requestMenu(from);
+            }
+            if (!from.equals(to)) {
+                Event.fireEvent(viewport, mouse(MouseEvent.MOUSE_DRAGGED, from.midpoint(to), MouseButton.SECONDARY, false));
+                Event.fireEvent(viewport, mouse(MouseEvent.MOUSE_DRAGGED, to, MouseButton.SECONDARY, false));
+            }
+            Event.fireEvent(viewport, mouse(MouseEvent.MOUSE_RELEASED, to, MouseButton.SECONDARY, false));
+            if (!requestOnPress) {
+                requestMenu(to);
+            }
+        }
+
+        private void requestMenu(Point2D at) {
+            Point2D local = viewport.sceneToLocal(at);
+            Event.fireEvent(viewport, new ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED,
+                    local.getX(), local.getY(), at.getX(), at.getY(), false, null));
+        }
+
+        int openMenus() {
+            int open = 0;
+            for (Window window : Window.getWindows()) {
+                if (window instanceof ContextMenu menu && menu.isShowing()) {
+                    open++;
+                }
+            }
+            return open;
+        }
+
+        void scrollShift(double dx, double dy) {
+            Point2D p = viewport.localToScene(500, 350);
+            Event.fireEvent(viewport, new ScrollEvent(ScrollEvent.SCROLL, p.getX(), p.getY(), p.getX(), p.getY(),
+                    true, false, false, false, false, false, dx, dy, dx, dy,
+                    ScrollEvent.HorizontalTextScrollUnits.NONE, 0, ScrollEvent.VerticalTextScrollUnits.NONE, 0, 0,
+                    null));
         }
 
         void key(KeyCode code, boolean shortcut) {

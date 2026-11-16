@@ -472,7 +472,7 @@ public class SidebarController {
                         ? noteService.getNotesByFolder(folder) : List.of();
             }
         };
-        explorerTree = new ExplorerTree(source, sidebarLoadExecutor, this::getString);
+        explorerTree = new ExplorerTree(source, ExplorerTree.backgroundLoader(), this::getString);
         explorerTree.getView().getStyleClass().add("sidebar-tree");
         explorerTree.setNoteSort(storedExplorerSort());
         explorerTree.setOpenFolders(storedOpenFolders());

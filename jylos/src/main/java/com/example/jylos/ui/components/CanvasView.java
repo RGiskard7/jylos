@@ -70,6 +70,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.ContextMenuEvent;
 import javafx.scene.input.DataFormat;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.KeyCode;
@@ -168,6 +169,9 @@ public final class CanvasView extends BorderPane {
     private static final double MIN_NODE_H = 50;
 
     private double dragAnchorX;
+    /** Where the right button was pressed on the background; moving past {@link #CLICK_SLOP} makes it a pan. */
+    private double pressX;
+    private double pressY;
     private double dragAnchorY;
     private boolean fitted = false;
     private boolean dirty = false;
@@ -177,6 +181,8 @@ public final class CanvasView extends BorderPane {
     private boolean replayingHistory = false;
     private Button undoButton;
     private Button redoButton;
+    /** How far (px) a right-button press may move and still open the menu instead of panning. */
+    private static final double CLICK_SLOP = 4;
     /** The selected cards, in the order they were picked. */
     private final LinkedHashSet<String> selectedNodeIds = new LinkedHashSet<>();
     /** Moving cards snap to the grid and to the other cards (saved switches, on by default). */
@@ -184,8 +190,15 @@ public final class CanvasView extends BorderPane {
     private boolean snapToObjects = preferences.getBoolean(SNAP_TO_OBJECTS_KEY, true);
     /** Space held down: dragging the background pans. */
     private boolean spaceDown;
-    /** The background is being dragged to pan (middle button, or space + left button). */
+    /** The background is being dragged to pan (middle or right button, or space + left button). */
     private boolean panning;
+    /** The right button is down on the background, and whether it has moved (then it panned). */
+    private boolean secondaryDown;
+    private boolean secondaryMoved;
+    /** Where the background menu was asked for while the right button was down (macOS asks on press). */
+    private ContextMenuEvent pendingBackgroundMenu;
+    /** The menu open now, if any: only one at a time, and pressing the canvas closes it. */
+    private ContextMenu openMenu;
     /** Where a selection box started on the background (viewport coordinates), or null. */
     private CanvasGeometry.Point selectionBoxStart;
     private final Rectangle selectionBox = new Rectangle();
@@ -526,11 +539,11 @@ public final class CanvasView extends BorderPane {
             arrow.setOnMouseClicked(pick);
             line.setOnContextMenuRequested(ev -> {
                 selectEdge(edgeId);
-                elementMenu(
+                showMenu(elementMenu(
                         c -> { document.setEdgeColor(edgeId, c); markDirty(); rebuild(); },
                         () -> { document.removeEdge(edgeId); markDirty(); rebuild(); },
-                        edgeLabelMenuItem(edgeId))
-                        .show(line, ev.getScreenX(), ev.getScreenY());
+                        edgeLabelMenuItem(edgeId)),
+                        line, ev.getScreenX(), ev.getScreenY());
                 ev.consume();
             });
             edgeLines.add(new EdgeLine(e, line, arrow));
@@ -794,11 +807,11 @@ public final class CanvasView extends BorderPane {
         });
         label.setOnContextMenuRequested(event -> {
             selectEdge(e.id());
-            elementMenu(
+            showMenu(elementMenu(
                     c -> { document.setEdgeColor(e.id(), c); markDirty(); rebuild(); },
                     () -> { document.removeEdge(e.id()); markDirty(); rebuild(); },
-                    edgeLabelMenuItem(e.id()))
-                    .show(label, event.getScreenX(), event.getScreenY());
+                    edgeLabelMenuItem(e.id())),
+                    label, event.getScreenX(), event.getScreenY());
             event.consume();
         });
         return label;
@@ -1227,7 +1240,7 @@ public final class CanvasView extends BorderPane {
                     () -> { document.removeNode(id); markDirty(); rebuild(); },
                     isGroup ? new MenuItem[] {alignSubmenu(id)}
                             : new MenuItem[0]);
-            menu.show(box, e.getScreenX(), e.getScreenY());
+            showMenu(menu, box, e.getScreenX(), e.getScreenY());
             e.consume();
         });
     }
@@ -1338,7 +1351,7 @@ public final class CanvasView extends BorderPane {
         }
         refreshConnectHandles();
         if (moved && (cardAt(at, null) == null)) {
-            connectionMenu(sourceId, side, at).show(viewport, event.getScreenX(), event.getScreenY());
+            showMenu(connectionMenu(sourceId, side, at), viewport, event.getScreenX(), event.getScreenY());
         }
     }
 
@@ -1971,11 +1984,18 @@ public final class CanvasView extends BorderPane {
 
     private void installPanZoom() {
         installCanvasDrops();
+        // The right button pans when dragged and opens the menu when it does not move, as in
+        // Obsidian. JavaFX asks for the menu on press (macOS) or after release (Windows), so a
+        // request during the press waits for the release, and one after a drag is dropped.
         viewport.setOnContextMenuRequested(e -> {
-            double[] worldPoint = screenToWorld(e.getX(), e.getY());
-            backgroundMenu(worldPoint[0], worldPoint[1]).show(viewport, e.getScreenX(), e.getScreenY());
+            if (secondaryDown && !e.isKeyboardTrigger()) {
+                pendingBackgroundMenu = e;
+            } else if (!secondaryMoved || e.isKeyboardTrigger()) {
+                showBackgroundMenu(e);
+            }
             e.consume();
         });
+        viewport.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> hideOpenMenu());
         viewport.addEventFilter(MouseEvent.MOUSE_CLICKED, e -> {
             Object target = e.getTarget();
             if ((target != viewport && target != world && target != worldGroup) || e.getClickCount() < 2) {
@@ -2020,9 +2040,13 @@ public final class CanvasView extends BorderPane {
                 return;
             }
             requestFocus();
-            panning = e.getButton() == MouseButton.MIDDLE
+            secondaryDown = e.getButton() == MouseButton.SECONDARY;
+            secondaryMoved = false;
+            panning = e.getButton() == MouseButton.MIDDLE || secondaryDown
                     || (e.getButton() == MouseButton.PRIMARY && spaceDown);
             if (panning) {
+                pressX = e.getX();
+                pressY = e.getY();
                 dragAnchorX = e.getX() - panTransform.getX();
                 dragAnchorY = e.getY() - panTransform.getY();
                 return;
@@ -2034,6 +2058,9 @@ public final class CanvasView extends BorderPane {
         });
         viewport.setOnMouseDragged(e -> {
             if (panning) {
+                if (secondaryDown && Math.hypot(e.getX() - pressX, e.getY() - pressY) > CLICK_SLOP) {
+                    secondaryMoved = true;
+                }
                 panTransform.setX(e.getX() - dragAnchorX);
                 panTransform.setY(e.getY() - dragAnchorY);
             } else if (selectionBoxStart != null) {
@@ -2051,6 +2078,14 @@ public final class CanvasView extends BorderPane {
         viewport.setOnMouseReleased(e -> {
             if (panning) {
                 panning = false;
+                if (secondaryDown) {
+                    secondaryDown = false;
+                    ContextMenuEvent pending = pendingBackgroundMenu;
+                    pendingBackgroundMenu = null;
+                    if (pending != null && !secondaryMoved) {
+                        showBackgroundMenu(pending);
+                    }
+                }
                 return;
             }
             if (selectionBoxStart == null) {
@@ -2108,6 +2143,25 @@ public final class CanvasView extends BorderPane {
             event.setDropCompleted(success);
             event.consume();
         });
+    }
+
+    private void showBackgroundMenu(ContextMenuEvent e) {
+        double[] worldPoint = screenToWorld(e.getX(), e.getY());
+        showMenu(backgroundMenu(worldPoint[0], worldPoint[1]), viewport, e.getScreenX(), e.getScreenY());
+    }
+
+    /** Shows {@code menu}, closing the one open before: menus never pile up. */
+    private void showMenu(ContextMenu menu, Node anchor, double screenX, double screenY) {
+        hideOpenMenu();
+        openMenu = menu;
+        menu.show(anchor, screenX, screenY);
+    }
+
+    private void hideOpenMenu() {
+        if (openMenu != null) {
+            openMenu.hide();
+            openMenu = null;
+        }
     }
 
     private ContextMenu backgroundMenu(double worldX, double worldY) {

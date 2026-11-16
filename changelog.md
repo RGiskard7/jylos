@@ -82,7 +82,8 @@
     - ajuste a la rejilla y a las tarjetas cercanas;
     - conectar arrastrando el punto de un lado, que al soltarlo en el vacío ofrece crear una tarjeta conectada;
     - redimensionar desde cualquier lado o esquina.
-  - **Moverse:** la rueda y el trackpad desplazan el lienzo; el zoom es Cmd/Ctrl + rueda o pellizcar.
+  - **Moverse:** la rueda y el trackpad desplazan el lienzo (Shift + rueda, en horizontal), igual que arrastrar con el botón derecho o el central, o con el izquierdo manteniendo Espacio. El zoom es Cmd/Ctrl + rueda o pellizcar.
+  - **Corregido:** los menús contextuales se quedaban abiertos y se acumulaban; ahora solo hay uno y se cierra al pulsar en el lienzo.
   - **Un Canvas se puede hacer privado**, como una nota. Las imágenes y los PDF ya no ofrecen "Hacer privada", porque cifrarlos los rompería.
 
 - **Interfaz más ligera:**
