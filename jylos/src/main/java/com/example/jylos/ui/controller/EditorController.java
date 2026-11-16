@@ -64,7 +64,6 @@ import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
-import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
@@ -207,13 +206,13 @@ public class EditorController implements PreviewEnhancerRegistry,
     @FXML private Label modifiedDateLabel;
 
     // ── FXML — properties panel ──────────────────────────────────────────────
-    @FXML private VBox  propertiesSection;   // outer, shown when note has custom props
-    @FXML private HBox  propertiesHeader;    // always-visible header row
-    @FXML private Label propertiesCollapseIcon;
-    @FXML private VBox  propertiesBody;      // rows + "add property" line, collapsible
-    @FXML private VBox  propertiesContent;   // rows, toggleable via header click
+    @FXML private ToggleButton togglePropertiesBtn; // opens and closes the panel
+    @FXML private Node  propertiesDot;       // on the button: the note has properties
+    @FXML private VBox  propertiesSection;   // the panel under the title row
+    @FXML private VBox  propertiesContent;   // one row per property
+    @FXML private Label propertiesEmptyLabel; // reading view, note without properties
+    @FXML private HBox  addPropertyRow;      // "+ Add property", editing views only
     @FXML private Button addPropertyBtn;
-    @FXML private Button addPropertyHeaderBtn;
 
     // ── FXML — editor / preview ──────────────────────────────────────────────
     @FXML private SplitPane editorPreviewSplitPane;
@@ -449,13 +448,13 @@ public class EditorController implements PreviewEnhancerRegistry,
 
     // ── Properties panel handlers ────────────────────────────────────────────
 
-    /** Toggles (collapses/expands) the properties content area. */
+    /** Opens or closes the properties panel (the button in the title row). */
     @FXML
-    private void handlePropertiesHeaderClick(MouseEvent event) {
-        properties.toggleExpanded();
+    private void handleToggleProperties(ActionEvent event) {
+        properties.setOpen(togglePropertiesBtn.isSelected());
     }
 
-    /** Opens a dialog to add a new YAML property (edit/split view only). */
+    /** Adds an empty property row to fill in place (editing views only). */
     @FXML
     private void handleAddProperty(ActionEvent event) {
         properties.addProperty();
@@ -1528,8 +1527,8 @@ public class EditorController implements PreviewEnhancerRegistry,
     private final class PropertiesHost implements PropertiesPanelSupport.Host {
         @Override
         public PropertiesPanelSupport.Nodes nodes() {
-            return new PropertiesPanelSupport.Nodes(propertiesSection, propertiesBody, propertiesContent,
-                    propertiesCollapseIcon, addPropertyBtn, addPropertyHeaderBtn);
+            return new PropertiesPanelSupport.Nodes(togglePropertiesBtn, propertiesDot, propertiesSection,
+                    propertiesContent, propertiesEmptyLabel, addPropertyRow);
         }
 
         @Override

@@ -16,7 +16,8 @@ engine (JCEF) would involve.
 | Limitation | Effect | What Jylos does | Where |
 |---|---|---|---|
 | No WebP decoding (`naturalWidth` stays 0). Many sites serve WebP even under a `.png` URL. | Image shows as its link | An image that fails is handed to Java. Java fetches it (or decodes the inlined vault file), reads it with ImageIO plus the TwelveMonkeys WebP plugin, and sends back a PNG. | `WebImageConverter`, `WebViewImages`, `live-preview.js` (`imageConverted`), `MarkdownPreview` (`__jylosImages`) |
-| No colour emoji fonts; characters outside the BMP draw as tofu | Emoji missing or shown as boxes | Emoji runs are rasterised to monochrome images with the bundled Noto Emoji font | `MarkdownPreview.rasterizeEmojiRun`, `MarkdownEditorView.EditorBridge.rasterizeEmoji`, `editor.js` |
+| Colour emoji are drawn only when the emoji sits alone in its own element with an emoji font. Next to other text in the same node they come out garbled, and a second emoji in the same element is not drawn. Sequences (skin tones, ZWJ families, flags, keycaps) are not shaped. Checked on macOS; not yet on Windows or Linux. | Emoji garbled, or only part of a sequence shown | Every emoji starts as an image rasterised with the bundled monochrome Noto Emoji font. Where drawing one on a canvas shows colour, each emoji goes back to text in its own element with an emoji font, and symbols such as ↩ to plain text. Sequences stay images. | `emoji.js` (editor), `colour-emoji.js` and `MarkdownPreview.emojifyToImages` (reading view), `EditorBridge.rasterizeEmoji` |
+| `loadContent` garbles characters outside the BMP written as they are (it passes the page on as modified UTF-8) | Each such character shows as several broken glyphs | Emoji go into the page as numeric character references (`&#x1F600;`); other characters outside the BMP are not handled yet | `MarkdownPreview.emojifyToImages` |
 | Scrolling is animated by WebKit itself | One wheel or trackpad event moves nothing for 2 frames, then takes about 5 more to arrive (about 100 ms in all). On top of the trackpad's own momentum this feels laggy. Measured with a 100 px event. | Nothing in the editor; the reading view multiplies wheel steps by 1.8. There is no public API to turn the animation off. | `EditorPreviewSupport.installAcceleratedScroll` |
 | No GPU compositing; scrolling repaints on the JavaFX Application Thread | Smoothness depends on the size of the page area that repaints | CodeMirror only draws the viewport. Widget heights are remembered so content does not jump. | `live-preview.js` (`imageHeights`, `blockHeights`) |
 | `KeyboardEvent.key` is empty on macOS | Option-key symbols (`[`, `{`, `@`…) matched CodeMirror shortcuts | Shortcuts that depend on key codes are kept off the typing path | `editor.js` (`typingSafeKeymap`) |
@@ -42,7 +43,15 @@ engine (JCEF) would involve.
   work that arrives before the page is ready waits for it (`MarkdownEditorView.whenReady`;
   `bridgeReady()` in the reading view).
 
-## Moving to JCEF
+## The JCEF option (under evaluation)
+
+**Status.** Under evaluation; for now Jylos stays on JavaFX's WebView. A prototype measured
+what it would bring and what it would cost:
+- **Scrolling:** a 100 px wheel step lands in one frame, instead of about 100 ms with WebView.
+- **Cost:** about 290 MB more memory and about 240 MB more on disk per platform.
+- **Typing:** on macOS, JCEF drops every character that is not ASCII when it renders off
+  screen, so Jylos would need a keyboard layer of its own.
+- **Support:** JCEF has no official JavaFX integration; that piece would be Jylos's to keep up.
 
 **What it is.** JCEF (Java Chromium Embedded Framework) puts Chromium, through CEF, inside a
 Java application. JetBrains IDEs use it for their web-based panels; CEF itself is behind
@@ -50,7 +59,7 @@ desktop apps such as Spotify and Steam.
 
 **What it would fix.** It is the same engine family as Obsidian's (Chromium), so it would
 bring:
-- WebP, AVIF and colour emoji;
+- WebP, AVIF and complete emoji (skin tones, flags, families);
 - browser-native scrolling;
 - current CSS and JavaScript.
 
@@ -65,10 +74,10 @@ bring:
   listed above have to be redesigned.
 - **Alternative.** JxBrowser (commercial) is a Chromium engine for Java with JavaFX support.
 
-**Before deciding, a prototype has to answer two questions:**
-1. How smooth is scrolling when JCEF renders off screen inside JavaFX, compared with
-   WebView?
-2. How large is the packaged app on each platform?
+**Still open before deciding:**
+- how scrolling feels on a real trackpad;
+- the packaged size, measured rather than estimated;
+- Windows and Linux.
 
 ## Where the engine lives
 

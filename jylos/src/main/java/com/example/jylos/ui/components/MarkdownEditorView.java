@@ -579,9 +579,10 @@ public final class MarkdownEditorView extends StackPane {
         }
 
         /**
-         * Rasterises an emoji run for the editor's emoji decoration, reusing the same
-         * cache and bundled font as the Preview (see {@link MarkdownPreview}) — the
-         * WebView's own font rendering cannot show colour emoji.
+         * Rasterises an emoji for the editor's emoji decoration, reusing the same cache
+         * and bundled font as the Preview (see {@link MarkdownPreview}). The editor asks
+         * for every emoji where the WebView draws no colour emoji, and elsewhere only for
+         * sequences it cannot draw whole (skin tones, ZWJ, flags, keycaps).
          */
         public String rasterizeEmoji(String run) {
             String dataUri = MarkdownPreview.rasterizeEmojiRun(run, darkTheme);

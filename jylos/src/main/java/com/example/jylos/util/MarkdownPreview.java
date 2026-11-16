@@ -13,8 +13,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -56,14 +59,17 @@ public class MarkdownPreview {
             "/com/example/jylos/ui/preview/highlightjs/vs2015.min.css";
 
     /**
-     * Emoji rendering: JavaFX's WebKit renders neither the OS colour-emoji fonts nor a
-     * bundled {@code @font-face} font for supplementary-plane emoji (they show as tofu).
-     * Java2D (AWT) <em>can</em> rasterise them from the bundled monochrome Noto Emoji
-     * font, so we replace emoji characters with inline {@code <img>} data URIs, which
-     * always render. Rendered emoji are cached per (run, colour).
+     * Emoji rendering. Every emoji becomes an inline {@code <img>} rasterised by Java2D
+     * from the bundled monochrome Noto Emoji font, which renders everywhere, PDF export
+     * included. Where JavaFX's WebKit draws colour emoji (macOS), the page script
+     * {@code colour-emoji.js} swaps the ones it can draw back to text: the engine only
+     * draws a colour emoji alone in its own element, with an emoji font, and does not
+     * shape sequences (skin tones, ZWJ, flags, keycaps), which stay images. Rendered
+     * emoji are cached per (emoji, colour).
      */
     private static final String EMOJI_FONT_RESOURCE =
             "/com/example/jylos/ui/preview/fonts/NotoEmoji-Regular.ttf";
+    private static final String COLOUR_EMOJI_SCRIPT_RESOURCE = "/com/example/jylos/ui/preview/colour-emoji.js";
     private static final Font EMOJI_AWT_FONT = loadEmojiAwtFont();
     private static final Map<String, String> EMOJI_CACHE = new ConcurrentHashMap<>();
     private static final Pattern EMOJI_RUN = Pattern.compile(
@@ -228,6 +234,7 @@ public class MarkdownPreview {
                 <script nonce="%s">
                     %s
                     %s
+                    %s
 
                     // JavaFX's WebKit cannot decode WebP, which many pages serve even under a
                     // .png name. An image that fails is handed to Java (javaApp.convertImage),
@@ -314,7 +321,7 @@ public class MarkdownPreview {
                 </body>
                 </html>
                 """.formatted(previewContentSecurityPolicy(nonce), headInjections, highlightCss, styleBlock, html,
-                nonce, highlightAsset, highlightScript, mathScript, bodyInjections);
+                nonce, colourEmojiScript(), highlightAsset, highlightScript, mathScript, bodyInjections);
     }
 
     private static final SecureRandom NONCE_RANDOM = new SecureRandom();
@@ -489,6 +496,7 @@ public class MarkdownPreview {
                 a:hover { color: #A5B4FC; text-decoration: underline; }
                 img { max-width: 100%; height: auto; border-radius: 6px; border: 1px solid #3a3a3a; }
                 img.emoji { height: 1.05em; width: auto; max-width: none; vertical-align: -0.15em; margin: 0 0.04em; border: none; border-radius: 0; display: inline; }
+                .emoji-glyph { font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; }
                 hr { border: none; border-top: 1px solid #3a3a3a; margin: 2em 0; }
                 strong { color: #FFFFFF; font-weight: 600; }
                 mark { background-color: #564a00; color: #ffd700; padding: 1px 3px; border-radius: 2px; }
@@ -547,6 +555,7 @@ public class MarkdownPreview {
                 a:hover { color: #0550ae; text-decoration: underline; }
                 img { max-width: 100%; height: auto; border-radius: 6px; border: 1px solid #e1e4e8; }
                 img.emoji { height: 1.05em; width: auto; max-width: none; vertical-align: -0.15em; margin: 0 0.04em; border: none; border-radius: 0; display: inline; }
+                .emoji-glyph { font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; }
                 hr { border: none; border-top: 1px solid #e1e4e8; margin: 2em 0; }
                 strong { color: #24292e; font-weight: 600; }
                 mark { background-color: #fff8c5; padding: 1px 3px; border-radius: 2px; }
@@ -653,13 +662,89 @@ public class MarkdownPreview {
         StringBuilder out = new StringBuilder(bodyHtml.length() + 256);
         m.reset();
         while (m.find()) {
-            String run = m.group();
-            String dataUri = EMOJI_CACHE.computeIfAbsent(colorKey + "|" + run, k -> renderEmoji(run, dark));
-            String replacement = dataUri == null ? run
-                    : "<img class=\"emoji\" alt=\"emoji\" src=\"" + dataUri + "\"/>";
-            m.appendReplacement(out, Matcher.quoteReplacement(replacement));
+            StringBuilder replacement = new StringBuilder();
+            for (String emoji : emojiClusters(m.group())) {
+                String dataUri = EMOJI_CACHE.computeIfAbsent(colorKey + "|" + emoji, k -> renderEmoji(emoji, dark));
+                if (dataUri == null) {
+                    replacement.append(emoji);
+                    continue;
+                }
+                String escaped = numericCharacterReferences(emoji);
+                replacement.append("<img class=\"emoji\" alt=\"").append(escaped).append('"');
+                String kind = emojiKind(emoji);
+                if (!kind.equals("sequence")) {
+                    replacement.append(" data-emoji=\"").append(escaped)
+                            .append("\" data-emoji-kind=\"").append(kind).append('"');
+                }
+                replacement.append(" src=\"").append(dataUri).append("\"/>");
+            }
+            m.appendReplacement(out, Matcher.quoteReplacement(replacement.toString()));
         }
         m.appendTail(out);
+        return out.toString();
+    }
+
+    /**
+     * Splits an emoji run into the emoji it shows: a character plus its variation selector,
+     * skin tone or keycap mark, characters joined by ZWJ, and flags (pairs of regional
+     * indicators). Same rules as {@code emojiClusters} in the editor's {@code emoji.js}.
+     */
+    static List<String> emojiClusters(String run) {
+        List<String> clusters = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean joinNext = false;
+        boolean openFlag = false;
+        for (int i = 0; i < run.length(); ) {
+            int cp = run.codePointAt(i);
+            i += Character.charCount(cp);
+            boolean pairsFlag = openFlag && isRegionalIndicator(cp);
+            boolean extendsPrevious = cp == 0xFE0E || cp == 0xFE0F || cp == 0x20E3 || cp == 0x200D
+                    || Character.isEmojiModifier(cp);
+            if (!current.isEmpty() && (joinNext || extendsPrevious || pairsFlag)) {
+                current.appendCodePoint(cp);
+            } else {
+                if (!current.isEmpty()) {
+                    clusters.add(current.toString());
+                }
+                current = new StringBuilder().appendCodePoint(cp);
+            }
+            joinNext = cp == 0x200D;
+            openFlag = isRegionalIndicator(cp) && !pairsFlag;
+        }
+        if (!current.isEmpty()) {
+            clusters.add(current.toString());
+        }
+        return clusters;
+    }
+
+    private static boolean isRegionalIndicator(int cp) {
+        return cp >= 0x1F1E6 && cp <= 0x1F1FF;
+    }
+
+    /**
+     * {@code colour}: one emoji the engine can draw in colour; {@code text}: a symbol shown
+     * as text by default, such as ↩ or ✔; {@code sequence}: anything it cannot draw whole.
+     * Same rules as {@code emojiKind} in the editor's {@code emoji.js}.
+     */
+    static String emojiKind(String emoji) {
+        int[] cps = emoji.codePoints().toArray();
+        if (cps.length == 1) {
+            return Character.isEmojiPresentation(cps[0]) ? "colour" : "text";
+        }
+        if (cps.length == 2 && cps[1] == 0xFE0F && Character.isEmoji(cps[0])) {
+            return "colour";
+        }
+        return "sequence";
+    }
+
+    /**
+     * Every character as {@code &#x…;}: the page is loaded with {@code loadContent}, which
+     * garbles characters outside the BMP written as they are.
+     */
+    private static String numericCharacterReferences(String text) {
+        StringBuilder out = new StringBuilder();
+        text.codePoints().forEach(cp -> out.append("&#x").append(Integer.toHexString(cp).toUpperCase(Locale.ROOT))
+                .append(';'));
         return out.toString();
     }
 
@@ -834,6 +919,11 @@ public class MarkdownPreview {
             logger.warning("Failed to read preview asset " + resourcePath + ": " + e.getMessage());
             return "";
         }
+    }
+
+    /** Swaps emoji images back to text where the engine draws colour emoji. */
+    private static String colourEmojiScript() {
+        return loadResourceText(COLOUR_EMOJI_SCRIPT_RESOURCE);
     }
 
     private static String highlightScriptBlock() {

@@ -24,6 +24,7 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Background;
@@ -85,7 +86,7 @@ class EditorHeaderTest {
     }
 
     @Test
-    void propertiesShowOnlyWhenTheNoteHasSomeAndCanStillBeAdded() throws Exception {
+    void thePropertiesButtonShowsForEveryNoteAndThePanelWhenOpened() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
 
         List<String> seen = onFx(() -> {
@@ -93,25 +94,22 @@ class EditorHeaderTest {
             List<String> out = new ArrayList<>();
             f.controller.loadNote(new Note("a.md", "A", "x"));
             f.layout();
-            out.add("empty note: section " + f.shown("properties-panel") + ", add " + f.shownById("addPropertyHeaderBtn"));
+            out.add("empty note: button " + f.shownById("togglePropertiesBtn") + ", panel " + f.shown("properties-panel"));
+            ((ToggleButton) f.root.lookup("#togglePropertiesBtn")).fire();
+            f.layout();
+            out.add("opened: panel " + f.shown("properties-panel") + ", add " + f.shownById("addPropertyBtn"));
             Note withProps = new Note("b.md", "B", "x");
             withProps.setCustomProperties(Map.of("estado", "borrador"));
             f.controller.loadNote(withProps);
             f.layout();
-            // The panel may start collapsed; open it (rows and the add line show together).
-            if (!f.shown("properties-content")) {
-                click(f.root.lookup(".properties-header"));
-                f.layout();
-            }
-            out.add("with properties: section " + f.shown("properties-panel") + ", title-row add "
-                    + f.shownById("addPropertyHeaderBtn") + ", panel add below the rows " + f.addBelowRows());
+            out.add("with properties: panel " + f.shown("properties-panel") + ", add below the rows " + f.addBelowRows());
             return out;
         });
 
-        // One way to add at a time: the title row's button only while the note has none;
-        // once the panel shows, its own "+ Add property" line under the rows.
-        assertEquals(List.of("empty note: section false, add true",
-                "with properties: section true, title-row add false, panel add below the rows true"), seen);
+        // One way to add: the panel's own "+ Add property" line, under the rows.
+        assertEquals(List.of("empty note: button true, panel false",
+                "opened: panel true, add true",
+                "with properties: panel true, add below the rows true"), seen);
     }
 
     @Test

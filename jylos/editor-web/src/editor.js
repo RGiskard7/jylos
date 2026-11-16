@@ -17,6 +17,7 @@ import {
 } from "@codemirror/view";
 import { Tag, tags } from "@lezer/highlight";
 import { GFM } from "@lezer/markdown";
+import { colourEmojiSupported, EMOJI_FONT_FAMILY, EMOJI_RUN, emojiClusters, emojiKind } from "./emoji.js";
 import { blockRenderField, imageConverted, livePreview, setBlockRenders, setMathReady } from "./live-preview.js";
 
 // `==mark==` highlight syntax is a common CommonMark extension (Obsidian,
@@ -109,16 +110,13 @@ const wikiLinkDecorations = ViewPlugin.fromClass(class {
   }
 }, { decorations: value => value.decorations });
 
-// Matches MarkdownPreview.java's EMOJI_RUN exactly (same codepoint ranges), so an
-// editor and Preview agree on what counts as "an emoji" worth rasterising.
-const EMOJI_RUN = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{2300}-\u{23FF}\u{2190}-\u{21FF}\u{FE00}-\u{FE0F}\u{20E3}\u{200D}\u{1F1E6}-\u{1F1FF}\u{1F3FB}-\u{1F3FF}]+/gu;
-
-// JavaFX WebView cannot render colour-emoji fonts (see MarkdownPreview.java's own
-// comment on the same limitation), so an emoji run is replaced by an <img> rasterised
-// by the same Java2D path the Preview already uses. The bridge call only happens in
-// toDOM(), which CodeMirror calls only for a genuinely new widget (eq() reuses the
-// existing DOM node otherwise) — typing and scrolling over already-rendered emoji
-// never touch the bridge again, and the Java side caches by run+theme besides.
+// Where the engine draws colour emoji (see emoji.js), each one is wrapped in its own
+// element with an emoji font and stays editable text. Elsewhere, and for sequences the
+// engine cannot draw whole, an emoji is replaced by an <img> rasterised by the same
+// Java2D path the reading view uses. The bridge call only happens in toDOM(), which
+// CodeMirror calls only for a genuinely new widget (eq() reuses the existing DOM node
+// otherwise) — typing and scrolling over already-rendered emoji never touch the bridge
+// again, and the Java side caches by run+theme besides.
 class EmojiWidget extends WidgetType {
   constructor(run) {
     super();
@@ -148,21 +146,32 @@ class EmojiWidget extends WidgetType {
   }
 }
 
-// A run under the cursor/selection stays raw text, editable and selectable like any
-// other character — only emoji fully outside the selection become images.
+const emojiGlyph = Decoration.mark({ class: "cm-emoji-glyph" });
+
+// An emoji image under the cursor/selection stays raw text, editable and selectable
+// like any other character — only emoji fully outside the selection become images.
 function buildEmojiDecorations(editorView) {
+  const colour = colourEmojiSupported();
   const decorations = [];
   const selectionRanges = editorView.state.selection.ranges;
   for (const visible of editorView.visibleRanges) {
     const text = editorView.state.sliceDoc(visible.from, visible.to);
     for (const match of text.matchAll(EMOJI_RUN)) {
-      const from = visible.from + match.index;
-      const to = from + match[0].length;
-      // Strict inequalities: a caret merely touching an edge (e.g. resting right
-      // after a just-typed emoji) does not count as "inside" it — only a caret or
-      // selection that actually spans into the run keeps it as raw, editable text.
-      if (selectionRanges.some(range => range.from < to && range.to > from)) continue;
-      decorations.push(Decoration.replace({ widget: new EmojiWidget(match[0]) }).range(from, to));
+      let from = visible.from + match.index;
+      for (const cluster of emojiClusters(match[0])) {
+        const to = from + cluster.length;
+        const kind = colour ? emojiKind(cluster) : "sequence";
+        if (kind === "colour") {
+          decorations.push(emojiGlyph.range(from, to));
+        } else if (kind === "sequence"
+            // Strict inequalities: a caret merely touching an edge (e.g. resting right
+            // after a just-typed emoji) does not count as "inside" it — only a caret or
+            // selection that actually spans into it keeps it as raw, editable text.
+            && !selectionRanges.some(range => range.from < to && range.to > from)) {
+          decorations.push(Decoration.replace({ widget: new EmojiWidget(cluster) }).range(from, to));
+        }
+        from = to;
+      }
     }
   }
   return Decoration.set(decorations, true);
@@ -286,6 +295,7 @@ function editorTheme(config) {
     ".cm-tooltip": { color: foreground, backgroundColor: panel, border: `1px solid ${border}` },
     ".cm-tooltip-autocomplete > ul > li[aria-selected]": { color: foreground, backgroundColor: selection },
     ".cm-wikilink, .cm-embed": { color: accent, fontWeight: "600" },
+    ".cm-emoji-glyph": { fontFamily: EMOJI_FONT_FAMILY },
     ".cm-emoji": { height: "1.05em", width: "auto", maxWidth: "none", verticalAlign: "-0.15em", margin: "0 0.04em", display: "inline" },
     ".cm-embed": { textDecoration: "underline" },
     ".tok-link, .tok-url": { color: accent },

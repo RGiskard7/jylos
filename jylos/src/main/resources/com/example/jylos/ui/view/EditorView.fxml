@@ -5,6 +5,7 @@
 <?import javafx.geometry.Insets?>
 <?import com.example.jylos.ui.web.JavaFxHtmlView?>
 <?import com.example.jylos.ui.components.MarkdownEditorView?>
+<?import com.example.jylos.ui.components.EmptyStateTiles?>
 <?import org.kordamp.ikonli.javafx.FontIcon?>
 
 <VBox fx:id="editorContainer" styleClass="editor-container" HBox.hgrow="ALWAYS"
@@ -72,12 +73,19 @@
                     <graphic><FontIcon iconLiteral="fth-save" styleClass="feather-icon"/></graphic>
                 </Button>
 
-                <!-- Tags toggle -->
-                <!-- Add a property (the properties section only shows when the note has some). -->
-                <Button fx:id="addPropertyHeaderBtn" onAction="#handleAddProperty" styleClass="modern-toggle-btn">
-                    <tooltip><Tooltip text="%action.add_property"/></tooltip>
-                    <graphic><FontIcon iconLiteral="fth-sliders" styleClass="feather-icon"/></graphic>
-                </Button>
+                <!-- Properties and tags: each opens and closes its bar under the title. -->
+                <ToggleButton fx:id="togglePropertiesBtn" onAction="#handleToggleProperties" styleClass="modern-toggle-btn, icon-only-btn"
+                              contentDisplay="GRAPHIC_ONLY" selected="false">
+                    <tooltip><Tooltip text="%tooltip.toggle_properties"/></tooltip>
+                    <graphic>
+                        <StackPane>
+                            <FontIcon iconLiteral="fth-sliders" styleClass="feather-icon"/>
+                            <!-- Marks a note that has properties while the panel is closed. -->
+                            <Region fx:id="propertiesDot" styleClass="toggle-dot" StackPane.alignment="TOP_RIGHT"
+                                    visible="false" mouseTransparent="true"/>
+                        </StackPane>
+                    </graphic>
+                </ToggleButton>
                 <ToggleButton fx:id="toggleTagsBtn" onAction="#handleToggleTags" styleClass="modern-toggle-btn" selected="false">
                     <tooltip><Tooltip text="%tooltip.toggle_tags"/></tooltip>
                     <graphic><FontIcon iconLiteral="fth-hash" styleClass="feather-icon"/></graphic>
@@ -112,37 +120,24 @@
         </HBox>
     </VBox>
 
-    <!-- ── YAML Properties Panel ─────────────────────────────────────────── -->
-    <!--  • Shown when the note has custom YAML properties.                  -->
-    <!--  • Clicking the header row collapses/expands the content area.      -->
-    <!--  • No scroll pane — expands to fit all properties.                  -->
+    <!-- ── Properties panel (opened from its button in the title row) ────── -->
+    <!--  Editable rows and "+ Add property" while editing; read-only rows,     -->
+    <!--  or "No properties", in the reading view. No scroll: fits its rows.    -->
     <VBox fx:id="propertiesSection" visible="false" managed="false" styleClass="properties-panel">
-
-        <!-- Always-visible header: click anywhere to collapse/expand -->
-        <HBox fx:id="propertiesHeader" alignment="CENTER_LEFT" spacing="6"
-              styleClass="properties-header" onMouseClicked="#handlePropertiesHeaderClick">
-            <padding>
-                <Insets top="6" right="12" bottom="6" left="16"/>
-            </padding>
-            <Label fx:id="propertiesCollapseIcon" text="▼" styleClass="properties-collapse-icon"/>
-            <Label text="%panel.properties.title" styleClass="properties-title"/>
-            <Region HBox.hgrow="ALWAYS"/>
-        </HBox>
-
-        <!-- Rows plus "+ Add property" under them, as in Obsidian; collapses with the header. -->
-        <VBox fx:id="propertiesBody">
-            <!-- Property rows — populated programmatically. No maxHeight, no scroll. -->
-            <VBox fx:id="propertiesContent" styleClass="properties-content" spacing="1">
-                <padding><Insets top="2" right="12" bottom="2" left="16"/></padding>
-            </VBox>
-            <HBox alignment="CENTER_LEFT">
-                <padding><Insets top="0" right="12" bottom="8" left="16"/></padding>
-                <Button fx:id="addPropertyBtn" text="%action.add_property_line"
-                        onAction="#handleAddProperty" styleClass="add-property-btn">
-                    <tooltip><Tooltip text="%tooltip.add_property"/></tooltip>
-                </Button>
-            </HBox>
+        <VBox fx:id="propertiesContent" styleClass="properties-content" spacing="1">
+            <padding><Insets top="6" right="12" bottom="2" left="16"/></padding>
         </VBox>
+        <Label fx:id="propertiesEmptyLabel" text="%panel.properties.empty" styleClass="properties-empty"
+               visible="false" managed="false">
+            <padding><Insets top="0" right="12" bottom="8" left="16"/></padding>
+        </Label>
+        <HBox fx:id="addPropertyRow" alignment="CENTER_LEFT">
+            <padding><Insets top="0" right="12" bottom="8" left="16"/></padding>
+            <Button fx:id="addPropertyBtn" text="%action.add_property_line"
+                    onAction="#handleAddProperty" styleClass="add-property-btn">
+                <tooltip><Tooltip text="%tooltip.add_property"/></tooltip>
+            </Button>
+        </HBox>
     </VBox>
 
     <!-- ── Content: editor/preview split with an empty-state overlay ───────── -->
@@ -256,7 +251,8 @@
         </VBox>
     </SplitPane>
 
-        <!-- Empty state (Obsidian-style): shown when no note is open / at startup -->
+        <!-- Empty state: shown when no note is open, at startup and in a new tab. "New note"
+             on its own; the rest as tiles, 4, 2 or 1 across depending on the width. -->
         <VBox fx:id="emptyState" alignment="CENTER" spacing="16" styleClass="editor-empty-state"
               pickOnBounds="true" managed="true" visible="true">
             <FontIcon iconLiteral="fth-file-text" styleClass="empty-state-icon"/>
@@ -264,18 +260,40 @@
             <Button text="%empty.create_note" onAction="#handleEmptyCreate" styleClass="empty-state-btn">
                 <graphic><FontIcon iconLiteral="fth-file-plus" styleClass="feather-icon"/></graphic>
             </Button>
-            <Button text="%empty.create_canvas" onAction="#handleEmptyCreateCanvas" styleClass="empty-state-btn-secondary">
-                <graphic><FontIcon iconLiteral="fth-layout" styleClass="feather-icon"/></graphic>
-            </Button>
-            <Button text="%empty.go_to_file" onAction="#handleEmptyGoToFile" styleClass="empty-state-btn-secondary">
-                <graphic><FontIcon iconLiteral="fth-search" styleClass="feather-icon"/></graphic>
-            </Button>
-            <Button text="%empty.open_graph" onAction="#handleEmptyOpenGraph" styleClass="empty-state-btn-secondary">
-                <graphic><FontIcon iconLiteral="fth-share-2" styleClass="feather-icon"/></graphic>
-            </Button>
-            <Button text="%empty.open_kanban" onAction="#handleEmptyOpenKanban" styleClass="empty-state-btn-secondary">
-                <graphic><FontIcon iconLiteral="fth-columns" styleClass="feather-icon"/></graphic>
-            </Button>
+            <EmptyStateTiles fx:id="emptyStateTiles" alignment="CENTER" hgap="12" vgap="12" prefColumns="4"
+                      prefTileWidth="150" prefTileHeight="96" maxWidth="-Infinity" styleClass="empty-state-tiles">
+                <Button text="%empty.create_canvas" onAction="#handleEmptyCreateCanvas" styleClass="empty-state-btn-secondary, empty-state-tile"
+                        contentDisplay="GRAPHIC_ONLY" alignment="TOP_CENTER" maxWidth="Infinity" maxHeight="Infinity">
+                    <graphic><VBox alignment="TOP_CENTER" spacing="6">
+                        <FontIcon iconLiteral="fth-layout" styleClass="feather-icon"/>
+                        <Label text="%empty.create_canvas" styleClass="empty-state-tile-label"/>
+                    </VBox></graphic>
+                </Button>
+                <Button text="%empty.go_to_file" onAction="#handleEmptyGoToFile" styleClass="empty-state-btn-secondary, empty-state-tile"
+                        contentDisplay="GRAPHIC_ONLY" alignment="TOP_CENTER" maxWidth="Infinity" maxHeight="Infinity">
+                    <graphic><VBox alignment="TOP_CENTER" spacing="6">
+                        <FontIcon iconLiteral="fth-search" styleClass="feather-icon"/>
+                        <Label text="%empty.go_to_file" styleClass="empty-state-tile-label"/>
+                        <Label styleClass="empty-state-shortcut" userData="Shortcut+O"/>
+                    </VBox></graphic>
+                </Button>
+                <Button text="%empty.open_graph" onAction="#handleEmptyOpenGraph" styleClass="empty-state-btn-secondary, empty-state-tile"
+                        contentDisplay="GRAPHIC_ONLY" alignment="TOP_CENTER" maxWidth="Infinity" maxHeight="Infinity">
+                    <graphic><VBox alignment="TOP_CENTER" spacing="6">
+                        <FontIcon iconLiteral="fth-share-2" styleClass="feather-icon"/>
+                        <Label text="%empty.open_graph" styleClass="empty-state-tile-label"/>
+                        <Label styleClass="empty-state-shortcut" userData="Shortcut+G"/>
+                    </VBox></graphic>
+                </Button>
+                <Button text="%empty.open_kanban" onAction="#handleEmptyOpenKanban" styleClass="empty-state-btn-secondary, empty-state-tile"
+                        contentDisplay="GRAPHIC_ONLY" alignment="TOP_CENTER" maxWidth="Infinity" maxHeight="Infinity">
+                    <graphic><VBox alignment="TOP_CENTER" spacing="6">
+                        <FontIcon iconLiteral="fth-columns" styleClass="feather-icon"/>
+                        <Label text="%empty.open_kanban" styleClass="empty-state-tile-label"/>
+                        <Label styleClass="empty-state-shortcut" userData="Shortcut+K"/>
+                    </VBox></graphic>
+                </Button>
+            </EmptyStateTiles>
         </VBox>
     </StackPane>
 </VBox>

@@ -1,5 +1,6 @@
 package com.example.jylos.ui.controller;
 
+import java.text.MessageFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -7,25 +8,20 @@ import java.util.regex.Pattern;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.NoteProperty;
-import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.ui.UiNodes;
 import com.example.jylos.util.WikiLinkResolver;
 
 import javafx.application.Platform;
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonBar;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Control;
-import javafx.scene.control.Dialog;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -33,9 +29,11 @@ import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 
 /**
- * The editor's properties panel: one row per property of the open note, editable in the
- * editing views and read-only (with clickable {@code [[links]]}) in the reading view, folded
- * or open, and the dialog that adds a property.
+ * The editor's properties panel, opened and closed from its button in the title row, like
+ * the tags bar: one row per property of the open note, editable in the editing views (where
+ * new ones are added in place) and read-only, with clickable {@code [[links]]}, in the
+ * reading view. The button marks a note that has properties. The panel stays open or closed
+ * from one note to the next.
  *
  * @author Edu Díaz (RGiskard7)
  * @since 2.6.0
@@ -47,8 +45,7 @@ final class PropertiesPanelSupport {
             "\\[\\[([^\\[\\]|#\\n]+?)(?:#[^\\[\\]|\\n]+?)?(?:\\|[^\\[\\]\\n]+?)?\\]\\]");
 
     /** The panel's nodes, from the editor's FXML. Any may be {@code null} outside the app. */
-    record Nodes(VBox section, VBox body, VBox content, Label collapseIcon, Button addButton,
-            Button addHeaderButton) {
+    record Nodes(ToggleButton toggle, Node dot, VBox section, VBox content, Label emptyLabel, Node addRow) {
     }
 
     /** What the panel reads from, and tells, the editor that owns it. */
@@ -73,101 +70,88 @@ final class PropertiesPanelSupport {
     }
 
     private final Host host;
-    /** Whether the body is open. Folded by default. */
-    private boolean expanded = false;
+    /** Whether the panel is open. Closed at first; kept from one note to the next. */
+    private boolean open = false;
 
     PropertiesPanelSupport(Host host) {
         this.host = host;
     }
 
-    /** Opens or folds the panel's body (a click on its header). */
-    void toggleExpanded() {
-        expanded = !expanded;
-        applyExpanded();
+    /** Opens or closes the panel (its button, in the title row). */
+    void setOpen(boolean open) {
+        this.open = open;
+        applyOpen();
     }
 
-    private void applyExpanded() {
+    private void applyOpen() {
         Nodes n = host.nodes();
-        Node body = n.body() != null ? n.body() : n.content();
-        if (body != null) {
-            UiNodes.show(body, expanded);
+        if (n.toggle() != null) {
+            n.toggle().setSelected(open);
         }
-        if (n.collapseIcon() != null) {
-            n.collapseIcon().setText(expanded ? "▼" : "▶");
-        }
+        UiNodes.show(n.section(), open && host.currentNote() != null && !host.viewingAttachment());
     }
 
-    /** Asks for a new property's name and value, and adds it (editing views only). */
+    /** Adds an empty row whose name and value are typed in place (editing views only). */
     void addProperty() {
-        Note note = host.currentNote();
-        if (note == null || host.readOnlyView()) {
+        VBox content = host.nodes().content();
+        if (host.currentNote() == null || host.readOnlyView() || content == null) {
             return;
         }
-        Dialog<String[]> dialog = new Dialog<>();
-        dialog.setTitle(host.text("dialog.add_property.title", "Add Property"));
-        dialog.setHeaderText(host.text("dialog.add_property.header", "Enter property name and value:"));
-        dialog.getDialogPane().getButtonTypes().addAll(
-                new ButtonType(host.text("action.add", "Add"), ButtonBar.ButtonData.OK_DONE),
-                ButtonType.CANCEL);
-
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
-        grid.setPadding(new Insets(16));
-
+        setOpen(true);
         TextField keyField = new TextField();
-        keyField.setPromptText(host.text("dialog.add_property.key_prompt", "e.g. date, priority"));
+        keyField.getStyleClass().add("property-key-field");
+        keyField.setPromptText(host.text("property.name_prompt", "Name"));
+        keyField.setPrefWidth(120);
+        keyField.setMaxWidth(120);
         TextField valueField = new TextField();
-        valueField.setPromptText(host.text("dialog.add_property.value_prompt", "e.g. 2026-05-31, 1"));
+        valueField.getStyleClass().add("property-value");
+        valueField.setPromptText(host.text("property.value_prompt", "Value"));
+        HBox.setHgrow(valueField, Priority.ALWAYS);
+        keyField.textProperty().addListener((obs, o, n) -> host.propertiesChanged());
+        valueField.textProperty().addListener((obs, o, n) -> host.propertiesChanged());
+        keyField.setOnAction(e -> valueField.requestFocus());
 
-        grid.add(new Label(host.text("label.property_key", "Key:")), 0, 0);
-        grid.add(keyField, 1, 0);
-        grid.add(new Label(host.text("label.property_value", "Value:")), 0, 1);
-        grid.add(valueField, 1, 1);
-        dialog.getDialogPane().setContent(grid);
-        dialog.setResultConverter(btn -> btn.getButtonData() == ButtonBar.ButtonData.OK_DONE
-                ? new String[] {keyField.getText().trim(), valueField.getText().trim()}
-                : null);
-
+        HBox row = new HBox(6);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.getStyleClass().add("property-row");
+        // A new row is named by what is typed in its name field, read when collected.
+        row.setUserData(keyField);
+        row.getChildren().addAll(keyField, valueField, removeButton(content, row, null));
+        content.getChildren().add(row);
         Platform.runLater(keyField::requestFocus);
-        UiDialogs.show(dialog).ifPresent(pair -> {
-            String key = pair[0];
-            String val = pair[1];
-            if (!key.isBlank()) {
-                // Persist into the model immediately, then rebuild so the new row is rendered
-                // with the correct (editable) presentation.
-                note.getCustomProperties().put(key, val);
-                expanded = true;
-                rebuild();
-                host.propertiesChanged();
-            }
-        });
     }
 
     /**
-     * Rebuilds the whole panel for the open note and view mode. Shown only when the note has
-     * properties, in every view; values are editable except in the reading view, where
-     * {@code [[links]]} are clickable. New properties are added from the title row's button
-     * while the note has none, and from the panel's own "+ Add property" line once it shows.
+     * Rebuilds the whole panel for the open note and view mode: editable rows and "+ Add
+     * property" in the editing views; read-only rows, or "No properties", in the reading view.
      */
     void rebuild() {
         clear();
         Nodes n = host.nodes();
         Note note = host.currentNote();
         Map<String, String> props = note != null ? note.getCustomProperties() : null;
-        boolean hasProps = props != null && !props.isEmpty();
-        boolean sectionVisible = note != null && hasProps;
+        int count = props != null ? props.size() : 0;
         boolean readOnly = host.readOnlyView();
 
-        UiNodes.show(n.section(), sectionVisible);
-        UiNodes.show(n.addHeaderButton(), note != null && !hasProps && !readOnly && !host.viewingAttachment());
-        if (n.addButton() != null) {
-            UiNodes.show(n.addButton(), !readOnly);
+        UiNodes.show(n.addRow(), !readOnly);
+        UiNodes.show(n.emptyLabel(), readOnly && count == 0);
+        if (n.dot() != null) {
+            n.dot().setVisible(count > 0);
         }
-        if (!sectionVisible) {
+        if (n.toggle() != null) {
+            String tip = count > 0
+                    ? MessageFormat.format(host.text("tooltip.toggle_properties_count", "Properties ({0})"), count)
+                    : host.text("tooltip.toggle_properties", "Properties");
+            if (n.toggle().getTooltip() != null) {
+                n.toggle().getTooltip().setText(tip);
+            } else {
+                n.toggle().setTooltip(new Tooltip(tip));
+            }
+        }
+        applyOpen();
+        if (count == 0) {
             return;
         }
-        applyExpanded();
         props.forEach((key, value) -> {
             if (readOnly) {
                 addReadOnlyRow(key, value);
@@ -175,6 +159,21 @@ final class PropertiesPanelSupport {
                 addEditableRow(key, value);
             }
         });
+    }
+
+    private Button removeButton(VBox content, HBox row, String key) {
+        Button removeBtn = new Button("×");
+        removeBtn.getStyleClass().add("property-remove-btn");
+        removeBtn.setTooltip(new Tooltip(host.text("tooltip.remove_property", "Remove property")));
+        removeBtn.setOnAction(e -> {
+            content.getChildren().remove(row);
+            Note note = host.currentNote();
+            if (note != null && key != null) {
+                note.getCustomProperties().remove(key);
+            }
+            host.propertiesChanged();
+        });
+        return removeBtn;
     }
 
     /** Editable row: {@code [key] [TextField | CheckBox] [× remove]} — no type icon. */
@@ -205,19 +204,7 @@ final class PropertiesPanelSupport {
             valueControl = tf;
         }
 
-        Button removeBtn = new Button("×");
-        removeBtn.getStyleClass().add("property-remove-btn");
-        removeBtn.setTooltip(new Tooltip(host.text("tooltip.remove_property", "Remove property")));
-        removeBtn.setOnAction(e -> {
-            content.getChildren().remove(row);
-            Note note = host.currentNote();
-            if (note != null) {
-                note.getCustomProperties().remove(key);
-            }
-            host.propertiesChanged();
-        });
-
-        row.getChildren().addAll(keyLabel(key), valueControl, removeBtn);
+        row.getChildren().addAll(keyLabel(key), valueControl, removeButton(content, row, key));
         content.getChildren().add(row);
     }
 
@@ -292,12 +279,13 @@ final class PropertiesPanelSupport {
             if (!(rowNode instanceof HBox row)) {
                 continue;
             }
-            String key = (String) row.getUserData();
-            if (key == null) {
+            String key = row.getUserData() instanceof TextField keyField ? keyField.getText().trim()
+                    : (String) row.getUserData();
+            if (key == null || key.isEmpty()) {
                 continue;
             }
             for (Node child : row.getChildren()) {
-                if (child instanceof TextField tf) {
+                if (child instanceof TextField tf && tf.getStyleClass().contains("property-value")) {
                     result.put(key, tf.getText());
                     break;
                 }
@@ -313,7 +301,7 @@ final class PropertiesPanelSupport {
     /** Whether any property row is shown. */
     boolean hasRows() {
         VBox content = host.nodes().content();
-        return content != null && !content.getChildren().isEmpty();
+        return content != null && content.getChildren().stream().anyMatch(HBox.class::isInstance);
     }
 
     void clear() {

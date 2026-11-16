@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // editor.js keeps its EditorView in module-level state and attaches
 // window.JylosEditor as an import side effect (matching the WebView runtime,
@@ -88,5 +88,66 @@ describe("emoji decoration", () => {
 
     expect(document.querySelector(".cm-emoji")).toBeNull();
     expect(document.getElementById("editor").textContent).toContain("😀");
+  });
+});
+
+// JavaFX's WebKit draws a colour emoji only when the emoji sits alone in its own
+// element, with an emoji font; next to other text in the same node it comes out
+// garbled, and a second emoji in the same element is not drawn at all.
+describe("colour emoji", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    window.__jylosColourEmoji = true;
+    window.javaEditor = { rasterizeEmoji: vi.fn(() => "data:image/png;base64,AAAA"), onEditorError: vi.fn() };
+  });
+
+  afterEach(() => {
+    delete window.__jylosColourEmoji;
+  });
+
+  it("wraps a single emoji in its own element instead of asking Java for an image", async () => {
+    await mountEditor();
+    window.JylosEditor.setDocument("hi 😀 there");
+
+    const glyphs = document.querySelectorAll(".cm-emoji-glyph");
+    expect(glyphs.length).toBe(1);
+    expect(glyphs[0].textContent).toBe("😀");
+    expect(document.querySelector("img.cm-emoji")).toBeNull();
+    expect(window.javaEditor.rasterizeEmoji).not.toHaveBeenCalled();
+  });
+
+  it("gives each emoji of a run its own element", async () => {
+    await mountEditor();
+    window.JylosEditor.setDocument("party 🎉🚀❤️ now");
+
+    const glyphs = [...document.querySelectorAll(".cm-emoji-glyph")].map(g => g.textContent);
+    expect(glyphs).toEqual(["🎉", "🚀", "❤️"]);
+  });
+
+  it("keeps the emoji as text while the caret is inside it", async () => {
+    await mountEditor();
+    window.JylosEditor.setDocument("hi 😀 there");
+    window.JylosEditor.replaceRange(3, 3, "", 4);
+
+    expect(document.querySelector(".cm-emoji-glyph")?.textContent).toBe("😀");
+    expect(window.JylosEditor.getSelectionFrom()).toBe(4);
+  });
+
+  it("still uses an image for sequences the engine cannot draw (skin tones, families, flags)", async () => {
+    await mountEditor();
+    window.JylosEditor.setDocument("ok 👍🏽 and 🇪🇸");
+
+    const images = [...document.querySelectorAll("img.cm-emoji")].map(i => i.alt);
+    expect(images).toEqual(["👍🏽", "🇪🇸"]);
+    expect(document.querySelector(".cm-emoji-glyph")).toBeNull();
+  });
+
+  it("leaves text symbols such as arrows as plain text", async () => {
+    await mountEditor();
+    window.JylosEditor.setDocument("back ↩ and ✔ done");
+
+    expect(document.querySelector(".cm-emoji-glyph")).toBeNull();
+    expect(document.querySelector("img.cm-emoji")).toBeNull();
+    expect(document.getElementById("editor").textContent).toContain("back ↩ and ✔ done");
   });
 });

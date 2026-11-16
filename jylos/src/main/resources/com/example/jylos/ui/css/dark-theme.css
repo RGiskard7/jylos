@@ -2470,24 +2470,9 @@
     -fx-background-color: -fx-header-bg;
 }
 
-.properties-header {
-    -fx-background-color: -fx-header-bg;
-    -fx-cursor: hand;
-}
 
-.properties-header:hover { -fx-background-color: -fx-hover-bg; }
 
-.properties-collapse-icon {
-    -fx-text-fill: -fx-text-muted;
-    -fx-font-size: 0.692em;
-}
 
-.properties-title {
-    -fx-font-size: 0.923em;
-    -fx-font-weight: bold;
-    -fx-text-fill: -fx-text-muted;
-    -fx-text-transform: uppercase;
-}
 
 .properties-content {
     -fx-background-color: -fx-header-bg;
@@ -4423,34 +4408,30 @@
    it, a plain title, values without a box until hovered or edited, and "+ Add property" as
    a plain text line under the rows. */
 .root .properties-panel,
-.root .properties-header,
 .root .properties-content {
     -fx-background-color: transparent;
     -fx-border-color: transparent;
     -fx-border-width: 0;
 }
 
-.root .properties-header:hover {
-    -fx-background-color: transparent;
-}
 
-.root .properties-title {
-    -fx-font-weight: normal;
-    -fx-text-fill: -fx-text-faint;
-}
 
-.root .property-value {
+.root .property-value,
+.root .property-key-field {
     -fx-background-color: transparent;
     -fx-control-inner-background: transparent;
     -fx-border-color: transparent;
 }
 
 .root .property-row:hover .property-value,
-.root .property-value:hover {
+.root .property-row:hover .property-key-field,
+.root .property-value:hover,
+.root .property-key-field:hover {
     -fx-background-color: -fx-hover-bg;
 }
 
-.root .property-value:focused {
+.root .property-value:focused,
+.root .property-key-field:focused {
     -fx-background-color: -fx-base-bg;
     -fx-control-inner-background: -fx-base-bg;
     -fx-border-color: -fx-accent;
@@ -4670,4 +4651,40 @@
 .root .graph-new-group:hover {
     -fx-background-color: -fx-hover-bg;
     -fx-text-fill: -fx-text-main;
+}
+
+/* Properties: the dot on the title row's button marks a note that has properties. */
+.root .toggle-dot {
+    -fx-min-width: 6;
+    -fx-min-height: 6;
+    -fx-max-width: 6;
+    -fx-max-height: 6;
+    -fx-background-color: -fx-accent;
+    -fx-background-radius: 3;
+    -fx-translate-x: 3;
+    -fx-translate-y: -2;
+}
+.root .properties-empty {
+    -fx-text-fill: -fx-text-faint;
+    -fx-font-size: 0.923em;
+}
+.root .property-key-field {
+    -fx-font-size: 0.923em;
+}
+
+/* Empty state: the tiles under "New note". */
+.root .empty-state-tile {
+    -fx-padding: 18 8 12 8;
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+}
+.root .empty-state-tile .feather-icon {
+    -fx-icon-size: 20;
+}
+.root .empty-state-tile-label {
+    -fx-text-fill: -fx-text-main;
+}
+.root .empty-state-shortcut {
+    -fx-text-fill: -fx-text-faint;
+    -fx-font-size: 0.846em;
 }
