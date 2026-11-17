@@ -4,6 +4,7 @@ import static com.example.jylos.tests.FxTestSupport.onFx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Assumptions;
@@ -15,9 +16,11 @@ import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 
 /** The settings window's layout: sections on the left, one page of rows at a time. */
@@ -97,8 +100,8 @@ class SettingsPaneTest {
 
         List<String> seen = onFx(() -> {
             SettingsPane pane = new SettingsPane();
-            javafx.scene.control.Button reload = new javafx.scene.control.Button("Reload");
-            javafx.scene.layout.VBox list = new javafx.scene.layout.VBox(
+            Button reload = new Button("Reload");
+            VBox list = new VBox(
                     SettingsPane.rowNode("snippet-a", null, new CheckBox()),
                     SettingsPane.rowNode("snippet-b", null, new CheckBox()));
             pane.addSection("Appearance")
@@ -118,6 +121,38 @@ class SettingsPaneTest {
         assertEquals("Theme,snippet-a,snippet-b", seen.get(0));
         assertEquals("actions beside the title", seen.get(1));
         assertEquals("subheading", seen.get(2));
+    }
+
+    /** A section can be put back to its defaults from a button beside its title. */
+    @Test
+    void aSectionsResetButtonSitsBesideItsTitleAndRunsItsReset() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            SettingsPane pane = new SettingsPane();
+            List<String> resets = new ArrayList<>();
+            pane.addSection("Editor").resettable("Reset", () -> resets.add("editor"))
+                    .row("Readable line length", null, new CheckBox());
+            pane.addSection("Appearance").row("Theme", null, new ComboBox<String>());
+            new Scene(pane, 700, 400);
+            pane.showSection(0);
+            pane.applyCss();
+            pane.layout();
+            Node button = pane.lookup(".settings-reset-btn");
+            Label title = findLabel(pane, "Editor");
+            ((Button) button).fire();
+            pane.showSection(1);
+            pane.applyCss();
+            pane.layout();
+            Node otherButton = pane.lookup(".settings-reset-btn");
+            return List.of(
+                    button.getParent() == title.getParent() ? "beside the title" : "elsewhere",
+                    String.join(",", resets),
+                    otherButton == null || !otherButton.isVisible() || otherButton.getScene() == null
+                            ? "none in a section without reset" : "also in Appearance");
+        });
+
+        assertEquals(List.of("beside the title", "editor", "none in a section without reset"), seen);
     }
 
     /** Choosing a section on the left shows its settings and only those. */

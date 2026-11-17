@@ -5151,3 +5151,34 @@
     -fx-border-width: 0;
     -fx-padding: 0;
 }
+
+/* A settings section's Reset, beside its title: quiet until pointed at. */
+.dialog-pane .settings-reset-btn,
+.dialog-pane .settings-reset-btn:hover,
+.dialog-pane .settings-reset-btn:pressed {
+    -fx-border-color: transparent;
+    -fx-min-height: 0;
+    -fx-padding: 4 10 4 8;
+    -fx-background-radius: 6;
+    -fx-background-insets: 0;
+    -fx-graphic-text-gap: 6;
+}
+.dialog-pane .settings-reset-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: -fx-text-muted;
+    -fx-font-size: 0.92em;
+}
+.dialog-pane .settings-reset-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-text-main;
+}
+.dialog-pane .settings-reset-btn .ikonli-font-icon {
+    -fx-icon-color: -fx-text-muted;
+    -fx-icon-size: 13px;
+}
+.settings-section-heading {
+    -fx-padding: 0 0 10 0;
+}
+.settings-section-heading > .settings-section-title {
+    -fx-padding: 0;
+}

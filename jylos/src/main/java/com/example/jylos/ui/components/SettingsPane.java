@@ -3,8 +3,11 @@ package com.example.jylos.ui.components;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.kordamp.ikonli.javafx.FontIcon;
+
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
@@ -71,13 +74,32 @@ public final class SettingsPane extends BorderPane {
     /** One section's page. */
     public final class Section {
         final VBox page = new VBox();
+        private final Label heading;
 
         Section(String title) {
             page.getStyleClass().add("settings-page");
-            Label heading = new Label(title);
+            heading = new Label(title);
             heading.getStyleClass().add("settings-section-title");
             heading.setWrapText(true);
             page.getChildren().add(heading);
+        }
+
+        /**
+         * Puts a button labelled {@code text} beside the section's title that runs
+         * {@code reset}, meant to put the section's controls back to their defaults.
+         */
+        public Section resettable(String text, Runnable reset) {
+            Button button = new Button(text, new FontIcon("fth-rotate-ccw"));
+            button.getStyleClass().add("settings-reset-btn");
+            button.setOnAction(e -> reset.run());
+            HBox.setHgrow(heading, Priority.ALWAYS);
+            heading.setMaxWidth(Double.MAX_VALUE);
+            HBox titleRow = new HBox();
+            titleRow.getStyleClass().add("settings-section-heading");
+            titleRow.setAlignment(Pos.CENTER_LEFT);
+            page.getChildren().set(0, titleRow);
+            titleRow.getChildren().addAll(heading, button);
+            return this;
         }
 
         /**

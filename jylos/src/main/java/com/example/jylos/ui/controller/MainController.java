@@ -2622,7 +2622,7 @@ public class MainController {
             }
             scene.getRoot().setStyle(style.toString());
             // Icons and icon buttons are sized in pixels: rescale them for this font too.
-            UiSizeScale.apply(scene, uiFontSize, 1.0);
+            UiSizeScale.apply(scene, uiFontSize, uiPreferences.loadIconSize(prefs).factor());
             // Every other CSS rule in the theme derives its own font-size from this root's
             // via `em` units, so a Dialog (its own separate Scene/root — JavaFX dialogs don't
             // inherit the main window's root) needs this same inline style re-captured right
@@ -2809,7 +2809,8 @@ public class MainController {
                 theme.snippetCatalog(),
                 theme.enabledSnippets(),
                 uiLayout.mode(),
-                uiPreferences.loadShowFormatToolbar(prefs));
+                uiPreferences.loadShowFormatToolbar(prefs),
+                uiPreferences.loadIconSize(prefs));
         if (result.isEmpty()) {
             return;
         }
@@ -2829,6 +2830,7 @@ public class MainController {
                 values.alwaysOpenInNewTab());
         uiPreferences.save(prefs, newPrefs);
         uiPreferences.saveEnabledSnippets(prefs, values.enabledSnippets());
+        uiPreferences.saveIconSize(prefs, values.iconSize());
         applyUiPreferencesFromStore();
         updateThemeMenuSelection();
         theme.syncSystemMonitoring();

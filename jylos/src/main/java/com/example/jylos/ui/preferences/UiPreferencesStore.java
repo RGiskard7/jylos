@@ -31,6 +31,7 @@ public final class UiPreferencesStore {
     public static final String ALWAYS_OPEN_IN_NEW_TAB_KEY = "ui.tabs.always_new_tab";
     public static final String LAYOUT_MODE_KEY = "ui.layout.mode";
     public static final String SHOW_FORMAT_TOOLBAR_KEY = "ui.editor.format_toolbar";
+    public static final String ICON_SIZE_KEY = "ui.icon.size";
     public static final String SPLIT_MAIN_KEY = "ui.split.main";
     public static final String SPLIT_CONTENT_KEY = "ui.split.content";
     public static final double DEFAULT_SPLIT_MAIN = 0.22;
@@ -254,5 +255,14 @@ public final class UiPreferencesStore {
 
     public void saveShowFormatToolbar(Preferences prefs, boolean show) {
         prefs.putBoolean(SHOW_FORMAT_TOOLBAR_KEY, show);
+    }
+
+    /** How large icons are drawn, on top of the interface font; normal unless chosen. */
+    public IconSize loadIconSize(Preferences prefs) {
+        return IconSize.fromKey(prefs.get(ICON_SIZE_KEY, null));
+    }
+
+    public void saveIconSize(Preferences prefs, IconSize size) {
+        prefs.put(ICON_SIZE_KEY, (size != null ? size : IconSize.NORMAL).key());
     }
 }

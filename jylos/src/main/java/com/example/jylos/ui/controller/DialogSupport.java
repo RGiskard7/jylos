@@ -23,6 +23,7 @@ import com.example.jylos.service.TagService;
 import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.SettingsPane;
+import com.example.jylos.ui.preferences.IconSize;
 import com.example.jylos.ui.preferences.LayoutMode;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
 import com.example.jylos.ui.theme.CssSnippetCatalog;
@@ -109,7 +110,8 @@ class DialogSupport {
             boolean alwaysOpenInNewTab,
             LayoutMode layoutMode,
             boolean showFormatToolbar,
-            Set<String> enabledSnippets) {
+            Set<String> enabledSnippets,
+            IconSize iconSize) {
     }
 
     Optional<PreferencesDialogResult> showPreferences(
@@ -118,7 +120,8 @@ class DialogSupport {
             CssSnippetCatalog snippetCatalog,
             Set<String> enabledSnippets,
             LayoutMode currentLayout,
-            boolean currentShowFormatToolbar) {
+            boolean currentShowFormatToolbar,
+            IconSize currentIconSize) {
         Dialog<PreferencesDialogResult> dialog = new Dialog<>();
         dialog.setTitle(i18n("dialog.preferences.title"));
         dialog.setResizable(true);
@@ -191,6 +194,22 @@ class DialogSupport {
         }
         fontSizeCombo.getSelectionModel()
                 .select(Integer.valueOf(UiPreferencesStore.clampFontSize(current.uiFontSize())));
+
+        // Icons on top of the interface font: small, normal or large.
+        ComboBox<IconSize> iconSizeCombo = new ComboBox<>();
+        iconSizeCombo.getItems().setAll(IconSize.values());
+        iconSizeCombo.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(IconSize size) {
+                return size == null ? "" : i18n("icon_size." + size.key());
+            }
+
+            @Override
+            public IconSize fromString(String text) {
+                return null;
+            }
+        });
+        iconSizeCombo.setValue(currentIconSize != null ? currentIconSize : IconSize.NORMAL);
 
         ComboBox<Integer> contentFontSizeCombo = new ComboBox<>();
         for (int i = UiPreferencesStore.MIN_CONTENT_FONT_SIZE; i <= UiPreferencesStore.MAX_CONTENT_FONT_SIZE; i++) {
@@ -287,19 +306,40 @@ class DialogSupport {
         });
 
         // Sections on the left, one row per setting: name and description wrap, control on the right.
+        // Each section's Reset puts its controls back to a new install's values; nothing is
+        // stored until Save, so Close still discards it.
+        String reset = i18n("dialog.preferences.reset");
         SettingsPane settings = new SettingsPane();
         settings.addSection(i18n("dialog.preferences.section.general"))
+                .resettable(reset, () -> {
+                    autosaveEnabledCheck.setSelected(true);
+                    autosaveIntervalCombo.getSelectionModel().select("2s");
+                })
                 .row(i18n("dialog.preferences.storage_location"), currentStorageLocation(), null)
                 .row(i18n("dialog.preferences.autosave_enabled"), null, autosaveEnabledCheck)
                 .row(i18n("dialog.preferences.autosave_interval"),
                         i18n("dialog.preferences.autosave_interval_desc"), autosaveIntervalCombo);
         settings.addSection(i18n("dialog.preferences.section.editor"))
+                .resettable(reset, () -> {
+                    editingModeCombo.getSelectionModel().select(0);
+                    readableLineLengthCheck.setSelected(false);
+                    showFormatToolbarCheck.setSelected(true);
+                    contentFontSizeCombo.getSelectionModel().select(
+                            Integer.valueOf(UiPreferencesStore.DEFAULT_CONTENT_FONT_SIZE));
+                })
                 .row(i18n("dialog.preferences.default_editing_mode"), null, editingModeCombo)
                 .row(i18n("dialog.preferences.readable_line_length"),
                         i18n("dialog.preferences.readable_line_length_desc"), readableLineLengthCheck)
                 .row(i18n("dialog.preferences.show_format_toolbar"), null, showFormatToolbarCheck)
                 .row(i18n("dialog.preferences.font_size_content"), null, contentFontSizeCombo);
         settings.addSection(i18n("dialog.preferences.section.notes"))
+                .resettable(reset, () -> {
+                    layoutCombo.setValue(LayoutMode.EXPLORER);
+                    alwaysOpenInNewTabCheck.setSelected(false);
+                    showFolderNoteCountsCheck.setSelected(true);
+                    notesPreviewLinesCombo.getSelectionModel().select(
+                            Integer.valueOf(UiPreferencesStore.DEFAULT_NOTES_PREVIEW_LINES));
+                })
                 .row(i18n("dialog.preferences.layout"), null, layoutCombo)
                 .row(i18n("dialog.preferences.always_open_in_new_tab"),
                         i18n("dialog.preferences.always_open_in_new_tab_desc"), alwaysOpenInNewTabCheck)
@@ -307,7 +347,15 @@ class DialogSupport {
                 .row(i18n("dialog.preferences.notes_preview_lines"),
                         i18n("dialog.preferences.notes_preview_lines_desc"), notesPreviewLinesCombo);
         settings.addSection(i18n("dialog.preferences.section.appearance"))
+                .resettable(reset, () -> {
+                    fontSizeCombo.getSelectionModel().select(Integer.valueOf(UiPreferencesStore.DEFAULT_UI_FONT_SIZE));
+                    iconSizeCombo.setValue(IconSize.NORMAL);
+                    themeModeCombo.getSelectionModel().select(0);
+                    externalThemeCombo.getSelectionModel().select(0);
+                    customAccentCheck.setSelected(false);
+                })
                 .row(i18n("dialog.preferences.font_size"), null, fontSizeCombo)
+                .row(i18n("dialog.preferences.icon_size"), i18n("dialog.preferences.icon_size_desc"), iconSizeCombo)
                 .row(i18n("dialog.preferences.theme_mode"), null, themeModeCombo)
                 .row(i18n("dialog.preferences.external_theme"), null, externalThemeCombo)
                 .row(i18n("dialog.preferences.accent_custom"), null, SettingsPane.controls(accentPicker, customAccentCheck))
@@ -370,7 +418,8 @@ class DialogSupport {
                     alwaysOpenInNewTabCheck.isSelected(),
                     layoutCombo.getValue(),
                     showFormatToolbarCheck.isSelected(),
-                    new LinkedHashSet<>(selectedSnippets));
+                    new LinkedHashSet<>(selectedSnippets),
+                    iconSizeCombo.getValue());
         });
         return UiDialogs.show(dialog);
     }

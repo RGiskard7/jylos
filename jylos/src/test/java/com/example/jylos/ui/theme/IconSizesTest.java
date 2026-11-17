@@ -71,11 +71,34 @@ class IconSizesTest {
         assertEquals(47.0, at22.navButtonWidth(), "28 px × 22/13");
     }
 
+    /**
+     * With "Large" icons and the default font, every icon is its usual size × 1.25 and an icon
+     * button grows with it so the icon still fits; the text does not change.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"dark-theme.css", "modern-theme.css"})
+    void largeIconsGrowAQuarterWithTheSameFont(String theme) throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        List<String> expected = new ArrayList<>();
+        for (String entry : AT_13.split(", ")) {
+            int at = entry.lastIndexOf('=');
+            long size = Math.round(Integer.parseInt(entry.substring(at + 1)) * 1.25);
+            expected.add(entry.substring(0, at + 1) + size);
+        }
+        Measured large = sizes(theme, 13, 1.25);
+        assertEquals(String.join(", ", expected), String.join(", ", large.icons()));
+        assertEquals(35.0, large.navButtonWidth(), "28 px × 1.25");
+    }
+
     record Measured(List<String> icons, double navButtonWidth) {
     }
 
     /** "id-or-literal=size" for every icon, in order, and the editor's Back button width. */
     static Measured sizes(String theme, double fontPx) throws Exception {
+        return sizes(theme, fontPx, 1.0);
+    }
+
+    static Measured sizes(String theme, double fontPx, double iconFactor) throws Exception {
         return onFx(() -> {
             VBox root = new VBox();
             root.getStyleClass().addAll("root-container");
@@ -90,7 +113,7 @@ class IconSizesTest {
             Scene scene = new Scene(root, 1600, 1200);
             scene.getStylesheets().add(IconSizesTest.class
                     .getResource("/com/example/jylos/ui/css/" + theme).toExternalForm());
-            UiSizeScale.apply(scene, fontPx, 1.0);
+            UiSizeScale.apply(scene, fontPx, iconFactor);
             root.applyCss();
             root.layout();
             root.applyCss();
