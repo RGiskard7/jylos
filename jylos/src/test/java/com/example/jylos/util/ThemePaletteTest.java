@@ -94,9 +94,9 @@ class ThemePaletteTest {
     @Test
     void theRealDarkThemeAndRetroPhosphorGiveTheirColours() throws IOException {
         String dark = resource("/com/example/jylos/ui/css/dark-theme.css");
-        Path retro = Path.of("..", "themes", "retro-phosphor", "theme.css");
+        String retro = Files.readString(Path.of("..", "themes", "retro-phosphor", "theme.css"));
 
-        ThemePalette palette = ThemePalette.fromStylesheets(List.of(dark, Files.readString(retro)));
+        ThemePalette palette = ThemePalette.fromStylesheets(List.of(dark, retro));
 
         assertNotNull(palette);
         assertEquals("#06120d", palette.background());

@@ -200,7 +200,7 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 
 - Light, dark, and **system** themes (OS theme polling when “System” is selected) + external CSS themes
 - **CSS snippets**: drop `.css` files into `snippets/` and toggle them in Preferences to tweak the UI over the active theme (Obsidian-style)
-- Sample external theme: Retro Phosphor (`themes/retro-phosphor/`)
+- External themes in `themes/`: Gruvbox Dark, Gruvbox Light and Retro Phosphor
 - Configurable sidebar/editor button presentation (text/icons/auto)
 - Centered sidebar navigation (folders, tags, recent, favorites, trash)
 - Layout menu in the toolbar: Explorer, classic columns or classic stacked; the choice is remembered
@@ -483,7 +483,7 @@ Toolbar/sidebar icons are **Feather** and **Bootstrap Icons** glyphs via Ikonli 
 
 ### Themes
 
-Source packs live in `themes/<id>/` (`theme.properties` + `theme.css`). Development: `./scripts/build-themes.sh` (copies to `jylos/themes/`). **Packaged app:** copy the theme folder to `~/Library/Application Support/Jylos/themes/<id>/` (macOS), `%APPDATA%\Jylos\themes\<id>\` (Windows), or `~/.local/share/jylos/themes/<id>/` (Linux). See [themes/README.md](themes/README.md).
+Source packs live in `themes/<id>/` (`theme.properties` + `theme.css`). Development: `./scripts/build-themes.sh` (copies to `jylos/themes/`). **Packaged app:** Preferences → Appearance → *Open themes folder*, copy the theme folder there and press *Reload themes*; the folder is `~/Library/Application Support/Jylos/themes/<id>/` (macOS), `%APPDATA%\Jylos\themes\<id>\` (Windows), or `~/.local/share/jylos/themes/<id>/` (Linux). See [themes/README.md](themes/README.md).
 
 ### CSS snippets
 

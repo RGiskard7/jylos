@@ -200,7 +200,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 - Temas claro, oscuro y **sistema** (sigue el SO cuando eliges Sistema) + temas CSS externos
 - **Snippets CSS**: coloca ficheros `.css` en `snippets/` y actívalos en Preferencias para retocar la interfaz sobre el tema activo (estilo Obsidian)
-- Tema de ejemplo: Retro Phosphor (`themes/retro-phosphor/`)
+- Temas externos en `themes/`: Gruvbox Dark, Gruvbox Light y Retro Phosphor
 - Preferencias de botones lateral/editor (texto/iconos/auto)
 - Barra lateral centrada (carpetas, etiquetas, recientes, favoritos, papelera)
 - Menú de diseño en la barra superior: Explorador, clásico en columnas o clásico apilado; la elección se recuerda
@@ -483,7 +483,7 @@ Los iconos de barra y menús son glifos **Feather** y **Bootstrap Icons** vía I
 
 ### Temas
 
-Paquetes en `themes/<id>/` (`theme.properties` + `theme.css`). En desarrollo: `./scripts/build-themes.sh` (copia a `jylos/themes/`). **App instalada:** copia la carpeta del tema a `~/Library/Application Support/Jylos/themes/<id>/` (macOS), `%APPDATA%\Jylos\themes\<id>\` (Windows) o `~/.local/share/jylos/themes/<id>/` (Linux); detalle en [themes/README.md](themes/README.md).
+Paquetes en `themes/<id>/` (`theme.properties` + `theme.css`). En desarrollo: `./scripts/build-themes.sh` (copia a `jylos/themes/`). **App instalada:** Preferencias → Apariencia → *Abrir carpeta de temas*, copia ahí la carpeta del tema y pulsa *Recargar temas*; la carpeta es `~/Library/Application Support/Jylos/themes/<id>/` (macOS), `%APPDATA%\Jylos\themes\<id>\` (Windows) o `~/.local/share/jylos/themes/<id>/` (Linux); detalle en [themes/README.md](themes/README.md).
 
 ### Snippets CSS
 

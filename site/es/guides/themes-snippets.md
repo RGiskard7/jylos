@@ -22,11 +22,11 @@ base=dark
 - `darkLike=true` — vista previa Markdown oscura y diálogos conscientes del tema oscuro.
 - `base=dark|light|system|auto` — apila la hoja de estilos integrada debajo de tu CSS. Pon `dark` o `light` para una cobertura completa de la UI (grafo, panel Git, paleta de comandos, diálogos, gestor de plugins, …).
 
-El tema de ejemplo **Retro Phosphor** usa `base=dark` más una capa verde.
+La carpeta `themes/` del repositorio tiene **Gruvbox Dark**, **Gruvbox Light** y **Retro Phosphor** (`base=dark` más una capa verde), listos para copiar y para partir de ellos. Los colores de los controles genéricos del tema base (etiquetas, campos, botones, interruptores, tooltips) también son variables (`-fx-label-text`, `-fx-input-bg`, `-fx-control-bg`, `-fx-control-border`, …), así que un tema los cambia definiendo esas variables en `.root`.
 
 ### Instalar un tema
 
-Copia la carpeta del tema en `themes/` dentro de los datos de Jylos:
+En **Herramientas → Preferencias → Apariencia**, *Abrir carpeta de temas* abre la carpeta donde van los temas (la crea si no existe). Copia ahí la carpeta del tema, pulsa *Recargar temas* y elígelo; no hace falta reiniciar. La carpeta es `themes/` dentro de los datos de Jylos:
 
 | Sistema | Ruta |
 | --- | --- |
@@ -34,7 +34,7 @@ Copia la carpeta del tema en `themes/` dentro de los datos de Jylos:
 | Windows | `%APPDATA%\Jylos\themes\<id>\` |
 | Linux | `~/.local/share/jylos/themes/<id>/` |
 
-Luego actívalo en **Herramientas → Preferencias → Tema externo** (reinicia si no aparece en la lista).
+Sus colores llegan también al editor, la vista de lectura y el grafo.
 
 Desde el repositorio también puedes compilar los temas a `jylos/themes/`:
 

@@ -61,7 +61,6 @@ import com.example.jylos.ui.components.PluginManagerDialog;
 import com.example.jylos.ui.components.QuickSwitcher;
 import com.example.jylos.ui.preferences.LayoutMode;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
-import com.example.jylos.ui.theme.ThemeCatalog;
 import com.example.jylos.ui.theme.UiSizeScale;
 import com.example.jylos.util.NoteAnchors;
 import com.example.jylos.util.SystemBrowser;
@@ -2803,10 +2802,9 @@ public class MainController {
                 (int) Math.round(editorFontSize),
                 uiPreferences.loadShowFolderNoteCounts(prefs),
                 uiPreferences.load(prefs).alwaysOpenInNewTab());
-        List<ThemeCatalog.ThemeDescriptor> themes = theme.catalog().getAvailableThemes();
         Optional<DialogSupport.PreferencesDialogResult> result = dialogSupport.showPreferences(
                 currentUiPrefs,
-                themes,
+                theme.catalog(),
                 theme.snippetCatalog(),
                 theme.enabledSnippets(),
                 uiLayout.mode(),

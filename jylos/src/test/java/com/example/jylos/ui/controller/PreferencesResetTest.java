@@ -48,7 +48,7 @@ class PreferencesResetTest {
         Platform.runLater(() -> {
             DialogSupport dialogs = new DialogSupport();
             dialogs.wire(es::getString, status -> { }, null);
-            result.set(dialogs.showPreferences(new UiPreferencesStore().load(null), List.of(), null, Set.of(),
+            result.set(dialogs.showPreferences(new UiPreferencesStore().load(null), null, null, Set.of(),
                     LayoutMode.EXPLORER, true, IconSize.NORMAL, false));
         });
         DialogPane pane = null;

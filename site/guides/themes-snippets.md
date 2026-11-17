@@ -22,11 +22,11 @@ base=dark
 - `darkLike=true` — dark Markdown preview and dark-aware dialogs.
 - `base=dark|light|system|auto` — stacks the built-in stylesheet under your CSS. Set it to `dark` or `light` for full UI coverage (graph, Git panel, command palette, dialogs, plugin manager, …).
 
-The sample theme **Retro Phosphor** uses `base=dark` plus a green overlay.
+The repository's `themes/` folder has **Gruvbox Dark**, **Gruvbox Light** and **Retro Phosphor** (`base=dark` plus a green overlay), ready to copy and to start from. The colours of the base theme's generic controls (labels, fields, buttons, toggles, tooltips) are variables too (`-fx-label-text`, `-fx-input-bg`, `-fx-control-bg`, `-fx-control-border`, …), so a theme recolours them by setting those variables in `.root`.
 
 ### Install a theme
 
-Copy the theme folder into `themes/` under Jylos' app data:
+In **Tools → Preferences → Appearance**, *Open themes folder* opens the folder where themes go (creating it if needed). Copy the theme's folder there, press *Reload themes* and choose it; no restart needed. The folder is `themes/` under Jylos' app data:
 
 | System | Path |
 | --- | --- |
@@ -34,7 +34,7 @@ Copy the theme folder into `themes/` under Jylos' app data:
 | Windows | `%APPDATA%\Jylos\themes\<id>\` |
 | Linux | `~/.local/share/jylos/themes/<id>/` |
 
-Then activate it in **Tools → Preferences → External theme** (restart if it does not appear in the list).
+Its colours also reach the editor, the reading view and the graph.
 
 From the repository you can also build themes into `jylos/themes/`:
 

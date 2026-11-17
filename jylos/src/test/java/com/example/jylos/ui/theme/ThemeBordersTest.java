@@ -3,6 +3,7 @@ package com.example.jylos.ui.theme;
 import static com.example.jylos.tests.FxTestSupport.onFx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,13 +23,17 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Paint;
 
 /**
- * With either built-in theme, a control's outline keeps its colour when the pointer is over
- * it and when it has the focus: those states change the background, never the border.
+ * With either built-in theme, and with the repository's themes over their base, a
+ * control's outline keeps its colour when the pointer is over it and when it has the focus:
+ * those states change the background, never the border.
  */
 class ThemeBordersTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"dark-theme.css", "modern-theme.css"})
+    @ValueSource(strings = {"css/dark-theme.css", "css/modern-theme.css",
+            "css/dark-theme.css + ../themes/gruvbox-dark/theme.css",
+            "css/modern-theme.css + ../themes/gruvbox-light/theme.css",
+            "css/dark-theme.css + ../themes/retro-phosphor/theme.css"})
     void bordersKeepTheirColourOnHoverAndFocus(String theme) throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
 
@@ -44,8 +49,13 @@ class ThemeBordersTest {
                     box.getStyleClass().add("dialog-pane");
                 }
                 Scene scene = new Scene(root, 300, 200);
-                scene.getStylesheets().add(ThemeBordersTest.class
-                        .getResource("/com/example/jylos/ui/css/" + theme).toExternalForm());
+                // A built-in stylesheet, then a theme from the repository's themes folder over it.
+                for (String sheet : theme.split("\\+")) {
+                    String name = sheet.strip();
+                    scene.getStylesheets().add(name.startsWith("../")
+                            ? Path.of(name).toUri().toString()
+                            : ThemeBordersTest.class.getResource("/com/example/jylos/ui/" + name).toExternalForm());
+                }
                 for (Control control : controls) {
                     String where = control.getClass().getSimpleName() + (inDialog ? " in a dialog" : "");
                     String rest = border(root, control);

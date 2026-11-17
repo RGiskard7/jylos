@@ -2,6 +2,7 @@ package com.example.jylos.ui.controller;
 
 import java.io.File;
 import java.text.MessageFormat;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -117,7 +118,7 @@ class DialogSupport {
 
     Optional<PreferencesDialogResult> showPreferences(
             UiPreferencesStore.UiPreferencesData current,
-            List<ThemeCatalog.ThemeDescriptor> themes,
+            ThemeCatalog themeCatalog,
             CssSnippetCatalog snippetCatalog,
             Set<String> enabledSnippets,
             LayoutMode currentLayout,
@@ -242,24 +243,37 @@ class DialogSupport {
         themeModeCombo.getSelectionModel().select(
                 UiPreferencesStore.THEME_SOURCE_EXTERNAL.equals(current.themeSource()) ? 1 : 0);
 
+        // The themes besides light and dark: those that come with Jylos and those the user put in
+        // the themes folder. Reload reads the folder again, keeping the theme chosen.
         ComboBox<String> externalThemeCombo = new ComboBox<>();
-        externalThemeCombo.getItems().add(i18n("pref.theme.none"));
-        int externalSelected = 0;
-        if (themes != null) {
-            int idx = 1;
-            for (ThemeCatalog.ThemeDescriptor descriptor : themes) {
-                if (!"external".equals(descriptor.source())) {
-                    continue;
-                }
+        List<ThemeCatalog.ThemeDescriptor> otherThemes = new ArrayList<>();
+        Runnable populateThemes = () -> {
+            String kept = externalThemeCombo.getValue();
+            otherThemes.clear();
+            if (themeCatalog != null) {
+                themeCatalog.getAvailableThemes().stream().filter(t -> !"builtin".equals(t.source()))
+                        .forEach(otherThemes::add);
+            }
+            externalThemeCombo.getItems().setAll(i18n("pref.theme.none"));
+            int selected = 0;
+            for (ThemeCatalog.ThemeDescriptor descriptor : otherThemes) {
                 String display = descriptor.name() + " [" + descriptor.id() + "]";
                 externalThemeCombo.getItems().add(display);
-                if (descriptor.id().equals(current.externalThemeId())) {
-                    externalSelected = idx;
+                if (kept != null ? kept.equals(display) : descriptor.id().equals(current.externalThemeId())) {
+                    selected = externalThemeCombo.getItems().size() - 1;
                 }
-                idx++;
             }
-        }
-        externalThemeCombo.getSelectionModel().select(externalSelected);
+            externalThemeCombo.getSelectionModel().select(selected);
+        };
+        populateThemes.run();
+        Button reloadThemes = settingsIconButton("fth-refresh-cw", i18n("dialog.preferences.themes_reload"));
+        reloadThemes.setOnAction(e -> populateThemes.run());
+        Button openThemesFolder = settingsIconButton("fth-folder", i18n("dialog.preferences.themes_open"));
+        openThemesFolder.setOnAction(e -> {
+            if (themeCatalog != null) {
+                openFolder(themeCatalog.userDirectory().toString());
+            }
+        });
         externalThemeCombo.setDisable(themeModeCombo.getSelectionModel().getSelectedIndex() != 1);
         themeModeCombo.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             externalThemeCombo.setDisable(themeModeCombo.getSelectionModel().getSelectedIndex() != 1);
@@ -364,7 +378,8 @@ class DialogSupport {
                 .row(i18n("dialog.preferences.colored_icons"), i18n("dialog.preferences.colored_icons_desc"),
                         coloredIconsCheck)
                 .row(i18n("dialog.preferences.theme_mode"), null, themeModeCombo)
-                .row(i18n("dialog.preferences.external_theme"), null, externalThemeCombo)
+                .row(i18n("dialog.preferences.external_theme"), i18n("dialog.preferences.external_theme_desc"),
+                        SettingsPane.controls(externalThemeCombo, reloadThemes, openThemesFolder))
                 .row(i18n("dialog.preferences.accent_custom"), null, SettingsPane.controls(accentPicker, customAccentCheck))
                 .subheading(i18n("dialog.preferences.css_snippets"), reloadSnippets, openSnippetsFolder)
                 .block(snippetsHint)
@@ -391,13 +406,8 @@ class DialogSupport {
                 externalThemeId = selectedExternal.substring(start + 1, selectedExternal.length() - 1).trim();
             }
             if (UiPreferencesStore.THEME_SOURCE_EXTERNAL.equals(themeSource) && externalThemeId.isBlank()
-                    && themes != null) {
-                for (ThemeCatalog.ThemeDescriptor descriptor : themes) {
-                    if ("external".equals(descriptor.source())) {
-                        externalThemeId = descriptor.id();
-                        break;
-                    }
-                }
+                    && !otherThemes.isEmpty()) {
+                externalThemeId = otherThemes.get(0).id();
             }
             Integer previewLines = notesPreviewLinesCombo.getSelectionModel().getSelectedItem();
             Integer fontSize = fontSizeCombo.getSelectionModel().getSelectedItem();

@@ -55,6 +55,20 @@
     -fx-focus-ring: rgba(85, 99, 214, 0.24);
     -fx-accent-soft: rgba(85, 99, 214, 0.24);
 
+    /* The generic controls (labels, fields, buttons, toggles, tooltips): a theme over this
+       one changes them here, not by repeating rules that would also beat the specific ones. */
+    -fx-label-text: #d0d0d0;
+    -fx-input-bg: #2d2d2d;
+    -fx-input-prompt: #666666;
+    -fx-control-bg: #333333;
+    -fx-control-hover-bg: #404040;
+    -fx-control-pressed-bg: #2a2a2a;
+    -fx-control-border: #404040;
+    -fx-control-text: #e0e0e0;
+    -fx-toggle-text: #b0b0b0;
+    -fx-tooltip-bg: #404040;
+    -fx-tooltip-text: #ffffff;
+
     -fx-background-color: -fx-base-bg;
     background-color: -fx-base-bg;
     -fx-text-fill: -fx-text-main;
@@ -413,7 +427,7 @@
 }
 
 .search-field:focused {
-    -fx-border-color: #404040;
+    -fx-border-color: -fx-control-border;
     border-color: -fx-accent;
     -fx-background-color: -fx-sidebar-bg;
     background-color: -fx-sidebar-bg;
@@ -1864,8 +1878,8 @@
    ======================================== */
 
 .tooltip {
-    -fx-background-color: #404040;
-    -fx-text-fill: #ffffff;
+    -fx-background-color: -fx-tooltip-bg;
+    -fx-text-fill: -fx-tooltip-text;
     -fx-font-size: 0.846em;
     -fx-padding: 8 12;
     -fx-background-radius: 6;
@@ -1876,7 +1890,7 @@
    ======================================== */
 
 .label {
-    -fx-text-fill: #d0d0d0;
+    -fx-text-fill: -fx-label-text;
 }
 
 /* CheckBox / RadioButton labels are not `.label` nodes, so without an explicit
@@ -1892,17 +1906,17 @@
    ======================================== */
 
 .text-field {
-    -fx-background-color: #2d2d2d;
-    -fx-border-color: #404040;
+    -fx-background-color: -fx-input-bg;
+    -fx-border-color: -fx-control-border;
     -fx-border-radius: 6;
     -fx-background-radius: 6;
     -fx-padding: 8 12;
-    -fx-text-fill: #e0e0e0;
-    -fx-prompt-text-fill: #666666;
+    -fx-text-fill: -fx-control-text;
+    -fx-prompt-text-fill: -fx-input-prompt;
 }
 
 .text-field:focused {
-    -fx-border-color: #404040;
+    -fx-border-color: -fx-control-border;
 }
 
 /* Every TextField carries the JavaFX-implicit "text-field" style class in addition to
@@ -1931,8 +1945,8 @@
    ======================================== */
 
 .combo-box-popup .list-view {
-    -fx-background-color: #2d2d2d;
-    -fx-border-color: #404040;
+    -fx-background-color: -fx-input-bg;
+    -fx-border-color: -fx-control-border;
     -fx-border-radius: 6;
     -fx-background-radius: 6;
 }
@@ -1942,23 +1956,23 @@
    ======================================== */
 
 .button {
-    -fx-background-color: #333333;
-    -fx-text-fill: #e0e0e0;
+    -fx-background-color: -fx-control-bg;
+    -fx-text-fill: -fx-control-text;
     -fx-font-size: 0.923em;
     -fx-padding: 8 14;
     -fx-background-radius: 6;
     -fx-border-radius: 6;
-    -fx-border-color: #404040;
+    -fx-border-color: -fx-control-border;
     -fx-border-width: 1;
     -fx-cursor: hand;
 }
 
 .button:hover {
-    -fx-background-color: #404040;
+    -fx-background-color: -fx-control-hover-bg;
 }
 
 .button:pressed {
-    -fx-background-color: #2a2a2a;
+    -fx-background-color: -fx-control-pressed-bg;
 }
 
 .button:default {
@@ -1996,7 +2010,7 @@
 
 .toggle-button {
     -fx-background-color: transparent;
-    -fx-text-fill: #b0b0b0;
+    -fx-text-fill: -fx-toggle-text;
     -fx-font-size: 0.923em;
     -fx-padding: 6 12;
     -fx-background-radius: 6;
@@ -2004,7 +2018,7 @@
 }
 
 .toggle-button:hover {
-    -fx-background-color: #333333;
+    -fx-background-color: -fx-control-bg;
 }
 
 .toggle-button:selected {
@@ -2295,8 +2309,8 @@
 .search-field,
 .text-field,
 .combo-box {
-    -fx-background-color: #2d2d2d;
-    -fx-border-color: #404040;
+    -fx-background-color: -fx-input-bg;
+    -fx-border-color: -fx-control-border;
     -fx-background-radius: 8;
     -fx-border-radius: 8;
     -fx-border-width: 1px;
@@ -2318,7 +2332,7 @@
 .search-field:focused,
 .text-field:focused,
 .combo-box:focused {
-    -fx-border-color: #404040;
+    -fx-border-color: -fx-control-border;
     -fx-border-width: 2px;
 }
 
