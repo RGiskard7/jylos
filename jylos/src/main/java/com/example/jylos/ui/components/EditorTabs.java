@@ -78,7 +78,7 @@ public final class EditorTabs {
     /** A single rendered tab, always {@link #TAB_WIDTH} wide with an ellipsised title. */
     private final class TabNode {
         final HBox root = new HBox();
-        final Label dot = new Label("●");
+        final Label dot = UiNodes.keepWhole(new Label("●"));
         final Label title = new Label();
         String noteId;
 
@@ -101,7 +101,7 @@ public final class EditorTabs {
             title.setMaxWidth(Double.MAX_VALUE);
             HBox.setHgrow(title, Priority.ALWAYS);
 
-            Label close = new Label("×");
+            Label close = UiNodes.keepWhole(new Label("×"));
             close.getStyleClass().add("editor-tab-close");
             String closeText = i18n != null ? i18n.apply("tooltip.close_note") : null;
             close.setTooltip(new Tooltip(closeText != null ? closeText : "Close note"));

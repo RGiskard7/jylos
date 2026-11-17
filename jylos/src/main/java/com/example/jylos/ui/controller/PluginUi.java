@@ -200,7 +200,7 @@ class PluginUi implements PluginMenuRegistry, SidePanelRegistry, ToolbarRegistry
             header.getStyleClass().add("section-header");
             header.setAlignment(Pos.CENTER_LEFT);
 
-            Label collapseIcon = new Label("▼");
+            Label collapseIcon = UiNodes.keepWhole(new Label("▼"));
             collapseIcon.getStyleClass().add("collapse-icon");
 
             header.getChildren().add(collapseIcon);

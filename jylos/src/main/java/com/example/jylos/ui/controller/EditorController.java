@@ -1282,7 +1282,7 @@ public class EditorController implements PreviewEnhancerRegistry,
                 Label lbl = new Label(tag.getTitle()); lbl.getStyleClass().add("tag-label");
                 lbl.setTooltip(new Tooltip(getString("tooltip.tag_double_click_remove", "Double-click to remove")));
                 lbl.setOnMouseClicked(e -> { if (e.getClickCount() == 2) onRemove.accept(new Tag(tag.getId(), tag.getTitle(), null, null)); });
-                Button rm = new Button("×"); rm.getStyleClass().add("tag-remove-btn");
+                Button rm = UiNodes.keepWhole(new Button("×")); rm.getStyleClass().add("tag-remove-btn");
                 rm.setTooltip(new Tooltip(getString("tooltip.remove_tag_from_note", "Remove tag from note")));
                 rm.setOnAction(e -> onRemove.accept(new Tag(tag.getId(), tag.getTitle(), null, null)));
                 box.getChildren().addAll(lbl, rm);

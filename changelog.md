@@ -18,6 +18,7 @@
   - **El grafo y cada tablero Kanban se abren en su pestaña**, como las notas, y ya no tapan la ventana. El grafo se encuentra como lo dejaste al volver a su pestaña, y un espacio de trabajo guardado lo vuelve a abrir.
   - **Botón + y Cmd/Ctrl+T abren una pestaña nueva**, con "Nueva nota" destacada y tarjetas para nuevo lienzo, ir a archivo, vista de grafo y tablero Kanban, cada una con su atajo. Las tarjetas se recolocan según el ancho: cuatro por fila, dos o una.
   - **Atrás y adelante recorren lo que mostró cada pestaña**, no todas las notas abiertas.
+  - **Con la letra de la interfaz grande, el título se acorta, pero la × de cerrar y el punto de cambios sin guardar se ven siempre**, igual que la × de las etiquetas y de las propiedades.
 
 - **Kanban:** abrir una nota-tablero (desde el árbol, el selector rápido o un enlace) la muestra como tablero, y un botón de la cabecera la muestra como Markdown y vuelta. Los cambios se guardan como cualquier edición. Ctrl/Cmd+K y el menú Ver muestran la lista de tableros para elegir uno o crear otro, y un tablero nuevo también se crea desde el menú Archivo, la paleta o el menú de una carpeta. Los tableros tienen su icono en el árbol, la lista y la pestaña. Al pulsar una tarjeta enlazada, la nota se abre en la pestaña del tablero, y atrás vuelve a él.
 
@@ -96,6 +97,7 @@
   - **Árboles:** muestran líneas guía bajo cada carpeta abierta y ordenan los acentos y los números de forma natural, también en el árbol clásico. La papelera usa los iconos de carpeta del Explorador.
   - **Arranque:** una ventana de carga muestra el icono y el nombre mientras se prepara la ventana principal, ya sin destello en tema claro al abrir en oscuro. La ventana responde antes.
   - **Modo concentración:** ya no tiene botón; se activa y se sale con Cmd/Ctrl+Shift+F, el menú Ver o la paleta.
+  - **Preferencias rediseñadas:** las secciones a la izquierda (General, Editor, Notas y pestañas, Apariencia y Snippets CSS) y una fila por ajuste, con una breve explicación bajo el nombre. Los textos largos saltan de línea en vez de cortarse, y la ventana es más grande, se puede redimensionar y crece con la letra de la interfaz.
 
 - **Plugins:** `registerStatusBarItem(id, nodo)` añade un elemento a la barra de estado, como `addStatusBarItem()` en Obsidian.
 

@@ -164,7 +164,7 @@ final class UpdateNotificationSupport {
         content.getChildren().addAll(title, message, links);
         HBox.setHgrow(content, Priority.ALWAYS);
 
-        Button closeButton = new Button("×");
+        Button closeButton = UiNodes.keepWhole(new Button("×"));
         closeButton.getStyleClass().addAll("toolbar-btn", "update-toast-close");
         closeButton.setOnAction(event -> hide(shown));
 

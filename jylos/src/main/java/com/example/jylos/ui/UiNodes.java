@@ -1,6 +1,9 @@
 package com.example.jylos.ui;
 
 import javafx.scene.Node;
+import javafx.scene.control.Labeled;
+import javafx.scene.control.OverrunStyle;
+import javafx.scene.layout.Region;
 
 /**
  * Small helpers for JavaFX nodes shared by the UI.
@@ -22,5 +25,17 @@ public final class UiNodes {
             node.setVisible(shown);
             node.setManaged(shown);
         }
+    }
+
+    /**
+     * Keeps a label or button that shows a symbol (×, ●, ▼) whole. In a row too narrow for
+     * everything, the text beside it gives way, and the symbol never turns into an ellipsis:
+     * it is never made narrower than it needs, and if a fraction of a pixel is still missing
+     * it is clipped rather than replaced by "…". Returns {@code symbol}.
+     */
+    public static <T extends Labeled> T keepWhole(T symbol) {
+        symbol.setMinWidth(Region.USE_PREF_SIZE);
+        symbol.setTextOverrun(OverrunStyle.CLIP);
+        return symbol;
     }
 }

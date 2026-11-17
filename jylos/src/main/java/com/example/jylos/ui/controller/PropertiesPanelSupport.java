@@ -162,7 +162,7 @@ final class PropertiesPanelSupport {
     }
 
     private Button removeButton(VBox content, HBox row, String key) {
-        Button removeBtn = new Button("×");
+        Button removeBtn = UiNodes.keepWhole(new Button("×"));
         removeBtn.getStyleClass().add("property-remove-btn");
         removeBtn.setTooltip(new Tooltip(host.text("tooltip.remove_property", "Remove property")));
         removeBtn.setOnAction(e -> {

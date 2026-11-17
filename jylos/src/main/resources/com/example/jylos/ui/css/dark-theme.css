@@ -4711,3 +4711,67 @@
     -fx-icon-color: -fx-text-main;
     -fx-fill: -fx-text-main;
 }
+
+/* Settings window (SettingsPane): sections on the left, one row per setting on the right. */
+.settings-nav {
+    -fx-pref-width: 12em;
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-background-insets: 0;
+    -fx-border-color: transparent -fx-fn-border-color transparent transparent;
+    -fx-border-width: 0 1 0 0;
+    -fx-padding: 8 6 8 6;
+}
+.settings-nav .list-cell {
+    -fx-background-color: transparent;
+    -fx-background-radius: 6;
+    -fx-padding: 6 10 6 10;
+    -fx-text-fill: -fx-text-muted;
+}
+.settings-nav .list-cell:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+.settings-nav .list-cell:selected {
+    -fx-background-color: -fx-selected-bg;
+    -fx-text-fill: -fx-text-main;
+}
+.settings-page-scroll,
+.settings-page-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+.settings-page {
+    -fx-padding: 14 24 20 24;
+}
+.settings-section-title {
+    -fx-font-size: 1.3em;
+    -fx-font-weight: 700;
+    -fx-text-fill: -fx-text-main;
+    -fx-padding: 0 0 8 0;
+}
+.settings-row {
+    -fx-spacing: 16;
+    -fx-padding: 10 0 10 0;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+}
+.settings-row-text {
+    -fx-min-width: 10em;
+    -fx-spacing: 3;
+}
+.settings-row-name {
+    -fx-text-fill: -fx-text-main;
+}
+.settings-row > .combo-box-base {
+    -fx-min-width: 6em;
+}
+.settings-row-description {
+    -fx-text-fill: -fx-text-muted;
+    -fx-font-size: 0.9em;
+}
+.settings-page > .dialog-hint-label {
+    -fx-padding: 0 0 8 0;
+}
+/* Sized in em so the window grows with the interface font. */
+.preferences-dialog {
+    -fx-pref-width: 58em;
+    -fx-pref-height: 41em;
+}

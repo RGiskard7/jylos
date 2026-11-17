@@ -19,6 +19,7 @@ import com.example.jylos.ui.AppIconLoader;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.service.TagService;
 import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.ui.components.SettingsPane;
 import com.example.jylos.ui.preferences.LayoutMode;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
 import com.example.jylos.ui.theme.CssSnippetCatalog;
@@ -37,7 +38,6 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.image.ImageView;
@@ -117,24 +117,15 @@ class DialogSupport {
             boolean currentShowFormatToolbar) {
         Dialog<PreferencesDialogResult> dialog = new Dialog<>();
         dialog.setTitle(i18n("dialog.preferences.title"));
-        dialog.setHeaderText(i18n("dialog.preferences.header"));
+        dialog.setResizable(true);
 
         ButtonType saveButton = new ButtonType(i18n("action.save"), ButtonBar.ButtonData.OK_DONE);
         ButtonType closeButton = new ButtonType(i18n("action.close"), ButtonBar.ButtonData.CANCEL_CLOSE);
         dialog.getDialogPane().getButtonTypes().addAll(saveButton, closeButton);
 
-        VBox content = new VBox(15);
-        content.setPadding(new Insets(20));
-        content.getStyleClass().add("preferences-content");
-
-        Label dbLabel = new Label(i18n("dialog.preferences.storage_location"));
-        Label dbPathLabel = new Label(currentStorageLocation());
-        dbPathLabel.getStyleClass().add("dialog-muted-label");
-
-        CheckBox autosaveEnabledCheck = new CheckBox(i18n("dialog.preferences.autosave_enabled"));
+        CheckBox autosaveEnabledCheck = new CheckBox();
         autosaveEnabledCheck.setSelected(current.autosaveEnabled());
 
-        Label autosaveIntervalLabel = new Label(i18n("dialog.preferences.autosave_interval"));
         ComboBox<String> autosaveIntervalCombo = new ComboBox<>();
         autosaveIntervalCombo.getItems().addAll("1s", "2s", "5s");
         String autosaveText = current.autosaveIdleMs() <= 1200 ? "1s"
@@ -144,7 +135,6 @@ class DialogSupport {
         autosaveEnabledCheck.selectedProperty()
                 .addListener((obs, oldVal, newVal) -> autosaveIntervalCombo.setDisable(!newVal));
 
-        Label notesPreviewLinesLabel = new Label(i18n("dialog.preferences.notes_preview_lines"));
         ComboBox<Integer> notesPreviewLinesCombo = new ComboBox<>();
         for (int i = UiPreferencesStore.MIN_NOTES_PREVIEW_LINES; i <= UiPreferencesStore.MAX_NOTES_PREVIEW_LINES; i++) {
             notesPreviewLinesCombo.getItems().add(i);
@@ -152,27 +142,25 @@ class DialogSupport {
         notesPreviewLinesCombo.getSelectionModel()
                 .select(Integer.valueOf(UiPreferencesStore.clampPreviewLines(current.notesPreviewLines())));
 
-        Label editingModeLabel = new Label(i18n("dialog.preferences.default_editing_mode"));
         ComboBox<String> editingModeCombo = new ComboBox<>();
         editingModeCombo.getItems().addAll(
                 i18n("editing_mode.live_preview"),
                 i18n("editing_mode.source"));
         editingModeCombo.getSelectionModel().select(current.livePreviewEnabled() ? 0 : 1);
 
-        CheckBox readableLineLengthCheck = new CheckBox(i18n("dialog.preferences.readable_line_length"));
+        CheckBox readableLineLengthCheck = new CheckBox();
         readableLineLengthCheck.setSelected(current.readableLineLength());
 
-        CheckBox showFolderNoteCountsCheck = new CheckBox(i18n("dialog.preferences.show_folder_note_counts"));
+        CheckBox showFolderNoteCountsCheck = new CheckBox();
         showFolderNoteCountsCheck.setSelected(current.showFolderNoteCounts());
 
-        CheckBox alwaysOpenInNewTabCheck = new CheckBox(i18n("dialog.preferences.always_open_in_new_tab"));
+        CheckBox alwaysOpenInNewTabCheck = new CheckBox();
         alwaysOpenInNewTabCheck.setSelected(current.alwaysOpenInNewTab());
 
-        CheckBox showFormatToolbarCheck = new CheckBox(i18n("dialog.preferences.show_format_toolbar"));
+        CheckBox showFormatToolbarCheck = new CheckBox();
         showFormatToolbarCheck.setSelected(currentShowFormatToolbar);
 
         // Same three layouts as the toolbar's layout menu.
-        Label layoutLabel = new Label(i18n("dialog.preferences.layout"));
         ComboBox<LayoutMode> layoutCombo = new ComboBox<>();
         layoutCombo.getItems().setAll(LayoutMode.values());
         layoutCombo.setConverter(new StringConverter<>() {
@@ -193,7 +181,6 @@ class DialogSupport {
         layoutCombo.setValue(currentLayout != null ? currentLayout
                 : LayoutMode.CLASSIC_COLUMNS);
 
-        Label fontSizeLabel = new Label(i18n("dialog.preferences.font_size"));
         ComboBox<Integer> fontSizeCombo = new ComboBox<>();
         for (int i = UiPreferencesStore.MIN_UI_FONT_SIZE; i <= UiPreferencesStore.MAX_UI_FONT_SIZE; i++) {
             fontSizeCombo.getItems().add(i);
@@ -201,7 +188,6 @@ class DialogSupport {
         fontSizeCombo.getSelectionModel()
                 .select(Integer.valueOf(UiPreferencesStore.clampFontSize(current.uiFontSize())));
 
-        Label contentFontSizeLabel = new Label(i18n("dialog.preferences.font_size_content"));
         ComboBox<Integer> contentFontSizeCombo = new ComboBox<>();
         for (int i = UiPreferencesStore.MIN_CONTENT_FONT_SIZE; i <= UiPreferencesStore.MAX_CONTENT_FONT_SIZE; i++) {
             contentFontSizeCombo.getItems().add(i);
@@ -210,7 +196,7 @@ class DialogSupport {
                 .select(Integer.valueOf(UiPreferencesStore.clampContentFontSize(current.contentFontSize())));
 
         // Accent color: opt-in override of the theme's -fx-accent (Obsidian-style).
-        CheckBox customAccentCheck = new CheckBox(i18n("dialog.preferences.accent_custom"));
+        CheckBox customAccentCheck = new CheckBox();
         ColorPicker accentPicker = new ColorPicker();
         boolean hasCustomAccent = current.accentColor() != null && !current.accentColor().isBlank();
         customAccentCheck.setSelected(hasCustomAccent);
@@ -224,13 +210,11 @@ class DialogSupport {
         customAccentCheck.selectedProperty()
                 .addListener((obs, oldVal, newVal) -> accentPicker.setDisable(!newVal));
 
-        Label themeModeLabel = new Label(i18n("dialog.preferences.theme_mode"));
         ComboBox<String> themeModeCombo = new ComboBox<>();
         themeModeCombo.getItems().addAll(i18n("pref.theme.builtin"), i18n("pref.theme.external"));
         themeModeCombo.getSelectionModel().select(
                 UiPreferencesStore.THEME_SOURCE_EXTERNAL.equals(current.themeSource()) ? 1 : 0);
 
-        Label externalThemeLabel = new Label(i18n("dialog.preferences.external_theme"));
         ComboBox<String> externalThemeCombo = new ComboBox<>();
         externalThemeCombo.getItems().add(i18n("pref.theme.none"));
         int externalSelected = 0;
@@ -259,7 +243,6 @@ class DialogSupport {
         // current choices even for snippets not yet on disk.
         Set<String> selectedSnippets = new LinkedHashSet<>(
                 enabledSnippets != null ? enabledSnippets : Set.of());
-        Label snippetsLabel = new Label(i18n("dialog.preferences.css_snippets"));
         Label snippetsHint = new Label(i18n("dialog.preferences.css_snippets_hint"));
         snippetsHint.getStyleClass().add("dialog-hint-label");
         snippetsHint.setWrapText(true);
@@ -297,39 +280,37 @@ class DialogSupport {
         Button reloadSnippets = new Button(i18n("dialog.preferences.css_snippets_reload"));
         reloadSnippets.setOnAction(e -> populateSnippets.run());
 
-        content.getChildren().addAll(
-                new Label(i18n("dialog.preferences.general_settings")),
-                dbLabel, dbPathLabel,
-                new Separator(),
-                autosaveEnabledCheck,
-                new HBox(8, autosaveIntervalLabel, autosaveIntervalCombo),
-                new Separator(),
-                new HBox(8, layoutLabel, layoutCombo),
-                editingModeLabel, editingModeCombo,
-                readableLineLengthCheck,
-                showFormatToolbarCheck,
-                showFolderNoteCountsCheck,
-                alwaysOpenInNewTabCheck,
-                notesPreviewLinesLabel, notesPreviewLinesCombo,
-                fontSizeLabel, fontSizeCombo,
-                contentFontSizeLabel, contentFontSizeCombo,
-                new Separator(),
-                themeModeLabel, themeModeCombo,
-                externalThemeLabel, externalThemeCombo,
-                new Separator(),
-                new HBox(8, customAccentCheck, accentPicker),
-                new Separator(),
-                snippetsLabel, snippetsHint, snippetsBox,
-                new HBox(8, openSnippetsFolder, reloadSnippets));
-
-        // The settings list has outgrown a fixed pane: scroll vertically when needed
-        // so no row is ever clipped (no horizontal bar — content fits the width).
-        ScrollPane scroll = new ScrollPane(content);
-        scroll.setFitToWidth(true);
-        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scroll.getStyleClass().add("preferences-scroll");
-        dialog.getDialogPane().setContent(scroll);
-        dialog.getDialogPane().setPrefSize(500, 620);
+        // Sections on the left, one row per setting: name and description wrap, control on the right.
+        SettingsPane settings = new SettingsPane();
+        settings.addSection(i18n("dialog.preferences.section.general"))
+                .row(i18n("dialog.preferences.storage_location"), currentStorageLocation(), null)
+                .row(i18n("dialog.preferences.autosave_enabled"), null, autosaveEnabledCheck)
+                .row(i18n("dialog.preferences.autosave_interval"),
+                        i18n("dialog.preferences.autosave_interval_desc"), autosaveIntervalCombo);
+        settings.addSection(i18n("dialog.preferences.section.editor"))
+                .row(i18n("dialog.preferences.default_editing_mode"), null, editingModeCombo)
+                .row(i18n("dialog.preferences.readable_line_length"),
+                        i18n("dialog.preferences.readable_line_length_desc"), readableLineLengthCheck)
+                .row(i18n("dialog.preferences.show_format_toolbar"), null, showFormatToolbarCheck)
+                .row(i18n("dialog.preferences.font_size_content"), null, contentFontSizeCombo);
+        settings.addSection(i18n("dialog.preferences.section.notes"))
+                .row(i18n("dialog.preferences.layout"), null, layoutCombo)
+                .row(i18n("dialog.preferences.always_open_in_new_tab"),
+                        i18n("dialog.preferences.always_open_in_new_tab_desc"), alwaysOpenInNewTabCheck)
+                .row(i18n("dialog.preferences.show_folder_note_counts"), null, showFolderNoteCountsCheck)
+                .row(i18n("dialog.preferences.notes_preview_lines"),
+                        i18n("dialog.preferences.notes_preview_lines_desc"), notesPreviewLinesCombo);
+        settings.addSection(i18n("dialog.preferences.section.appearance"))
+                .row(i18n("dialog.preferences.font_size"), null, fontSizeCombo)
+                .row(i18n("dialog.preferences.theme_mode"), null, themeModeCombo)
+                .row(i18n("dialog.preferences.external_theme"), null, externalThemeCombo)
+                .row(i18n("dialog.preferences.accent_custom"), null, new HBox(8, customAccentCheck, accentPicker));
+        settings.addSection(i18n("dialog.preferences.css_snippets"))
+                .block(snippetsHint)
+                .block(snippetsBox)
+                .block(new HBox(8, openSnippetsFolder, reloadSnippets));
+        dialog.getDialogPane().setContent(settings);
+        dialog.getDialogPane().getStyleClass().add("preferences-dialog");
 
         dialog.setResultConverter(buttonType -> {
             if (buttonType != saveButton) {
