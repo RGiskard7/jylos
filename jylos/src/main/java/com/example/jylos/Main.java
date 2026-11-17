@@ -24,6 +24,8 @@ import java.util.Locale;
 
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.database.SQLiteDB;
+import com.example.jylos.plugin.PluginManager;
+import com.example.jylos.plugin.PluginStates;
 import com.example.jylos.service.DatabaseBackupService;
 import com.example.jylos.ui.AppIconLoader;
 import com.example.jylos.ui.StartupSplash;
@@ -67,6 +69,7 @@ public class Main extends Application {
 
         Preferences prefs = Preferences.userNodeForPackage(MainController.class);
         // Before anything else writes preferences: an empty node means a new install.
+        PluginStates.initialize(Preferences.userNodeForPackage(PluginManager.class), UiPreferencesStore.ranBefore(prefs));
         new UiPreferencesStore().initLayoutMode(prefs);
         String lang = prefs.get("language", Locale.getDefault().getLanguage());
         Locale locale = Locale.forLanguageTag(lang);

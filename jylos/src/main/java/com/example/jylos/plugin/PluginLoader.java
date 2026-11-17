@@ -261,6 +261,13 @@ public class PluginLoader {
         }
     }
 
+    /** The JARs in the user's plugins folder that are not loaded yet. */
+    public static List<Path> unloadedCommunityJars() {
+        return jarsIn(getPluginsDirectory().toAbsolutePath().normalize(), new ArrayList<>(), false).stream()
+                .filter(jar -> !activeClassLoadersByJarPath.containsKey(jar.toAbsolutePath().normalize()))
+                .toList();
+    }
+
     /** The JAR a loaded plugin came from, or {@code null}. */
     static Path jarOf(String pluginId) {
         return pluginJarPathsById.get(pluginId);

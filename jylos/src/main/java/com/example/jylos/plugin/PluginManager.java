@@ -46,7 +46,6 @@ import com.example.jylos.ui.components.CommandPalette;
 public class PluginManager {
 
     private static final Logger logger = LoggerConfig.getLogger(PluginManager.class);
-    static final String PREFS_DISABLED_PREFIX = "plugin.disabled.";
 
     /**
      * Plugin states.
@@ -80,7 +79,7 @@ public class PluginManager {
     private final Map<String, PluginState> pluginStates = new HashMap<>();
     private final Map<String, PluginContext> pluginContexts = new HashMap<>();
     private final Map<String, PluginOrigin> origins = new HashMap<>();
-    private final Preferences pluginPreferences = Preferences.userNodeForPackage(PluginManager.class);
+    private PluginStates states = new PluginStates(Preferences.userNodeForPackage(PluginManager.class));
 
     /**
      * Creates a new PluginManager.
@@ -224,7 +223,7 @@ public class PluginManager {
             return false;
         }
 
-        if (isDisabledInPreferences(pluginId)) {
+        if (!states.isEnabled(pluginId, originOf(pluginId))) {
             pluginStates.put(pluginId, PluginState.DISABLED);
             logger.info("Plugin disabled by preferences, skipping initialization: " + pluginId);
             return true;
@@ -278,7 +277,7 @@ public class PluginManager {
             pluginStates.put(pluginId, PluginState.INITIALIZED);
             logger.info("Initialized plugin: " + plugin.getName() + " (" + pluginId + ")");
 
-            if (plugin.isEnabled() && !isDisabledInPreferences(pluginId)) {
+            if (plugin.isEnabled() && states.isEnabled(pluginId, originOf(pluginId))) {
                 enablePlugin(pluginId);
             } else {
                 pluginStates.put(pluginId, PluginState.DISABLED);
@@ -404,7 +403,7 @@ public class PluginManager {
             return true;
         }
 
-        setDisabledInPreferences(pluginId, false);
+        states.setEnabled(pluginId, true);
         if (currentState == PluginState.REGISTERED || currentState == PluginState.DISABLED) {
             if (!initializePlugin(pluginId)) {
                 return false;
@@ -436,7 +435,7 @@ public class PluginManager {
 
         pluginStates.put(pluginId, PluginState.DISABLED);
         cleanupPluginRuntime(pluginId);
-        setDisabledInPreferences(pluginId, true);
+        states.setEnabled(pluginId, false);
 
         logger.info("Disabled plugin: " + pluginId);
         return true;
@@ -461,7 +460,7 @@ public class PluginManager {
             deleteInstalledCopyIfNeeded(sourceJar, installedJar);
             throw new IOException("Plugin already installed: " + plugin.getId());
         }
-        setDisabledInPreferences(plugin.getId(), false);
+        states.setEnabled(plugin.getId(), true);
         if (!registerPlugin(plugin) || !initializePlugin(plugin.getId())) {
             plugins.remove(plugin.getId());
             pluginStates.remove(plugin.getId());
@@ -502,7 +501,7 @@ public class PluginManager {
         pluginStates.remove(pluginId);
         origins.remove(pluginId);
         pluginContexts.remove(pluginId);
-        clearDisabledPreference(pluginId);
+        states.forget(pluginId);
 
         logger.info("Uninstalled plugin: " + pluginId);
         return plugin;
@@ -518,6 +517,31 @@ public class PluginManager {
         // Jylos's own plugins come with the installation, even when the portable build keeps
         // them in the user's folder.
         return originOf(pluginId) == PluginOrigin.COMMUNITY && PluginLoader.isPluginRemovable(pluginId);
+    }
+
+    /**
+     * Loads the plugins the user has copied into their plugins folder since they were last read,
+     * as community plugins, without restarting. A JAR whose plugin id is already loaded is left out.
+     *
+     * @return the plugins added
+     */
+    public List<Plugin> reloadCommunityPlugins() {
+        List<Plugin> added = new ArrayList<>();
+        for (Path jar : PluginLoader.unloadedCommunityJars()) {
+            Plugin plugin = PluginLoader.loadPluginJar(jar);
+            if (plugin == null) {
+                continue;
+            }
+            if (plugins.containsKey(plugin.getId())) {
+                logger.info("Not loading " + jar + ": plugin '" + plugin.getId() + "' is already loaded");
+                PluginLoader.releasePluginJar(jar);
+                continue;
+            }
+            if (registerPlugin(plugin, PluginOrigin.COMMUNITY) && initializePlugin(plugin.getId())) {
+                added.add(plugin);
+            }
+        }
+        return added;
     }
 
     /** Whether the plugin is Jylos's own or the community's ({@code COMMUNITY} if unknown). */
@@ -568,16 +592,9 @@ public class PluginManager {
         }
     }
 
-    private boolean isDisabledInPreferences(String pluginId) {
-        return pluginPreferences.getBoolean(PREFS_DISABLED_PREFIX + pluginId, false);
-    }
-
-    private void setDisabledInPreferences(String pluginId, boolean disabled) {
-        pluginPreferences.putBoolean(PREFS_DISABLED_PREFIX + pluginId, disabled);
-    }
-
-    private void clearDisabledPreference(String pluginId) {
-        pluginPreferences.remove(PREFS_DISABLED_PREFIX + pluginId);
+    /** Keeps the plugins' states in {@code node} instead of the user's preferences. */
+    void usePreferences(Preferences node) {
+        this.states = new PluginStates(node);
     }
 
     /**

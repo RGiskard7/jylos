@@ -3497,6 +3497,41 @@
     -fx-text-fill: -fx-text-muted;
     -fx-padding: 40;
 }
+
+/* A section of the plugin manager (Jylos's own plugins, the community's): its title with small
+   icon actions beside it, and a line saying what it holds. */
+.plugin-manager-section {
+    -fx-spacing: 2;
+    -fx-padding: 10 2 2 2;
+}
+.plugin-manager-section-title {
+    -fx-font-size: 1.077em;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-main;
+}
+.plugin-manager-section-hint {
+    -fx-text-fill: -fx-text-muted;
+}
+.plugin-manager-icon-btn,
+.plugin-manager-icon-btn:hover,
+.plugin-manager-icon-btn:pressed {
+    -fx-border-color: transparent;
+    -fx-min-height: 0;
+    -fx-min-width: 0;
+    -fx-padding: 5;
+    -fx-background-radius: 6;
+    -fx-background-insets: 0;
+}
+.plugin-manager-icon-btn {
+    -fx-background-color: transparent;
+}
+.plugin-manager-icon-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+.plugin-manager-icon-btn .ikonli-font-icon {
+    -fx-icon-color: -fx-text-muted;
+    -fx-icon-size: 15px;
+}
 .plugin-card {
     -fx-background-color: -fx-sidebar-bg;
     -fx-background-radius: 8;

@@ -1,5 +1,8 @@
 package com.example.jylos.ui.components;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -9,13 +12,19 @@ import java.util.ResourceBundle;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.kordamp.ikonli.javafx.FontIcon;
+
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.plugin.Plugin;
+import com.example.jylos.plugin.PluginLoader;
 import com.example.jylos.plugin.PluginManager;
 import com.example.jylos.plugin.PluginManager.PluginState;
+import com.example.jylos.plugin.PluginOrigin;
 import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.util.FileManager;
 
 import javafx.geometry.Pos;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
@@ -23,6 +32,7 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -68,9 +78,19 @@ public class PluginManagerDialog {
 
     /** Shows the Plugin Manager window. */
     public void show() {
+        build();
+        dialogStage.showAndWait();
+    }
+
+    /** Builds the window with the current plugins, without showing it. */
+    void build() {
         createDialog();
         refreshPluginList();
-        dialogStage.showAndWait();
+    }
+
+    /** The window's content. */
+    Parent root() {
+        return dialogStage.getScene().getRoot();
     }
 
     private String i18n(String key) {
@@ -153,21 +173,73 @@ public class PluginManagerDialog {
 
         List<Plugin> plugins = new ArrayList<>(pluginManager.getAllPlugins());
         countLabel.setText(i18n("dialog.plugin_manager.count", plugins.size()));
+        plugins.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+        List<Plugin> core = plugins.stream()
+                .filter(p -> pluginManager.originOf(p.getId()) == PluginOrigin.CORE).toList();
+        List<Plugin> community = plugins.stream()
+                .filter(p -> pluginManager.originOf(p.getId()) != PluginOrigin.CORE).toList();
 
-        if (plugins.isEmpty()) {
-            Label emptyLabel = new Label(i18n("dialog.plugin_manager.empty"));
-            emptyLabel.getStyleClass().add("plugin-manager-empty");
-            pluginListContainer.getChildren().add(emptyLabel);
-            return;
+        // Jylos's own: they come with the app and are updated with it; only on or off.
+        if (!core.isEmpty()) {
+            pluginListContainer.getChildren().add(section(i18n("dialog.plugin_manager.section_core"),
+                    i18n("dialog.plugin_manager.section_core_hint")));
+            core.forEach(plugin -> pluginListContainer.getChildren().add(createPluginCard(plugin, false)));
         }
 
-        plugins.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
-        for (Plugin plugin : plugins) {
-            pluginListContainer.getChildren().add(createPluginCard(plugin));
+        // The community's: in the user's plugins folder, which can be opened and read again.
+        Button reload = iconButton("fth-refresh-cw", i18n("dialog.plugin_manager.reload"));
+        reload.setOnAction(e -> {
+            pluginManager.reloadCommunityPlugins();
+            refreshPluginList();
+        });
+        Button openFolder = iconButton("fth-folder", i18n("dialog.plugin_manager.open_folder"));
+        openFolder.setOnAction(e -> openPluginsFolder());
+        pluginListContainer.getChildren().add(section(i18n("dialog.plugin_manager.section_community"),
+                i18n("dialog.plugin_manager.section_community_hint"), reload, openFolder));
+        if (community.isEmpty()) {
+            Label emptyLabel = new Label(i18n("dialog.plugin_manager.community_empty"));
+            emptyLabel.getStyleClass().add("plugin-manager-empty");
+            pluginListContainer.getChildren().add(emptyLabel);
+        }
+        community.forEach(plugin -> pluginListContainer.getChildren().add(createPluginCard(plugin, true)));
+    }
+
+    /** A section's title, with small actions beside it, and a line saying what it holds. */
+    private VBox section(String title, String hint, Button... actions) {
+        Label titleLabel = new Label(title);
+        titleLabel.getStyleClass().add("plugin-manager-section-title");
+        HBox titleRow = new HBox(4, titleLabel);
+        titleRow.setAlignment(Pos.CENTER_LEFT);
+        titleRow.getChildren().addAll(actions);
+        Label hintLabel = new Label(hint);
+        hintLabel.setWrapText(true);
+        hintLabel.getStyleClass().add("plugin-manager-section-hint");
+        VBox section = new VBox(titleRow, hintLabel);
+        section.getStyleClass().add("plugin-manager-section");
+        return section;
+    }
+
+    private static Button iconButton(String icon, String text) {
+        Button button = new Button();
+        button.setGraphic(new FontIcon(icon));
+        button.setTooltip(new Tooltip(text));
+        button.setAccessibleText(text);
+        button.getStyleClass().add("plugin-manager-icon-btn");
+        return button;
+    }
+
+    private void openPluginsFolder() {
+        try {
+            Path folder = PluginLoader.getPluginsDirectoryFile().toPath();
+            Files.createDirectories(folder);
+            FileManager.open(folder);
+        } catch (IOException | RuntimeException e) {
+            logger.log(Level.WARNING, "Could not open the plugins folder", e);
         }
     }
 
-    private VBox createPluginCard(Plugin plugin) {
+    /** A plugin's card; {@code removable} for the community's, which can be removed. */
+    private VBox createPluginCard(Plugin plugin, boolean removable) {
         PluginState state = pluginManager.getPluginState(plugin.getId());
         boolean isEnabled = state == PluginState.ENABLED || state == PluginState.INITIALIZED;
 
@@ -187,16 +259,19 @@ public class PluginManagerDialog {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Button removeButton = new Button(i18n("dialog.plugin_manager.remove"));
-        removeButton.getStyleClass().addAll("plugin-manager-card-action-btn", "plugin-manager-remove-btn");
-        removeButton.setDisable(!pluginManager.isPluginRemovable(plugin.getId()));
-        removeButton.setOnAction(e -> removePlugin(plugin));
-
         ToggleButton toggle = createToggleSwitch(isEnabled);
         toggle.setOnAction(e -> togglePlugin(plugin.getId(), toggle.isSelected()));
         toggleButtons.put(plugin.getId(), toggle);
 
-        headerRow.getChildren().addAll(nameLabel, versionLabel, spacer, removeButton, toggle);
+        headerRow.getChildren().addAll(nameLabel, versionLabel, spacer);
+        if (removable) {
+            Button removeButton = new Button(i18n("dialog.plugin_manager.remove"));
+            removeButton.getStyleClass().addAll("plugin-manager-card-action-btn", "plugin-manager-remove-btn");
+            removeButton.setDisable(!pluginManager.isPluginRemovable(plugin.getId()));
+            removeButton.setOnAction(e -> removePlugin(plugin));
+            headerRow.getChildren().add(removeButton);
+        }
+        headerRow.getChildren().add(toggle);
 
         // Description
         Label descLabel = new Label(plugin.getDescription().isEmpty()

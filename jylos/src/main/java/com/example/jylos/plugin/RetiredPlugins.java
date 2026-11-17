@@ -67,8 +67,9 @@ public final class RetiredPlugins {
                     if (settings) {
                         pluginsNode.node(id).removeNode();
                     }
-                    boolean state = pluginsNode.get(PluginManager.PREFS_DISABLED_PREFIX + id, null) != null;
-                    pluginsNode.remove(PluginManager.PREFS_DISABLED_PREFIX + id);
+                    boolean state = pluginsNode.get(PluginStates.DISABLED_PREFIX + id, null) != null
+                            || pluginsNode.get(PluginStates.ENABLED_PREFIX + id, null) != null;
+                    new PluginStates(pluginsNode).forget(id);
                     if (settings || state) {
                         pluginsNode.flush();
                         done.add("Removed the settings of retired plugin " + id);

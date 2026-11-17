@@ -227,17 +227,23 @@ public final class UiPreferencesStore {
      */
     public LayoutMode initLayoutMode(Preferences prefs) {
         String stored = prefs.get(LAYOUT_MODE_KEY, null);
-        boolean existingInstall;
-        try {
-            existingInstall = prefs.keys().length > 0;
-        } catch (BackingStoreException e) {
-            existingInstall = true;
-        }
-        LayoutMode mode = LayoutMode.resolveDefault(stored, existingInstall);
+        LayoutMode mode = LayoutMode.resolveDefault(stored, ranBefore(prefs));
         if (!mode.key().equals(stored)) {
             prefs.put(LAYOUT_MODE_KEY, mode.key());
         }
         return mode;
+    }
+
+    /**
+     * Whether Jylos ran before, read from the main preferences before anything writes them at
+     * startup: a node that already holds keys means an upgrade, an empty one a new install.
+     */
+    public static boolean ranBefore(Preferences prefs) {
+        try {
+            return prefs.keys().length > 0;
+        } catch (BackingStoreException e) {
+            return true;
+        }
     }
 
     /** The stored layout; classic columns if none was stored (see {@link #initLayoutMode}). */
