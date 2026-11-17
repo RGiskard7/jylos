@@ -43,9 +43,9 @@ public final class AppConfig {
                 // Set defaults
                 properties.setProperty("app.name", "Jylos");
                 properties.setProperty("app.version", VersionConfig.getVersion());
-                properties.setProperty("app.vendor", "Jylos");
+                properties.setProperty("app.vendor", "Eduardo Díaz Sánchez");
                 properties.setProperty("app.description", "A free and open-source note-taking application");
-                properties.setProperty("app.copyright", "Copyright © 2026 Eduardo Díaz Sánchez");
+                properties.setProperty("app.copyright", "Copyright © 2025–2026 Eduardo Díaz Sánchez");
                 properties.setProperty("app.window.title", "Jylos - Knowledge Management");
                 return;
             }
@@ -62,9 +62,9 @@ public final class AppConfig {
             // Set defaults on error
             properties.setProperty("app.name", "Jylos");
             properties.setProperty("app.version", VersionConfig.getVersion());
-            properties.setProperty("app.vendor", "Jylos");
+            properties.setProperty("app.vendor", "Eduardo Díaz Sánchez");
             properties.setProperty("app.description", "A free and open-source note-taking application");
-            properties.setProperty("app.copyright", "Copyright © 2026 Eduardo Díaz Sánchez");
+            properties.setProperty("app.copyright", "Copyright © 2025–2026 Eduardo Díaz Sánchez");
             properties.setProperty("app.window.title", "Jylos - Local-first Knowledge Management");
         }
     }
@@ -89,7 +89,7 @@ public final class AppConfig {
     
     /** @return application vendor */
     public static String getAppVendor() {
-        return getProperty("app.vendor", "Jylos");
+        return getProperty("app.vendor", "Eduardo Díaz Sánchez");
     }
     
     /** @return short product description */
@@ -99,7 +99,7 @@ public final class AppConfig {
     
     /** @return copyright notice */
     public static String getAppCopyright() {
-        return getProperty("app.copyright", "Copyright © 2026 Eduardo Díaz Sánchez");
+        return getProperty("app.copyright", "Copyright © 2025–2026 Eduardo Díaz Sánchez");
     }
     
     /** @return main window title */

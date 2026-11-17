@@ -65,7 +65,8 @@ let colourSupport;
 
 /**
  * Whether this engine draws emoji in colour, found by drawing one on a canvas.
- * window.__jylosColourEmoji overrides it (tests; jsdom has no canvas).
+ * window.__jylosColourEmoji overrides it: Java sets it to false off macOS, and tests set it
+ * (jsdom has no canvas).
  */
 export function colourEmojiSupported() {
   if (typeof window !== "undefined" && typeof window.__jylosColourEmoji === "boolean") {

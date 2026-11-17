@@ -345,6 +345,10 @@ public final class MarkdownEditorView extends StackPane {
                     "livePreview", livePreviewEnabled,
                     "readableLineLength", readableLineLength,
                     "editable", editable);
+            String colourEmoji = MarkdownPreview.colourEmojiOverride(System.getProperty("os.name", ""));
+            if (!colourEmoji.isEmpty()) {
+                execute(colourEmoji);
+            }
             execute("window.JylosEditor.initialize(" + GSON.toJson(config) + ")");
             ready = true;
             execute("window.JylosEditor.setDocument(" + GSON.toJson(text) + ")");

@@ -110,7 +110,8 @@ function Read-AppProperty {
     param([string]$key, [string]$defaultValue)
     $propsFile = Join-Path (Get-Location) 'src\main\resources\app.properties'
     if (Test-Path $propsFile) {
-        $content = Get-Content $propsFile -Raw
+        # UTF-8 explicitly: Windows PowerShell 5 would read the file as ANSI and garble "Díaz" and "©".
+        $content = Get-Content $propsFile -Raw -Encoding UTF8
         if ($content -match "(?m)^\s*$key\s*=\s*(.+)$") {
             return $matches[1].Trim()
         }
@@ -140,7 +141,6 @@ if ($APP_VERSION -like '*${*') {
     $APP_VERSION = Read-PomVersion
 }
 $APP_VENDOR = Read-AppProperty 'app.vendor' 'Jylos'
-$APP_DESCRIPTION = Read-AppProperty 'app.description' 'A free and open-source note-taking application'
 $APP_COPYRIGHT = Read-AppProperty 'app.copyright' 'Copyright 2025 Jylos'
 $APP_ICON = Read-AppProperty 'app.icon.windows' 'src/main/resources/icons/app-icon.ico'
 
@@ -241,7 +241,9 @@ try {
         '--dest', $outputDir,
         '--app-version', $APP_VERSION,
         '--vendor', $APP_VENDOR,
-        '--description', $APP_DESCRIPTION,
+        # Windows shows the description as the program's name: in Task Manager (the app, and
+        # the installer as "Installer of ...") and on the shortcuts. So it is the app name.
+        '--description', $APP_NAME,
         '--copyright', $APP_COPYRIGHT,
         '--java-options', '-Dfile.encoding=UTF-8'
     )
@@ -275,7 +277,9 @@ try {
             '--win-menu-group', $APP_NAME,
             '--win-shortcut',
             '--win-shortcut-prompt',
-            '--win-upgrade-uuid', $UPGRADE_UUID
+            '--win-upgrade-uuid', $UPGRADE_UUID,
+            # Link on the app's entry in Settings > Apps (not valid for the portable app-image).
+            '--about-url', 'https://github.com/RGiskard7/jylos'
         )
         $licenseFile = Join-Path $root 'LICENSE'
         if (Test-Path $licenseFile) {

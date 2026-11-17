@@ -253,8 +253,35 @@ class MarkdownPreviewTest {
     @Test
     void theRealWebViewShowsColourEmojiAsTextWhereItCan() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
-        String html = MarkdownPreview.buildPreviewHtml("Launch 🚀 now ✔ ok 👍🏽", false, null);
+        String state = emojiState(MarkdownPreview.buildPreviewHtml("Launch 🚀 now ✔ ok 👍🏽", false, null));
+        if (System.getProperty("os.name", "").toLowerCase().contains("mac")) {
+            assertEquals("1f680|1|true", state, "glyphs | images | symbol as text");
+        } else {
+            assertEquals("|3|false", state, "glyphs | images | symbol as text");
+        }
+    }
 
+    /**
+     * Off macOS the pages are told the engine draws no colour emoji, whatever drawing one on a
+     * canvas suggests: on Windows that check said yes while the text still came out black and
+     * white. Here, on a Mac where the check does say yes, the page is given the Windows answer.
+     */
+    @Test
+    void offMacOsEveryEmojiStaysAnImageWhateverTheCanvasCheckSays() throws Exception {
+        assertEquals("", MarkdownPreview.colourEmojiOverride("Mac OS X"), "macOS keeps its own check");
+        String windows = MarkdownPreview.colourEmojiOverride("Windows 11");
+        assertTrue(windows.contains("__jylosColourEmoji = false"), windows);
+        assertEquals(windows, MarkdownPreview.colourEmojiOverride("Linux"));
+
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        String html = MarkdownPreview.buildPreviewHtml("Launch 🚀 now ✔ ok 👍🏽", false, null);
+        assertTrue(html.contains("<head>"), "the page has a head to put the answer in");
+        String state = emojiState(html.replaceFirst("<head>", "<head><script>" + windows + "</script>"));
+        assertEquals("|3|false", state, "glyphs | images | symbol as text");
+    }
+
+    /** Which emoji the page shows as text glyphs, how many as images, and whether ✔ is text. */
+    private static String emojiState(String html) throws Exception {
         CountDownLatch loaded = new CountDownLatch(1);
         String[] state = { null };
         Platform.runLater(() -> {
@@ -279,10 +306,6 @@ class MarkdownPreviewTest {
         });
 
         assertTrue(loaded.await(30, TimeUnit.SECONDS), "preview page never finished loading");
-        if (System.getProperty("os.name", "").toLowerCase().contains("mac")) {
-            assertEquals("1f680|1|true", state[0], "glyphs | images | symbol as text");
-        } else {
-            assertTrue(state[0].equals("1f680|1|true") || state[0].equals("|3|false"), state[0]);
-        }
+        return state[0];
     }
 }

@@ -981,7 +981,18 @@ public class MarkdownPreview {
 
     /** Swaps emoji images back to text where the engine draws colour emoji. */
     private static String colourEmojiScript() {
-        return loadResourceText(COLOUR_EMOJI_SCRIPT_RESOURCE);
+        return colourEmojiOverride(System.getProperty("os.name", "")) + loadResourceText(COLOUR_EMOJI_SCRIPT_RESOURCE);
+    }
+
+    /**
+     * Script that tells a page (the reading view, the editor) whether to show emoji as text.
+     * Only macOS's engine is known to draw emoji text in colour, so it alone keeps the page's
+     * own check (drawing one on a canvas). Elsewhere the answer is no, and every emoji stays an
+     * image: on Windows the canvas check said yes while the text still came out black and white.
+     */
+    public static String colourEmojiOverride(String osName) {
+        boolean mac = osName != null && osName.toLowerCase(Locale.ROOT).contains("mac");
+        return mac ? "" : "window.__jylosColourEmoji = false;\n";
     }
 
     private static String highlightScriptBlock() {
