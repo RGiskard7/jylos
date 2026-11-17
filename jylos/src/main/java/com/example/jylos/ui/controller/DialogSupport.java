@@ -111,7 +111,8 @@ class DialogSupport {
             LayoutMode layoutMode,
             boolean showFormatToolbar,
             Set<String> enabledSnippets,
-            IconSize iconSize) {
+            IconSize iconSize,
+            boolean coloredIcons) {
     }
 
     Optional<PreferencesDialogResult> showPreferences(
@@ -121,7 +122,8 @@ class DialogSupport {
             Set<String> enabledSnippets,
             LayoutMode currentLayout,
             boolean currentShowFormatToolbar,
-            IconSize currentIconSize) {
+            IconSize currentIconSize,
+            boolean currentColoredIcons) {
         Dialog<PreferencesDialogResult> dialog = new Dialog<>();
         dialog.setTitle(i18n("dialog.preferences.title"));
         dialog.setResizable(true);
@@ -210,6 +212,8 @@ class DialogSupport {
             }
         });
         iconSizeCombo.setValue(currentIconSize != null ? currentIconSize : IconSize.NORMAL);
+        CheckBox coloredIconsCheck = new CheckBox();
+        coloredIconsCheck.setSelected(currentColoredIcons);
 
         ComboBox<Integer> contentFontSizeCombo = new ComboBox<>();
         for (int i = UiPreferencesStore.MIN_CONTENT_FONT_SIZE; i <= UiPreferencesStore.MAX_CONTENT_FONT_SIZE; i++) {
@@ -350,12 +354,15 @@ class DialogSupport {
                 .resettable(reset, () -> {
                     fontSizeCombo.getSelectionModel().select(Integer.valueOf(UiPreferencesStore.DEFAULT_UI_FONT_SIZE));
                     iconSizeCombo.setValue(IconSize.NORMAL);
+                    coloredIconsCheck.setSelected(false);
                     themeModeCombo.getSelectionModel().select(0);
                     externalThemeCombo.getSelectionModel().select(0);
                     customAccentCheck.setSelected(false);
                 })
                 .row(i18n("dialog.preferences.font_size"), null, fontSizeCombo)
                 .row(i18n("dialog.preferences.icon_size"), i18n("dialog.preferences.icon_size_desc"), iconSizeCombo)
+                .row(i18n("dialog.preferences.colored_icons"), i18n("dialog.preferences.colored_icons_desc"),
+                        coloredIconsCheck)
                 .row(i18n("dialog.preferences.theme_mode"), null, themeModeCombo)
                 .row(i18n("dialog.preferences.external_theme"), null, externalThemeCombo)
                 .row(i18n("dialog.preferences.accent_custom"), null, SettingsPane.controls(accentPicker, customAccentCheck))
@@ -419,7 +426,8 @@ class DialogSupport {
                     layoutCombo.getValue(),
                     showFormatToolbarCheck.isSelected(),
                     new LinkedHashSet<>(selectedSnippets),
-                    iconSizeCombo.getValue());
+                    iconSizeCombo.getValue(),
+                    coloredIconsCheck.isSelected());
         });
         return UiDialogs.show(dialog);
     }

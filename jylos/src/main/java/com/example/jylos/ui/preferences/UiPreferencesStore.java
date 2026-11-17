@@ -32,6 +32,7 @@ public final class UiPreferencesStore {
     public static final String LAYOUT_MODE_KEY = "ui.layout.mode";
     public static final String SHOW_FORMAT_TOOLBAR_KEY = "ui.editor.format_toolbar";
     public static final String ICON_SIZE_KEY = "ui.icon.size";
+    public static final String COLORED_ICONS_KEY = "ui.icons.colored";
     public static final String SPLIT_MAIN_KEY = "ui.split.main";
     public static final String SPLIT_CONTENT_KEY = "ui.split.content";
     public static final double DEFAULT_SPLIT_MAIN = 0.22;
@@ -264,5 +265,14 @@ public final class UiPreferencesStore {
 
     public void saveIconSize(Preferences prefs, IconSize size) {
         prefs.put(ICON_SIZE_KEY, (size != null ? size : IconSize.NORMAL).key());
+    }
+
+    /** Whether each kind of file's icon has its own colour; off unless chosen. */
+    public boolean loadColoredIcons(Preferences prefs) {
+        return prefs.getBoolean(COLORED_ICONS_KEY, false);
+    }
+
+    public void saveColoredIcons(Preferences prefs, boolean colored) {
+        prefs.putBoolean(COLORED_ICONS_KEY, colored);
     }
 }

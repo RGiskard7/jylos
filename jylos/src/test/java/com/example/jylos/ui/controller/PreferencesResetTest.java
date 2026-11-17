@@ -49,7 +49,7 @@ class PreferencesResetTest {
             DialogSupport dialogs = new DialogSupport();
             dialogs.wire(es::getString, status -> { }, null);
             result.set(dialogs.showPreferences(new UiPreferencesStore().load(null), List.of(), null, Set.of(),
-                    LayoutMode.EXPLORER, true, IconSize.NORMAL));
+                    LayoutMode.EXPLORER, true, IconSize.NORMAL, false));
         });
         DialogPane pane = null;
         for (int i = 0; i < 100 && pane == null; i++) {
@@ -73,6 +73,7 @@ class PreferencesResetTest {
             @SuppressWarnings("unchecked")
             ComboBox<IconSize> icons = (ComboBox<IconSize>) control(preferences, es.getString("dialog.preferences.icon_size"));
             icons.setValue(IconSize.EXTRA_LARGE);
+            ((CheckBox) control(preferences, es.getString("dialog.preferences.colored_icons"))).setSelected(true);
             ((Button) preferences.lookup(".settings-page .settings-reset-btn")).fire();
             for (Node node : preferences.lookupAll(".button")) {
                 if (node instanceof Button button && es.getString("action.save").equals(button.getText())) {
@@ -86,8 +87,8 @@ class PreferencesResetTest {
         }
 
         DialogSupport.PreferencesDialogResult saved = result.get().orElseThrow();
-        assertEquals(List.of(UiPreferencesStore.DEFAULT_UI_FONT_SIZE, IconSize.NORMAL, true),
-                List.of(saved.uiFontSize(), saved.iconSize(), saved.readableLineLength()),
+        assertEquals(List.of(UiPreferencesStore.DEFAULT_UI_FONT_SIZE, IconSize.NORMAL, false, true),
+                List.of(saved.uiFontSize(), saved.iconSize(), saved.coloredIcons(), saved.readableLineLength()),
                 "interface font and icons back to defaults; the editor change kept");
     }
 

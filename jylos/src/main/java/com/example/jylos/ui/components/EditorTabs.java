@@ -8,6 +8,7 @@ import java.util.function.Function;
 
 import org.kordamp.ikonli.javafx.FontIcon;
 
+import com.example.jylos.ui.NoteIcons;
 import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
 
@@ -116,6 +117,10 @@ public final class EditorTabs {
             if (iconLiteral != null) {
                 FontIcon icon = new FontIcon(iconLiteral);
                 icon.getStyleClass().addAll("feather-icon", "editor-tab-icon");
+                String kind = NoteIcons.typeClassForLiteral(iconLiteral);
+                if (kind != null) {
+                    icon.getStyleClass().add(kind);
+                }
                 root.getChildren().add(icon);
             }
             root.getChildren().addAll(title, close);

@@ -5016,3 +5016,28 @@
 .settings-section-heading > .settings-section-title {
     -fx-padding: 0;
 }
+
+/* Coloured icons (Appearance > Coloured icons by type): each kind of file told apart by its
+   icon. Only with the root's .colored-icons; a selected row keeps the selection's colour. */
+.root {
+    -fx-icon-folder: #d4a72c;
+    -fx-icon-pdf: #e5534b;
+    -fx-icon-image: #57ab5a;
+    -fx-icon-canvas: #b083f0;
+    -fx-icon-board: #539bf5;
+}
+.colored-icons .icon-type-folder {
+    -fx-icon-color: -fx-icon-folder;
+}
+.colored-icons .icon-type-pdf {
+    -fx-icon-color: -fx-icon-pdf;
+}
+.colored-icons .icon-type-image {
+    -fx-icon-color: -fx-icon-image;
+}
+.colored-icons .icon-type-canvas {
+    -fx-icon-color: -fx-icon-canvas;
+}
+.colored-icons .icon-type-board {
+    -fx-icon-color: -fx-icon-board;
+}

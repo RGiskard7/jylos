@@ -821,7 +821,7 @@ public final class ExplorerTree {
             noteIcon.setIconSize(13);
             noteIcon.getStyleClass().addAll("feather-icon", "explorer-note-icon");
             folderIcon.setIconSize(13);
-            folderIcon.getStyleClass().addAll("feather-icon", "explorer-folder-icon");
+            folderIcon.getStyleClass().addAll("feather-icon", "explorer-folder-icon", NoteIcons.FOLDER_CLASS);
             name.getStyleClass().add("explorer-cell-name");
             // Let the name shrink instead of widening the row (see SidebarController's folder cells).
             name.setMinWidth(0);
@@ -921,7 +921,7 @@ public final class ExplorerTree {
             }
             name.setText(item.getTitle() != null ? item.getTitle() : "");
             if (item instanceof Note note) {
-                noteIcon.setIconLiteral(NoteIcons.literalFor(note));
+                NoteIcons.apply(noteIcon, note);
                 content.getChildren().setAll(noteIcon, name);
                 if (note.isPinned()) {
                     content.getChildren().add(pinMark);

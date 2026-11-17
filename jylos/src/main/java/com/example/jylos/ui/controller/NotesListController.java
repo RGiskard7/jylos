@@ -457,7 +457,7 @@ public class NotesListController {
                     }
                     titleLabel.setText(note.getTitle() != null ? note.getTitle() : "");
                     // Attachments, canvases and Kanban boards each have their icon.
-                    noteIcon.setIconLiteral(NoteIcons.literalFor(note));
+                    NoteIcons.apply(noteIcon, note);
                     titleRow.getChildren().addAll(titleLabel, noteIconHolder);
 
                     boolean showPreview = previewLines > 0;

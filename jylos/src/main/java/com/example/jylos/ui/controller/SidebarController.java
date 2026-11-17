@@ -47,6 +47,7 @@ import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
 import com.example.jylos.service.TrashService;
+import com.example.jylos.ui.NoteIcons;
 import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.EditorTabsModel;
@@ -947,7 +948,7 @@ public class SidebarController {
                 String title = item.getTitle();
                 FontIcon icon;
                 if (item instanceof Folder) {
-                    icon = new FontIcon("fth-folder");
+                    icon = NoteIcons.folderIcon();
                     if (title != null && title.equals(".trash")) {
                         title = getString("tab.trash");
                     } else if (title != null) {
@@ -957,7 +958,7 @@ public class SidebarController {
                         }
                     }
                 } else {
-                    icon = new FontIcon("fth-file-text");
+                    icon = item instanceof Note note ? NoteIcons.iconFor(note) : new FontIcon("fth-file-text");
                 }
                 icon.setIconSize(13);
                 icon.getStyleClass().add("feather-icon");
