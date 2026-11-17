@@ -124,7 +124,13 @@
   - **Temas:**
     - la vista de lectura conserva el tema oscuro al activar o desactivar un plugin;
     - el menú Ver > Tema marca el tema con el que se abre la aplicación.
-  - **Carpetas:** crear una subcarpeta con el mismo nombre que otra de la raíz ya no le añade "(1)".
+  - **Carpetas:**
+    - crear una subcarpeta con el mismo nombre que otra de la raíz ya no le añade "(1)";
+    - en una bóveda de carpetas, renombrar una carpeta y justo después otra de dentro ya no se queda sin efecto;
+    - lo mismo al mover, borrar o crear notas y carpetas en una carpeta recién renombrada o movida;
+    - guardar la nota abierta después de renombrar o mover su carpeta ya no deja una copia con la ruta anterior;
+    - cambiar solo mayúsculas y minúsculas del nombre de una carpeta ("trabajo" a "Trabajo") ahora la renombra;
+    - renombrar una carpeta con el nombre de otra que ya existe en el mismo sitio muestra un error, en lugar de no hacer nada.
 
 ## [2.5.8] - 2026-11-04
 

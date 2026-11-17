@@ -35,6 +35,10 @@ public class FactoryDAOFileSystem extends FactoryDAO {
         // Deferred loading keeps large or cloud-backed vaults responsive at startup.
         this.noteDAO = new NoteDAOFileSystem(rootDirectory, true, linkCacheFile(rootDirectory));
         this.folderDAO = new FolderDAOFileSystem(rootDirectory);
+        // A folder renamed or moved changes the paths of the notes inside it: both DAOs follow it.
+        FileSystemPathRedirects redirects = new FileSystemPathRedirects();
+        this.folderDAO.usePathRedirects(redirects);
+        this.noteDAO.usePathRedirects(redirects);
         this.tagDAO = new TagDAOFileSystem(this.noteDAO);
         this.encryptionKeyDAO = new EncryptionKeyDAOFileSystem(Path.of(rootDirectory));
         // In the vault's own hidden folder, beside the encryption key: the colours travel with the notes.

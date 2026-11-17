@@ -155,7 +155,7 @@ public class FolderService {
         if (folder == null || newName == null || newName.trim().isEmpty()) {
             throw new IllegalArgumentException("Folder and new name cannot be null or empty");
         }
-        String previousId = folder.getId();
+        String previousId = folderDAO.currentId(folder.getId());
         folder.setTitle(newName.trim());
         updateFolder(folder);
         if (colors != null) {
@@ -171,9 +171,10 @@ public class FolderService {
      * @param folderId The ID of the folder to delete
      */
     public void deleteFolder(String folderId) {
+        String currentId = folderDAO.currentId(folderId);
         folderDAO.deleteFolder(folderId);
         if (colors != null) {
-            colors.remove(folderId);
+            colors.remove(currentId);
         }
         folderDAO.refreshCache();
         noteDAO.refreshCache();
@@ -390,7 +391,7 @@ public class FolderService {
         if (!canMoveFolder(folder, targetParent)) {
             throw new IllegalArgumentException("Invalid folder move");
         }
-        String previousId = folder.getId();
+        String previousId = folderDAO.currentId(folder.getId());
         if (targetParent == null || "ROOT".equals(targetParent.getId())) {
             folderDAO.moveFolderToRoot(folder);
             logger.info("Moved folder '" + folder.getTitle() + "' to root");

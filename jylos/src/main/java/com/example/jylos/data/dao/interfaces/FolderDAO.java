@@ -259,4 +259,15 @@ public interface FolderDAO {
     default void refreshCache() {
         // Do nothing by default
     }
+
+    /**
+     * Where the folder {@code id} is now. Storages whose ids are paths may return another id
+     * for a folder read before a folder above it was renamed or moved.
+     *
+     * @param id a folder id
+     * @return the folder's current id ({@code id} itself by default)
+     */
+    default String currentId(String id) {
+        return id;
+    }
 }

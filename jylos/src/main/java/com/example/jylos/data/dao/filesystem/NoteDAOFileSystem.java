@@ -59,6 +59,8 @@ public class NoteDAOFileSystem implements NoteDAO {
 
     // Cache to map Note ID (Relative Path) -> Absolute Path
     private final Map<String, Path> idToPathMap = new ConcurrentHashMap<>();
+    /** Where folders went during this session; shared with the folder DAO of the same vault. */
+    private FileSystemPathRedirects redirects = new FileSystemPathRedirects();
     // Cache to map Note ID -> Note object (Lightweight)
     private final Map<String, Note> cachedNotes = new ConcurrentHashMap<>();
     // Index: folderId -> notes (direct children only)
@@ -709,7 +711,11 @@ public class NoteDAOFileSystem implements NoteDAO {
                 path = potential.toAbsolutePath().normalize();
                 idToPathMap.put(normalizedId, path);
             } else {
-                return null;
+                // Read before a folder above it was renamed or moved: follow it there.
+                String moved = redirects.current(normalizedId);
+                boolean there = !moved.equals(normalizedId)
+                        && Files.exists(rootPath.resolve(moved.replace("/", File.separator)));
+                return there ? getNoteById(moved) : null;
             }
         }
 
@@ -756,6 +762,11 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
+    /** Shares where folders went with the folder DAO of the same vault. */
+    void usePathRedirects(FileSystemPathRedirects shared) {
+        this.redirects = shared;
+    }
+
     /** Persists changes to an existing note file; renames the file when the title has changed. */
     @Override
     public void updateNote(Note note) {
@@ -787,6 +798,16 @@ public class NoteDAOFileSystem implements NoteDAO {
             if (path == null) {
                 // Check if file exists at ID location
                 path = rootPath.resolve(normalizedId.replace("/", File.separator));
+            }
+            if (!Files.exists(path)) {
+                // Held since before a folder above it was renamed or moved: save it where it is
+                // now, not as a copy under the old folder.
+                String moved = redirects.current(normalizedId);
+                Path movedPath = rootPath.resolve(moved.replace("/", File.separator));
+                if (!moved.equals(normalizedId) && Files.exists(movedPath)) {
+                    path = movedPath.toAbsolutePath().normalize();
+                    note.setId(moved);
+                }
             }
 
             boolean attachment = isAttachmentNote(path, note);
@@ -959,14 +980,15 @@ public class NoteDAOFileSystem implements NoteDAO {
             return;
         }
         requireInsideVault(id);
-        String normalizedId = FileSystemNames.normalizeId(id);
+        // Listed before a folder above it was renamed or moved: the note where it is now.
+        String normalizedId = redirects.locateId(rootPath, id);
 
         Path sourcePath = idToPathMap.get(id);
         if (sourcePath == null) {
             sourcePath = idToPathMap.get(normalizedId);
         }
-        if (sourcePath == null) {
-            Path candidate = rootPath.resolve(normalizedId.replace("/", File.separator));
+        if (sourcePath == null || !Files.exists(sourcePath)) {
+            Path candidate = redirects.locate(rootPath, normalizedId);
             if (Files.exists(candidate)) {
                 sourcePath = candidate;
             }

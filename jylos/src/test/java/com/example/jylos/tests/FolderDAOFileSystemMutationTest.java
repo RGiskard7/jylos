@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
@@ -17,6 +18,7 @@ import com.example.jylos.data.dao.filesystem.FolderDAOFileSystem;
 import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
+import com.example.jylos.exceptions.DataAccessException;
 
 /**
  * {@link FolderDAOFileSystem}: CRUD, renombrado y relación con notas y subcarpetas, sobre
@@ -91,10 +93,11 @@ class FolderDAOFileSystemMutationTest {
     }
 
     @Test
-    void actualizarUnaCarpetaConIdInexistenteNoLanzaYNoCreaNada() {
+    void actualizarUnaCarpetaConIdInexistenteLoDiceYNoCreaNada() {
         Folder fantasma = new Folder("no-existe", "Fantasma");
 
-        folderDAO.updateFolder(fantasma); // no debe lanzar
+        // Antes no hacía nada y callaba: renombrar en el Explorador parecía no funcionar.
+        assertThrows(DataAccessException.class, () -> folderDAO.updateFolder(fantasma));
 
         assertFalse(Files.exists(tempDir.resolve("Fantasma")));
     }

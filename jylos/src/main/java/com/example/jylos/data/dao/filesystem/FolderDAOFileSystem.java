@@ -45,6 +45,8 @@ public class FolderDAOFileSystem implements FolderDAO {
     // Cache is less critical if we rely on paths, but useful for performance
     // Map ID (Relative Path) -> Absolute Path
     private final Map<String, Path> idToPathMap = new ConcurrentHashMap<>();
+    /** Where folders went when renamed or moved, shared with the vault's note DAO. */
+    private FileSystemPathRedirects redirects = new FileSystemPathRedirects();
 
     public FolderDAOFileSystem(String rootDirectory) {
         this.rootPath = Paths.get(rootDirectory);
@@ -135,30 +137,42 @@ public class FolderDAOFileSystem implements FolderDAO {
         try {
         // Rename logic
         Path currentPath = resolveFolderPath(folder.getId());
-        if (currentPath == null || !Files.exists(currentPath))
-            return;
+        if (currentPath == null || !Files.exists(currentPath)) {
+            throw new DataAccessException("Folder not found, it may have been moved or deleted: " + folder.getId(), null);
+        }
 
         String newName = sanitizeFilename(folder.getTitle());
         if (!currentPath.getFileName().toString().equals(newName)) {
             Path newPath = currentPath.resolveSibling(newName);
-            if (!Files.exists(newPath)) {
-                try {
-                    List<String> metadataDocumentIds = collectMetadataDocumentIds(currentPath);
+            // Only the capitals change: on a disk that ignores them (macOS, Windows) the new
+            // name "exists" already, being the same folder.
+            boolean sameFolder = Files.exists(newPath) && isSameFile(currentPath, newPath);
+            if (Files.exists(newPath) && !sameFolder) {
+                throw new DataAccessException("A folder named \"" + newName + "\" already exists there", null);
+            }
+            try {
+                List<String> metadataDocumentIds = collectMetadataDocumentIds(currentPath);
+                if (sameFolder) {
+                    Path step = currentPath.resolveSibling(newName + ".jylos-renaming");
+                    Files.move(currentPath, step);
+                    Files.move(step, newPath);
+                } else {
                     Files.move(currentPath, newPath);
-                    moveDocumentMetadataEntries(metadataDocumentIds,
-                            FileSystemNames.normalizeId(rootPath.relativize(currentPath).toString()),
-                            FileSystemNames.normalizeId(rootPath.relativize(newPath).toString()));
-                    // Update Cache: Removing old ID and adding new one is tricky for recursive
-                    // children headers
-                    // Easiest is to refresh cache fully or update recursively.
-                    // For now, refreshing cache is safer though invalidates other IDs if we held
-                    // them
-                    refreshCache();
-                    folder.setId(FileSystemNames.normalizeId(rootPath.relativize(newPath).toString()));
-                } catch (IOException e) {
-                    logger.warning("Failed to rename folder: " + e.getMessage());
-                    throw new DataAccessException("Could not rename folder: " + folder.getId(), e);
                 }
+                redirects.record(rootPath.relativize(currentPath).toString(), rootPath.relativize(newPath).toString());
+                moveDocumentMetadataEntries(metadataDocumentIds,
+                        FileSystemNames.normalizeId(rootPath.relativize(currentPath).toString()),
+                        FileSystemNames.normalizeId(rootPath.relativize(newPath).toString()));
+                // Update Cache: Removing old ID and adding new one is tricky for recursive
+                // children headers
+                // Easiest is to refresh cache fully or update recursively.
+                // For now, refreshing cache is safer though invalidates other IDs if we held
+                // them
+                refreshCache();
+                folder.setId(FileSystemNames.normalizeId(rootPath.relativize(newPath).toString()));
+            } catch (IOException e) {
+                logger.warning("Failed to rename folder: " + e.getMessage());
+                throw new DataAccessException("Could not rename folder: " + folder.getId(), e);
             }
         }
         } finally {
@@ -174,7 +188,8 @@ public class FolderDAOFileSystem implements FolderDAO {
             return;
         }
         requireInsideVault(id);
-        String normalizedId = id.replace("\\", "/");
+        // Held since before a folder above it was renamed or moved: the folder where it is now.
+        String normalizedId = redirects.locateId(rootPath, id);
 
         Path path = idToPathMap.get(id);
         if (path == null) {
@@ -186,9 +201,9 @@ public class FolderDAOFileSystem implements FolderDAO {
                 }
             }
         }
-        if (path == null) {
-            Path candidate = rootPath.resolve(normalizedId.replace("/", File.separator));
-            if (Files.exists(candidate) && Files.isDirectory(candidate)) {
+        if (path == null || !Files.exists(path)) {
+            Path candidate = redirects.locate(rootPath, normalizedId);
+            if (Files.isDirectory(candidate)) {
                 path = candidate;
             }
         }
@@ -423,7 +438,7 @@ public class FolderDAOFileSystem implements FolderDAO {
             requireInsideVault(note.getId());
 
             String normalizedNoteId = FileSystemNames.normalizeId(note.getId());
-            Path sourcePath = rootPath.resolve(normalizedNoteId.replace("/", File.separator));
+            Path sourcePath = redirects.locate(rootPath, normalizedNoteId);
             if (!Files.exists(sourcePath)) {
                 return;
             }
@@ -476,7 +491,7 @@ public class FolderDAOFileSystem implements FolderDAO {
             requireInsideVault(note.getId());
 
             String normalizedNoteId = FileSystemNames.normalizeId(note.getId());
-            Path sourcePath = rootPath.resolve(normalizedNoteId.replace("/", File.separator));
+            Path sourcePath = redirects.locate(rootPath, normalizedNoteId);
             if (!Files.exists(sourcePath)) {
                 return;
             }
@@ -515,7 +530,7 @@ public class FolderDAOFileSystem implements FolderDAO {
             requireInsideVault(note.getId());
 
             String normalizedNoteId = FileSystemNames.normalizeId(note.getId());
-            Path sourcePath = rootPath.resolve(normalizedNoteId.replace("/", File.separator));
+            Path sourcePath = redirects.locate(rootPath, normalizedNoteId);
             if (!Files.exists(sourcePath)) {
                 return;
             }
@@ -601,6 +616,7 @@ public class FolderDAOFileSystem implements FolderDAO {
             try {
                 List<String> metadataDocumentIds = collectMetadataDocumentIds(subPath);
                 Files.move(subPath, targetPath);
+                redirects.record(rootPath.relativize(subPath).toString(), rootPath.relativize(targetPath).toString());
                 moveDocumentMetadataEntries(metadataDocumentIds,
                         FileSystemNames.normalizeId(rootPath.relativize(subPath).toString()),
                         FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString()));
@@ -639,6 +655,7 @@ public class FolderDAOFileSystem implements FolderDAO {
             try {
                 List<String> metadataDocumentIds = collectMetadataDocumentIds(sourcePath);
                 Files.move(sourcePath, targetPath);
+                redirects.record(rootPath.relativize(sourcePath).toString(), rootPath.relativize(targetPath).toString());
                 moveDocumentMetadataEntries(metadataDocumentIds,
                         FileSystemNames.normalizeId(rootPath.relativize(sourcePath).toString()),
                         FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString()));
@@ -802,7 +819,35 @@ public class FolderDAOFileSystem implements FolderDAO {
         if (Files.exists(candidate) && Files.isDirectory(candidate)) {
             return candidate;
         }
+        // Read before a folder above it was renamed or moved: where it is now.
+        String moved = redirects.current(normalized);
+        if (!moved.equals(normalized)) {
+            Path now = rootPath.resolve(moved.replace("/", File.separator));
+            if (Files.isDirectory(now)) {
+                return now;
+            }
+        }
         return null;
+    }
+
+    /** Where the folder {@code id} is now, if it was read before a folder above it was renamed or moved. */
+    @Override
+    public String currentId(String id) {
+        Path path = resolveFolderPath(id);
+        return path != null ? FileSystemNames.normalizeId(rootPath.relativize(path).toString()) : id;
+    }
+
+    /** Shares the record of renamed and moved folders with the vault's note DAO. */
+    void usePathRedirects(FileSystemPathRedirects shared) {
+        this.redirects = shared;
+    }
+
+    private static boolean isSameFile(Path a, Path b) {
+        try {
+            return Files.isSameFile(a, b);
+        } catch (IOException e) {
+            return false;
+        }
     }
 
 
