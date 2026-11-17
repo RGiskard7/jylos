@@ -15,6 +15,8 @@ public final class AppLinks {
     public static final String REPOSITORY = "https://github.com/RGiskard7/jylos";
     public static final String ISSUES = REPOSITORY + "/issues";
     public static final String LICENSE = REPOSITORY + "/blob/main/LICENSE";
+    /** What Jylos bundles from others (Twemoji) and under which licenses. */
+    public static final String THIRD_PARTY = REPOSITORY + "/blob/main/THIRD-PARTY-NOTICES.md";
 
     private AppLinks() {
     }

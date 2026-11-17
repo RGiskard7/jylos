@@ -4,8 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.util.Base64;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import javax.imageio.ImageIO;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -122,6 +129,48 @@ class MarkdownPreviewTest {
         String html = MarkdownPreview.buildPreviewHtml("Launch 🚀 now", false, null);
         assertTrue(html.contains("__jylosColourEmoji"), "the colour-emoji script must be on the page");
         assertTrue(html.contains(".emoji-glyph"), "the emoji font rule must be on the page");
+    }
+
+    /**
+     * Where the engine draws no colour emoji (Windows, Linux) every emoji stays an image, and
+     * so do the sequences everywhere: those images are the colour Twemoji ones, not the
+     * monochrome font. A symbol shown as text (✔) keeps its monochrome image.
+     */
+    @Test
+    void emojiImagesAreInColourAndTextSymbolsAreNot() throws Exception {
+        assertTrue(colouredPixels(firstEmojiImage("ok 👍🏽")) > 200, "skin-tone sequence in colour");
+        assertTrue(colouredPixels(firstEmojiImage("flag 🇪🇸")) > 200, "flag in colour");
+        assertTrue(colouredPixels(firstEmojiImage("family 👨‍👩‍👧")) > 200, "ZWJ family in colour");
+        assertTrue(colouredPixels(firstEmojiImage("rocket 🚀")) > 200, "simple emoji in colour");
+        assertTrue(colouredPixels(firstEmojiImage("love ❤️")) > 200, "emoji with FE0F in colour");
+        assertEquals(0, colouredPixels(firstEmojiImage("done ✔")), "a text symbol stays monochrome");
+    }
+
+    private static BufferedImage firstEmojiImage(String markdown) throws Exception {
+        String body = MarkdownPreview.renderBody(markdown, false, true, null);
+        Matcher m = Pattern
+                .compile("class=\"emoji\"[^>]*src=\"data:image/png;base64,([^\"]+)\"").matcher(body);
+        assertTrue(m.find(), "no emoji image in " + body);
+        return ImageIO.read(new ByteArrayInputStream(
+                Base64.getDecoder().decode(m.group(1))));
+    }
+
+    /** Opaque pixels whose channels differ clearly: a colour image has many, a grey one none. */
+    private static int colouredPixels(BufferedImage image) {
+        int coloured = 0;
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                int argb = image.getRGB(x, y);
+                int a = argb >>> 24;
+                int r = (argb >> 16) & 0xff;
+                int g = (argb >> 8) & 0xff;
+                int b = argb & 0xff;
+                if (a > 128 && (Math.abs(r - g) > 40 || Math.abs(g - b) > 40)) {
+                    coloured++;
+                }
+            }
+        }
+        return coloured;
     }
 
     @Test

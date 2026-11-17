@@ -81,7 +81,7 @@ public final class NoteExporter {
     /**
      * Renders the note to a print-friendly PDF.
      *
-     * <p>Emojis are rendered as inline monochrome images (see
+     * <p>Emojis are rendered as inline images, Twemoji in colour (see
      * {@link MarkdownPreview#emojifyToImages}); the emoji font is deliberately kept out
      * of the CSS {@code font-family}, since registering it as a fallback made
      * openhtmltopdf use that font's oversized space glyph for every space.</p>

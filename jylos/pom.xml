@@ -231,6 +231,15 @@
                     <exclude>**/plugin/builtin/**</exclude>
                 </excludes>
             </resource>
+            <!-- Third-party notices and license texts, shipped inside the JAR -->
+            <resource>
+                <directory>${project.basedir}/..</directory>
+                <targetPath>META-INF/third-party</targetPath>
+                <includes>
+                    <include>THIRD-PARTY-NOTICES.md</include>
+                    <include>licenses/*.txt</include>
+                </includes>
+            </resource>
         </resources>
         <plugins>
             <!-- JavaFX Maven Plugin -->
@@ -319,6 +328,12 @@
                             <shadedClassifierName>uber</shadedClassifierName>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <!-- Each dependency's META-INF/LICENSE would overwrite the others';
+                                     the texts live in META-INF/third-party instead. -->
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer"/>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer">
+                                    <addHeader>false</addHeader>
+                                </transformer>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>com.example.jylos.Launcher</mainClass>
                                     <manifestEntries>

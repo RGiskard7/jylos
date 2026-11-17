@@ -472,6 +472,9 @@ class DialogSupport {
                 aboutLink(i18n("about.repository"), AppLinks.REPOSITORY), new Label("·"),
                 aboutLink(i18n("about.report_issue"), AppLinks.ISSUES));
         links.setAlignment(Pos.CENTER);
+        // Twemoji's CC-BY 4.0 license asks for credit wherever its images are shown.
+        Hyperlink credits = aboutLink(i18n("about.third_party"), AppLinks.THIRD_PARTY);
+        credits.getStyleClass().add("about-meta");
 
         // What is actually running, not a hardcoded stack: the details asked for in a bug
         // report, copyable in one click.
@@ -493,7 +496,7 @@ class DialogSupport {
         content.getChildren().addAll(
                 titleLabel, versionLabel, descLabel,
                 separator,
-                copyrightLabel, links,
+                copyrightLabel, links, credits,
                 new Separator(),
                 runtimeLabel, copyButton);
 

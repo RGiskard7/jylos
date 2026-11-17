@@ -562,4 +562,6 @@ Warnings such as `Failed to build parent project for org.openjfx:javafx-*` are k
 
 You may use, modify, and distribute this software under the MIT terms; keep the copyright and license notice in copies or substantial portions. Contact: ed.dzsn@protonmail.com
 
+Jylos bundles third-party libraries, fonts and emoji images under their own licenses (MIT, BSD, Apache-2.0, LGPL-2.1, CC-BY 4.0, SIL OFL 1.1 and others): see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
 The Jylos name, logo, icons, and branding are not covered by the MIT License — see [TRADEMARKS.md](TRADEMARKS.md).

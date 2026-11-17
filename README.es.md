@@ -562,4 +562,6 @@ Warnings del tipo `Failed to build parent project for org.openjfx:javafx-*` son 
 
 Puedes usar, modificar y distribuir este software bajo los términos de la MIT; conserva el aviso de copyright y el texto de la licencia en copias o porciones sustanciales. Contacto: ed.dzsn@protonmail.com
 
+Jylos incluye librerías, fuentes e imágenes de emojis de terceros con sus propias licencias (MIT, BSD, Apache-2.0, LGPL-2.1, CC-BY 4.0, SIL OFL 1.1 y otras): ver [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
 El nombre Jylos, el logo, los iconos y el branding no están cubiertos por la Licencia MIT — ver [TRADEMARKS.es.md](TRADEMARKS.es.md).

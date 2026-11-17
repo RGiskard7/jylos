@@ -16,6 +16,7 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -26,6 +27,8 @@ import java.util.function.Predicate;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import javax.imageio.ImageIO;
 
@@ -59,17 +62,20 @@ public class MarkdownPreview {
             "/com/example/jylos/ui/preview/highlightjs/vs2015.min.css";
 
     /**
-     * Emoji rendering. Every emoji becomes an inline {@code <img>} rasterised by Java2D
-     * from the bundled monochrome Noto Emoji font, which renders everywhere, PDF export
-     * included. Where JavaFX's WebKit draws colour emoji (macOS), the page script
-     * {@code colour-emoji.js} swaps the ones it can draw back to text: the engine only
-     * draws a colour emoji alone in its own element, with an emoji font, and does not
-     * shape sequences (skin tones, ZWJ, flags, keycaps), which stay images. Rendered
-     * emoji are cached per (emoji, colour).
+     * Emoji rendering. Every emoji becomes an inline {@code <img>}, which renders everywhere,
+     * PDF export included: the bundled colour Twemoji image of that emoji, or, for a symbol
+     * shown as text (↩, ✔) and anything Twemoji lacks, one rasterised by Java2D from the
+     * bundled monochrome Noto Emoji font in the theme's text colour. Where JavaFX's WebKit
+     * draws colour emoji (macOS), the page script {@code colour-emoji.js} swaps the ones it
+     * can draw back to text: the engine only draws a colour emoji alone in its own element,
+     * with an emoji font, and does not shape sequences (skin tones, ZWJ, flags, keycaps),
+     * which stay Twemoji images. Rendered emoji are cached per (emoji, colour).
      */
     private static final String EMOJI_FONT_RESOURCE =
             "/com/example/jylos/ui/preview/fonts/NotoEmoji-Regular.ttf";
     private static final String COLOUR_EMOJI_SCRIPT_RESOURCE = "/com/example/jylos/ui/preview/colour-emoji.js";
+    /** Twemoji's 72 px images (CC-BY 4.0, see LICENSE-GRAPHICS.txt beside it), by file name. */
+    private static final String TWEMOJI_RESOURCE = "/com/example/jylos/ui/preview/twemoji/twemoji-72.zip";
     private static final Font EMOJI_AWT_FONT = loadEmojiAwtFont();
     private static final Map<String, String> EMOJI_CACHE = new ConcurrentHashMap<>();
     private static final Pattern EMOJI_RUN = Pattern.compile(
@@ -738,6 +744,49 @@ public class MarkdownPreview {
     }
 
     /**
+     * Twemoji's file name for an emoji: its code points in lower-case hex joined by
+     * {@code -}, without the variation selector U+FE0F unless the emoji joins characters
+     * with ZWJ (U+200D). ❤️ is {@code 2764}, 👍🏽 {@code 1f44d-1f3fd}.
+     */
+    static String twemojiName(String emoji) {
+        boolean joined = emoji.indexOf('\u200D') >= 0;
+        StringBuilder name = new StringBuilder();
+        emoji.codePoints().filter(cp -> joined || cp != 0xFE0F).forEach(cp -> {
+            if (!name.isEmpty()) {
+                name.append('-');
+            }
+            name.append(Integer.toHexString(cp));
+        });
+        return name.toString();
+    }
+
+    /** Twemoji's images, read from the bundled zip the first time an emoji is drawn. */
+    private static final class Twemoji {
+        static final Map<String, byte[]> IMAGES = load();
+
+        private static Map<String, byte[]> load() {
+            Map<String, byte[]> images = new HashMap<>();
+            try (InputStream in = MarkdownPreview.class.getResourceAsStream(TWEMOJI_RESOURCE)) {
+                if (in == null) {
+                    logger.warning("Twemoji images not found — emoji fall back to monochrome");
+                    return images;
+                }
+                try (ZipInputStream zip = new ZipInputStream(in)) {
+                    for (ZipEntry entry; (entry = zip.getNextEntry()) != null; ) {
+                        String name = entry.getName();
+                        if (name.endsWith(".png")) {
+                            images.put(name.substring(0, name.length() - 4), zip.readAllBytes());
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                logger.warning("Could not read the Twemoji images: " + e.getMessage());
+            }
+            return images;
+        }
+    }
+
+    /**
      * Every character as {@code &#x…;}: the page is loaded with {@code loadContent}, which
      * garbles characters outside the BMP written as they are.
      */
@@ -765,8 +814,17 @@ public class MarkdownPreview {
         return EMOJI_CACHE.computeIfAbsent(colorKey + "|" + run, k -> renderEmoji(run, dark));
     }
 
-    /** Rasterises an emoji run to a transparent PNG data URI, tinted for the theme. */
+    /**
+     * An emoji as a PNG data URI: its colour Twemoji image, unless it is a symbol shown as text
+     * or Twemoji has none; then rasterised from the monochrome font, tinted for the theme.
+     */
     private static String renderEmoji(String run, boolean dark) {
+        if (!"text".equals(emojiKind(run))) {
+            byte[] png = Twemoji.IMAGES.get(twemojiName(run));
+            if (png != null) {
+                return "data:image/png;base64," + Base64.getEncoder().encodeToString(png);
+            }
+        }
         try {
             BufferedImage probe = new BufferedImage(1, 1,
                     BufferedImage.TYPE_INT_ARGB);
