@@ -25,9 +25,10 @@ import javafx.scene.Scene;
  *
  * <p>Ikonli icons cannot be sized relative to the font ({@code -fx-icon-size} is a whole number
  * of pixels, and an icon sets its own font size), and buttons, tabs and fields are sized in
- * pixels too. So the sizes are recomputed here: every icon size, every width or height of a
- * control's size (16 to 48 px; panel widths and small details are left alone) and every tree
- * level's indent, comes out
+ * pixels too, with paddings and gaps in pixels around them. So the sizes are recomputed here:
+ * every icon size, every width or height of a control's size (16 to 48 px; panel widths and
+ * small details are left alone), every tree level's indent, tile size, padding and gap, comes
+ * out
  * multiplied, under the same selector, in the same order. Added after the theme, these rules
  * win over it and leave everything else as the theme says.
  *
@@ -42,9 +43,13 @@ public final class UiSizeScale {
     private static final Pattern RULE = Pattern.compile("([^{}]+)\\{([^{}]*)\\}");
     private static final Pattern COMMENT = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);
     private static final Pattern ICON_SIZE = Pattern.compile("-fx-icon-size\\s*:\\s*(\\d+(?:\\.\\d+)?)(px)?\\s*;");
-    private static final Pattern DIMENSION = Pattern.compile(
-            "(-fx-(?:pref|min|max)-(?:width|height))\\s*:\\s*(\\d+(?:\\.\\d+)?)px\\s*;");
-    private static final Pattern INDENT = Pattern.compile("-fx-indent\\s*:\\s*(\\d+(?:\\.\\d+)?)px\\s*;");
+    /** A length in pixels, written with "px" or without a unit (which JavaFX reads as pixels). */
+    private static final String PIXELS = "(\\d+(?:\\.\\d+)?)(?:px)?\\s*;";
+    private static final Pattern DIMENSION = Pattern.compile("(-fx-(?:pref|min|max)-(?:width|height))\\s*:\\s*" + PIXELS);
+    private static final Pattern INDENT_OR_TILE = Pattern.compile("(-fx-indent|-fx-pref-tile-(?:width|height))\\s*:\\s*" + PIXELS);
+    private static final Pattern GAP = Pattern.compile("(-fx-spacing|-fx-hgap|-fx-vgap)\\s*:\\s*" + PIXELS);
+    private static final Pattern PADDING = Pattern.compile("-fx-padding\\s*:\\s*([^;]+);");
+    private static final Pattern PADDING_PART = Pattern.compile("(\\d+(?:\\.\\d+)?)(px|em|%)?");
     private static final double MIN_CONTROL_PX = 16;
     private static final double MAX_CONTROL_PX = 48;
 
@@ -163,9 +168,22 @@ public final class UiSizeScale {
                     declarations.add(dimension.group(1) + ": " + px(value, controlScale) + ";");
                 }
             }
-            Matcher indent = INDENT.matcher(body);
-            while (indent.find()) {
-                declarations.add("-fx-indent: " + px(Double.parseDouble(indent.group(1)), controlScale) + ";");
+            Matcher sized = INDENT_OR_TILE.matcher(body);
+            while (sized.find()) {
+                // A tree level's indent goes with the arrows (icons); a tile, mostly text, with the font.
+                double scale = "-fx-indent".equals(sized.group(1)) ? controlScale : fontFactor;
+                declarations.add(sized.group(1) + ": " + px(Double.parseDouble(sized.group(2)), scale) + ";");
+            }
+            Matcher gap = GAP.matcher(body);
+            while (gap.find()) {
+                declarations.add(gap.group(1) + ": " + px(Double.parseDouble(gap.group(2)), fontFactor) + ";");
+            }
+            Matcher padding = PADDING.matcher(body);
+            while (padding.find()) {
+                String scaled = scaledPadding(padding.group(1).trim(), fontFactor);
+                if (scaled != null) {
+                    declarations.add("-fx-padding: " + scaled + ";");
+                }
             }
             if (!declarations.isEmpty()) {
                 String selector = rule.group(1).trim().replaceAll("\\s+", " ");
@@ -173,6 +191,32 @@ public final class UiSizeScale {
             }
         }
         return out.toString();
+    }
+
+    /**
+     * A padding of one to four lengths with the pixel ones scaled and the em ones kept, or
+     * {@code null} when there is no pixel length to scale (all em, or not plain lengths).
+     */
+    private static String scaledPadding(String value, double scale) {
+        String[] parts = value.split("\\s+");
+        if (parts.length > 4) {
+            return null;
+        }
+        List<String> out = new ArrayList<>();
+        boolean anyPixels = false;
+        for (String part : parts) {
+            Matcher length = PADDING_PART.matcher(part);
+            if (!length.matches()) {
+                return null;
+            }
+            if (length.group(2) == null || "px".equals(length.group(2))) {
+                out.add(px(Double.parseDouble(length.group(1)), scale));
+                anyPixels = true;
+            } else {
+                out.add(part);
+            }
+        }
+        return anyPixels ? String.join(" ", out) : null;
     }
 
     private static String px(double value, double scale) {

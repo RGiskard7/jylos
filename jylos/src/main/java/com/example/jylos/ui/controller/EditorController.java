@@ -183,7 +183,7 @@ public class EditorController implements PreviewEnhancerRegistry,
     @FXML private Tooltip boardViewTooltip;
     @FXML private FontIcon boardViewIcon;
     @FXML private StackPane editorContentStack;
-    @FXML private VBox emptyState;
+    @FXML private ScrollPane emptyState;
     @FXML private Button navBackBtn;
     @FXML private Button navForwardBtn;
     @FXML private TextField noteTitleField;

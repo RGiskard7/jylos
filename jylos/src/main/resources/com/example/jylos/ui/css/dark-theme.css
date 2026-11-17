@@ -84,6 +84,21 @@
 .tree-cell {
     -fx-indent: 10px;
 }
+
+/* The empty tab: the gap above the tiles, the tiles' size and the gaps between them, in pixels
+   so they grow with the interface font (the FXML holds the same values as a fallback). */
+.editor-empty-state {
+    -fx-spacing: 16px;
+}
+.empty-state-tiles {
+    -fx-hgap: 12px;
+    -fx-vgap: 12px;
+    -fx-pref-tile-width: 150px;
+    -fx-pref-tile-height: 96px;
+}
+.empty-state-tile VBox {
+    -fx-spacing: 6px;
+}
 .feather-icon {
     -fx-icon-color: -fx-text-muted;
     -fx-fill: -fx-text-muted;
@@ -4959,4 +4974,14 @@
 .dialog-pane .settings-icon-btn .ikonli-font-icon {
     -fx-icon-color: -fx-text-muted;
     -fx-icon-size: 15px;
+}
+
+/* The empty tab scrolls when it does not fit; the scroll pane itself shows nothing. */
+.editor-empty-state-scroll,
+.editor-empty-state-scroll > .viewport {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+    -fx-background-insets: 0;
+    -fx-border-width: 0;
+    -fx-padding: 0;
 }

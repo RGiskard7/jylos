@@ -266,8 +266,10 @@
 
         <!-- Empty state: shown when no note is open, at startup and in a new tab. "New note"
              on its own; the rest as tiles, 4, 2 or 1 across depending on the width. -->
-        <VBox fx:id="emptyState" alignment="CENTER" spacing="16" styleClass="editor-empty-state"
-              pickOnBounds="true" managed="true" visible="true">
+        <!-- Scrolls when it does not fit: a short window or a large interface font. -->
+        <ScrollPane fx:id="emptyState" styleClass="editor-empty-state-scroll" fitToWidth="true" fitToHeight="true"
+                    hbarPolicy="NEVER" pickOnBounds="true" managed="true" visible="true">
+        <VBox alignment="CENTER" spacing="16" styleClass="editor-empty-state" pickOnBounds="true">
             <FontIcon iconLiteral="fth-file-text" styleClass="empty-state-icon"/>
             <Label text="%empty.no_note" styleClass="empty-state-title"/>
             <Button text="%empty.create_note" onAction="#handleEmptyCreate" styleClass="empty-state-btn">
@@ -308,5 +310,6 @@
                 </Button>
             </EmptyStateTiles>
         </VBox>
+        </ScrollPane>
     </StackPane>
 </VBox>

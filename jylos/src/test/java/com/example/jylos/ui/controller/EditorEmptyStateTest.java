@@ -19,13 +19,16 @@ import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.tests.FxTestSupport;
 
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.TilePane;
+import javafx.stage.Stage;
 
 /**
  * With no note open (or in a new tab), the editor offers what Obsidian does, in its words: new
@@ -48,6 +51,9 @@ class EditorEmptyStateTest {
                 Field bus = EditorController.class.getDeclaredField("eventBus");
                 bus.setAccessible(true);
                 bus.set(controller, EventBus.getInstance());
+                // The empty tab sits in a scroll pane, whose content joins the scene graph with its skin.
+                new Scene(root);
+                root.applyCss();
                 List<Button> buttons = new ArrayList<>();
                 for (Node node : root.lookup(".editor-empty-state").lookupAll(".button")) {
                     if (node instanceof Button button) {
@@ -101,6 +107,48 @@ class EditorEmptyStateTest {
             return out;
         });
         assertEquals(List.of("1000: 4 across, 4 tiles", "shortcuts true 3", "520: 2 across, 4 tiles", "260: 1 across, 4 tiles"), seen);
+    }
+
+    /**
+     * In a window too short for everything (or with a large interface font) the empty tab
+     * scrolls, so the last tiles can still be reached instead of being cut off at the bottom.
+     */
+    @Test
+    void whenTheTilesDoNotFitTheEmptyTabScrollsToThem() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        String seen = onFx(() -> {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/jylos/ui/view/EditorView.fxml"),
+                    ResourceBundle.getBundle("com.example.jylos.i18n.messages", Locale.forLanguageTag("es")));
+            Parent root = loader.load();
+            Scene scene = new Scene(root, 520, 320);
+            scene.getStylesheets().add(getClass().getResource("/com/example/jylos/ui/css/dark-theme.css").toExternalForm());
+            Stage stage = new Stage();
+            stage.setScene(scene);
+            stage.show();
+            root.applyCss();
+            root.layout();
+            ScrollPane scroll = null;
+            for (Node n = root.lookup(".editor-empty-state"); n != null; n = n.getParent()) {
+                if (n instanceof ScrollPane s) {
+                    scroll = s;
+                    break;
+                }
+            }
+            if (scroll == null) {
+                stage.close();
+                return "no scrolling";
+            }
+            scroll.setVvalue(scroll.getVmax());
+            root.layout();
+            TilePane tiles = (TilePane) root.lookup("#emptyStateTiles");
+            Node last = tiles.getChildren().get(tiles.getChildren().size() - 1);
+            double bottom = last.localToScene(last.getLayoutBounds()).getMaxY();
+            Bounds viewport = scroll.localToScene(scroll.getLayoutBounds());
+            stage.close();
+            return bottom <= viewport.getMaxY() + 0.5 && bottom > viewport.getMinY()
+                    ? "last tile reachable" : "last tile at " + bottom + ", viewport ends at " + viewport.getMaxY();
+        });
+        assertEquals("last tile reachable", seen);
     }
 
     @Test

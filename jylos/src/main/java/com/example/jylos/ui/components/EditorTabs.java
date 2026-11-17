@@ -221,7 +221,11 @@ public final class EditorTabs {
     public void setNewTabAction(Runnable action) {
         if (newTabButton == null) {
             newTabButton = new Button();
-            newTabButton.setGraphic(new FontIcon("fth-plus"));
+            // A size of its own (the theme's icon-12): an icon left to take the font's size
+            // would keep a larger one after the interface font is lowered again.
+            FontIcon plus = new FontIcon("fth-plus");
+            plus.getStyleClass().add("icon-12");
+            newTabButton.setGraphic(plus);
             newTabButton.getStyleClass().addAll("editor-tab-new", "icon-btn");
             String tip = i18n != null ? i18n.apply("tooltip.new_tab") : null;
             newTabButton.setTooltip(new Tooltip(tip != null ? tip : "New tab"));
