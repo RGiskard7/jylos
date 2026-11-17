@@ -24,6 +24,7 @@ import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.ContextMenu;
+import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TreeCell;
@@ -69,27 +70,33 @@ class FolderContextMenuCharacterizationTest {
         List<List<String>> menus = onFx(() -> {
             FolderContextMenuSupport.Actions actions = new FolderContextMenuSupport.Actions(f -> { }, f -> { },
                     f -> calls.add("board " + f.getId()), f -> { }, f -> { }, f -> calls.add("move " + f.getId()),
-                    f -> calls.add("reveal " + f.getId()), f -> { });
+                    f -> calls.add("reveal " + f.getId()), f -> { },
+                    (f, hex) -> calls.add("colour " + f.getId() + " " + hex));
             Folder folder = new Folder("t1", "Trabajo");
             ContextMenu files = FolderContextMenuSupport.create(folder, actions, true, key -> key);
             ContextMenu database = FolderContextMenuSupport.create(folder, actions, false, key -> key);
             item(files, "action.new_kanban_board").fire();
             item(files, "action.move_to").fire();
             item(files, "action.reveal_in_files").fire();
+            Menu colours = (Menu) item(files, "action.folder_color");
+            colours.getItems().get(0).fire();
+            colours.getItems().get(colours.getItems().size() - 1).fire();
             return List.of(describe(files), describe(database));
         });
 
         assertEquals(List.of("action.new_note", "action.new_canvas", "action.new_kanban_board", "action.new_subfolder", "---",
-                "action.rename", "action.move_to", "action.reveal_in_files", "action.delete"), menus.get(0));
+                "action.rename", "action.folder_color", "action.move_to", "action.reveal_in_files", "action.delete"), menus.get(0));
         assertEquals(List.of("action.new_note", "action.new_canvas", "action.new_kanban_board", "action.new_subfolder", "---",
-                "action.rename", "action.move_to", "action.delete"), menus.get(1));
-        assertEquals(List.of("board t1", "move t1", "reveal t1"), calls);
+                "action.rename", "action.folder_color", "action.move_to", "action.delete"), menus.get(1));
+        // The first colour is red, the last entry takes the colour away.
+        assertEquals(List.of("board t1", "move t1", "reveal t1", "colour t1 #e93147", "colour t1 null"), calls);
     }
 
     private static List<String> expected(boolean movable) {
         List<String> expected = new ArrayList<>(List.of("Nueva Nota", "Nuevo Canvas", "Nuevo tablero Kanban", "Nueva Subcarpeta", "---",
                 "Renombrar"));
         if (movable) {
+            expected.add("Color");
             expected.add("Mover a Carpeta...");
         }
         if (FILE_VAULT) {

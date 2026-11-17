@@ -2,6 +2,7 @@ package com.example.jylos.data.dao.interfaces;
 
 import java.sql.Connection;
 
+import com.example.jylos.data.dao.FolderColorStore;
 import com.example.jylos.data.dao.sqlite.FactoryDAOSQLite;
 import com.example.jylos.data.dao.filesystem.FactoryDAOFileSystem;
 
@@ -46,6 +47,14 @@ public abstract class FactoryDAO {
      * @return An EncryptionKeyDAO instance.
      */
     public abstract EncryptionKeyDAO getEncryptionKeyDAO();
+
+    /**
+     * Where the folders' colours are kept: next to the notes in a folder vault (so they travel
+     * with it), in the app's data folder with the database.
+     *
+     * @return The FolderColorStore of this storage.
+     */
+    public abstract FolderColorStore getFolderColorStore();
 
     /**
      * Factory method to obtain a concrete implementation of FactoryDAO based on the

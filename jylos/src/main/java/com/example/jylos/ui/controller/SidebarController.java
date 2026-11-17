@@ -47,6 +47,7 @@ import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
 import com.example.jylos.service.TrashService;
+import com.example.jylos.ui.FolderColorStyle;
 import com.example.jylos.ui.NoteIcons;
 import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.ui.UiNodes;
@@ -486,10 +487,11 @@ public class SidebarController {
             int count = showFolderNoteCounts ? getNoteCountForFolder(folder) : 0;
             return count > 0 ? String.valueOf(count) : null;
         });
+        explorerTree.setFolderColor(folder -> folderService != null ? folderService.folderColor(folder) : null);
         explorerTree.setOnOpenNote((note, target) -> explorerOpenAction.accept(note, target));
         explorerTree.setNoteMenu(explorerNoteMenu);
         // In the Explorer, "Rename" puts a name field in the row instead of opening a dialog.
-        explorerTree.setFolderMenu(folder -> FolderContextMenuSupport.create(folder, explorerFolderMenuActions(),
+        explorerTree.setFolderMenu(folder -> FolderContextMenuSupport.create(folder, folderMenuActions(this::renameInExplorer),
                 isFileSystemStorage(), this::getString));
         explorerTree.setOnRename((item, name) -> {
             if (item instanceof Note note) {
@@ -839,6 +841,7 @@ public class SidebarController {
                     }
                     HBox container = new HBox(6);
                     container.setAlignment(Pos.CENTER_LEFT);
+                    FolderColorStyle.apply(container, folderService != null ? folderService.folderColor(folder) : null);
                     Label nameLabel = new Label(folder.getTitle());
                     nameLabel.getStyleClass().add("folder-cell-name");
                     // The name is the flexible element, not a separate spacer: growing to
@@ -868,7 +871,7 @@ public class SidebarController {
                     }
                     setGraphic(container);
                     setText(null);
-                    setContextMenu(FolderContextMenuSupport.create(folder, folderMenuActions(), isFileSystemStorage(),
+                    setContextMenu(FolderContextMenuSupport.create(folder, folderMenuActions(SidebarController.this::handleRenameFolder), isFileSystemStorage(),
                             SidebarController.this::getString));
 
                     refreshDisclosureArrowRotation();
@@ -1727,19 +1730,6 @@ public class SidebarController {
         publishEvent(new NoteEvents.TrashItemDeletedEvent(c));
     }
 
-    /** What the folder context menu entries do. */
-    private FolderContextMenuSupport.Actions explorerFolderMenuActions() {
-        return new FolderContextMenuSupport.Actions(
-                folder -> createInFolder(folder, createNoteInFolderAction),
-                folder -> createInFolder(folder, createCanvasInFolderAction),
-                folder -> createInFolder(folder, createBoardInFolderAction),
-                this::handleCreateSubfolderInFolder,
-                this::renameInExplorer,
-                this::handleMoveFolder,
-                this::revealFolderInFileManager,
-                this::handleDeleteFolder);
-    }
-
     /** Puts a name field in the Explorer row of {@code item} (once it is shown, if it was just created). */
     public void renameInExplorer(Component item) {
         if (explorerTree != null) {
@@ -1753,16 +1743,27 @@ public class SidebarController {
         };
     }
 
-    private FolderContextMenuSupport.Actions folderMenuActions() {
+    /** What the folder context menu entries do; renaming is in the row in the Explorer, a dialog otherwise. */
+    private FolderContextMenuSupport.Actions folderMenuActions(Consumer<Folder> rename) {
         return new FolderContextMenuSupport.Actions(
                 folder -> createInFolder(folder, createNoteInFolderAction),
                 folder -> createInFolder(folder, createCanvasInFolderAction),
                 folder -> createInFolder(folder, createBoardInFolderAction),
                 this::handleCreateSubfolderInFolder,
-                this::handleRenameFolder,
+                rename,
                 this::handleMoveFolder,
                 this::revealFolderInFileManager,
-                this::handleDeleteFolder);
+                this::handleDeleteFolder,
+                this::setFolderColor);
+    }
+
+    /**
+     * Gives {@code folder} the colour {@code hex}, or none for {@code null}, and repaints the trees'
+     * rows. Only reached from a folder's menu, and folders are only listed once the service is set.
+     */
+    private void setFolderColor(Folder folder, String hex) {
+        folderService.setFolderColor(folder, hex);
+        refreshFolderRows();
     }
 
     private void handleMoveFolder(Folder folder) {
@@ -2094,6 +2095,11 @@ public class SidebarController {
             return;
         }
         showFolderNoteCounts = enabled;
+        refreshFolderRows();
+    }
+
+    /** Repaints the folders' rows in both trees (their counts and colours). */
+    private void refreshFolderRows() {
         if (folderTreeView != null) {
             folderTreeView.refresh();
         }

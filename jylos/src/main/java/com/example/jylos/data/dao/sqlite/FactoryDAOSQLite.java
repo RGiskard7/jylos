@@ -1,7 +1,10 @@
 package com.example.jylos.data.dao.sqlite;
 
+import java.nio.file.Path;
 import java.sql.Connection;
 
+import com.example.jylos.AppDataDirectory;
+import com.example.jylos.data.dao.FolderColorStore;
 import com.example.jylos.data.dao.interfaces.EncryptionKeyDAO;
 import com.example.jylos.data.dao.interfaces.FactoryDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
@@ -69,6 +72,12 @@ public class FactoryDAOSQLite extends FactoryDAO {
 	@Override
 	public EncryptionKeyDAO getEncryptionKeyDAO() {
 		return new EncryptionKeyDAOSQLite(connection);
+	}
+
+	/** In the app's data folder; folder ids never change with the database, so no paths to follow. */
+	@Override
+	public FolderColorStore getFolderColorStore() {
+		return new FolderColorStore(Path.of(AppDataDirectory.getDataDirectory(), "folder-colors.json"));
 	}
 
 }

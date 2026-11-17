@@ -5207,3 +5207,14 @@
 .colored-icons .icon-type-board {
     -fx-icon-color: -fx-icon-board;
 }
+
+/* A folder's own colour (folder menu > Colour), on its row's icon only (as Obsidian's Iconize
+   does), the name keeping its usual colour: in the classic tree the icon is the [/] [+] mark.
+   Set as -fx-folder-custom on the row (FolderColorStyle); a selected row keeps the selection's
+   colours, its rules being more specific. After the coloured-icons rules, so it wins over them. */
+.folder-colored > .explorer-folder-icon {
+    -fx-icon-color: -fx-folder-custom;
+}
+.folder-colored > .folder-cell-icon {
+    -fx-text-fill: -fx-folder-custom;
+}

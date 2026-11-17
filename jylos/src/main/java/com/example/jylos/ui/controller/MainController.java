@@ -471,7 +471,7 @@ public class MainController {
             noteService = new NoteService(noteDAO, folderDAO);
             noteService.setHistoryService(new NoteHistoryService(
                     Path.of(AppDataDirectory.getBaseDirectory(), "history")));
-            folderService = new FolderService(folderDAO, noteDAO);
+            folderService = new FolderService(folderDAO, noteDAO, factory.getFolderColorStore());
             tagService = new TagService(tagDAO, noteDAO);
             noteOperations = new NoteOperations(noteService, folderService);
             eventBus = EventBus.getInstance();

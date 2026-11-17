@@ -8,6 +8,7 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.data.dao.FolderColorStore;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.models.Folder;
@@ -39,6 +40,8 @@ public class FolderService {
 
     private final FolderDAO folderDAO;
     private final NoteDAO noteDAO;
+    /** The folders' colours; {@code null} where colours are not kept. */
+    private final FolderColorStore colors;
 
     /**
      * Creates a new FolderService with the required DAOs.
@@ -47,9 +50,31 @@ public class FolderService {
      * @param noteDAO   Data access object for notes
      */
     public FolderService(FolderDAO folderDAO, NoteDAO noteDAO) {
+        this(folderDAO, noteDAO, null);
+    }
+
+    /**
+     * As {@link #FolderService(FolderDAO, NoteDAO)}, keeping the folders' colours in
+     * {@code colors} ({@code null} for none): a folder's colour follows it when it is renamed
+     * or moved, and goes with it when it is deleted.
+     */
+    public FolderService(FolderDAO folderDAO, NoteDAO noteDAO, FolderColorStore colors) {
         this.folderDAO = folderDAO;
         this.noteDAO = noteDAO;
+        this.colors = colors;
         logger.info("FolderService initialized");
+    }
+
+    /** {@code folder}'s colour ({@code #rrggbb}), or {@code null} if it has none. */
+    public String folderColor(Folder folder) {
+        return colors != null && folder != null ? colors.colorOf(folder.getId()) : null;
+    }
+
+    /** Gives {@code folder} the colour {@code hex} ({@code #rrggbb}), or none for {@code null}. */
+    public void setFolderColor(Folder folder, String hex) {
+        if (colors != null && folder != null) {
+            colors.setColor(folder.getId(), hex);
+        }
     }
 
     // ── CRUD Operations ─────────────────────────────────────────────────────
@@ -130,8 +155,12 @@ public class FolderService {
         if (folder == null || newName == null || newName.trim().isEmpty()) {
             throw new IllegalArgumentException("Folder and new name cannot be null or empty");
         }
+        String previousId = folder.getId();
         folder.setTitle(newName.trim());
         updateFolder(folder);
+        if (colors != null) {
+            colors.move(previousId, folder.getId());
+        }
         return folder;
     }
 
@@ -143,6 +172,9 @@ public class FolderService {
      */
     public void deleteFolder(String folderId) {
         folderDAO.deleteFolder(folderId);
+        if (colors != null) {
+            colors.remove(folderId);
+        }
         folderDAO.refreshCache();
         noteDAO.refreshCache();
         logger.info("Deleted folder ID: " + folderId);
@@ -155,6 +187,9 @@ public class FolderService {
      */
     public void permanentlyDeleteFolder(String folderId) {
         folderDAO.permanentlyDeleteFolder(folderId);
+        if (colors != null) {
+            colors.remove(folderId);
+        }
         folderDAO.refreshCache();
         noteDAO.refreshCache();
         logger.info("Permanently deleted folder ID: " + folderId);
@@ -355,12 +390,16 @@ public class FolderService {
         if (!canMoveFolder(folder, targetParent)) {
             throw new IllegalArgumentException("Invalid folder move");
         }
+        String previousId = folder.getId();
         if (targetParent == null || "ROOT".equals(targetParent.getId())) {
             folderDAO.moveFolderToRoot(folder);
             logger.info("Moved folder '" + folder.getTitle() + "' to root");
         } else {
             folderDAO.addSubFolder(targetParent, folder);
             logger.info("Moved folder '" + folder.getTitle() + "' to folder: " + targetParent.getTitle());
+        }
+        if (colors != null) {
+            colors.move(previousId, folder.getId());
         }
         folderDAO.refreshCache();
         noteDAO.refreshCache();

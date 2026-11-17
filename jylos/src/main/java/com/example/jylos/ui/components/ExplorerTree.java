@@ -29,6 +29,7 @@ import com.example.jylos.data.models.interfaces.Component;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.NoteService.SortOption;
+import com.example.jylos.ui.FolderColorStyle;
 import com.example.jylos.ui.NoteIcons;
 import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
@@ -148,6 +149,7 @@ public final class ExplorerTree {
     };
     private String activeNoteId;
     private Function<Folder, String> folderBadge = folder -> null;
+    private Function<Folder, String> folderColor = folder -> null;
     /**
      * Bumped when the active note or the badges change; every row listens and restyles itself
      * in place. {@code view.refresh()} would recreate the rows instead, and a recreated row
@@ -346,6 +348,15 @@ public final class ExplorerTree {
      */
     public void setFolderBadge(Function<Folder, String> badge) {
         this.folderBadge = badge != null ? badge : folder -> null;
+        refreshDecorations();
+    }
+
+    /**
+     * What colour (#rrggbb) each folder's row shows, or {@code null} for none; asked again on
+     * {@link #refreshDecorations()}.
+     */
+    public void setFolderColor(Function<Folder, String> color) {
+        this.folderColor = color != null ? color : folder -> null;
         refreshDecorations();
     }
 
@@ -945,7 +956,7 @@ public final class ExplorerTree {
             decorate();
         }
 
-        /** The parts that change without the item changing: the active-note mark and the badge. */
+        /** The parts that change without the item changing: the active-note mark, the badge and the colour. */
         private void decorate() {
             Component item = isEmpty() ? null : getItem();
             boolean editingHere = item != null && renaming != null && key(item).equals(key(renaming));
@@ -966,6 +977,7 @@ public final class ExplorerTree {
             boolean show = text != null && !text.isBlank();
             badge.setText(show ? "(" + text + ")" : "");
             UiNodes.show(badge, show);
+            FolderColorStyle.apply(content, item instanceof Folder folder ? folderColor.apply(folder) : null);
         }
 
         private void observe(TreeItem<Component> item) {
