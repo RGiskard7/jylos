@@ -294,14 +294,14 @@ final class NotesGridSupport {
         if (note.isPinned()) {
             FontIcon pinIcon = new FontIcon("bi-pin-angle");
             pinIcon.getStyleClass().add("feather-pin-active");
-            pinIcon.setIconSize(12);
+            pinIcon.getStyleClass().add("icon-12");
             titleRow.getChildren().add(pinIcon);
         }
 
         if (note.isFavorite()) {
             FontIcon favIcon = new FontIcon("fth-star");
             favIcon.getStyleClass().add("feather-favorite-active");
-            favIcon.setIconSize(12);
+            favIcon.getStyleClass().add("icon-12");
             titleRow.getChildren().add(favIcon);
         }
 

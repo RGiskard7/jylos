@@ -10,7 +10,7 @@
    <HBox fx:id="stackedModeHeader" managed="false" visible="false" alignment="CENTER_RIGHT" styleClass="stacked-header">
        <Button onAction="#handleToggleNotesPanel" styleClass="icon-btn-small">
            <graphic>
-               <FontIcon iconLiteral="fth-x" iconSize="14"/>
+               <FontIcon iconLiteral="fth-x" styleClass="icon-14"/>
            </graphic>
        </Button>
    </HBox>

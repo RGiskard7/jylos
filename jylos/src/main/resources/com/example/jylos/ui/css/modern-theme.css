@@ -63,6 +63,29 @@
     color: -fx-text-main;
 }
 
+
+/* Sizes for icons that have no size rule of their own (set in code). Before .feather-icon on
+   purpose: an icon that also has .feather-icon takes that rule's size, as it always has. */
+.icon-12 {
+    -fx-icon-size: 12;
+}
+.icon-14 {
+    -fx-icon-size: 14;
+}
+
+/* Tree rows: an arrow's box and each level's indent (JavaFX's default), in pixels so they grow
+   with the interface font like the icons (see UiSizeScale). */
+.tree-disclosure-arrow {
+    -fx-min-width: 18px;
+    -fx-pref-width: 18px;
+    -fx-max-width: 18px;
+    -fx-min-height: 18px;
+    -fx-pref-height: 18px;
+    -fx-max-height: 18px;
+}
+.tree-cell {
+    -fx-indent: 10px;
+}
 .feather-icon {
     -fx-icon-color: -fx-text-muted;
     -fx-fill: -fx-text-muted;

@@ -9,6 +9,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.TreeMap;
@@ -24,6 +25,7 @@ import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.interfaces.Component;
 import com.example.jylos.tests.FxTestSupport;
 import com.example.jylos.ui.components.ExplorerTree;
+import com.example.jylos.ui.theme.UiSizeScale;
 
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
@@ -34,6 +36,7 @@ import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.Paint;
 import javafx.stage.Stage;
@@ -83,6 +86,87 @@ class TreeIndentGuidesTest {
         });
 
         assertEquals("A:0 B:1 Nota ROOT:0 Nota a:1 Nota a/b:2 | one x per level", guides);
+    }
+
+    /**
+     * With a 22 px interface font the arrows grow with their icons (18 px × 22/13), and each
+     * level's guide still runs under the centre of its folder's arrow.
+     */
+    @Test
+    void explorerTreeAtALargeFont() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        AtomicReference<ExplorerTree> holder = new AtomicReference<>();
+        onFx(() -> {
+            ExplorerTree tree = new ExplorerTree(new ExplorerTree.Source() {
+                @Override
+                public List<Folder> subfolders(Folder folder) {
+                    return switch (folder.getId()) {
+                        case "ROOT" -> List.of(new Folder("a", "A"));
+                        case "a" -> List.of(new Folder("a/b", "B"));
+                        default -> List.of();
+                    };
+                }
+
+                @Override
+                public List<Note> notes(Folder folder) {
+                    return List.of(new Note("n-" + folder.getId(), "Nota " + folder.getId(), "x"));
+                }
+            }, Runnable::run, k -> k);
+            tree.setRoot(new Folder("ROOT", "Vault"));
+            holder.set(tree);
+            return null;
+        });
+        for (int i = 0; i < 3; i++) {
+            onFx(() -> {
+                expandAll(holder.get().getView().getRoot());
+                return null;
+            });
+        }
+        String seen = onFx(() -> {
+            TreeView<?> tree = holder.get().getView();
+            VBox root = new VBox(tree);
+            root.getStyleClass().addAll("root-container", "theme-dark");
+            root.setStyle("-fx-font-size: 22px;");
+            Scene scene = new Scene(root, 420, 500);
+            scene.getStylesheets().add(TreeIndentGuidesTest.class
+                    .getResource("/com/example/jylos/ui/css/dark-theme.css").toExternalForm());
+            UiSizeScale.apply(scene, 22, 1.0);
+            Stage stage = new Stage();
+            stage.setScene(scene);
+            stage.show();
+            root.applyCss();
+            root.layout();
+            Map<String, double[]> arrows = new TreeMap<>();
+            Map<String, List<Double>> guides = new TreeMap<>();
+            for (Node node : tree.lookupAll(".tree-cell")) {
+                if (!(node instanceof TreeCell<?> cell) || cell.isEmpty() || !(cell.getItem() instanceof Component c)) {
+                    continue;
+                }
+                if (cell.getDisclosureNode() instanceof Region arrow && arrow.isVisible() && arrow.getWidth() > 0) {
+                    double minX = arrow.localToScene(arrow.getBoundsInLocal()).getMinX();
+                    arrows.put(c.getTitle(), new double[] {arrow.getWidth(), minX + arrow.getWidth() / 2});
+                }
+                List<Double> xs = new ArrayList<>();
+                for (Node guide : cell.lookupAll(".tree-indent-guide")) {
+                    xs.add(guide.localToScene(guide.getBoundsInLocal()).getMinX());
+                }
+                xs.sort(Double::compare);
+                guides.put(c.getTitle(), xs);
+            }
+            stage.close();
+            List<String> out = new ArrayList<>();
+            arrows.forEach((title, a) -> out.add(title + " arrow " + Math.round(a[0])));
+            // Rows inside B have two guides: under A's arrow, then under B's.
+            List<Double> inB = guides.get("Nota a/b");
+            out.add(inB != null && inB.size() == 2
+                    && Math.abs(inB.get(0) - arrows.get("A")[1]) <= 1
+                    && Math.abs(inB.get(1) - arrows.get("B")[1]) <= 1
+                    ? "guides under the arrows" : "guides at " + inB + " arrows at "
+                            + arrows.get("A")[1] + ", " + arrows.get("B")[1]);
+            return String.join(", ", out);
+        });
+
+        assertEquals("A arrow 30, B arrow 30, guides under the arrows", seen);
     }
 
     @Test

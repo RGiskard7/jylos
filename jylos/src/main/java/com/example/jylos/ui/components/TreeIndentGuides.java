@@ -30,6 +30,7 @@ public final class TreeIndentGuides {
     public static final String GUIDE_STYLE = "tree-indent-guide";
     /** JavaFX's own default indent per level, used if the skin is not a {@link TreeCellSkin}. */
     private static final double DEFAULT_INDENT = 10;
+    private static final String ARROW_WIDTH = "jylos.treeIndentGuides.arrowWidth";
 
     private final Pane layer = new Pane();
 
@@ -55,7 +56,7 @@ public final class TreeIndentGuides {
         }
         int level = tree.getTreeItemLevel(item) - (tree.isShowRoot() ? 0 : 1);
         double indent = cell.getSkin() instanceof TreeCellSkin<?> skin ? skin.getIndent() : DEFAULT_INDENT;
-        double arrowCentre = TreeDisclosureArrow.SIZE / 2;
+        double arrowCentre = arrowWidth(cell, tree) / 2;
         double left = cell.snappedLeftInset();
         double height = cell.getHeight();
 
@@ -76,5 +77,17 @@ public final class TreeIndentGuides {
             ((Region) lines.get(k)).resizeRelocate(x, 0, 1, height);
         }
         layer.resizeRelocate(0, 0, cell.getWidth(), height);
+    }
+
+    /**
+     * The arrows' width: what a folder row's arrow measures once laid out (it grows with the
+     * interface font), remembered on the tree for the rows that have no arrow of their own.
+     */
+    private static double arrowWidth(TreeCell<?> cell, TreeView<?> tree) {
+        if (cell.getDisclosureNode() instanceof Region arrow && arrow.getParent() == cell && arrow.getWidth() > 0) {
+            tree.getProperties().put(ARROW_WIDTH, arrow.getWidth());
+            return arrow.getWidth();
+        }
+        return tree.getProperties().get(ARROW_WIDTH) instanceof Double width ? width : TreeDisclosureArrow.SIZE;
     }
 }

@@ -62,6 +62,7 @@ import com.example.jylos.ui.components.QuickSwitcher;
 import com.example.jylos.ui.preferences.LayoutMode;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
 import com.example.jylos.ui.theme.ThemeCatalog;
+import com.example.jylos.ui.theme.UiSizeScale;
 import com.example.jylos.util.NoteAnchors;
 import com.example.jylos.util.SystemBrowser;
 import com.example.jylos.util.WikiLinkResolver;
@@ -2620,6 +2621,8 @@ public class MainController {
                      .append(" -fx-selected-bg: ").append(uiAccentColor).append(';');
             }
             scene.getRoot().setStyle(style.toString());
+            // Icons and icon buttons are sized in pixels: rescale them for this font too.
+            UiSizeScale.apply(scene, uiFontSize, 1.0);
             // Every other CSS rule in the theme derives its own font-size from this root's
             // via `em` units, so a Dialog (its own separate Scene/root — JavaFX dialogs don't
             // inherit the main window's root) needs this same inline style re-captured right
@@ -2741,6 +2744,8 @@ public class MainController {
      */
     public void applyInitialThemeBeforeShow(Scene scene) {
         theme.applyBeforeShow(scene);
+        // The saved interface font: initialize() runs before the window has its scene.
+        applyUiZoom();
         if (editorController != null) {
             editorController.applyEditorTheme(isDarkThemeActive(), uiAccentColor);
         }

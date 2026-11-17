@@ -286,19 +286,19 @@ public class NotesListController {
                 titleRow.setAlignment(Pos.CENTER_LEFT);
                 titleRow.setMinWidth(0);
                 pinIcon.getStyleClass().add("feather-pin-active");
-                pinIcon.setIconSize(12);
+                pinIcon.getStyleClass().add("icon-12");
                 // A style class, not a colour set here: the theme recolours it on a selected row.
                 favIcon.getStyleClass().add("feather-favorite-active");
-                favIcon.setIconSize(12);
+                favIcon.getStyleClass().add("icon-12");
                 lockIcon.getStyleClass().add("note-cell-lock");
-                lockIcon.setIconSize(12);
+                lockIcon.getStyleClass().add("icon-12");
 
                 titleLabel.getStyleClass().add("note-cell-title");
                 titleLabel.setEllipsisString("…");
                 titleLabel.setMinWidth(0);
                 HBox.setHgrow(titleLabel, Priority.ALWAYS);
                 noteIcon.getStyleClass().add("note-cell-icon");
-                noteIcon.setIconSize(14);
+                noteIcon.getStyleClass().add("icon-14");
                 noteIcon.setMouseTransparent(true);
                 noteIconHolder.getChildren().add(noteIcon);
                 noteIconHolder.setMinWidth(NOTE_ICON_RESERVED_WIDTH);

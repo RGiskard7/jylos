@@ -29,8 +29,10 @@ import javafx.scene.layout.StackPane;
  */
 public final class TreeDisclosureArrow {
 
-    /** The one width every arrow measures, see the class comment. */
+    /** The one width every arrow measures at the default interface font, see the class comment. */
     public static final double SIZE = 18;
+    /** Style class of the arrow's box. */
+    public static final String STYLE = "tree-disclosure-arrow";
 
     private TreeDisclosureArrow() {
     }
@@ -41,6 +43,8 @@ public final class TreeDisclosureArrow {
         chevron.setIconSize(12);
         chevron.getStyleClass().add("feather-icon");
         StackPane arrow = new StackPane(chevron);
+        // The themes size it too (.tree-disclosure-arrow), so it grows with the interface font.
+        arrow.getStyleClass().add(STYLE);
         arrow.setMinSize(SIZE, SIZE);
         arrow.setPrefSize(SIZE, SIZE);
         arrow.setMaxSize(SIZE, SIZE);

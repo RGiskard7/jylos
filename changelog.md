@@ -98,6 +98,7 @@
   - **Arranque:** una ventana de carga muestra el icono y el nombre mientras se prepara la ventana principal, ya sin destello en tema claro al abrir en oscuro. La ventana responde antes.
   - **Modo concentración:** ya no tiene botón; se activa y se sale con Cmd/Ctrl+Shift+F, el menú Ver o la paleta.
   - **Preferencias rediseñadas:** las secciones a la izquierda (General, Editor, Notas y pestañas y Apariencia) y una fila por ajuste, con una breve explicación bajo el nombre. Los snippets CSS están al final de Apariencia, uno por fila, con recargar y abrir la carpeta junto a su título. Los textos largos saltan de línea en vez de cortarse, y la ventana es más grande, se puede redimensionar y crece con la letra de la interfaz.
+  - **Los iconos y sus botones crecen con la letra de la interfaz:** al subirla en Preferencias o con Cmd/Ctrl+más, ya no se quedan pequeños al lado del texto.
   - **Ventanas y avisos con un mismo estilo:** el título va sobre el fondo de la ventana, sin franja ni el icono genérico de pregunta, y el contenido tiene más aire. Los bordes ya no cambian de color al pasar el ratón ni al escribir en un campo, los cuadros de texto de los diálogos tienen un solo borde, y las cabeceras pequeñas ya no van en una negrita apretada.
   - **Panel de Git más claro:** la lista de cambios ocupa el espacio libre y el registro de actividad tiene una altura fija, con el estado de la operación en su cabecera. Los ficheros nuevos se marcan con "U" y los conflictos con "!", y una bóveda sin repositorio muestra arriba su título y el botón para crearlo.
 
@@ -106,6 +107,7 @@
 - **Exportar a PDF imprime la nota como se lee:** `[[Nota|texto]]` sale como su texto, `![[Nota]]` imprime la nota incrustada y se imprimen las tarjetas de enlace.
 
 - **Corregido:**
+  - **El tamaño de letra de la interfaz se conserva al cerrar:** antes la app volvía a abrir con la letra de siempre, aunque Preferencias mostrara la elegida.
   - **Errores visibles:**
     - si el disco o la base de datos rechaza un cambio (mover, renombrar, borrar o restaurar), Jylos lo dice, en lugar de parecer hecho;
     - "Mover a Carpeta..." vuelve al menú contextual de las carpetas;
