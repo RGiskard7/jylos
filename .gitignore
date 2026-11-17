@@ -72,6 +72,8 @@ local.properties
 
 # Package files
 *.zip
+# Bundled with the app, not a package: the Twemoji images
+!jylos/src/main/resources/com/example/jylos/ui/preview/twemoji/twemoji-72.zip
 *.tar.gz
 *.rar
 
