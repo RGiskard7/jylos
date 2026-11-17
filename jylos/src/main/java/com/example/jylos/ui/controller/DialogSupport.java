@@ -13,12 +13,15 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 
+import org.kordamp.ikonli.javafx.FontIcon;
+
 import com.example.jylos.AppConfig;
 import com.example.jylos.AppLinks;
 import com.example.jylos.ui.AppIconLoader;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.service.TagService;
 import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.SettingsPane;
 import com.example.jylos.ui.preferences.LayoutMode;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
@@ -40,6 +43,7 @@ import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.Tooltip;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
@@ -200,7 +204,7 @@ class DialogSupport {
         ColorPicker accentPicker = new ColorPicker();
         boolean hasCustomAccent = current.accentColor() != null && !current.accentColor().isBlank();
         customAccentCheck.setSelected(hasCustomAccent);
-        accentPicker.setDisable(!hasCustomAccent);
+        UiNodes.show(accentPicker, hasCustomAccent);
         try {
             accentPicker.setValue(Color.web(
                     hasCustomAccent ? current.accentColor() : "#7c3aed"));
@@ -208,7 +212,7 @@ class DialogSupport {
             accentPicker.setValue(Color.web("#7c3aed"));
         }
         customAccentCheck.selectedProperty()
-                .addListener((obs, oldVal, newVal) -> accentPicker.setDisable(!newVal));
+                .addListener((obs, oldVal, newVal) -> UiNodes.show(accentPicker, newVal));
 
         ComboBox<String> themeModeCombo = new ComboBox<>();
         themeModeCombo.getItems().addAll(i18n("pref.theme.builtin"), i18n("pref.theme.external"));
@@ -246,7 +250,8 @@ class DialogSupport {
         Label snippetsHint = new Label(i18n("dialog.preferences.css_snippets_hint"));
         snippetsHint.getStyleClass().add("dialog-hint-label");
         snippetsHint.setWrapText(true);
-        VBox snippetsBox = new VBox(6);
+        VBox snippetsBox = new VBox();
+        snippetsBox.getStyleClass().add("settings-block");
         Runnable populateSnippets = () -> {
             snippetsBox.getChildren().clear();
             List<CssSnippetCatalog.SnippetDescriptor> available =
@@ -258,7 +263,7 @@ class DialogSupport {
                 return;
             }
             for (CssSnippetCatalog.SnippetDescriptor snippet : available) {
-                CheckBox box = new CheckBox(snippet.name());
+                CheckBox box = new CheckBox();
                 box.setSelected(selectedSnippets.contains(snippet.name()));
                 box.selectedProperty().addListener((obs, oldVal, newVal) -> {
                     if (Boolean.TRUE.equals(newVal)) {
@@ -267,18 +272,19 @@ class DialogSupport {
                         selectedSnippets.remove(snippet.name());
                     }
                 });
-                snippetsBox.getChildren().add(box);
+                snippetsBox.getChildren().add(SettingsPane.rowNode(snippet.name(), null, box));
             }
         };
         populateSnippets.run();
-        Button openSnippetsFolder = new Button(i18n("dialog.preferences.css_snippets_open"));
+        // Reload and open the folder: small icons beside the part's title, as in Obsidian.
+        Button reloadSnippets = settingsIconButton("fth-refresh-cw", i18n("dialog.preferences.css_snippets_reload"));
+        reloadSnippets.setOnAction(e -> populateSnippets.run());
+        Button openSnippetsFolder = settingsIconButton("fth-folder", i18n("dialog.preferences.css_snippets_open"));
         openSnippetsFolder.setOnAction(e -> {
             if (snippetCatalog != null) {
                 openFolder(snippetCatalog.primaryDirectory().toString());
             }
         });
-        Button reloadSnippets = new Button(i18n("dialog.preferences.css_snippets_reload"));
-        reloadSnippets.setOnAction(e -> populateSnippets.run());
 
         // Sections on the left, one row per setting: name and description wrap, control on the right.
         SettingsPane settings = new SettingsPane();
@@ -304,11 +310,10 @@ class DialogSupport {
                 .row(i18n("dialog.preferences.font_size"), null, fontSizeCombo)
                 .row(i18n("dialog.preferences.theme_mode"), null, themeModeCombo)
                 .row(i18n("dialog.preferences.external_theme"), null, externalThemeCombo)
-                .row(i18n("dialog.preferences.accent_custom"), null, new HBox(8, customAccentCheck, accentPicker));
-        settings.addSection(i18n("dialog.preferences.css_snippets"))
+                .row(i18n("dialog.preferences.accent_custom"), null, SettingsPane.controls(accentPicker, customAccentCheck))
+                .subheading(i18n("dialog.preferences.css_snippets"), reloadSnippets, openSnippetsFolder)
                 .block(snippetsHint)
-                .block(snippetsBox)
-                .block(new HBox(8, openSnippetsFolder, reloadSnippets));
+                .block(snippetsBox);
         dialog.getDialogPane().setContent(settings);
         dialog.getDialogPane().getStyleClass().add("preferences-dialog");
 
@@ -368,6 +373,16 @@ class DialogSupport {
                     new LinkedHashSet<>(selectedSnippets));
         });
         return UiDialogs.show(dialog);
+    }
+
+    /** A small icon button with its text as a tooltip. */
+    private static Button settingsIconButton(String icon, String text) {
+        Button button = new Button();
+        button.setGraphic(new FontIcon(icon));
+        button.setTooltip(new Tooltip(text));
+        button.setAccessibleText(text);
+        button.getStyleClass().add("settings-icon-btn");
+        return button;
     }
 
     /** Opens a folder in the OS file manager (best-effort, mirrors the notes-list reveal). */

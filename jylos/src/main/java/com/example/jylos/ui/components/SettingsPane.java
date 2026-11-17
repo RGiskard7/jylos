@@ -85,27 +85,19 @@ public final class SettingsPane extends BorderPane {
          * {@code null}), and its {@code control} on the right.
          */
         public Section row(String name, String description, Node control) {
-            Label nameLabel = wrapping(name, "settings-row-name");
-            VBox text = new VBox(nameLabel);
-            text.getStyleClass().add("settings-row-text");
-            if (description != null && !description.isBlank()) {
-                text.getChildren().add(wrapping(description, "settings-row-description"));
-            }
-            HBox.setHgrow(text, Priority.ALWAYS);
-            // A control keeps its width. The theme lets a drop-down give way down to a minimum
-            // (.settings-row > .combo-box-base), so a long choice does not crush the name,
-            // which keeps a minimum width too (.settings-row-text).
-            if (control instanceof Region region) {
-                region.setMinWidth(Region.USE_PREF_SIZE);
-            }
+            page.getChildren().add(rowNode(name, description, control));
+            return this;
+        }
 
-            HBox row = new HBox(text);
-            row.getStyleClass().add("settings-row");
-            row.setAlignment(Pos.CENTER_LEFT);
-            if (control != null) {
-                row.getChildren().add(control);
-            }
-            page.getChildren().add(row);
+        /** Starts a part of the section: its {@code title}, with its {@code actions} on the right. */
+        public Section subheading(String title, Node... actions) {
+            Label label = wrapping(title, "settings-subheading-title");
+            HBox.setHgrow(label, Priority.ALWAYS);
+            HBox heading = new HBox(label);
+            heading.getChildren().addAll(actions);
+            heading.getStyleClass().add("settings-subheading");
+            heading.setAlignment(Pos.CENTER_LEFT);
+            page.getChildren().add(heading);
             return this;
         }
 
@@ -114,6 +106,43 @@ public final class SettingsPane extends BorderPane {
             page.getChildren().add(node);
             return this;
         }
+    }
+
+    /**
+     * A setting's row, made on its own: for a list filled later (such as files found in a
+     * folder) whose rows should read like the others. {@link Section#row} adds one directly.
+     */
+    public static HBox rowNode(String name, String description, Node control) {
+        Label nameLabel = wrapping(name, "settings-row-name");
+        VBox text = new VBox(nameLabel);
+        text.getStyleClass().add("settings-row-text");
+        text.setAlignment(Pos.CENTER_LEFT);
+        if (description != null && !description.isBlank()) {
+            text.getChildren().add(wrapping(description, "settings-row-description"));
+        }
+        HBox.setHgrow(text, Priority.ALWAYS);
+        // A control keeps its width. The theme lets a drop-down give way down to a minimum
+        // (.settings-row > .combo-box-base), so a long choice does not crush the name,
+        // which keeps a minimum width too (.settings-row-text).
+        if (control instanceof Region region) {
+            region.setMinWidth(Region.USE_PREF_SIZE);
+        }
+
+        HBox row = new HBox(text);
+        row.getStyleClass().add("settings-row");
+        row.setAlignment(Pos.CENTER_LEFT);
+        if (control != null) {
+            row.getChildren().add(control);
+        }
+        return row;
+    }
+
+    /** Several controls side by side, for one row or as a row of buttons under a block. */
+    public static HBox controls(Node... nodes) {
+        HBox box = new HBox(nodes);
+        box.getStyleClass().add("settings-controls");
+        box.setAlignment(Pos.CENTER_RIGHT);
+        return box;
     }
 
     private static Label wrapping(String text, String styleClass) {

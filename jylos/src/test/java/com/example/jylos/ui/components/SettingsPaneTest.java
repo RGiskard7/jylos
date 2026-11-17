@@ -87,6 +87,39 @@ class SettingsPaneTest {
         assertEquals("one line", seen);
     }
 
+    /**
+     * A part of a section: its title with its actions beside it, and then rows made apart
+     * (as a list filled later is), which look like the section's other settings.
+     */
+    @Test
+    void aSubheadingCarriesItsActionsAndLooseRowsReadAsSettings() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            SettingsPane pane = new SettingsPane();
+            javafx.scene.control.Button reload = new javafx.scene.control.Button("Reload");
+            javafx.scene.layout.VBox list = new javafx.scene.layout.VBox(
+                    SettingsPane.rowNode("snippet-a", null, new CheckBox()),
+                    SettingsPane.rowNode("snippet-b", null, new CheckBox()));
+            pane.addSection("Appearance")
+                    .row("Theme", null, new ComboBox<String>())
+                    .subheading("CSS snippets", reload)
+                    .block(list);
+            new Scene(pane, 700, 400);
+            pane.applyCss();
+            pane.layout();
+            Label title = findLabel(pane, "CSS snippets");
+            return List.of(
+                    names(pane),
+                    title != null && title.getParent() == reload.getParent() ? "actions beside the title" : "apart",
+                    title != null && title.getStyleClass().contains("settings-subheading-title") ? "subheading" : "plain");
+        });
+
+        assertEquals("Theme,snippet-a,snippet-b", seen.get(0));
+        assertEquals("actions beside the title", seen.get(1));
+        assertEquals("subheading", seen.get(2));
+    }
+
     /** Choosing a section on the left shows its settings and only those. */
     @Test
     void choosingASectionShowsItsSettings() throws Exception {

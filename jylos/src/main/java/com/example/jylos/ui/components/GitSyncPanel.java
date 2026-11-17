@@ -21,7 +21,6 @@ import com.example.jylos.ui.UiNodes;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.css.PseudoClass;
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
@@ -194,26 +193,27 @@ public final class GitSyncPanel {
 
         logArea.setEditable(false);
         logArea.setWrapText(true);
-        logArea.setPrefRowCount(7);
-        logArea.setMinHeight(120);
+        logArea.setPrefRowCount(5);
+        logArea.setMinHeight(90);
+        logArea.setMaxHeight(170);
         logArea.getStyleClass().add("git-log-area");
         logArea.setFocusTraversable(false);
 
         Label logHeader = new Label(str("git.panel.log"));
         logHeader.getStyleClass().add("git-section-header");
 
-        VBox activity = new VBox(6, logHeader, logArea);
+        // The running operation and its cancel button head the log, where its output goes;
+        // the repository's state above takes the room the window has to spare.
+        HBox logHeaderRow = new HBox(8, logHeader, spacer(), operationLabel, cancelBtn);
+        logHeaderRow.setAlignment(Pos.CENTER_LEFT);
+        VBox activity = new VBox(6, logHeaderRow, progress, logArea);
         activity.getStyleClass().add("git-sync-activity");
-        VBox.setVgrow(logArea, Priority.ALWAYS);
 
         stateStack.getStyleClass().add("git-sync-state");
         showState(loadingView);
-        HBox operationRow = new HBox(8, operationLabel, spacer(), cancelBtn);
-        operationRow.setAlignment(Pos.CENTER_LEFT);
-        VBox root = new VBox(10, operationRow, progress, stateStack, activity);
+        VBox root = new VBox(14, stateStack, activity);
         root.getStyleClass().add("git-sync-root");
-        VBox.setVgrow(activity, Priority.ALWAYS);
-        root.setPadding(new Insets(12, 12, 10, 12));
+        VBox.setVgrow(stateStack, Priority.ALWAYS);
         dialog.getDialogPane().setContent(root);
     }
 
@@ -245,7 +245,7 @@ public final class GitSyncPanel {
         changesList.getStyleClass().add("git-sync-changes");
         changesList.setPrefHeight(155);
         changesList.setMinHeight(110);
-        changesList.setMaxHeight(190);
+        VBox.setVgrow(changesList, Priority.ALWAYS);
 
         configureButton(refreshBtn, "git.panel.refresh", () -> refresh(true));
         configureButton(stageAllBtn, "git.panel.stage_all", () -> runOp("git.panel.stage_all", () -> git.stageAll(vault)));
@@ -285,14 +285,14 @@ public final class GitSyncPanel {
     /** Constructs the "not a Git repository yet" setup view with an init hint and button. */
     private void buildSetupView() {
         Label title = new Label(str("git.panel.not_repo"));
-        title.getStyleClass().add("git-section-header");
+        title.getStyleClass().add("git-empty-title");
         title.setWrapText(true);
         setupHint.setText(str("git.panel.init_hint"));
         setupHint.getStyleClass().add("git-change-path");
         setupHint.setWrapText(true);
         configureButton(initBtn, "git.panel.init", () -> runOp("git.panel.init", () -> git.init(vault)));
         initBtn.getStyleClass().add("git-primary-btn");
-        setupView.setAlignment(Pos.CENTER_LEFT);
+        setupView.setAlignment(Pos.TOP_LEFT);
         setupView.getChildren().setAll(title, setupHint, initBtn);
     }
 
@@ -795,8 +795,8 @@ public final class GitSyncPanel {
             case "deleted" -> "D";
             case "renamed" -> "R";
             case "copied" -> "C";
-            case "untracked" -> "??";
-            case "conflicted" -> "UU";
+            case "untracked" -> "U";
+            case "conflicted" -> "!";
             case "nested_repository_dirty" -> "M";
             default -> "•";
         };

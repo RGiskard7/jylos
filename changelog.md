@@ -97,7 +97,9 @@
   - **Árboles:** muestran líneas guía bajo cada carpeta abierta y ordenan los acentos y los números de forma natural, también en el árbol clásico. La papelera usa los iconos de carpeta del Explorador.
   - **Arranque:** una ventana de carga muestra el icono y el nombre mientras se prepara la ventana principal, ya sin destello en tema claro al abrir en oscuro. La ventana responde antes.
   - **Modo concentración:** ya no tiene botón; se activa y se sale con Cmd/Ctrl+Shift+F, el menú Ver o la paleta.
-  - **Preferencias rediseñadas:** las secciones a la izquierda (General, Editor, Notas y pestañas, Apariencia y Snippets CSS) y una fila por ajuste, con una breve explicación bajo el nombre. Los textos largos saltan de línea en vez de cortarse, y la ventana es más grande, se puede redimensionar y crece con la letra de la interfaz.
+  - **Preferencias rediseñadas:** las secciones a la izquierda (General, Editor, Notas y pestañas y Apariencia) y una fila por ajuste, con una breve explicación bajo el nombre. Los snippets CSS están al final de Apariencia, uno por fila, con recargar y abrir la carpeta junto a su título. Los textos largos saltan de línea en vez de cortarse, y la ventana es más grande, se puede redimensionar y crece con la letra de la interfaz.
+  - **Ventanas y avisos con un mismo estilo:** el título va sobre el fondo de la ventana, sin franja ni el icono genérico de pregunta, y el contenido tiene más aire. Los bordes ya no cambian de color al pasar el ratón ni al escribir en un campo, los cuadros de texto de los diálogos tienen un solo borde, y las cabeceras pequeñas ya no van en una negrita apretada.
+  - **Panel de Git más claro:** la lista de cambios ocupa el espacio libre y el registro de actividad tiene una altura fija, con el estado de la operación en su cabecera. Los ficheros nuevos se marcan con "U" y los conflictos con "!", y una bóveda sin repositorio muestra arriba su título y el botón para crearlo.
 
 - **Plugins:** `registerStatusBarItem(id, nodo)` añade un elemento a la barra de estado, como `addStatusBarItem()` en Obsidian.
 
