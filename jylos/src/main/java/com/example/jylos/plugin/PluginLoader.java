@@ -20,6 +20,7 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.prefs.Preferences;
 
 import com.example.jylos.AppDataDirectory;
 import com.example.jylos.AppDirectories;
@@ -107,6 +108,9 @@ public class PluginLoader {
     public static PluginLoadReport loadExternalPluginsWithReport() {
         // Copy bundled plugins to AppData on first run (packaged apps: DMG, MSI, etc.)
         copyBundledPluginsToAppDataIfNeeded();
+        // What plugins Jylos no longer has left behind: their settings and Jylos's copies.
+        RetiredPlugins.cleanUp(getPluginsDirectory(), Preferences.userNodeForPackage(PluginManager.class))
+                .forEach(logger::info);
 
         List<Plugin> plugins = new ArrayList<>();
         List<String> failures = new ArrayList<>();
@@ -353,6 +357,12 @@ public class PluginLoader {
             }
 
             Plugin plugin = (Plugin) pluginClass.getDeclaredConstructor().newInstance();
+            if (RetiredPlugins.isRetired(plugin.getId())) {
+                logger.info("Skipping " + jarPath.getFileName() + ": plugin '" + plugin.getId()
+                        + "' is no longer part of Jylos");
+                closeQuietly(classLoader);
+                return null;
+            }
 
             String pluginApiVersion = plugin.getHostApiVersion();
             if (!isHostApiCompatible(pluginApiVersion)) {

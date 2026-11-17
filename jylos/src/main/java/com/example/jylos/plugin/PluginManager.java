@@ -46,7 +46,7 @@ import com.example.jylos.ui.components.CommandPalette;
 public class PluginManager {
 
     private static final Logger logger = LoggerConfig.getLogger(PluginManager.class);
-    private static final String PREFS_DISABLED_PREFIX = "plugin.disabled.";
+    static final String PREFS_DISABLED_PREFIX = "plugin.disabled.";
 
     /**
      * Plugin states.

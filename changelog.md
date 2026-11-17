@@ -110,6 +110,7 @@
   - **Panel de Git más claro:** la lista de cambios ocupa el espacio libre y el registro de actividad tiene una altura fija, con el estado de la operación en su cabecera. Los ficheros nuevos se marcan con "U" y los conflictos con "!", y una bóveda sin repositorio muestra arriba su título y el botón para crearlo.
 
 - **Plugins:** `registerStatusBarItem(id, nodo)` añade un elemento a la barra de estado, como `addStatusBarItem()` en Obsidian.
+- **Fuera el plugin de IA (AI Assistant):** era una prueba y no estaba a la altura. Al actualizar, Jylos ya no lo carga, borra sus ajustes (con la API key que guardaba) y quita la copia que versiones anteriores dejaron en la carpeta de plugins; un JAR que pusiera el usuario allí se queda, sin cargarse.
 
 - **Exportar a PDF imprime la nota como se lee:** `[[Nota|texto]]` sale como su texto, `![[Nota]]` imprime la nota incrustada y se imprimen las tarjetas de enlace.
 

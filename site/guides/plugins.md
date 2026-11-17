@@ -15,7 +15,6 @@ These ship with Jylos as first-party plugins built into JARs:
 - **Reading Time** — show estimated reading time.
 - **Auto Backup** — schedule vault backups.
 - **Templates** — create notes from templates.
-- **AI** — AI assistant integration.
 - **Word Count** — word/character counts.
 - **Table of Contents** — generate a table of contents for a note.
 

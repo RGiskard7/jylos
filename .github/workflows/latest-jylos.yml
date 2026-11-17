@@ -42,7 +42,7 @@ jobs:
 
       # Plugin sources are compiled against the app like third-party plugins, so the
       # Maven run above never sees them; this builds the plugin JARs and runs their tests
-      # (Dataview, MCP, Publish, AI…). Some open JavaFX dialogs, hence xvfb.
+      # (Dataview, MCP, Publish…). Some open JavaFX dialogs, hence xvfb.
       - name: Build and test plugins
         run: xvfb-run -a bash ./scripts/test-plugins.sh
 

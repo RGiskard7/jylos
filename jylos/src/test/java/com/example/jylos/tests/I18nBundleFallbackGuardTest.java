@@ -107,12 +107,7 @@ class I18nBundleFallbackGuardTest {
         "plugin.daily-notes.daily-notes-open-yesterday",
         "plugin.daily-notes.daily-notes-open-tomorrow",
         "plugin.daily-notes.daily-notes-this-week",
-        "plugin.outline.outline-refresh",
-        "plugin.ai-assistant.ai-summarize-note",
-        "plugin.ai-assistant.ai-translate-note",
-        "plugin.ai-assistant.ai-improve-writing",
-        "plugin.ai-assistant.ai-generate-content",
-        "plugin.ai-assistant.ai-configure-api"
+        "plugin.outline.outline-refresh"
     };
 
     @Test

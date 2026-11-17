@@ -237,15 +237,15 @@ class LegacyDataMigrationTest {
     void pluginsThatShipWithTheAppAreNotMigrated() throws IOException {
         Path old = tmp.resolve("Local/Jylos");
         write(old.resolve("logs/app.log"), "log");
-        writePluginJar(old.resolve("plugins/AIPlugin.jar"), true);
+        writePluginJar(old.resolve("plugins/WordCountPlugin.jar"), true);
         writePluginJar(old.resolve("plugins/Mine.jar"), true);
         write(old.resolve("plugins/.bundled-plugins-copied"), "marker");
 
-        LegacyDataMigration.migrate(List.of(new Candidate(old, true)), target(), Set.of("AIPlugin.jar"));
+        LegacyDataMigration.migrate(List.of(new Candidate(old, true)), target(), Set.of("WordCountPlugin.jar"));
 
         Path plugins = target().dataRoot().resolve("plugins");
         assertTrue(Files.exists(plugins.resolve("Mine.jar")));
-        assertFalse(Files.exists(plugins.resolve("AIPlugin.jar")), "an old copy of a bundled plugin");
+        assertFalse(Files.exists(plugins.resolve("WordCountPlugin.jar")), "an old copy of a bundled plugin");
         assertFalse(Files.exists(plugins.resolve(".bundled-plugins-copied")),
                 "the new folder must receive the current bundled plugins");
     }
