@@ -263,8 +263,8 @@ class MarkdownPreviewTest {
 
     /**
      * Off macOS the pages are told the engine draws no colour emoji, whatever drawing one on a
-     * canvas suggests: on Windows that check said yes while the text still came out black and
-     * white. Here, on a Mac where the check does say yes, the page is given the Windows answer.
+     * canvas suggests. Here, on a Mac where that check does say yes, the page is given the
+     * Windows answer.
      */
     @Test
     void offMacOsEveryEmojiStaysAnImageWhateverTheCanvasCheckSays() throws Exception {

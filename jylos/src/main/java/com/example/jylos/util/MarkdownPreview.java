@@ -986,9 +986,9 @@ public class MarkdownPreview {
 
     /**
      * Script that tells a page (the reading view, the editor) whether to show emoji as text.
-     * Only macOS's engine is known to draw emoji text in colour, so it alone keeps the page's
-     * own check (drawing one on a canvas). Elsewhere the answer is no, and every emoji stays an
-     * image: on Windows the canvas check said yes while the text still came out black and white.
+     * Only macOS's engine has been seen to draw emoji text in colour, so it alone keeps the
+     * page's own check (drawing one on a canvas). Elsewhere the answer is no, without relying on
+     * a check never tried there, and every emoji stays an image, Twemoji's where it has one.
      */
     public static String colourEmojiOverride(String osName) {
         boolean mac = osName != null && osName.toLowerCase(Locale.ROOT).contains("mac");
