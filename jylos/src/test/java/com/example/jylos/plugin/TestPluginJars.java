@@ -35,7 +35,8 @@ public final class TestPluginJars {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         assertNotNull(compiler, "Tests must run on a JDK, not a JRE");
         String className = "P" + Integer.toHexString(pluginId.hashCode() & 0x7fffffff) + "x" + System.nanoTime();
-        Path work = Files.createTempDirectory(dir, "src");
+        // Compiled outside the plugin folder, where only the JAR goes.
+        Path work = Files.createTempDirectory("jylos-test-plugin");
         Path source = Files.createDirectories(work.resolve("testplugins")).resolve(className + ".java");
         Files.writeString(source, """
                 package testplugins;

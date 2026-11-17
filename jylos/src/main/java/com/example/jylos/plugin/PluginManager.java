@@ -79,6 +79,7 @@ public class PluginManager {
     private final Map<String, Plugin> plugins = new HashMap<>();
     private final Map<String, PluginState> pluginStates = new HashMap<>();
     private final Map<String, PluginContext> pluginContexts = new HashMap<>();
+    private final Map<String, PluginOrigin> origins = new HashMap<>();
     private final Preferences pluginPreferences = Preferences.userNodeForPackage(PluginManager.class);
 
     /**
@@ -134,12 +135,23 @@ public class PluginManager {
     }
 
     /**
-     * Registers a plugin.
+     * Registers a community plugin.
      * 
      * @param plugin The plugin to register
      * @return true if registered successfully, false otherwise
      */
     public boolean registerPlugin(Plugin plugin) {
+        return registerPlugin(plugin, PluginOrigin.COMMUNITY);
+    }
+
+    /**
+     * Registers a plugin, Jylos's own or the community's.
+     *
+     * @param plugin The plugin to register
+     * @param origin where it comes from
+     * @return true if registered successfully, false otherwise
+     */
+    public boolean registerPlugin(Plugin plugin, PluginOrigin origin) {
         if (plugin == null) {
             logger.warning("Attempted to register null plugin");
             return false;
@@ -158,6 +170,7 @@ public class PluginManager {
 
         plugins.put(pluginId, plugin);
         pluginStates.put(pluginId, PluginState.REGISTERED);
+        origins.put(pluginId, origin != null ? origin : PluginOrigin.COMMUNITY);
         logger.info("Registered plugin: " + plugin.getName() + " (" + pluginId + ")");
 
         return true;
@@ -180,6 +193,7 @@ public class PluginManager {
         // Remove plugin
         plugins.remove(pluginId);
         pluginStates.remove(pluginId);
+        origins.remove(pluginId);
         pluginContexts.remove(pluginId);
 
         // Remove UI components
@@ -451,6 +465,7 @@ public class PluginManager {
         if (!registerPlugin(plugin) || !initializePlugin(plugin.getId())) {
             plugins.remove(plugin.getId());
             pluginStates.remove(plugin.getId());
+            origins.remove(plugin.getId());
             pluginContexts.remove(plugin.getId());
             PluginLoader.releasePluginJar(installedJar);
             deleteInstalledCopyIfNeeded(sourceJar, installedJar);
@@ -485,6 +500,7 @@ public class PluginManager {
 
         plugins.remove(pluginId);
         pluginStates.remove(pluginId);
+        origins.remove(pluginId);
         pluginContexts.remove(pluginId);
         clearDisabledPreference(pluginId);
 
@@ -499,7 +515,14 @@ public class PluginManager {
      * @return {@code true} when its JAR is in the user plugins directory
      */
     public boolean isPluginRemovable(String pluginId) {
-        return PluginLoader.isPluginRemovable(pluginId);
+        // Jylos's own plugins come with the installation, even when the portable build keeps
+        // them in the user's folder.
+        return originOf(pluginId) == PluginOrigin.COMMUNITY && PluginLoader.isPluginRemovable(pluginId);
+    }
+
+    /** Whether the plugin is Jylos's own or the community's ({@code COMMUNITY} if unknown). */
+    public PluginOrigin originOf(String pluginId) {
+        return origins.getOrDefault(pluginId, PluginOrigin.COMMUNITY);
     }
 
     private void deleteInstalledCopyIfNeeded(Path sourceJar, Path installedJar) throws IOException {

@@ -9,6 +9,7 @@ import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginLoader;
 import com.example.jylos.plugin.PluginManager;
+import com.example.jylos.plugin.PluginOrigin;
 import com.example.jylos.plugin.mermaid.MermaidPlugin;
 
 /**
@@ -29,13 +30,13 @@ class PluginLifecycle {
             return new LoadResult(0, List.of("PluginManager is null"));
         }
 
-        pluginManager.registerPlugin(new MermaidPlugin());
+        pluginManager.registerPlugin(new MermaidPlugin(), PluginOrigin.CORE);
 
         PluginLoader.PluginLoadReport pluginLoadReport = PluginLoader.loadExternalPluginsWithReport();
         int registeredCount = 0;
 
         for (Plugin plugin : pluginLoadReport.getPlugins()) {
-            if (pluginManager.registerPlugin(plugin)) {
+            if (pluginManager.registerPlugin(plugin, pluginLoadReport.originOf(plugin))) {
                 registeredCount++;
             } else {
                 logger.warning("Failed to register external plugin: " + plugin.getName());
