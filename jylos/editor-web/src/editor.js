@@ -66,9 +66,10 @@ const editableCompartment = new Compartment();
 
 function editorHighlight(config) {
   const dark = Boolean(config?.dark);
-  const accent = config?.accent || (dark ? "#7da6ff" : "#315fbd");
-  const foreground = dark ? "#e6e6e6" : "#23252a";
-  const muted = dark ? "#9ca3af" : "#667085";
+  const palette = config?.palette || {};
+  const accent = config?.accent || palette.accent || (dark ? "#7da6ff" : "#315fbd");
+  const foreground = palette.foreground || (dark ? "#e6e6e6" : "#23252a");
+  const muted = palette.muted || (dark ? "#9ca3af" : "#667085");
   const code = dark ? "#d7ba7d" : "#8a4b08";
   const string = dark ? "#a8cc8c" : "#347a37";
   const keyword = dark ? "#c792ea" : "#7c3db5";
@@ -246,15 +247,20 @@ function typingSafeKeymap(bindings) {
 // listener needed, same as Obsidian (also a web-rendered editor underneath).
 const READABLE_LINE_LENGTH_PX = 700;
 
+// An external theme's colours (config.palette, sent by Java) win over the built-in dark and
+// light ones; the accent chosen in Preferences (config.accent) wins over the theme's.
 function editorTheme(config) {
   const dark = Boolean(config.dark);
-  const accent = config.accent || (dark ? "#7da6ff" : "#315fbd");
-  const background = dark ? "#1e1e1e" : "#ffffff";
-  const foreground = dark ? "#e6e6e6" : "#23252a";
-  const muted = dark ? "#9ca3af" : "#667085";
-  const panel = dark ? "#292929" : "#f5f6f8";
-  const border = dark ? "#3b3b3b" : "#d8dce3";
-  const selection = dark ? "#35548a" : "#b9d2ff";
+  const palette = config.palette || {};
+  const accent = config.accent || palette.accent || (dark ? "#7da6ff" : "#315fbd");
+  const background = palette.background || (dark ? "#1e1e1e" : "#ffffff");
+  const foreground = palette.foreground || (dark ? "#e6e6e6" : "#23252a");
+  const muted = palette.muted || (dark ? "#9ca3af" : "#667085");
+  const panel = palette.panel || (dark ? "#292929" : "#f5f6f8");
+  const border = palette.border || (dark ? "#3b3b3b" : "#d8dce3");
+  const selection = palette.selection || (dark ? "#35548a" : "#b9d2ff");
+  const surface = palette.surface || (dark ? "#242424" : "#f7f9fc");
+  const codeBackground = palette.surface || (dark ? "#252525" : "#f4f5f7");
   const readableLineLength = Boolean(config.readableLineLength);
 
   return EditorView.theme({
@@ -266,7 +272,7 @@ function editorTheme(config) {
       "--jylos-muted": muted,
       "--jylos-panel": panel,
       "--jylos-border": border,
-      "--jylos-code-bg": dark ? "#252525" : "#f4f5f7"
+      "--jylos-code-bg": codeBackground
     },
     ".cm-scroller": {
       overflow: "auto",
@@ -286,7 +292,7 @@ function editorTheme(config) {
     ".cm-line": { padding: "0" },
     ".cm-dropCursor": { borderLeftColor: foreground },
     "::selection": { backgroundColor: selection },
-    ".cm-activeLine": { backgroundColor: dark ? "#242424" : "#f7f9fc" },
+    ".cm-activeLine": { backgroundColor: surface },
     ".cm-panels": { color: foreground, backgroundColor: panel, borderColor: border },
     ".cm-panels.cm-panels-top": { borderBottom: `1px solid ${border}` },
     ".cm-search label": { color: foreground },

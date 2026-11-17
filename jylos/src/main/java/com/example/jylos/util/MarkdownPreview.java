@@ -104,10 +104,20 @@ public class MarkdownPreview {
      *                                back to {@code baseDir}
      * @param links                   the vault's link index, to tell links to existing notes
      *                                from links to notes to create; {@code null} for none
+     * @param palette                 the colours of an external theme, painted over the
+     *                                page's own; {@code null} to keep them
      */
     public record PreviewOptions(Path baseDir, Function<String, String> embeddedContentResolver,
             PreviewContext context, boolean readableLineLength, int contentFontSize,
-            Path imageContainmentRoot, LinkIndex links) {
+            Path imageContainmentRoot, LinkIndex links, ThemePalette palette) {
+
+        /** With the page's own colours. */
+        public PreviewOptions(Path baseDir, Function<String, String> embeddedContentResolver,
+                PreviewContext context, boolean readableLineLength, int contentFontSize,
+                Path imageContainmentRoot, LinkIndex links) {
+            this(baseDir, embeddedContentResolver, context, readableLineLength, contentFontSize,
+                    imageContainmentRoot, links, null);
+        }
 
         /** No images inlined, no embeds, no note, no links. */
         public static PreviewOptions none() {
@@ -116,7 +126,12 @@ public class MarkdownPreview {
 
         public PreviewOptions withBaseDir(Path dir) {
             return new PreviewOptions(dir, embeddedContentResolver, context, readableLineLength, contentFontSize,
-                    imageContainmentRoot, links);
+                    imageContainmentRoot, links, palette);
+        }
+
+        public PreviewOptions withPalette(ThemePalette colours) {
+            return new PreviewOptions(baseDir, embeddedContentResolver, context, readableLineLength, contentFontSize,
+                    imageContainmentRoot, links, colours);
         }
     }
 
@@ -205,6 +220,7 @@ public class MarkdownPreview {
 
         String styleBlock = isDarkTheme ? MarkdownPreview.darkStyles(readableLineLength, contentFontSize)
                 : MarkdownPreview.lightStyles(readableLineLength, contentFontSize);
+        styleBlock = styleBlock + paletteStyles(o.palette());
         String highlightScript = codeBlocks ? MarkdownPreview.highlightScriptBlock() : "";
 
         // KaTeX math (offline) — only when the note actually contains math delimiters.
@@ -371,8 +387,14 @@ public class MarkdownPreview {
     }
 
     public static String buildEmptyHtml(boolean isDarkTheme) {
-        String fg = isDarkTheme ? "#B3B3B3" : "#71717A";
-        String bg = isDarkTheme ? "#1E1E1E" : "#FFFFFF";
+        return buildEmptyHtml(isDarkTheme, null);
+    }
+
+    /** The empty page, in an external theme's colours when {@code palette} is given. */
+    public static String buildEmptyHtml(boolean isDarkTheme, ThemePalette palette) {
+        String fg = palette != null ? palette.muted() : isDarkTheme ? "#B3B3B3" : "#71717A";
+        String bg = palette != null ? palette.background() : isDarkTheme ? "#1E1E1E" : "#FFFFFF";
+        String thumb = palette != null ? palette.border() : isDarkTheme ? "#505050" : "#CBD5E0";
         return """
                 <!DOCTYPE html>
                 <html>
@@ -389,7 +411,7 @@ public class MarkdownPreview {
                 </head>
                 <body></body>
                 </html>
-                """.formatted(fg, bg, bg, isDarkTheme ? "#505050" : "#CBD5E0");
+                """.formatted(fg, bg, bg, thumb);
     }
 
     /**
@@ -471,6 +493,43 @@ public class MarkdownPreview {
      */
     private static String contentFontSizeRule(int contentFontSize) {
         return contentFontSize > 0 ? "body { font-size: " + contentFontSize + "px; }" : "";
+    }
+
+    /**
+     * An external theme's colours over the page's own: background, text, headings, links,
+     * quotes, code, tables, cards and embeds. Empty without a palette.
+     */
+    static String paletteStyles(ThemePalette p) {
+        if (p == null) {
+            return "";
+        }
+        return """
+
+                /* theme palette */
+                html, body { background-color: %1$s; color: %2$s; }
+                ::-webkit-scrollbar-track { background: %1$s; }
+                ::-webkit-scrollbar-thumb { background: %3$s; }
+                ::-webkit-scrollbar-thumb:hover { background: %4$s; }
+                h1, h2, h3, h4, h5, h6, strong, table th { color: %2$s; }
+                ul, ol, table td, .rich-link-title { color: %2$s; }
+                h1, h2 { border-bottom-color: %3$s; }
+                hr { border-top-color: %3$s; }
+                img, pre, table th, table td, a.rich-link-card { border-color: %3$s; }
+                code:not(pre code) { background-color: %5$s; color: %6$s; }
+                pre { background-color: %5$s; }
+                blockquote { border-left-color: %6$s; color: %4$s; background-color: %5$s; }
+                table th { background-color: %5$s; }
+                table td { background-color: %1$s; }
+                a, a.wikilink, .embed-title { color: %6$s; }
+                a.wikilink { border-bottom-color: %6$s; }
+                a:hover, a.wikilink:hover { color: %2$s; }
+                a.rich-link-card { background-color: %5$s; }
+                a.rich-link-card:hover { border-color: %6$s; background-color: %7$s; }
+                .rich-link-desc, .footnotes { color: %4$s; }
+                .rich-link-site { color: %8$s; }
+                .embed { border-left-color: %3$s; background-color: %5$s; }
+                """.formatted(p.background(), p.text(), p.border(), p.muted(), p.surface(), p.accent(), p.hover(),
+                p.faint());
     }
 
     private static String darkStyles(boolean readableLineLength, int contentFontSize) {

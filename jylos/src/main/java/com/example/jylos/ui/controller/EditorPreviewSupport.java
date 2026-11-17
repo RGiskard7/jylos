@@ -17,10 +17,12 @@ import com.example.jylos.plugin.PreviewEnhancer;
 import com.example.jylos.service.LinkIndex;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.ui.components.WebViewImages;
+import com.example.jylos.ui.theme.ActiveThemePalette;
 import com.example.jylos.ui.web.HtmlView;
 import com.example.jylos.util.MarkdownPreview;
 import com.example.jylos.util.MarkdownProcessor;
 import com.example.jylos.util.SystemBrowser;
+import com.example.jylos.util.ThemePalette;
 import com.example.jylos.util.Transclusion;
 
 import javafx.animation.PauseTransition;
@@ -170,6 +172,7 @@ public final class EditorPreviewSupport {
         PreviewContext context = new PreviewContext(note, darkTheme);
         boolean readable = host.readableLineLength();
         int fontSize = (int) Math.round(host.contentFontSize());
+        ThemePalette palette = ActiveThemePalette.get();
 
         Task<String> task = new Task<>() {
             @Override
@@ -179,9 +182,9 @@ public final class EditorPreviewSupport {
                     LinkIndex links = notes != null ? notes.linkIndex() : null;
                     return MarkdownPreview.buildPreviewHtml(content, darkTheme, renderEnhancers,
                             new MarkdownPreview.PreviewOptions(baseDir, link -> embedContent(link, note),
-                                    context, readable, fontSize, containmentRoot, links));
+                                    context, readable, fontSize, containmentRoot, links, palette));
                 }
-                return MarkdownPreview.buildEmptyHtml(darkTheme);
+                return MarkdownPreview.buildEmptyHtml(darkTheme, palette);
             }
         };
         task.setOnSucceeded(e -> {
@@ -222,7 +225,7 @@ public final class EditorPreviewSupport {
         grace.setOnFinished(e -> {
             if (task == currentTask && !task.isDone() && host.previewShown()) {
                 renderedNoteId = null;
-                host.previewWebView().loadHtml(MarkdownPreview.buildEmptyHtml(darkTheme));
+                host.previewWebView().loadHtml(MarkdownPreview.buildEmptyHtml(darkTheme, ActiveThemePalette.get()));
             }
         });
         grace.play();

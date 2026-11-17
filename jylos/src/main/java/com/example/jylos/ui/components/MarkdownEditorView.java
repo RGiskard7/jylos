@@ -15,11 +15,15 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.ui.theme.ActiveThemePalette;
 import com.example.jylos.ui.web.HtmlView;
 import com.example.jylos.ui.web.JavaFxHtmlView;
 import com.example.jylos.util.MarkdownPreview;
+import com.example.jylos.util.ThemePalette;
 import com.example.jylos.util.WikiLinkResolver;
 import com.google.gson.Gson;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
 
 import javafx.application.Platform;
 import javafx.scene.control.ContextMenu;
@@ -274,11 +278,39 @@ public final class MarkdownEditorView extends StackPane {
         whenReady(() -> execute("window.JylosEditor.setLabels(" + GSON.toJson(labels) + ")"));
     }
 
+    /** Dark or light, the accent chosen in Preferences, and the colours of the external theme in use. */
     public void setEditorTheme(boolean dark, String accentColor) {
         darkTheme = dark;
         accent = accentColor != null ? accentColor : "";
-        whenReady(() -> execute("window.JylosEditor.setTheme("
-                + GSON.toJson(Map.of("dark", darkTheme, "accent", accent)) + ")"));
+        ThemePalette palette = ActiveThemePalette.get();
+        whenReady(() -> execute("window.JylosEditor.setTheme(" + themeConfig(darkTheme, accent, palette) + ")"));
+    }
+
+    /**
+     * The theme as the editor page takes it. The page keeps what it was told before, so without
+     * a palette it is told {@code null}, to go back to its own colours.
+     */
+    static String themeConfig(boolean dark, String accent, ThemePalette palette) {
+        JsonObject config = new JsonObject();
+        config.addProperty("dark", dark);
+        config.addProperty("accent", accent != null ? accent : "");
+        if (palette == null) {
+            config.add("palette", JsonNull.INSTANCE);
+        } else {
+            JsonObject colours = new JsonObject();
+            colours.addProperty("background", palette.background());
+            colours.addProperty("foreground", palette.text());
+            colours.addProperty("muted", palette.muted());
+            colours.addProperty("panel", palette.header());
+            colours.addProperty("surface", palette.surface());
+            colours.addProperty("border", palette.border());
+            // The accent behind selected text would hide it; the hover colour is soft enough.
+            colours.addProperty("selection", palette.hover());
+            colours.addProperty("accent", palette.accent());
+            config.add("palette", colours);
+        }
+        // toString(), not Gson.toJson: Gson leaves out a null member, and the page would keep the last palette.
+        return config.toString();
     }
 
     public void setEditorFontSize(double size) {

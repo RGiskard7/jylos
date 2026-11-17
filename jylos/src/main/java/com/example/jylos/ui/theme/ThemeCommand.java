@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -12,6 +13,7 @@ import java.util.prefs.Preferences;
 
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
+import com.example.jylos.util.ThemePalette;
 
 import javafx.scene.Node;
 import javafx.scene.Scene;
@@ -284,6 +286,7 @@ public final class ThemeCommand {
                     scene.getStylesheets().add(baseStylesheet.toExternalForm());
                 }
                 scene.getStylesheets().add(external.cssPath());
+                ActiveThemePalette.set(externalPalette(external, baseStylesheet));
                 String variant = external.darkLike() ? "dark" : "light";
                 applyRootThemeClass(scene, variant);
                 appendSnippets(scene, snippetCssUris);
@@ -306,6 +309,7 @@ public final class ThemeCommand {
         }
 
         scene.getStylesheets().add(themeResource.toExternalForm());
+        ActiveThemePalette.set(null);
         applyRootThemeClass(scene, variant);
         appendSnippets(scene, snippetCssUris);
         ensurePreviewThemeClass(previewWebView);
@@ -314,6 +318,16 @@ public final class ThemeCommand {
         }
         logger.info("Theme applied: requested=" + currentTheme + ", variant=" + variant);
         return new ThemeApplicationResult(currentTheme, variant, false);
+    }
+
+    /** The colours of an external theme over its base stylesheet ({@code null} for none). */
+    ThemePalette externalPalette(ThemeCatalog.ThemeDescriptor external, URL baseStylesheet) {
+        List<String> sheets = new ArrayList<>();
+        if (baseStylesheet != null) {
+            sheets.add(baseStylesheet.toExternalForm());
+        }
+        sheets.add(external.cssPath());
+        return ThemePalette.read(sheets);
     }
 
     URL resolveBuiltinStylesheet(String variant, Class<?> resourceAnchor) {

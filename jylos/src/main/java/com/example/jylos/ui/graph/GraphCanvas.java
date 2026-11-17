@@ -12,6 +12,8 @@ import java.util.function.Consumer;
 import com.example.jylos.graph.GraphData;
 import com.example.jylos.graph.GraphEdge;
 import com.example.jylos.graph.GraphNode;
+import com.example.jylos.ui.theme.ActiveThemePalette;
+import com.example.jylos.util.ThemePalette;
 
 import javafx.animation.AnimationTimer;
 import javafx.scene.Cursor;
@@ -252,9 +254,15 @@ public final class GraphCanvas extends Region {
         openScale = savedScale != null && savedScale > 0 ? savedScale : null;
     }
 
-    /** Applies the dark/light palette and repaints. */
+    /** Applies the dark/light palette, or the external theme's colours if one is in use, and repaints. */
     public void setDarkTheme(boolean dark) {
-        this.palette = dark ? Palette.dark() : Palette.light();
+        setTheme(dark, ActiveThemePalette.get());
+    }
+
+    /** Applies an external theme's colours over the dark/light palette ({@code null}: that palette alone). */
+    public void setTheme(boolean dark, ThemePalette theme) {
+        Palette own = dark ? Palette.dark() : Palette.light();
+        this.palette = theme != null ? Palette.from(own, theme, dark) : own;
         draw();
     }
 
@@ -1415,6 +1423,25 @@ public final class GraphCanvas extends Region {
                     Color.web("#3a3f70", 0.07),           // link dim
                     Color.web("#2a2e44"),                 // text
                     Color.web("#e0723a"));                // accent / hover (warm, pops on light)
+        }
+
+        /**
+         * The theme's background, text and accent; notes in its muted text, notes still to
+         * write in its faint one. Tags and the ring around notes stay as {@code own}'s.
+         */
+        static Palette from(Palette own, ThemePalette theme, boolean dark) {
+            Color text = Color.web(theme.text());
+            return new Palette(
+                    Color.web(theme.background()),
+                    Color.web(theme.muted()),
+                    own.tag(),
+                    Color.web(theme.faint()),
+                    own.nodeRing(),
+                    Color.color(text.getRed(), text.getGreen(), text.getBlue(), dark ? 0.18 : 0.30),
+                    Color.web(theme.accent(), 0.95),
+                    Color.color(text.getRed(), text.getGreen(), text.getBlue(), dark ? 0.05 : 0.07),
+                    text,
+                    Color.web(theme.accent()));
         }
 
         static Palette dark() {
