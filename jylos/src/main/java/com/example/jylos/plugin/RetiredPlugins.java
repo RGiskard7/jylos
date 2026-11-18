@@ -36,6 +36,11 @@ public final class RetiredPlugins {
     private RetiredPlugins() {
     }
 
+    /** Whether {@code jarName} is the name Jylos shipped a retired plugin as. */
+    static boolean isRetiredJarName(String jarName) {
+        return RETIRED.containsValue(jarName);
+    }
+
     public static boolean isRetired(String pluginId) {
         return pluginId != null && RETIRED.containsKey(pluginId);
     }

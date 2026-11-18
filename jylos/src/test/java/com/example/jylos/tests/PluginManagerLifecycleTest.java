@@ -14,6 +14,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.prefs.Preferences;
+import java.util.UUID;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
@@ -261,6 +263,9 @@ class PluginManagerLifecycleTest {
                     new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry(),
                     new RecordingHookRegistry(), new RecordingToolbarRegistry(), null, note -> {
                     }, null, null, null);
+            Preferences states = Preferences.userRoot().node("/com/example/jylos/test/" + UUID.randomUUID());
+            manager.usePreferences(states);
+            manager.setCommunityPluginsAllowed(true);
 
             Plugin installed = manager.installPluginJar(sourceJar);
 
@@ -273,6 +278,7 @@ class PluginManagerLifecycleTest {
             assertEquals(pluginId, removed.getId());
             assertFalse(Files.exists(installedJar));
             assertFalse(manager.getPlugin(pluginId).isPresent());
+            states.removeNode();
         } finally {
             if (previousDataDir == null) {
                 System.clearProperty("jylos.data.dir");

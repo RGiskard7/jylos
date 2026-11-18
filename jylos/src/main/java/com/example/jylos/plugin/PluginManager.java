@@ -449,8 +449,16 @@ public class PluginManager {
      * @throws IOException if the JAR cannot be copied or loaded
      */
     public Plugin installPluginJar(Path sourceJar) throws IOException {
+        if (!communityPluginsAllowed()) {
+            throw new IOException("Community plugins are turned off (restricted mode)");
+        }
         Path installedJar = PluginLoader.installPluginJar(sourceJar);
-        Plugin plugin = PluginLoader.loadPluginJar(installedJar);
+        Plugin plugin = PluginLoader.loadCommunityJar(installedJar);
+        String needed = PluginLoader.incompatibleCommunityJars().get(installedJar.getFileName().toString());
+        if (plugin == null && needed != null) {
+            deleteInstalledCopyIfNeeded(sourceJar, installedJar);
+            throw new IOException("This plugin needs Jylos " + needed + " or later");
+        }
         if (plugin == null) {
             deleteInstalledCopyIfNeeded(sourceJar, installedJar);
             throw new IOException("The selected JAR does not contain a valid Jylos plugin");
@@ -461,7 +469,7 @@ public class PluginManager {
             throw new IOException("Plugin already installed: " + plugin.getId());
         }
         states.setEnabled(plugin.getId(), true);
-        if (!registerPlugin(plugin) || !initializePlugin(plugin.getId())) {
+        if (!registerPlugin(plugin, PluginOrigin.COMMUNITY) || !initializePlugin(plugin.getId())) {
             plugins.remove(plugin.getId());
             pluginStates.remove(plugin.getId());
             origins.remove(plugin.getId());
@@ -527,8 +535,11 @@ public class PluginManager {
      */
     public List<Plugin> reloadCommunityPlugins() {
         List<Plugin> added = new ArrayList<>();
+        if (!communityPluginsAllowed()) {
+            return added;
+        }
         for (Path jar : PluginLoader.unloadedCommunityJars()) {
-            Plugin plugin = PluginLoader.loadPluginJar(jar);
+            Plugin plugin = PluginLoader.loadCommunityJar(jar);
             if (plugin == null) {
                 continue;
             }
@@ -542,6 +553,36 @@ public class PluginManager {
             }
         }
         return added;
+    }
+
+    /** Whether community plugins are loaded (restricted mode off). */
+    public boolean communityPluginsAllowed() {
+        return states.communityAllowed(PluginLoader.getPluginsDirectoryFile().toPath());
+    }
+
+    /**
+     * Turns restricted mode off ({@code allowed}) or on. On, the community plugins are stopped
+     * and unloaded, keeping whether each one was on; off, they are loaded again as they were.
+     */
+    public void setCommunityPluginsAllowed(boolean allowed) {
+        states.setCommunityAllowed(allowed);
+        if (allowed) {
+            reloadCommunityPlugins();
+            return;
+        }
+        for (String id : new ArrayList<>(plugins.keySet())) {
+            if (originOf(id) != PluginOrigin.COMMUNITY) {
+                continue;
+            }
+            shutdownPlugin(id);
+            Path jar = PluginLoader.jarOf(id);
+            plugins.remove(id);
+            pluginStates.remove(id);
+            pluginContexts.remove(id);
+            origins.remove(id);
+            PluginLoader.releasePluginJar(jar);
+            logger.info("Restricted mode: unloaded community plugin " + id);
+        }
     }
 
     /** Whether the plugin is Jylos's own or the community's ({@code COMMUNITY} if unknown). */
@@ -592,8 +633,11 @@ public class PluginManager {
         }
     }
 
-    /** Keeps the plugins' states in {@code node} instead of the user's preferences. */
-    void usePreferences(Preferences node) {
+    /**
+     * Keeps the plugins' states (on or off, restricted mode) in {@code node} instead of the
+     * user's preferences; for tests, which must not depend on or change the user's.
+     */
+    public void usePreferences(Preferences node) {
         this.states = new PluginStates(node);
     }
 

@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.UUID;
+import java.util.prefs.Preferences;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
@@ -35,9 +37,13 @@ import javafx.scene.control.Tooltip;
 class PluginManagerDialogTest {
 
     private String previousDataDir;
+    private Preferences node;
 
     @AfterEach
-    void restore() {
+    void restore() throws Exception {
+        if (node != null) {
+            node.removeNode();
+        }
         if (previousDataDir == null) {
             System.clearProperty("jylos.data.dir");
         } else {
@@ -58,6 +64,9 @@ class PluginManagerDialogTest {
         PluginManager manager = new PluginManager(null, null, null, null, null, null, null, null, null, null, null,
                 note -> {
                 }, null, null, null);
+        node = Preferences.userRoot().node("/com/example/jylos/test/" + UUID.randomUUID());
+        manager.usePreferences(node);
+        manager.setCommunityPluginsAllowed(true);
         manager.registerPlugin(PluginLoader.loadPluginJar(TestPluginJars.build(data.resolve("install"), core, "Core.jar")),
                 PluginOrigin.CORE);
         manager.registerPlugin(PluginLoader.loadPluginJar(

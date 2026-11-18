@@ -31,7 +31,18 @@ public final class CorePlugins {
             Map.entry("publish", false),
             Map.entry("auto-backup", false));
 
+    /** The names of the JARs the installation ships them as (Mermaid is in the app itself). */
+    private static final Set<String> SHIPPED_JARS = Set.of(
+            "AutoBackupPlugin.jar", "CalendarPlugin.jar", "DailyNotesPlugin.jar", "DataviewPlugin.jar",
+            "McpServerPlugin.jar", "OutlinePlugin.jar", "PublishPlugin.jar", "ReadingTimePlugin.jar",
+            "TableOfContentsPlugin.jar", "TemplatesPlugin.jar", "WordCountPlugin.jar");
+
     private CorePlugins() {
+    }
+
+    /** The JAR names they are shipped as. */
+    public static Set<String> shippedJarNames() {
+        return SHIPPED_JARS;
     }
 
     public static boolean isCore(String pluginId) {

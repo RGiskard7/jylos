@@ -24,6 +24,7 @@ import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.util.FileManager;
 
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
@@ -62,6 +63,7 @@ public class PluginManagerDialog {
     private Stage dialogStage;
     private VBox pluginListContainer;
     private Label countLabel;
+    private Button installButton;
     private ResourceBundle bundle;
 
     /** Toggle switches per plugin id, so the list can refresh their state. */
@@ -147,7 +149,7 @@ public class PluginManagerDialog {
         footer.setAlignment(Pos.CENTER_LEFT);
         footer.getStyleClass().add("plugin-manager-footer");
 
-        Button installButton = new Button(i18n("dialog.plugin_manager.install"));
+        installButton = new Button(i18n("dialog.plugin_manager.install"));
         installButton.getStyleClass().addAll("plugin-manager-action-btn", "plugin-manager-install-btn");
         installButton.setOnAction(e -> installPluginJar());
 
@@ -186,17 +188,53 @@ public class PluginManagerDialog {
             core.forEach(plugin -> pluginListContainer.getChildren().add(createPluginCard(plugin, false)));
         }
 
-        // The community's: in the user's plugins folder, which can be opened and read again.
+        // The community's: in the user's plugins folder, which can be opened and read again; none
+        // is loaded until the user allows them (restricted mode).
+        boolean allowed = pluginManager.communityPluginsAllowed();
         Button reload = iconButton("fth-refresh-cw", i18n("dialog.plugin_manager.reload"));
+        reload.setDisable(!allowed);
         reload.setOnAction(e -> {
             pluginManager.reloadCommunityPlugins();
             refreshPluginList();
         });
         Button openFolder = iconButton("fth-folder", i18n("dialog.plugin_manager.open_folder"));
         openFolder.setOnAction(e -> openPluginsFolder());
+        ToggleButton communitySwitch = createToggleSwitch(allowed);
+        communitySwitch.getStyleClass().add("plugin-manager-community-switch");
+        communitySwitch.setTooltip(new Tooltip(i18n("dialog.plugin_manager.community_toggle")));
+        communitySwitch.setAccessibleText(i18n("dialog.plugin_manager.community_toggle"));
+        communitySwitch.setOnAction(e -> {
+            if (communitySwitch.isSelected() && !confirmCommunityPlugins()) {
+                communitySwitch.setSelected(false);
+                return;
+            }
+            allowCommunityPlugins(communitySwitch.isSelected());
+        });
+        Region gap = new Region();
+        HBox.setHgrow(gap, Priority.ALWAYS);
         pluginListContainer.getChildren().add(section(i18n("dialog.plugin_manager.section_community"),
-                i18n("dialog.plugin_manager.section_community_hint"), reload, openFolder));
-        if (community.isEmpty()) {
+                i18n(allowed ? "dialog.plugin_manager.section_community_hint"
+                        : "dialog.plugin_manager.section_community_restricted"),
+                reload, openFolder, gap, communitySwitch));
+        if (installButton != null) {
+            installButton.setDisable(!allowed);
+        }
+        if (!allowed) {
+            for (Path jar : PluginLoader.unloadedCommunityJars()) {
+                Label blocked = new Label(jar.getFileName().toString());
+                blocked.getStyleClass().add("plugin-manager-blocked");
+                pluginListContainer.getChildren().add(blocked);
+            }
+            return;
+        }
+        PluginLoader.incompatibleCommunityJars().entrySet().stream().sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> {
+                    Label incompatible = new Label(i18n("dialog.plugin_manager.needs_jylos", entry.getKey(), entry.getValue()));
+                    incompatible.setWrapText(true);
+                    incompatible.getStyleClass().add("plugin-manager-incompatible");
+                    pluginListContainer.getChildren().add(incompatible);
+                });
+        if (community.isEmpty() && PluginLoader.incompatibleCommunityJars().isEmpty()) {
             Label emptyLabel = new Label(i18n("dialog.plugin_manager.community_empty"));
             emptyLabel.getStyleClass().add("plugin-manager-empty");
             pluginListContainer.getChildren().add(emptyLabel);
@@ -204,8 +242,24 @@ public class PluginManagerDialog {
         community.forEach(plugin -> pluginListContainer.getChildren().add(createPluginCard(plugin, true)));
     }
 
+    /** Turns restricted mode off ({@code allowed}) or on, and shows the result. */
+    void allowCommunityPlugins(boolean allowed) {
+        pluginManager.setCommunityPluginsAllowed(allowed);
+        refreshPluginList();
+    }
+
+    /** Community plugins are other people's code with full access: the user confirms they want them. */
+    private boolean confirmCommunityPlugins() {
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.initOwner(dialogStage);
+        confirm.setTitle(i18n("dialog.plugin_manager.community_confirm_title"));
+        confirm.setHeaderText(i18n("dialog.plugin_manager.community_confirm_header"));
+        confirm.setContentText(i18n("dialog.plugin_manager.community_confirm_content"));
+        return UiDialogs.show(confirm).orElse(ButtonType.CANCEL) == ButtonType.OK;
+    }
+
     /** A section's title, with small actions beside it, and a line saying what it holds. */
-    private VBox section(String title, String hint, Button... actions) {
+    private VBox section(String title, String hint, Node... actions) {
         Label titleLabel = new Label(title);
         titleLabel.getStyleClass().add("plugin-manager-section-title");
         HBox titleRow = new HBox(4, titleLabel);

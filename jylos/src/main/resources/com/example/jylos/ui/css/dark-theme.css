@@ -3364,9 +3364,10 @@
 .plugin-manager-section-hint {
     -fx-text-fill: -fx-text-muted;
 }
-.plugin-manager-icon-btn,
-.plugin-manager-icon-btn:hover,
-.plugin-manager-icon-btn:pressed {
+/* Inside .plugin-manager: more specific than the final button layer further down. */
+.plugin-manager .plugin-manager-icon-btn,
+.plugin-manager .plugin-manager-icon-btn:hover,
+.plugin-manager .plugin-manager-icon-btn:pressed {
     -fx-border-color: transparent;
     -fx-min-height: 0;
     -fx-min-width: 0;
@@ -3374,15 +3375,23 @@
     -fx-background-radius: 6;
     -fx-background-insets: 0;
 }
-.plugin-manager-icon-btn {
+.plugin-manager .plugin-manager-icon-btn {
     -fx-background-color: transparent;
 }
-.plugin-manager-icon-btn:hover {
+.plugin-manager .plugin-manager-icon-btn:hover {
     -fx-background-color: -fx-hover-bg;
 }
-.plugin-manager-icon-btn .ikonli-font-icon {
+.plugin-manager .plugin-manager-icon-btn .ikonli-font-icon {
     -fx-icon-color: -fx-text-muted;
     -fx-icon-size: 15px;
+}
+.plugin-manager-blocked,
+.plugin-manager-incompatible {
+    -fx-text-fill: -fx-text-muted;
+    -fx-padding: 0 4 0 4;
+}
+.plugin-manager-incompatible {
+    -fx-text-fill: -fx-warning;
 }
 .plugin-card {
     -fx-background-color: -fx-sidebar-bg;

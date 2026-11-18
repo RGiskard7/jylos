@@ -1,8 +1,13 @@
 package com.example.jylos.plugin;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Locale;
 import java.util.logging.Logger;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
+import java.util.stream.Stream;
 
 import com.example.jylos.config.LoggerConfig;
 
@@ -23,6 +28,8 @@ public final class PluginStates {
     static final String DISABLED_PREFIX = "plugin.disabled.";
     /** Set once {@link #initialize} has decided; its value is the version of that decision. */
     static final String DEFAULTS_VERSION_KEY = "plugins.defaults.version";
+    /** Whether community plugins are loaded (restricted mode off). */
+    static final String COMMUNITY_KEY = "plugins.community.enabled";
 
     private final Preferences node;
 
@@ -64,6 +71,41 @@ public final class PluginStates {
             return !node.getBoolean(DISABLED_PREFIX + pluginId, false);
         }
         return origin != PluginOrigin.CORE || CorePlugins.enabledByDefault(pluginId);
+    }
+
+    /**
+     * Whether community plugins are loaded. The first time it is asked, it is decided once: yes
+     * if the user's plugins folder already holds plugins of their own (they had them before
+     * updating), no otherwise (a new install starts in restricted mode). Copies of Jylos's own
+     * plugins in that folder do not count.
+     */
+    public boolean communityAllowed(Path userPluginsDir) {
+        String stored = node.get(COMMUNITY_KEY, null);
+        if (stored != null) {
+            return Boolean.parseBoolean(stored);
+        }
+        boolean allowed = holdsOwnPlugins(userPluginsDir);
+        node.putBoolean(COMMUNITY_KEY, allowed);
+        return allowed;
+    }
+
+    public void setCommunityAllowed(boolean allowed) {
+        node.putBoolean(COMMUNITY_KEY, allowed);
+    }
+
+    private static boolean holdsOwnPlugins(Path dir) {
+        if (dir == null || !Files.isDirectory(dir)) {
+            return false;
+        }
+        try (Stream<Path> files = Files.list(dir)) {
+            return files.map(f -> f.getFileName().toString())
+                    .filter(name -> name.toLowerCase(Locale.ROOT).endsWith(".jar"))
+                    .anyMatch(name -> !CorePlugins.shippedJarNames().contains(name)
+                            && !RetiredPlugins.isRetiredJarName(name));
+        } catch (IOException e) {
+            logger.warning("Could not read the plugins folder " + dir + ": " + e.getMessage());
+            return false;
+        }
     }
 
     public void setEnabled(String pluginId, boolean enabled) {

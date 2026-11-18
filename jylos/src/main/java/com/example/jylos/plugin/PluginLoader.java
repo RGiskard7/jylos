@@ -24,9 +24,11 @@ import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 import java.util.stream.Stream;
 
+import com.example.jylos.AppConfig;
 import com.example.jylos.AppDataDirectory;
 import com.example.jylos.AppDirectories;
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.util.Versions;
 
 /**
  * Loads external plugins from the plugins/ directory.
@@ -55,6 +57,12 @@ public class PluginLoader {
 
     private static final Logger logger = LoggerConfig.getLogger(PluginLoader.class);
     private static final String PLUGINS_DIR = "plugins";
+
+    /** Manifest attribute with the earliest Jylos version a community plugin works with. */
+    public static final String MIN_JYLOS_ATTRIBUTE = "Plugin-Min-Jylos";
+
+    /** Community JARs left out because they need a later Jylos: file name and that version. */
+    private static final Map<String, String> incompatibleCommunityJars = new ConcurrentHashMap<>();
 
     /** Major version of the {@link PluginContext}/{@link Plugin} API this build exposes. */
     private static final String SUPPORTED_HOST_API_VERSION = "1";
@@ -117,9 +125,15 @@ public class PluginLoader {
      * @return plugin loading report with loaded plugins, their origin and failures
      */
     public static PluginLoadReport loadExternalPluginsWithReport() {
-        RetiredPlugins.cleanUp(getPluginsDirectory(), Preferences.userNodeForPackage(PluginManager.class))
-                .forEach(logger::info);
-        return load(corePluginDirs(), getPluginsDirectory());
+        Preferences node = Preferences.userNodeForPackage(PluginManager.class);
+        RetiredPlugins.cleanUp(getPluginsDirectory(), node).forEach(logger::info);
+        boolean communityAllowed = new PluginStates(node).communityAllowed(getPluginsDirectory());
+        return load(corePluginDirs(), getPluginsDirectory(), communityAllowed, AppConfig.getAppVersion());
+    }
+
+    /** {@link #load(List, Path, boolean, String)} with community plugins allowed, for this Jylos. */
+    static PluginLoadReport load(List<Path> coreDirs, Path userDir) {
+        return load(coreDirs, userDir, true, AppConfig.getAppVersion());
     }
 
     /**
@@ -135,8 +149,9 @@ public class PluginLoader {
      * one of {@link CorePlugins}.</li>
      * </ul>
      */
-    static PluginLoadReport load(List<Path> coreDirs, Path userDir) {
+    static PluginLoadReport load(List<Path> coreDirs, Path userDir, boolean communityAllowed, String appVersion) {
         List<Plugin> plugins = new ArrayList<>();
+        incompatibleCommunityJars.clear();
         List<String> failures = new ArrayList<>();
         Map<String, PluginOrigin> origins = new LinkedHashMap<>();
         Path user = userDir != null ? userDir.toAbsolutePath().normalize() : null;
@@ -166,7 +181,13 @@ public class PluginLoader {
 
         if (user != null && scanned.add(user)) {
             removeOldBundledCopies(user, coreJarNames).forEach(logger::info);
-            for (Path jar : jarsIn(user, failures, false)) {
+            if (!communityAllowed) {
+                logger.info("Restricted mode: community plugins in " + user + " are not loaded");
+            }
+            for (Path jar : communityAllowed ? jarsIn(user, failures, false) : List.<Path>of()) {
+                if (!compatible(jar, appVersion)) {
+                    continue;
+                }
                 Plugin plugin = loadInto(jar, plugins, failures, origins);
                 if (plugin != null) {
                     origins.put(plugin.getId(), PluginOrigin.COMMUNITY);
@@ -263,9 +284,48 @@ public class PluginLoader {
 
     /** The JARs in the user's plugins folder that are not loaded yet. */
     public static List<Path> unloadedCommunityJars() {
-        return jarsIn(getPluginsDirectory().toAbsolutePath().normalize(), new ArrayList<>(), false).stream()
+        return unloadedCommunityJars(getPluginsDirectory());
+    }
+
+    /** The JARs in {@code dir} that are not loaded. */
+    static List<Path> unloadedCommunityJars(Path dir) {
+        return jarsIn(dir.toAbsolutePath().normalize(), new ArrayList<>(), false).stream()
                 .filter(jar -> !activeClassLoadersByJarPath.containsKey(jar.toAbsolutePath().normalize()))
                 .toList();
+    }
+
+    /**
+     * Loads a community plugin's JAR if this Jylos is recent enough for it; {@code null} if it is
+     * not (see {@link #incompatibleCommunityJars()}) or the JAR holds no valid plugin.
+     */
+    public static Plugin loadCommunityJar(Path jar) {
+        return compatible(jar, AppConfig.getAppVersion()) ? loadPluginFromJar(jar) : null;
+    }
+
+    /** The community JARs left out because they need a later Jylos: file name and version they need. */
+    public static Map<String, String> incompatibleCommunityJars() {
+        return Map.copyOf(incompatibleCommunityJars);
+    }
+
+    /**
+     * Whether a community JAR can be loaded by this Jylos: its manifest's {@value #MIN_JYLOS_ATTRIBUTE}
+     * is not later than {@code appVersion}. A JAR without it is loaded, with a note in the log; so
+     * is any JAR when this Jylos does not know its own version.
+     */
+    private static boolean compatible(Path jar, String appVersion) {
+        String name = jar.getFileName().toString();
+        incompatibleCommunityJars.remove(name);
+        String needed = manifestAttribute(jar, MIN_JYLOS_ATTRIBUTE);
+        if (needed == null || needed.isBlank()) {
+            logger.info("Plugin " + name + " does not say which Jylos it needs (" + MIN_JYLOS_ATTRIBUTE + ")");
+            return true;
+        }
+        if (appVersion == null || appVersion.isBlank() || Versions.compare(appVersion, needed.trim()) >= 0) {
+            return true;
+        }
+        logger.warning("Not loading " + name + ": it needs Jylos " + needed.trim() + " or later (this is " + appVersion + ")");
+        incompatibleCommunityJars.put(name, needed.trim());
+        return false;
     }
 
     /** The JAR a loaded plugin came from, or {@code null}. */
@@ -442,14 +502,16 @@ public class PluginLoader {
      * @return The plugin class name, or null if not found
      */
     private static String getPluginClassFromManifest(Path jarPath) {
+        return manifestAttribute(jarPath, "Plugin-Class");
+    }
+
+    /** A main attribute of the JAR's manifest, or {@code null}. */
+    private static String manifestAttribute(Path jarPath, String name) {
         try (JarFile jarFile = new JarFile(jarPath.toFile())) {
             var manifest = jarFile.getManifest();
-            if (manifest == null) {
-                return null;
-            }
-            return manifest.getMainAttributes().getValue("Plugin-Class");
+            return manifest == null ? null : manifest.getMainAttributes().getValue(name);
         } catch (Exception e) {
-            // Manifest might not exist or not have Plugin-Class entry
+            // Not a JAR, or no manifest
             return null;
         }
     }
