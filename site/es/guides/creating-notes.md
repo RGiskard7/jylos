@@ -54,7 +54,7 @@ La barra de estado muestra **Guardado** o **Sin guardar** según el estado de la
 
 - Exporta una nota, o todo el vault, a HTML o PDF.
 - Importa una nota individual.
-- Importa un **vault de Obsidian** (jerarquía de carpetas, frontmatter y etiquetas preservados; `.obsidian/` se omite) o una exportación **`.enex` de Evernote** (ENML convertido a Markdown, etiquetas conservadas) desde el menú Archivo.
+- Importa un **vault de Obsidian** (jerarquía de carpetas, frontmatter y etiquetas preservados; `.obsidian/` se omite) o una exportación **`.enex` de Evernote** (ENML convertido a Markdown, etiquetas conservadas) desde el menú Archivo. Para trabajar sobre una bóveda de Obsidian sin importarla, abre su carpeta como bóveda: consulta [Compatibilidad con Obsidian](/es/guides/obsidian-compatibility).
 
 ## Organiza
 

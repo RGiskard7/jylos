@@ -23,6 +23,7 @@ Technical docs for Jylos. User-facing overview: [README.md](../README.md).
 | [MCP.md](MCP.md) | MCP server plugin: exposed tools, transport, dependency bundling |
 | [SEARCH.md](SEARCH.md) | Advanced search syntax and architecture |
 | [WORKSPACES.md](WORKSPACES.md) | Saved workspace behaviour and persistence |
+| [VAULT_FORMAT.md](VAULT_FORMAT.md) | What a vault note holds, `.jylos/`, Obsidian compatibility and clean-up |
 
 Other repo docs:
 

@@ -23,6 +23,7 @@ The in-depth technical documentation lives in the repository's `docs/` folder. T
 | [MCP](https://github.com/RGiskard7/jylos/blob/main/docs/MCP.md) | MCP server plugin: exposed tools, transport, dependency bundling |
 | [SEARCH](https://github.com/RGiskard7/jylos/blob/main/docs/SEARCH.md) | Advanced search syntax and architecture |
 | [WORKSPACES](https://github.com/RGiskard7/jylos/blob/main/docs/WORKSPACES.md) | Saved workspace behaviour and persistence |
+| [VAULT_FORMAT](https://github.com/RGiskard7/jylos/blob/main/docs/VAULT_FORMAT.md) | What a vault note holds, `.jylos/`, Obsidian compatibility |
 
 ## Spanish
 

@@ -23,6 +23,7 @@ Documentación técnica de Jylos. Vista general de usuario: [README.es.md](../..
 | [MCP.md](MCP.md) | Plugin servidor MCP: herramientas expuestas, transporte, dependencias empaquetadas |
 | [SEARCH.md](SEARCH.md) | Sintaxis y arquitectura de búsqueda avanzada |
 | [WORKSPACES.md](WORKSPACES.md) | Workspaces guardados y persistencia |
+| [VAULT_FORMAT.md](VAULT_FORMAT.md) | Qué contiene una nota de la bóveda, `.jylos/`, compatibilidad con Obsidian y limpieza |
 
 Otros documentos:
 

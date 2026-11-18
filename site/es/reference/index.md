@@ -23,6 +23,7 @@ La documentación técnica en profundidad vive en la carpeta `docs/` del reposit
 | [MCP](https://github.com/RGiskard7/jylos/blob/main/docs/MCP.md) | Plugin servidor MCP: herramientas expuestas, transporte, empaquetado de dependencias |
 | [SEARCH](https://github.com/RGiskard7/jylos/blob/main/docs/SEARCH.md) | Sintaxis y arquitectura de la búsqueda avanzada |
 | [WORKSPACES](https://github.com/RGiskard7/jylos/blob/main/docs/WORKSPACES.md) | Comportamiento y persistencia de los workspaces guardados |
+| [VAULT_FORMAT](https://github.com/RGiskard7/jylos/blob/main/docs/VAULT_FORMAT.md) | Qué contiene una nota de la bóveda, `.jylos/`, compatibilidad con Obsidian |
 
 ## Español
 

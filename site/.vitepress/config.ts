@@ -78,6 +78,7 @@ export default defineConfig({
               { text: "Dataview", link: "/guides/dataview" },
               { text: "Search", link: "/guides/search" },
               { text: "Workspaces", link: "/guides/workspaces" },
+              { text: "Obsidian Compatibility", link: "/guides/obsidian-compatibility" },
             ],
           },
           {
@@ -156,6 +157,7 @@ export default defineConfig({
               { text: "Dataview", link: "/es/guides/dataview" },
               { text: "Búsqueda", link: "/es/guides/search" },
               { text: "Workspaces", link: "/es/guides/workspaces" },
+              { text: "Compatibilidad con Obsidian", link: "/es/guides/obsidian-compatibility" },
             ],
           },
           {
