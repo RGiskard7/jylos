@@ -85,7 +85,11 @@
   - **Grafo local:** profundidad de 1 a 5, y enlaces entrantes, salientes y adyacentes.
   - **"Mostrar adjuntos"**, desactivado por defecto: las imágenes y PDF ya no forman un anillo de nodos sueltos.
   - **Los ajustes se guardan:** fuerzas, filtros, grupos y opciones del grafo local.
+  - **Una nota con muchos enlaces se ve más grande también de lejos:** el tamaño de las notas en pantalla sigue la raíz cuadrada del zoom, como en Obsidian. Antes, al alejarse, casi todas quedaban en el mismo punto mínimo y una nota con cinco enlaces se veía igual que una sin ninguno.
+  - **Al pasar el ratón por una nota se resaltan solo sus enlaces**, en el color de acento; antes se encendían también los que unen a sus vecinas entre sí. El resto se atenúa.
+  - **Las líneas son de un gris opaco** entre el fondo y el texto del tema: cien enlaces que se cruzan ya no forman una mancha tan brillante como las notas.
   - **Corregido:**
+    - con la base de datos, el filtro de carpeta listaba identificadores en lugar de los nombres; ahora muestra la ruta de cada carpeta;
     - cerrar el grafo antes de que terminara de dibujarse dejaba la aplicación lenta unos segundos;
     - borrar una carpeta o vaciar la papelera no actualizaba el grafo ni la lista de notas.
 

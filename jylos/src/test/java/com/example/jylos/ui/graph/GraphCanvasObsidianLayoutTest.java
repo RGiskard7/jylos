@@ -125,6 +125,59 @@ class GraphCanvasObsidianLayoutTest {
         assertTrue(distance > 105 && distance < 135, "distance between the two notes: " + distance);
     }
 
+    /** Groups of notes linked among themselves but not to each other end up side by side, edge to edge. */
+    @Test
+    void separateGroupsOfLinkedNotesLieApart() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        int groups = 3;
+        int size = 15;
+        List<GraphNode> nodes = new ArrayList<>();
+        List<GraphEdge> edges = new ArrayList<>();
+        for (int g = 0; g < groups; g++) {
+            for (int i = 0; i < size; i++) {
+                nodes.add(new GraphNode(g + "-" + i, g + "-" + i, GraphNode.Type.NOTE, "", i == 0 ? size : 3));
+                if (i > 0) {
+                    edges.add(new GraphEdge(g + "-0", g + "-" + i, GraphEdge.Type.LINK));
+                    edges.add(new GraphEdge(g + "-" + i, g + "-" + (i % (size - 1) + 1), GraphEdge.Type.LINK));
+                }
+            }
+        }
+        double[][] groupsSeen = onFx(() -> {
+            GraphCanvas canvas = new GraphCanvas();
+            canvas.setData(new GraphData(nodes, edges));
+            canvas.pause();
+            canvas.runTicks(400);
+            double[][] seen = new double[groups][3]; // centre x, centre y, radius
+            for (int g = 0; g < groups; g++) {
+                for (int i = 0; i < size; i++) {
+                    double[] p = canvas.positionOf(g + "-" + i);
+                    seen[g][0] += p[0] / size;
+                    seen[g][1] += p[1] / size;
+                }
+                for (int i = 0; i < size; i++) {
+                    double[] p = canvas.positionOf(g + "-" + i);
+                    seen[g][2] = Math.max(seen[g][2], Math.hypot(p[0] - seen[g][0], p[1] - seen[g][1]));
+                }
+            }
+            return seen;
+        });
+        // Obsidian's graph worker, on these groups placed the way its graph view places them,
+        // leaves each pair about edge to edge: over a hundred runs, their centres are 0.55-1.05
+        // times their two radii apart (5th to 95th percentile, median 0.94), and a run's mean is
+        // 0.66-1.01. Neither mixed into one blob (well under that) nor drifting off (over it).
+        double sum = 0;
+        for (int a = 0; a < groups; a++) {
+            for (int b = a + 1; b < groups; b++) {
+                double apart = Math.hypot(groupsSeen[a][0] - groupsSeen[b][0], groupsSeen[a][1] - groupsSeen[b][1]);
+                double ratio = apart / (groupsSeen[a][2] + groupsSeen[b][2]);
+                assertTrue(ratio > 0.55 && ratio < 1.1, "groups " + a + " and " + b + ": " + ratio);
+                sum += ratio;
+            }
+        }
+        double mean = sum / 3;
+        assertTrue(mean > 0.65 && mean < 1.05, "mean centre distance over the two radii: " + mean);
+    }
+
     private static double distanceFromCentre(double[] p) {
         return Math.hypot(p[0], p[1]);
     }

@@ -303,7 +303,7 @@ class GraphCanvasLabelTest {
 
     /**
      * Scans a box below-and-around where the label for node {@code index} is drawn
-     * (same {@code sx(x)}, {@code sy(y) + r*scale + 12} anchor {@code draw()} itself
+     * (same {@code sx(x)}, {@code sy(y) + screen radius + 12} anchor {@code draw()} itself
      * uses) for any pixel that isn't the plain background colour.
      *
      * <p>The box half-extent is capped well under half the on-screen distance to the
@@ -321,7 +321,7 @@ class GraphCanvasLabelTest {
 
     /**
      * Scans a box below-and-around where the label for node {@code index} is drawn
-     * (same {@code sx(x)}, {@code sy(y) + r*scale + 12} anchor {@code draw()} itself
+     * (same {@code sx(x)}, {@code sy(y) + screen radius + 12} anchor {@code draw()} itself
      * uses) and returns the strongest squared colour distance from the plain
      * background found there — {@code 0} if the label isn't showing at all, larger
      * for a label drawn at higher opacity.
@@ -344,7 +344,8 @@ class GraphCanvasLabelTest {
         double offsetY = getDouble(gc, "offsetY");
 
         double labelCenterX = x[index] * scale + offsetX;
-        double labelCenterY = y[index] * scale + offsetY + radius[index] * scale + 12;
+        double labelCenterY = y[index] * scale + offsetY
+                + GraphCanvas.screenRadiusFor(radius[index], scale, getDouble(gc, "nodeScale")) + 12;
         double closestOther = Double.MAX_VALUE;
         for (int other = 0; other < x.length; other++) {
             if (other == index) {

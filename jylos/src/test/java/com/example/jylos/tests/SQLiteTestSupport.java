@@ -9,29 +9,29 @@ import com.example.jylos.data.database.SQLiteDB;
 /**
  * Shared helpers for integration tests against a real on-disk SQLite database.
  */
-final class SQLiteTestSupport {
+public final class SQLiteTestSupport {
 
     private SQLiteTestSupport() {
     }
 
-    static void configureFreshDatabase(Path dbFile) throws Exception {
+    public static void configureFreshDatabase(Path dbFile) throws Exception {
         resetSingleton();
         SQLiteDB.configure(dbFile.toString());
         SQLiteDB.getInstance().initDatabase();
     }
 
-    static Connection openConnection() {
+    public static Connection openConnection() {
         return SQLiteDB.getInstance().openConnection();
     }
 
-    static void closeAndReset(Connection connection) throws Exception {
+    public static void closeAndReset(Connection connection) throws Exception {
         if (connection != null) {
             SQLiteDB.getInstance().closeConnection(connection);
         }
         resetSingleton();
     }
 
-    static void resetSingleton() throws Exception {
+    public static void resetSingleton() throws Exception {
         Field instanceField = SQLiteDB.class.getDeclaredField("instance");
         instanceField.setAccessible(true);
         instanceField.set(null, null);

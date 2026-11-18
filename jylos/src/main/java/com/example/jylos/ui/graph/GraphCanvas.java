@@ -81,7 +81,8 @@ public final class GraphCanvas extends Region {
     private static final double ZOOM_EASE = 0.85;          // share of the zoom gap left after a frame (Obsidian's)
     private static final double CLICK_SLOP = 4.0;          // px movement still counts as a click
     private static final double MIN_NODE_PX = 2.0;         // floor on on-screen node radius (Obsidian-like dots)
-    private static final double HOVER_DIM_ALPHA = 0.28;    // opacity for nodes/labels not part of the hovered relation
+    private static final double HOVER_DIM_ALPHA = 0.2;     // opacity of what the hovered note is not related to (Obsidian's)
+    private static final double LINK_SHADE = 0.17;         // a link's share of the text over the background (Obsidian's --graph-line)
     private static final double HOVER_EASE_RATE = 0.25;    // fraction of the remaining hover-fade gap closed
                                                              // per animation frame — a simple exponential ease,
                                                              // not a fixed-duration tween: no elapsed-time
@@ -575,7 +576,7 @@ public final class GraphCanvas extends Region {
     double[] screenBounds() {
         double[] box = {Double.MAX_VALUE, Double.MAX_VALUE, -Double.MAX_VALUE, -Double.MAX_VALUE};
         for (int i = 0; i < n; i++) {
-            double r = radius[i] * scale;
+            double r = screenRadius(i);
             box[0] = Math.min(box[0], sx(x[i]) - r);
             box[1] = Math.min(box[1], sy(y[i]) - r);
             box[2] = Math.max(box[2], sx(x[i]) + r);
@@ -1089,7 +1090,7 @@ public final class GraphCanvas extends Region {
             if (!hoveringDisplay) {
                 g.setStroke(palette.link);
             } else {
-                Color target = (active[s] && active[t]) ? palette.linkActive : palette.linkDim;
+                Color target = highlightsEdge(s, t, displayHoverIndex) ? palette.linkActive : palette.linkDim;
                 g.setStroke(palette.link.interpolate(target, hoverStrength));
             }
             double x1 = sx(x[s]), y1 = sy(y[s]), x2 = sx(x[t]), y2 = sy(y[t]);
@@ -1224,7 +1225,7 @@ public final class GraphCanvas extends Region {
         }
         double w = width();
         double h = height();
-        double r = radius[idx] * scale;
+        double r = screenRadius(idx);
         double cx = sx(x[idx]);
         double cy = sy(y[idx]) + r + 12;
         double halfW = labels[idx].length() * avgCharWidth / 2.0 + 2;
@@ -1381,7 +1382,30 @@ public final class GraphCanvas extends Region {
 
     /** On-screen node radius, floored so nodes stay visible at any zoom level. */
     private double screenRadius(int i) {
-        return Math.max(MIN_NODE_PX, radius[i] * scale * nodeScale);
+        return screenRadiusFor(radius[i], scale, nodeScale);
+    }
+
+    /**
+     * The radius on screen of a node of {@code radius} at {@code zoom}, times the size slider:
+     * it follows the square root of the zoom, as in Obsidian, so zoomed out a note with many links
+     * stays bigger than a lone one instead of both shrinking to the same dot.
+     */
+    static double screenRadiusFor(double radius, double zoom, double sizeMultiplier) {
+        return Math.max(MIN_NODE_PX, radius * sizeMultiplier * Math.sqrt(Math.max(0, zoom)));
+    }
+
+    /** Whether hovering the node {@code hovered} lights up the link {@code source}–{@code target}: only its own. */
+    static boolean highlightsEdge(int source, int target, int hovered) {
+        return source == hovered || target == hovered;
+    }
+
+    /**
+     * A link's colour at rest: opaque, a little of the text over the background, as Obsidian's
+     * {@code --graph-line}; being opaque, many links crossing do not add up to a bright patch.
+     */
+    static Color restingLinkColor(Color background, Color text) {
+        Color mixed = background.interpolate(text, LINK_SHADE);
+        return Color.color(mixed.getRed(), mixed.getGreen(), mixed.getBlue());
     }
 
     private double width()  { return Math.max(0, getWidth()); }
@@ -1418,9 +1442,9 @@ public final class GraphCanvas extends Region {
                     Color.web("#7c3aed"),                 // tag
                     Color.web("#9aa0bf"),                 // ghost (hollow outline)
                     Color.web("#23263a", 0.55),           // node ring (dark, visible on light bg)
-                    Color.web("#3a3f70", 0.30),           // link
-                    Color.web("#5b21b6", 0.95),           // link active
-                    Color.web("#3a3f70", 0.07),           // link dim
+                    restingLinkColor(Color.web("#f4f4f6"), Color.web("#2a2e44")), // link
+                    Color.web("#e0723a"),                 // link active: the accent
+                    dimmed(restingLinkColor(Color.web("#f4f4f6"), Color.web("#2a2e44"))), // link dim
                     Color.web("#2a2e44"),                 // text
                     Color.web("#e0723a"));                // accent / hover (warm, pops on light)
         }
@@ -1431,17 +1455,24 @@ public final class GraphCanvas extends Region {
          */
         static Palette from(Palette own, ThemePalette theme, boolean dark) {
             Color text = Color.web(theme.text());
+            Color background = Color.web(theme.background());
+            Color link = restingLinkColor(background, text);
             return new Palette(
-                    Color.web(theme.background()),
+                    background,
                     Color.web(theme.muted()),
                     own.tag(),
                     Color.web(theme.faint()),
                     own.nodeRing(),
-                    Color.color(text.getRed(), text.getGreen(), text.getBlue(), dark ? 0.18 : 0.30),
-                    Color.web(theme.accent(), 0.95),
-                    Color.color(text.getRed(), text.getGreen(), text.getBlue(), dark ? 0.05 : 0.07),
+                    link,
+                    Color.web(theme.accent()),
+                    dimmed(link),
                     text,
                     Color.web(theme.accent()));
+        }
+
+        /** {@code link} while another note is hovered: Obsidian's links fade to a fifth. */
+        private static Color dimmed(Color link) {
+            return Color.color(link.getRed(), link.getGreen(), link.getBlue(), link.getOpacity() * HOVER_DIM_ALPHA);
         }
 
         static Palette dark() {
@@ -1451,9 +1482,9 @@ public final class GraphCanvas extends Region {
                     Color.web("#c39bff"),                 // tag
                     Color.web("#6b7390"),                 // ghost (hollow outline)
                     Color.web("#0d0f16", 0.55),           // node ring (dark halo for separation)
-                    Color.web("#ffffff", 0.18),           // link
-                    Color.web("#eaf0ff", 0.95),           // link active
-                    Color.web("#ffffff", 0.05),           // link dim
+                    restingLinkColor(Color.web("#1a1a1a"), Color.web("#d4dcf0")), // link
+                    Color.web("#ffb066"),                 // link active: the accent
+                    dimmed(restingLinkColor(Color.web("#1a1a1a"), Color.web("#d4dcf0"))), // link dim
                     Color.web("#d4dcf0"),                 // text
                     Color.web("#ffb066"));                // accent / hover
         }

@@ -20,7 +20,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.MissingResourceException;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.function.DoubleConsumer;
 import java.util.function.DoubleFunction;
 import java.util.prefs.Preferences;
@@ -53,6 +52,7 @@ import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
+import javafx.util.StringConverter;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
@@ -130,6 +130,9 @@ public class GraphController {
     private EventBus eventBus;
     private GraphBuilder graphBuilder;
     private TagService tagService;
+    private NoteService noteService;
+    /** The folder filter's folders, by id, named by their path: an id can be a generated one. */
+    private final Map<String, String> folderNames = new HashMap<>();
 
     /** Last model built off the FX thread; view filters re-render from this without rebuilding. */
     private GraphData lastBuilt = GraphData.empty();
@@ -396,6 +399,17 @@ public class GraphController {
         }
         if (folderFilterCombo != null) {
             folderFilterCombo.valueProperty().addListener((o, a, b) -> applyView());
+            folderFilterCombo.setConverter(new StringConverter<>() {
+                @Override
+                public String toString(String folderId) {
+                    return folderId == null ? "" : folderNames.getOrDefault(folderId, folderId);
+                }
+
+                @Override
+                public String fromString(String text) {
+                    return text;
+                }
+            });
         }
     }
 
@@ -459,6 +473,7 @@ public class GraphController {
 
     private void setServices(NoteService noteService, TagService tagService) {
         this.tagService = tagService;
+        this.noteService = noteService;
         this.graphBuilder = new GraphBuilder(noteService, tagService);
         rewireDataEvents();
     }
@@ -796,6 +811,12 @@ public class GraphController {
         return ids;
     }
 
+    /** The path of the folder {@code folderId} in the vault, or its id when it has none. */
+    private String folderName(String folderId) {
+        String path = noteService != null ? noteService.folderPath(folderId) : "";
+        return path.isEmpty() ? folderId : path;
+    }
+
     /** Returns the combo's value, or null when it is empty / the "All" sentinel. */
     private String selectedFilter(ComboBox<String> combo) {
         if (combo == null) {
@@ -835,12 +856,14 @@ public class GraphController {
             tagFilterCombo.setValue(selected != null && tags.contains(selected) ? selected : filterAllLabel);
         }
         if (folderFilterCombo != null) {
-            Set<String> groups = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+            folderNames.clear();
             for (GraphNode n : data.nodes()) {
                 if (n.type() == GraphNode.Type.NOTE && n.group() != null && !n.group().isBlank()) {
-                    groups.add(n.group());
+                    folderNames.computeIfAbsent(n.group(), this::folderName);
                 }
             }
+            List<String> groups = new ArrayList<>(folderNames.keySet());
+            groups.sort((a, b) -> String.CASE_INSENSITIVE_ORDER.compare(folderNames.get(a), folderNames.get(b)));
             List<String> folders = new ArrayList<>();
             folders.add(filterAllLabel);
             folders.addAll(groups);

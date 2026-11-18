@@ -736,6 +736,20 @@ public class NoteService {
         return folder.isEmpty() ? name : folder + "/" + name;
     }
 
+    /**
+     * The path of the folder {@code folderId} in the vault ({@code Trabajo/Reuniones}): its id
+     * in a folder vault, the chain of folder names with the database; empty when it has none.
+     */
+    public String folderPath(String folderId) {
+        if (folderId == null || folderId.isBlank()) {
+            return "";
+        }
+        if (getStorageRoot().isPresent()) {
+            return folderId.replace('\\', '/');
+        }
+        return folderDAO != null ? folderPathOf(folderId) : "";
+    }
+
     private String folderPathOf(String folderId) {
         try {
             String path = folderDAO.getPathFolder(folderId);
