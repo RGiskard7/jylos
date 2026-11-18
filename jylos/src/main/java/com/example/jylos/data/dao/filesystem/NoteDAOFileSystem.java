@@ -881,7 +881,10 @@ public class NoteDAOFileSystem implements NoteDAO {
                     Files.createDirectories(path.getParent());
                 }
                 if (!attachment) {
-                    String serialized = FrontmatterHandler.generate(note);
+                    // The file as it is now: what it had stays as it was unless the note changed it.
+                    String previous = !missingOnDisk && Files.exists(path)
+                            ? new String(Files.readAllBytes(path), StandardCharsets.UTF_8) : null;
+                    String serialized = FrontmatterHandler.generate(note, previous);
                     FileSystemAtomicWriter.writeString(path, serialized, StandardCharsets.UTF_8);
                     if (resyncInlineTags) {
                         // The caller may have just typed a new inline #tag; note.getTags() at

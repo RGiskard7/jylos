@@ -35,6 +35,7 @@
   - **Imágenes WebP**, en el editor, en la vista de lectura y en el visor de imágenes. Muchas imágenes de la web se sirven en WebP aunque la dirección acabe en `.png`, como las de los artículos de Medium guardados con el clipper, y antes solo salía su enlace en un recuadro. Ahora Jylos las convierte en segundo plano. Los `.webp` de la bóveda aparecen en el explorador.
   - **Más fluido:** escribir ya no vuelve a dibujar las fórmulas, imágenes y bloques de alrededor (cada tecla cuesta la mitad en una nota de dos mil líneas). El scroll ya no da saltos al entrar en pantalla una imagen, un callout o una fórmula, y cada imagen se lee del disco una sola vez.
   - **Corregido:**
+  - **Las `#etiquetas` escritas en el texto ya no se copian a la propiedad `tags:` al guardar la nota**, así que quitarlas del texto las quita de la nota; antes quedaban en `tags:` y la nota la seguía teniendo. Las añadidas desde la barra de etiquetas sí van a `tags:`, y las que ya estaban conservan su orden en lugar de reordenarse en cada guardado.
   - **Una nota sin frontmatter que empezaba por `# Título` perdía esa línea al guardarla**: al leerla se tomaba como título y salía del texto, y el título es el nombre del fichero, así que al guardar desaparecía del disco. Pasaba con casi cualquier nota de una bóveda de Obsidian. Ahora es un encabezado más y se conserva. Las notas que ya la perdieron no la recuperan.
     - la negrita y los títulos no se veían en negrita;
     - un clic bajo una imagen, una fórmula o un bloque renderizado caía en otra línea;

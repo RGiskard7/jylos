@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -18,6 +19,7 @@ import org.yaml.snakeyaml.resolver.Resolver;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.data.models.ToDoNote;
+import com.example.jylos.service.EncryptionService;
 import com.example.jylos.util.ReadingSyntax;
 import com.example.jylos.util.WikiLinkResolver;
 
@@ -91,6 +93,16 @@ public final class FrontmatterHandler {
     }
 
     public static String generate(Note note) {
+        return generate(note, null);
+    }
+
+    /**
+     * The file for {@code note}, given the file as it is on disk now ({@code previousFile},
+     * {@code null} for a new note). Its {@code tags:} keep the ones it had, in their order, that
+     * the note still has, and gain those added from the app; a {@code #tag} written in the
+     * text stays in the text and is not copied there.
+     */
+    public static String generate(Note note, String previousFile) {
         Map<String, Object> root = new LinkedHashMap<>();
 
         putIfNotBlank(root, "id", note.getId());
@@ -108,10 +120,7 @@ public final class FrontmatterHandler {
         putIfNotBlank(root, "author", note.getAuthor());
         putIfNotBlank(root, "source_url", note.getSourceUrl());
 
-        List<String> tags = note.getTags().stream()
-                .map(Tag::getTitle)
-                .filter(title -> title != null && !title.isBlank())
-                .toList();
+        List<String> tags = propertyTags(note, previousFile);
         if (!tags.isEmpty()) {
             root.put("tags", tags);
         }
@@ -590,6 +599,60 @@ public final class FrontmatterHandler {
         // never be picked up until Jylos itself wrote the note once.
         extractInlineTags(body, note);
         return note;
+    }
+
+    /**
+     * The tags {@code tags:} holds: first those it held in {@code previousFile} that the note
+     * still has, in their order and spelling, then the note's other tags that its text does not
+     * have as {@code #tag}, now or in {@code previousFile} (so, added from the app), by name. Tag
+     * names compare without case. The text of a private note is encrypted: its tags are all kept
+     * in {@code tags:}.
+     */
+    private static List<String> propertyTags(Note note, String previousFile) {
+        Map<String, String> current = new LinkedHashMap<>();
+        note.getTags().stream().map(Tag::getTitle).filter(title -> title != null && !title.isBlank()).sorted()
+                .forEach(title -> current.putIfAbsent(foldTag(title), title));
+        // A #tag of the text, now or before this edit (one just taken out of the text is still
+        // in the note's tags until it is read again), is the text's, not one added from the app.
+        Set<String> inline = new LinkedHashSet<>();
+        addInlineTags(note.getContent(), inline);
+        addInlineTags(previousFile != null ? stripFrontmatter(previousFile) : null, inline);
+        List<String> out = new ArrayList<>();
+        Set<String> written = new LinkedHashSet<>();
+        for (String before : frontmatterTagsOf(previousFile)) {
+            if (current.containsKey(foldTag(before)) && written.add(foldTag(before))) {
+                out.add(before);
+            }
+        }
+        current.forEach((key, title) -> {
+            if (!inline.contains(key) && written.add(key)) {
+                out.add(title);
+            }
+        });
+        return out;
+    }
+
+    private static void addInlineTags(String text, Set<String> into) {
+        if (text != null && !EncryptionService.isEncrypted(text)) {
+            ReadingSyntax.inlineTags(text).forEach(tag -> into.add(foldTag(tag)));
+        }
+    }
+
+    /** The names in the {@code tags:} property of a file, in order; none when it has none or it does not read. */
+    private static List<String> frontmatterTagsOf(String file) {
+        FrontmatterBlock block = file != null ? extractLeadingFrontmatter(file) : null;
+        if (block == null) {
+            return List.of();
+        }
+        try {
+            return toStringList(parseYaml(block.yaml()).get("tags"));
+        } catch (RuntimeException e) {
+            return List.of();
+        }
+    }
+
+    private static String foldTag(String tag) {
+        return tag.strip().toLowerCase(Locale.ROOT);
     }
 
     private static void putIfNotBlank(Map<String, Object> root, String key, String value) {
