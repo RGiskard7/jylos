@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.Test;
 
@@ -17,6 +18,36 @@ import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
  * tab right after the active one. Before, every opened note added a tab at the end.
  */
 class EditorTabsModelTest {
+
+    /**
+     * A tab's back and forward can be read and given back (a workspace or the last session
+     * reopening them): going back then walks what it had, and only the last 20 steps are kept.
+     */
+    @Test
+    void aTabsHistoryIsReadAndGivenBack() {
+        EditorTabsModel tabs = new EditorTabsModel();
+        tabs.open("a", OpenTarget.CURRENT_TAB);
+        tabs.open("b", OpenTarget.CURRENT_TAB);
+        tabs.open("c", OpenTarget.CURRENT_TAB);
+        tabs.back();
+        assertEquals(List.of(List.of("a"), List.of("c")), List.of(tabs.backOf("b"), tabs.forwardOf("b")));
+        assertEquals(List.of(List.of(), List.of()), List.of(tabs.backOf("unknown"), tabs.forwardOf("unknown")));
+
+        EditorTabsModel reopened = new EditorTabsModel();
+        reopened.open("b", OpenTarget.NEW_TAB);
+        reopened.open("x", OpenTarget.NEW_TAB);
+        reopened.setHistory("b", tabs.backOf("b"), tabs.forwardOf("b"));
+        reopened.open("b", OpenTarget.CURRENT_TAB);
+        assertEquals(List.of(true, true), List.of(reopened.canGoBack(), reopened.canGoForward()));
+        assertEquals("a", reopened.back());
+        assertEquals("b", reopened.forward());
+        assertEquals("c", reopened.forward());
+        assertNull(reopened.forward());
+
+        List<String> long25 = IntStream.range(0, 25).mapToObj(i -> "n" + i).toList();
+        reopened.setHistory("x", long25, List.of());
+        assertEquals(long25.subList(5, 25), reopened.backOf("x"), "the last 20 are kept");
+    }
 
     @Test
     void theFirstNoteOpensATab() {

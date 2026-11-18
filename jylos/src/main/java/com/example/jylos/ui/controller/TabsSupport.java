@@ -17,6 +17,7 @@ import com.example.jylos.ui.components.EditorTabsModel;
 import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
 import com.example.jylos.ui.components.KanbanBoard;
 import com.example.jylos.ui.components.ViewTabs;
+import com.example.jylos.workspace.TabHistory;
 
 import javafx.scene.layout.VBox;
 
@@ -234,32 +235,72 @@ final class TabsSupport {
     /**
      * Reopens a saved workspace's tabs in their order, the graph's among them (the tabs already
      * open stay), then brings its active tab to the front, or the last one reopened when that
-     * one is gone. New, empty tabs are not reopened.
+     * one is gone. New, empty tabs are not reopened. Each tab gets back its back and forward
+     * ({@code histories}, in the order of {@code ids}), without the notes that no longer exist
+     * nor new tabs.
      *
      * @return how many of its notes no longer exist
      */
-    int restoreTabs(List<String> ids, String activeId) {
+    /** The back and forward of each open tab, in their order (to keep them in a workspace). */
+    List<TabHistory> histories() {
+        EditorTabs strip = tabs.get();
+        if (strip == null) {
+            return List.of();
+        }
+        return strip.getOpenIds().stream()
+                .map(id -> new TabHistory(strip.backOf(id), strip.forwardOf(id)))
+                .toList();
+    }
+
+    /**
+     * Closes every tab, the graph's too, once the open note's unsaved edits are dealt with
+     * (opening another workspace).
+     *
+     * @return {@code false} when the user cancels, and then every tab stays
+     */
+    boolean closeAll() {
+        EditorTabs strip = tabs.get();
+        if (strip == null) {
+            return true;
+        }
+        if (!leaveCurrent()) {
+            return false;
+        }
+        strip.clear();
+        graphStarted = false;
+        hideViews();
+        if (host != null) {
+            host.showEmptyState().run();
+        }
+        tabsChanged();
+        return true;
+    }
+
+    int restoreTabs(List<String> ids, String activeId, List<TabHistory> histories) {
         if (noteService == null || host == null) {
             return 0;
         }
         int missing = 0;
         String lastOpened = null;
-        for (String id : ids) {
+        for (int i = 0; i < ids.size(); i++) {
+            String id = ids.get(i);
             if (ViewTabs.GRAPH.equals(id)) {
                 openGraph(OpenTarget.NEW_TAB);
                 lastOpened = id;
-                continue;
-            }
-            if (ViewTabs.isEmptyTab(id)) {
+            } else if (ViewTabs.isEmptyTab(id)) {
                 continue; // nothing to reopen
-            }
-            Optional<Note> note = noteService.getNoteById(id);
-            if (note.isPresent()) {
+            } else {
+                Optional<Note> note = noteService.getNoteById(id);
+                if (note.isEmpty()) {
+                    missing++;
+                    continue;
+                }
                 // Each saved tab gets its own tab (a plain open would replace the previous one).
                 host.openNoteInNewTab().accept(note.get());
                 lastOpened = id;
-            } else {
-                missing++;
+            }
+            if (i < histories.size()) {
+                restoreHistory(id, histories.get(i));
             }
         }
         boolean activeExists = activeId != null && (ViewTabs.GRAPH.equals(activeId)
@@ -269,7 +310,23 @@ final class TabsSupport {
         if (target != null) {
             select(target);
         }
+        tabsChanged(); // back and forward follow the history just given back
         return missing;
+    }
+
+    private void restoreHistory(String id, TabHistory history) {
+        EditorTabs strip = tabs.get();
+        if (strip != null && strip.isOpen(id)) {
+            strip.setHistory(id, reopenable(history.back()), reopenable(history.forward()));
+        }
+    }
+
+    /** The graph and the notes that still exist; a new tab's id does not last. */
+    private List<String> reopenable(List<String> entries) {
+        return entries.stream()
+                .filter(entry -> ViewTabs.GRAPH.equals(entry)
+                        || !ViewTabs.isView(entry) && noteService.getNoteById(entry).isPresent())
+                .toList();
     }
 
     // ── Showing what the active tab holds ───────────────────────────────────

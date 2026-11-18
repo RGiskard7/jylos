@@ -347,11 +347,6 @@ public class ToolbarController {
     }
 
     @FXML
-    private void handleWorkspaceOpen(ActionEvent event) {
-        publishEvent(SystemActionEvent.ActionType.WORKSPACE_OPEN);
-    }
-
-    @FXML
     private void handleWorkspaceManage(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.WORKSPACE_MANAGE);
     }

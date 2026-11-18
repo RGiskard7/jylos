@@ -214,6 +214,21 @@ public final class EditorTabs {
         return model.canGoForward();
     }
 
+    /** What back goes through in {@code id}'s tab (see {@link EditorTabsModel#backOf}). */
+    public List<String> backOf(String id) {
+        return model.backOf(id);
+    }
+
+    /** What forward goes through in {@code id}'s tab. */
+    public List<String> forwardOf(String id) {
+        return model.forwardOf(id);
+    }
+
+    /** Gives {@code id}'s tab this back and forward (see {@link EditorTabsModel#setHistory}). */
+    public void setHistory(String id, List<String> back, List<String> forward) {
+        model.setHistory(id, back, forward);
+    }
+
     /** A note that no longer exists leaves every tab's history. */
     public void forget(String id) {
         model.forget(id);

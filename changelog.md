@@ -24,6 +24,8 @@
 
 - **Menús contextuales:** el del editor, el del canvas y los de las tarjetas del Kanban y de la cuadrícula se cierran al pulsar fuera de ellos, también sobre el propio editor, lienzo o tarjeta; antes solo se cerraban con Escape. Otro clic derecho sustituye al menú abierto en lugar de abrir uno encima. La vista de lectura y las notas de versión tienen su propio menú, en el idioma de la app, con Copiar (si hay algo seleccionado) y Seleccionar todo, en lugar del menú en inglés del motor, que ofrecía recargar la página o abrir enlaces en ventanas nuevas.
 
+- **Espacios de trabajo como contextos:** la barra de estado muestra el espacio en uso y, al pulsarlo, permite cambiar a otro, guardarlo, guardarlo como espacio nuevo o gestionarlos. Abrir un espacio sustituye las pestañas abiertas por las suyas, en lugar de añadirlas a las que ya había; antes se preguntan los cambios sin guardar de la nota abierta. Por defecto, el espacio en uso se guarda al cambiar a otro, así que se recupera como se dejó (se puede desactivar en ese mismo menú). Cada pestaña guarda también su atrás y adelante. "Sin espacio" es un contexto más: al abrir un espacio desde él se guardan sus pestañas, y al elegirlo de nuevo vuelven. El menú muestra los ocho espacios usados más recientemente; si hay más, "Todos los espacios…" abre el diálogo de gestión, que reúne abrir (también con doble clic), renombrar y eliminar, con un campo de búsqueda que no distingue mayúsculas ni tildes. "Abrir espacio…" ya no es un diálogo aparte.
+- **Jylos reabre la última sesión:** al arrancar vuelven las pestañas que estaban abiertas al cerrar, con su atrás y adelante, y el espacio que estaba en uso. Las notas borradas mientras tanto se omiten.
 - **Editor:**
   - **La vista previa en vivo solo enseña el Markdown de lo que estás editando**, por elemento y no por bloque: con el cursor en una `**negrita**`, solo esa negrita muestra sus asteriscos. Sin el foco en el editor, todo se ve renderizado. También dibuja callouts, notas incrustadas e imágenes `![[…]]`, fórmulas con KaTeX, notas al pie, `#etiquetas` (Cmd/Ctrl+clic muestra sus notas), comentarios `%%…%%` y `^id` atenuados, y el lenguaje de cada bloque de código. Nada de esto se aplica dentro de código.
   - **Propiedades con su botón en la cabecera**, como la barra de etiquetas, en edición y en lectura. El botón lleva un punto cuando la nota tiene propiedades, y su descripción dice cuántas. Una propiedad nueva se escribe en el propio panel, con "+ Añadir propiedad". El panel forma parte del documento, sin franja ni cajas en los valores hasta pasar el ratón.
@@ -132,6 +134,7 @@
     - una fila ya no se queda resaltada al desplazarse sin mover el ratón;
     - los enlaces de las notas de versión que se muestran antes de actualizar se abren en el navegador;
     - "+ Añadir etiqueta" aparecía siempre en inglés.
+    - la barra lateral y el panel de notas mantienen su ancho al abrir o cerrar el panel derecho; antes se ensanchaban al cerrarlo. Al cambiar el tamaño de la ventana, los paneles laterales (también el derecho) mantienen su ancho y es el editor el que crece o se estrecha.
   - **Temas:**
     - la vista de lectura conserva el tema oscuro al activar o desactivar un plugin;
     - el menú Ver > Tema marca el tema con el que se abre la aplicación.

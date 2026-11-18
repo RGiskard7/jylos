@@ -251,7 +251,7 @@ public class CommandPalette {
         commands.add(new Command("cmd.workspace_open", "Workspace: Open\u2026",
                 "Open a saved workspace", null, "\u25a4", "Workspace", null));
         commands.add(new Command("cmd.workspace_manage", "Workspace: Manage\u2026",
-                "Open or delete saved workspaces", null, "\u25a4", "Workspace", null));
+                "Open, rename or delete saved workspaces", null, "\u25a4", "Workspace", null));
         commands.add(new Command("cmd.git_panel", "Git: Sync Panel",
                 "Open the Git Sync panel (status, changes, commit, pull & push)", "Ctrl+Shift+G",
                 "\u2387", "Git", null));

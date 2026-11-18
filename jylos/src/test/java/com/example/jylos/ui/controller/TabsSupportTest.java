@@ -35,6 +35,7 @@ import com.example.jylos.tests.FxTestSupport;
 import com.example.jylos.ui.components.EditorTabs;
 import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
 import com.example.jylos.ui.components.ViewTabs;
+import com.example.jylos.workspace.TabHistory;
 import com.example.jylos.ui.graph.GraphCanvas;
 
 import javafx.fxml.FXMLLoader;
@@ -332,15 +333,69 @@ class TabsSupportTest {
         List<String> seen = onFx(() -> {
             Fixture f = new Fixture();
             int missing = f.views.restoreTabs(List.of("A.md", ViewTabs.GRAPH, "Borrada.md",
-                    ViewTabs.newEmptyTab(), "B.md"), ViewTabs.GRAPH);
+                    ViewTabs.newEmptyTab(), "B.md"), ViewTabs.GRAPH, List.of());
             String graphInFront = f.state() + " missing " + missing;
             Fixture g = new Fixture();
-            g.views.restoreTabs(List.of(ViewTabs.GRAPH, "A.md"), "Borrada.md"); // its active note is gone
+            g.views.restoreTabs(List.of(ViewTabs.GRAPH, "A.md"), "Borrada.md", List.of()); // its active note is gone
             return List.of(graphInFront, g.state());
         });
 
         assertEquals(List.of("tabs [A.md, GRAPH, B.md] active GRAPH graph shown missing 1",
                 "tabs [GRAPH, A.md] active A.md graph hidden"), seen);
+    }
+
+    /**
+     * A workspace reopens each tab with its back and forward, without the notes that no longer
+     * exist nor new tabs (their ids do not last), and they are read back as they are now.
+     */
+    @Test
+    void aWorkspaceReopensEachTabWithItsBackAndForward() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            Fixture f = new Fixture();
+            List<String> out = new ArrayList<>();
+            f.views.restoreTabs(List.of("A.md", "Borrada.md"), "A.md", List.of(
+                    new TabHistory(List.of("Borrada.md", ViewTabs.GRAPH, ViewTabs.newEmptyTab(), "B.md"),
+                            List.of("Borrada.md")),
+                    new TabHistory(List.of("B.md"), List.of())));
+            out.add(f.state() + " " + f.views.histories().toString().replace(ViewTabs.GRAPH, "GRAPH"));
+            f.views.back();
+            out.add(f.state());
+            f.views.back();
+            out.add(f.state() + " " + f.views.histories().toString().replace(ViewTabs.GRAPH, "GRAPH"));
+            return out;
+        });
+
+        assertEquals(List.of(
+                "tabs [A.md] active A.md graph hidden [TabHistory[back=[GRAPH, B.md], forward=[]]]",
+                "tabs [B.md] active B.md graph hidden",
+                "tabs [GRAPH] active GRAPH graph shown [TabHistory[back=[], forward=[A.md, B.md]]]"), seen);
+    }
+
+    /**
+     * Opening another workspace first closes every tab, the graph's too, once the open note's
+     * unsaved edits are dealt with; cancelling that keeps them all.
+     */
+    @Test
+    void allTheTabsCloseUnlessTheSavePromptIsCancelled() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            Fixture f = new Fixture();
+            List<String> out = new ArrayList<>();
+            f.notes("A.md", "B.md");
+            f.views.openGraph(OpenTarget.NEW_TAB);
+            f.host.leave = false;
+            out.add(f.views.closeAll() + " " + f.state());
+            f.host.leave = true;
+            f.host.calls.clear();
+            out.add(f.views.closeAll() + " " + f.state() + " " + f.host.calls);
+            return out;
+        });
+
+        assertEquals(List.of("false tabs [A.md, B.md, GRAPH] active GRAPH graph shown",
+                "true tabs [] active null graph hidden [confirm, empty, changed]"), seen);
     }
 
     /**

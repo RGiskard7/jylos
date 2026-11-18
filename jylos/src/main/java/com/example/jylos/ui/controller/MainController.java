@@ -418,6 +418,8 @@ public class MainController {
             setupSplitPanePersistence();
 
             refreshBackendSessionViews(false);
+            // The tabs open when the app last closed, and the workspace in use, come back.
+            Platform.runLater(workspaceController::restoreSession);
 
             Platform.runLater(this::initializeKeyboardShortcuts);
 
@@ -714,8 +716,9 @@ public class MainController {
                         sidebarController.loadRecentNotes();
                     }
                 });
-        workspaceController.wire(this::captureLiveWorkspace, this::applyWorkspace,
-                this::getString, this::updateStatus, sceneSupplier);
+        workspaceController.wire(new WorkspaceController.Host(this::captureLiveWorkspace, tabsSupport::histories,
+                tabsSupport::closeAll, tabsSupport::restoreTabs, this::applyWorkspaceLayout),
+                this::getString, this::updateStatus, sceneSupplier, prefs, statusBar);
         // REMOVABLE: in-app updater (see docs/PACKAGING.md).
         updateInstallSupport.wire(this::getString, this::updateStatus, this::openExternalUrl,
                 this::requestApplicationClose, () -> {
@@ -1631,7 +1634,7 @@ public class MainController {
         systemActionHandlers.put(SystemActionEvent.ActionType.KNOWLEDGE_INSIGHTS, this::showKnowledgeInsights);
         systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_SAVE, workspaceController::saveCurrent);
         systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_SAVE_AS, workspaceController::saveCurrentAs);
-        systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_OPEN, workspaceController::openWorkspaceDialog);
+        systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_OPEN, workspaceController::manageDialog);
         systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_MANAGE, workspaceController::manageDialog);
         systemActionHandlers.put(SystemActionEvent.ActionType.FOCUS_MODE, this::handleFocusMode);
         systemActionHandlers.put(SystemActionEvent.ActionType.PRIVATE_TOGGLE, () -> privacySupport.toggle(getCurrentNote()));
@@ -2367,6 +2370,7 @@ public class MainController {
     /** Cancels all event subscriptions, shuts down plugins, closes the executor and the database connection in orderly fashion. */
     public void shutdownApplication() {
         try {
+            workspaceController.saveSession(); // first, while the tabs are all there
             uiEventSubscriptions.forEach(EventBus.Subscription::cancel);
             uiEventSubscriptions.clear();
             if (systemActionSubscription != null) {
@@ -2502,32 +2506,6 @@ public class MainController {
                 editorController != null ? editorController.getViewMode().name()
                         : EditorController.ViewMode.EDITOR_ONLY.name(), sidebarVisible, focusModeSupport.isActive(),
                 splitMain, splitContent, storageMode);
-    }
-
-    /**
-     * Restores a workspace: reopens its tabs (see {@link TabsSupport#restoreTabs}) and
-     * reapplies the basic layout. Missing notes are skipped with a
-     * non-blocking status warning; a storage-mode mismatch is also flagged. Existing tabs
-     * are kept (open is additive — it never closes notes you already had open).
-     */
-    private void applyWorkspace(Workspace ws) {
-        if (ws == null || noteService == null) {
-            return;
-        }
-        String storageMode = prefs.get("storage_type", System.getProperty("jylos.storage", "sqlite"));
-        if (ws.storageMode() != null && !ws.storageMode().isBlank()
-                && !ws.storageMode().equalsIgnoreCase(storageMode)) {
-            updateStatus(getString("workspace.status.storage_mismatch"));
-        }
-
-        int missing = tabsSupport.restoreTabs(ws.openNoteIds(), ws.activeNoteId());
-        applyWorkspaceLayout(ws);
-
-        if (missing > 0) {
-            updateStatus(MessageFormat.format(getString("workspace.status.missing"), missing));
-        } else {
-            updateStatus(MessageFormat.format(getString("workspace.status.opened"), ws.name()));
-        }
     }
 
     /** Reapplies a workspace's basic layout (view mode, focus, splits, sidebar). */

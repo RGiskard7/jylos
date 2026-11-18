@@ -201,6 +201,33 @@ public final class EditorTabsModel {
         return active != null ? active.id : null;
     }
 
+    /** What back goes through in {@code id}'s tab, the last one first reached; empty when it is not open. */
+    public List<String> backOf(String id) {
+        Tab tab = find(id);
+        return tab != null ? List.copyOf(tab.back) : List.of();
+    }
+
+    /** What forward goes through in {@code id}'s tab, the last one first reached. */
+    public List<String> forwardOf(String id) {
+        Tab tab = find(id);
+        return tab != null ? List.copyOf(tab.forward) : List.of();
+    }
+
+    /**
+     * Gives {@code id}'s tab this back and forward (a workspace or the last session reopening
+     * them), keeping the last {@value #MAX_HISTORY} of each. Nothing happens when it is not open.
+     */
+    public void setHistory(String id, List<String> back, List<String> forward) {
+        Tab tab = find(id);
+        if (tab == null) {
+            return;
+        }
+        tab.back.clear();
+        tab.forward.clear();
+        back.forEach(entry -> push(tab.back, entry));
+        forward.forEach(entry -> push(tab.forward, entry));
+    }
+
     private Tab find(String id) {
         for (Tab tab : tabs) {
             if (Objects.equals(tab.id, id)) {

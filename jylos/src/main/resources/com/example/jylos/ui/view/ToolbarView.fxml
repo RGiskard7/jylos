@@ -25,7 +25,6 @@
                 <MenuItem text="%action.workspace_save" onAction="#handleWorkspaceSave"/>
                 <MenuItem text="%action.workspace_save_as" onAction="#handleWorkspaceSaveAs"/>
                 <SeparatorMenuItem/>
-                <MenuItem text="%action.workspace_open" onAction="#handleWorkspaceOpen"/>
                 <MenuItem text="%action.workspace_manage" onAction="#handleWorkspaceManage"/>
             </Menu>
             <SeparatorMenuItem/>

@@ -58,6 +58,17 @@ class UiLayout {
     void wire(Panes panes, Supplier<ToolbarController> toolbar, Function<String, String> i18n,
             Consumer<String> status) {
         this.panes = panes;
+        if (panes != null) {
+            // The side panels keep their width in pixels: when the space around them changes
+            // (the right panel opens or closes, the window is resized) the editor gives or takes
+            // it. A split pane otherwise keeps each divider at a share of its width, so closing
+            // the right panel widened the sidebar.
+            for (Node pane : new Node[] {panes.sidebar(), panes.notes(), panes.nav(), panes.right()}) {
+                if (pane != null) {
+                    SplitPane.setResizableWithParent(pane, false);
+                }
+            }
+        }
         this.toolbar = toolbar;
         this.i18n = i18n;
         this.status = status;
