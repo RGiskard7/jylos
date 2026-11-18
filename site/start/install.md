@@ -13,6 +13,16 @@ Prebuilt packages for the current release are available on the [GitHub Releases]
 | macOS | `.dmg` installer for Apple Silicon (`jylos-macos-arm64.dmg`); on Intel Macs use JBang or build from source |
 | Linux x64 | uber-JAR (`jylos-uber.jar`, requires Java 21): it bundles JavaFX for Linux only, so on other systems use JBang, which adds JavaFX for yours |
 
+### Nix and NixOS
+
+For `x86_64` Linux, a flake installs the release package (data in `~/.local/share/jylos`):
+
+```bash
+nix run "github:RGiskard7/jylos?dir=packaging/nix"
+```
+
+Under Wayland, Jylos runs through XWayland, as every JavaFX app does. See [packaging/nix](https://github.com/RGiskard7/jylos/tree/main/packaging/nix) for NixOS configuration.
+
 ## Run with JBang
 
 The fastest way to try Jylos without building anything:

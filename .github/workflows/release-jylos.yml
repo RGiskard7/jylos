@@ -259,3 +259,60 @@ jobs:
           files: dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  nix-package:
+    # The Nix flake packages the release's .deb by its hash, known only now: update it to this
+    # release, check that it builds, and open a pull request with the change.
+    name: Update the Nix package
+    needs: [publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Download package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Point the package at this release
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          deb="dist/jylos-linux-amd64.deb"
+          test -f "$deb"
+          hex="$(sha256sum "$deb" | cut -d' ' -f1)"
+          hash="sha256-$(python3 -c 'import base64, sys; print(base64.b64encode(bytes.fromhex(sys.argv[1])).decode())' "$hex")"
+          sed -i -E "s|^(  version = )\"[^\"]*\";|\\1\"${version}\";|" packaging/nix/jylos.nix
+          sed -i -E "s|^(    hash = )\"sha256-[^\"]*\";|\\1\"${hash}\";|" packaging/nix/jylos.nix
+          grep -q "version = \"${version}\";" packaging/nix/jylos.nix
+          grep -q "hash = \"${hash}\";" packaging/nix/jylos.nix
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31.11.5
+
+      - name: Build the updated package
+        run: |
+          nix build ./packaging/nix#jylos --print-build-logs
+          test -x result/bin/jylos
+
+      - name: Open the pull request
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
+        with:
+          add-paths: packaging/nix/jylos.nix
+          branch: nix/update-${{ github.ref_name }}
+          base: main
+          commit-message: "build: paquete de Nix a la versión ${{ github.ref_name }}"
+          title: "build: paquete de Nix a la versión ${{ github.ref_name }}"
+          body: |
+            Points the Nix flake (`packaging/nix/jylos.nix`) at the `.deb` of ${{ github.ref_name }}, with its hash. Built by this workflow before opening the pull request.
+          author: RGiskard7 <43444131+RGiskard7@users.noreply.github.com>
+          committer: GitHub <noreply@github.com>
+

@@ -36,7 +36,7 @@
 Prebuilt packages for all major platforms are available on the [Releases page](../../releases/latest):
 
 - **Windows** — `.exe` installer, `.msi` installer, portable ZIP
-- **Linux** — DEB/RPM (via `jpackage`), `.pkg.tar.zst` for Arch Linux (pacman)
+- **Linux** — DEB/RPM (via `jpackage`), `.pkg.tar.zst` for Arch Linux (pacman), and a Nix flake for Nix/NixOS (`nix run "github:RGiskard7/jylos?dir=packaging/nix"`, x86_64)
 - **macOS** — `.dmg` installer for Apple Silicon; on Intel Macs use JBang or build from source
 - **Linux x64** — uber-JAR (requires Java 21). It bundles JavaFX for Linux only: on other systems use JBang, which adds JavaFX for yours
 - **Via [JBang](https://www.jbang.dev/)** — single command, no build needed:

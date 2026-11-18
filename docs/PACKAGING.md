@@ -160,6 +160,27 @@ Icons (see `jylos/src/main/resources/app.properties` and [icons README](../jylos
 
 Update **`app-icon.png`** before dev runs; update **`icon.*`** before native packages (Dock/taskbar icons come from the installer assets).
 
+## Nix and NixOS
+
+`packaging/nix/` is a flake (`flake.nix`, `jylos.nix`, `flake.lock`) that repackages the
+release's `jylos-linux-amd64.deb` for `x86_64-linux`: `autoPatchelfHook` patches the jpackage
+launcher and runtime, the wrapper adds the libraries JavaFX opens at run time (GTK, OpenGL, X11)
+and sets `GDK_BACKEND=x11` (JavaFX has no Wayland backend; under Wayland it runs on XWayland).
+It also installs a `.desktop` entry and the icon.
+
+It follows the releases by itself: after publishing one, the `nix-package` job of
+`release-jylos.yml` points `jylos.nix` at the new `.deb` (its `version` and the `hash`, the
+`sha256` in SRI form), builds the flake and opens a pull request with the change, to review and
+merge. `nix.yml` builds the flake on every change to `packaging/nix/`. A package built from source (`maven.buildMavenPackage`) would also cover
+ARM, but needs every Maven dependency fetched ahead, the plugins' own included.
+
+Check it with Docker (also on Apple Silicon, emulated):
+
+```bash
+docker run -d --name jylos-nix --platform linux/amd64 -v "$PWD/packaging/nix":/flake:ro nixos/nix sleep infinity
+docker exec jylos-nix sh -c 'printf "experimental-features = nix-command flakes\nsandbox = false\nfilter-syscalls = false\n" >> /etc/nix/nix.conf && cp -r /flake /root/flake && nix build path:/root/flake#jylos --out-link /root/result'
+```
+
 ## In-app updater (unsigned builds)
 
 Jylos releases are not signed or notarized (see above — an Apple Developer
