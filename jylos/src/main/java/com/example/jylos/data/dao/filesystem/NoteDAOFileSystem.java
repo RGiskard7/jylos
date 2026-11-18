@@ -13,6 +13,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.Map;
 import java.util.Optional;
@@ -467,6 +468,7 @@ public class NoteDAOFileSystem implements NoteDAO {
             note.setId(id);
             note.setTitle(title);
             note.setContentComplete(false);
+            metadataStore.applyNoteMarks(id, note);
             applyFileTimestampsIfMissing(note, path);
             // Index outgoing links from the (untruncated) content head already read, so the
             // backlink index needs no second full-file read per note — critical on large or
@@ -622,6 +624,9 @@ public class NoteDAOFileSystem implements NoteDAO {
                 FileSystemAtomicWriter.writeString(filePath, fileContent, StandardCharsets.UTF_8);
                 if (attachment) {
                     metadataStore.persistDocumentMetadata(note);
+                } else {
+                    // Also clears marks left by a note that was at this path before.
+                    metadataStore.persistNoteMarks(note, FrontmatterHandler.claimsMarks(fileContent));
                 }
                 idToPathMap.put(relativePath, filePath);
                 cachedNotes.put(relativePath, note);
@@ -742,6 +747,7 @@ public class NoteDAOFileSystem implements NoteDAO {
             Note note = FrontmatterHandler.parse(content);
             // Override ID with our path-based ID
             note.setId(normalizedId);
+            metadataStore.applyNoteMarks(normalizedId, note);
 
             // Sync Title with Filename
             String filename = path.getFileName().toString();
@@ -860,7 +866,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                         cachedNotes.remove(oldId);
 
                         String newId = FileSystemNames.normalizeId(rootPath.relativize(newPath).toString());
-                        if (attachment) {
+                        if (usesSidecarMetadata(newPath)) {
                             metadataStore.moveDocumentMetadata(oldId, newId);
                         }
                         idToPathMap.put(newId, newPath);
@@ -885,7 +891,11 @@ public class NoteDAOFileSystem implements NoteDAO {
                     String previous = !missingOnDisk && Files.exists(path)
                             ? new String(Files.readAllBytes(path), StandardCharsets.UTF_8) : null;
                     String serialized = FrontmatterHandler.generate(note, previous);
-                    FileSystemAtomicWriter.writeString(path, serialized, StandardCharsets.UTF_8);
+                    if (!serialized.equals(previous)) {
+                        // Nothing changed (a mark, say, which lives in .jylos/): the file is left alone.
+                        FileSystemAtomicWriter.writeString(path, serialized, StandardCharsets.UTF_8);
+                    }
+                    metadataStore.persistNoteMarks(note, FrontmatterHandler.claimsMarks(serialized));
                     if (resyncInlineTags) {
                         // The caller may have just typed a new inline #tag; note.getTags() at
                         // this point still holds whatever was in memory before this edit, since
@@ -1385,9 +1395,13 @@ public class NoteDAOFileSystem implements NoteDAO {
                 || (note != null && AttachmentType.isAttachment(note.getTitle()));
     }
 
+    /** Whether Jylos keeps this file's marks in {@code .jylos/}: attachments and notes alike. */
     private boolean usesSidecarMetadata(Path path) {
-        return path != null
-                && AttachmentType.isAttachment(path.getFileName().toString());
+        if (path == null) {
+            return false;
+        }
+        String name = path.getFileName().toString();
+        return AttachmentType.isAttachment(name) || name.toLowerCase(Locale.ROOT).endsWith(".md");
     }
 
     private String expectedAttachmentFilename(String currentFilename, String requestedTitle) {

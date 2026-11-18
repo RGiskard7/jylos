@@ -37,6 +37,13 @@ public final class FrontmatterHandler {
 
     private static final String SEPARATOR = "---";
 
+    /**
+     * The fields older versions of Jylos wrote in every note. They are not written any more;
+     * when the user wrote one of these keys, it is theirs and stays.
+     */
+    private static final List<String> JYLOS_FIELDS = List.of(
+            "id", "title", "created", "modified", "favorite", "pinned", "deleted", "deleted_date");
+
     /** Keys consumed by the fixed Note schema — never exposed as custom properties. */
     private static final List<String> SYSTEM_KEYS = List.of(
             "id", "title", "created", "modified",
@@ -98,37 +105,52 @@ public final class FrontmatterHandler {
 
     /**
      * The file for {@code note}, given the file as it is on disk now ({@code previousFile},
-     * {@code null} for a new note). Its {@code tags:} keep the ones it had, in their order, that
-     * the note still has, and gain those added from the app; a {@code #tag} written in the
-     * text stays in the text and is not copied there.
+     * {@code null} for a new note). Only what the user wrote goes in it, as Obsidian does:
+     * <ul>
+     *   <li>Jylos' own fields are not written: the id is the path, the title the file name, the
+     *       dates the file's, the favorite and pinned marks are kept in {@code .jylos/} and the
+     *       trash is a folder. The same keys written by the user are theirs and stay as they
+     *       were; of the fields an older Jylos wrote ({@link #isJylosFrontmatter}) only
+     *       {@code created} stays.</li>
+     *   <li>Unchanged properties are copied byte for byte (comments, quotes, order, line ends),
+     *       and so are properties that do not read as YAML, which Jylos cannot know.</li>
+     *   <li>A note with no properties is written without a properties block.</li>
+     *   <li>Its {@code tags:} keep the ones it had that the note still has, in their order, and
+     *       gain those added from the app; a {@code #tag} of the text stays in the text.</li>
+     * </ul>
      */
     public static String generate(Note note, String previousFile) {
+        String text = note.getContent() != null ? note.getContent() : "";
+        FrontmatterBlock before = previousFile != null ? extractLeadingFrontmatter(previousFile) : null;
+        Map<String, Object> previous = before != null ? readableYaml(before.yaml()) : Map.of();
+        if (previous == null) {
+            return before.head() + text; // unreadable properties: kept as the user wrote them
+        }
+        boolean byJylos = isJylosFrontmatter(previous);
         Map<String, Object> root = new LinkedHashMap<>();
 
-        putIfNotBlank(root, "id", note.getId());
-        putIfNotBlank(root, "title", note.getTitle());
-        putIfNotBlank(root, "created", note.getCreatedDate());
-        putIfNotBlank(root, "modified", note.getModifiedDate());
-        root.put("favorite", note.isFavorite());
-        root.put("pinned", note.isPinned());
-        root.put("deleted", note.isDeleted());
-        putIfNotBlank(root, "deleted_date", note.getDeletedDate());
-        putIfNotBlank(root, "status", note.getStatus());
+        for (String key : JYLOS_FIELDS) {
+            if (previous.containsKey(key) && (!byJylos || "created".equals(key))) {
+                root.put(key, previous.get(key));
+            }
+        }
+        putKeeping(root, previous, "status", note.getStatus());
         if (note.isPrivate()) {
             root.put("private", true);
         }
-        putIfNotBlank(root, "author", note.getAuthor());
-        putIfNotBlank(root, "source_url", note.getSourceUrl());
+        putKeeping(root, previous, "author", note.getAuthor());
+        putKeeping(root, previous, "source_url", note.getSourceUrl());
 
         List<String> tags = propertyTags(note, previousFile);
         if (!tags.isEmpty()) {
-            root.put("tags", tags);
+            Object written = previous.get("tags");
+            root.put("tags", written != null && toStringList(written).equals(tags) ? written : tags);
         }
 
         if (note instanceof ToDoNote todo) {
             root.put("is_todo", true);
-            putIfNotBlank(root, "todo_due", todo.getToDoDue());
-            putIfNotBlank(root, "todo_completed", todo.getToDoCompleted());
+            putKeeping(root, previous, "todo_due", todo.getToDoDue());
+            putKeeping(root, previous, "todo_completed", todo.getToDoCompleted());
         }
 
         Map<String, Object> structured = note.getStructuredFrontmatterProperties();
@@ -164,14 +186,38 @@ public final class FrontmatterHandler {
             }
         }
 
-        StringBuilder sb = new StringBuilder();
-        sb.append(SEPARATOR).append('\n');
-        sb.append(trimTrailingDocumentMarker(newYamlDumper().dump(root)));
-        sb.append(SEPARATOR).append("\n\n");
-        if (note.getContent() != null) {
-            sb.append(note.getContent());
+        root = inPreviousOrder(root, previous);
+        if (before != null && root.equals(previous)) {
+            return before.head() + text;
         }
-        return sb.toString();
+        if (root.isEmpty()) {
+            return text;
+        }
+        String lineEnd = before != null && before.head().contains("\r\n") ? "\r\n" : "\n";
+        String yaml = trimTrailingDocumentMarker(newYamlDumper().dump(root));
+        if (!"\n".equals(lineEnd)) {
+            yaml = yaml.replace("\n", lineEnd);
+        }
+        return SEPARATOR + lineEnd + yaml + SEPARATOR + lineEnd + (before != null ? before.gap() : lineEnd) + text;
+    }
+
+    /** {@code value} under {@code key}, as {@code previous} wrote it when it is the same. */
+    private static void putKeeping(Map<String, Object> root, Map<String, Object> previous, String key, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        Object written = previous.get(key);
+        root.put(key, written != null && value.equals(String.valueOf(written)) ? written : value);
+    }
+
+    /**
+     * Whether the properties of {@code file} mark the note favorite or pinned: keys the user
+     * wrote (Jylos keeps its marks in {@code .jylos/}).
+     */
+    public static boolean claimsMarks(String file) {
+        FrontmatterBlock block = file != null ? extractLeadingFrontmatter(file) : null;
+        Map<String, Object> properties = block != null ? readableYaml(block.yaml()) : null;
+        return properties != null && (booleanValue(properties.get("favorite")) || booleanValue(properties.get("pinned")));
     }
 
     public static Note parseLightweight(String fileContent, int maxBodyChars) {
@@ -490,8 +536,16 @@ public final class FrontmatterHandler {
             int lineEnd = findLineEnd(content, lineStart);
             if (SEPARATOR.equals(content.substring(lineStart, lineEnd))) {
                 int bodyStart = skipLineBreak(content, lineEnd);
+                // The blank lines between the properties and the text are kept apart, to be
+                // written back as they were; the text starts at its first line, indentation kept.
+                int textStart = bodyStart;
+                while (textStart < content.length()
+                        && (content.charAt(textStart) == '\n' || content.charAt(textStart) == '\r')) {
+                    textStart++;
+                }
                 return new FrontmatterBlock(content.substring(yamlStart, lineStart),
-                        content.substring(bodyStart).stripLeading());
+                        content.substring(textStart), content.substring(bodyStart, textStart),
+                        content.substring(0, textStart));
             }
             if (lineEnd >= content.length()) {
                 return null;
@@ -516,7 +570,13 @@ public final class FrontmatterHandler {
         return cursor;
     }
 
-    private record FrontmatterBlock(String yaml, String body) {
+    /**
+     * @param yaml the properties, without the {@code ---} lines
+     * @param body the text, from its first line
+     * @param gap  the blank lines between the closing {@code ---} line and the text
+     * @param head everything before the text, exactly as written
+     */
+    private record FrontmatterBlock(String yaml, String body, String gap, String head) {
     }
 
     /**
@@ -638,17 +698,44 @@ public final class FrontmatterHandler {
         }
     }
 
+    /**
+     * Whether these properties were written by Jylos, which always wrote {@code id},
+     * {@code favorite}, {@code pinned} and {@code deleted} together; a note of Obsidian
+     * practically never has all four. Then its {@code title} is Jylos's, not the user's.
+     */
+    static boolean isJylosFrontmatter(Map<String, Object> properties) {
+        return properties.containsKey("id") && properties.containsKey("favorite")
+                && properties.containsKey("pinned") && properties.containsKey("deleted");
+    }
+
+    /** The keys of {@code root}: first those {@code previous} had, in its order, then the new ones. */
+    private static Map<String, Object> inPreviousOrder(Map<String, Object> root, Map<String, Object> previous) {
+        if (previous.isEmpty()) {
+            return root;
+        }
+        Map<String, Object> ordered = new LinkedHashMap<>();
+        previous.keySet().stream().filter(root::containsKey).forEach(key -> ordered.put(key, root.get(key)));
+        root.forEach(ordered::putIfAbsent);
+        return ordered;
+    }
+
+    /** The properties of a frontmatter, or {@code null} when it does not read as YAML. */
+    private static Map<String, Object> readableYaml(String yaml) {
+        try {
+            return parseYaml(yaml);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
     /** The names in the {@code tags:} property of a file, in order; none when it has none or it does not read. */
     private static List<String> frontmatterTagsOf(String file) {
         FrontmatterBlock block = file != null ? extractLeadingFrontmatter(file) : null;
         if (block == null) {
             return List.of();
         }
-        try {
-            return toStringList(parseYaml(block.yaml()).get("tags"));
-        } catch (RuntimeException e) {
-            return List.of();
-        }
+        Map<String, Object> properties = readableYaml(block.yaml());
+        return properties != null ? toStringList(properties.get("tags")) : List.of();
     }
 
     private static String foldTag(String tag) {

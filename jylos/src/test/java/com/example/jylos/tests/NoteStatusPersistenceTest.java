@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -99,13 +101,19 @@ class NoteStatusPersistenceTest {
                 """;
 
         Note parsed = FrontmatterHandler.parse(raw);
-        String regenerated = FrontmatterHandler.generate(parsed);
+        // Saved over the file it came from: unchanged, it stays as written.
+        assertEquals(raw, FrontmatterHandler.generate(parsed, raw));
+        // With a property changed, the YAML is written again and the dates stay text.
+        Map<String, String> props = new LinkedHashMap<>(parsed.getCustomProperties());
+        props.put("description", "Changed");
+        parsed.setCustomProperties(props);
+        String regenerated = FrontmatterHandler.generate(parsed, raw);
 
         assertEquals("2026-08-04", parsed.getCreatedDate());
         assertEquals("2026-07-21", parsed.getCustomProperties().get("published"));
         assertEquals("https://example.com/source", parsed.getCustomProperties().get("source"));
-        assertTrue(regenerated.contains("created: '2026-08-04'"));
-        assertTrue(regenerated.contains("published: '2026-07-21'"));
+        assertTrue(regenerated.contains("created: '2026-08-04'"), regenerated);
+        assertTrue(regenerated.contains("published: '2026-07-21'"), regenerated);
     }
 
     @Test

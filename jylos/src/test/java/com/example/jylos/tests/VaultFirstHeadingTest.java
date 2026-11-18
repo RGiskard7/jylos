@@ -43,7 +43,8 @@ class VaultFirstHeadingTest {
         note.setContent(note.getContent() + "Más.\n");
         notes.updateNote(note);
         String onDisk = Files.readString(vault.resolve("Nota.md"), StandardCharsets.UTF_8);
-        assertTrue(onDisk.endsWith("\n# Mi título\n\nCuerpo.\nMás.\n"), "on disk: " + onDisk);
+        // Nothing else is added: the note had no properties, and it still has none.
+        assertEquals("# Mi título\n\nCuerpo.\nMás.\n", onDisk);
         assertEquals("# Mi título\n\nCuerpo.\nMás.\n", notes.getNoteById("Nota.md").orElseThrow().getContent());
     }
 

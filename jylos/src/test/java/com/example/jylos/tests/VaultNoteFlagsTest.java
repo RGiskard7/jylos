@@ -2,6 +2,7 @@ package com.example.jylos.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -134,5 +135,16 @@ class VaultNoteFlagsTest {
         notes().createNote("Plan", "Otra nota");
 
         assertEquals(List.of("Plan missing", "Plan.md favorite false pinned false"), List.of(gone, onDisk("Plan")));
+    }
+
+    /** Deleted outside Jylos (Finder, Obsidian, Git): a new note at its path does not inherit its marks. */
+    @Test
+    void aNoteCreatedWhereOneWasDeletedOutsideJylosStartsUnmarked() throws Exception {
+        marked(notes(), "Plan");
+        Files.delete(vault.resolve("Plan.md"));
+
+        notes().createNote("Plan", "Otra nota");
+
+        assertEquals("Plan.md favorite false pinned false", onDisk("Plan"));
     }
 }

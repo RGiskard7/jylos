@@ -8,6 +8,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
@@ -885,10 +886,6 @@ public class FolderDAOFileSystem implements FolderDAO {
         if (targetPath == null || !Files.isRegularFile(targetPath)) {
             return;
         }
-        if (AttachmentType.fromName(targetPath.getFileName().toString())
-                == AttachmentType.MARKDOWN) {
-            return;
-        }
         metadataStore.moveDocumentMetadata(previousId, currentId);
     }
 
@@ -900,9 +897,10 @@ public class FolderDAOFileSystem implements FolderDAO {
         try (Stream<Path> walk = Files.walk(directoryRoot)) {
             walk.filter(Files::isRegularFile)
                     .filter(path -> {
-                        AttachmentType type =
-                                AttachmentType.fromName(path.getFileName().toString());
-                        return type.isAttachment();
+                        String name = path.getFileName().toString();
+                        // Notes keep their marks there too, as attachments their metadata.
+                        return AttachmentType.fromName(name).isAttachment()
+                                || name.toLowerCase(Locale.ROOT).endsWith(".md");
                     })
                     .forEach(path -> ids.add(FileSystemNames.normalizeId(rootPath.relativize(path).toString())));
         } catch (IOException e) {
