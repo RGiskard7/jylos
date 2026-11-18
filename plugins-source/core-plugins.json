@@ -1,0 +1,113 @@
+{
+  "$comment": "Jylos's own plugins, as the website lists them. Ids and enabledByDefault must match CorePlugins (CorePluginsCatalogTest); names must match each plugin's getName() (CorePluginJarsTest).",
+  "plugins": [
+    {
+      "id": "outline",
+      "name": "Outline",
+      "enabledByDefault": true,
+      "description": {
+        "en": "The headings of the open note in a side panel, to jump between them.",
+        "es": "Los encabezados de la nota abierta en un panel lateral, para saltar entre ellos."
+      }
+    },
+    {
+      "id": "table-of-contents",
+      "name": "Table of Contents",
+      "enabledByDefault": true,
+      "description": {
+        "en": "Generates a table of contents for the open note from its headings.",
+        "es": "Genera un índice de la nota abierta a partir de sus encabezados."
+      }
+    },
+    {
+      "id": "word-count",
+      "name": "Word Count",
+      "enabledByDefault": true,
+      "description": {
+        "en": "Word and character counts for the open note and the whole vault.",
+        "es": "Recuento de palabras y caracteres de la nota abierta y de toda la bóveda."
+      }
+    },
+    {
+      "id": "reading-time",
+      "name": "Reading Time",
+      "enabledByDefault": true,
+      "description": {
+        "en": "Estimated reading and speaking time for your notes.",
+        "es": "Tiempo estimado de lectura y de exposición de tus notas."
+      }
+    },
+    {
+      "id": "templates",
+      "name": "Note Templates",
+      "enabledByDefault": true,
+      "description": {
+        "en": "Create notes from templates, with variables such as the date.",
+        "es": "Crea notas a partir de plantillas, con variables como la fecha."
+      }
+    },
+    {
+      "id": "daily-notes",
+      "name": "Daily Notes",
+      "enabledByDefault": true,
+      "description": {
+        "en": "A note for each day: open today's, yesterday's or tomorrow's.",
+        "es": "Una nota por día: abre la de hoy, la de ayer o la de mañana."
+      }
+    },
+    {
+      "id": "calendar",
+      "name": "Calendar",
+      "enabledByDefault": true,
+      "description": {
+        "en": "A month calendar in the side panel that opens each day's note.",
+        "es": "Un calendario mensual en el panel lateral que abre la nota de cada día."
+      }
+    },
+    {
+      "id": "dataview",
+      "name": "Dataview",
+      "enabledByDefault": true,
+      "description": {
+        "en": "Query your notes' properties like a database, in tables and lists inside your notes.",
+        "es": "Consulta las propiedades de tus notas como una base de datos, en tablas y listas dentro de las notas."
+      }
+    },
+    {
+      "id": "mermaid-renderer",
+      "name": "Mermaid Diagrams",
+      "enabledByDefault": true,
+      "description": {
+        "en": "Draws Mermaid diagrams written in mermaid code blocks.",
+        "es": "Dibuja los diagramas Mermaid escritos en bloques de código mermaid."
+      }
+    },
+    {
+      "id": "mcp-server",
+      "name": "MCP Server",
+      "enabledByDefault": false,
+      "description": {
+        "en": "Lets AI clients that speak MCP read and edit your notes through a local server on this computer.",
+        "es": "Permite a clientes de IA que hablan MCP leer y editar tus notas a través de un servidor local en este equipo."
+      }
+    },
+    {
+      "id": "publish",
+      "name": "Publish",
+      "enabledByDefault": false,
+      "description": {
+        "en": "Exports the whole vault as a static website, ready for any static hosting.",
+        "es": "Exporta toda la bóveda como un sitio web estático, listo para cualquier alojamiento estático."
+      }
+    },
+    {
+      "id": "auto-backup",
+      "name": "Auto Backup",
+      "enabledByDefault": false,
+      "description": {
+        "en": "Exports your notes as Markdown files and backs up the database to a folder you choose.",
+        "es": "Exporta tus notas como ficheros Markdown y copia la base de datos a una carpeta que elijas."
+      }
+    }
+  ]
+}

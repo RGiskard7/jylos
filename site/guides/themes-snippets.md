@@ -22,7 +22,7 @@ base=dark
 - `darkLike=true` — dark Markdown preview and dark-aware dialogs.
 - `base=dark|light|system|auto` — stacks the built-in stylesheet under your CSS. Set it to `dark` or `light` for full UI coverage (graph, Git panel, command palette, dialogs, plugin manager, …).
 
-The repository's `themes/` folder has **Gruvbox Dark**, **Gruvbox Light** and **Retro Phosphor** (`base=dark` plus a green overlay), ready to copy and to start from. The colours of the base theme's generic controls (labels, fields, buttons, toggles, tooltips) are variables too (`-fx-label-text`, `-fx-input-bg`, `-fx-control-bg`, `-fx-control-border`, …), so a theme recolours them by setting those variables in `.root`.
+The repository's `themes/` folder has **Gruvbox Dark**, **Gruvbox Light** and **Retro Phosphor** (`base=dark` plus a green overlay), ready to copy and to start from; download them from [Themes](/guides/themes). Optional `author`, `description` and `description.es` keys are shown there. The colours of the base theme's generic controls (labels, fields, buttons, toggles, tooltips) are variables too (`-fx-label-text`, `-fx-input-bg`, `-fx-control-bg`, `-fx-control-border`, …), so a theme recolours them by setting those variables in `.root`.
 
 ### Install a theme
 

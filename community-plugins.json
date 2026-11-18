@@ -1,0 +1,4 @@
+{
+  "$comment": "Community plugins listed on the website. To propose one, open a pull request adding an entry: id, name, author, description (en, es), repo (its GitHub repository, with releases holding the JAR) and minJylos (its Plugin-Min-Jylos).",
+  "plugins": []
+}
