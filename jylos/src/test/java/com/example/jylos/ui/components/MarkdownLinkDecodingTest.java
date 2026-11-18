@@ -24,7 +24,7 @@ class MarkdownLinkDecodingTest {
         CompletableFuture<String> opened = new CompletableFuture<>();
         Platform.runLater(() -> {
             MarkdownEditorView editor = new MarkdownEditorView();
-            editor.setLinkHandlers(opened::complete, url -> opened.complete("external:" + url));
+            editor.setLinkHandlers((title, newTab) -> opened.complete(title), url -> opened.complete("external:" + url));
             editor.new EditorBridge().openMarkdownLink("Lenguajes.md#C++%20moderno");
         });
         assertEquals("Lenguajes#C++ moderno", opened.get(30, TimeUnit.SECONDS));

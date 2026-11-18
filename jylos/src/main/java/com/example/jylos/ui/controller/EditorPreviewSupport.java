@@ -73,8 +73,8 @@ public final class EditorPreviewSupport {
 
         double contentFontSize();
 
-        /** Follows a wiki-link clicked in the page. */
-        void openLink(String link);
+        /** Follows a wiki-link clicked in the page; in a new tab with Cmd/Ctrl or the middle button. */
+        void openLink(String link, boolean newTab);
 
         /** Opens the notes with a tag clicked in the page (without {@code #}). */
         void openTag(String tag);
@@ -374,7 +374,12 @@ public final class EditorPreviewSupport {
     /** Bridge exposed to the preview page as {@code window.javaApp}; public, see the class note. */
     public final class PreviewJavaBridge {
         public void openNote(String title) {
-            Platform.runLater(() -> host.openLink(title));
+            Platform.runLater(() -> host.openLink(title, false));
+        }
+
+        /** A link clicked with Cmd/Ctrl or the middle button: its note opens in a new tab. */
+        public void openNoteInNewTab(String title) {
+            Platform.runLater(() -> host.openLink(title, true));
         }
 
         /** Opens the notes with a tag (a {@code #tag} clicked in the reading view). */

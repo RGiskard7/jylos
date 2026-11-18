@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
@@ -70,7 +71,7 @@ public final class MarkdownEditorView extends StackPane {
 
     private Consumer<String> textChangeListener = text -> {
     };
-    private Consumer<String> wikiLinkHandler = title -> {
+    private BiConsumer<String, Boolean> wikiLinkHandler = (title, newTab) -> {
     };
     private Consumer<String> externalLinkHandler = url -> {
     };
@@ -124,9 +125,12 @@ public final class MarkdownEditorView extends StackPane {
         insertionTransformer = transformer != null ? transformer : UnaryOperator.identity();
     }
 
-    /** Sets the handlers used by links rendered inside editable Live Preview. */
-    public void setLinkHandlers(Consumer<String> wikiLinks, Consumer<String> externalLinks) {
-        wikiLinkHandler = wikiLinks != null ? wikiLinks : title -> {
+    /**
+     * Sets the handlers used by links followed in the editor: a note's link (and whether it
+     * opens in a new tab: the middle button, or Cmd/Ctrl+Shift+click), and an external one.
+     */
+    public void setLinkHandlers(BiConsumer<String, Boolean> wikiLinks, Consumer<String> externalLinks) {
+        wikiLinkHandler = wikiLinks != null ? wikiLinks : (title, newTab) -> {
         };
         externalLinkHandler = externalLinks != null ? externalLinks : url -> {
         };
@@ -587,14 +591,22 @@ public final class MarkdownEditorView extends StackPane {
         }
 
         public void openNote(String title) {
+            follow(title, false);
+        }
+
+        /** A note's link followed with the middle button or Cmd/Ctrl+Shift: in a new tab. */
+        public void openNoteInNewTab(String title) {
+            follow(title, true);
+        }
+
+        private void follow(String title, boolean newTab) {
             // The link as written (folder path kept), so the right one of two same-named notes
             // opens, and its heading or block, so it opens there.
             String path = WikiLinkResolver.internalLinkPath(title);
             String subpath = WikiLinkResolver.subpathOf(title);
             String resolvedTitle = path != null && subpath != null ? path + "#" + subpath : path;
-            Platform.runLater(() -> wikiLinkHandler.accept(resolvedTitle != null
-                    ? resolvedTitle
-                    : title != null ? title : ""));
+            String link = resolvedTitle != null ? resolvedTitle : title != null ? title : "";
+            Platform.runLater(() -> wikiLinkHandler.accept(link, newTab));
         }
 
         public void openTag(String tag) {
@@ -608,11 +620,20 @@ public final class MarkdownEditorView extends StackPane {
         }
 
         public void openMarkdownLink(String target) {
+            followMarkdownLink(target, false);
+        }
+
+        /** A Markdown link followed with the middle button or Cmd/Ctrl+Shift: a note's, in a new tab. */
+        public void openMarkdownLinkInNewTab(String target) {
+            followMarkdownLink(target, true);
+        }
+
+        private void followMarkdownLink(String target, boolean newTab) {
             String path = WikiLinkResolver.internalLinkPath(target);
             String subpath = WikiLinkResolver.subpathOf(target != null ? WikiLinkResolver.urlDecode(target) : null);
             String title = path != null && subpath != null ? path + "#" + subpath : path;
             if (title != null) {
-                Platform.runLater(() -> wikiLinkHandler.accept(title));
+                Platform.runLater(() -> wikiLinkHandler.accept(title, newTab));
             } else {
                 Platform.runLater(() -> externalLinkHandler.accept(target != null ? target : ""));
             }

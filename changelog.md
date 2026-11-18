@@ -17,6 +17,7 @@
   - **Un clic abre la nota en la pestaña actual**, en lugar de añadir una pestaña cada vez. Si la nota ya está abierta, se activa su pestaña. Cmd/Ctrl+clic, el clic central o "Abrir en pestaña nueva" la abren en otra, a la derecha. El clic central sobre una pestaña la cierra. Quien prefiera lo anterior puede activar "Abrir siempre las notas en una pestaña nueva" en Preferencias.
   - **El grafo y cada tablero Kanban se abren en su pestaña**, como las notas, y ya no tapan la ventana. Cmd/Ctrl+clic o el clic central en el botón del grafo lo abren en una pestaña nueva. El grafo se encuentra como lo dejaste al volver a su pestaña, y un espacio de trabajo guardado lo vuelve a abrir.
   - **Botón + y Cmd/Ctrl+T abren una pestaña nueva**, con "Nueva nota" destacada y tarjetas para nuevo lienzo, ir a archivo, vista de grafo y tablero Kanban, cada una con su atajo. Las tarjetas se recolocan según el ancho: cuatro por fila, dos o una.
+  - **Los enlaces de la vista de lectura se abren en una pestaña nueva** con Cmd/Ctrl+clic o el clic central, como en el árbol o la lista; el clic normal, en la pestaña actual. **En el editor**, donde el clic sirve para escribir y Cmd/Ctrl+clic sigue el enlace en la pestaña actual, Cmd/Ctrl+Mayús+clic o el clic central lo abren en una nueva; vale para los enlaces `[[…]]` y los Markdown, en modo fuente y en Live Preview.
   - **Atrás y adelante recorren lo que mostró cada pestaña**, no todas las notas abiertas.
   - **Con la letra de la interfaz grande, el título se acorta, pero la × de cerrar y el punto de cambios sin guardar se ven siempre**, igual que la × de las etiquetas y de las propiedades.
 
@@ -34,6 +35,7 @@
   - **Imágenes WebP**, en el editor, en la vista de lectura y en el visor de imágenes. Muchas imágenes de la web se sirven en WebP aunque la dirección acabe en `.png`, como las de los artículos de Medium guardados con el clipper, y antes solo salía su enlace en un recuadro. Ahora Jylos las convierte en segundo plano. Los `.webp` de la bóveda aparecen en el explorador.
   - **Más fluido:** escribir ya no vuelve a dibujar las fórmulas, imágenes y bloques de alrededor (cada tecla cuesta la mitad en una nota de dos mil líneas). El scroll ya no da saltos al entrar en pantalla una imagen, un callout o una fórmula, y cada imagen se lee del disco una sola vez.
   - **Corregido:**
+  - **Una nota sin frontmatter que empezaba por `# Título` perdía esa línea al guardarla**: al leerla se tomaba como título y salía del texto, y el título es el nombre del fichero, así que al guardar desaparecía del disco. Pasaba con casi cualquier nota de una bóveda de Obsidian. Ahora es un encabezado más y se conserva. Las notas que ya la perdieron no la recuperan.
     - la negrita y los títulos no se veían en negrita;
     - un clic bajo una imagen, una fórmula o un bloque renderizado caía en otra línea;
     - el cursor dentro de un elemento no mostraba su Markdown;

@@ -19,7 +19,7 @@ import {
 import { Tag, tags } from "@lezer/highlight";
 import { GFM } from "@lezer/markdown";
 import { colourEmojiSupported, EMOJI_FONT_FAMILY, EMOJI_RUN, emojiClusters, emojiKind } from "./emoji.js";
-import { blockRenderField, imageConverted, livePreview, setBlockRenders, setMathReady } from "./live-preview.js";
+import { blockRenderField, imageConverted, livePreview, openMarkdownLink, openNoteLink, setBlockRenders, setMathReady } from "./live-preview.js";
 
 // `==mark==` highlight syntax is a common CommonMark extension (Obsidian,
 // Typora) but isn't part of GFM, so @lezer/markdown has no built-in node for
@@ -327,37 +327,47 @@ function selectAll() {
   return true;
 }
 
+// In source mode a click is for writing: Cmd/Ctrl+click follows a link in the active tab,
+// and with Shift too, or with the middle button (which fires no click), in a new tab.
 function sourceLinkNavigation() {
   return EditorView.domEventHandlers({
     click(event, editorView) {
       if (window.__jylosEditorConfig?.livePreview || !(event.metaKey || event.ctrlKey)) return false;
-      const position = editorView.posAtCoords({ x: event.clientX, y: event.clientY });
-      if (position == null) return false;
+      return followLinkAt(event, editorView, event.shiftKey);
+    },
+    mousedown(event, editorView) {
+      if (window.__jylosEditorConfig?.livePreview || event.button !== 1) return false;
+      return followLinkAt(event, editorView, true);
+    }
+  });
+}
 
-      const line = editorView.state.doc.lineAt(position);
-      for (const match of line.text.matchAll(/!?\[\[([^\]\n]+)\]\]/g)) {
-        const from = line.from + match.index;
-        const to = from + match[0].length;
-        if (position >= from && position <= to) {
-          // The heading or block stays in the link, so the note opens there.
-          window.javaEditor?.openNote(match[1].split("|", 1)[0].trim());
-          event.preventDefault();
-          return true;
-        }
-      }
+function followLinkAt(event, editorView, newTab) {
+  const position = editorView.posAtCoords({ x: event.clientX, y: event.clientY });
+  if (position == null) return false;
 
-      let node = syntaxTree(editorView.state).resolveInner(position, 1);
-      while (node && !["Link", "Autolink"].includes(node.name)) node = node.parent;
-      if (!node) return false;
-      const urlNode = directChild(node, "URL");
-      const target = urlNode
-        ? editorView.state.sliceDoc(urlNode.from, urlNode.to).trim()
-        : editorView.state.sliceDoc(node.from, node.to).replace(/^<|>$/g, "");
-      window.javaEditor?.openMarkdownLink(target);
+  const line = editorView.state.doc.lineAt(position);
+  for (const match of line.text.matchAll(/!?\[\[([^\]\n]+)\]\]/g)) {
+    const from = line.from + match.index;
+    const to = from + match[0].length;
+    if (position >= from && position <= to) {
+      // The heading or block stays in the link, so the note opens there.
+      openNoteLink(match[1].split("|", 1)[0].trim(), newTab);
       event.preventDefault();
       return true;
     }
-  });
+  }
+
+  let node = syntaxTree(editorView.state).resolveInner(position, 1);
+  while (node && !["Link", "Autolink"].includes(node.name)) node = node.parent;
+  if (!node) return false;
+  const urlNode = directChild(node, "URL");
+  const target = urlNode
+    ? editorView.state.sliceDoc(urlNode.from, urlNode.to).trim()
+    : editorView.state.sliceDoc(node.from, node.to).replace(/^<|>$/g, "");
+  openMarkdownLink(target, newTab);
+  event.preventDefault();
+  return true;
 }
 
 function directChild(node, name) {

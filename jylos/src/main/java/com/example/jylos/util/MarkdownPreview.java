@@ -293,6 +293,33 @@ public class MarkdownPreview {
                         });
                     })();
 
+                    // The note a link opens: as written, with its heading or block, so it opens there.
+                    function noteOf(link) {
+                        let title = link.getAttribute('data-target');
+                        if (!title) {
+                            // fallback for pure markdown links [Note](jylos://...)
+                            title = decodeURIComponent(link.getAttribute('href').substring('jylos://open-note/'.length));
+                        }
+                        let subpath = link.getAttribute('data-subpath');
+                        return subpath ? title + '#' + subpath : title;
+                    }
+                    function openNote(link, newTab) {
+                        if (!window.javaApp) { return; }
+                        if (newTab && window.javaApp.openNoteInNewTab) {
+                            window.javaApp.openNoteInNewTab(noteOf(link));
+                        } else {
+                            window.javaApp.openNote(noteOf(link));
+                        }
+                    }
+                    // The middle button fires no click: it opens a note's link in a new tab here.
+                    document.addEventListener('mousedown', function(e) {
+                        let link = e.button === 1 ? e.target.closest('a[href^="jylos://open-note/"]') : null;
+                        if (link) {
+                            e.preventDefault();
+                            openNote(link, true);
+                        }
+                    });
+
                     document.addEventListener('click', function(e) {
                         let target = e.target.closest('a');
                         if (!target) { return; }
@@ -300,18 +327,9 @@ public class MarkdownPreview {
                         if (!href) { return; }
                         if (href.startsWith('jylos://open-note/')) {
                             e.preventDefault();
-                            let title = target.getAttribute('data-target');
-                            if (!title) {
-                                // fallback for pure markdown links [Note](jylos://...)
-                                title = decodeURIComponent(href.substring('jylos://open-note/'.length));
-                            }
-                            // A link to a heading or block opens the note there.
-                            let subpath = target.getAttribute('data-subpath');
-                            if (subpath) {
-                                title = title + '#' + subpath;
-                            }
-                            if (window.javaApp) {
-                                window.javaApp.openNote(title);
+                            // Cmd/Ctrl+click opens it in a new tab; another button is not a click.
+                            if (e.button === 0) {
+                                openNote(target, e.metaKey || e.ctrlKey);
                             }
                         } else if (href.startsWith('jylos://tag/')) {
                             e.preventDefault();

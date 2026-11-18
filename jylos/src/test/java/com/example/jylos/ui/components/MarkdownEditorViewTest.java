@@ -284,7 +284,7 @@ class MarkdownEditorViewTest {
                 MarkdownEditorView editor = new MarkdownEditorView();
                 List<String> internal = new ArrayList<>();
                 AtomicReference<String> external = new AtomicReference<>();
-                editor.setLinkHandlers(internal::add, external::set);
+                editor.setLinkHandlers((title, newTab) -> internal.add(title), external::set);
                 stage.setScene(new Scene(new StackPane(editor), 800, 600));
                 stage.show();
                 editor.whenReady(() -> Platform.runLater(() -> {

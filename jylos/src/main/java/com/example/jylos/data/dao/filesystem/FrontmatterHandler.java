@@ -576,15 +576,14 @@ public final class FrontmatterHandler {
         return options;
     }
 
+    /**
+     * A file without frontmatter (most notes of an Obsidian vault): all of it is the note's text.
+     * A first {@code # } line is a heading like any other, not the title, which is the file name
+     * (set by the caller): taking it out of the text lost it from the file at the next save.
+     */
     private static Note parseWithoutFrontmatter(String content) {
-        String title = "Untitled";
         String body = content;
-        String[] lines = content.split("\n", 2);
-        if (lines[0].startsWith("# ")) {
-            title = lines[0].substring(2).trim();
-            body = lines.length > 1 ? lines[1] : "";
-        }
-        Note note = new Note(title, body);
+        Note note = new Note("Untitled", body);
         // A note with no YAML frontmatter at all is common for a vault Jylos did not
         // create (an existing Obsidian vault, a plain synced folder): it has not gone
         // through buildNote() even once, so without this call its inline #tags would

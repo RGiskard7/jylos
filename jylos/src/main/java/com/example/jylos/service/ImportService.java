@@ -100,11 +100,8 @@ public class ImportService {
                     if (hasFrontmatter && parsed.getTitle() != null && !parsed.getTitle().isBlank()) {
                         title = parsed.getTitle();
                     }
-                    // Without frontmatter keep the raw body verbatim (the parser would
-                    // otherwise consume the first heading as a synthetic title).
-                    String content = hasFrontmatter
-                            ? (parsed.getContent() != null ? parsed.getContent() : "")
-                            : raw;
+                    // Without frontmatter the parser keeps the whole file as the text.
+                    String content = parsed.getContent() != null ? parsed.getContent() : "";
 
                     Note note = new Note(title, content);
                     note.setStatus(parsed.getStatus());

@@ -35,7 +35,8 @@ El **modo concentración / escritura** (**Ctrl/Cmd+Shift+F**, o **Ver → Modo c
 Las pestañas funcionan como en VS Code:
 
 - Un clic en una nota la abre en la **pestaña actual**, sustituyendo la nota que había. Si la nota ya está abierta en otra pestaña, se activa esa pestaña en lugar de abrirla dos veces.
-- Para abrir una nota en una **pestaña nueva** (justo a la derecha de la actual): **Cmd+clic** en macOS o **Ctrl+clic** en Windows y Linux, **clic central**, o **Abrir en pestaña nueva** en el menú contextual de la nota. Funciona en el árbol Explorador, la lista de notas, la cuadrícula, Recientes y Favoritas, y en las tarjetas enlazadas del Kanban.
+- Para abrir una nota en una **pestaña nueva** (justo a la derecha de la actual): **Cmd+clic** en macOS o **Ctrl+clic** en Windows y Linux, **clic central**, o **Abrir en pestaña nueva** en el menú contextual de la nota. Funciona en el árbol Explorador, la lista de notas, la cuadrícula, Recientes y Favoritas, en las tarjetas enlazadas del Kanban, en los enlaces de la vista de lectura y en los del panel de propiedades.
+- En el editor el clic sirve para escribir, así que **Cmd/Ctrl+clic** sigue un enlace en la pestaña actual, y **Cmd/Ctrl+Mayús+clic** o el **clic central** lo abren en una pestaña nueva.
 - Las notas nuevas y las de un espacio de trabajo se abren cada una en su pestaña.
 - El clic central sobre una pestaña la cierra.
 

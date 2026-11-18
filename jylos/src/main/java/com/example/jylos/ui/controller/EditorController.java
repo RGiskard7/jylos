@@ -542,9 +542,9 @@ public class EditorController implements PreviewEnhancerRegistry,
         }
         if (noteContentArea != null) {
             noteContentArea.setInsertionTransformer(this::applyInsertHooks);
-            noteContentArea.setLinkHandlers(title -> {
+            noteContentArea.setLinkHandlers((title, newTab) -> {
                 if (wikiLinkHandler != null) {
-                    wikiLinkHandler.openNoteByTitle(title, false);
+                    wikiLinkHandler.openNoteByTitle(title, newTab);
                 }
             }, SystemBrowser::open);
             noteContentArea.setImageSourceResolver(
@@ -1584,9 +1584,9 @@ public class EditorController implements PreviewEnhancerRegistry,
         }
 
         @Override
-        public void openLink(String link) {
+        public void openLink(String link, boolean newTab) {
             if (wikiLinkHandler != null) {
-                wikiLinkHandler.openNoteByTitle(link, false);
+                wikiLinkHandler.openNoteByTitle(link, newTab);
             }
         }
 

@@ -233,8 +233,10 @@ class TextWidget extends WidgetType {
     element.addEventListener("mousedown", event => {
       event.preventDefault();
       event.stopPropagation();
-      if (this.action && (event.metaKey || event.ctrlKey)) {
-        this.action();
+      // Cmd/Ctrl+click follows a link; with Shift too, or with the middle button, in a new tab.
+      const middle = event.button === 1;
+      if (this.action && (middle || event.metaKey || event.ctrlKey)) {
+        this.action(middle || event.shiftKey);
       } else {
         placeCursorAt(view, element, this.from);
       }
@@ -772,26 +774,23 @@ class RenderedBlockWidget extends WidgetType {
     }
 
     wrapper.addEventListener("mousedown", event => {
-      // Anchors keep their own behaviour (handled on click); anywhere else puts the
-      // cursor into the block so it reverts to source and can be edited.
-      if (event.target.closest("a")) return;
+      // Anchors keep their own behaviour (handled on click; the middle button, which
+      // fires no click, here); anywhere else puts the cursor into the block so it reverts
+      // to source and can be edited.
+      const anchor = event.target.closest("a");
+      if (anchor) {
+        if (event.button === 1 && followAnchor(anchor, true)) event.preventDefault();
+        return;
+      }
       event.preventDefault();
       placeCursorAt(view, outer, this.from);
     });
 
     wrapper.addEventListener("click", event => {
       const anchor = event.target.closest("a");
-      if (!anchor) return;
+      if (!anchor || event.button !== 0) return;
       event.preventDefault();
-      const href = anchor.getAttribute("href") || "";
-      if (href.startsWith("jylos://open-note/")) {
-        const target = anchor.getAttribute("data-target")
-          || decodeURIComponent(href.slice("jylos://open-note/".length));
-        const subpath = anchor.getAttribute("data-subpath");
-        window.javaEditor?.openNote(subpath ? `${target}#${subpath}` : target);
-      } else if (/^https?:/i.test(href)) {
-        window.javaEditor?.openExternal(href);
-      }
+      followAnchor(anchor, event.metaKey || event.ctrlKey);
     });
 
     watchBlockSize(view, outer, `html:${this.html}`);
@@ -908,6 +907,35 @@ function lineDecorationsForRange(view, from, to, className) {
   return decorations;
 }
 
+/** Opens the note a link names, in a new tab when `newTab`. */
+export function openNoteLink(target, newTab) {
+  if (newTab && window.javaEditor?.openNoteInNewTab) window.javaEditor.openNoteInNewTab(target);
+  else window.javaEditor?.openNote(target);
+}
+
+/** Follows a Markdown link: a note's in a new tab when `newTab`, an external one in the browser. */
+export function openMarkdownLink(target, newTab) {
+  if (newTab && window.javaEditor?.openMarkdownLinkInNewTab) window.javaEditor.openMarkdownLinkInNewTab(target);
+  else window.javaEditor?.openMarkdownLink(target);
+}
+
+/** Follows a link of a rendered block; false when it is not one the app follows. */
+function followAnchor(anchor, newTab) {
+  const href = anchor.getAttribute("href") || "";
+  if (href.startsWith("jylos://open-note/")) {
+    const target = anchor.getAttribute("data-target")
+      || decodeURIComponent(href.slice("jylos://open-note/".length));
+    const subpath = anchor.getAttribute("data-subpath");
+    openNoteLink(subpath ? `${target}#${subpath}` : target, newTab);
+    return true;
+  }
+  if (/^https?:/i.test(href)) {
+    window.javaEditor?.openExternal(href);
+    return true;
+  }
+  return false;
+}
+
 function wikiReplacement(match, from) {
   const embed = match.startsWith("!");
   const inner = match.slice(embed ? 3 : 2, -2);
@@ -923,14 +951,14 @@ function wikiReplacement(match, from) {
   const className = embed ? "cm-live-embed" : "cm-live-wikilink";
   const text = embed ? `▣ ${label}` : label;
   return Decoration.replace({
-    widget: new TextWidget(text, className, from, () => window.javaEditor?.openNote(target), target)
+    widget: new TextWidget(text, className, from, newTab => openNoteLink(target, newTab), target)
   }).range(from, from + match.length);
 }
 
 function linkReplacement(label, target, from, to) {
   return Decoration.replace({
     widget: new TextWidget(label || target, "cm-live-link", from,
-      () => window.javaEditor?.openMarkdownLink(target), target)
+      newTab => openMarkdownLink(target, newTab), target)
   }).range(from, to);
 }
 
