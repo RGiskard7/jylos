@@ -50,7 +50,7 @@ class PropertiesPanelTest {
             List<String> opened = new ArrayList<>();
             Field links = EditorController.class.getDeclaredField("wikiLinkHandler");
             links.setAccessible(true);
-            links.set(controller, (EditorController.WikiLinkHandler) opened::add);
+            links.set(controller, (EditorController.WikiLinkHandler) (title, newTab) -> opened.add(title));
 
             Note note = new Note("a.md", "A", "x");
             Map<String, String> props = new LinkedHashMap<>();

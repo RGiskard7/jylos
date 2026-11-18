@@ -55,7 +55,7 @@ public class JavaFxHtmlView extends StackPane implements HtmlView {
         });
     }
 
-    /** Whether the engine's own right-click menu shows (off where the app shows its own). */
+    @Override
     public void setContextMenuEnabled(boolean enabled) {
         webView.setContextMenuEnabled(enabled);
     }

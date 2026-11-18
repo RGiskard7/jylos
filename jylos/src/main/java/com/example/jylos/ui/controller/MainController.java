@@ -1626,10 +1626,7 @@ public class MainController {
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_PIN, () -> handleTogglePin(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_FAVORITE, () -> handleToggleFavorite(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL, () -> handleToggleRightPanel(null));
-        systemActionHandlers.put(SystemActionEvent.ActionType.NAVIGATE_BACK,    tabsSupport::back);
-        systemActionHandlers.put(SystemActionEvent.ActionType.NAVIGATE_FORWARD, tabsSupport::forward);
-        systemActionHandlers.put(SystemActionEvent.ActionType.GRAPH_VIEW, tabsSupport::openGraph);
-        systemActionHandlers.put(SystemActionEvent.ActionType.NEW_TAB, tabsSupport::newTab);
+        tabsSupport.register(systemActionHandlers);
         systemActionHandlers.put(SystemActionEvent.ActionType.NEW_KANBAN_BOARD, noteCreationSupport::createNewBoard);
         systemActionHandlers.put(SystemActionEvent.ActionType.KNOWLEDGE_INSIGHTS, this::showKnowledgeInsights);
         systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_SAVE, workspaceController::saveCurrent);
@@ -1637,7 +1634,6 @@ public class MainController {
         systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_OPEN, workspaceController::openWorkspaceDialog);
         systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_MANAGE, workspaceController::manageDialog);
         systemActionHandlers.put(SystemActionEvent.ActionType.FOCUS_MODE, this::handleFocusMode);
-        systemActionHandlers.put(SystemActionEvent.ActionType.KANBAN_VIEW, tabsSupport::openKanban);
         systemActionHandlers.put(SystemActionEvent.ActionType.PRIVATE_TOGGLE, () -> privacySupport.toggle(getCurrentNote()));
         systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_UNLOCK, privacySupport::unlockAll);
         systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_LOCK, privacySupport::lockAll);
@@ -2087,9 +2083,10 @@ public class MainController {
     /**
      * Follows a link clicked in the editor or the reading view: opens the note it names
      * (resolved by path from the open note; a link with only {@code #section} stays in the
-     * open note) and, when the link names a heading or a block, scrolls there.
+     * open note), in a new tab when {@code newTab} (Cmd/Ctrl+click), and, when the link names
+     * a heading or a block, scrolls there.
      */
-    private void openLink(String link) {
+    private void openLink(String link, boolean newTab) {
         Note current = getCurrentNote();
         String subpath = WikiLinkResolver.subpathOf(link);
         boolean sameNote = link != null && link.strip().startsWith("#") && current != null;
@@ -2099,7 +2096,9 @@ public class MainController {
             updateStatus("Note not found: " + link);
             return;
         }
-        if (!sameNote) {
+        if (newTab && !sameNote) {
+            openNoteInNewTab(target.get());
+        } else if (!sameNote) {
             handleUiNoteOpenRequest(target.get());
         }
         Note opened = getCurrentNote();

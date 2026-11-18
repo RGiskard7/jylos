@@ -3,6 +3,7 @@ package com.example.jylos.ui.controller;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.ui.UiNodes;
+import com.example.jylos.ui.components.NewTabGesture;
 import com.example.jylos.ui.preferences.LayoutMode;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -90,6 +91,9 @@ public class ToolbarController {
     private TextField searchField;
     @FXML
     private Button searchToggleBtn;
+    /** Opens the graph; with Cmd/Ctrl or the middle button, in a new tab. */
+    @FXML
+    private Button graphViewBtn;
     @FXML
     private ToggleButton rightPanelToggleBtn;
     @FXML
@@ -137,6 +141,9 @@ public class ToolbarController {
                     collapseSearchIfEmpty();
                 }
             });
+        }
+        if (graphViewBtn != null) {
+            NewTabGesture.onButton(graphViewBtn, () -> publishEvent(SystemActionEvent.ActionType.GRAPH_VIEW_NEW_TAB));
         }
     }
 

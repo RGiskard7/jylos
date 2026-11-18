@@ -197,8 +197,6 @@ public final class CanvasView extends BorderPane {
     private boolean secondaryMoved;
     /** Where the background menu was asked for while the right button was down (macOS asks on press). */
     private ContextMenuEvent pendingBackgroundMenu;
-    /** The menu open now, if any: only one at a time, and pressing the canvas closes it. */
-    private ContextMenu openMenu;
     /** Where a selection box started on the background (viewport coordinates), or null. */
     private CanvasGeometry.Point selectionBoxStart;
     private final Rectangle selectionBox = new Rectangle();
@@ -1995,7 +1993,6 @@ public final class CanvasView extends BorderPane {
             }
             e.consume();
         });
-        viewport.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> hideOpenMenu());
         viewport.addEventFilter(MouseEvent.MOUSE_CLICKED, e -> {
             Object target = e.getTarget();
             if ((target != viewport && target != world && target != worldGroup) || e.getClickCount() < 2) {
@@ -2152,16 +2149,7 @@ public final class CanvasView extends BorderPane {
 
     /** Shows {@code menu}, closing the one open before: menus never pile up. */
     private void showMenu(ContextMenu menu, Node anchor, double screenX, double screenY) {
-        hideOpenMenu();
-        openMenu = menu;
-        menu.show(anchor, screenX, screenY);
-    }
-
-    private void hideOpenMenu() {
-        if (openMenu != null) {
-            openMenu.hide();
-            openMenu = null;
-        }
+        ContextMenus.show(menu, anchor, screenX, screenY);
     }
 
     private ContextMenu backgroundMenu(double worldX, double worldY) {

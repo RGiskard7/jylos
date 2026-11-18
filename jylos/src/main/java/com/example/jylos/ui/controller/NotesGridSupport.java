@@ -9,6 +9,7 @@ import java.util.function.Function;
 import org.kordamp.ikonli.javafx.FontIcon;
 
 import com.example.jylos.data.models.Note;
+import com.example.jylos.ui.components.ContextMenus;
 import com.example.jylos.ui.components.NewTabGesture;
 
 import javafx.application.Platform;
@@ -353,7 +354,7 @@ final class NotesGridSupport {
                 openNoteAction.accept(note);
             });
             if (contextMenu != null) {
-                contextMenu.show(card, event.getScreenX(), event.getScreenY());
+                ContextMenus.show(contextMenu, card, event.getScreenX(), event.getScreenY());
             }
         });
 

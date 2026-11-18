@@ -18,6 +18,9 @@ public interface HtmlView {
     /** The node to put in the scene. */
     Node node();
 
+    /** Whether the engine's own right-click menu shows (off where the app shows its own). */
+    void setContextMenuEnabled(boolean enabled);
+
     /** Replaces the page with {@code html}. */
     void loadHtml(String html);
 

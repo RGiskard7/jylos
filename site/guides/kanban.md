@@ -34,7 +34,7 @@ The board button in the note's header shows the board as Markdown, and back. Cha
 
 ## Cards and notes
 
-A card can link to a note (`[[Title]]`, `[[Folder/Title]]`) or be converted into a note. Clicking a linked card opens that note in the board's tab; back returns to the board.
+A card can link to a note (`[[Title]]`, `[[Folder/Title]]`) or be converted into a note. Clicking a linked card opens that note in the board's tab; back returns to the board. Cmd/Ctrl+click, a middle click or **Open in new tab** in the card's menu open it in a new tab and the board stays.
 
 ## Column options
 

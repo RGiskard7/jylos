@@ -11,6 +11,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -46,6 +47,7 @@ import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseButton;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -78,7 +80,7 @@ public final class KanbanBoard extends VBox {
     private final NoteService noteService;
     /** Id of the board's note: what card links and images resolve from. */
     private final String boardId;
-    private final Consumer<String> onOpenNoteTitle;
+    private final BiConsumer<String, Boolean> onOpenNoteTitle;
     private final Consumer<String> onChanged;
     private final Consumer<Note> onNoteCreated;
     private final Function<String, String> i18n;
@@ -91,13 +93,14 @@ public final class KanbanBoard extends VBox {
      * @param noteService     where card notes are created and attachments found
      * @param boardId         the board's note id
      * @param markdown        the board note's text
-     * @param onOpenNoteTitle a card's link clicked
+     * @param onOpenNoteTitle a card's link clicked, and whether it opens in a new tab
+     *                        (Cmd/Ctrl+click, middle click or "Open in new tab")
      * @param onChanged       the board changed: its new Markdown, for the owner to save
      * @param onNoteCreated   a card was turned into a note
      * @param i18n            translations by key
      */
     public KanbanBoard(NoteService noteService, String boardId, String markdown,
-            Consumer<String> onOpenNoteTitle, Consumer<String> onChanged,
+            BiConsumer<String, Boolean> onOpenNoteTitle, Consumer<String> onChanged,
             Consumer<Note> onNoteCreated, Function<String, String> i18n) {
         this.noteService = noteService;
         this.boardId = boardId;
@@ -301,15 +304,21 @@ public final class KanbanBoard extends VBox {
             db.setContent(cc);
             e.consume();
         });
+        // A plain click opens the card's link in the current tab, Cmd/Ctrl+click or a middle
+        // click in a new one; a right click is for the menu.
         card.setOnMouseClicked(e -> {
-            if (e.getClickCount() == 2) {
+            boolean newTab = NewTabGesture.opensInNewTab(e);
+            if (e.getButton() != MouseButton.PRIMARY && !newTab) {
+                return;
+            }
+            if (e.getClickCount() == 2 && !newTab) {
                 editCard(col, text);
             } else if (linked != null && onOpenNoteTitle != null) {
-                onOpenNoteTitle.accept(linked);
+                onOpenNoteTitle.accept(linked, newTab);
             }
         });
         card.setOnContextMenuRequested(e ->
-                cardContextMenu(col, text, linked).show(card, e.getScreenX(), e.getScreenY()));
+                ContextMenus.show(cardContextMenu(col, text, linked), card, e.getScreenX(), e.getScreenY()));
         return card;
     }
 
@@ -322,8 +331,10 @@ public final class KanbanBoard extends VBox {
         menu.getItems().addAll(edit, delete);
         if (linked != null) {
             MenuItem open = new MenuItem(str("kanban.open_note", "Open linked note"));
-            open.setOnAction(e -> { if (onOpenNoteTitle != null) onOpenNoteTitle.accept(linked); });
-            menu.getItems().add(open);
+            open.setOnAction(e -> { if (onOpenNoteTitle != null) onOpenNoteTitle.accept(linked, false); });
+            MenuItem openInNewTab = new MenuItem(str("action.open_in_new_tab", "Open in new tab"));
+            openInNewTab.setOnAction(e -> { if (onOpenNoteTitle != null) onOpenNoteTitle.accept(linked, true); });
+            menu.getItems().addAll(open, openInNewTab);
         } else {
             MenuItem convert = new MenuItem(str("kanban.convert_note", "Convert to note"));
             convert.setOnAction(e -> convertToNote(col, text));

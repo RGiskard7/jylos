@@ -9,8 +9,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -26,6 +28,7 @@ import com.example.jylos.data.dao.filesystem.FolderDAOFileSystem;
 import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
 import com.example.jylos.data.dao.filesystem.TagDAOFileSystem;
 import com.example.jylos.data.models.Note;
+import com.example.jylos.event.events.SystemActionEvent.ActionType;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
 import com.example.jylos.tests.FxTestSupport;
@@ -89,6 +92,32 @@ class TabsSupportTest {
 
         assertEquals(List.of("tabs [GRAPH, B.md] active GRAPH graph shown [confirm, changed]",
                 "tabs [A.md, GRAPH, B.md] active GRAPH graph shown"), seen);
+    }
+
+    /**
+     * The menu and toolbar actions reach the tabs: the graph's opens it in the active tab, and
+     * the one of Cmd/Ctrl+click or middle click on its button in a new tab after it.
+     */
+    @Test
+    void theGraphActionsOpenItInTheActiveTabOrANewOne() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            List<String> out = new ArrayList<>();
+            for (ActionType action : List.of(ActionType.GRAPH_VIEW, ActionType.GRAPH_VIEW_NEW_TAB)) {
+                Fixture f = new Fixture();
+                f.notes("A.md", "B.md");
+                f.tabs.open("A.md", "A", OpenTarget.CURRENT_TAB);
+                Map<ActionType, Runnable> handlers = new EnumMap<>(ActionType.class);
+                f.views.register(handlers);
+                handlers.get(action).run();
+                out.add(action + ": " + f.state());
+            }
+            return out;
+        });
+
+        assertEquals(List.of("GRAPH_VIEW: tabs [GRAPH, B.md] active GRAPH graph shown",
+                "GRAPH_VIEW_NEW_TAB: tabs [A.md, GRAPH, B.md] active GRAPH graph shown"), seen);
     }
 
     /** The graph is opened once: opening it again brings its tab to the front. */

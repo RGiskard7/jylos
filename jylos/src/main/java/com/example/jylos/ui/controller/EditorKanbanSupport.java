@@ -2,6 +2,7 @@ package com.example.jylos.ui.controller;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -36,12 +37,12 @@ final class EditorKanbanSupport {
      * @param setText     replaces the note's source (a change made on the board)
      * @param saveEdit    the source changed: the editor re-checks and saves it
      * @param showBoard   {@code true} shows the board, {@code false} the note's panes
-     * @param openLink    a card's link clicked
+     * @param openLink    a card's link clicked, and whether it opens in a new tab
      * @param noteCreated a card turned into a note
      * @param darkTheme   whether the dark theme is on
      */
     record Host(Supplier<StackPane> layer, Supplier<String> text, Consumer<String> setText, Runnable saveEdit,
-            Consumer<Boolean> showBoard, Consumer<String> openLink, Consumer<Note> noteCreated,
+            Consumer<Boolean> showBoard, BiConsumer<String, Boolean> openLink, Consumer<Note> noteCreated,
             BooleanSupplier darkTheme) {
     }
 

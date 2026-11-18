@@ -59,7 +59,7 @@ class KanbanCardLinkTest {
             EditorController editor = loader.getController();
             List<String> links = new ArrayList<>();
             editor.wire(EventBus.getInstance(), notes, null, loader.getResources(), note -> { }, status -> { },
-                    List::of, false, enabled -> { }, links::add, null, null);
+                    List::of, false, enabled -> { }, (link, newTab) -> links.add(link), null, null);
             editor.loadNote(notes.getNoteById("Tablero.md").orElseThrow());
             root.applyCss(); // the cards sit in a scroll pane, which holds them once it has its skin
             root.layout();

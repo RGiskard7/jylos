@@ -9,7 +9,7 @@ The knowledge graph renders your notes and their wiki-links as an interactive fo
 - **Ctrl/Cmd+G**
 - Command palette
 
-The graph opens in a tab, as in Obsidian, following the rule of notes: it takes the active tab, or a new one with Cmd/Ctrl. If it is already open, its tab comes to the front, where it is as you left it; the tab's × closes it. A saved workspace reopens it with its notes. A new tab (the **+** after the tabs, or **Ctrl/Cmd+T**) also offers it.
+The graph opens in a tab, as in Obsidian, following the rule of notes: it takes the active tab, or a new one with Cmd/Ctrl+click or a middle click on its toolbar button. If it is already open, its tab comes to the front, where it is as you left it; the tab's × closes it. A saved workspace reopens it with its notes. A new tab (the **+** after the tabs, or **Ctrl/Cmd+T**) also offers it.
 
 Links count both in the note's body and in its properties (`up: "[[Index]]"`), as in Obsidian.
 

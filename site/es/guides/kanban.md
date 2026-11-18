@@ -34,7 +34,7 @@ El botón de tablero de la cabecera de la nota la muestra como Markdown, y vuelt
 
 ## Tarjetas y notas
 
-Una tarjeta puede enlazar a una nota (`[[Título]]`, `[[Carpeta/Título]]`) o convertirse en nota. Al pulsar una tarjeta enlazada, la nota se abre en la pestaña del tablero; atrás vuelve al tablero.
+Una tarjeta puede enlazar a una nota (`[[Título]]`, `[[Carpeta/Título]]`) o convertirse en nota. Al pulsar una tarjeta enlazada, la nota se abre en la pestaña del tablero; atrás vuelve al tablero. Cmd/Ctrl+clic, el clic central o **Abrir en pestaña nueva** en el menú de la tarjeta la abren en una pestaña nueva y el tablero sigue abierto.
 
 ## Opciones de columna
 

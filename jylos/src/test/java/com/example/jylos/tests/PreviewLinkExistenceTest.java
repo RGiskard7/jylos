@@ -59,7 +59,7 @@ class PreviewLinkExistenceTest {
             set(editor, "previewPane", pane);
             set(editor, "noteService", notes);
             set(editor, "currentNote", notes.getNoteById("Fuente.md").orElseThrow());
-            set(editor, "wikiLinkHandler", (EditorController.WikiLinkHandler) opened::add);
+            set(editor, "wikiLinkHandler", (EditorController.WikiLinkHandler) (title, newTab) -> opened.add(title));
             Stage window = new Stage();
             window.setScene(new Scene(pane, 600, 400));
             window.show();

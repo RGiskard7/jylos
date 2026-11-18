@@ -421,7 +421,7 @@ public final class MarkdownEditorView extends StackPane {
                 return;
             }
             refreshContextMenuState();
-            editorContextMenu.show(page, event.getScreenX(), event.getScreenY());
+            ContextMenus.show(editorContextMenu, page, event.getScreenX(), event.getScreenY());
             event.consume();
         });
         page.addEventFilter(KeyEvent.KEY_PRESSED, this::handleDesktopShortcut);

@@ -1,6 +1,7 @@
 package com.example.jylos.ui.controller;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -8,6 +9,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import com.example.jylos.data.models.Note;
+import com.example.jylos.event.events.SystemActionEvent.ActionType;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.EditorTabs;
@@ -83,6 +85,19 @@ final class TabsSupport {
     /** True while the graph is on screen. */
     boolean isGraphVisible() {
         return graphView != null && graphView.isVisible();
+    }
+
+    /**
+     * The menu, palette and toolbar actions the tabs answer: back, forward, the graph (in the
+     * active tab or a new one), a new tab and the Kanban boards.
+     */
+    void register(Map<ActionType, Runnable> handlers) {
+        handlers.put(ActionType.NAVIGATE_BACK, this::back);
+        handlers.put(ActionType.NAVIGATE_FORWARD, this::forward);
+        handlers.put(ActionType.GRAPH_VIEW, this::openGraph);
+        handlers.put(ActionType.GRAPH_VIEW_NEW_TAB, () -> openGraph(OpenTarget.NEW_TAB));
+        handlers.put(ActionType.NEW_TAB, this::newTab);
+        handlers.put(ActionType.KANBAN_VIEW, this::openKanban);
     }
 
     // ── Opening ──────────────────────────────────────────────────────────────

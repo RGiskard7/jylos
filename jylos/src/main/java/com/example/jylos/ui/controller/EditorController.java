@@ -168,7 +168,8 @@ public class EditorController implements PreviewEnhancerRegistry,
     /** Opens a note when the user clicks a wiki-link in the Markdown preview. */
     @FunctionalInterface
     public interface WikiLinkHandler {
-        void openNoteByTitle(String title);
+        /** Opens the note {@code title} names, in a new tab when {@code newTab} (Cmd/Ctrl+click). */
+        void openNoteByTitle(String title, boolean newTab);
     }
 
     // ── FXML — header ────────────────────────────────────────────────────────
@@ -243,33 +244,7 @@ public class EditorController implements PreviewEnhancerRegistry,
     private void setBundle(ResourceBundle bundle) {
         this.bundle = bundle;
         titleRow.setBundle(bundle);
-        if (noteContentArea != null) {
-            noteContentArea.setEditorLabels(Map.ofEntries(
-                    Map.entry("undo", getString("action.undo", "Undo")),
-                    Map.entry("redo", getString("action.redo", "Redo")),
-                    Map.entry("cut", getString("action.cut", "Cut")),
-                    Map.entry("copy", getString("action.copy", "Copy")),
-                    Map.entry("paste", getString("action.paste", "Paste")),
-                    Map.entry("selectAll", getString("action.select_all", "Select All")),
-                    Map.entry("Find", getString("editor.search.find", "Find")),
-                    Map.entry("Replace", getString("editor.search.replace", "Replace")),
-                    Map.entry("next", getString("editor.search.next", "next")),
-                    Map.entry("previous", getString("editor.search.previous", "previous")),
-                    Map.entry("all", getString("editor.search.all", "all")),
-                    Map.entry("match case", getString("editor.search.match_case", "match case")),
-                    Map.entry("regexp", getString("editor.search.regexp", "regular expression")),
-                    Map.entry("by word", getString("editor.search.by_word", "whole word")),
-                    Map.entry("replace", getString("editor.search.replace_action", "replace")),
-                    Map.entry("replace all", getString("editor.search.replace_all", "replace all")),
-                    Map.entry("close", getString("action.close", "Close")),
-                    Map.entry("Go to line", getString("editor.search.go_to_line", "Go to line")),
-                    Map.entry("go", getString("editor.search.go", "go")),
-                    Map.entry("current match", getString("editor.search.current_match", "current match")),
-                    Map.entry("on line", getString("editor.search.on_line", "on line")),
-                    Map.entry("replaced $ matches", getString("editor.search.replaced_matches", "replaced $ matches")),
-                    Map.entry("replaced match on line $", getString("editor.search.replaced_match_on_line",
-                            "replaced match on line $"))));
-        }
+        EditorLabelsSupport.apply(noteContentArea, previewWebView, this::getString);
     }
 
     public void wire(EventBus eventBus, NoteService noteService, TagService tagService, ResourceBundle bundle,
@@ -566,7 +541,7 @@ public class EditorController implements PreviewEnhancerRegistry,
             noteContentArea.setInsertionTransformer(this::applyInsertHooks);
             noteContentArea.setLinkHandlers(title -> {
                 if (wikiLinkHandler != null) {
-                    wikiLinkHandler.openNoteByTitle(title);
+                    wikiLinkHandler.openNoteByTitle(title, false);
                 }
             }, SystemBrowser::open);
             noteContentArea.setImageSourceResolver(
@@ -863,7 +838,7 @@ public class EditorController implements PreviewEnhancerRegistry,
             currentCanvasPath = path;
             currentCanvasView = new CanvasView(
                     canvasDoc,
-                    file -> openNoteByTitle(refs.linkToOpen(file)),
+                    file -> openNoteByTitle(refs.linkToOpen(file), false),
                     refs::resolve,
                     refs::canonical,
                     refs::refOfNote,
@@ -1188,12 +1163,12 @@ public class EditorController implements PreviewEnhancerRegistry,
 
     // ── Properties panel — internal ──────────────────────────────────────────
 
-    /** Opens a note by title via the owning shell callback. */
-    private void openNoteByTitle(String title) {
+    /** Opens a note by title via the owning shell callback, in a new tab when {@code newTab}. */
+    private void openNoteByTitle(String title, boolean newTab) {
         if (title == null || title.isBlank() || wikiLinkHandler == null) {
             return;
         }
-        wikiLinkHandler.openNoteByTitle(title);
+        wikiLinkHandler.openNoteByTitle(title, newTab);
     }
 
     private void refreshAutocompleteTitles() {
@@ -1553,7 +1528,7 @@ public class EditorController implements PreviewEnhancerRegistry,
 
         @Override
         public void openLink(String link) {
-            openNoteByTitle(link);
+            openNoteByTitle(link, false);
         }
 
         @Override
@@ -1602,7 +1577,7 @@ public class EditorController implements PreviewEnhancerRegistry,
         @Override
         public void openLink(String link) {
             if (wikiLinkHandler != null) {
-                wikiLinkHandler.openNoteByTitle(link);
+                wikiLinkHandler.openNoteByTitle(link, false);
             }
         }
 

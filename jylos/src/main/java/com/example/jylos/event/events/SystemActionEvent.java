@@ -89,6 +89,8 @@ public class SystemActionEvent extends AppEvent {
         NAVIGATE_BACK,
         NAVIGATE_FORWARD,
         GRAPH_VIEW,
+        /** The graph in a new tab (Cmd/Ctrl+click or middle click on its button). */
+        GRAPH_VIEW_NEW_TAB,
         KNOWLEDGE_INSIGHTS,
         FOCUS_MODE,
         KANBAN_VIEW,

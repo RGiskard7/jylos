@@ -28,6 +28,8 @@ import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.ContextMenuEvent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.input.PickResult;
 import javafx.scene.layout.StackPane;
 import javafx.stage.PopupWindow;
@@ -222,6 +224,12 @@ class MarkdownEditorViewTest {
                                             .filter(item -> item.getText() != null && !item.getText().isEmpty())
                                             .map(MenuItem::getText)
                                             .toList());
+                            // JavaFX does not close a menu on a press over the node it was opened
+                            // on, and here that node is the whole editor.
+                            Event.fireEvent(editor.page().node(), new MouseEvent(MouseEvent.MOUSE_PRESSED,
+                                    30, 30, screenX, screenY, MouseButton.PRIMARY, 1, false, false, false, false,
+                                    true, false, false, false, false, true, new PickResult(editor.page().node(), 30, 30)));
+                            assertFalse(menu.isShowing(), "A click in the editor must close its menu.");
 
                             editor.setText("read only");
                             editor.setEditable(false);

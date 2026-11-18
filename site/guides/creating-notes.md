@@ -35,7 +35,7 @@ Switch between them by clicking the editor mode at the right of the status bar.
 Tabs work as in VS Code:
 
 - A click on a note opens it in the **current tab**, replacing the note that was there. If the note is already open in another tab, that tab is activated instead of opening it twice.
-- To open a note in a **new tab** (right after the current one): **Cmd+click** on macOS or **Ctrl+click** on Windows and Linux, a **middle click**, or **Open in new tab** in the note's context menu. This works in the Explorer tree, the notes list, the grid, Recent and Favorites.
+- To open a note in a **new tab** (right after the current one): **Cmd+click** on macOS or **Ctrl+click** on Windows and Linux, a **middle click**, or **Open in new tab** in the note's context menu. This works in the Explorer tree, the notes list, the grid, Recent and Favorites, and on linked Kanban cards.
 - New notes and the notes of a workspace each open in their own tab.
 - A middle click on a tab closes it.
 

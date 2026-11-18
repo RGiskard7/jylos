@@ -19,6 +19,7 @@ import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.service.UpdateChecker;
 import com.example.jylos.service.UpdateInstaller;
 import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.ui.components.PageTextMenu;
 import com.example.jylos.ui.web.ExternalLinksBridge;
 import com.example.jylos.ui.web.HtmlView;
 import com.example.jylos.ui.web.JavaFxHtmlView;
@@ -139,6 +140,7 @@ final class UpdateInstallSupport {
         view.exposeBridge("javaApp", new ExternalLinksBridge(
                 url -> openBrowser.accept(url)));
         view.loadHtml(MarkdownPreview.buildPreviewHtml(notes, darkTheme.getAsBoolean(), List.of()));
+        PageTextMenu.install(view, getString("action.copy"), getString("action.select_all"));
         return view;
     }
 
