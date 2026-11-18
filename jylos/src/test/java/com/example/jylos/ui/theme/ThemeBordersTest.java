@@ -33,7 +33,13 @@ class ThemeBordersTest {
     @ValueSource(strings = {"css/dark-theme.css", "css/modern-theme.css",
             "css/dark-theme.css + ../themes/gruvbox-dark/theme.css",
             "css/modern-theme.css + ../themes/gruvbox-light/theme.css",
-            "css/dark-theme.css + ../themes/retro-phosphor/theme.css"})
+            "css/dark-theme.css + ../themes/retro-phosphor/theme.css",
+            "css/dark-theme.css + ../themes/nord-dark/theme.css",
+            "css/modern-theme.css + ../themes/nord-light/theme.css",
+            "css/dark-theme.css + ../themes/catppuccin-mocha/theme.css",
+            "css/modern-theme.css + ../themes/catppuccin-latte/theme.css",
+            "css/dark-theme.css + ../themes/rose-pine/theme.css",
+            "css/modern-theme.css + ../themes/rose-pine-dawn/theme.css"})
     void bordersKeepTheirColourOnHoverAndFocus(String theme) throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
 

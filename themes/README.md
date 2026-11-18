@@ -2,7 +2,7 @@
 
 Each theme is a folder with `theme.properties` and `theme.css`. Start from [`_template/`](_template/).
 
-This folder has **Gruvbox Dark** (`gruvbox-dark/`), **Gruvbox Light** (`gruvbox-light/`) and **Retro Phosphor** (`retro-phosphor/`): copy one to use it, or start from it.
+This folder has, each in dark and light: **Gruvbox** (`gruvbox-dark/`, `gruvbox-light/`), **Nord** (`nord-dark/`, `nord-light/`), **Catppuccin** (`catppuccin-mocha/`, `catppuccin-latte/`) and **Rosé Pine** (`rose-pine/`, `rose-pine-dawn/`), plus **Retro Phosphor** (`retro-phosphor/`): copy one to use it, or start from it. The palettes are their authors', all under the MIT licence; each `theme.css` says where it comes from and which few shades are mixed from the palette's own colours. `ThemeContrastTest` checks that every theme here can be read (WCAG 2, level AA).
 
 By default the app loads **only** your CSS. Set `base=dark` or `base=light` in `theme.properties` to stack the built-in stylesheet underneath (recommended for full UI coverage — graph, git panel, command palette, quick switcher, themed dialogs, plugin manager, etc.).
 
