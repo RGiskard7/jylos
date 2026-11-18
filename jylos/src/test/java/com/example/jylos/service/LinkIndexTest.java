@@ -32,6 +32,29 @@ class LinkIndexTest {
         assertEquals("Personal/Diario.md", index.pathOf("u3"));
     }
 
+    /**
+     * What [[ suggests: every note, also two of the same name, with its folder and the shortest
+     * link that names it unambiguously, and its aliases; by name, then folder.
+     */
+    @Test
+    void suggestsEveryNoteWithItsFolderItsShortestLinkAndItsAliases() {
+        Note diary = note("Personal/Diario.md", "Diario");
+        diary.setCustomProperties(Map.of("aliases", "[Diario personal]"));
+        LinkIndex index = LinkIndex.build(List.of(note("Proyectos/Reunión.md", "Reunión"),
+                note("Personal/reunión.md", "reunión"), diary, note("Lienzo.canvas", "Lienzo"),
+                note("Plan.md", "Plan")), Note::getId);
+
+        assertEquals(List.of(
+                "Diario | Personal | Diario | [Diario personal]",
+                "Lienzo.canvas |  | Lienzo.canvas | []",
+                "Plan |  | Plan | []",
+                "reunión | Personal | Personal/reunión | []",
+                "Reunión | Proyectos | Proyectos/Reunión | []"),
+                index.suggestions().stream().map(s -> s.name() + " | " + s.folder() + " | " + s.link() + " | "
+                        + s.aliases()).toList());
+        assertEquals(List.of(), LinkIndex.EMPTY.suggestions());
+    }
+
     @Test
     void aliasesComeFromTheAliasesPropertyAsAListOrASingleValue() {
         Note list = note("Ideas/Objetivo.md", "Objetivo");

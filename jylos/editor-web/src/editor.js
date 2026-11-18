@@ -1,4 +1,5 @@
 import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from "@codemirror/autocomplete";
+import { setLinkNotes, setLinkTitles, wikiLinkCompletion } from "./link-suggest.js";
 import { defaultKeymap, history, historyKeymap, indentWithTab, redo, redoDepth, undo, undoDepth } from "@codemirror/commands";
 import { bracketMatching, defaultHighlightStyle, HighlightStyle, indentOnInput, syntaxHighlighting, syntaxTree } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
@@ -55,7 +56,6 @@ const markExtension = {
 };
 
 let view;
-let autocompleteTitles = [];
 let suppressChangeNotification = false;
 const themeCompartment = new Compartment();
 const fontCompartment = new Compartment();
@@ -189,33 +189,6 @@ const emojiDecorations = ViewPlugin.fromClass(class {
     }
   }
 }, { decorations: value => value.decorations });
-
-// CodeMirror filters (fuzzily) and ranks the options itself, against the text
-// between `from` and the caret. So `from` must be where the title starts, after
-// the `[[`: matching titles against "[[al" would discard every one of them.
-function wikiLinkCompletion(context) {
-  const before = context.matchBefore(/\[\[[^\]\[\n]*$/);
-  if (!before) return null;
-  const options = autocompleteTitles.map(title => ({
-    label: title,
-    type: "text",
-    apply(editorView, _completion, from, to) {
-      if (editorView.state.readOnly) return;
-      // Replace the whole link: the opening `[[` and, when closeBrackets already
-      // inserted it, the `]]` after the caret.
-      const linkFrom = from - 2;
-      const linkTo = editorView.state.sliceDoc(to, to + 2) === "]]" ? to + 2 : to;
-      const raw = `[[${title}]]`;
-      const inserted = window.javaEditor?.transformInsertion(raw) || raw;
-      editorView.dispatch({
-        changes: { from: linkFrom, to: linkTo, insert: inserted },
-        selection: { anchor: linkFrom + inserted.length },
-        userEvent: "input.complete"
-      });
-    }
-  }));
-  return { from: before.from + 2, options, validFor: /^[^\]\[\n]*$/ };
-}
 
 // JavaFX's WebKit leaves KeyboardEvent.key empty, so CodeMirror names keys from
 // keyCode as if the keyboard were US. On a Spanish Mac, Option + the key right of P
@@ -549,7 +522,11 @@ window.JylosEditor = {
     view?.dispatch({ effects: fontCompartment.reconfigure(fontTheme(size)) });
   },
   setAutocompleteTitles(titles) {
-    autocompleteTitles = Array.isArray(titles) ? titles.filter(title => typeof title === "string") : [];
+    setLinkTitles(titles);
+  },
+  /** The notes [[ suggests: { name, folder, link, aliases } each (see link-suggest.js). */
+  setLinkSuggestions(notes) {
+    setLinkNotes(notes);
   },
   setLabels(labels) {
     window.__jylosEditorConfig.labels = labels || {};

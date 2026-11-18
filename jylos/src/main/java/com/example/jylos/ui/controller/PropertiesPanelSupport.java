@@ -9,6 +9,7 @@ import java.util.regex.Pattern;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.NoteProperty;
 import com.example.jylos.ui.UiNodes;
+import com.example.jylos.ui.components.NewTabGesture;
 import com.example.jylos.util.WikiLinkResolver;
 
 import javafx.application.Platform;
@@ -40,9 +41,9 @@ import javafx.scene.text.TextFlow;
  */
 final class PropertiesPanelSupport {
 
-    /** Matches a single wiki-link as the entire property value (full or partial). */
+    /** A {@code [[wiki-link]]} in a property value: its note, heading (or block) and alias. */
     private static final Pattern WIKI_VALUE = Pattern.compile(
-            "\\[\\[([^\\[\\]|#\\n]+?)(?:#[^\\[\\]|\\n]+?)?(?:\\|[^\\[\\]\\n]+?)?\\]\\]");
+            "\\[\\[([^\\[\\]|#\\n]+?)(?:#([^\\[\\]|\\n]+?))?(?:\\|([^\\[\\]\\n]+?))?\\]\\]");
 
     /** The panel's nodes, from the editor's FXML. Any may be {@code null} outside the app. */
     record Nodes(ToggleButton toggle, Node dot, VBox section, VBox content, Label emptyLabel, Node addRow) {
@@ -63,8 +64,8 @@ final class PropertiesPanelSupport {
         /** A property was edited, added or removed. */
         void propertiesChanged();
 
-        /** Follows a {@code [[link]]} clicked in a property. */
-        void openLink(String link);
+        /** Follows a {@code [[link]]} clicked in a property; with Cmd/Ctrl or the middle button, in a new tab. */
+        void openLink(String link, boolean newTab);
 
         String text(String key, String fallback);
     }
@@ -234,7 +235,10 @@ final class PropertiesPanelSupport {
 
     /**
      * A plain {@link Label} when the value has no internal links, or a {@link TextFlow}
-     * mixing text and a clickable {@link Hyperlink} for each {@code [[wiki-link]]}.
+     * mixing text and a clickable {@link Hyperlink} for each {@code [[wiki-link]]}. A link
+     * reads as in the reading view: its alias, or its note and heading ({@code Note › Heading}),
+     * or its note; clicking it opens the note at that heading, in a new tab with Cmd/Ctrl or the
+     * middle button.
      */
     private Node readOnlyValue(String value) {
         Matcher m = WIKI_VALUE.matcher(value);
@@ -253,12 +257,17 @@ final class PropertiesPanelSupport {
                 flow.getChildren().add(new Text(value.substring(last, m.start())));
             }
             String written = m.group(1).trim();
+            String heading = m.group(2) != null ? m.group(2).trim() : "";
+            String alias = m.group(3) != null ? m.group(3).trim() : "";
             String path = WikiLinkResolver.internalLinkPath(written);
             String title = WikiLinkResolver.extractTitle(written);
-            String target = path != null ? path : title;
-            Hyperlink link = new Hyperlink(title);
+            String note = path != null ? path : title;
+            String target = heading.isEmpty() ? note : note + "#" + heading;
+            String label = !alias.isEmpty() ? alias : heading.isEmpty() ? title : title + " › " + heading;
+            Hyperlink link = new Hyperlink(label);
             link.getStyleClass().add("property-wikilink");
-            link.setOnAction(e -> host.openLink(target));
+            link.setOnAction(e -> host.openLink(target, false));
+            NewTabGesture.onButton(link, () -> host.openLink(target, true));
             flow.getChildren().add(link);
             last = m.end();
         }

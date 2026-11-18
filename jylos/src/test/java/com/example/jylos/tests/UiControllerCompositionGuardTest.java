@@ -143,7 +143,7 @@ class UiControllerCompositionGuardTest {
     void theBiggestControllersDoNotGrow() throws IOException {
         Map<String, Integer> ceilings = Map.of(
                 "MainController.java", 2409,
-                "EditorController.java", 1275,
+                "EditorController.java", 1253,
                 "SidebarController.java", 1813,
                 "NotesListController.java", 1290);
         for (Map.Entry<String, Integer> ceiling : ceilings.entrySet()) {

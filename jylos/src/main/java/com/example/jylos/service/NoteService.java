@@ -27,6 +27,7 @@ import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.exceptions.NoteException;
 import com.example.jylos.util.AttachmentType;
+import com.example.jylos.util.NoteAnchors;
 
 /**
  * Service layer for note-related business logic.
@@ -678,6 +679,19 @@ public class NoteService {
             return noteTitleIndex.linkIndex();
         }
         return buildLinkIndex(getAllNotes());
+    }
+
+    /**
+     * The headings of the note {@code rawLink} names, written in {@code sourceNoteId}, in order
+     * and outside code ({@code [[Nota#} lists them); none when it names no note.
+     */
+    public List<String> headingsOf(String rawLink, String sourceNoteId) {
+        if (rawLink == null || rawLink.isBlank()) {
+            return List.of();
+        }
+        return resolveLink(rawLink, sourceNoteId)
+                .map(note -> NoteAnchors.headings(note.getContent()).stream().map(NoteAnchors.Heading::title).toList())
+                .orElse(List.of());
     }
 
     /** Builds a link index for {@code notes}, giving each note its path in the vault. */

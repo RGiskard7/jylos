@@ -566,7 +566,7 @@ public class MainController {
         if (editorController != null) {
             editorController.wire(eventBus, noteService, tagService, resources,
                     this::handleUiNoteModified, this::updateStatus,
-                    NoteTitleIndex.getInstance()::titlesSorted,
+                    NoteTitleIndex.getInstance()::linkSuggestions,
                     uiPreferences.loadLivePreviewEnabled(prefs),
                     enabled -> uiPreferences.saveLivePreviewEnabled(prefs, enabled),
                     // A link opens the note it names by path, resolved from the note it is

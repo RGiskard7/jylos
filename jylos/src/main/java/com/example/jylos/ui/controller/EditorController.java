@@ -11,12 +11,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.ResourceBundle;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import org.kordamp.ikonli.javafx.FontIcon;
 
@@ -34,6 +36,7 @@ import com.example.jylos.plugin.PreviewEnhancer;
 import com.example.jylos.plugin.PreviewEnhancerRegistry;
 import com.example.jylos.service.CanvasReferences;
 import com.example.jylos.service.FileFingerprint;
+import com.example.jylos.service.LinkSuggestion;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
 import com.example.jylos.ui.UiDialogs;
@@ -132,7 +135,7 @@ public class EditorController implements PreviewEnhancerRegistry,
     private final PropertiesPanelSupport properties = new PropertiesPanelSupport(new PropertiesHost());
 
     /** Titles supplier for wiki-link autocomplete. Defaults to the global title index. */
-    private Supplier<List<String>> autocompleteTitlesSupplier = List::of;
+    private Supplier<List<LinkSuggestion>> autocompleteTitlesSupplier = List::of;
 
     private final EditorBlockRenderSupport blockRenderSupport = new EditorBlockRenderSupport();
     private WikiLinkHandler wikiLinkHandler;
@@ -249,7 +252,7 @@ public class EditorController implements PreviewEnhancerRegistry,
 
     public void wire(EventBus eventBus, NoteService noteService, TagService tagService, ResourceBundle bundle,
             Consumer<Note> noteModifiedAction, Consumer<String> statusAction,
-            Supplier<List<String>> autocompleteTitlesSupplier, boolean livePreviewEnabled,
+            Supplier<List<LinkSuggestion>> autocompleteTitlesSupplier, boolean livePreviewEnabled,
             Consumer<Boolean> livePreviewPreferenceAction, WikiLinkHandler wikiLinkHandler,
             Consumer<String> tagLinkHandler, EditorHooks editorHooks) {
         setNoteService(noteService);
@@ -842,7 +845,7 @@ public class EditorController implements PreviewEnhancerRegistry,
                     refs::resolve,
                     refs::canonical,
                     refs::refOfNote,
-                    autocompleteTitlesSupplier,
+                    this::noteTitles,
                     canvasReferenceSuggestions,
                     this::persistCurrentCanvas,
                     this::markCanvasModified,
@@ -881,8 +884,7 @@ public class EditorController implements PreviewEnhancerRegistry,
             if (cached != null) {
                 return cached;
             }
-            List<String> loaded = refs.suggestions(
-                    autocompleteTitlesSupplier != null ? autocompleteTitlesSupplier.get() : List.of());
+            List<String> loaded = refs.suggestions(noteTitles());
             cache.compareAndSet(null, loaded);
             return cache.get();
         };
@@ -1171,12 +1173,19 @@ public class EditorController implements PreviewEnhancerRegistry,
         wikiLinkHandler.openNoteByTitle(title, newTab);
     }
 
+    /** The names of the vault's notes, once each, for the canvas's note references. */
+    private List<String> noteTitles() {
+        List<LinkSuggestion> notes = autocompleteTitlesSupplier != null ? autocompleteTitlesSupplier.get() : null;
+        return notes == null ? List.of() : notes.stream().map(LinkSuggestion::name)
+                .collect(Collectors.toCollection(() -> new TreeSet<>(String.CASE_INSENSITIVE_ORDER))).stream().toList();
+    }
+
     private void refreshAutocompleteTitles() {
         if (noteContentArea == null) return;
-        List<String> titles = autocompleteTitlesSupplier != null
-                ? autocompleteTitlesSupplier.get()
-                : List.of();
-        noteContentArea.setAutocompleteTitles(titles != null ? titles : List.of());
+        List<LinkSuggestion> notes = autocompleteTitlesSupplier != null ? autocompleteTitlesSupplier.get() : List.of();
+        noteContentArea.setLinkSuggestions(notes != null ? notes : List.of());
+        noteContentArea.setLinkHeadingsProvider(link -> noteService != null
+                ? noteService.headingsOf(link, currentNote != null ? currentNote.getId() : null) : List.of());
     }
 
     // ── EventBus subscriptions ───────────────────────────────────────────────
@@ -1527,8 +1536,8 @@ public class EditorController implements PreviewEnhancerRegistry,
         }
 
         @Override
-        public void openLink(String link) {
-            openNoteByTitle(link, false);
+        public void openLink(String link, boolean newTab) {
+            openNoteByTitle(link, newTab);
         }
 
         @Override

@@ -15,6 +15,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.service.LinkSuggestion;
 import com.example.jylos.ui.theme.ActiveThemePalette;
 import com.example.jylos.ui.web.HtmlView;
 import com.example.jylos.ui.web.JavaFxHtmlView;
@@ -74,6 +75,7 @@ public final class MarkdownEditorView extends StackPane {
     private Consumer<String> externalLinkHandler = url -> {
     };
     private Function<String, String> imageSourceResolver = source -> "";
+    private Function<String, List<String>> linkHeadings = link -> List.of();
     private Consumer<String> tagHandler = tag -> {
     };
     /** KaTeX is loaded into the editor page the first time a note has math. */
@@ -267,9 +269,15 @@ public final class MarkdownEditorView extends StackPane {
         whenReady(() -> execute("window.JylosEditor.openReplace()"));
     }
 
-    public void setAutocompleteTitles(List<String> titles) {
-        List<String> snapshot = titles != null ? List.copyOf(titles) : List.of();
-        whenReady(() -> execute("window.JylosEditor.setAutocompleteTitles(" + GSON.toJson(snapshot) + ")"));
+    /** The notes {@code [[} suggests while a link is typed (see {@link LinkSuggestion}). */
+    public void setLinkSuggestions(List<LinkSuggestion> notes) {
+        List<LinkSuggestion> snapshot = notes != null ? List.copyOf(notes) : List.of();
+        whenReady(() -> execute("window.JylosEditor.setLinkSuggestions(" + GSON.toJson(snapshot) + ")"));
+    }
+
+    /** The headings of the note a link names, for {@code [[Nota#}. */
+    public void setLinkHeadingsProvider(Function<String, List<String>> provider) {
+        linkHeadings = provider != null ? provider : link -> List.of();
     }
 
     public void setEditorLabels(Map<String, String> values) {
@@ -559,6 +567,12 @@ public final class MarkdownEditorView extends StackPane {
 
         public String transformInsertion(String content) {
             return MarkdownEditorView.this.transformInsertion(content);
+        }
+
+        /** The headings of the note {@code link} names, as a JSON list, for {@code [[Nota#}. */
+        public String headingsOf(String link) {
+            List<String> headings = link != null && !link.isBlank() ? linkHeadings.apply(link) : null;
+            return GSON.toJson(headings != null ? headings : List.of());
         }
 
         public void copyToClipboard(String content) {

@@ -18,7 +18,11 @@ import org.junit.jupiter.api.Test;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.tests.FxTestSupport;
 
+import javafx.event.Event;
+import javafx.event.EventType;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Bounds;
+import javafx.geometry.Point2D;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -27,12 +31,15 @@ import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 
 /**
  * The properties panel edits the note's properties: a changed value marks the note modified
  * and reaches the note, a removed property leaves it, and in the reading view a property's
- * {@code [[link]]} opens the note its path names.
+ * {@code [[link]]} reads as in the note (its alias, or its note and heading) and opens the note
+ * its path names, at that heading.
  */
 class PropertiesPanelTest {
 
@@ -57,6 +64,8 @@ class PropertiesPanelTest {
             props.put("estado", "borrador");
             props.put("borrar", "sí");
             props.put("ver", "[[Carpeta/Destino|destino]]");
+            props.put("tema", "Ver [[Destino#Uso]] y más");
+            props.put("aqui", "[[Destino#Uso|aquí]]");
             note.setCustomProperties(props);
             controller.loadNote(note);
 
@@ -74,8 +83,11 @@ class PropertiesPanelTest {
 
             controller.setReadOnlyView(true);
             out.add("note: " + note.getCustomProperties());
-            ((Hyperlink) row(root, "ver").lookup(".property-wikilink")).fire();
-            out.add("link: " + ((Hyperlink) row(root, "ver").lookup(".property-wikilink")).getText());
+            for (String key : List.of("ver", "tema", "aqui")) {
+                Hyperlink link = (Hyperlink) row(root, key).lookup(".property-wikilink");
+                link.fire();
+                out.add("link: " + link.getText());
+            }
             out.add("opened: " + opened);
             return out;
         });
@@ -85,11 +97,46 @@ class PropertiesPanelTest {
                 "open after the button: true",
                 "modified at first: false",
                 "modified after editing: true",
-                "rows: [estado, ver]",
-                "note: {estado=final, ver=[[Carpeta/Destino|destino]]}",
-                // What it shows today: the note's title, not the link's display text.
-                "link: Destino",
-                "opened: [Carpeta/Destino]"), seen);
+                "rows: [estado, ver, tema, aqui]",
+                "note: {estado=final, ver=[[Carpeta/Destino|destino]], tema=Ver [[Destino#Uso]] y más,"
+                        + " aqui=[[Destino#Uso|aquí]]}",
+                // As in the reading view: the alias, or the note and its heading, or the note.
+                "link: destino",
+                "link: Destino › Uso",
+                "link: aquí",
+                "opened: [Carpeta/Destino, Destino#Uso, Destino#Uso]"), seen);
+    }
+
+    /**
+     * As a link in the note: Cmd/Ctrl+click or a middle click on a property's link opens its
+     * note in a new tab; a plain click, in the active tab.
+     */
+    @Test
+    void aPropertysLinkOpensInANewTabWithCmdOrCtrlOrTheMiddleButton() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> opened = onFx(() -> {
+            Parent root = loadEditor();
+            EditorController controller = controller(root);
+            List<String> out = new ArrayList<>();
+            Field links = EditorController.class.getDeclaredField("wikiLinkHandler");
+            links.setAccessible(true);
+            links.set(controller, (EditorController.WikiLinkHandler) (title, newTab) ->
+                    out.add(title + (newTab ? " in a new tab" : " in the active tab")));
+            controller.loadNote(noteWith("a.md", Map.of("ver", "[[Destino#Uso]]")));
+            ((ToggleButton) root.lookup("#togglePropertiesBtn")).fire();
+            controller.setReadOnlyView(true);
+            root.applyCss();
+            root.layout();
+            Hyperlink link = (Hyperlink) row(root, "ver").lookup(".property-wikilink");
+            click(link, MouseButton.PRIMARY, true);
+            click(link, MouseButton.MIDDLE, false);
+            click(link, MouseButton.PRIMARY, false);
+            return out;
+        });
+
+        assertEquals(List.of("Destino#Uso in a new tab", "Destino#Uso in a new tab", "Destino#Uso in the active tab"),
+                opened);
     }
 
     /**
@@ -234,5 +281,23 @@ class PropertiesPanelTest {
             keys.add(String.valueOf(node.getUserData()));
         }
         return keys;
+    }
+
+    private static final boolean MAC = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("mac");
+
+    /** A real click: pressed and let go over the middle of {@code node}, with Cmd/Ctrl when {@code shortcut}. */
+    private static void click(Node node, MouseButton which, boolean shortcut) {
+        Bounds bounds = node.getLayoutBounds();
+        Point2D centre = node.localToScene(bounds.getCenterX(), bounds.getCenterY());
+        Event.fireEvent(node, mouse(MouseEvent.MOUSE_PRESSED, which, shortcut, centre, true));
+        Event.fireEvent(node, mouse(MouseEvent.MOUSE_RELEASED, which, shortcut, centre, false));
+        Event.fireEvent(node, mouse(MouseEvent.MOUSE_CLICKED, which, shortcut, centre, false));
+    }
+
+    private static MouseEvent mouse(EventType<MouseEvent> type, MouseButton button, boolean shortcut, Point2D at,
+            boolean down) {
+        return new MouseEvent(type, at.getX(), at.getY(), at.getX(), at.getY(), button, 1, false, shortcut && !MAC,
+                false, shortcut && MAC, down && button == MouseButton.PRIMARY, down && button == MouseButton.MIDDLE,
+                false, false, false, true, null);
     }
 }

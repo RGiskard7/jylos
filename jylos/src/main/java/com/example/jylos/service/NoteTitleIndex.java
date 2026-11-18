@@ -75,11 +75,17 @@ public final class NoteTitleIndex {
     }
 
     /**
-     * Returns the known note titles sorted case-insensitively for UI consumers such as
-     * wiki-link autocomplete. Reuses the same warm snapshot as {@link #titles()}.
+     * Returns the known note titles sorted case-insensitively, once each, for UI lists. The
+     * wiki-link autocomplete uses {@link #linkSuggestions()}, which tells same-named notes
+     * apart. Reuses the same warm snapshot as {@link #titles()}.
      */
     public List<String> titlesSorted() {
         return snapshot().sortedTitles();
+    }
+
+    /** Every note as {@code [[} suggests it while a link is typed, from the same warm snapshot. */
+    public List<LinkSuggestion> linkSuggestions() {
+        return snapshot().links().suggestions();
     }
 
     /**
