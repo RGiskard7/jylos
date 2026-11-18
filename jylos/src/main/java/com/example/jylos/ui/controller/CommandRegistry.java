@@ -1,6 +1,9 @@
 package com.example.jylos.ui.controller;
 
 import java.util.List;
+import java.util.Map;
+
+import com.example.jylos.event.events.SystemActionEvent.ActionType;
 
 /**
  * Catalog of stable command IDs and legacy aliases, registered in one place.
@@ -9,6 +12,23 @@ import java.util.List;
  * @since 2.3.0
  */
 class CommandRegistry {
+
+    /** Palette commands that format the open note: what the editor's format buttons do. */
+    static final Map<String, ActionType> FORMAT_COMMANDS = Map.ofEntries(
+            Map.entry("cmd.bold", ActionType.BOLD),
+            Map.entry("cmd.italic", ActionType.ITALIC),
+            Map.entry("cmd.underline", ActionType.UNDERLINE),
+            Map.entry("cmd.insert_link", ActionType.LINK),
+            Map.entry("cmd.insert_rich_link", ActionType.RICH_LINK),
+            Map.entry("cmd.insert_image", ActionType.IMAGE),
+            Map.entry("cmd.insert_todo", ActionType.TODO_LIST),
+            Map.entry("cmd.insert_list", ActionType.NUMBERED_LIST),
+            Map.entry("cmd.strike", ActionType.STRIKE),
+            Map.entry("cmd.highlight", ActionType.HIGHLIGHT),
+            Map.entry("cmd.quote", ActionType.QUOTE),
+            Map.entry("cmd.code", ActionType.CODE),
+            Map.entry("cmd.insert_bullet_list", ActionType.BULLET_LIST));
+
 
     @FunctionalInterface
     interface RouteRegistrar {
@@ -57,6 +77,7 @@ class CommandRegistry {
             new CommandDef("cmd.graph_view", "Graph View"),
             new CommandDef("cmd.knowledge_insights", "Knowledge Insights"),
             new CommandDef("cmd.vault_cleanup", "Clean Up Jylos Metadata…"),
+            new CommandDef("cmd.import_obsidian_bookmarks", "Import Obsidian Bookmarks"),
             new CommandDef("cmd.workspace_save", "Workspace: Save Current"),
             new CommandDef("cmd.workspace_save_as", "Workspace: Save As…"),
             new CommandDef("cmd.workspace_open", "Workspace: Open…"),

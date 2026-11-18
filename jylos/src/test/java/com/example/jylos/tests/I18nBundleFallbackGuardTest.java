@@ -51,6 +51,7 @@ class I18nBundleFallbackGuardTest {
         "cmd.graph_view",
         "cmd.knowledge_insights",
         "cmd.vault_cleanup",
+        "cmd.import_obsidian_bookmarks",
         "cmd.workspace_save",
         "cmd.workspace_save_as",
         "cmd.workspace_open",

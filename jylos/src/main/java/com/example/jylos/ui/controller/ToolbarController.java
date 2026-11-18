@@ -386,6 +386,11 @@ public class ToolbarController {
         publishEvent(SystemActionEvent.ActionType.VAULT_CLEANUP);
     }
 
+    @FXML
+    private void handleImportObsidianBookmarks(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.IMPORT_OBSIDIAN_BOOKMARKS);
+    }
+
     /** The menu the layout button opens: the three layouts, the current one ticked. */
     ContextMenu layoutMenu() {
         ContextMenu menu = new ContextMenu();

@@ -94,6 +94,8 @@ public class SystemActionEvent extends AppEvent {
         KNOWLEDGE_INSIGHTS,
         /** Takes the fields older versions of Jylos wrote out of every note of the vault. */
         VAULT_CLEANUP,
+        /** Marks as favorites the notes bookmarked in Obsidian (reads its settings, never writes them). */
+        IMPORT_OBSIDIAN_BOOKMARKS,
         FOCUS_MODE,
         KANBAN_VIEW,
         PRIVATE_TOGGLE,

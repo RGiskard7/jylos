@@ -78,6 +78,18 @@ guardar se quedan.
   marcar", para que la propiedad no devuelva la marca.
 - **Fichero corrupto:** es un error explícito, nunca se lee como vacío.
 
+## Marcadores de Obsidian
+
+**Herramientas → Importar marcadores de Obsidian** (`ObsidianBookmarksSupport`) lee
+`.obsidian/bookmarks.json` (`ObsidianBookmarks.read`) y nunca lo escribe. El formato es propio
+de Obsidian y no está documentado; una nota, vista en una bóveda real, es
+`{"items": [{"type": "file", "ctime": …, "path": "Carpeta/Nota.md", "title": "…"}]}`. Un grupo es
+cualquier elemento con su propio `items`, y se recorre. Un `file` con `subpath` (un encabezado o
+bloque del fichero) y los elementos de otros tipos (búsqueda, carpeta…) se cuentan como
+ignorados. Un fichero con otra forma se da por no entendido, nunca se lee como vacío. Los
+ficheros marcados que existen en la bóveda pasan a favoritos; el resultado dice cuántos se
+marcaron, cuántos ya lo eran, cuántos no se encontraron y cuántos se ignoraron.
+
 ## Límites
 
 - Renombrar una nota fuera de Jylos le hace perder sus marcas: se buscan por ruta.

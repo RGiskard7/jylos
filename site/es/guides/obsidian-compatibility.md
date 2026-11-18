@@ -24,6 +24,10 @@ Cada app guarda su estado en una carpeta oculta de la bóveda, que la otra ignor
 
 Así que **los favoritos y las notas fijadas no se comparten con Obsidian**: un marcador de Obsidian no es un favorito en Jylos, ni al revés. Jylos nunca escribe en `.obsidian/`.
 
+Para traer los marcadores de Obsidian de una vez, usa **Herramientas → Importar marcadores de Obsidian**: las notas con marcador en Obsidian (también las de dentro de grupos) pasan a ser favoritas en Jylos. Solo lee los marcadores de Obsidian; los de búsquedas, carpetas, encabezados o bloques no tienen equivalente y se saltan, y el resultado dice cuántos.
+
+Los marcadores no son etiquetas: una etiqueta (`#idea`, `tags:`) va escrita en la nota y la clasifica; un marcador es un atajo guardado en la configuración de la app, fuera de la nota.
+
 ## Conviene saber
 
 - **Si renombras una nota fuera de Jylos** (en Obsidian, en el Finder o con Git), pierde su favorito y su fijado, porque Jylos los encuentra por la ruta de la nota. A los marcadores de Obsidian les pasa lo mismo.

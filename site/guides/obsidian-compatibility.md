@@ -24,6 +24,10 @@ Each app keeps its own state in a hidden folder of the vault, which the other ig
 
 So **favorites and pinned notes are not shared with Obsidian**: a bookmark in Obsidian is not a favorite in Jylos, nor the other way round. Jylos never writes in `.obsidian/`.
 
+To bring Obsidian's bookmarks over once, use **Tools → Import Obsidian Bookmarks**: the notes bookmarked in Obsidian (also inside groups) become favorites in Jylos. It only reads Obsidian's bookmarks; bookmarks of searches, folders, headings or blocks have no equivalent and are skipped, and the result says how many.
+
+Bookmarks are not tags: a tag (`#idea`, `tags:`) is written in the note and classifies it; a bookmark is a shortcut kept in the app's settings, outside the note.
+
 ## Good to know
 
 - **Renaming a note outside Jylos** (in Obsidian, Finder or with Git) loses its favorite and pinned marks, because Jylos finds them by the note's path. Obsidian bookmarks have the same limit.

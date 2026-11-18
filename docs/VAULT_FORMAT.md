@@ -76,6 +76,18 @@ on read and save stay.
   does not bring the mark back.
 - **Corrupt file:** a corrupt sidecar is an explicit error, never read as empty.
 
+## Obsidian's bookmarks
+
+**Tools → Import Obsidian Bookmarks** (`ObsidianBookmarksSupport`) reads
+`.obsidian/bookmarks.json` (`ObsidianBookmarks.read`) and never writes it. Its format is
+Obsidian's own and undocumented; a note seen in a real vault is
+`{"items": [{"type": "file", "ctime": …, "path": "Folder/Note.md", "title": "…"}]}`. A group
+is any item with its own `items` and is walked into. A `file` item with a `subpath` (a heading
+or block of the file) and items of other types (search, folder…) are counted as ignored. A file
+in another shape is reported as not understood, never read as empty. The files bookmarked that
+exist in the vault become favorites; the result says how many were marked, already were, were
+not found and were ignored.
+
 ## Limits
 
 - Renaming a note outside Jylos loses its marks: they are found by path.

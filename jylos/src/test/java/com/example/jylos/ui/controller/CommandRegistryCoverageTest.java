@@ -32,7 +32,8 @@ class CommandRegistryCoverageTest {
             "cmd.toggle_notes_list", "cmd.toggle_tags", "cmd.new_tag", "cmd.list_view",
             "cmd.grid_view", "cmd.switch_layout", "cmd.editor_zoom_in", "cmd.editor_zoom_out",
             "cmd.editor_reset_zoom", "cmd.import_obsidian", "cmd.import_enex", "cmd.strike",
-            "cmd.highlight", "cmd.quote", "cmd.code", "cmd.insert_bullet_list", "cmd.vault_cleanup");
+            "cmd.highlight", "cmd.quote", "cmd.code", "cmd.insert_bullet_list", "cmd.vault_cleanup",
+            "cmd.import_obsidian_bookmarks");
 
     @Test
     void everyNewlyAddedCommandResolvesToARealAction() throws Exception {

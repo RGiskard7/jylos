@@ -247,6 +247,7 @@ public class MainController {
     private final GitController gitController = new GitController();
     private final WorkspaceController workspaceController = new WorkspaceController();
     private final VaultCleanupSupport vaultCleanup = new VaultCleanupSupport();
+    private final ObsidianBookmarksSupport obsidianBookmarks = new ObsidianBookmarksSupport();
     private final PrivacySupport privacySupport = new PrivacySupport();
     private final VaultLocationSupport vaultLocationSupport = new VaultLocationSupport();
     /** The editor's tabs (notes, the graph, new tabs) and their back/forward; and the Kanban board. */
@@ -1453,6 +1454,7 @@ public class MainController {
             Map.entry("cmd.graph_view", SystemActionEvent.ActionType.GRAPH_VIEW),
             Map.entry("cmd.knowledge_insights", SystemActionEvent.ActionType.KNOWLEDGE_INSIGHTS),
             Map.entry("cmd.vault_cleanup", SystemActionEvent.ActionType.VAULT_CLEANUP),
+            Map.entry("cmd.import_obsidian_bookmarks", SystemActionEvent.ActionType.IMPORT_OBSIDIAN_BOOKMARKS),
             Map.entry("cmd.workspace_save", SystemActionEvent.ActionType.WORKSPACE_SAVE),
             Map.entry("cmd.workspace_save_as", SystemActionEvent.ActionType.WORKSPACE_SAVE_AS),
             Map.entry("cmd.workspace_open", SystemActionEvent.ActionType.WORKSPACE_OPEN),
@@ -1509,27 +1511,15 @@ public class MainController {
         if (action != null) {
             return systemActionHandlers.get(action);
         }
+        SystemActionEvent.ActionType format = CommandRegistry.FORMAT_COMMANDS.get(commandId);
+        if (format != null) {
+            return () -> formatInEditor(format);
+        }
         switch (commandId) {
             case "cmd.save":
                 return () -> handleSave(null);
             case "cmd.delete_note":
                 return () -> handleDelete(null);
-            case "cmd.bold":
-                return () -> formatInEditor(SystemActionEvent.ActionType.BOLD);
-            case "cmd.italic":
-                return () -> formatInEditor(SystemActionEvent.ActionType.ITALIC);
-            case "cmd.underline":
-                return () -> formatInEditor(SystemActionEvent.ActionType.UNDERLINE);
-            case "cmd.insert_link":
-                return () -> formatInEditor(SystemActionEvent.ActionType.LINK);
-            case "cmd.insert_rich_link":
-                return () -> formatInEditor(SystemActionEvent.ActionType.RICH_LINK);
-            case "cmd.insert_image":
-                return () -> formatInEditor(SystemActionEvent.ActionType.IMAGE);
-            case "cmd.insert_todo":
-                return () -> formatInEditor(SystemActionEvent.ActionType.TODO_LIST);
-            case "cmd.insert_list":
-                return () -> formatInEditor(SystemActionEvent.ActionType.NUMBERED_LIST);
             case "cmd.theme_light":
                 return () -> handleLightTheme(null);
             case "cmd.theme_dark":
@@ -1556,16 +1546,6 @@ public class MainController {
                 return this::showPluginManager;
             case "cmd.keyboard_shortcuts":
                 return () -> handleKeyboardShortcuts(null);
-            case "cmd.strike":
-                return () -> formatInEditor(SystemActionEvent.ActionType.STRIKE);
-            case "cmd.highlight":
-                return () -> formatInEditor(SystemActionEvent.ActionType.HIGHLIGHT);
-            case "cmd.quote":
-                return () -> formatInEditor(SystemActionEvent.ActionType.QUOTE);
-            case "cmd.code":
-                return () -> formatInEditor(SystemActionEvent.ActionType.CODE);
-            case "cmd.insert_bullet_list":
-                return () -> formatInEditor(SystemActionEvent.ActionType.BULLET_LIST);
             default:
                 return null;
         }
@@ -1636,6 +1616,8 @@ public class MainController {
         systemActionHandlers.put(SystemActionEvent.ActionType.KNOWLEDGE_INSIGHTS, this::showKnowledgeInsights);
         workspaceController.register(systemActionHandlers);
         vaultCleanup.register(systemActionHandlers, () -> noteService, this::getString, this::updateStatus, this::getMainWindow);
+        obsidianBookmarks.register(systemActionHandlers, () -> noteService, this::getString, this::updateStatus,
+                () -> handleRefresh(null), this::getMainWindow);
         systemActionHandlers.put(SystemActionEvent.ActionType.FOCUS_MODE, this::handleFocusMode);
         systemActionHandlers.put(SystemActionEvent.ActionType.PRIVATE_TOGGLE, () -> privacySupport.toggle(getCurrentNote()));
         systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_UNLOCK, privacySupport::unlockAll);

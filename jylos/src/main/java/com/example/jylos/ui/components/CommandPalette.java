@@ -247,6 +247,8 @@ public class CommandPalette {
         commands.add(new Command("cmd.vault_cleanup", "Clean Up Jylos Metadata\u2026",
                 "Take out of the vault's notes the fields older versions of Jylos wrote", null, "\u2261", "Tools",
                 null));
+        commands.add(new Command("cmd.import_obsidian_bookmarks", "Import Obsidian Bookmarks",
+                "Mark as favorites the notes bookmarked in Obsidian", null, "\u2605", "Tools", null));
         commands.add(new Command("cmd.workspace_save", "Workspace: Save Current",
                 "Save the current tabs and layout to the active workspace", null, "\u25a3", "Workspace", null));
         commands.add(new Command("cmd.workspace_save_as", "Workspace: Save As\u2026",
