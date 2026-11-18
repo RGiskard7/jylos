@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -15,6 +16,7 @@ import java.util.prefs.Preferences;
 
 import org.kordamp.ikonli.javafx.FontIcon;
 
+import com.example.jylos.event.events.SystemActionEvent.ActionType;
 import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.workspace.SessionStore;
 import com.example.jylos.workspace.TabHistory;
@@ -147,6 +149,14 @@ public final class WorkspaceController {
             statusBar.getChildren().addAll(at, List.of(separator, indicator));
         }
         showCurrent();
+    }
+
+    /** The menu and palette actions on workspaces: save, save as, and open or manage them. */
+    void register(Map<ActionType, Runnable> handlers) {
+        handlers.put(ActionType.WORKSPACE_SAVE, this::saveCurrent);
+        handlers.put(ActionType.WORKSPACE_SAVE_AS, this::saveCurrentAs);
+        handlers.put(ActionType.WORKSPACE_OPEN, this::manageDialog);
+        handlers.put(ActionType.WORKSPACE_MANAGE, this::manageDialog);
     }
 
     // ── Opening ──────────────────────────────────────────────────────────────

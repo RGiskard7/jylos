@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
@@ -208,6 +209,48 @@ public final class FrontmatterHandler {
         }
         Object written = previous.get(key);
         root.put(key, written != null && value.equals(String.valueOf(written)) ? written : value);
+    }
+
+    /** A line of a field an older Jylos wrote ({@code created} stays: it is kept). */
+    private static final Pattern JYLOS_FIELD_LINE =
+            Pattern.compile("^(id|title|modified|favorite|pinned|deleted|deleted_date)[ \\t]*:([ \\t]|$)");
+
+    /** Whether the properties of {@code file} were written by an older Jylos ({@link #isJylosFrontmatter}). */
+    public static boolean hasJylosFields(String file) {
+        FrontmatterBlock block = file != null ? extractLeadingFrontmatter(file) : null;
+        Map<String, Object> properties = block != null ? readableYaml(block.yaml()) : null;
+        return properties != null && isJylosFrontmatter(properties);
+    }
+
+    /**
+     * {@code file} without the fields an older Jylos wrote in it, taken out as lines so the rest
+     * of its properties stays exactly as written ({@code created} included); a block left with
+     * nothing goes. Unchanged when Jylos did not write its properties. {@code null} when one of
+     * those fields spans several lines: then the note has to be written again instead.
+     */
+    public static String withoutJylosFields(String file) {
+        FrontmatterBlock block = file != null ? extractLeadingFrontmatter(file) : null;
+        Map<String, Object> properties = block != null ? readableYaml(block.yaml()) : null;
+        if (properties == null || !isJylosFrontmatter(properties)) {
+            return file;
+        }
+        String[] lines = block.yaml().split("(?<=\\n)");
+        StringBuilder kept = new StringBuilder();
+        for (int i = 0; i < lines.length; i++) {
+            if (JYLOS_FIELD_LINE.matcher(lines[i]).find()) {
+                String next = i + 1 < lines.length ? lines[i + 1] : "";
+                if (next.startsWith(" ") || next.startsWith("\t") || next.startsWith("-")) {
+                    return null;
+                }
+                continue;
+            }
+            kept.append(lines[i]);
+        }
+        if (kept.toString().isBlank()) {
+            return block.body();
+        }
+        String lineEnd = block.head().contains("\r\n") ? "\r\n" : "\n";
+        return SEPARATOR + lineEnd + kept + SEPARATOR + lineEnd + block.gap() + block.body();
     }
 
     /**

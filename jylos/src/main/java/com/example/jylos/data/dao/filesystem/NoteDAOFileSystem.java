@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
@@ -1393,6 +1394,98 @@ public class NoteDAOFileSystem implements NoteDAO {
     private boolean isAttachmentNote(Path path, Note note) {
         return (path != null && AttachmentType.isAttachment(path.getFileName().toString()))
                 || (note != null && AttachmentType.isAttachment(note.getTitle()));
+    }
+
+    /**
+     * The notes whose properties an older Jylos wrote ({@code id}, {@code favorite},
+     * {@code pinned}, {@code deleted}…), by path, the trash's included. Hidden folders such as
+     * {@code .obsidian} are not notes. Reads only.
+     */
+    public List<String> notesWithJylosFields() {
+        FileSystemIoLock.LOCK.lock();
+        try (Stream<Path> walk = Files.walk(rootPath)) {
+            return walk.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".md"))
+                    .filter(path -> !inHiddenFolder(path))
+                    .filter(path -> {
+                        try {
+                            return FrontmatterHandler.hasJylosFields(
+                                    new String(Files.readAllBytes(path), StandardCharsets.UTF_8));
+                        } catch (IOException e) {
+                            logger.log(Level.WARNING, "Could not read " + path, e);
+                            return false;
+                        }
+                    })
+                    .map(path -> FileSystemNames.normalizeId(rootPath.relativize(path).toString()))
+                    .sorted()
+                    .toList();
+        } catch (IOException e) {
+            throw new DataAccessException("Could not read the vault", e);
+        } finally {
+            FileSystemIoLock.LOCK.unlock();
+        }
+    }
+
+    /**
+     * Takes the fields an older Jylos wrote out of these notes. Each one is first copied to
+     * {@code backupDir}, at the same path; its favorite and pinned marks move to Jylos' data
+     * unless that already has marks for it. A note whose properties Jylos did not write is left
+     * alone.
+     *
+     * @return how many notes were cleaned
+     */
+    public int cleanJylosFields(List<String> ids, Path backupDir) {
+        FileSystemIoLock.LOCK.lock();
+        try {
+            int cleaned = 0;
+            for (String id : ids) {
+                String normalizedId = FileSystemNames.normalizeId(id);
+                requireInsideVault(normalizedId);
+                Path path = rootPath.resolve(normalizedId.replace("/", File.separator));
+                if (!Files.isRegularFile(path)) {
+                    continue;
+                }
+                String file = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+                if (!FrontmatterHandler.hasJylosFields(file)) {
+                    continue;
+                }
+                Path copy = backupDir.resolve(normalizedId.replace("/", File.separator));
+                Files.createDirectories(copy.getParent());
+                Files.copy(path, copy, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+
+                Note old = FrontmatterHandler.parse(file);
+                old.setId(normalizedId);
+                if (!metadataStore.hasNoteMarks(normalizedId)) {
+                    metadataStore.persistNoteMarks(old, false);
+                }
+                String clean = FrontmatterHandler.withoutJylosFields(file);
+                if (clean == null) {
+                    clean = FrontmatterHandler.generate(old, file);
+                }
+                FileSystemAtomicWriter.writeString(path, clean, StandardCharsets.UTF_8);
+                cleaned++;
+            }
+            return cleaned;
+        } catch (IOException e) {
+            throw new DataAccessException("Could not clean the notes of the vault", e);
+        } finally {
+            FileSystemIoLock.LOCK.unlock();
+        }
+    }
+
+    /** Whether {@code path} is under a hidden folder of the vault other than the trash. */
+    private boolean inHiddenFolder(Path path) {
+        Path relative = rootPath.relativize(path).getParent();
+        if (relative == null) {
+            return false;
+        }
+        for (Path part : relative) {
+            String name = part.toString();
+            if (name.startsWith(".") && !name.equals(FileSystemNames.TRASH_DIR)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Whether Jylos keeps this file's marks in {@code .jylos/}: attachments and notes alike. */

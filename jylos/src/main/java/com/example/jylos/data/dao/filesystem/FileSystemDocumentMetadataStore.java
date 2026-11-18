@@ -91,6 +91,11 @@ final class FileSystemDocumentMetadataStore {
         }
     }
 
+    /** Whether Jylos keeps marks for this note (even "not marked"). */
+    boolean hasNoteMarks(String noteId) {
+        return reloadDocumentIndex().containsKey(normalizeId(noteId));
+    }
+
     /**
      * Keeps the favorite and pinned marks of a note of the vault. With neither, its entry
      * goes, unless its file marks it ({@code fileClaimsMarks}: a property the user wrote), so

@@ -99,6 +99,7 @@
             <MenuItem text="%action.lock_notes" onAction="#handleLockNotes"/>
             <SeparatorMenuItem/>
             <MenuItem text="%action.note_history" onAction="#handleNoteHistory" accelerator="Shortcut+Shift+H"/>
+            <MenuItem text="%action.vault_cleanup" onAction="#handleVaultCleanup"/>
             <SeparatorMenuItem/>
             <Menu text="%menu.git">
                 <MenuItem text="%action.git_panel" onAction="#handleGitPanel" accelerator="Shortcut+Shift+G"/>

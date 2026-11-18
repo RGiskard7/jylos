@@ -50,6 +50,7 @@ class I18nBundleFallbackGuardTest {
         "cmd.toggle_sidebar",
         "cmd.graph_view",
         "cmd.knowledge_insights",
+        "cmd.vault_cleanup",
         "cmd.workspace_save",
         "cmd.workspace_save_as",
         "cmd.workspace_open",

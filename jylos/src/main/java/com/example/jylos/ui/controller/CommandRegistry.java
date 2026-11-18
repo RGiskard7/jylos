@@ -56,6 +56,7 @@ class CommandRegistry {
             new CommandDef("cmd.toggle_sidebar", "Toggle Sidebar"),
             new CommandDef("cmd.graph_view", "Graph View"),
             new CommandDef("cmd.knowledge_insights", "Knowledge Insights"),
+            new CommandDef("cmd.vault_cleanup", "Clean Up Jylos Metadata…"),
             new CommandDef("cmd.workspace_save", "Workspace: Save Current"),
             new CommandDef("cmd.workspace_save_as", "Workspace: Save As…"),
             new CommandDef("cmd.workspace_open", "Workspace: Open…"),

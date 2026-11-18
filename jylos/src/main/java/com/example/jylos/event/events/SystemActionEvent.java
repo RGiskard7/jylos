@@ -92,6 +92,8 @@ public class SystemActionEvent extends AppEvent {
         /** The graph in a new tab (Cmd/Ctrl+click or middle click on its button). */
         GRAPH_VIEW_NEW_TAB,
         KNOWLEDGE_INSIGHTS,
+        /** Takes the fields older versions of Jylos wrote out of every note of the vault. */
+        VAULT_CLEANUP,
         FOCUS_MODE,
         KANBAN_VIEW,
         PRIVATE_TOGGLE,

@@ -381,6 +381,11 @@ public class ToolbarController {
         publishEvent(SystemActionEvent.ActionType.NOTE_HISTORY);
     }
 
+    @FXML
+    private void handleVaultCleanup(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.VAULT_CLEANUP);
+    }
+
     /** The menu the layout button opens: the three layouts, the current one ticked. */
     ContextMenu layoutMenu() {
         ContextMenu menu = new ContextMenu();

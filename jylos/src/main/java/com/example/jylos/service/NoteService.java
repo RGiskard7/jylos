@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.dao.filesystem.FrontmatterHandler;
+import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.models.Folder;
@@ -283,6 +284,19 @@ public class NoteService {
     }
 
     /** Vault root for file-backed storage; empty in SQLite mode. */
+    /**
+     * The notes of a folder vault whose properties an older Jylos wrote (see
+     * {@link NoteDAOFileSystem#notesWithJylosFields}); none in SQLite.
+     */
+    public List<String> notesWithJylosFields() {
+        return noteDAO instanceof NoteDAOFileSystem vault ? vault.notesWithJylosFields() : List.of();
+    }
+
+    /** Cleans those notes, copying each to {@code backupDir} first; how many were cleaned. */
+    public int cleanJylosFields(List<String> ids, Path backupDir) {
+        return noteDAO instanceof NoteDAOFileSystem vault ? vault.cleanJylosFields(ids, backupDir) : 0;
+    }
+
     public Optional<Path> getStorageRoot() {
         return noteDAO.storageRoot();
     }
