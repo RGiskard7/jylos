@@ -75,10 +75,8 @@
             <MenuItem text="%action.zoom_editor_out" onAction="#handleEditorZoomOut" accelerator="Shortcut+Shift+Minus"/>
             <MenuItem text="%action.reset_editor_zoom" onAction="#handleEditorResetZoom" accelerator="Shortcut+Shift+0"/>
             <SeparatorMenuItem/>
-            <Menu text="%menu.language">
-                <RadioMenuItem fx:id="englishLangMenuItem" text="%lang.en"/>
-                <RadioMenuItem fx:id="spanishLangMenuItem" text="%lang.es"/>
-            </Menu>
+            <!-- Filled with the languages the app carries (UiLanguages), each in its own language. -->
+            <Menu fx:id="languageMenu" text="%menu.language"/>
             <SeparatorMenuItem/>
             <Menu text="%menu.theme">
                 <RadioMenuItem fx:id="lightThemeMenuItem" text="%theme.light" selected="true" onAction="#handleLightTheme"/>

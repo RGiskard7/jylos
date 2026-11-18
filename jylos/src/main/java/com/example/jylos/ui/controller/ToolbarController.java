@@ -113,9 +113,7 @@ public class ToolbarController {
     }
 
     @FXML
-    private RadioMenuItem englishLangMenuItem;
-    @FXML
-    private RadioMenuItem spanishLangMenuItem;
+    private Menu languageMenu;
     @FXML
     private RadioMenuItem lightThemeMenuItem;
     @FXML
@@ -175,12 +173,9 @@ public class ToolbarController {
         return toggleNotesListMenuItem;
     }
 
-    public RadioMenuItem getEnglishLangMenuItem() {
-        return englishLangMenuItem;
-    }
-
-    public RadioMenuItem getSpanishLangMenuItem() {
-        return spanishLangMenuItem;
+    /** View > Language, filled by {@code AppSettings} with the app's languages. */
+    public Menu getLanguageMenu() {
+        return languageMenu;
     }
 
     public RadioMenuItem getLightThemeMenuItem() {

@@ -45,8 +45,9 @@ class ThemeCatalogTest {
 
         List<String> external = themes.stream().filter(t -> "external".equals(t.source()))
                 .map(ThemeCatalog.ThemeDescriptor::id).toList();
-        assertEquals(List.of("catppuccin-latte", "catppuccin-mocha", "gruvbox-dark", "gruvbox-light", "nord-dark",
-                "nord-light", "retro-phosphor", "rose-pine", "rose-pine-dawn"), external);
+        assertEquals(List.of("catppuccin-latte", "catppuccin-mocha", "gruvbox-dark", "gruvbox-light",
+                "gruvbox-material-dark", "gruvbox-material-light", "nord-dark", "nord-light", "retro-phosphor", "rose-pine",
+                "rose-pine-dawn"), external);
         for (String id : external) {
             try (InputStream css = URI.create(catalog.findById(themes, id).cssPath()).toURL().openStream()) {
                 assertTrue(css.readAllBytes().length > 100, id + "'s stylesheet is there");
@@ -55,16 +56,16 @@ class ThemeCatalogTest {
     }
 
     /**
-     * Nord, Catppuccin and Rosé Pine: each variant is dark or light as its base, its name reads
+     * Nord, Catppuccin, Rosé Pine and Gruvbox Material: each variant is dark or light as its base, its name reads
      * with its accents, and the editor and the reading view get its background and text.
      */
     @Test
-    void nordCatppuccinAndRosePineAreDarkOrLightAsTheirBase() {
+    void theAddedPalettesAreDarkOrLightAsTheirBase() {
         ThemeCatalog catalog = new ThemeCatalog(List.of(REPO_THEMES));
         List<ThemeCatalog.ThemeDescriptor> themes = catalog.getAvailableThemes();
         List<String> seen = new ArrayList<>();
         for (String id : List.of("nord-dark", "nord-light", "catppuccin-mocha", "catppuccin-latte", "rose-pine",
-                "rose-pine-dawn")) {
+                "rose-pine-dawn", "gruvbox-material-dark", "gruvbox-material-light")) {
             ThemeCatalog.ThemeDescriptor theme = catalog.findById(themes, id);
             ThemePalette colours = new ThemeCommand().externalPalette(theme,
                     new ThemeCommand().resolveBuiltinStylesheet(theme.base(), ThemeCommand.class));
@@ -74,7 +75,9 @@ class ThemeCatalogTest {
 
         assertEquals(List.of("Nord Dark dark true #2e3440 #eceff4", "Nord Light light false #eceff4 #2e3440",
                 "Catppuccin Mocha dark true #1e1e2e #cdd6f4", "Catppuccin Latte light false #eff1f5 #4c4f69",
-                "Rosé Pine dark true #191724 #e0def4", "Rosé Pine Dawn light false #faf4ed #575279"), seen);
+                "Rosé Pine dark true #191724 #e0def4", "Rosé Pine Dawn light false #faf4ed #575279",
+                "Gruvbox Material Dark dark true #282828 #d4be98", "Gruvbox Material Light light false #fbf1c7 #654735"),
+                seen);
     }
 
     @Test

@@ -91,7 +91,8 @@ public final class AppDataDirectory {
                 System.getProperty("jpackage.app-path"),
                 System.getProperty("jylos.data.dir"),
                 path -> canWriteToDirectory(path.toFile()),
-                Files::exists);
+                Files::exists,
+                Boolean.getBoolean("jylos.installed"));
     }
 
     /** Names of the plugin JARs that ship with this installation, next to the app JAR. */

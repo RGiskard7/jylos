@@ -1,6 +1,7 @@
 package com.example.jylos.ui.controller;
 
 import java.io.File;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -9,11 +10,14 @@ import java.util.function.Supplier;
 import java.util.prefs.Preferences;
 
 import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.ui.UiLanguages;
 
 import javafx.application.Platform;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.Menu;
+import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.ToggleGroup;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Window;
@@ -150,41 +154,33 @@ class AppSettings {
         return themeToggleGroup;
     }
 
+    /**
+     * Fills View > Language with the languages the app carries ({@link UiLanguages}), each in its
+     * own language, the one in use ticked (English when that one is not carried). Picking another
+     * one hands its code to {@code onLanguageSelected}.
+     */
     ToggleGroup initializeLanguageMenu(ToolbarController toolbarController, Preferences prefs,
             Consumer<String> onLanguageSelected) {
         ToggleGroup languageToggleGroup = new ToggleGroup();
-        if (toolbarController == null) {
+        Menu menu = toolbarController != null ? toolbarController.getLanguageMenu() : null;
+        if (menu == null) {
             return languageToggleGroup;
         }
-
-        if (toolbarController.getEnglishLangMenuItem() != null) {
-            toolbarController.getEnglishLangMenuItem().setToggleGroup(languageToggleGroup);
-            toolbarController.getEnglishLangMenuItem().setOnAction(e -> {
-                if (onLanguageSelected != null && toolbarController.getEnglishLangMenuItem().isSelected()) {
-                    onLanguageSelected.accept("en");
+        List<String> languages = UiLanguages.available();
+        String current = prefs.get("language", Locale.getDefault().getLanguage());
+        String ticked = languages.contains(current) ? current : "en";
+        menu.getItems().clear();
+        for (String code : languages) {
+            RadioMenuItem item = new RadioMenuItem(UiLanguages.nameOf(code));
+            item.setToggleGroup(languageToggleGroup);
+            item.setSelected(code.equals(ticked));
+            item.setOnAction(e -> {
+                if (onLanguageSelected != null && item.isSelected()) {
+                    onLanguageSelected.accept(code);
                 }
             });
+            menu.getItems().add(item);
         }
-        if (toolbarController.getSpanishLangMenuItem() != null) {
-            toolbarController.getSpanishLangMenuItem().setToggleGroup(languageToggleGroup);
-            toolbarController.getSpanishLangMenuItem().setOnAction(e -> {
-                if (onLanguageSelected != null && toolbarController.getSpanishLangMenuItem().isSelected()) {
-                    onLanguageSelected.accept("es");
-                }
-            });
-        }
-
-        String currentLang = prefs.get("language", Locale.getDefault().getLanguage());
-        if ("es".equals(currentLang)) {
-            if (toolbarController.getSpanishLangMenuItem() != null) {
-                toolbarController.getSpanishLangMenuItem().setSelected(true);
-            }
-        } else {
-            if (toolbarController.getEnglishLangMenuItem() != null) {
-                toolbarController.getEnglishLangMenuItem().setSelected(true);
-            }
-        }
-
         return languageToggleGroup;
     }
 

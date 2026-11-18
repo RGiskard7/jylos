@@ -39,7 +39,9 @@ class ThemeBordersTest {
             "css/dark-theme.css + ../themes/catppuccin-mocha/theme.css",
             "css/modern-theme.css + ../themes/catppuccin-latte/theme.css",
             "css/dark-theme.css + ../themes/rose-pine/theme.css",
-            "css/modern-theme.css + ../themes/rose-pine-dawn/theme.css"})
+            "css/modern-theme.css + ../themes/rose-pine-dawn/theme.css",
+            "css/dark-theme.css + ../themes/gruvbox-material-dark/theme.css",
+            "css/modern-theme.css + ../themes/gruvbox-material-light/theme.css"})
     void bordersKeepTheirColourOnHoverAndFocus(String theme) throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
 
