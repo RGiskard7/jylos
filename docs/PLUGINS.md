@@ -4,21 +4,59 @@ Español: [es/PLUGINS.md](es/PLUGINS.md)
 
 ## Model
 
-External plugins are JAR files loaded at startup. The core app does not import concrete plugin classes.
+Plugins are JAR files loaded at startup; the core app does not import concrete plugin classes.
+As in Obsidian, there are two kinds:
 
-Search paths include `plugins/` under the application base directory (`AppDataDirectory.getBaseDirectory()`), plus paths used when the app is packaged (see `PluginLoader.java`).
+- **Core plugins** are Jylos's own (`plugins-source/`, plus Mermaid compiled into the app; the
+  list is `CorePlugins`). They come with the installation, next to the app (jpackage
+  `--app-content`: `Jylos.app/Contents/plugins/` on macOS, `/opt/jylos/lib/plugins/` on Linux,
+  `<install>\plugins\` on Windows) and are updated with it. They can be turned on or off, not
+  removed. In a new install MCP Server (it opens a local port), Publish and Auto Backup (they
+  write files outside the vault) start off; the rest on.
+- **Community plugins** are installed by the user in their plugins folder
+  (`<appData>/plugins`, `PluginLoader.getPluginsDirectoryFile()`). A copy of a core plugin there
+  is not used: the one in the installation wins.
+
+Whether each plugin is on is kept as `plugin.enabled.<id>` in the plugin manager's preferences
+(`PluginStates`); older versions only stored `plugin.disabled.<id>`, still read. Updating keeps
+what each plugin had.
+
+### Restricted mode
+
+Community plugins are other people's code with full access to the computer, so none is loaded
+until the user allows them in the plugin manager, which asks for confirmation. A new install
+starts in restricted mode; an update where the user already had plugins of their own does not.
+
+### The plugin's card (`MANIFEST.MF`)
+
+Besides `Plugin-Class`, a plugin JAR says in its manifest:
+
+| Attribute | Meaning |
+|-----------|---------|
+| `Plugin-Id` | The plugin's id, the same as `getId()` |
+| `Plugin-Min-Jylos` | The earliest Jylos version it works with, e.g. `2.6.0` |
+
+A community plugin whose `Plugin-Min-Jylos` is later than the installed Jylos is not loaded,
+and the plugin manager says which version it needs. Without it, the plugin is loaded and the
+log notes it. `scripts/build-plugins.sh` writes both for the core plugins.
 
 ## Installing plugins
 
-Use **Tools → Manage plugins → Install plugin...** and select a `.jar` file. Jylos copies the JAR into the primary user plugin directory and loads it immediately when possible.
-
-Manual installation is still supported: place the JAR in the primary plugins directory shown by `PluginLoader.getPluginsDirectoryFile()` (normally `<appData>/plugins`) and restart Jylos.
+In **Tools → Manage plugins**, with community plugins allowed: **Install plugin...** copies a
+`.jar` into the user's plugins folder and loads it. Or **Open plugins folder**, copy the JAR
+there and press **Reload plugins**; no restart needed.
 
 ## Removing plugins
 
-Use **Tools → Manage plugins → Remove** on a plugin card to uninstall a plugin from the primary user plugin directory. Jylos shuts the plugin down, removes its registered UI contributions, closes its classloader, deletes the JAR and clears its disabled preference.
+**Remove** on a community plugin's card shuts it down, removes its UI contributions, closes its
+classloader, deletes the JAR and forgets its state. Core plugins are turned off, not removed.
 
-Plugins loaded from protected application bundle locations are not deleted by the manager; copy them to the user plugin directory first if you want the manager to own their lifecycle.
+## Plugins Jylos no longer has
+
+`RetiredPlugins` lists them (the AI assistant, `ai-assistant`). They are never loaded; at
+startup their settings are removed, and the copies older versions of Jylos made in the user's
+plugins folder (marked by `.bundled-plugins-copied`) are deleted. Those versions copied every
+core plugin there on first run; Jylos no longer does, and deletes those copies too.
 
 ## Build sample plugins
 
@@ -134,10 +172,9 @@ third-party plugin, and depends on `scripts/build-plugins.sh` having produced it
 **Mermaid is the one deliberate exception.** It lives in
 `jylos/src/main/java/com/example/jylos/plugin/mermaid/`, compiled straight into the core
 app (`PluginLifecycle.registerCoreAndExternalPlugins` instantiates it directly — no JAR,
-no classloader). Packaging treats the plugin build as best-effort: a failed
-`build-plugins.sh` still ships the app, just without those JARs. Mermaid diagram rendering
-is common enough, and expected reliably enough, that it must not depend on that step
-succeeding — so it is compiled in, not built from `plugins-source/`. Do not move other
+no classloader). Its renderer needs no separate build step, and diagrams are expected
+everywhere, so it is compiled in rather than built from `plugins-source/`. (Packaging now
+fails when the other core plugins do not build, so an installer never ships without them.) Do not move other
 first-party plugins here on the same reasoning without weighing that trade-off: it opts a
 plugin out of the JAR mechanism (no independent enable/disable-by-file, no
 `isPluginRemovable`) in exchange for unconditional availability.

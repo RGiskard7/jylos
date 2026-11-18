@@ -42,7 +42,7 @@ public class TemplatesPlugin implements Plugin {
     private static final String NAME = "Note Templates";
     private static final String VERSION = "1.0.0";
     private static final String DESCRIPTION = "Create notes from predefined templates (meeting notes, checklists, etc.)";
-    private static final String AUTHOR = "Jylos Team";
+    private static final String AUTHOR = "Edu Díaz";
     
     private PluginContext context;
     private final Map<String, Template> templates = new LinkedHashMap<>();

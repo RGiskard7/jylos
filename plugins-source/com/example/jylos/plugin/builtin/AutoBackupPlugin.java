@@ -38,7 +38,7 @@ public class AutoBackupPlugin implements Plugin {
     private static final String NAME = "Auto Backup";
     private static final String VERSION = "1.0.0";
     private static final String DESCRIPTION = "Backup notes to files and export database";
-    private static final String AUTHOR = "Jylos Team";
+    private static final String AUTHOR = "Edu Díaz";
     
     private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
     private static final String DB_PATH = "data/database.db";

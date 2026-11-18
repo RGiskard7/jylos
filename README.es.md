@@ -491,8 +491,9 @@ Coloca ficheros `.css` en la carpeta `snippets/` para retocar la interfaz sobre 
 
 ### Plugins
 
-- Compilar: `./scripts/build-plugins.sh` → `jylos/plugins/*.jar` (objetivo **Java 21**)
-- Instalar, eliminar, activar y desactivar plugins JAR externos en **Herramientas → Gestionar plugins**
+- **Plugins principales** (los de Jylos): vienen con la instalación y se actualizan con ella; se encienden o apagan en **Herramientas → Gestionar plugins**.
+- **Plugins de la comunidad**: van en tu carpeta de plugins; permítelos en el gestor de plugins (en una instalación nueva está activo el modo restringido) y allí se instalan, recargan o eliminan.
+- Compilar los principales: `./scripts/build-plugins.sh` → `jylos/plugins/*.jar` (objetivo **Java 21**). Ver [docs/es/PLUGINS.md](docs/es/PLUGINS.md).
 
 ## Documentación
 

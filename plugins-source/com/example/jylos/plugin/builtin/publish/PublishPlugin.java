@@ -35,7 +35,7 @@ public final class PublishPlugin implements Plugin {
     private static final String NAME = "Publish";
     private static final String VERSION = "1.0.0";
     private static final String DESCRIPTION = "Export the vault as a static website (wiki-links, graph, ready for GitHub Pages/Vercel)";
-    private static final String AUTHOR = "Jylos Team";
+    private static final String AUTHOR = "Edu Díaz";
 
     private static final String NOTE_MENU_LABEL = "Publish this note...";
 

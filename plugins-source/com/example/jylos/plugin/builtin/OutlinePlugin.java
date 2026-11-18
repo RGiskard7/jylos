@@ -42,7 +42,7 @@ public class OutlinePlugin implements Plugin {
     private static final String NAME = "Outline";
     private static final String VERSION = "1.0.0";
     private static final String DESCRIPTION = "Shows document structure (headers) in sidebar";
-    private static final String AUTHOR = "Jylos Team";
+    private static final String AUTHOR = "Edu Díaz";
     
     private static final String PANEL_ID = "outline-panel";
     private static final Pattern HEADER_PATTERN = Pattern.compile("^(#{1,6})\\s+(.+)$", Pattern.MULTILINE);

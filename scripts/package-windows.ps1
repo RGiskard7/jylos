@@ -200,16 +200,24 @@ if (-not $jarFile) {
     exit 1
 }
 
-# -- Build plugins (best effort) ------------------------------------------------
+# -- Build plugins ---------------------------------------------------------------
+# Jylos's own plugins are part of the app: without them there is no installer to make.
 $buildPluginsScript = Join-Path $root 'scripts\build-plugins.ps1'
-if (Test-Path $buildPluginsScript) {
-    Write-Host ''
-    Write-Host 'Building plugins...' -ForegroundColor Cyan
-    & $buildPluginsScript
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host 'Warning: plugin build failed; packaging without plugins.' -ForegroundColor Yellow
-    }
+if (-not (Test-Path $buildPluginsScript)) {
+    throw "build-plugins.ps1 not found: the installer would come without Jylos's own plugins."
 }
+Write-Host ''
+Write-Host 'Building plugins...' -ForegroundColor Cyan
+$env:JYLOS_VERSION = $APP_VERSION
+& $buildPluginsScript
+if ($LASTEXITCODE -ne 0) {
+    throw "Plugin build failed: the installer would come without Jylos's own plugins."
+}
+$builtPlugins = @(Get-ChildItem -Path (Join-Path $root 'jylos\plugins') -Filter '*.jar' -ErrorAction SilentlyContinue)
+if ($builtPlugins.Count -eq 0) {
+    throw 'No plugin JAR in jylos\plugins after building them.'
+}
+Write-Host "Plugins built: $($builtPlugins.Count) JAR(s)" -ForegroundColor Gray
 
 # -- Output dir (short path to dodge the Windows path-length limit) --------------
 $currentPath = (Get-Location).Path

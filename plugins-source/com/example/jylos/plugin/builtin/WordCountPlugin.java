@@ -41,7 +41,7 @@ public class WordCountPlugin implements Plugin {
     private static final String NAME = "Word Count";
     private static final String VERSION = "1.0.0";
     private static final String DESCRIPTION = "Displays word and character statistics for notes";
-    private static final String AUTHOR = "Jylos Team";
+    private static final String AUTHOR = "Edu Díaz";
     
     private PluginContext context;
     private Note currentNote;

@@ -491,8 +491,9 @@ Drop plain `.css` files into the `snippets/` folder to tweak the interface on to
 
 ### Plugins
 
-- Build: `./scripts/build-plugins.sh` → `jylos/plugins/*.jar` (compile target **Java 21**)
-- Install, remove, enable and disable external JAR plugins in **Tools → Manage plugins**
+- **Core plugins** (Jylos's own) come with the installation and are updated with it; turn them on or off in **Tools → Manage plugins**.
+- **Community plugins** go in your plugins folder; allow them in the plugin manager (restricted mode is on in a new install), then install, reload or remove them there.
+- Build the core plugins: `./scripts/build-plugins.sh` → `jylos/plugins/*.jar` (compile target **Java 21**). See [docs/PLUGINS.md](docs/PLUGINS.md).
 
 ## Documentation
 

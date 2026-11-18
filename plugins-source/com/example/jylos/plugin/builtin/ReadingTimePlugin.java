@@ -47,7 +47,7 @@ public class ReadingTimePlugin implements Plugin {
     private static final String NAME = "Reading Time";
     private static final String VERSION = "1.0.0";
     private static final String DESCRIPTION = "Estimates reading and speaking time for notes";
-    private static final String AUTHOR = "Jylos Team";
+    private static final String AUTHOR = "Edu Díaz";
     
     // Reading speeds in words per minute
     private static final int SLOW_WPM = 150;       // Careful reading

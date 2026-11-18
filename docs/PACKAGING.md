@@ -30,7 +30,7 @@ Run with JavaFX module-path via `scripts/launch-jylos.*`, not plain `java -jar` 
 Each script:
 
 1. Runs `mvn clean package -DskipTests` inside `jylos/`
-2. Optionally runs `scripts/build-plugins.sh` (JARs → `jylos/plugins/`)
+2. Runs `scripts/build-plugins.sh` (Jylos's core plugins → `jylos/plugins/`, shipped with `--app-content`); packaging stops if they do not build, so no installer comes without them
 3. Invokes `jpackage` with `--main-class com.example.jylos.Launcher`
 
 Release automation sets `JYLOS_RELEASE_VERSION` from the pushed tag (for example
@@ -215,5 +215,5 @@ under "Removing this later".
 2. Create, edit, and delete a note (SQLite mode).
 3. Open **Graph View** (`Ctrl+G`) and click a node to open a note.
 4. Repeat key flows in filesystem vault mode if you ship that configuration (optional Git bar).
-5. Plugin manager lists JARs in `plugins/` when present (plugins must be Java 21 bytecode).
-6. External themes: copy `themes/<id>/` into the user data `themes/` folder (see [themes/README.md](../themes/README.md)), then **Preferences → External theme**.
+5. **Tools → Manage plugins** lists the core plugins (MCP Server, Publish and Auto Backup off in a new install) and the community section in restricted mode.
+6. External themes: **Preferences → Appearance → Open themes folder**, copy `themes/<id>/` there and **Reload themes** (see [themes/README.md](../themes/README.md)).

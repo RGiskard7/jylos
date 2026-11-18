@@ -338,7 +338,8 @@ public class PluginManagerDialog {
         HBox infoRow = new HBox(14);
         infoRow.setAlignment(Pos.CENTER_LEFT);
 
-        if (!plugin.getAuthor().isEmpty()) {
+        // Jylos's own plugins are Jylos's: who made them is said only for the community's.
+        if (removable && !plugin.getAuthor().isEmpty()) {
             Label authorLabel = new Label(i18n("dialog.plugin_manager.author", plugin.getAuthor()));
             authorLabel.getStyleClass().add("plugin-card-author");
             infoRow.getChildren().add(authorLabel);

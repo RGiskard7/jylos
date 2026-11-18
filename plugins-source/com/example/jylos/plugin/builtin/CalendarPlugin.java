@@ -55,7 +55,7 @@ public class CalendarPlugin implements Plugin {
     private static final String NAME = "Calendar";
     private static final String VERSION = "1.0.0";
     private static final String DESCRIPTION = "Mini calendar in sidebar with daily notes integration";
-    private static final String AUTHOR = "Jylos Team";
+    private static final String AUTHOR = "Edu Díaz";
     
     private static final String PANEL_ID = "calendar-panel";
     private static final DateTimeFormatter DAILY_NOTE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");

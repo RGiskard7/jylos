@@ -48,7 +48,7 @@ public class TableOfContentsPlugin implements Plugin {
     private static final String NAME = "Table of Contents";
     private static final String VERSION = "1.0.0";
     private static final String DESCRIPTION = "Generate table of contents from Markdown headers";
-    private static final String AUTHOR = "Jylos Team";
+    private static final String AUTHOR = "Edu Díaz";
     
     private static final Pattern HEADER_PATTERN = Pattern.compile("^(#{1,6})\\s+(.+)$", Pattern.MULTILINE);
     

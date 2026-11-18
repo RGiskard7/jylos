@@ -39,7 +39,7 @@ public class DailyNotesPlugin implements Plugin {
     private static final String NAME = "Daily Notes";
     private static final String VERSION = "1.0.0";
     private static final String DESCRIPTION = "Create and manage daily notes with automatic dating";
-    private static final String AUTHOR = "Jylos Team";
+    private static final String AUTHOR = "Edu Díaz";
     
     private static final String DAILY_NOTES_FOLDER = "Daily Notes";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");

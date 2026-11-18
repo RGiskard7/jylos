@@ -4,6 +4,7 @@ import static com.example.jylos.tests.FxTestSupport.onFx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.file.Path;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -17,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.example.jylos.AppDataDirectory;
+import com.example.jylos.plugin.Plugin;
+import com.example.jylos.plugin.PluginContext;
 import com.example.jylos.plugin.PluginLoader;
 import com.example.jylos.plugin.PluginManager;
 import com.example.jylos.plugin.PluginOrigin;
@@ -91,6 +94,74 @@ class PluginManagerDialogTest {
         assertEquals(List.of(es.getString("dialog.plugin_manager.section_core"), "Test " + core + " (no remove)",
                 es.getString("dialog.plugin_manager.section_community"), "Test " + community + " (remove)",
                 "Test " + fresh + " (remove)"), after);
+    }
+
+    /** Jylos's own plugins do not say who made them, as in Obsidian; a community plugin does. */
+    @Test
+    void onlyACommunityPluginSaysWhoMadeIt(@TempDir Path data) throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        previousDataDir = System.getProperty("jylos.data.dir");
+        System.setProperty("jylos.data.dir", data.toString());
+        AppDataDirectory.resetForTesting();
+        PluginManager manager = new PluginManager(null, null, null, null, null, null, null, null, null, null, null,
+                note -> {
+                }, null, null, null);
+        node = Preferences.userRoot().node("/com/example/jylos/test/" + UUID.randomUUID());
+        manager.usePreferences(node);
+        manager.setCommunityPluginsAllowed(true);
+        manager.registerPlugin(authored("test-core-author", "Edu Díaz"), PluginOrigin.CORE);
+        manager.registerPlugin(authored("test-community-author", "Ana"), PluginOrigin.COMMUNITY);
+        ResourceBundle es = ResourceBundle.getBundle("com.example.jylos.i18n.messages", Locale.forLanguageTag("es"));
+        PluginManagerDialog dialog = new PluginManagerDialog(null, manager);
+        dialog.setBundle(es);
+
+        List<String> authors = onFx(() -> {
+            dialog.build();
+            Parent root = dialog.root();
+            root.applyCss();
+            List<String> out = new ArrayList<>();
+            for (Node card : root.lookupAll(".plugin-card")) {
+                Label title = (Label) card.lookup(".plugin-card-title");
+                Label author = (Label) card.lookup(".plugin-card-author");
+                out.add(title.getText() + ": " + (author != null ? author.getText() : "-"));
+            }
+            return out;
+        });
+
+        assertEquals(List.of("test-core-author: -",
+                "test-community-author: " + MessageFormat.format(es.getString("dialog.plugin_manager.author"), "Ana")), authors);
+    }
+
+    private static Plugin authored(String id, String author) {
+        return new Plugin() {
+            @Override
+            public String getId() {
+                return id;
+            }
+
+            @Override
+            public String getName() {
+                return id;
+            }
+
+            @Override
+            public String getVersion() {
+                return "1.0.0";
+            }
+
+            @Override
+            public String getAuthor() {
+                return author;
+            }
+
+            @Override
+            public void initialize(PluginContext context) {
+            }
+
+            @Override
+            public void shutdown() {
+            }
+        };
     }
 
     /** The list in order: each section's title, then each card's name and whether it can be removed. */
