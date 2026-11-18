@@ -7,6 +7,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 
 import com.example.jylos.data.dao.FolderColorStore;
+import com.example.jylos.data.dao.VaultSettingsStore;
 import com.example.jylos.data.dao.interfaces.EncryptionKeyDAO;
 import com.example.jylos.data.dao.interfaces.FactoryDAO;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
@@ -30,6 +31,7 @@ public class FactoryDAOFileSystem extends FactoryDAO {
     private TagDAOFileSystem tagDAO;
     private EncryptionKeyDAOFileSystem encryptionKeyDAO;
     private final FolderColorStore folderColors;
+    private final VaultSettingsStore vaultSettings;
 
     public FactoryDAOFileSystem(String rootDirectory) {
         // Deferred loading keeps large or cloud-backed vaults responsive at startup.
@@ -43,6 +45,7 @@ public class FactoryDAOFileSystem extends FactoryDAO {
         this.encryptionKeyDAO = new EncryptionKeyDAOFileSystem(Path.of(rootDirectory));
         // In the vault's own hidden folder, beside the encryption key: the colours travel with the notes.
         this.folderColors = new FolderColorStore(Path.of(rootDirectory, ".jylos", "folder-colors.json"));
+        this.vaultSettings = new VaultSettingsStore(Path.of(rootDirectory, ".jylos", "settings.json"));
     }
 
     /**
@@ -66,6 +69,12 @@ public class FactoryDAOFileSystem extends FactoryDAO {
     @Override
     public FolderColorStore getFolderColorStore() {
         return folderColors;
+    }
+
+    /** {@code .jylos/settings.json} in the vault. */
+    @Override
+    public VaultSettingsStore getVaultSettingsStore() {
+        return vaultSettings;
     }
 
     @Override

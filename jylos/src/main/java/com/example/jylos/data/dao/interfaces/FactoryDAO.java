@@ -3,6 +3,7 @@ package com.example.jylos.data.dao.interfaces;
 import java.sql.Connection;
 
 import com.example.jylos.data.dao.FolderColorStore;
+import com.example.jylos.data.dao.VaultSettingsStore;
 import com.example.jylos.data.dao.sqlite.FactoryDAOSQLite;
 import com.example.jylos.data.dao.filesystem.FactoryDAOFileSystem;
 
@@ -55,6 +56,14 @@ public abstract class FactoryDAO {
      * @return The FolderColorStore of this storage.
      */
     public abstract FolderColorStore getFolderColorStore();
+
+    /**
+     * Where the vault's own settings are kept (templates, daily note, new notes): in it in a
+     * folder vault, so they travel with it; in the app's data folder with the database.
+     *
+     * @return The VaultSettingsStore of this storage.
+     */
+    public abstract VaultSettingsStore getVaultSettingsStore();
 
     /**
      * Factory method to obtain a concrete implementation of FactoryDAO based on the

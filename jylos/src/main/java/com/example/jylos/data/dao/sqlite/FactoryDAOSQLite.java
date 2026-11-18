@@ -5,6 +5,7 @@ import java.sql.Connection;
 
 import com.example.jylos.AppDataDirectory;
 import com.example.jylos.data.dao.FolderColorStore;
+import com.example.jylos.data.dao.VaultSettingsStore;
 import com.example.jylos.data.dao.interfaces.EncryptionKeyDAO;
 import com.example.jylos.data.dao.interfaces.FactoryDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
@@ -78,6 +79,12 @@ public class FactoryDAOSQLite extends FactoryDAO {
 	@Override
 	public FolderColorStore getFolderColorStore() {
 		return new FolderColorStore(Path.of(AppDataDirectory.getDataDirectory(), "folder-colors.json"));
+	}
+
+	/** In the app's data folder. */
+	@Override
+	public VaultSettingsStore getVaultSettingsStore() {
+		return new VaultSettingsStore(Path.of(AppDataDirectory.getDataDirectory(), "vault-settings.json"));
 	}
 
 }

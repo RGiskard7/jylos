@@ -22,6 +22,7 @@ import java.util.prefs.Preferences;
 
 import com.example.jylos.AppDataDirectory;
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.data.dao.VaultSettingsStore;
 import com.example.jylos.data.dao.interfaces.FactoryDAO;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
@@ -281,6 +282,8 @@ public class MainController {
 
     private NoteService noteService;
     private FolderService folderService;
+    /** The open vault's own settings: templates, daily note, new notes. */
+    private VaultSettingsStore vaultSettings;
     private TagService tagService;
     private BacklinkService backlinkService;
     private EventBus eventBus;
@@ -474,7 +477,8 @@ public class MainController {
             noteService = new NoteService(noteDAO, folderDAO);
             noteService.setHistoryService(new NoteHistoryService(
                     Path.of(AppDataDirectory.getBaseDirectory(), "history")));
-            folderService = new FolderService(folderDAO, noteDAO, factory.getFolderColorStore());
+            vaultSettings = factory.getVaultSettingsStore();
+            folderService = new FolderService(folderDAO, noteDAO, factory.getFolderColorStore(), vaultSettings);
             tagService = new TagService(tagDAO, noteDAO);
             noteOperations = new NoteOperations(noteService, folderService);
             eventBus = EventBus.getInstance();
@@ -2769,25 +2773,14 @@ public class MainController {
                 uiLayout.mode(),
                 uiPreferences.loadShowFormatToolbar(prefs),
                 uiPreferences.loadIconSize(prefs),
-                uiPreferences.loadColoredIcons(prefs));
+                uiPreferences.loadColoredIcons(prefs),
+                VaultSettingsSupport.forVault(vaultSettings, folderService, noteService, this::getString, resources));
         if (result.isEmpty()) {
             return;
         }
         DialogSupport.PreferencesDialogResult values = result.get();
-        UiPreferencesStore.UiPreferencesData newPrefs = new UiPreferencesStore.UiPreferencesData(
-                values.autosaveEnabled(),
-                values.autosaveIdleMs(),
-                values.themeSource(),
-                values.externalThemeId(),
-                values.notesPreviewLines(),
-                values.uiFontSize(),
-                values.accentColor(),
-                values.livePreviewEnabled(),
-                values.readableLineLength(),
-                values.contentFontSize(),
-                values.showFolderNoteCounts(),
-                values.alwaysOpenInNewTab());
-        uiPreferences.save(prefs, newPrefs);
+        VaultSettingsSupport.save(vaultSettings, values.vaultSettings());
+        uiPreferences.save(prefs, values.uiPreferences());
         uiPreferences.saveEnabledSnippets(prefs, values.enabledSnippets());
         uiPreferences.saveIconSize(prefs, values.iconSize());
         uiPreferences.saveColoredIcons(prefs, values.coloredIcons());

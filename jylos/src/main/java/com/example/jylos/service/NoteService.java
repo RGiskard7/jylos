@@ -741,30 +741,11 @@ public class NoteService {
      * in a folder vault, the chain of folder names with the database; empty when it has none.
      */
     public String folderPath(String folderId) {
-        if (folderId == null || folderId.isBlank()) {
-            return "";
-        }
-        if (getStorageRoot().isPresent()) {
-            return folderId.replace('\\', '/');
-        }
-        return folderDAO != null ? folderPathOf(folderId) : "";
+        return FolderPaths.of(folderDAO, getStorageRoot().isPresent(), folderId);
     }
 
     private String folderPathOf(String folderId) {
-        try {
-            String path = folderDAO.getPathFolder(folderId);
-            if (path == null) {
-                return "";
-            }
-            String clean = path.replace('\\', '/');
-            while (clean.startsWith("/")) {
-                clean = clean.substring(1);
-            }
-            return clean;
-        } catch (RuntimeException e) {
-            logger.fine("No folder path for " + folderId + ": " + e.getMessage());
-            return "";
-        }
+        return FolderPaths.of(folderDAO, false, folderId);
     }
 
     // ── Search Methods ──────────────────────────────────────────────────────

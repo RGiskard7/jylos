@@ -52,7 +52,7 @@ class PreferencesThemesTest {
             DialogSupport dialogs = new DialogSupport();
             dialogs.wire(es::getString, status -> { }, null);
             result.set(dialogs.showPreferences(new UiPreferencesStore().load(null), new ThemeCatalog(List.of(folder)),
-                    null, Set.of(), LayoutMode.EXPLORER, true, IconSize.NORMAL, false));
+                    null, Set.of(), LayoutMode.EXPLORER, true, IconSize.NORMAL, false, null));
         });
         DialogPane pane = null;
         for (int i = 0; i < 100 && pane == null; i++) {

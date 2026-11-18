@@ -5262,3 +5262,17 @@
 .folder-colored > .folder-cell-icon {
     -fx-text-fill: -fx-folder-custom;
 }
+
+/* An editable drop-down is one box: its field has no background or border of its own. */
+.combo-box:editable > .text-field,
+.combo-box:editable > .text-field:focused {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-insets: 0;
+}
+/* Preferences > Vault: folders, notes and date formats in one column of the same width. */
+.settings-row > .vault-path,
+.settings-row .vault-format > .text-field {
+    -fx-min-width: 17em;
+    -fx-pref-width: 17em;
+}

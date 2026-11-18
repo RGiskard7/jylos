@@ -4,6 +4,7 @@ import static com.example.jylos.tests.FxTestSupport.onFx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -14,6 +15,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
+import com.example.jylos.data.models.VaultSettings;
 import com.example.jylos.tests.FxTestSupport;
 import com.example.jylos.ui.components.SettingsPane;
 import com.example.jylos.ui.preferences.IconSize;
@@ -49,7 +51,7 @@ class PreferencesResetTest {
             DialogSupport dialogs = new DialogSupport();
             dialogs.wire(es::getString, status -> { }, null);
             result.set(dialogs.showPreferences(new UiPreferencesStore().load(null), null, null, Set.of(),
-                    LayoutMode.EXPLORER, true, IconSize.NORMAL, false));
+                    LayoutMode.EXPLORER, true, IconSize.NORMAL, false, null));
         });
         DialogPane pane = null;
         for (int i = 0; i < 100 && pane == null; i++) {
@@ -90,6 +92,53 @@ class PreferencesResetTest {
         assertEquals(List.of(UiPreferencesStore.DEFAULT_UI_FONT_SIZE, IconSize.NORMAL, false, true),
                 List.of(saved.uiFontSize(), saved.iconSize(), saved.coloredIcons(), saved.readableLineLength()),
                 "interface font and icons back to defaults; the editor change kept");
+    }
+
+    /** With a vault open, Preferences has its section last, and Save gives what it shows. */
+    @Test
+    void theVaultsSettingsAreSavedWithTheRest() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        ResourceBundle es = ResourceBundle.getBundle("com.example.jylos.i18n.messages", Locale.forLanguageTag("es"));
+        VaultSettings current = VaultSettings.defaults()
+                .withTemplates(new VaultSettings.Templates("Plantillas", "YYYY-MM-DD", "HH:mm"));
+        AtomicReference<Optional<DialogSupport.PreferencesDialogResult>> result = new AtomicReference<>();
+        Platform.runLater(() -> {
+            DialogSupport dialogs = new DialogSupport();
+            dialogs.wire(es::getString, status -> { }, null);
+            VaultSettingsSupport vault = new VaultSettingsSupport(current, List.of("Plantillas"), List.of(),
+                    es::getString, Locale.forLanguageTag("es"), ZonedDateTime::now);
+            result.set(dialogs.showPreferences(new UiPreferencesStore().load(null), null, null, Set.of(),
+                    LayoutMode.EXPLORER, true, IconSize.NORMAL, false, vault));
+        });
+        DialogPane pane = null;
+        for (int i = 0; i < 100 && pane == null; i++) {
+            Thread.sleep(50);
+            pane = onFx(PreferencesResetTest::openPreferences);
+        }
+        assertTrue(pane != null, "the Preferences window never opened");
+        DialogPane preferences = pane;
+
+        List<String> sections = onFx(() -> {
+            SettingsPane settings = (SettingsPane) preferences.getContent();
+            settings.showSection(settings.sectionTitles().size() - 1);
+            preferences.applyCss();
+            @SuppressWarnings("unchecked")
+            ComboBox<String> folder = (ComboBox<String>) control(preferences,
+                    es.getString("pref.vault.templates_folder"));
+            folder.getEditor().setText("Modelos");
+            for (Node node : preferences.lookupAll(".button")) {
+                if (node instanceof Button button && es.getString("action.save").equals(button.getText())) {
+                    button.fire();
+                }
+            }
+            return settings.sectionTitles();
+        });
+        for (int i = 0; i < 100 && result.get() == null; i++) {
+            Thread.sleep(50);
+        }
+
+        assertEquals(es.getString("dialog.preferences.section.vault"), sections.get(sections.size() - 1));
+        assertEquals("Modelos", result.get().orElseThrow().vaultSettings().templates().folder());
     }
 
     private static DialogPane openPreferences() {

@@ -16,6 +16,7 @@ import java.util.prefs.Preferences;
 
 import org.kordamp.ikonli.javafx.FontIcon;
 
+import com.example.jylos.data.models.VaultSettings;
 import com.example.jylos.AppConfig;
 import com.example.jylos.AppLinks;
 import com.example.jylos.ui.AppIconLoader;
@@ -113,7 +114,15 @@ class DialogSupport {
             boolean showFormatToolbar,
             Set<String> enabledSnippets,
             IconSize iconSize,
-            boolean coloredIcons) {
+            boolean coloredIcons,
+            VaultSettings vaultSettings) {
+
+        /** The interface preferences chosen, as they are stored. */
+        UiPreferencesStore.UiPreferencesData uiPreferences() {
+            return new UiPreferencesStore.UiPreferencesData(autosaveEnabled, autosaveIdleMs, themeSource,
+                    externalThemeId, notesPreviewLines, uiFontSize, accentColor, livePreviewEnabled,
+                    readableLineLength, contentFontSize, showFolderNoteCounts, alwaysOpenInNewTab);
+        }
     }
 
     Optional<PreferencesDialogResult> showPreferences(
@@ -124,7 +133,8 @@ class DialogSupport {
             LayoutMode currentLayout,
             boolean currentShowFormatToolbar,
             IconSize currentIconSize,
-            boolean currentColoredIcons) {
+            boolean currentColoredIcons,
+            VaultSettingsSupport vault) {
         Dialog<PreferencesDialogResult> dialog = new Dialog<>();
         dialog.setTitle(i18n("dialog.preferences.title"));
         dialog.setResizable(true);
@@ -384,6 +394,9 @@ class DialogSupport {
                 .subheading(i18n("dialog.preferences.css_snippets"), reloadSnippets, openSnippetsFolder)
                 .block(snippetsHint)
                 .block(snippetsBox);
+        if (vault != null) {
+            vault.addTo(settings, reset);
+        }
         dialog.getDialogPane().setContent(settings);
         dialog.getDialogPane().getStyleClass().add("preferences-dialog");
 
@@ -437,7 +450,8 @@ class DialogSupport {
                     showFormatToolbarCheck.isSelected(),
                     new LinkedHashSet<>(selectedSnippets),
                     iconSizeCombo.getValue(),
-                    coloredIconsCheck.isSelected());
+                    coloredIconsCheck.isSelected(),
+                    vault != null ? vault.edited() : null);
         });
         return UiDialogs.show(dialog);
     }

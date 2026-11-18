@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.dao.FolderColorStore;
+import com.example.jylos.data.dao.VaultSettingsStore;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.models.Folder;
@@ -42,6 +43,8 @@ public class FolderService {
     private final NoteDAO noteDAO;
     /** The folders' colours; {@code null} where colours are not kept. */
     private final FolderColorStore colors;
+    /** The vault's settings, which name folders by path; {@code null} where they are not kept. */
+    private final VaultSettingsStore settings;
 
     /**
      * Creates a new FolderService with the required DAOs.
@@ -59,9 +62,19 @@ public class FolderService {
      * or moved, and goes with it when it is deleted.
      */
     public FolderService(FolderDAO folderDAO, NoteDAO noteDAO, FolderColorStore colors) {
+        this(folderDAO, noteDAO, colors, null);
+    }
+
+    /**
+     * As {@link #FolderService(FolderDAO, NoteDAO, FolderColorStore)}, and the vault's
+     * {@code settings} ({@code null} for none) follow a folder they name when it is renamed or
+     * moved.
+     */
+    public FolderService(FolderDAO folderDAO, NoteDAO noteDAO, FolderColorStore colors, VaultSettingsStore settings) {
         this.folderDAO = folderDAO;
         this.noteDAO = noteDAO;
         this.colors = colors;
+        this.settings = settings;
         logger.info("FolderService initialized");
     }
 
@@ -156,11 +169,13 @@ public class FolderService {
             throw new IllegalArgumentException("Folder and new name cannot be null or empty");
         }
         String previousId = folderDAO.currentId(folder.getId());
+        String previousPath = pathOf(previousId);
         folder.setTitle(newName.trim());
         updateFolder(folder);
         if (colors != null) {
             colors.move(previousId, folder.getId());
         }
+        settingsFollow(previousPath, folder.getId());
         return folder;
     }
 
@@ -392,6 +407,7 @@ public class FolderService {
             throw new IllegalArgumentException("Invalid folder move");
         }
         String previousId = folderDAO.currentId(folder.getId());
+        String previousPath = pathOf(previousId);
         if (targetParent == null || "ROOT".equals(targetParent.getId())) {
             folderDAO.moveFolderToRoot(folder);
             logger.info("Moved folder '" + folder.getTitle() + "' to root");
@@ -404,6 +420,23 @@ public class FolderService {
         }
         folderDAO.refreshCache();
         noteDAO.refreshCache();
+        settingsFollow(previousPath, folder.getId());
+    }
+
+    /** The path of the folder {@code folderId} in the vault, as the settings name it. */
+    private String pathOf(String folderId) {
+        return settings != null ? FolderPaths.of(folderDAO, noteDAO.storageRoot().isPresent(), folderId) : "";
+    }
+
+    /** The settings naming the folder that was at {@code previousPath} follow it to where {@code folderId} is now. */
+    private void settingsFollow(String previousPath, String folderId) {
+        if (settings == null || previousPath.isEmpty()) {
+            return;
+        }
+        String now = pathOf(folderDAO.currentId(folderId));
+        if (!now.isEmpty() && !now.equals(previousPath)) {
+            settings.movePath(previousPath, now);
+        }
     }
 
     /**
