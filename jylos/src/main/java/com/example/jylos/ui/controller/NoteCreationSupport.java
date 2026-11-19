@@ -1,6 +1,7 @@
 package com.example.jylos.ui.controller;
 
 import javafx.application.Platform;
+import java.text.MessageFormat;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -19,11 +20,11 @@ import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.VaultSettings;
 import com.example.jylos.event.events.SystemActionEvent.ActionType;
 import com.example.jylos.service.NoteService;
+import com.example.jylos.service.templates.DailyNotePlanner;
 import com.example.jylos.service.templates.TemplateEngine;
 import com.example.jylos.service.templates.TemplateLibrary;
 import com.example.jylos.ui.components.QuickSwitcher;
 import com.example.jylos.util.KanbanModel;
-import com.example.jylos.util.NoteTemplates;
 import com.example.jylos.util.UntitledNames;
 
 import javafx.stage.Stage;
@@ -59,6 +60,7 @@ final class NoteCreationSupport {
     private Runnable beginTitleRename = () -> {
     };
     private TemplatesSupport templates;
+    private Supplier<ZonedDateTime> clock = ZonedDateTime::now;
     private Supplier<EditorController> editor = () -> null;
     private Supplier<Stage> owner = () -> null;
     private Supplier<ResourceBundle> bundle = () -> null;
@@ -92,7 +94,12 @@ final class NoteCreationSupport {
         this.editor = editor;
         this.owner = owner;
         this.bundle = bundle;
-        this.templates = new TemplatesSupport(() -> noteService, settings, this::language, ZonedDateTime::now);
+        this.templates = new TemplatesSupport(() -> noteService, settings, this::language, () -> clock.get());
+    }
+
+    /** The clock dates are written with (tests). */
+    void useClock(Supplier<ZonedDateTime> clock) {
+        this.clock = clock;
     }
 
     /** Answers the commands for daily notes, templates and boards. */
@@ -108,7 +115,7 @@ final class NoteCreationSupport {
     /** The vault's templates. */
     TemplatesSupport templates() {
         if (templates == null) {
-            templates = new TemplatesSupport(() -> noteService, () -> null, this::language, ZonedDateTime::now);
+            templates = new TemplatesSupport(() -> noteService, () -> null, this::language, () -> clock.get());
         }
         return templates;
     }
@@ -191,7 +198,20 @@ final class NoteCreationSupport {
 
     /** A new note, as in Obsidian: "Sin título" (or the first free "Sin título N"), its title ready to rename. */
     void createNewNote() {
-        createNewNoteInFolder(currentFolder());
+        createNewNoteInFolder(newNoteFolder());
+    }
+
+    /**
+     * Where a new note goes, as the vault says: the folder in view, the vault's root, or a
+     * folder chosen ({@code null}, the root, when that one is not there, as Obsidian does).
+     */
+    private Folder newNoteFolder() {
+        VaultSettings.NewNotes where = templates().settings().newNotes();
+        return switch (where.location()) {
+            case CURRENT -> currentFolder();
+            case ROOT -> null;
+            case FOLDER -> noteOperations != null ? noteOperations.folderAt(where.folder()).orElse(null) : null;
+        };
     }
 
     /** Creates a regular note in the explicit folder chosen by a contextual action. */
@@ -241,7 +261,7 @@ final class NoteCreationSupport {
         if (title == null || title.isBlank()) {
             return;
         }
-        createAndOpenNote(title.strip(), "", currentFolder(), "status.note_created");
+        createAndOpenNote(title.strip(), "", newNoteFolder(), "status.note_created");
     }
 
     void createNewCanvas() {
@@ -276,24 +296,38 @@ final class NoteCreationSupport {
                 folder, "status.canvas_created");
     }
 
+    /**
+     * Opens today's daily note, or makes it, as Obsidian's Daily notes ({@link DailyNotePlanner}):
+     * at its path, with its template written for it ({@code {{title}}} its name, {@code {{date}}}
+     * and {@code {{time}}} in Obsidian's fixed formats), or says why it cannot.
+     */
     void openDailyNote() {
         if (noteService == null) {
             return;
         }
-        String title = NoteTemplates.dailyNoteTitle();
-        Note existing = noteService.findNoteByTitle(title).orElse(null);
-        if (existing != null) {
-            // Opening the note clears the status bar (see MainController), so no "loaded" message.
-            publishOpen(noteService.getNoteById(existing.getId()).orElse(existing));
+        TemplatesSupport vault = templates();
+        VaultSettings settings = vault.settings();
+        ZonedDateTime now = vault.now();
+        String legacy = settings.daily().template().isBlank()
+                ? vault.listing().find("daily").map(TemplateLibrary.Template::path).orElse(null) : null;
+        DailyNotePlanner.Plan plan = DailyNotePlanner.plan(settings.daily(), settings.newNotes(), now, vault.language(),
+                noteService.folderPaths(), vault.notePaths(), legacy);
+        if (plan.problem() != null) {
+            updateStatus(MessageFormat.format(getString(plan.problem() == DailyNotePlanner.Problem.FOLDER_NOT_FOUND
+                    ? "daily.status.folder_not_found" : "daily.status.template_not_found"), plan.problemPath()));
             return;
         }
-        String template = templates().listing().find("daily").map(templates()::text).orElse(null);
-        String content = template != null
-                ? TemplateEngine.render(template, TemplateEngine.variables(title, ZonedDateTime.now()),
-                        VaultSettings.DEFAULT_DATE_FORMAT, VaultSettings.DEFAULT_TIME_FORMAT, ZonedDateTime.now(),
-                        language())
-                : "# " + title + "\n\n";
-        createAndOpenNote(title, content, currentFolder(), "status.note_created");
+        if (plan.existing() != null) {
+            // Opening the note clears the status bar (see MainController), so no "loaded" message.
+            vault.noteAt(plan.existing()).ifPresent(note ->
+                    publishOpen(noteService.getNoteById(note.getId()).orElse(note)));
+            return;
+        }
+        String content = plan.template() == null ? ""
+                : TemplateEngine.render(vault.textAt(plan.template()), TemplateEngine.variables(plan.name(), now),
+                        VaultSettings.DEFAULT_DATE_FORMAT, VaultSettings.DEFAULT_TIME_FORMAT, now, vault.language());
+        Folder folder = plan.folder().isEmpty() ? null : noteOperations.folderMaking(plan.folder());
+        createAndOpenNote(plan.fileName(), content, folder, "status.note_created");
     }
 
     /** "New from template": picks one of the vault's templates and creates a note from it. */
@@ -310,7 +344,7 @@ final class NoteCreationSupport {
     void createFromTemplate(TemplateLibrary.Template template) {
         String name = template.name().substring(template.name().lastIndexOf('/') + 1);
         String content = templates().render(templates().text(template), name);
-        createAndOpenNote(name, content, currentFolder(), "status.note_created");
+        createAndOpenNote(name, content, newNoteFolder(), "status.note_created");
     }
 
     private boolean createAndOpenNote(String title, String content, Folder folder, String successStatusKey) {

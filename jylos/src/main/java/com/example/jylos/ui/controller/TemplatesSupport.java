@@ -89,14 +89,30 @@ final class TemplatesSupport {
 
     /** The note of {@code template}. */
     Optional<Note> note(TemplateLibrary.Template template) {
+        return noteAt(template.path());
+    }
+
+    /** The note at {@code path} in the vault. */
+    Optional<Note> noteAt(String path) {
         NoteService vault = notes.get();
-        return vault != null ? Optional.ofNullable(notesByPath(vault).get(template.path())) : Optional.empty();
+        return vault != null && path != null ? Optional.ofNullable(notesByPath(vault).get(path)) : Optional.empty();
+    }
+
+    /** The paths of the vault's notes. */
+    List<String> notePaths() {
+        NoteService vault = notes.get();
+        return vault != null ? List.copyOf(notesByPath(vault).keySet()) : List.of();
     }
 
     /** The text of {@code template} as it is in its file, properties included; {@code ""} if it cannot be read. */
     String text(TemplateLibrary.Template template) {
+        return textAt(template.path());
+    }
+
+    /** The text of the note at {@code path} as it is in its file, properties included; {@code ""} if it cannot be read. */
+    String textAt(String path) {
         NoteService vault = notes.get();
-        Optional<Note> note = note(template);
+        Optional<Note> note = noteAt(path);
         if (vault == null || note.isEmpty()) {
             return "";
         }
@@ -105,12 +121,28 @@ final class TemplatesSupport {
             try {
                 return Files.readString(file.get(), StandardCharsets.UTF_8);
             } catch (IOException e) {
-                logger.warning("Could not read template " + template.path() + ": " + e.getMessage());
+                logger.warning("Could not read " + path + ": " + e.getMessage());
                 return "";
             }
         }
         // With the database there is no file: the note as it would be written.
         return FrontmatterHandler.generate(vault.getNoteById(note.get().getId()).orElse(note.get()));
+    }
+
+    /** The vault's settings (the defaults with none kept). */
+    VaultSettings settings() {
+        VaultSettingsStore store = settings.get();
+        return store != null ? store.get() : VaultSettings.defaults();
+    }
+
+    /** The language of the names of months and days. */
+    Locale language() {
+        return language.get();
+    }
+
+    /** The instant dates and times are written at, now. */
+    ZonedDateTime now() {
+        return now.get();
     }
 
     /** {@code text} written for a note called {@code title}, with the vault's formats. */
@@ -132,8 +164,7 @@ final class TemplatesSupport {
     }
 
     private VaultSettings.Templates templateSettings() {
-        VaultSettingsStore store = settings.get();
-        return (store != null ? store.get() : VaultSettings.defaults()).templates();
+        return settings().templates();
     }
 
     /** The vault's notes by their path in it. */

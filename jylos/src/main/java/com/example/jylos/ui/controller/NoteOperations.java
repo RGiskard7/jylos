@@ -2,6 +2,7 @@ package com.example.jylos.ui.controller;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
@@ -75,6 +76,39 @@ class NoteOperations {
             logger.warning("Failed to create note: " + e.getMessage());
             return new NoteCreationResult(false, null, e.getMessage());
         }
+    }
+
+    /** The folder at {@code path} in the vault, named exactly; empty when it is not there or is the root. */
+    Optional<Folder> folderAt(String path) {
+        if (path == null || path.isBlank() || folderService == null) {
+            return Optional.empty();
+        }
+        return folderService.getAllFolders().stream()
+                .filter(folder -> folder != null && path.equals(noteService.folderPath(folder.getId())))
+                .findFirst();
+    }
+
+    /**
+     * The folder at {@code path}, made with the folders above it that are not there yet, as
+     * Obsidian does; an existing one in another case is taken. {@code null} for the root.
+     */
+    Folder folderMaking(String path) {
+        Folder current = null;
+        String sofar = "";
+        for (String segment : path == null ? new String[0] : path.split("/")) {
+            if (segment.isBlank()) {
+                continue;
+            }
+            sofar = sofar.isEmpty() ? segment : sofar + "/" + segment;
+            String wanted = sofar;
+            Optional<Folder> existing = folderService.getAllFolders().stream()
+                    .filter(folder -> folder != null && wanted.equalsIgnoreCase(noteService.folderPath(folder.getId())))
+                    .findFirst();
+            current = existing.isPresent() ? existing.get()
+                    : current == null ? folderService.createFolder(segment) : folderService.createSubfolder(segment, current);
+            sofar = noteService.folderPath(current.getId()).isEmpty() ? sofar : noteService.folderPath(current.getId());
+        }
+        return current;
     }
 
     record NoteMoveResult(boolean success, String previousId, Folder destination) {
