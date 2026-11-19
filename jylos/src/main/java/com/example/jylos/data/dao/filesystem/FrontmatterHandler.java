@@ -1,5 +1,7 @@
 package com.example.jylos.data.dao.filesystem;
 
+import static org.yaml.snakeyaml.nodes.Tag.NULL;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -143,9 +145,11 @@ public final class FrontmatterHandler {
         putKeeping(root, previous, "source_url", note.getSourceUrl());
 
         List<String> tags = propertyTags(note, previousFile);
+        Object writtenTags = previous.get("tags");
         if (!tags.isEmpty()) {
-            Object written = previous.get("tags");
-            root.put("tags", written != null && toStringList(written).equals(tags) ? written : tags);
+            root.put("tags", writtenTags != null && toStringList(writtenTags).equals(tags) ? writtenTags : tags);
+        } else if (previous.containsKey("tags") && (writtenTags == null || toStringList(writtenTags).isEmpty())) {
+            root.put("tags", writtenTags); // "tags:" or "tags: []", empty as written
         }
 
         if (note instanceof ToDoNote todo) {
@@ -180,7 +184,9 @@ public final class FrontmatterHandler {
             }
             Object preserved = structured != null ? structured.get(key) : null;
             String value = entry.getValue() != null ? entry.getValue() : "";
-            if (preserved != null && value.equals(toDisplayableCustomValue(preserved))) {
+            if (preserved == null && value.isEmpty() && structured != null && structured.containsKey(key)) {
+                root.put(key, null); // an empty property ("key:") stays empty
+            } else if (preserved != null && value.equals(toDisplayableCustomValue(preserved))) {
                 root.put(key, deepCopyYamlValue(preserved));
             } else {
                 root.put(key, parseCustomPropertyValue(value));
@@ -188,6 +194,7 @@ public final class FrontmatterHandler {
         }
 
         root = inPreviousOrder(root, previous);
+        root = withAdded(root, previous, note);
         if (before != null && root.equals(previous)) {
             return before.head() + text;
         }
@@ -199,16 +206,21 @@ public final class FrontmatterHandler {
         if (!"\n".equals(lineEnd)) {
             yaml = yaml.replace("\n", lineEnd);
         }
-        return SEPARATOR + lineEnd + yaml + SEPARATOR + lineEnd + (before != null ? before.gap() : lineEnd) + text;
+        // New properties go right before the text, as Obsidian writes them; existing ones keep their gap.
+        return SEPARATOR + lineEnd + yaml + SEPARATOR + lineEnd + (before != null ? before.gap() : "") + text;
     }
 
-    /** {@code value} under {@code key}, as {@code previous} wrote it when it is the same. */
+    /**
+     * {@code value} under {@code key}, as {@code previous} wrote it when it is the same: read
+     * the way the note's field was read from it, so {@code author:} written as a list of one
+     * stays a list.
+     */
     private static void putKeeping(Map<String, Object> root, Map<String, Object> previous, String key, String value) {
         if (value == null || value.isBlank()) {
             return;
         }
         Object written = previous.get(key);
-        root.put(key, written != null && value.equals(String.valueOf(written)) ? written : value);
+        root.put(key, written != null && value.equals(stringValue(written)) ? written : value);
     }
 
     /** A line of a field an older Jylos wrote ({@code created} stays: it is kept). */
@@ -334,6 +346,158 @@ public final class FrontmatterHandler {
     public static String frontmatterText(String fileContent) {
         FrontmatterBlock block = fileContent == null ? null : extractLeadingFrontmatter(fileContent);
         return block != null ? block.yaml() : "";
+    }
+
+    /**
+     * A template's text, split as Obsidian's Templates splits it: its leading properties, and
+     * the text after their closing {@code ---} line, blank lines included.
+     *
+     * @param properties its properties, by key, in their order (empty when it has none)
+     * @param content    what follows them
+     */
+    public record TemplateText(Map<String, Object> properties, String content) {
+    }
+
+    /**
+     * Splits {@code text} into its properties and its text ({@link TemplateText}).
+     *
+     * @throws IllegalArgumentException when its properties are not YAML
+     */
+    public static TemplateText splitTemplate(String text) {
+        String all = text != null ? text : "";
+        FrontmatterBlock block = extractLeadingFrontmatter(all);
+        if (block == null) {
+            return new TemplateText(new LinkedHashMap<>(), all);
+        }
+        try {
+            return new TemplateText(parseYaml(block.yaml()), block.gap() + block.body());
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException("Invalid YAML in template properties", e);
+        }
+    }
+
+    /** The properties of {@code note} as they would be written, by key, in their order. */
+    public static Map<String, Object> propertiesOf(Note note) {
+        FrontmatterBlock block = extractLeadingFrontmatter(generate(note));
+        Map<String, Object> properties = block != null ? readableYaml(block.yaml()) : null;
+        return properties != null ? properties : new LinkedHashMap<>();
+    }
+
+    /**
+     * Adds {@code template}'s properties to {@code note}'s, as Obsidian does when a template
+     * is inserted in a note: a key the note does not have is added at the end; two lists are
+     * joined, without repeating a value; two maps are merged the same way; otherwise the
+     * template's value takes the place of the note's, unless the template's is empty (null)
+     * and the note's is not. A note's empty value ({@code ""}, {@code 0}, {@code false}) takes
+     * the template's.
+     */
+    public static void mergeProperties(Note note, Map<String, Object> template) {
+        if (note == null || template == null || template.isEmpty()) {
+            return;
+        }
+        Map<String, Object> current = propertiesOf(note);
+        Map<String, Object> merged = new LinkedHashMap<>(current);
+        mergeInto(merged, template);
+        // Jylos' own names are only properties here: the note keeps its name, dates and marks.
+        Map<String, Object> fields = new LinkedHashMap<>(merged);
+        JYLOS_FIELDS.forEach(fields::remove);
+        applyImportedFrontmatter(note, fields, note.getContent() != null ? note.getContent() : "");
+        Map<String, Object> added = new LinkedHashMap<>(note.getAddedFrontmatter());
+        for (Map.Entry<String, Object> entry : merged.entrySet()) {
+            String key = entry.getKey();
+            if (!current.containsKey(key) || JYLOS_FIELDS.contains(key) || WRITTEN_AS_IS.contains(key)) {
+                added.put(key, entry.getValue());
+            }
+        }
+        note.setAddedFrontmatter(added);
+    }
+
+    /** Fields Jylos reads into its own strings, written back as the template wrote them while they are the same. */
+    private static final List<String> WRITTEN_AS_IS = List.of("author", "status", "source_url");
+
+    /**
+     * {@code root} with what a template added ({@link Note#getAddedFrontmatter}): a property the
+     * file does not have goes at the end, in the template's order; Jylos' own names take the
+     * template's value; {@code author}, {@code status} and {@code source_url} its written form
+     * while the note's value is the same; the others are the note's.
+     */
+    private static Map<String, Object> withAdded(Map<String, Object> root, Map<String, Object> previous, Note note) {
+        Map<String, Object> added = note.getAddedFrontmatter();
+        if (added == null || added.isEmpty()) {
+            return root;
+        }
+        Map<String, Object> out = new LinkedHashMap<>(root);
+        for (Map.Entry<String, Object> entry : added.entrySet()) {
+            String key = entry.getKey();
+            Object value;
+            if (JYLOS_FIELDS.contains(key)) {
+                value = entry.getValue();
+            } else if (WRITTEN_AS_IS.contains(key) && out.containsKey(key)) {
+                Object mine = out.get(key);
+                value = mine != null && String.valueOf(mine).equals(stringValue(entry.getValue())) ? entry.getValue() : mine;
+            } else if ("tags".equals(key) && !out.containsKey(key)) {
+                Object theirs = entry.getValue();
+                if (theirs != null && !toStringList(theirs).isEmpty()) {
+                    continue; // the tags were taken away since
+                }
+                value = theirs;
+            } else if (out.containsKey(key)) {
+                value = out.get(key);
+            } else {
+                continue; // taken away since
+            }
+            if (previous.containsKey(key)) {
+                out.put(key, value);
+            } else {
+                out.remove(key);
+                out.put(key, value);
+            }
+        }
+        return out;
+    }
+
+    /** Obsidian's merge of {@code from} into {@code into} (see {@link #mergeProperties}). */
+    @SuppressWarnings("unchecked")
+    private static void mergeInto(Map<String, Object> into, Map<String, Object> from) {
+        for (Map.Entry<String, Object> entry : from.entrySet()) {
+            Object mine = into.get(entry.getKey());
+            Object theirs = entry.getValue();
+            if (!truthy(mine)) {
+                into.put(entry.getKey(), theirs);
+            } else if (mine instanceof List<?> a && theirs instanceof List<?> b) {
+                List<Object> joined = new ArrayList<>(a);
+                for (Object value : b) {
+                    if (!joined.contains(value)) {
+                        joined.add(value);
+                    }
+                }
+                into.put(entry.getKey(), joined);
+            } else if (mine instanceof Map<?, ?> a && theirs instanceof Map<?, ?> b) {
+                Map<String, Object> inner = new LinkedHashMap<>((Map<String, Object>) a);
+                mergeInto(inner, (Map<String, Object>) b);
+                into.put(entry.getKey(), inner);
+            } else if (theirs != null) {
+                into.put(entry.getKey(), theirs);
+            }
+        }
+    }
+
+    /** Whether JavaScript reads {@code value} as true: anything but null, "", 0 and false. */
+    private static boolean truthy(Object value) {
+        if (value == null) {
+            return false;
+        }
+        if (value instanceof String text) {
+            return !text.isEmpty();
+        }
+        if (value instanceof Boolean flag) {
+            return flag;
+        }
+        if (value instanceof Number number) {
+            double d = number.doubleValue();
+            return d != 0 && !Double.isNaN(d);
+        }
+        return true;
     }
 
     public static String stripFrontmatter(String fileContent) {
@@ -473,7 +637,19 @@ public final class FrontmatterHandler {
     }
 
     private static Yaml newYamlDumper() {
-        return new Yaml(createDumperOptions());
+        DumperOptions options = createDumperOptions();
+        LoaderOptions loaderOptions = new LoaderOptions();
+        // The reader's resolver: a date stays plain text ("created: 2026-01-01"), as Obsidian writes it.
+        return new Yaml(new SafeConstructor(loaderOptions), new EmptyNullRepresenter(options), options, loaderOptions,
+                new FrontmatterResolver());
+    }
+
+    /** Writes an empty property as Obsidian does, {@code key:}, not {@code key: null}. */
+    private static final class EmptyNullRepresenter extends Representer {
+        EmptyNullRepresenter(DumperOptions options) {
+            super(options);
+            this.nullRepresenter = data -> representScalar(NULL, "");
+        }
     }
 
     private static String trimTrailingDocumentMarker(String dumpedYaml) {
@@ -683,7 +859,8 @@ public final class FrontmatterHandler {
         options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
         options.setPrettyFlow(true);
         options.setIndent(2);
-        options.setIndicatorIndent(1);
+        options.setIndicatorIndent(2);
+        options.setIndentWithIndicator(true); // "  - item", as Obsidian writes a list
         options.setProcessComments(false);
         return options;
     }

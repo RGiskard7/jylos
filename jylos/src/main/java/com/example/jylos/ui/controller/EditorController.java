@@ -160,6 +160,14 @@ public class EditorController implements PreviewEnhancerRegistry,
     private final EditorTitleRowSupport titleRow = new EditorTitleRowSupport();
     private final EditorFormattingSupport formatting = new EditorFormattingSupport(() -> this.noteContentArea,
             this::applyInsertHooks, this::reevaluateModifiedState, this::getString);
+    /** Inserting templates and dates in the open note. */
+    private final EditorTemplateSupport templates = new EditorTemplateSupport(() -> this.noteContentArea,
+            this::noteOpenForEditing, () -> {
+                propertiesInserted = true; // the panel shows only some of them: the note has changed
+                properties.rebuild();
+                reevaluateModifiedState();
+            });
+    private boolean propertiesInserted;
     private CanvasView currentCanvasView;
     private Path currentCanvasPath;
     private DocumentFingerprint currentCanvasFingerprint;
@@ -1350,27 +1358,26 @@ public class EditorController implements PreviewEnhancerRegistry,
     }
 
     public void syncFavoritePinButtons(Function<String, String> i18n) {
-        if (favoriteButton != null) {
-            boolean hasNote = currentNote != null;
-            boolean isFav = hasNote && currentNote.isFavorite();
-            favoriteButton.setDisable(!hasNote);
-            favoriteButton.setSelected(isFav);
-            if (favoriteButton.getTooltip() != null && i18n != null) {
-                favoriteButton.getTooltip().setText(
-                        !hasNote ? i18n.apply("tooltip.add_favorite")
-                                : isFav ? i18n.apply("action.remove_favorite") : i18n.apply("action.add_favorite"));
-            }
+        boolean hasNote = currentNote != null;
+        syncToggle(favoriteButton, hasNote, hasNote && currentNote.isFavorite(), i18n,
+                "tooltip.add_favorite", "action.add_favorite", "action.remove_favorite");
+        syncToggle(pinButton, hasNote, hasNote && currentNote.isPinned(), i18n,
+                "tooltip.pin_note", "tooltip.pin_note", "action.unpin_note");
+    }
+
+    /**
+     * A note's on/off button: off with no note, on as the note is, and its tooltip saying what
+     * a click does: {@code noNote}, {@code turnOn} or {@code turnOff} (keys of {@code i18n}).
+     */
+    private static void syncToggle(ToggleButton button, boolean hasNote, boolean on, Function<String, String> i18n,
+            String noNote, String turnOn, String turnOff) {
+        if (button == null) {
+            return;
         }
-        if (pinButton != null) {
-            boolean hasNote = currentNote != null;
-            boolean isPinned = hasNote && currentNote.isPinned();
-            pinButton.setDisable(!hasNote);
-            pinButton.setSelected(isPinned);
-            if (pinButton.getTooltip() != null && i18n != null) {
-                pinButton.getTooltip().setText(
-                        !hasNote ? i18n.apply("tooltip.pin_note")
-                                : isPinned ? i18n.apply("action.unpin_note") : i18n.apply("tooltip.pin_note"));
-            }
+        button.setDisable(!hasNote);
+        button.setSelected(on);
+        if (button.getTooltip() != null && i18n != null) {
+            button.getTooltip().setText(i18n.apply(!hasNote ? noNote : on ? turnOff : turnOn));
         }
     }
 
@@ -1465,39 +1472,42 @@ public class EditorController implements PreviewEnhancerRegistry,
     }
 
     public void performCut() {
-        if (noteTitleField != null && noteTitleField.isFocused()) {
-            noteTitleField.cut();
-        } else if (noteContentArea != null) {
-            noteContentArea.cut();
-        }
+        formatting.cut(noteTitleField);
     }
 
     public void performCopy() {
-        if (noteTitleField != null && noteTitleField.isFocused()) {
-            noteTitleField.copy();
-        } else if (noteContentArea != null) {
-            noteContentArea.copy();
-        }
+        formatting.copy(noteTitleField);
     }
 
     public void performPaste() {
-        if (noteTitleField != null && noteTitleField.isFocused()) {
-            noteTitleField.paste();
-        } else if (noteContentArea != null) {
-            noteContentArea.paste();
-        }
+        formatting.paste(noteTitleField);
     }
 
     public void performFind(Function<String, String> i18n, Consumer<String> status) {
-        if (noteContentArea != null) {
-            noteContentArea.openSearch();
-        }
+        formatting.openSearch(false);
     }
 
     public void performReplace(Function<String, String> i18n, Consumer<String> status) {
-        if (noteContentArea != null) {
-            noteContentArea.openReplace();
+        formatting.openSearch(true);
+    }
+
+    /** Inserts a written template at the cursor, its properties in the note's: Obsidian's "Insert template". */
+    public EditorTemplateSupport.Outcome insertTemplate(String text) {
+        return templates.insertTemplate(text);
+    }
+
+    /** Writes {@code text} at the cursor of the note open for editing; {@code false} with none. */
+    public boolean insertText(String text) {
+        return templates.insertText(text);
+    }
+
+    /** The note open for editing, with what its properties panel shows, or {@code null}. */
+    private Note noteOpenForEditing() {
+        if (currentNote == null || readOnlyView || viewingAttachment || currentAttachmentType == AttachmentType.CANVAS) {
+            return null;
         }
+        currentNote.setCustomProperties(properties.collect());
+        return currentNote;
     }
 
     private String liveEditorContent(Note note) {
@@ -1621,6 +1631,7 @@ public class EditorController implements PreviewEnhancerRegistry,
         persistedTitle = note != null ? orEmpty(note.getTitle()) : "";
         persistedContent = note != null ? orEmpty(note.getContent()) : "";
         persistedCustomProperties = snapshotCustomProperties(note != null ? note.getCustomProperties() : null);
+        propertiesInserted = false;
     }
 
     private void resetEditorUndoHistory() {
@@ -1664,7 +1675,7 @@ public class EditorController implements PreviewEnhancerRegistry,
         } else {
             dirtyContent = !orEmpty(noteContentArea != null ? noteContentArea.getText() : null).equals(persistedContent);
         }
-        boolean dirtyProperties = !currentPropertySnapshot().equals(persistedCustomProperties);
+        boolean dirtyProperties = propertiesInserted || !currentPropertySnapshot().equals(persistedCustomProperties);
         setModifiedState(dirtyTitle || dirtyContent || dirtyProperties);
     }
 

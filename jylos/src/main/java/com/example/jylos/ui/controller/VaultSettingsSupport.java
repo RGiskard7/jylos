@@ -17,7 +17,6 @@ import com.example.jylos.data.models.VaultSettings.NewNoteLocation;
 import com.example.jylos.data.models.VaultSettings.NewNotes;
 import com.example.jylos.data.models.VaultSettings.Templater;
 import com.example.jylos.data.models.VaultSettings.Templates;
-import com.example.jylos.service.FolderService;
 import com.example.jylos.service.LinkIndex;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.ui.components.SettingsPane;
@@ -97,14 +96,12 @@ final class VaultSettingsSupport {
      * Preferences > Vault for the open vault, with its folders and notes to choose from, or
      * {@code null} with no vault open.
      */
-    static VaultSettingsSupport forVault(VaultSettingsStore store, FolderService folders, NoteService notes,
-            Function<String, String> i18n, ResourceBundle resources) {
-        if (store == null || folders == null || notes == null) {
+    static VaultSettingsSupport forVault(VaultSettingsStore store, NoteService notes, Function<String, String> i18n,
+            ResourceBundle resources) {
+        if (store == null || notes == null) {
             return null;
         }
-        List<String> folderPaths = folders.getAllFolders().stream()
-                .map(folder -> notes.folderPath(folder.getId()))
-                .filter(path -> !path.isEmpty()).sorted(String.CASE_INSENSITIVE_ORDER).toList();
+        List<String> folderPaths = notes.folderPaths().stream().sorted(String.CASE_INSENSITIVE_ORDER).toList();
         LinkIndex links = notes.linkIndex();
         List<String> notePaths = notes.getAllNotes().stream()
                 .map(note -> links.pathOf(note.getId()))

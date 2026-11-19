@@ -49,6 +49,10 @@
             <SeparatorMenuItem/>
             <MenuItem text="%action.find" onAction="#handleFind" accelerator="Shortcut+F"/>
             <MenuItem text="%action.replace" onAction="#handleReplace" accelerator="Shortcut+H"/>
+            <SeparatorMenuItem/>
+            <MenuItem text="%action.insert_template" onAction="#handleInsertTemplate"/>
+            <MenuItem text="%action.insert_current_date" onAction="#handleInsertCurrentDate"/>
+            <MenuItem text="%action.insert_current_time" onAction="#handleInsertCurrentTime"/>
         </Menu>
 
         <Menu text="%menu.view">

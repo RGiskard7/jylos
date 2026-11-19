@@ -1,27 +1,32 @@
 package com.example.jylos.ui.controller;
 
 import javafx.application.Platform;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.ResourceBundle;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import com.example.jylos.data.dao.VaultSettingsStore;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
+import com.example.jylos.data.models.VaultSettings;
+import com.example.jylos.event.events.SystemActionEvent.ActionType;
 import com.example.jylos.service.NoteService;
-import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.service.templates.TemplateEngine;
+import com.example.jylos.service.templates.TemplateLibrary;
+import com.example.jylos.ui.components.QuickSwitcher;
 import com.example.jylos.util.KanbanModel;
 import com.example.jylos.util.NoteTemplates;
 import com.example.jylos.util.UntitledNames;
 
-import javafx.scene.control.Alert;
-import javafx.scene.control.ChoiceDialog;
-import javafx.scene.control.Dialog;
+import javafx.stage.Stage;
 import javafx.stage.Window;
 
 /**
@@ -53,6 +58,11 @@ final class NoteCreationSupport {
     private Runnable refreshSidebar;
     private Runnable beginTitleRename = () -> {
     };
+    private TemplatesSupport templates;
+    private Supplier<EditorController> editor = () -> null;
+    private Supplier<Stage> owner = () -> null;
+    private Supplier<ResourceBundle> bundle = () -> null;
+    private QuickSwitcher templatePicker;
 
     void wire(NoteService noteService, NoteOperations noteOperations, BooleanSupplier fileSystemStorage,
             Function<String, String> i18n, Consumer<String> status, Supplier<Window> windowSupplier,
@@ -71,6 +81,106 @@ final class NoteCreationSupport {
         this.requestSelectAfterRefresh = requestSelectAfterRefresh;
         this.refreshNotes = refreshNotes;
         this.refreshSidebar = refreshSidebar;
+    }
+
+    /**
+     * The vault's templates and where to insert them: its {@code settings}, the {@code editor}
+     * of the open note, and the window and translations of the template picker.
+     */
+    void useVault(Supplier<VaultSettingsStore> settings, Supplier<EditorController> editor, Supplier<Stage> owner,
+            Supplier<ResourceBundle> bundle) {
+        this.editor = editor;
+        this.owner = owner;
+        this.bundle = bundle;
+        this.templates = new TemplatesSupport(() -> noteService, settings, this::language, ZonedDateTime::now);
+    }
+
+    /** Answers the commands for daily notes, templates and boards. */
+    void register(Map<ActionType, Runnable> handlers) {
+        handlers.put(ActionType.DAILY_NOTE, this::openDailyNote);
+        handlers.put(ActionType.NEW_FROM_TEMPLATE, this::createFromTemplate);
+        handlers.put(ActionType.NEW_KANBAN_BOARD, this::createNewBoard);
+        handlers.put(ActionType.INSERT_TEMPLATE, this::insertTemplate);
+        handlers.put(ActionType.INSERT_CURRENT_DATE, () -> insertInEditor(templates().date()));
+        handlers.put(ActionType.INSERT_CURRENT_TIME, () -> insertInEditor(templates().time()));
+    }
+
+    /** The vault's templates. */
+    TemplatesSupport templates() {
+        if (templates == null) {
+            templates = new TemplatesSupport(() -> noteService, () -> null, this::language, ZonedDateTime::now);
+        }
+        return templates;
+    }
+
+    /** Obsidian's "Insert template": picks one of the vault's templates and inserts it in the open note. */
+    void insertTemplate() {
+        if (openForEditing() == null) {
+            updateStatus(getString("templates.status.no_note"));
+            return;
+        }
+        pickTemplate(this::insertTemplate);
+    }
+
+    /** Inserts {@code template}, written for the open note, where its cursor is. */
+    void insertTemplate(TemplateLibrary.Template template) {
+        EditorController open = openForEditing();
+        if (open == null) {
+            updateStatus(getString("templates.status.no_note"));
+            return;
+        }
+        String text = templates().render(templates().text(template), open.getCurrentNote().getTitle());
+        if (open.insertTemplate(text) == EditorTemplateSupport.Outcome.INVALID_PROPERTIES) {
+            updateStatus(getString("templates.status.invalid_properties"));
+        }
+    }
+
+    private void insertInEditor(String text) {
+        EditorController open = openForEditing();
+        if (open == null || !open.insertText(text)) {
+            updateStatus(getString("templates.status.no_note"));
+        }
+    }
+
+    private EditorController openForEditing() {
+        EditorController open = editor.get();
+        return open != null && open.getCurrentNote() != null ? open : null;
+    }
+
+    /** Lets the user pick one of the vault's templates for {@code then}, or says why there is none. */
+    private void pickTemplate(Consumer<TemplateLibrary.Template> then) {
+        TemplateLibrary.Listing listing = templates().listing();
+        String problem = templates().problem(listing, this::getString);
+        if (problem != null) {
+            updateStatus(problem);
+            return;
+        }
+        Map<String, TemplateLibrary.Template> byNote = new LinkedHashMap<>();
+        List<Note> choices = new ArrayList<>();
+        for (TemplateLibrary.Template template : listing.templates()) {
+            templates().note(template).ifPresent(note -> {
+                byNote.put(note.getId(), template);
+                choices.add(note);
+            });
+        }
+        if (templatePicker == null) {
+            templatePicker = new QuickSwitcher(owner.get());
+            templatePicker.setBundle(bundle.get());
+            templatePicker.setPlaceholder(getString("templates.search_placeholder"));
+        }
+        templatePicker.setOnNoteSelected(note -> {
+            TemplateLibrary.Template picked = byNote.get(note.getId());
+            if (picked != null) {
+                then.accept(picked);
+            }
+        });
+        templatePicker.setNotes(choices);
+        templatePicker.show();
+    }
+
+    private Locale language() {
+        ResourceBundle texts = bundle.get();
+        return texts != null ? texts.getLocale() : Locale.getDefault();
     }
 
     /** What leaves a new untitled note's title ready to rename (the editor focuses it). */
@@ -177,45 +287,30 @@ final class NoteCreationSupport {
             publishOpen(noteService.getNoteById(existing.getId()).orElse(existing));
             return;
         }
-        String template = templateContentByName("daily");
+        String template = templates().listing().find("daily").map(templates()::text).orElse(null);
         String content = template != null
-                ? NoteTemplates.applyPlaceholders(template, title)
+                ? TemplateEngine.render(template, TemplateEngine.variables(title, ZonedDateTime.now()),
+                        VaultSettings.DEFAULT_DATE_FORMAT, VaultSettings.DEFAULT_TIME_FORMAT, ZonedDateTime.now(),
+                        language())
                 : "# " + title + "\n\n";
         createAndOpenNote(title, content, currentFolder(), "status.note_created");
     }
 
+    /** "New from template": picks one of the vault's templates and creates a note from it. */
     void createFromTemplate() {
-        if (noteService == null) {
-            return;
+        if (noteService != null) {
+            pickTemplate(this::createFromTemplate);
         }
-        List<Note> templates = listTemplates();
-        if (templates.isEmpty()) {
-            showAlert(Alert.AlertType.INFORMATION, getString("dialog.templates.title"),
-                    getString("dialog.templates.none_header"), getString("dialog.templates.none_content"));
-            return;
-        }
+    }
 
-        Map<String, Note> byTitle = new LinkedHashMap<>();
-        for (Note template : templates) {
-            byTitle.put(template.getTitle() != null ? template.getTitle() : getString("app.untitled"), template);
-        }
-
-        String first = byTitle.keySet().iterator().next();
-        ChoiceDialog<String> dialog = new ChoiceDialog<>(first, byTitle.keySet());
-        dialog.setTitle(getString("dialog.templates.title"));
-        dialog.setHeaderText(getString("dialog.templates.pick_header"));
-        dialog.setContentText(getString("dialog.templates.pick_content"));
-        styleDialog(dialog);
-        dialog.showAndWait().ifPresent(choice -> {
-            Note template = byTitle.get(choice);
-            if (template == null) {
-                return;
-            }
-            Note full = noteService.getNoteById(template.getId()).orElse(template);
-            String content = NoteTemplates.applyPlaceholders(
-                    full.getContent() != null ? full.getContent() : "", choice);
-            createAndOpenNote(choice, content, currentFolder(), "status.note_created");
-        });
+    /**
+     * Creates a note named as {@code template}, in the folder in view, with the template
+     * written for it, and opens it.
+     */
+    void createFromTemplate(TemplateLibrary.Template template) {
+        String name = template.name().substring(template.name().lastIndexOf('/') + 1);
+        String content = templates().render(templates().text(template), name);
+        createAndOpenNote(name, content, currentFolder(), "status.note_created");
     }
 
     private boolean createAndOpenNote(String title, String content, Folder folder, String successStatusKey) {
@@ -250,33 +345,6 @@ final class NoteCreationSupport {
         updateStatus(getString(successStatusKey));
     }
 
-    private List<Note> listTemplates() {
-        List<Note> templates = new ArrayList<>();
-        for (Note note : noteService.getAllNotes()) {
-            if (note == null) {
-                continue;
-            }
-            String id = note.getId() != null ? note.getId().replace('\\', '/').toLowerCase(Locale.ROOT) : "";
-            boolean inTemplates = id.startsWith("templates/")
-                    || (note.getParent() != null && "templates".equalsIgnoreCase(note.getParent().getTitle()));
-            if (inTemplates) {
-                templates.add(note);
-            }
-        }
-        templates.sort((left, right) -> safeTitle(left).compareToIgnoreCase(safeTitle(right)));
-        return templates;
-    }
-
-    private String templateContentByName(String name) {
-        for (Note template : listTemplates()) {
-            if (name.equalsIgnoreCase(template.getTitle())) {
-                Note full = noteService.getNoteById(template.getId()).orElse(template);
-                return full.getContent();
-            }
-        }
-        return null;
-    }
-
     private boolean isFileSystem() {
         return fileSystemStorage != null && fileSystemStorage.getAsBoolean();
     }
@@ -291,26 +359,6 @@ final class NoteCreationSupport {
         }
     }
 
-    private void styleDialog(Dialog<?> dialog) {
-        if (dialog == null) {
-            return;
-        }
-        Window window = windowSupplier != null ? windowSupplier.get() : null;
-        if (window != null) {
-            dialog.initOwner(window);
-        }
-        UiDialogs.apply(dialog);
-    }
-
-    private void showAlert(Alert.AlertType type, String title, String header, String content) {
-        Alert alert = new Alert(type);
-        alert.setTitle(title);
-        alert.setHeaderText(header);
-        alert.setContentText(content);
-        UiDialogs.apply(alert.getDialogPane());
-        alert.showAndWait();
-    }
-
     private String getString(String key) {
         return i18n != null ? i18n.apply(key) : key;
     }
@@ -319,9 +367,5 @@ final class NoteCreationSupport {
         if (status != null) {
             status.accept(message);
         }
-    }
-
-    private static String safeTitle(Note note) {
-        return note.getTitle() != null ? note.getTitle() : "";
     }
 }

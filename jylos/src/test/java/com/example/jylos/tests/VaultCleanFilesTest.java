@@ -59,6 +59,37 @@ class VaultCleanFilesTest {
         assertEquals(crlfHead + "texto cambiado\r\n", file("Windows.md"));
     }
 
+    /** The properties Jylos reads into its own fields stay as written too: a list stays a list. */
+    @Test
+    void propertiesReadIntoJylosFieldsStayByteForByte() throws Exception {
+        String one = "---\nauthor:\n  - Edu\nstatus: En progreso / Completado\nsource_url: https://example.org/a\n---\n";
+        Files.writeString(vault.resolve("Uno.md"), one + "texto\n", StandardCharsets.UTF_8);
+        String two = "---\nauthor: [Ana, Luis]\n---\n";
+        Files.writeString(vault.resolve("Dos.md"), two + "texto\n", StandardCharsets.UTF_8);
+
+        editText("Uno.md", "texto cambiado\n");
+        editText("Dos.md", "texto cambiado\n");
+
+        assertEquals(one + "texto cambiado\n", file("Uno.md"));
+        assertEquals(two + "texto cambiado\n", file("Dos.md"));
+    }
+
+    /** An empty property stays empty, as Obsidian writes it ({@code key:}), also when another one changes. */
+    @Test
+    void emptyPropertiesStayEmpty() throws Exception {
+        String head = "---\ndescription: algo\ncategory:\nrelated:\ntags:\n---\n";
+        Files.writeString(vault.resolve("Nota.md"), head + "texto\n", StandardCharsets.UTF_8);
+
+        editText("Nota.md", "texto cambiado\n");
+        assertEquals(head + "texto cambiado\n", file("Nota.md"));
+
+        NoteDAOFileSystem dao = new NoteDAOFileSystem(vault.toString());
+        Note note = dao.getNoteById("Nota.md");
+        note.getCustomProperties().put("description", "otra");
+        dao.updateNote(note);
+        assertEquals("---\ndescription: otra\ncategory:\nrelated:\ntags:\n---\ntexto cambiado\n", file("Nota.md"));
+    }
+
     @Test
     void aNoteWithoutPropertiesStaysWithoutThemAndANewOneHasNone() throws Exception {
         Files.writeString(vault.resolve("Simple.md"), "Solo texto.\n", StandardCharsets.UTF_8);
@@ -109,7 +140,8 @@ class VaultCleanFilesTest {
         for (String field : List.of("id:", "title:", "modified:", "favorite:", "pinned:", "deleted:")) {
             assertFalse(saved.contains(field), field + " in the file: " + saved);
         }
-        assertTrue(saved.contains("created: '2025-03-01T10:00:00Z'") && saved.contains("prioridad: 3"), saved);
+        // Written again without Jylos' fields, the date is plain text, as Obsidian writes it.
+        assertTrue(saved.contains("created: 2025-03-01T10:00:00Z\n") && saved.contains("prioridad: 3"), saved);
         Note after = notes().getNoteById("Vieja.md").orElseThrow();
         assertEquals(List.of(true, true, true, true),
                 List.of(before.isFavorite(), before.isPinned(), after.isFavorite(), after.isPinned()));

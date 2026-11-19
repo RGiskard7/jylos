@@ -112,8 +112,10 @@ class NoteStatusPersistenceTest {
         assertEquals("2026-08-04", parsed.getCreatedDate());
         assertEquals("2026-07-21", parsed.getCustomProperties().get("published"));
         assertEquals("https://example.com/source", parsed.getCustomProperties().get("source"));
-        assertTrue(regenerated.contains("created: '2026-08-04'"), regenerated);
-        assertTrue(regenerated.contains("published: '2026-07-21'"), regenerated);
+        // Written as plain text, as they were and as Obsidian writes them: still text when read again.
+        assertTrue(regenerated.contains("created: 2026-08-04\n"), regenerated);
+        assertTrue(regenerated.contains("published: 2026-07-21\n"), regenerated);
+        assertEquals("2026-07-21", FrontmatterHandler.parse(regenerated).getCustomProperties().get("published"));
     }
 
     @Test

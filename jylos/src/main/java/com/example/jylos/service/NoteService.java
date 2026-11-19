@@ -748,6 +748,22 @@ public class NoteService {
         return FolderPaths.of(folderDAO, false, folderId);
     }
 
+    /** The path of every folder of the vault ({@link #folderPath}), in no particular order. */
+    public List<String> folderPaths() {
+        if (folderDAO == null) {
+            return List.of();
+        }
+        boolean fileVault = getStorageRoot().isPresent();
+        List<String> paths = new ArrayList<>();
+        for (Folder folder : folderDAO.fetchAllFoldersAsList()) {
+            String path = folder != null ? FolderPaths.of(folderDAO, fileVault, folder.getId()) : "";
+            if (!path.isEmpty()) {
+                paths.add(path);
+            }
+        }
+        return paths;
+    }
+
     // ── Search Methods ──────────────────────────────────────────────────────
     /**
      * Searches notes by title and content.

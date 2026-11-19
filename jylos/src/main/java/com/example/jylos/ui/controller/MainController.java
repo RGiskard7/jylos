@@ -674,6 +674,7 @@ public class MainController {
         });
         historySupport.wire(noteService, this::getString, this::updateStatus, sceneSupplier,
                 this::getCurrentNote, this::loadNoteInEditor);
+        noteCreationSupport.useVault(() -> vaultSettings, () -> editorController, this::getPrimaryStage, () -> resources);
         noteCreationSupport.setBeginTitleRename(() -> {
             if (editorController != null) {
                 editorController.beginTitleRename();
@@ -1472,6 +1473,9 @@ public class MainController {
             Map.entry("cmd.quick_switcher", SystemActionEvent.ActionType.QUICK_SWITCHER),
             Map.entry("cmd.daily_note", SystemActionEvent.ActionType.DAILY_NOTE),
             Map.entry("cmd.new_from_template", SystemActionEvent.ActionType.NEW_FROM_TEMPLATE),
+            Map.entry("cmd.insert_template", SystemActionEvent.ActionType.INSERT_TEMPLATE),
+            Map.entry("cmd.insert_current_date", SystemActionEvent.ActionType.INSERT_CURRENT_DATE),
+            Map.entry("cmd.insert_current_time", SystemActionEvent.ActionType.INSERT_CURRENT_TIME),
             Map.entry("cmd.export_vault", SystemActionEvent.ActionType.EXPORT_VAULT),
             Map.entry("cmd.tag_manager", SystemActionEvent.ActionType.TAGS_MANAGER),
             Map.entry("cmd.preferences", SystemActionEvent.ActionType.PREFERENCES),
@@ -1572,8 +1576,7 @@ public class MainController {
         systemActionHandlers.put(SystemActionEvent.ActionType.SAVE_ALL, () -> handleSaveAll(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.IMPORT, () -> handleImport(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.EXPORT, () -> handleExport(null));
-        systemActionHandlers.put(SystemActionEvent.ActionType.DAILY_NOTE, this::handleDailyNote);
-        systemActionHandlers.put(SystemActionEvent.ActionType.NEW_FROM_TEMPLATE, this::handleNewFromTemplate);
+        noteCreationSupport.register(systemActionHandlers);
         systemActionHandlers.put(SystemActionEvent.ActionType.EXPORT_VAULT, this::handleExportVault);
         systemActionHandlers.put(SystemActionEvent.ActionType.EXIT, () -> handleExit(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.UNDO, () -> handleUndo(null));
@@ -1616,7 +1619,6 @@ public class MainController {
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_FAVORITE, () -> handleToggleFavorite(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL, () -> handleToggleRightPanel(null));
         tabsSupport.register(systemActionHandlers);
-        systemActionHandlers.put(SystemActionEvent.ActionType.NEW_KANBAN_BOARD, noteCreationSupport::createNewBoard);
         systemActionHandlers.put(SystemActionEvent.ActionType.KNOWLEDGE_INSIGHTS, this::showKnowledgeInsights);
         workspaceController.register(systemActionHandlers);
         vaultCleanup.register(systemActionHandlers, () -> noteService, this::getString, this::updateStatus, this::getMainWindow);
@@ -2225,15 +2227,6 @@ public class MainController {
     }
 
     /** Opens today's daily note ({@code yyyy-MM-dd}), creating it (from a "daily" template if any). */
-    private void handleDailyNote() {
-        noteCreationSupport.openDailyNote();
-    }
-
-    /** Lets the user pick a template (notes under a "Templates" folder) and create a note from it. */
-    private void handleNewFromTemplate() {
-        noteCreationSupport.createFromTemplate();
-    }
-
     @FXML
     void handleNewFolder(ActionEvent event) {
         boolean createInRoot = currentFolder == null;
@@ -2774,7 +2767,7 @@ public class MainController {
                 uiPreferences.loadShowFormatToolbar(prefs),
                 uiPreferences.loadIconSize(prefs),
                 uiPreferences.loadColoredIcons(prefs),
-                VaultSettingsSupport.forVault(vaultSettings, folderService, noteService, this::getString, resources));
+                VaultSettingsSupport.forVault(vaultSettings, noteService, this::getString, resources));
         if (result.isEmpty()) {
             return;
         }

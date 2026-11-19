@@ -33,7 +33,8 @@ class CommandRegistryCoverageTest {
             "cmd.grid_view", "cmd.switch_layout", "cmd.editor_zoom_in", "cmd.editor_zoom_out",
             "cmd.editor_reset_zoom", "cmd.import_obsidian", "cmd.import_enex", "cmd.strike",
             "cmd.highlight", "cmd.quote", "cmd.code", "cmd.insert_bullet_list", "cmd.vault_cleanup",
-            "cmd.import_obsidian_bookmarks");
+            "cmd.import_obsidian_bookmarks", "cmd.insert_template", "cmd.insert_current_date",
+            "cmd.insert_current_time");
 
     @Test
     void everyNewlyAddedCommandResolvesToARealAction() throws Exception {

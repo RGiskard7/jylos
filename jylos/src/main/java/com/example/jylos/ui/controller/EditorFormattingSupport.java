@@ -12,6 +12,7 @@ import com.example.jylos.ui.components.MarkdownEditorView;
 import com.example.jylos.util.RichLinks;
 
 import javafx.concurrent.Task;
+import javafx.scene.control.TextInputControl;
 import javafx.scene.control.TextInputDialog;
 
 /**
@@ -29,6 +30,43 @@ class EditorFormattingSupport {
     private final Runnable afterEdit;
     private final BinaryOperator<String> i18n;
     private final RichLinkService richLinkService = new RichLinkService();
+
+    /** Cuts the selection of {@code title} when it has the focus, else of the editor. */
+    void cut(TextInputControl title) {
+        if (title != null && title.isFocused()) {
+            title.cut();
+        } else if (area.get() != null) {
+            area.get().cut();
+        }
+    }
+
+    /** Copies the selection of {@code title} when it has the focus, else of the editor. */
+    void copy(TextInputControl title) {
+        if (title != null && title.isFocused()) {
+            title.copy();
+        } else if (area.get() != null) {
+            area.get().copy();
+        }
+    }
+
+    /** Pastes in {@code title} when it has the focus, else in the editor. */
+    void paste(TextInputControl title) {
+        if (title != null && title.isFocused()) {
+            title.paste();
+        } else if (area.get() != null) {
+            area.get().paste();
+        }
+    }
+
+    /** Opens the editor's search bar, with its replace field when {@code replace}. */
+    void openSearch(boolean replace) {
+        MarkdownEditorView editor = area.get();
+        if (editor != null && replace) {
+            editor.openReplace();
+        } else if (editor != null) {
+            editor.openSearch();
+        }
+    }
 
     /**
      * @param area        the source editor (read on each command; it is injected after construction)

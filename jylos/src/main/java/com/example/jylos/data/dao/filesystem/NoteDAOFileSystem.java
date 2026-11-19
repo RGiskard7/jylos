@@ -896,6 +896,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                         // Nothing changed (a mark, say, which lives in .jylos/): the file is left alone.
                         FileSystemAtomicWriter.writeString(path, serialized, StandardCharsets.UTF_8);
                     }
+                    note.setAddedFrontmatter(null); // what a template added is in the file now
                     metadataStore.persistNoteMarks(note, FrontmatterHandler.claimsMarks(serialized));
                     if (resyncInlineTags) {
                         // The caller may have just typed a new inline #tag; note.getTags() at

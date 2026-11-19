@@ -49,7 +49,7 @@ import javafx.scene.layout.StackPane;
  * @author Edu Díaz (RGiskard7)
  * @since 2.5.0
  */
-public final class MarkdownEditorView extends StackPane {
+public final class MarkdownEditorView extends StackPane implements TextEditing {
 
     private static final Logger logger = LoggerConfig.getLogger(MarkdownEditorView.class);
     private static final Gson GSON = new Gson();
@@ -193,6 +193,7 @@ public final class MarkdownEditorView extends StackPane {
     }
 
     /** Returns the latest editor snapshot without crossing the JavaScript bridge. */
+    @Override
     public String getText() {
         return text;
     }
@@ -205,10 +206,12 @@ public final class MarkdownEditorView extends StackPane {
         return stringResult("window.JylosEditor.getSelectedText()", "");
     }
 
+    @Override
     public int getSelectionStart() {
         return intResult("window.JylosEditor.getSelectionFrom()", 0);
     }
 
+    @Override
     public int getSelectionEnd() {
         return intResult("window.JylosEditor.getSelectionTo()", getSelectionStart());
     }
@@ -221,6 +224,7 @@ public final class MarkdownEditorView extends StackPane {
         replaceSelection(value, -1);
     }
 
+    @Override
     public void replaceSelection(String value, int cursorOffset) {
         String insertion = value != null ? value : "";
         whenReady(() -> execute("window.JylosEditor.replaceSelection("

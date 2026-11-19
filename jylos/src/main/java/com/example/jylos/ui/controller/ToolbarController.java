@@ -386,6 +386,21 @@ public class ToolbarController {
         publishEvent(SystemActionEvent.ActionType.IMPORT_OBSIDIAN_BOOKMARKS);
     }
 
+    @FXML
+    private void handleInsertTemplate(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.INSERT_TEMPLATE);
+    }
+
+    @FXML
+    private void handleInsertCurrentDate(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.INSERT_CURRENT_DATE);
+    }
+
+    @FXML
+    private void handleInsertCurrentTime(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.INSERT_CURRENT_TIME);
+    }
+
     /** The menu the layout button opens: the three layouts, the current one ticked. */
     ContextMenu layoutMenu() {
         ContextMenu menu = new ContextMenu();
