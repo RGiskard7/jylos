@@ -212,21 +212,6 @@ public class NotesListController {
         listView.skinProperty().addListener((obs, oldSkin, newSkin) -> Platform.runLater(disableHbar));
     }
 
-    private static double verticalScrollBarWidth(ListView<?> listView) {
-        if (listView == null) {
-            return 0;
-        }
-        double width = 0;
-        for (Node node : listView.lookupAll(".scroll-bar")) {
-            if (node instanceof ScrollBar scrollBar
-                    && scrollBar.getOrientation() == Orientation.VERTICAL
-                    && scrollBar.isVisible()) {
-                width = Math.max(width, scrollBar.getWidth());
-            }
-        }
-        return width > 0 ? width : 14;
-    }
-
     /**
      * Sets how many body-preview lines are shown per note in the list.
      * Clamped to [0, 5]; 0 hides the preview entirely.
@@ -258,7 +243,6 @@ public class NotesListController {
         return new ListCell<>() {
             private static final double NOTE_ICON_RESERVED_WIDTH = 20;
             private static final double PREVIEW_LINE_HEIGHT = 17;
-            private static final double CELL_HORIZONTAL_PADDING = 14;
             private static final double DATE_ROW_GAP = 6;
             private static final double NARROW_PANEL_WIDTH = 210;
 
@@ -274,6 +258,10 @@ public class NotesListController {
             private final HBox dateRow = new HBox(DATE_ROW_GAP);
             private final Label modifiedLabel = new Label();
             private final Label createdLabel = new Label();
+            /** Pushes the created date to the row's right edge, whatever its length. */
+            private final Region dateSpacer = new Region();
+            /** The note's created date as shown, before "Created" is put in front of it. */
+            private String createdDate = "";
             private final Rectangle clip = new Rectangle();
 
             {
@@ -318,7 +306,8 @@ public class NotesListController {
                 modifiedLabel.getStyleClass().add("note-cell-date");
                 modifiedLabel.setEllipsisString("…");
                 modifiedLabel.setMinWidth(0);
-                HBox.setHgrow(modifiedLabel, Priority.ALWAYS);
+                HBox.setHgrow(modifiedLabel, Priority.NEVER);
+                HBox.setHgrow(dateSpacer, Priority.ALWAYS);
                 createdLabel.getStyleClass().add("note-cell-date-created");
                 createdLabel.setAlignment(Pos.CENTER_RIGHT);
                 createdLabel.setEllipsisString("…");
@@ -327,15 +316,15 @@ public class NotesListController {
 
                 dateRow.setAlignment(Pos.CENTER_LEFT);
                 dateRow.setMinWidth(0);
-                dateRow.getChildren().addAll(modifiedLabel, createdLabel);
+                dateRow.getChildren().addAll(modifiedLabel, dateSpacer, createdLabel);
 
                 container.getChildren().addAll(titleRow, previewLabel, dateRow);
                 container.setFillWidth(true);
                 container.setMinWidth(0);
 
+                // The row's own width, which the list gives every row alike, scroll bar taken off.
                 container.prefWidthProperty().bind(Bindings.createDoubleBinding(
-                        () -> resolveContentWidth(listView),
-                        listView.widthProperty()));
+                        this::contentWidth, widthProperty(), insetsProperty()));
                 container.maxWidthProperty().bind(container.prefWidthProperty());
                 container.minWidthProperty().bind(container.prefWidthProperty());
                 clip.widthProperty().bind(container.widthProperty());
@@ -379,12 +368,10 @@ public class NotesListController {
                 });
             }
 
-            private double resolveContentWidth(ListView<Note> lv) {
-                double basis = lv.getWidth();
-                if (basis <= 0) {
-                    return 100;
-                }
-                return Math.max(64, basis - verticalScrollBarWidth(lv) - CELL_HORIZONTAL_PADDING);
+            /** The width inside the row's padding; until the row is laid out, a small one. */
+            private double contentWidth() {
+                double width = getWidth() - snappedLeftInset() - snappedRightInset();
+                return width > 0 ? Math.max(64, width) : 100;
             }
 
             private void layoutCellContent(double contentWidth) {
@@ -409,23 +396,20 @@ public class NotesListController {
 
                 dateRow.setMaxWidth(contentWidth);
                 double createdMax = Math.min(96, Math.max(52, contentWidth * 0.45));
-                double modifiedMax = Math.max(32, contentWidth - createdMax - DATE_ROW_GAP);
+                double modifiedMax = Math.max(32, contentWidth - createdMax - 2 * DATE_ROW_GAP);
                 createdLabel.setMaxWidth(createdMax);
                 modifiedLabel.setMaxWidth(modifiedMax);
+                if (createdDate.isEmpty() || contentWidth < NARROW_PANEL_WIDTH) {
+                    createdLabel.setText(createdDate);
+                } else {
+                    createdLabel.setText(MessageFormat.format(getString("panel.notes.created"), createdDate));
+                }
             }
 
+            /** Small, so the list never scrolls sideways: the list makes every row as wide as itself. */
             @Override
             protected double computePrefWidth(double height) {
-                ListView<Note> lv = getListView();
-                if (lv != null && lv.getWidth() > 0) {
-                    return resolveContentWidth(lv);
-                }
-                return super.computePrefWidth(height);
-            }
-
-            @Override
-            protected double computeMaxWidth(double height) {
-                return computePrefWidth(height);
+                return snappedLeftInset() + snappedRightInset() + 64;
             }
 
             /** The note this row showed last, to notice when it is reused for another one. */
@@ -468,16 +452,8 @@ public class NotesListController {
 
                     modifiedLabel.setText(formatDate(
                             note.getModifiedDate() != null ? note.getModifiedDate() : note.getCreatedDate()));
-                    String created = formatDate(note.getCreatedDate());
-                    double contentWidth = resolveContentWidth(listView);
-                    if (created.isEmpty()) {
-                        createdLabel.setText("");
-                    } else if (contentWidth < NARROW_PANEL_WIDTH) {
-                        createdLabel.setText(created);
-                    } else {
-                        createdLabel.setText(MessageFormat.format(getString("panel.notes.created"), created));
-                    }
-                    layoutCellContent(contentWidth);
+                    createdDate = formatDate(note.getCreatedDate());
+                    layoutCellContent(contentWidth());
 
                     setGraphic(container);
                     setText(null);

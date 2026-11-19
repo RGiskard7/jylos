@@ -167,6 +167,7 @@
     - una fila ya no se queda resaltada al desplazarse sin mover el ratón;
     - los enlaces de las notas de versión que se muestran antes de actualizar se abren en el navegador;
     - "+ Añadir etiqueta" aparecía siempre en inglés;
+    - en la lista de notas, el icono y la fecha de creación de todas las filas acaban en el mismo borde, el de la fila; antes quedaban descuadrados hasta redimensionar el panel, y la fecha acababa donde acababa su texto;
     - la barra lateral y el panel de notas mantienen su ancho al abrir o cerrar el panel derecho; antes se ensanchaban al cerrarlo. Al cambiar el tamaño de la ventana, los paneles laterales (también el derecho) mantienen su ancho y es el editor el que crece o se estrecha.
   - **Temas:**
     - la vista de lectura conserva el tema oscuro al activar o desactivar un plugin;
