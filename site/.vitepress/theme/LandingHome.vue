@@ -15,6 +15,7 @@ type Feature = { icon: string; title: string; text: string };
 type PluginCard = { title: string; text: string; bullets: string[] };
 type DocsLink = { icon: "rocket" | "network" | "workflow" | "refresh"; title: string; text: string; link: string };
 type SimpleItem = { title: string; text: string };
+type ViewerImage = { src: string; alt: string; title: string };
 type DownloadPlatform = {
   platform: string;
   subtitle: string;
@@ -60,6 +61,10 @@ type Copy = {
   ctaText: string;
   ctaButton: string;
   ctaContact: string;
+  viewerOpen: string;
+  viewerClose: string;
+  viewerPrev: string;
+  viewerNext: string;
 };
 
 const githubUrl = "https://github.com/RGiskard7/jylos";
@@ -78,12 +83,13 @@ const downloadPlatforms: DownloadPlatform[] = [
   },
   {
     platform: "Linux",
-    subtitle: "x64 · deb · rpm · pacman",
+    subtitle: "x64 · deb · rpm · pacman · Nix",
     icon: "linux",
     links: [
       { label: ".deb (Debian / Ubuntu)", href: `${releasesBase}/jylos-linux-amd64.deb` },
       { label: ".rpm (Fedora / RHEL / openSUSE)", href: `${releasesBase}/jylos-linux-amd64.rpm` },
       { label: ".pkg.tar.zst (Arch Linux)", href: `${releasesBase}/jylos-linux-amd64.pkg.tar.zst` },
+      { label: "Nix / NixOS (flake)", href: "/start/install#nix-and-nixos" },
     ],
   },
   {
@@ -259,6 +265,10 @@ const en: Copy = {
   ctaText: "Jylos is released under MIT and built with Java 21 and JavaFX 23. Issues, feedback and pull requests are welcome.",
   ctaButton: "Contribute on GitHub",
   ctaContact: "Contact",
+  viewerOpen: "View larger",
+  viewerClose: "Close",
+  viewerPrev: "Previous image",
+  viewerNext: "Next image",
 };
 
 const es: Copy = {
@@ -287,12 +297,13 @@ const es: Copy = {
     },
     {
       platform: "Linux",
-      subtitle: "x64 · deb · rpm · pacman",
+      subtitle: "x64 · deb · rpm · pacman · Nix",
       icon: "linux",
       links: [
         { label: ".deb (Debian / Ubuntu)", href: `${releasesBase}/jylos-linux-amd64.deb` },
         { label: ".rpm (Fedora / RHEL / openSUSE)", href: `${releasesBase}/jylos-linux-amd64.rpm` },
         { label: ".pkg.tar.zst (Arch Linux)", href: `${releasesBase}/jylos-linux-amd64.pkg.tar.zst` },
+        { label: "Nix / NixOS (flake)", href: "/start/install#nix-y-nixos" },
       ],
     },
     {
@@ -301,7 +312,7 @@ const es: Copy = {
       icon: "apple",
       links: [
         { label: "Instalador .dmg (Apple Silicon)", href: `${releasesBase}/jylos-macos-arm64.dmg` },
-        { label: "Mac con Intel: ejecútalo con JBang", href: "/es/start/install#ejecutar-con-jbang" },
+        { label: "Mac con Intel: ejecútalo con JBang", href: "/start/install#ejecutar-con-jbang" },
       ],
     },
   ],
@@ -453,6 +464,10 @@ const es: Copy = {
   ctaText: "Jylos se publica bajo licencia MIT y está construido con Java 21 y JavaFX 23. Los issues, el feedback y los pull requests son bienvenidos.",
   ctaButton: "Contribuir en GitHub",
   ctaContact: "Contacto",
+  viewerOpen: "Ver en grande",
+  viewerClose: "Cerrar",
+  viewerPrev: "Imagen anterior",
+  viewerNext: "Imagen siguiente",
 };
 
 const { lang } = useData();
@@ -461,6 +476,47 @@ const t = computed(() => (isEs.value ? es : en));
 
 const asset = (path: string) => withBase(`/landing/${path}`);
 const route = (path: string) => withBase(`${isEs.value ? "/es" : ""}${path}`);
+
+/** A link inside the site goes to the page in the language being read; others are left as they are. */
+const href = (link: string) => (link.startsWith("/") ? route(link) : link);
+
+// Image viewer: a native modal dialog (focus kept inside, Escape closes, focus returns to the
+// image that opened it); the arrows step through the images of the same section.
+const viewer = ref<HTMLDialogElement | null>(null);
+const viewerImages = ref<ViewerImage[]>([]);
+const viewerIndex = ref(0);
+const viewerCurrent = computed(() => viewerImages.value[viewerIndex.value]);
+
+const sectionImages = (section: FeatureSection): ViewerImage[] =>
+  section.cards.map((card) => ({ src: asset(card.image), alt: card.alt, title: card.title }));
+const heroImages = computed<ViewerImage[]>(() => [
+  { src: asset("interfaz-33.png"), alt: t.value.featureSections[0].cards[0].alt, title: t.value.featureSections[0].cards[0].title },
+]);
+
+const openViewer = (images: ViewerImage[], index: number) => {
+  viewerImages.value = images;
+  viewerIndex.value = index;
+  viewer.value?.showModal();
+};
+const closeViewer = () => viewer.value?.close();
+const stepViewer = (delta: number) => {
+  const count = viewerImages.value.length;
+  if (count > 1) {
+    viewerIndex.value = (viewerIndex.value + delta + count) % count;
+  }
+};
+const onViewerKey = (event: KeyboardEvent) => {
+  if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+    event.preventDefault();
+    stepViewer(event.key === "ArrowRight" ? 1 : -1);
+  }
+};
+/** A click on the dimmed area around the image, which is the dialog itself, closes it. */
+const onViewerClick = (event: MouseEvent) => {
+  if (event.target === viewer.value) {
+    closeViewer();
+  }
+};
 
 const jbangCode = "jbang jylos@RGiskard7/jylos";
 const copied = ref(false);
@@ -511,9 +567,14 @@ const copyJbang = async () => {
     </section>
 
     <section class="landing-container hero-screenshot">
-      <div class="screenshot-frame">
-        <img class="screenshot-image" :src="asset('interfaz-33.png')" alt="Jylos editor and preview" draggable="false" />
-      </div>
+      <button
+        type="button"
+        class="screenshot-frame"
+        :aria-label="`${t.viewerOpen}: ${heroImages[0].title}`"
+        @click="openViewer(heroImages, 0)"
+      >
+        <img class="screenshot-image" :src="asset('interfaz-33.png')" :alt="heroImages[0].alt" draggable="false" />
+      </button>
     </section>
 
     <section id="download" class="download-band">
@@ -538,7 +599,7 @@ const copyJbang = async () => {
             <div class="download-card-title">{{ platform.platform }}</div>
             <div class="download-card-subtitle">{{ platform.subtitle }}</div>
             <div class="download-card-btns">
-              <a v-for="link in platform.links" :key="link.label" class="download-link" :href="link.href">{{ link.label }}</a>
+              <a v-for="link in platform.links" :key="link.label" class="download-link" :href="href(link.href)">{{ link.label }}</a>
             </div>
           </div>
         </div>
@@ -649,13 +710,18 @@ const copyJbang = async () => {
         <p>{{ section.description }}</p>
       </div>
       <div class="feature-grid" :class="{ 'three-card-grid': section.cards.length === 3 }">
-        <article v-for="card in section.cards" :key="card.title" class="feature-card-image">
+        <article v-for="(card, index) in section.cards" :key="card.title" class="feature-card-image">
           <div class="feature-window-bar">
             <span class="feature-window-title">{{ card.title }}</span>
           </div>
-          <div class="feature-image">
+          <button
+            type="button"
+            class="feature-image"
+            :aria-label="`${t.viewerOpen}: ${card.title}`"
+            @click="openViewer(sectionImages(section), index)"
+          >
             <img :src="asset(card.image)" :alt="card.alt" loading="lazy" />
-          </div>
+          </button>
         </article>
       </div>
     </section>
@@ -757,6 +823,33 @@ const copyJbang = async () => {
         <p class="cta-copyright">© 2025–2026 Eduardo Díaz Sánchez (RGiskard7)</p>
       </div>
     </section>
+
+    <dialog
+      ref="viewer"
+      class="image-viewer"
+      :aria-label="viewerCurrent?.title"
+      @click="onViewerClick"
+      @keydown="onViewerKey"
+    >
+      <button type="button" class="image-viewer-button image-viewer-close" :aria-label="t.viewerClose" @click="closeViewer">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+      </button>
+      <figure v-if="viewerCurrent" class="image-viewer-figure">
+        <img :src="viewerCurrent.src" :alt="viewerCurrent.alt" />
+        <figcaption>
+          <span>{{ viewerCurrent.title }}</span>
+          <span v-if="viewerImages.length > 1" class="image-viewer-count">{{ viewerIndex + 1 }} / {{ viewerImages.length }}</span>
+        </figcaption>
+      </figure>
+      <template v-if="viewerImages.length > 1">
+        <button type="button" class="image-viewer-button image-viewer-prev" :aria-label="t.viewerPrev" @click="stepViewer(-1)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+        </button>
+        <button type="button" class="image-viewer-button image-viewer-next" :aria-label="t.viewerNext" @click="stepViewer(1)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+        </button>
+      </template>
+    </dialog>
   </main>
 </template>
 
@@ -923,8 +1016,13 @@ const copyJbang = async () => {
 
 .screenshot-frame {
   position: relative;
+  display: block;
   width: min(100%, 1160px);
   margin: 0 auto;
+  padding: 0;
+  background: none;
+  font: inherit;
+  cursor: zoom-in;
   overflow: hidden;
   border: 1px solid var(--landing-border);
   border-radius: 12px;
@@ -1278,9 +1376,164 @@ const copyJbang = async () => {
 }
 
 .feature-image {
+  display: block;
+  width: 100%;
   aspect-ratio: 16 / 10;
   overflow: hidden;
+  padding: 0;
+  border: 0;
   background: #fff;
+  font: inherit;
+  cursor: zoom-in;
+}
+
+.screenshot-frame:focus-visible,
+.feature-image:focus-visible,
+.image-viewer-button:focus-visible {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: 3px;
+}
+
+/* Image viewer */
+:global(html:has(.image-viewer[open])) {
+  overflow: hidden;
+}
+
+.image-viewer {
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 56px 72px 24px;
+  border: 0;
+  background: transparent;
+  color: #e8e8f0;
+}
+
+.image-viewer[open] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-viewer::backdrop {
+  background: rgba(6, 6, 18, 0.92);
+  backdrop-filter: blur(6px);
+}
+
+.image-viewer-figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
+}
+
+.image-viewer-figure img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100dvh - 120px);
+  width: auto;
+  height: auto;
+  border-radius: 10px;
+  box-shadow: 0 24px 80px -12px rgba(0, 0, 0, 0.6);
+}
+
+.image-viewer-figure figcaption {
+  display: flex;
+  gap: 14px;
+  font-size: 14px;
+}
+
+.image-viewer-count {
+  color: #9a9ab0;
+  font-variant-numeric: tabular-nums;
+}
+
+.image-viewer-button {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  background: rgba(20, 20, 40, 0.7);
+  color: #fff;
+  cursor: pointer;
+}
+
+.image-viewer-button:hover {
+  background: rgba(60, 60, 100, 0.85);
+}
+
+.image-viewer-button svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.image-viewer-close {
+  top: 12px;
+  right: 16px;
+}
+
+.image-viewer-prev,
+.image-viewer-next {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.image-viewer-prev {
+  left: 16px;
+}
+
+.image-viewer-next {
+  right: 16px;
+}
+
+@media (max-width: 640px) {
+  .image-viewer {
+    padding: 56px 8px 16px;
+  }
+
+  .image-viewer-prev,
+  .image-viewer-next {
+    top: auto;
+    bottom: 12px;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .image-viewer[open] .image-viewer-figure {
+    animation: image-viewer-in 0.18s ease-out;
+  }
+
+  .image-viewer[open]::backdrop {
+    animation: image-viewer-fade 0.18s ease-out;
+  }
+}
+
+@keyframes image-viewer-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+@keyframes image-viewer-fade {
+  from {
+    opacity: 0;
+  }
 }
 
 .feature-image img {
