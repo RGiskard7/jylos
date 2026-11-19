@@ -1,6 +1,7 @@
 package com.example.jylos.ui.components;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -658,24 +659,25 @@ class ExplorerTreeTest {
         }
         Holder h = shown(vault, new ArrayList<>());
 
-        onFx(() -> {
-            setHover(h.cell("Nota 10"), true);
+        // The row that had the hover, followed as it is reused for another note. Checking every
+        // row instead would also catch a hover the real pointer gives the row under it, which
+        // headless displays put over the tree.
+        TreeCell<Component> row = onFx(() -> {
+            TreeCell<Component> hoveredRow = h.cell("Nota 10");
+            setHover(hoveredRow, true);
             h.tree.getView().scrollTo(40);
             h.layout();
-            return null;
+            return hoveredRow;
         });
-        List<String> hovered = settle(() -> {
+        List<String> shownAndHovered = settle(() -> {
             h.layout();
-            List<String> out = new ArrayList<>();
-            for (Node node : h.tree.getView().lookupAll(".tree-cell")) {
-                if (node instanceof TreeCell<?> cell && cell.isVisible() && cell.isHover() && !cell.isEmpty()
-                        && cell.getItem() instanceof Component c && !"Nota 10".equals(c.getTitle())) {
-                    out.add(c.getTitle());
-                }
-            }
-            return out;
+            String shown = row.isEmpty() || !(row.getItem() instanceof Component c) ? "(empty)" : c.getTitle();
+            return List.of(shown, String.valueOf(row.isHover()));
         });
 
+        assertNotEquals("Nota 10", shownAndHovered.get(0), "the row was reused for another note");
+        assertNotEquals("(empty)", shownAndHovered.get(0), "the row was reused for another note");
+        List<String> hovered = "true".equals(shownAndHovered.get(1)) ? List.of(shownAndHovered.get(0)) : List.of();
         assertEquals(List.of(), hovered, "a reused row must not keep the hover of the item it showed before");
     }
 

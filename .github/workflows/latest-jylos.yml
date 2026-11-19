@@ -37,14 +37,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xvfb
 
+      # xvfb-run's default screen is 640x480: a test window that does not fit is shrunk, and the
+      # pointer rests over it. A desktop-sized screen gives the UI tests the room they measure.
       - name: Compile and run tests
-        run: xvfb-run -a mvn -B -f jylos/pom.xml clean test
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" mvn -B -f jylos/pom.xml clean test
 
       # Plugin sources are compiled against the app like third-party plugins, so the
       # Maven run above never sees them; this builds the plugin JARs and runs their tests
       # (Dataview, MCP, Publish…). Some open JavaFX dialogs, hence xvfb.
       - name: Build and test plugins
-        run: xvfb-run -a bash ./scripts/test-plugins.sh
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" bash ./scripts/test-plugins.sh
 
   editor-web:
     name: Editor (CodeMirror) tests

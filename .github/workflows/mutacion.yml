@@ -43,12 +43,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xvfb
 
+      # xvfb-run's default screen is 640x480: a test window that does not fit is shrunk, and the
+      # pointer rests over it. A desktop-sized screen gives the UI tests the room they measure.
       - name: Tests
-        run: xvfb-run -a mvn -B -f jylos/pom.xml test
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" mvn -B -f jylos/pom.xml test
 
       - name: Mutación
         run: |
-          xvfb-run -a mvn -B -f jylos/pom.xml org.pitest:pitest-maven:mutationCoverage \
+          xvfb-run -a -s "-screen 0 1920x1080x24" mvn -B -f jylos/pom.xml org.pitest:pitest-maven:mutationCoverage \
             -DtargetClasses="$TARGET_CLASSES" \
             -DtargetTests='com.example.jylos.tests.*' \
             -DexcludedTestClasses="$EXCLUDED_TESTS" \

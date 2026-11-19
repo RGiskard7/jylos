@@ -11,6 +11,8 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.ResourceBundle;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -41,6 +43,10 @@ class TemplaterIntegrationTest {
     Path vault;
 
     private final List<String> opened = new ArrayList<>();
+    /** The interface's language, which names the months and days: Spanish, whatever the machine's is. */
+    private static final ResourceBundle ES =
+            ResourceBundle.getBundle("com.example.jylos.i18n.messages", Locale.forLanguageTag("es"));
+
     private final List<String> statuses = new ArrayList<>();
     private final Folder[] inView = {null};
 
@@ -58,7 +64,7 @@ class TemplaterIntegrationTest {
                         || key.endsWith("_missing") ? key + " {0}" : key,
                 statuses::add, () -> null, () -> inView[0], note -> opened.add(note.getId()), note -> { }, id -> { },
                 () -> { }, () -> { });
-        creation.useVault(() -> store, () -> null, () -> null, () -> null);
+        creation.useVault(() -> store, () -> null, () -> null, () -> ES);
         creation.useClock(() -> OffsetDateTime.parse("2026-11-19T14:05:09+01:00").atZoneSameInstant(ZoneId.of("Europe/Madrid")));
         return creation;
     }

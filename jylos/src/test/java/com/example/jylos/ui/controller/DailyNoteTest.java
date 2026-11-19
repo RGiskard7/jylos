@@ -11,6 +11,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.ResourceBundle;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Assumptions;
@@ -43,6 +45,10 @@ class DailyNoteTest {
     Path vault;
 
     private final List<String> opened = new ArrayList<>();
+    /** The interface's language, which names the months and days: Spanish, whatever the machine's is. */
+    private static final ResourceBundle ES =
+            ResourceBundle.getBundle("com.example.jylos.i18n.messages", Locale.forLanguageTag("es"));
+
     private final List<String> statuses = new ArrayList<>();
     private VaultSettingsStore settings;
     private final Folder[] inView = {null};
@@ -59,7 +65,7 @@ class DailyNoteTest {
                 key -> key.startsWith("daily.status.") ? key + " {0}" : "app.untitled".equals(key) ? "Sin título" : key,
                 statuses::add, () -> null, () -> inView[0], note -> opened.add(note.getId()), note -> { }, id -> { },
                 () -> { }, () -> { });
-        creation.useVault(() -> store, () -> null, () -> null, () -> null);
+        creation.useVault(() -> store, () -> null, () -> null, () -> ES);
         creation.useClock(() -> LocalDateTime.parse("2026-11-19T09:30:00").atZone(ZoneId.of("Europe/Madrid")));
         return creation;
     }
