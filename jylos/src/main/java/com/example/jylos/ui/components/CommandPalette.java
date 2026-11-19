@@ -249,6 +249,9 @@ public class CommandPalette {
                 null));
         commands.add(new Command("cmd.import_obsidian_bookmarks", "Import Obsidian Bookmarks",
                 "Mark as favorites the notes bookmarked in Obsidian", null, "\u2605", "Tools", null));
+        commands.add(new Command("cmd.import_obsidian_settings", "Import Obsidian Settings\u2026",
+                "Take Obsidian's templates, daily note, new notes and Templater settings for this vault", null,
+                "\u2261", "Tools", null));
         commands.add(new Command("cmd.insert_template", "Templates: Insert template",
                 "Insert a template of the templates folder where the cursor is", null, "\u2261", "Edit", null));
         commands.add(new Command("cmd.insert_current_date", "Templates: Insert current date",

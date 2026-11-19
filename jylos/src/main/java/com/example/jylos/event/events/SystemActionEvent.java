@@ -96,6 +96,7 @@ public class SystemActionEvent extends AppEvent {
         VAULT_CLEANUP,
         /** Marks as favorites the notes bookmarked in Obsidian (reads its settings, never writes them). */
         IMPORT_OBSIDIAN_BOOKMARKS,
+        IMPORT_OBSIDIAN_SETTINGS,
         FOCUS_MODE,
         KANBAN_VIEW,
         PRIVATE_TOGGLE,

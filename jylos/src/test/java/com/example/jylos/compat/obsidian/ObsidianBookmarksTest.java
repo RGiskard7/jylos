@@ -1,4 +1,4 @@
-package com.example.jylos.service;
+package com.example.jylos.compat.obsidian;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;

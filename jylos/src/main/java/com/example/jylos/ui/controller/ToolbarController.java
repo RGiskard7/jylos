@@ -387,6 +387,11 @@ public class ToolbarController {
     }
 
     @FXML
+    private void handleImportObsidianSettings(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.IMPORT_OBSIDIAN_SETTINGS);
+    }
+
+    @FXML
     private void handleInsertTemplate(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.INSERT_TEMPLATE);
     }

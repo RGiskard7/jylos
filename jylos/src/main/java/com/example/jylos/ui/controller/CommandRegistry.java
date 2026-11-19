@@ -78,6 +78,7 @@ class CommandRegistry {
             new CommandDef("cmd.knowledge_insights", "Knowledge Insights"),
             new CommandDef("cmd.vault_cleanup", "Clean Up Jylos Metadata…"),
             new CommandDef("cmd.import_obsidian_bookmarks", "Import Obsidian Bookmarks"),
+            new CommandDef("cmd.import_obsidian_settings", "Import Obsidian Settings…"),
             new CommandDef("cmd.workspace_save", "Workspace: Save Current"),
             new CommandDef("cmd.workspace_save_as", "Workspace: Save As…"),
             new CommandDef("cmd.workspace_open", "Workspace: Open…"),

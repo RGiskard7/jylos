@@ -52,6 +52,7 @@ class I18nBundleFallbackGuardTest {
         "cmd.knowledge_insights",
         "cmd.vault_cleanup",
         "cmd.import_obsidian_bookmarks",
+        "cmd.import_obsidian_settings",
         "cmd.insert_template",
         "cmd.insert_current_date",
         "cmd.insert_current_time",

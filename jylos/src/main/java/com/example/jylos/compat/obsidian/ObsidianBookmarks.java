@@ -1,4 +1,4 @@
-package com.example.jylos.service;
+package com.example.jylos.compat.obsidian;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

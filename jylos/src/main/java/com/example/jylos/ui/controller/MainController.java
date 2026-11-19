@@ -248,7 +248,7 @@ public class MainController {
     private final GitController gitController = new GitController();
     private final WorkspaceController workspaceController = new WorkspaceController();
     private final VaultCleanupSupport vaultCleanup = new VaultCleanupSupport();
-    private final ObsidianBookmarksSupport obsidianBookmarks = new ObsidianBookmarksSupport();
+    private final ObsidianImportSupport obsidian = new ObsidianImportSupport();
     private final PrivacySupport privacySupport = new PrivacySupport();
     private final VaultLocationSupport vaultLocationSupport = new VaultLocationSupport();
     /** The editor's tabs (notes, the graph, new tabs) and their back/forward; and the Kanban board. */
@@ -1460,6 +1460,7 @@ public class MainController {
             Map.entry("cmd.knowledge_insights", SystemActionEvent.ActionType.KNOWLEDGE_INSIGHTS),
             Map.entry("cmd.vault_cleanup", SystemActionEvent.ActionType.VAULT_CLEANUP),
             Map.entry("cmd.import_obsidian_bookmarks", SystemActionEvent.ActionType.IMPORT_OBSIDIAN_BOOKMARKS),
+            Map.entry("cmd.import_obsidian_settings", SystemActionEvent.ActionType.IMPORT_OBSIDIAN_SETTINGS),
             Map.entry("cmd.workspace_save", SystemActionEvent.ActionType.WORKSPACE_SAVE),
             Map.entry("cmd.workspace_save_as", SystemActionEvent.ActionType.WORKSPACE_SAVE_AS),
             Map.entry("cmd.workspace_open", SystemActionEvent.ActionType.WORKSPACE_OPEN),
@@ -1622,14 +1623,13 @@ public class MainController {
         systemActionHandlers.put(SystemActionEvent.ActionType.KNOWLEDGE_INSIGHTS, this::showKnowledgeInsights);
         workspaceController.register(systemActionHandlers);
         vaultCleanup.register(systemActionHandlers, () -> noteService, this::getString, this::updateStatus, this::getMainWindow);
-        obsidianBookmarks.register(systemActionHandlers, () -> noteService, this::getString, this::updateStatus,
-                () -> handleRefresh(null), this::getMainWindow);
+        obsidian.register(systemActionHandlers, () -> noteService, () -> vaultSettings, this::getString,
+                this::updateStatus, () -> handleRefresh(null), this::getMainWindow);
         systemActionHandlers.put(SystemActionEvent.ActionType.FOCUS_MODE, this::handleFocusMode);
         systemActionHandlers.put(SystemActionEvent.ActionType.PRIVATE_TOGGLE, () -> privacySupport.toggle(getCurrentNote()));
         systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_UNLOCK, privacySupport::unlockAll);
         systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_LOCK, privacySupport::lockAll);
-        systemActionHandlers.put(SystemActionEvent.ActionType.IMPORT_OBSIDIAN, importSupport::importObsidianVault);
-        systemActionHandlers.put(SystemActionEvent.ActionType.IMPORT_ENEX, importSupport::importEnex);
+        importSupport.register(systemActionHandlers);
         systemActionHandlers.put(SystemActionEvent.ActionType.NOTE_HISTORY, historySupport::showHistoryDialog);
         systemActionHandlers.put(SystemActionEvent.ActionType.QUICK_SWITCHER, this::showQuickSwitcher);
         systemActionHandlers.put(SystemActionEvent.ActionType.CLOSE_NOTE, this::handleCloseNote);

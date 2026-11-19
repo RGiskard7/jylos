@@ -14,7 +14,7 @@ import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.event.events.SystemActionEvent.ActionType;
 import com.example.jylos.service.NoteService;
-import com.example.jylos.service.ObsidianBookmarks;
+import com.example.jylos.compat.obsidian.ObsidianBookmarks;
 import com.example.jylos.ui.UiDialogs;
 
 import javafx.scene.control.Alert;
