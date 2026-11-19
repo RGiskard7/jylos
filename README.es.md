@@ -58,6 +58,8 @@ Los paquetes precompilados para las principales plataformas están disponibles e
     - [Tablero Kanban](#tablero-kanban)
     - [Notas privadas (cifrado)](#notas-privadas-cifrado)
     - [Grafo de conocimiento](#grafo-de-conocimiento)
+    - [Plantillas y nota diaria](#plantillas-y-nota-diaria)
+    - [Compatibilidad con Obsidian](#compatibilidad-con-obsidian)
     - [Bóveda, Git y adjuntos (modo filesystem)](#bóveda-git-y-adjuntos-modo-filesystem)
     - [Productividad](#productividad)
     - [UI/UX](#uiux)
@@ -112,11 +114,13 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 - Editor Markdown CodeMirror 6 con vista previa en vivo por defecto, vista de lectura dedicada, modo fuente opcional y vista de lectura enlazada lado a lado (GFM, matemáticas KaTeX, emoji)
 - **Dos diseños**: un árbol **Explorador** con carpetas y notas juntas, al estilo de Obsidian, o el **clásico** en columnas carpetas | notas | editor (lado a lado o apiladas). Se elige con el botón de diseño de la barra superior o en Preferencias
-- **Pestañas como en VS Code**: un clic abre la nota en la pestaña actual; Cmd/Ctrl+clic, clic central o "Abrir en pestaña nueva" abren otra
+- **Pestañas como en VS Code**: un clic abre la nota en la pestaña actual; Cmd/Ctrl+clic, clic central o "Abrir en pestaña nueva" abren otra. El grafo y los tableros Kanban también se abren en pestañas, y **Jylos reabre la última sesión** al arrancar
 - Jerarquía de carpetas + etiquetas + favoritos + recientes + papelera
 - **Enlaces internos compatibles con Obsidian** (`[[wiki-links]]`, `[texto](nota.md)`) con clic en la vista previa
 - **Grafo de conocimiento** (vista global de la bóveda o grafo local alrededor de la nota abierta)
-- Panel de **backlinks** (notas que enlazan a la actual)
+- **Panel de enlaces**: menciones con enlace, menciones sin enlace (un clic las convierte en enlace) y enlaces salientes de la nota abierta
+- **Plantillas como las de Obsidian**, con la sintaxis de **Templater** opcional, **nota diaria** y ajustes de cada bóveda en Preferencias → Bóveda
+- **Comparte bóveda con Obsidian**: Jylos no escribe nada suyo en las notas, deja las propiedades como estaban escritas y puede tomar de Obsidian los ajustes de plantillas, nota diaria y Templater y los marcadores (de `.obsidian` solo lee)
 - **Tablero Kanban** guardado dentro de una nota, y **modo concentración** sin distracciones
 - **Editor de Canvas**: abre y edita ficheros `.canvas` compatibles con Obsidian en un lienzo infinito con pan/zoom — crea/mueve/redimensiona/colorea nodos de texto, enlace y grupo, conecta y borra aristas (con flechas) y crea nuevos canvas; el guardado hace round-trip seguro (preserva campos desconocidos)
 - **Notas privadas**: cifrado opcional del cuerpo con AES-256 tras una contraseña maestra, con desbloqueo por-nota o global y protección frente a borrado
@@ -131,6 +135,8 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 - Crear, editar, guardar, eliminar y restaurar notas
 - Carpetas y subcarpetas jerárquicas
 - **Diseño Explorador**: un solo árbol con carpetas y notas, que lee cada carpeta al desplegarla; un filtro que busca por nombre en toda la bóveda (sin distinguir mayúsculas ni acentos), orden de notas por nombre, edición o creación, y un botón para mostrar en el árbol la nota abierta. El panel de notas solo aparece para los resultados de búsquedas y etiquetas
+- **Pestaña nueva** (`Ctrl/Cmd+T`) con nueva nota, nuevo lienzo, ir a archivo, grafo y Kanban
+- **Espacios de trabajo como contextos**: la barra de estado muestra el espacio en uso y permite cambiarlo, guardarlo o gestionarlos; la última sesión (pestañas con su atrás y adelante) vuelve al arrancar
 - Etiquetas con asignación/eliminación (SQLite y bóveda)
 - Favoritos y notas recientes
 - Papelera con restauración de notas y carpetas anidadas
@@ -142,7 +148,9 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 - Editor Markdown basado en un bundle offline de CodeMirror 6, con resaltado de sintaxis adaptado al tema, presentación fuente/vista previa en vivo, selección, deshacer/rehacer, búsqueda/reemplazo, portapapeles, menú contextual y autocompletado `[[`
 - **Pestañas** como en VS Code: un clic sustituye la nota de la pestaña actual, una nota ya abierta activa su pestaña, y Cmd/Ctrl+clic, clic central o el menú contextual abren una pestaña nueva ("Abrir siempre las notas en una pestaña nueva" en Preferencias vuelve a una pestaña por nota)
 - **Estado de guardado y modo del editor en la barra de estado**: "Guardado" / "Sin guardar" (el tooltip indica cada cuánto se autoguarda) y el modo actual, que abre un menú para cambiar entre vista previa en vivo, fuente, lectura y lectura enlazada
-- **Autocompletado de `[[`** para títulos de nota; barra de formato (negrita, listas, enlaces, …)
+- **Autocompletado de `[[`** para títulos de nota (sin distinguir tildes ni mayúsculas, lo más parecido primero); barra de formato plegable (negrita, listas, enlaces, …)
+- **Propiedades** tras un botón en la cabecera de la nota, en edición y en lectura; los enlaces en propiedades (`up: "[[Índice]]"`) cuentan en el grafo y los backlinks
+- **Emojis en color** en el editor, la vista de lectura y el PDF, e imágenes **WebP**
 - La **vista previa en vivo** muestra cada elemento renderizado y solo revela el Markdown del elemento bajo el cursor (encabezados, citas y listas, por línea), todo renderizado mientras el editor no tiene el foco, manteniendo un único documento editable y un único historial de deshacer. Dibuja los callouts y las notas incrustadas en su propia línea como la vista de lectura, las imágenes incrustadas con `![[…]]`, las fórmulas con el KaTeX incluido, las notas al pie como números, las `#etiquetas` clicables (Cmd/Ctrl+clic), los `%%comentarios%%` y los identificadores de bloque atenuados, y el lenguaje de cada bloque de código; nada se renderiza dentro del código
 - Una única acción libro/lápiz alterna entre edición y lectura; el modo fuente se configura en Preferencias y la vista de lectura enlazada lado a lado es un comando independiente de Ver
 - La vista de lectura separada sigue siendo el render completo canónico para transclusiones, KaTeX y plugins de preview
@@ -175,12 +183,28 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 ### Grafo de conocimiento
 
-- Overlay a pantalla completa: **Ver → Vista de Grafo**, botón en barra o **`Ctrl+G`** / paleta de comandos
-- **Grafo global**: todas las notas y aristas resueltas por wiki-links; nodos de **etiquetas** opcionales y aristas nota→etiqueta
-- **Grafo local**: nota actual y vecinos a N saltos
+- Se abre en su pestaña: **Ver → Vista de Grafo**, botón en barra o **`Ctrl+G`** / paleta de comandos
+- **Grafo global**: todas las notas y aristas resueltas por wiki-links; nodos de **etiquetas**, adjuntos, huérfanas y enlaces no resueltos opcionales
+- **Grafo local**: la nota abierta y sus vecinas, de 1 a 5 saltos, con enlaces entrantes, salientes y entre vecinas
+- **Grupos de color**: una consulta (texto, `path:`, `file:` o `tag:`) con un color; cada nota toma el del primero que coincide
+- Fuerzas, tamaños y dibujo como en Obsidian: una nota con muchos enlaces sigue viéndose grande de lejos, al pasar el ratón se resaltan solo sus enlaces y las líneas son de un gris discreto
 - Simulación de fuerzas en **Canvas JavaFX** (repulsión Barnes–Hut, muelles, enfriamiento de alpha — en reposo no consume CPU)
-- Zoom/pan, arrastrar nodos, hover resalta vecinos, **clic en nota para abrirla**
-- Panel de ajustes: repulsión, fuerza/distancia de enlaces, gravedad central, huérfanos/enlaces no resueltos, flechas, color por carpeta, etiquetas/tamaño/grosor de línea
+- Zoom/pan, arrastrar nodos, **clic en nota para abrirla**; fuerzas, filtros, grupos y opciones del grafo local se recuerdan
+
+### Plantillas y nota diaria
+
+- **Carpeta de plantillas** en Preferencias → Bóveda (con sus subcarpetas); **Edición → Insertar plantilla…** escribe una plantilla en el cursor y fusiona sus propiedades con las de la nota, como Obsidian
+- Las variables de Obsidian: `{{title}}`, `{{date}}`, `{{time}}` y `{{date:FORMATO}}` con los formatos de Obsidian (moment), en inglés y español; además, **Insertar fecha / hora actual**
+- **Nota diaria** (`Ctrl/Cmd+Shift+D`) con su carpeta, su formato de nombre (`YYYY/MM/DD` crea carpetas) y su plantilla; las notas nuevas pueden ir a la carpeta que estás viendo, a la raíz o a una carpeta elegida
+- **Sintaxis de Templater** (opcional): `tp.date`, `tp.file`, `tp.frontmatter` y `tp.system` con el control de espacios de Templater, el cursor y las plantillas por carpeta; lo que ejecuta JavaScript se deja tal cual y se avisa
+- Los ajustes se guardan en la bóveda (`.jylos/settings.json`), así que cada bóveda tiene los suyos. Guía: [Plantillas y nota diaria](https://jylos.es/es/guides/templates)
+
+### Compatibilidad con Obsidian
+
+- Jylos y Obsidian pueden abrir la misma bóveda: Jylos no escribe nada suyo en las notas (favoritos y fijadas van en `.jylos/`), deja byte a byte las propiedades que no cambian y las lee como YAML 1.2, como Obsidian
+- **Herramientas → Limpiar metadatos de Jylos…** quita los campos que escribían versiones anteriores, con copia de cada nota
+- **Herramientas → Importar ajustes de Obsidian…** toma los ajustes de plantillas, nota diaria, ubicación de las notas nuevas y Templater de los plugins que Obsidian tiene activos; **Importar marcadores de Obsidian** convierte los marcadores en favoritos. De `.obsidian` solo se lee
+- Guía: [Compatibilidad con Obsidian](https://jylos.es/es/guides/obsidian-compatibility)
 
 ### Bóveda, Git y adjuntos (modo filesystem)
 
@@ -189,8 +213,8 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 ### Productividad
 
-- **Backlinks** en el panel derecho (wiki-links entrantes y enlaces Markdown internos)
-- **Nota diaria** y **nueva nota desde plantilla** (`{{title}}`, `{{date}}`, …)
+- **Panel de enlaces** en el panel derecho: menciones con enlace y la línea de cada una, menciones sin enlace con un botón **Enlazar**, y enlaces salientes (uno que no existe crea la nota)
+- **Nota diaria** y **nueva nota desde plantilla** — ver [Plantillas y nota diaria](#plantillas-y-nota-diaria)
 - Exportación por nota y **exportación masiva** de la bóveda a HTML/PDF
 - Importar/exportar notas individuales
 - **Importar una bóveda de Obsidian** (jerarquía de carpetas, frontmatter y etiquetas preservados; `.obsidian/` se omite) o un export **`.enex` de Evernote** (ENML convertido a Markdown, etiquetas conservadas, adjuntos marcados como placeholder) — menú Archivo
@@ -200,7 +224,8 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 - Temas claro, oscuro y **sistema** (sigue el SO cuando eliges Sistema) + temas CSS externos
 - **Snippets CSS**: coloca ficheros `.css` en `snippets/` y actívalos en Preferencias para retocar la interfaz sobre el tema activo (estilo Obsidian)
-- Temas externos en `themes/`: Gruvbox Dark, Gruvbox Light y Retro Phosphor
+- Temas externos en `themes/`: Gruvbox, Gruvbox Material, Nord, Catppuccin (Mocha y Latte), Rosé Pine (y Dawn) y Retro Phosphor — se descargan en la [página de temas](https://jylos.es/es/guides/themes)
+- **Iconos de colores** por tipo (opcional), **color propio por carpeta** y **tamaño de iconos** aparte del texto; todo crece con la letra de la interfaz
 - Preferencias de botones lateral/editor (texto/iconos/auto)
 - Barra lateral centrada (carpetas, etiquetas, recientes, favoritos, papelera)
 - Menú de diseño en la barra superior: Explorador, clásico en columnas o clásico apilado; la elección se recuerda
@@ -210,7 +235,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 ### Extensibilidad
 
 - Plugins JAR en `jylos/plugins/` (`scripts/build-plugins.sh`; bytecode **Java 21**)
-- Gestor de plugins con IDs estables y carga/deshabilitado seguro
+- Gestor de plugins con **plugins principales** (vienen y se actualizan con Jylos, solo se encienden o apagan) y **plugins de la comunidad** (en tu carpeta de plugins; modo restringido hasta que los permites), IDs estables y carga/deshabilitado seguro
 - API de plugins: paleta de comandos, menús, paneles laterales, enhancers del preview, **botones de toolbar** y **hooks del editor** (`onBeforeTextInsert` / `onBeforeSave` / `onAfterSave`) — ver [docs/PLUGINS.md](docs/PLUGINS.md)
 - **Mermaid** integrado en preview (fuente en `plugins-source/`)
 - Catálogo de temas externos con fallback seguro
@@ -218,15 +243,36 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 ## Capturas
 
 <div align="center">
-  <img src="resources/images/interfaz-24.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-25.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-26.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-27.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-28.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-29.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-30.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-31.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-32.png" alt="" style="width: 100%; max-width: 100%; display: block;">
+  <img src="resources/images/interfaz-33.png" alt="Diseño Explorador y vista previa en vivo, con el panel de enlaces" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Diseño Explorador y vista previa en vivo, con el panel de enlaces</em></p>
+  <img src="resources/images/interfaz-34.png" alt="Fuente y vista de lectura enlazada, lado a lado" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Fuente y vista de lectura enlazada, lado a lado</em></p>
+  <img src="resources/images/interfaz-35.png" alt="Diagramas Mermaid en la vista de lectura" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Diagramas Mermaid en la vista de lectura</em></p>
+  <img src="resources/images/interfaz-36.png" alt="Grafo global de una bóveda grande, con grupos de color" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Grafo global de una bóveda grande, con grupos de color</em></p>
+  <img src="resources/images/interfaz-37.png" alt="Ajustes del grafo: filtros, grafo local y grupos de color" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Ajustes del grafo: filtros, grafo local y grupos de color</em></p>
+  <img src="resources/images/interfaz-38.png" alt="Grafo local alrededor de una nota" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Grafo local alrededor de una nota</em></p>
+  <img src="resources/images/interfaz-39.png" alt="Tablero Kanban dentro de una nota" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Tablero Kanban dentro de una nota</em></p>
+  <img src="resources/images/interfaz-40.png" alt="Canvas compatible con Obsidian" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Canvas compatible con Obsidian</em></p>
+  <img src="resources/images/interfaz-41.png" alt="Consultas Dataview sobre las propiedades de las notas" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Consultas Dataview sobre las propiedades de las notas</em></p>
+  <img src="resources/images/interfaz-42.png" alt="Gestor de plugins: principales y de la comunidad" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Gestor de plugins: principales y de la comunidad</em></p>
+  <img src="resources/images/interfaz-43.png" alt="Preferencias → Bóveda: plantillas, nota diaria y Templater" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Preferencias → Bóveda: plantillas, nota diaria y Templater</em></p>
+  <img src="resources/images/interfaz-44.png" alt="Paleta de comandos" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Paleta de comandos</em></p>
+  <img src="resources/images/interfaz-45.png" alt="Diseño clásico: carpetas, notas y editor en columnas" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Diseño clásico: carpetas, notas y editor en columnas</em></p>
+  <img src="resources/images/interfaz-46.png" alt="Tema externo: Gruvbox Material" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Tema externo: Gruvbox Material</em></p>
+  <img src="resources/images/interfaz-47.png" alt="Tema claro" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Tema claro</em></p>
 </div>
 
 ## Stack Tecnológico

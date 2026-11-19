@@ -59,6 +59,7 @@ type Copy = {
   ctaTitle: string;
   ctaText: string;
   ctaButton: string;
+  ctaContact: string;
 };
 
 const githubUrl = "https://github.com/RGiskard7/jylos";
@@ -120,15 +121,15 @@ const en: Copy = {
   featuresSubtitle: "Notes, wiki-links, a knowledge graph, Kanban, Canvas, plugins and Git — all offline.",
   features: [
     { icon: "editor", title: "Markdown Editor", text: "WYSIWYG: type Markdown and it renders as you type — GFM tables, KaTeX math and emoji." },
-    { icon: "wiki", title: "Wiki-links", text: "Wiki-link autocomplete, backlinks panel and click-to-open navigation between notes." },
-    { icon: "graph", title: "Knowledge Graph", text: "Interactive force-directed graph. Zoom, pan, drag nodes, local neighbourhood views." },
+    { icon: "wiki", title: "Wiki-links", text: "Wiki-link autocomplete, a links panel with linked and unlinked mentions, and click-to-open navigation." },
+    { icon: "graph", title: "Knowledge Graph", text: "Force-directed graph drawn as in Obsidian, with colour groups and local neighbourhood views." },
     { icon: "board", title: "Canvas & Kanban", text: "Obsidian-compatible Canvas boards and Kanban workflows for projects and planning." },
     { icon: "git", title: "Git Sync", text: "Stage, commit, push and pull from a unified panel. Full Git integration in vault mode." },
     { icon: "lock", title: "AES-256 Encryption", text: "Encrypt note bodies with AES-256-GCM behind a master password, with delete protection." },
     { icon: "storage", title: "Storage Freedom", text: "SQLite database or plain Markdown vault. Switch anytime, your choice." },
     { icon: "plugin", title: "Plugins & Themes", text: "Plugin JARs, Mermaid diagrams, CSS themes, snippets and a plugin manager." },
     { icon: "search", title: "Advanced Search", text: "Operators, date shorthands, command palette and quick switcher." },
-    { icon: "workspace", title: "Workspaces", text: "Save and restore open tabs, view state and layout per context." },
+    { icon: "workspace", title: "Workspaces", text: "Save and restore tabs and layout per context — and your last session reopens on start." },
   ],
   featureSections: [
     {
@@ -139,9 +140,9 @@ const en: Copy = {
       description:
         "Built on CodeMirror 6, it renders as you type — true WYSIWYG. You see GFM tables, KaTeX math, emoji and `![[embeds]]` live, while the Markdown source stays available when you want it.",
       cards: [
-        { title: "Live Preview editor", image: "interfaz-24.png", alt: "Jylos editor and preview" },
-        { title: "Tabs, split views and source mode", image: "interfaz-26.png", alt: "Tabs, split views and source mode" },
-        { title: "Mermaid diagrams in real time", image: "interfaz-25.png", alt: "Mermaid diagrams" },
+        { title: "Explorer layout and Live Preview", image: "interfaz-33.png", alt: "Jylos editor in the Explorer layout, with the links panel" },
+        { title: "Source and linked reading, side by side", image: "interfaz-34.png", alt: "Source and reading view side by side" },
+        { title: "Mermaid diagrams", image: "interfaz-35.png", alt: "Mermaid diagrams in the reading view" },
       ],
     },
     {
@@ -149,10 +150,11 @@ const en: Copy = {
       label: "Knowledge graph",
       title: "A map of every link in your notes",
       description:
-        "A force-directed graph built from your wiki-links. Zoom, pan and drag, open any note with a click, and switch between the whole vault and the local neighbourhood of the note you are reading. Knowledge Insights also reports orphan notes, broken links and a graph health score.",
+        "A force-directed graph built from your wiki-links. Zoom, pan and drag, open any note with a click, and switch between the whole vault and the local neighbourhood of the note you are reading. Colour groups paint notes by path, name or tag. Knowledge Insights also reports orphan notes, broken links and a graph health score.",
       cards: [
-        { title: "Interactive global graph", image: "interfaz-27.png", alt: "Knowledge graph" },
-        { title: "Local neighbourhoods", image: "interfaz-28.png", alt: "Knowledge graph zoom" },
+        { title: "Global graph of a large vault", image: "interfaz-36.png", alt: "Global knowledge graph with colour groups" },
+        { title: "Filters, local graph and colour groups", image: "interfaz-37.png", alt: "Graph settings panel" },
+        { title: "Local neighbourhoods", image: "interfaz-38.png", alt: "Local graph around a note" },
       ],
     },
     {
@@ -162,8 +164,19 @@ const en: Copy = {
       description:
         "A board is just a note whose headings are columns and its list items are cards — drag cards across columns, set WIP limits and colors. The Canvas editor opens Obsidian-compatible `.canvas` files on an infinite surface.",
       cards: [
-        { title: "Kanban boards inside notes", image: "interfaz-29.png", alt: "Kanban board" },
-        { title: "Obsidian-compatible Canvas", image: "interfaz-32.png", alt: "Canvas editor" },
+        { title: "Kanban boards inside notes", image: "interfaz-39.png", alt: "Kanban board" },
+        { title: "Obsidian-compatible Canvas", image: "interfaz-40.png", alt: "Canvas editor" },
+      ],
+    },
+    {
+      icon: "pen",
+      label: "Templates",
+      title: "Templates that Obsidian and Templater understand",
+      description:
+        "Insert a template at the cursor with Obsidian's {{title}}, {{date}} and {{time}} variables, open today's daily note, and turn on Templater's syntax — tp.date, tp.file, prompts and folder templates. Each vault keeps its own settings, and they can be taken from Obsidian's.",
+      cards: [
+        { title: "Preferences → Vault", image: "interfaz-43.png", alt: "Vault preferences: templates, daily note and Templater" },
+        { title: "Template commands in the palette", image: "interfaz-44.png", alt: "Command palette" },
       ],
     },
     {
@@ -171,16 +184,28 @@ const en: Copy = {
       label: "Extensible",
       title: "Plugins, themes and snippets",
       description:
-        "Dataview, MCP Server and Publish ship built-in; drop external JARs into the plugin folder to add commands, side panels, preview enhancers and toolbar buttons. CSS themes and snippets restyle the app.",
+        "Dataview, MCP Server and Publish ship as core plugins; drop external JARs into the plugin folder to add commands, side panels, preview enhancers and toolbar buttons. CSS themes and snippets restyle the app.",
       cards: [
-        { title: "Dataview queries", image: "interfaz-30.png", alt: "Dataview plugin" },
-        { title: "Plugin manager", image: "interfaz-31.png", alt: "Plugins" },
+        { title: "Dataview queries", image: "interfaz-41.png", alt: "Dataview plugin" },
+        { title: "Plugin manager", image: "interfaz-42.png", alt: "Plugin manager" },
+        { title: "External themes", image: "interfaz-46.png", alt: "Gruvbox Material theme" },
+      ],
+    },
+    {
+      icon: "board",
+      label: "Your way",
+      title: "Your layout, your look",
+      description:
+        "One tree with folders and notes, or the classic folders | notes | editor columns. Light, dark or system theme, coloured icons by type and a colour for each folder.",
+      cards: [
+        { title: "Classic layout", image: "interfaz-45.png", alt: "Classic layout in columns" },
+        { title: "Light theme", image: "interfaz-47.png", alt: "Light theme" },
       ],
     },
   ],
   pluginsLabel: "Power features",
   pluginsTitle: "Ask your notes, connect your AI, publish your vault",
-  pluginsSubtitle: "Three built-in tools that go beyond note-taking — on by default.",
+  pluginsSubtitle: "Three core plugins that go beyond note-taking: Dataview is on by default, MCP Server and Publish one switch away.",
   plugins: [
     {
       title: "Dataview",
@@ -233,6 +258,7 @@ const en: Copy = {
   ctaTitle: "Open source and actively maintained",
   ctaText: "Jylos is released under MIT and built with Java 21 and JavaFX 23. Issues, feedback and pull requests are welcome.",
   ctaButton: "Contribute on GitHub",
+  ctaContact: "Contact",
 };
 
 const es: Copy = {
@@ -289,15 +315,15 @@ const es: Copy = {
   featuresSubtitle: "Notas, wiki-links, un grafo de conocimiento, Kanban, Canvas, plugins y Git — todo sin conexión.",
   features: [
     { icon: "editor", title: "Editor Markdown", text: "WYSIWYG: escribe Markdown y se renderiza al instante — tablas GFM, fórmulas KaTeX y emoji." },
-    { icon: "wiki", title: "Wiki-links", text: "Autocompletado de wiki-links, panel de backlinks y navegación entre notas con un clic." },
-    { icon: "graph", title: "Grafo de conocimiento", text: "Grafo interactivo por fuerzas. Zoom, paneo, arrastre de nodos, vistas de vecindario local." },
+    { icon: "wiki", title: "Wiki-links", text: "Autocompletado de wiki-links, un panel de enlaces con menciones con y sin enlace, y navegación con un clic." },
+    { icon: "graph", title: "Grafo de conocimiento", text: "Grafo por fuerzas dibujado como en Obsidian, con grupos de color y vistas de vecindario local." },
     { icon: "board", title: "Canvas y Kanban", text: "Canvas compatible con Obsidian y flujos Kanban para proyectos y planificación." },
     { icon: "git", title: "Sincronización Git", text: "Prepara, confirma, haz push y pull desde un panel unificado. Integración Git completa en modo vault." },
     { icon: "lock", title: "Cifrado AES-256", text: "Cifra el contenido de las notas con AES-256-GCM tras una contraseña maestra, con protección de borrado." },
     { icon: "storage", title: "Libertad de almacenamiento", text: "Base de datos SQLite o vault Markdown plano. Cambia cuando quieras." },
     { icon: "plugin", title: "Plugins y temas", text: "Plugins JAR, diagramas Mermaid, temas CSS, snippets y gestor de plugins." },
     { icon: "search", title: "Búsqueda avanzada", text: "Operadores, atajos de fecha, paleta de comandos y selector rápido." },
-    { icon: "workspace", title: "Workspaces", text: "Guarda y restaura pestañas abiertas, estado de vistas y layout por contexto." },
+    { icon: "workspace", title: "Workspaces", text: "Guarda y restaura pestañas y diseño por contexto — y tu última sesión vuelve al arrancar." },
   ],
   featureSections: [
     {
@@ -308,9 +334,9 @@ const es: Copy = {
       description:
         "Construido sobre CodeMirror 6, renderiza mientras escribes — WYSIWYG de verdad. Ves tablas GFM, fórmulas KaTeX, emoji y `![[embebidos]]` en vivo, y el código Markdown sigue disponible cuando lo necesitas.",
       cards: [
-        { title: "Editor con Live Preview", image: "interfaz-24.png", alt: "Editor y vista previa de Jylos" },
-        { title: "Pestañas, vistas divididas y modo fuente", image: "interfaz-26.png", alt: "Pestañas, vistas divididas y modo fuente" },
-        { title: "Diagramas Mermaid en tiempo real", image: "interfaz-25.png", alt: "Diagramas Mermaid" },
+        { title: "Diseño Explorador y vista previa en vivo", image: "interfaz-33.png", alt: "Editor de Jylos en el diseño Explorador, con el panel de enlaces" },
+        { title: "Fuente y lectura enlazada, lado a lado", image: "interfaz-34.png", alt: "Fuente y vista de lectura lado a lado" },
+        { title: "Diagramas Mermaid", image: "interfaz-35.png", alt: "Diagramas Mermaid en la vista de lectura" },
       ],
     },
     {
@@ -318,10 +344,11 @@ const es: Copy = {
       label: "Grafo de conocimiento",
       title: "Un mapa de cada enlace de tus notas",
       description:
-        "Un grafo por fuerzas construido a partir de tus wiki-links. Haz zoom, panea y arrastra, abre cualquier nota con un clic, y alterna entre el vault completo y el vecindario local de la nota que estás leyendo. Knowledge Insights también detecta notas huérfanas, enlaces rotos y una puntuación de salud del grafo.",
+        "Un grafo por fuerzas construido a partir de tus wiki-links. Haz zoom, panea y arrastra, abre cualquier nota con un clic, y alterna entre el vault completo y el vecindario local de la nota que estás leyendo. Los grupos de color pintan las notas por ruta, nombre o etiqueta. Knowledge Insights también detecta notas huérfanas, enlaces rotos y una puntuación de salud del grafo.",
       cards: [
-        { title: "Grafo global interactivo", image: "interfaz-27.png", alt: "Grafo de conocimiento" },
-        { title: "Vecindarios locales", image: "interfaz-28.png", alt: "Zoom del grafo de conocimiento" },
+        { title: "Grafo global de una bóveda grande", image: "interfaz-36.png", alt: "Grafo de conocimiento global con grupos de color" },
+        { title: "Filtros, grafo local y grupos de color", image: "interfaz-37.png", alt: "Panel de ajustes del grafo" },
+        { title: "Vecindarios locales", image: "interfaz-38.png", alt: "Grafo local alrededor de una nota" },
       ],
     },
     {
@@ -331,8 +358,19 @@ const es: Copy = {
       description:
         "Un tablero es solo una nota cuyos encabezados son columnas y sus elementos de lista son tarjetas — arrastra tarjetas entre columnas, define límites WIP y colores. El editor Canvas abre ficheros `.canvas` compatibles con Obsidian sobre una superficie infinita.",
       cards: [
-        { title: "Tableros Kanban dentro de notas", image: "interfaz-29.png", alt: "Tablero Kanban" },
-        { title: "Canvas compatible con Obsidian", image: "interfaz-32.png", alt: "Editor Canvas" },
+        { title: "Tableros Kanban dentro de notas", image: "interfaz-39.png", alt: "Tablero Kanban" },
+        { title: "Canvas compatible con Obsidian", image: "interfaz-40.png", alt: "Editor Canvas" },
+      ],
+    },
+    {
+      icon: "pen",
+      label: "Plantillas",
+      title: "Plantillas que entienden Obsidian y Templater",
+      description:
+        "Inserta una plantilla en el cursor con las variables {{title}}, {{date}} y {{time}} de Obsidian, abre la nota diaria de hoy y activa la sintaxis de Templater — tp.date, tp.file, preguntas y plantillas por carpeta. Cada bóveda guarda sus ajustes, y se pueden tomar de los de Obsidian.",
+      cards: [
+        { title: "Preferencias → Bóveda", image: "interfaz-43.png", alt: "Preferencias de la bóveda: plantillas, nota diaria y Templater" },
+        { title: "Órdenes de plantillas en la paleta", image: "interfaz-44.png", alt: "Paleta de comandos" },
       ],
     },
     {
@@ -340,16 +378,28 @@ const es: Copy = {
       label: "Extensible",
       title: "Plugins, temas y snippets",
       description:
-        "Dataview, MCP Server y Publish vienen integrados; suelta JARs externos en la carpeta de plugins para añadir comandos, paneles laterales, mejoras de la vista previa y botones de la barra. Los temas CSS y los snippets cambian el aspecto de la app.",
+        "Dataview, MCP Server y Publish vienen como plugins principales; suelta JARs externos en la carpeta de plugins para añadir comandos, paneles laterales, mejoras de la vista previa y botones de la barra. Los temas CSS y los snippets cambian el aspecto de la app.",
       cards: [
-        { title: "Consultas Dataview", image: "interfaz-30.png", alt: "Plugin Dataview" },
-        { title: "Gestor de plugins", image: "interfaz-31.png", alt: "Plugins" },
+        { title: "Consultas Dataview", image: "interfaz-41.png", alt: "Plugin Dataview" },
+        { title: "Gestor de plugins", image: "interfaz-42.png", alt: "Gestor de plugins" },
+        { title: "Temas externos", image: "interfaz-46.png", alt: "Tema Gruvbox Material" },
+      ],
+    },
+    {
+      icon: "board",
+      label: "A tu manera",
+      title: "Tu diseño, tu aspecto",
+      description:
+        "Un solo árbol con carpetas y notas, o las columnas clásicas carpetas | notas | editor. Tema claro, oscuro o del sistema, iconos de colores por tipo y un color para cada carpeta.",
+      cards: [
+        { title: "Diseño clásico", image: "interfaz-45.png", alt: "Diseño clásico en columnas" },
+        { title: "Tema claro", image: "interfaz-47.png", alt: "Tema claro" },
       ],
     },
   ],
   pluginsLabel: "Capacidades destacadas",
   pluginsTitle: "Consulta tus notas, conecta tu IA, publica tu vault",
-  pluginsSubtitle: "Tres herramientas integradas que van más allá de tomar notas — activadas por defecto.",
+  pluginsSubtitle: "Tres plugins principales que van más allá de tomar notas: Dataview viene activado y MCP Server y Publish, a un clic.",
   plugins: [
     {
       title: "Dataview",
@@ -402,6 +452,7 @@ const es: Copy = {
   ctaTitle: "Código abierto y mantenimiento activo",
   ctaText: "Jylos se publica bajo licencia MIT y está construido con Java 21 y JavaFX 23. Los issues, el feedback y los pull requests son bienvenidos.",
   ctaButton: "Contribuir en GitHub",
+  ctaContact: "Contacto",
 };
 
 const { lang } = useData();
@@ -461,7 +512,7 @@ const copyJbang = async () => {
 
     <section class="landing-container hero-screenshot">
       <div class="screenshot-frame">
-        <img class="screenshot-image" :src="asset('interfaz-24.png')" alt="Jylos editor and preview" draggable="false" />
+        <img class="screenshot-image" :src="asset('interfaz-33.png')" alt="Jylos editor and preview" draggable="false" />
       </div>
     </section>
 
@@ -700,6 +751,9 @@ const copyJbang = async () => {
           </svg>
           {{ t.ctaButton }}
         </a>
+        <p class="cta-contact">
+          {{ t.ctaContact }}: <a href="mailto:ed.dzsn@protonmail.com">ed.dzsn@protonmail.com</a>
+        </p>
         <p class="cta-copyright">© 2025–2026 Eduardo Díaz Sánchez (RGiskard7)</p>
       </div>
     </section>
@@ -1403,8 +1457,20 @@ const copyJbang = async () => {
   margin-top: 20px;
 }
 
+.cta-contact {
+  margin: 24px 0 0;
+  color: #c8c8c0;
+  font-size: 14px;
+}
+
+.cta-contact a {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .cta-copyright {
-  margin: 28px 0 0;
+  margin: 12px 0 0;
   color: #a0a098;
   font-size: 13px;
 }
