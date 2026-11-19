@@ -54,11 +54,11 @@ let
 in
 stdenv.mkDerivation rec {
   pname = "jylos";
-  version = "2.5.8";
+  version = "2.6.0";
 
   src = fetchurl {
     url = "https://github.com/RGiskard7/jylos/releases/download/v${version}/jylos-linux-amd64.deb";
-    hash = "sha256-pB9yJd9T0c8xSITGwkim0835UpzIj/Mk6fdqq+M9DY0=";
+    hash = "sha256-nGd6Re5Y3S1wdNLc53z8FVvQqzBaHae9gu9IHgfw2SM=";
   };
 
   nativeBuildInputs = [
