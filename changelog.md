@@ -180,7 +180,8 @@
     - lo mismo al mover, borrar o crear notas y carpetas en una carpeta recién renombrada o movida;
     - guardar la nota abierta después de renombrar o mover su carpeta ya no deja una copia con la ruta anterior;
     - cambiar solo mayúsculas y minúsculas del nombre de una carpeta ("trabajo" a "Trabajo") ahora la renombra;
-    - renombrar una carpeta con el nombre de otra que ya existe en el mismo sitio muestra un error, en lugar de no hacer nada.
+    - renombrar una carpeta con el nombre de otra que ya existe en el mismo sitio muestra un error, en lugar de no hacer nada;
+    - en Windows, renombrar o mover una carpeta se reintenta durante medio segundo si otro programa (el antivirus, el indexador, un cliente de sincronización) tiene abierto un instante algo de dentro, en lugar de fallar.
 
 ## [2.5.8] - 2026-11-04
 

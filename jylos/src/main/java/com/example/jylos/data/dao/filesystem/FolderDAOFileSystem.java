@@ -155,10 +155,10 @@ public class FolderDAOFileSystem implements FolderDAO {
                 List<String> metadataDocumentIds = collectMetadataDocumentIds(currentPath);
                 if (sameFolder) {
                     Path step = currentPath.resolveSibling(newName + ".jylos-renaming");
-                    Files.move(currentPath, step);
-                    Files.move(step, newPath);
+                    FileMoves.move(currentPath, step);
+                    FileMoves.move(step, newPath);
                 } else {
-                    Files.move(currentPath, newPath);
+                    FileMoves.move(currentPath, newPath);
                 }
                 redirects.record(rootPath.relativize(currentPath).toString(), rootPath.relativize(newPath).toString());
                 moveDocumentMetadataEntries(metadataDocumentIds,
@@ -230,7 +230,7 @@ public class FolderDAOFileSystem implements FolderDAO {
                     targetPath = targetPath.getParent().resolve(name + "_" + System.currentTimeMillis());
                 }
 
-                Files.move(path, targetPath);
+                FileMoves.move(path, targetPath);
                 moveDocumentMetadataEntries(metadataDocumentIds,
                         normalizedId,
                         FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString()));
@@ -330,7 +330,7 @@ public class FolderDAOFileSystem implements FolderDAO {
             }
 
             List<String> metadataDocumentIds = collectMetadataDocumentIds(srcPath);
-            Files.move(srcPath, targetPath);
+            FileMoves.move(srcPath, targetPath);
             moveDocumentMetadataEntries(metadataDocumentIds,
                     normalizedId,
                     FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString()));
@@ -464,7 +464,7 @@ public class FolderDAOFileSystem implements FolderDAO {
 
             try {
                 if (!sourcePath.equals(targetPath)) {
-                    Files.move(sourcePath, targetPath);
+                    FileMoves.move(sourcePath, targetPath);
                     moveDocumentMetadataIfNeeded(
                             FileSystemNames.normalizeId(rootPath.relativize(sourcePath).toString()),
                             FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString()),
@@ -505,7 +505,7 @@ public class FolderDAOFileSystem implements FolderDAO {
             Path targetPath = uniqueDocumentTargetPath(requestedPath);
 
             try {
-                Files.move(sourcePath, targetPath);
+                FileMoves.move(sourcePath, targetPath);
                 moveDocumentMetadataIfNeeded(
                         FileSystemNames.normalizeId(rootPath.relativize(sourcePath).toString()),
                         FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString()),
@@ -544,7 +544,7 @@ public class FolderDAOFileSystem implements FolderDAO {
             Path targetPath = uniqueDocumentTargetPath(requestedPath);
 
             try {
-                Files.move(sourcePath, targetPath);
+                FileMoves.move(sourcePath, targetPath);
                 moveDocumentMetadataIfNeeded(
                         FileSystemNames.normalizeId(rootPath.relativize(sourcePath).toString()),
                         FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString()),
@@ -616,7 +616,7 @@ public class FolderDAOFileSystem implements FolderDAO {
 
             try {
                 List<String> metadataDocumentIds = collectMetadataDocumentIds(subPath);
-                Files.move(subPath, targetPath);
+                FileMoves.move(subPath, targetPath);
                 redirects.record(rootPath.relativize(subPath).toString(), rootPath.relativize(targetPath).toString());
                 moveDocumentMetadataEntries(metadataDocumentIds,
                         FileSystemNames.normalizeId(rootPath.relativize(subPath).toString()),
@@ -655,7 +655,7 @@ public class FolderDAOFileSystem implements FolderDAO {
 
             try {
                 List<String> metadataDocumentIds = collectMetadataDocumentIds(sourcePath);
-                Files.move(sourcePath, targetPath);
+                FileMoves.move(sourcePath, targetPath);
                 redirects.record(rootPath.relativize(sourcePath).toString(), rootPath.relativize(targetPath).toString());
                 moveDocumentMetadataEntries(metadataDocumentIds,
                         FileSystemNames.normalizeId(rootPath.relativize(sourcePath).toString()),

@@ -36,6 +36,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBase;
 import javafx.scene.control.Label;
 import javafx.scene.control.Toggle;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.BorderStroke;
 import javafx.scene.layout.FlowPane;
@@ -145,7 +146,7 @@ class FlatButtonsComponentsTest {
             return out;
         });
 
-        if ("pdf".equals(view)) {
+        if ("pdf".equals(view) || "image".equals(view)) {
             closeWhenLoaded(shown.get());
         }
 
@@ -153,22 +154,34 @@ class FlatButtonsComponentsTest {
     }
 
     /**
-     * The PDF viewer reads its file in the background (its page count, "/ 0", changes once it
-     * has) and keeps the document open while it is shown; it closes it when taken out of its
-     * window. Done here once it has loaded, so the
-     * file is no longer open when the temporary folder is deleted (Windows refuses to delete an
-     * open file).
+     * The viewers read their file in the background: the image viewer until the image has
+     * loaded, the PDF viewer until its page count ("/ 0") changes, keeping the document open
+     * while it is shown and closing it when taken out of its window. Both are waited for and
+     * taken out here, so no file is open when the temporary folder is deleted (Windows refuses
+     * to delete an open file).
      */
     private static void closeWhenLoaded(Pane host) throws Exception {
         long deadline = System.nanoTime() + 20_000_000_000L;
-        while (!onFx(() -> all(host).stream().anyMatch(n -> n instanceof Label l && l.getText() != null && l.getText().matches("/ [1-9]\\d*")))) {
-            assertTrue(System.nanoTime() < deadline, "the PDF viewer loaded its document");
+        while (!onFx(() -> loaded(host))) {
+            assertTrue(System.nanoTime() < deadline, "the viewer loaded its file");
             Thread.sleep(50);
         }
         onFx(() -> {
             host.getChildren().clear();
             return null;
         });
+    }
+
+    private static boolean loaded(Pane host) {
+        for (Node node : all(host)) {
+            if (node instanceof ImageView image && image.getImage() != null && image.getImage().getProgress() >= 1) {
+                return true;
+            }
+            if (node instanceof Label label && label.getText() != null && label.getText().matches("/ [1-9]\\d*")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static List<Node> all(Parent root) {

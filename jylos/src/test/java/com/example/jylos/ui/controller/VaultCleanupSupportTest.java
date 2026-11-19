@@ -3,6 +3,7 @@ package com.example.jylos.ui.controller;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -41,7 +42,9 @@ class VaultCleanupSupportTest {
         Map<ActionType, Runnable> handlers = new EnumMap<>(ActionType.class);
         support.register(handlers, () -> notes, key -> key, status::add, () -> null);
         support.useForTests(Runnable::run, Runnable::run, (count, backups) -> {
-            asked.add(count + " " + vault.relativize(backups).toString().replaceAll("\\d", "N"));
+            // The folder the copies go to, written with "/" whatever the system's separator.
+            asked.add(count + " " + vault.relativize(backups).toString().replace(File.separatorChar, '/')
+                    .replaceAll("\\d", "N"));
             return accept;
         });
         return handlers.getOrDefault(ActionType.VAULT_CLEANUP, () -> status.add("no command"));
