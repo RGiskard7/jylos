@@ -17,6 +17,9 @@ import {
 // not change keeps its DOM (no KaTeX redraw, no image reload, no jump while it loads again),
 // and still acts on where it is now in the document.
 
+/** The views a test made, destroyed after it: a live one would measure itself later, outside it. */
+const views = [];
+
 function makeView(doc, anchor = 0, focused = false) {
   const parent = document.createElement("div");
   document.body.appendChild(parent);
@@ -28,6 +31,7 @@ function makeView(doc, anchor = 0, focused = false) {
     }),
     parent
   });
+  views.push(view);
   view.dispatch({ effects: setEditorFocus.of(focused) });
   return view;
 }
@@ -37,6 +41,7 @@ function mousedown(element, init = {}) {
 }
 
 afterEach(() => {
+  views.splice(0).forEach(view => view.destroy());
   document.body.innerHTML = "";
   delete window.javaEditor;
   delete window.katex;
