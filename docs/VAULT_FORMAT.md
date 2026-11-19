@@ -23,6 +23,17 @@ Written by `FrontmatterHandler.generate(note, previousFile)`, called from
   plus those added from the app. A `#tag` of the text (now or before the edit) stays in the
   text; the text of a private note is encrypted, so its tags all stay in `tags:`.
 - **The first line of the text is never taken as the title**: the title is the file name.
+- **YAML is read and written as Obsidian does, YAML 1.2 core** (`FrontmatterResolver`,
+  `FrontmatterConstructor`): only `true`/`false` are booleans; `no`, `yes`, `on`, `10:30` or
+  `1_000` are text; `0123` is 123, `0x1F` and `0o17` have their prefix. When written again:
+  lists with Obsidian's indentation (`  - x`), an empty property as `key:`, a date unquoted, a
+  value Jylos' field (`author`, `status`, `source_url`) reads as written is copied as it is (a
+  list stays a list), and new properties go right before the text, with no blank line.
+- **Properties a template adds** (`FrontmatterHandler.mergeProperties`, Obsidian's rule: new
+  ones at the end in their order, lists joined without repeats, a template's empty value does
+  not overwrite) are kept in `Note.addedFrontmatter` until the next save: a template's `title`,
+  `created` or `favorite` is a property of the file and does not change the note's name, dates
+  or marks.
 
 ### Keys Jylos reads
 
@@ -62,6 +73,7 @@ on read and save stay.
 |------|---------|
 | `document-metadata.json` | Per path: favorite and pinned marks of notes; favorite, pinned, private, status and trash data of canvases and attachments |
 | `encryption.json` | Salt and verifier of the master password (see [ARCHITECTURE.md](ARCHITECTURE.md#private-notes-encryption)) |
+| `settings.json` | The vault's settings (`VaultSettings`, `VaultSettingsStore`): templates and their formats, daily note, new notes, Templater, and whether importing Obsidian's was offered. With the database it is in the data folder (`vault-settings.json`). The paths it names follow a folder renamed or moved in Jylos |
 | `backups/cleanup-<date>/` | Copies made by the clean-up command |
 
 `document-metadata.json` (`FileSystemDocumentMetadataStore`):
@@ -87,6 +99,24 @@ or block of the file) and items of other types (search, folder…) are counted a
 in another shape is reported as not understood, never read as empty. The files bookmarked that
 exist in the vault become favorites; the result says how many were marked, already were, were
 not found and were ignored.
+
+## Obsidian's settings
+
+**Tools → Import Obsidian Settings…** (`ObsidianSettingsSupport`, offered once when the vault is
+opened, from `ObsidianImportSupport`) reads `.obsidian` (`compat/obsidian/ObsidianSettings`, the
+only code that knows those files) and never writes it:
+
+| File | Jylos' settings |
+|------|-----------------|
+| `templates.json` (`folder`, `dateFormat`, `timeFormat`) | `templates`, if the Templates plugin is on |
+| `daily-notes.json` (`folder`, `format`, `template`) | `daily`, if Daily notes is on |
+| `app.json` (`newFileLocation`, `newFileFolderPath`) | `newNotes` (`root` by default) |
+| `plugins/templater-obsidian/data.json` (`templates_folder`, `trigger_on_file_creation`, `enable_folder_templates`, `folder_templates`) | `templater`, if Templater is in `community-plugins.json` |
+
+The plugins on come from `core-plugins.json` (an object `{id: true}` or, in older versions, a
+list; with no file, Obsidian's defaults). A missing key takes Obsidian's default. A file in
+another shape is reported as not understood and nothing is applied. What would change is shown,
+and applied only when the user accepts it.
 
 ## Limits
 

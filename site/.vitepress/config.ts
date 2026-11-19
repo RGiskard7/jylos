@@ -65,6 +65,7 @@ export default defineConfig({
             text: "Guides",
             items: [
               { text: "Creating Notes", link: "/guides/creating-notes" },
+              { text: "Templates and Daily Note", link: "/guides/templates" },
               { text: "Wiki-links", link: "/guides/wiki-links" },
               { text: "Knowledge Graph", link: "/guides/knowledge-graph" },
               { text: "Kanban", link: "/guides/kanban" },
@@ -144,6 +145,7 @@ export default defineConfig({
             text: "Guías",
             items: [
               { text: "Crear notas", link: "/es/guides/creating-notes" },
+              { text: "Plantillas y nota diaria", link: "/es/guides/templates" },
               { text: "Wiki-links", link: "/es/guides/wiki-links" },
               { text: "Grafo de conocimiento", link: "/es/guides/knowledge-graph" },
               { text: "Kanban", link: "/es/guides/kanban" },

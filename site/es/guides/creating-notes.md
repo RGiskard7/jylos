@@ -4,9 +4,8 @@ Las notas son el corazón de Jylos. Aquí está todo lo relacionado con crearlas
 
 ## Crear
 
-- **Ctrl/Cmd+N** crea una nota nueva en la carpeta actual.
-- **Nota diaria** crea la nota de hoy.
-- **Nueva nota desde plantilla** crea una nota a partir de una plantilla — una nota de una carpeta "Templates" — sustituyendo los marcadores <span v-pre>{{title}}</span>, <span v-pre>{{date}}</span>, <span v-pre>{{time}}</span> y <span v-pre>{{datetime}}</span>.
+- **Ctrl/Cmd+N** crea una nota nueva en la carpeta actual, o donde diga Preferencias → Bóveda.
+- **Nota diaria** abre o crea la nota de hoy, y **Nueva desde plantilla** e **Insertar plantilla** usan las plantillas de la bóveda: consulta [Plantillas y nota diaria](/es/guides/templates).
 
 ## Editar
 

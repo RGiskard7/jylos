@@ -4,9 +4,8 @@ Notes are at the heart of Jylos. Here is everything around creating, editing and
 
 ## Create
 
-- **Ctrl/Cmd+N** creates a new note in the current folder.
-- **Daily note** creates a note for today.
-- **New note from template** creates a note from a template — a note in a "Templates" folder — replacing the placeholders <span v-pre>{{title}}</span>, <span v-pre>{{date}}</span>, <span v-pre>{{time}}</span> and <span v-pre>{{datetime}}</span>.
+- **Ctrl/Cmd+N** creates a new note in the current folder, or where Preferences → Vault says.
+- **Daily Note** opens or creates today's note, and **New from Template** and **Insert Template** use the vault's templates: see [Templates and Daily Note](/guides/templates).
 
 ## Edit
 

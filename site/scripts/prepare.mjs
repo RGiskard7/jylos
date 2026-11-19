@@ -10,7 +10,8 @@ const root = path.resolve(site, "..");
 
 const changelog = fs.readFileSync(path.join(root, "changelog.md"), "utf8");
 fs.writeFileSync(path.join(site, "changelog.md"),
-  `---\ntitle: Changelog\neditLink: false\n---\n\n<!-- Generated from ../changelog.md by scripts/prepare.mjs: edit that file. -->\n\n${changelog}`);
+  // v-pre: the changelog quotes template syntax ({{date}}…), which Vue must not read as its own.
+  `---\ntitle: Changelog\neditLink: false\n---\n\n<!-- Generated from ../changelog.md by scripts/prepare.mjs: edit that file. -->\n\n::: v-pre\n\n${changelog}\n\n:::\n`);
 
 const themes = path.join(root, "themes");
 const out = path.join(site, "public", "themes");

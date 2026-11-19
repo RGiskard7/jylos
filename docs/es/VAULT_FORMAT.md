@@ -25,6 +25,18 @@ Lo escribe `FrontmatterHandler.generate(nota, ficheroAnterior)`, llamado desde
   de antes de editar) se queda en el texto; el texto de una nota privada va cifrado, así que
   todas sus etiquetas se quedan en `tags:`.
 - **La primera línea del texto nunca se toma como título**: el título es el nombre del fichero.
+- **El YAML se lee y se escribe como lo hace Obsidian, YAML 1.2 núcleo** (`FrontmatterResolver`,
+  `FrontmatterConstructor`): solo `true`/`false` son booleanos; `no`, `yes`, `on`, `10:30` o
+  `1_000` son texto; `0123` es 123, `0x1F` y `0o17` llevan su prefijo. Al volver a escribir:
+  listas con la sangría de Obsidian (`  - x`), una propiedad vacía como `clave:`, una fecha sin
+  comillas, un valor que el campo de Jylos (`author`, `status`, `source_url`) lee igual que el
+  escrito se copia tal cual (una lista sigue siendo lista), y unas propiedades nuevas van justo
+  antes del texto, sin línea en blanco.
+- **Las propiedades que añade una plantilla** (`FrontmatterHandler.mergeProperties`, la regla
+  de Obsidian: las nuevas al final en su orden, listas unidas sin repetir, un valor vacío de la
+  plantilla no pisa) se guardan en `Note.addedFrontmatter` hasta el siguiente guardado: así un
+  `title`, `created` o `favorite` de la plantilla es una propiedad del fichero y no cambia el
+  nombre, las fechas ni las marcas de la nota.
 
 ### Claves que lee Jylos
 
@@ -64,6 +76,7 @@ guardar se quedan.
 |---------|-----------|
 | `document-metadata.json` | Por ruta: favorito y fijado de las notas; favorito, fijado, privado, estado y papelera de lienzos y adjuntos |
 | `encryption.json` | Sal y verificador de la contraseña maestra (ver [ARCHITECTURE.md](ARCHITECTURE.md)) |
+| `settings.json` | Ajustes de la bóveda (`VaultSettings`, `VaultSettingsStore`): plantillas y sus formatos, nota diaria, notas nuevas, Templater y si ya se ofreció importar los de Obsidian. Con la base de datos va en la carpeta de datos (`vault-settings.json`). Las rutas que nombra siguen a una carpeta renombrada o movida en Jylos |
 | `backups/cleanup-<fecha>/` | Copias que hace el comando de limpieza |
 
 `document-metadata.json` (`FileSystemDocumentMetadataStore`):
@@ -89,6 +102,24 @@ bloque del fichero) y los elementos de otros tipos (búsqueda, carpeta…) se cu
 ignorados. Un fichero con otra forma se da por no entendido, nunca se lee como vacío. Los
 ficheros marcados que existen en la bóveda pasan a favoritos; el resultado dice cuántos se
 marcaron, cuántos ya lo eran, cuántos no se encontraron y cuántos se ignoraron.
+
+## Ajustes de Obsidian
+
+**Herramientas → Importar ajustes de Obsidian…** (`ObsidianSettingsSupport`, ofrecido una vez al
+abrir la bóveda desde `ObsidianImportSupport`) lee `.obsidian` (`compat/obsidian/ObsidianSettings`,
+el único código que conoce esos ficheros) y nunca lo escribe:
+
+| Fichero | Ajustes de Jylos |
+|---------|------------------|
+| `templates.json` (`folder`, `dateFormat`, `timeFormat`) | `templates`, si el plugin Plantillas está activo |
+| `daily-notes.json` (`folder`, `format`, `template`) | `daily`, si Notas diarias está activo |
+| `app.json` (`newFileLocation`, `newFileFolderPath`) | `newNotes` (`root` por defecto) |
+| `plugins/templater-obsidian/data.json` (`templates_folder`, `trigger_on_file_creation`, `enable_folder_templates`, `folder_templates`) | `templater`, si Templater está en `community-plugins.json` |
+
+Los plugins activos salen de `core-plugins.json` (un objeto `{id: true}` o, en versiones
+antiguas, una lista; sin fichero, los de Obsidian por defecto). Una clave que falta toma el
+valor por defecto de Obsidian. Un fichero con otra forma se da por no entendido y no se aplica
+nada. Se muestra qué cambiaría y se aplica solo si el usuario lo acepta.
 
 ## Límites
 
