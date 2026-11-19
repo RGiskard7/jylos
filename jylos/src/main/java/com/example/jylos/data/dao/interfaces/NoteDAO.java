@@ -1,6 +1,8 @@
 package com.example.jylos.data.dao.interfaces;
 
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.data.models.Note;
@@ -11,6 +13,21 @@ import com.example.jylos.data.models.Folder;
  * notes.
  * It provides methods for creating, retrieving, updating, and deleting notes,
  * as well as managing their relationships with folders and tags.
+ *
+ * <h2>Errors</h2>
+ * <ul>
+ * <li><b>Writes</b> (create, update, move, trash, restore, delete) either happen or throw
+ * {@link com.example.jylos.exceptions.DataAccessException}: a write the storage refuses (a
+ * read-only folder, a full disk, a database error) is never silently skipped. On SQLite a
+ * failed write leaves nothing behind (see {@code SQLiteDB.inTransaction}).</li>
+ * <li><b>Reads</b> do not throw for something that is not there or cannot be read: they give
+ * {@code null} (single items, where the method says so) or an empty list.</li>
+ * <li>Arguments that make no sense ({@code null} where an object is required) throw
+ * {@code IllegalArgumentException} or {@code InvalidParameterException}.</li>
+ * </ul>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public interface NoteDAO {
 
@@ -187,14 +204,25 @@ public interface NoteDAO {
     }
 
     /**
+     * Registers a callback invoked, off the UI thread, when a background pass has indexed the
+     * links of notes that the list only read in part (file-based storage with long notes).
+     * Backends that always know a note's links have nothing to report: no-op by default.
+     *
+     * @param callback action to run (may be {@code null} to clear)
+     */
+    default void setOnLinksIndexed(Runnable callback) {
+        // No-op: links are always complete.
+    }
+
+    /**
      * Resolves the on-disk file backing a note, when the storage is file-based.
      *
      * @param id note id
      * @return the note's file path, or empty for storage backends without files
      *         (e.g. SQLite)
      */
-    default java.util.Optional<java.nio.file.Path> resolveFilePath(String id) {
-        return java.util.Optional.empty();
+    default Optional<Path> resolveFilePath(String id) {
+        return Optional.empty();
     }
 
     /**
@@ -203,8 +231,8 @@ public interface NoteDAO {
      *
      * @return the storage root, or empty for backends without files (e.g. SQLite)
      */
-    default java.util.Optional<java.nio.file.Path> storageRoot() {
-        return java.util.Optional.empty();
+    default Optional<Path> storageRoot() {
+        return Optional.empty();
     }
 
     /**

@@ -10,7 +10,7 @@
    <HBox fx:id="stackedModeHeader" managed="false" visible="false" alignment="CENTER_RIGHT" styleClass="stacked-header">
        <Button onAction="#handleToggleNotesPanel" styleClass="icon-btn-small">
            <graphic>
-               <FontIcon iconLiteral="fth-x" iconSize="14"/>
+               <FontIcon iconLiteral="fth-x" styleClass="icon-14"/>
            </graphic>
        </Button>
    </HBox>
@@ -38,6 +38,13 @@
             <tooltip><Tooltip text="%tooltip.refresh_list"/></tooltip>
             <graphic>
                 <FontIcon iconLiteral="fth-refresh-cw" styleClass="feather-icon"/>
+            </graphic>
+        </Button>
+        <!-- Explorer layout: the panel only shows tag or search results and closes here. -->
+        <Button fx:id="closeResultsBtn" onAction="#handleCloseResults" styleClass="icon-btn" visible="false" managed="false">
+            <tooltip><Tooltip text="%panel.results.close"/></tooltip>
+            <graphic>
+                <FontIcon iconLiteral="fth-x" styleClass="feather-icon"/>
             </graphic>
         </Button>
     </HBox>

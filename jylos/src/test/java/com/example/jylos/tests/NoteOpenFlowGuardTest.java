@@ -12,16 +12,16 @@ import org.junit.jupiter.api.Test;
 
 class NoteOpenFlowGuardTest {
 
-    private static final Path OVERLAY_SUPPORT = Path.of("src/main/java/com/example/jylos/ui/controller/OverlaySupport.java");
+    private static final Path VIEW_TABS_SUPPORT = Path.of("src/main/java/com/example/jylos/ui/controller/TabsSupport.java");
 
     @Test
-    void overlaySupportShouldDelegateNoteOpenDirectlyInsteadOfRepublishingEvents() throws IOException {
-        String source = Files.readString(OVERLAY_SUPPORT, StandardCharsets.UTF_8);
+    void tabsSupportShouldDelegateNoteOpenDirectlyInsteadOfRepublishingEvents() throws IOException {
+        String source = Files.readString(VIEW_TABS_SUPPORT, StandardCharsets.UTF_8);
 
-        assertTrue(source.contains("Consumer<Note> openNote"));
+        assertTrue(source.contains("host.openNote"));
         assertFalse(source.contains("NoteOpenRequestEvent"),
-                "OverlaySupport should delegate note-open requests directly to its owner.");
+                "TabsSupport should delegate note-open requests directly to its owner.");
         assertFalse(source.contains("EventBus.getInstance()"),
-                "OverlaySupport should not use the global EventBus for one-to-one note-open delegation.");
+                "TabsSupport should not use the global EventBus for one-to-one note-open delegation.");
     }
 }

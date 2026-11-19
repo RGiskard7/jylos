@@ -2,6 +2,7 @@ package com.example.jylos.plugin.builtin;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.ResourceBundle;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.event.EventBus;
@@ -9,6 +10,9 @@ import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginContext;
 import com.example.jylos.plugin.PluginI18n;
+
+import javafx.application.Platform;
+import javafx.scene.control.Alert;
 
 /**
  * Reading Time Plugin - Estimates reading time for notes.
@@ -43,7 +47,7 @@ public class ReadingTimePlugin implements Plugin {
     private static final String NAME = "Reading Time";
     private static final String VERSION = "1.0.0";
     private static final String DESCRIPTION = "Estimates reading and speaking time for notes";
-    private static final String AUTHOR = "Jylos Team";
+    private static final String AUTHOR = "Edu Díaz";
     
     // Reading speeds in words per minute
     private static final int SLOW_WPM = 150;       // Careful reading
@@ -57,7 +61,7 @@ public class ReadingTimePlugin implements Plugin {
 
     // Loaded once, lazily — getDescription() can be called by the Plugin Manager before
     // initialize() ever runs, so this cannot wait for that.
-    private static java.util.ResourceBundle bundle;
+    private static ResourceBundle bundle;
 
     private static String tr(String key, String fallback) {
         if (bundle == null) {
@@ -309,9 +313,9 @@ public class ReadingTimePlugin implements Plugin {
      * Shows an information alert dialog.
      */
     private void showAlert(String title, String header, String content) {
-        javafx.application.Platform.runLater(() -> {
-            javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
-                javafx.scene.control.Alert.AlertType.INFORMATION
+        Platform.runLater(() -> {
+            Alert alert = new Alert(
+                Alert.AlertType.INFORMATION
             );
             alert.setTitle(title);
             alert.setHeaderText(header);

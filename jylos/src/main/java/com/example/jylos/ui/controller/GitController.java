@@ -17,6 +17,8 @@ import com.example.jylos.git.GitResult;
 import com.example.jylos.git.GitService;
 import com.example.jylos.git.GitStatus;
 import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.ui.UiNodes;
+import com.example.jylos.ui.components.GitSyncPanel;
 
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
@@ -24,7 +26,9 @@ import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Dialog;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Separator;
@@ -86,9 +90,7 @@ public final class GitController {
         this.refreshVaultAfterRemoteUpdate = refreshVaultAfterRemoteUpdate;
     }
 
-    // ------------------------------------------------------------------
-    // Public actions (called from MainController's FXML/menu handlers)
-    // ------------------------------------------------------------------
+    // ── Public actions (called from MainController's FXML/menu handlers) ─────
 
     /** Runs a full vault sync for already staged changes asynchronously. */
     public void sync() {
@@ -116,7 +118,7 @@ public final class GitController {
 
     /** Opens the consolidated workspace at its remote setup action. */
     public void addRemote() {
-        showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget.REMOTE);
+        showSyncPanel(GitSyncPanel.FocusTarget.REMOTE);
     }
 
     /**
@@ -124,18 +126,18 @@ public final class GitController {
      * an activity log) for the current vault. No-op outside vault mode.
      */
     public void showSyncPanel() {
-        showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget.OVERVIEW);
+        showSyncPanel(GitSyncPanel.FocusTarget.OVERVIEW);
     }
 
     /** Opens the unified Git workspace focused on a concrete status-bar task. */
-    public void showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget focusTarget) {
+    public void showSyncPanel(GitSyncPanel.FocusTarget focusTarget) {
         Path vault = gitVaultPath();
         if (vault == null) {
             updateStatus(getString("status.git_no_vault"));
             return;
         }
         Scene scene = sceneSupplier != null ? sceneSupplier.get() : null;
-        new com.example.jylos.ui.components.GitSyncPanel(gitService, vault, this::getString, scene,
+        new GitSyncPanel(gitService, vault, this::getString, scene,
                 this::refreshVaultAfterRemoteUpdate).show(focusTarget);
         refreshStatus();
     }
@@ -147,8 +149,8 @@ public final class GitController {
         }
         Path vault = gitVaultPath();
         if (vault == null) {
-            setNodeVisible(gitBar, false);
-            setNodeVisible(gitSeparator, false);
+            UiNodes.show(gitBar, false);
+            UiNodes.show(gitSeparator, false);
             return;
         }
         Task<GitStatus> task = new Task<>() {
@@ -159,15 +161,13 @@ public final class GitController {
         };
         task.setOnSucceeded(e -> applyGitStatus(task.getValue()));
         task.setOnFailed(e -> {
-            setNodeVisible(gitBar, false);
-            setNodeVisible(gitSeparator, false);
+            UiNodes.show(gitBar, false);
+            UiNodes.show(gitSeparator, false);
         });
         runDaemon(task, "git-status");
     }
 
-    // ------------------------------------------------------------------
-    // Internals
-    // ------------------------------------------------------------------
+    // ── Internals ────────────────────────────────────────────────────────────
 
     /** Resolves the vault directory eligible for Git, or null (SQLite / no path). */
     private Path gitVaultPath() {
@@ -259,31 +259,30 @@ public final class GitController {
         if (gitBar == null || status == null) {
             return;
         }
-        setNodeVisible(gitBar, true);
-        setNodeVisible(gitSeparator, true);
+        UiNodes.show(gitBar, true);
+        UiNodes.show(gitSeparator, true);
 
         boolean repo = status.repository();
-        setNodeVisible(gitInitLabel, !repo);
-        setNodeVisible(gitRemoteLabel, repo);
-        setNodeVisible(gitChangesLabel, repo);
-        setNodeVisible(gitCommitLabel, repo);
-        setNodeVisible(gitSyncLabel, repo);
-        setNodeVisible(gitHistoryLabel, repo);
+        // Compact: without a repository only "Initialize Git"; with one, a single entry (branch,
+        // sync state and number of changes) that opens the Git panel, whose context menu keeps
+        // one-click access to changes, commit, history and adding a remote.
+        UiNodes.show(gitInitLabel, !repo);
+        UiNodes.show(gitRemoteLabel, false);
+        UiNodes.show(gitChangesLabel, false);
+        UiNodes.show(gitCommitLabel, false);
+        UiNodes.show(gitHistoryLabel, false);
+        UiNodes.show(gitSyncLabel, repo);
+        for (Node child : gitBar.getChildren()) {
+            if (child instanceof Separator) {
+                UiNodes.show(child, false);
+            }
+        }
 
         if (!repo) {
             gitInitLabel.setText(getString("git.initialize"));
             gitInitLabel.setTooltip(new Tooltip(getString("git.tooltip_init")));
             return;
         }
-
-        gitRemoteLabel.setText(status.hasRemote() ? getString("git.remote") : getString("git.no_remote"));
-        gitRemoteLabel.setTooltip(new Tooltip(getString("git.tooltip_remote")));
-
-        gitChangesLabel.setText(MessageFormat.format(getString("git.changes"), status.modified()));
-        gitChangesLabel.setTooltip(new Tooltip(getString("git.tooltip_changes")));
-
-        gitCommitLabel.setText(getString("git.commit"));
-        gitCommitLabel.setTooltip(new Tooltip(getString("git.tooltip_commit")));
 
         StringBuilder sync = new StringBuilder(status.branch().isBlank() ? "git" : status.branch());
         if (status.ahead() > 0) {
@@ -295,11 +294,32 @@ public final class GitController {
         if (!status.needsSync()) {
             sync.append("  ✓");
         }
+        if (status.modified() > 0) {
+            sync.append(" · ").append(status.modified());
+        }
         gitSyncLabel.setText(sync.toString());
-        gitSyncLabel.setTooltip(new Tooltip(getString("git.tooltip_sync")));
+        gitSyncLabel.setTooltip(new Tooltip(String.join("\n",
+                status.hasRemote() ? getString("git.remote") : getString("git.no_remote"),
+                MessageFormat.format(getString("git.changes"), status.modified()),
+                getString("git.tooltip_compact"))));
+        gitSyncLabel.setContextMenu(compactMenu(status));
+    }
 
-        gitHistoryLabel.setText(getString("git.history"));
-        gitHistoryLabel.setTooltip(new Tooltip(getString("git.tooltip_history")));
+    /** The compact Git entry's context menu: what the separate entries used to offer. */
+    private ContextMenu compactMenu(GitStatus status) {
+        MenuItem changes = new MenuItem(MessageFormat.format(getString("git.changes"), status.modified()));
+        changes.setOnAction(e -> showSyncPanel(GitSyncPanel.FocusTarget.CHANGES));
+        MenuItem commit = new MenuItem(getString("git.commit"));
+        commit.setOnAction(e -> showSyncPanel(GitSyncPanel.FocusTarget.COMMIT));
+        MenuItem history = new MenuItem(getString("git.history"));
+        history.setOnAction(e -> showHistoryDialog());
+        ContextMenu menu = new ContextMenu(changes, commit, history);
+        if (!status.hasRemote()) {
+            MenuItem remote = new MenuItem(getString("action.git_add_remote"));
+            remote.setOnAction(e -> addRemote());
+            menu.getItems().add(remote);
+        }
+        return menu;
     }
 
     /** Applies the active theme stylesheet to a dialog and sets its owner window. */
@@ -356,12 +376,6 @@ public final class GitController {
     }
 
     /** Sets both {@code visible} and {@code managed} on {@code node} so the layout does not reserve space when hidden. */
-    private static void setNodeVisible(Node node, boolean visible) {
-        if (node != null) {
-            node.setVisible(visible);
-            node.setManaged(visible);
-        }
-    }
 
     /** Starts {@code task} on a new daemon thread so Git I/O never blocks the JavaFX Application Thread. */
     private static void runDaemon(Task<?> task, String name) {

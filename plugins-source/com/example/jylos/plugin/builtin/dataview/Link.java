@@ -12,6 +12,8 @@ import java.util.Objects;
  *
  * @param target  bare note title this link points at
  * @param display text shown to the reader (falls back to {@code target})
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
  */
 record Link(String target, String display) {
 

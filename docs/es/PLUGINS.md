@@ -2,19 +2,62 @@
 
 English: [../PLUGINS.md](../PLUGINS.md)
 
-Los plugins externos son JARs cargados al arrancar. Core no importa clases concretas de plugins.
+Los plugins son JARs que se cargan al arrancar; el core no importa clases concretas de plugins.
+Como en Obsidian, hay dos tipos:
+
+- **Plugins principales:** los de Jylos (`plugins-source/`, más Mermaid compilado en la app;
+  la lista está en `CorePlugins`). Vienen con la instalación, junto a la app (jpackage
+  `--app-content`: `Jylos.app/Contents/plugins/` en macOS, `/opt/jylos/lib/plugins/` en Linux,
+  `<instalación>\plugins\` en Windows), y se actualizan con ella. Se encienden o apagan; no se
+  quitan. En una instalación nueva MCP Server (abre un puerto local), Publish y Auto Backup
+  (escriben ficheros fuera de la bóveda) empiezan apagados; el resto, encendidos.
+- **Plugins de la comunidad:** los instala el usuario en su carpeta de plugins
+  (`<appData>/plugins`, `PluginLoader.getPluginsDirectoryFile()`). Una copia de un plugin
+  principal en esa carpeta no se usa: gana el de la instalación.
+
+Si cada plugin está encendido se guarda como `plugin.enabled.<id>` en las preferencias del
+gestor de plugins (`PluginStates`); las versiones anteriores solo guardaban
+`plugin.disabled.<id>`, que se sigue leyendo. Al actualizar se conserva el estado de cada uno.
+
+### Modo restringido
+
+Los plugins de la comunidad son código de otras personas con acceso completo al equipo, así
+que no se carga ninguno hasta que el usuario los permite en el gestor de plugins, que pide
+confirmación. Una instalación nueva empieza en modo restringido; una actualización en la que
+el usuario ya tenía plugins propios, no.
+
+### La ficha del plugin (`MANIFEST.MF`)
+
+Además de `Plugin-Class`, el manifiesto de un JAR de plugin indica:
+
+| Atributo | Significado |
+|----------|-------------|
+| `Plugin-Id` | El id del plugin, el mismo que `getId()` |
+| `Plugin-Min-Jylos` | La versión mínima de Jylos con la que funciona, p. ej. `2.6.0` |
+
+Un plugin de la comunidad cuyo `Plugin-Min-Jylos` sea posterior al Jylos instalado no se
+carga, y el gestor dice qué versión necesita. Sin ese atributo se carga y queda una nota en el
+log. `scripts/build-plugins.sh` escribe los dos en los plugins principales.
 
 ## Instalación
 
-Usa **Herramientas → Gestionar plugins → Instalar plugin...** y selecciona un `.jar`. Jylos copia el JAR al directorio principal de plugins del usuario y lo carga inmediatamente cuando es posible.
-
-La instalación manual sigue estando soportada: coloca el JAR en el directorio principal de plugins (`<appData>/plugins`, el que expone `PluginLoader.getPluginsDirectoryFile()`) y reinicia Jylos.
+En **Herramientas → Gestionar plugins**, con los plugins de la comunidad permitidos:
+**Instalar plugin...** copia un `.jar` a la carpeta de plugins del usuario y lo carga. O
+**Abrir carpeta de plugins**, copia ahí el JAR y pulsa **Recargar plugins**; no hace falta
+reiniciar.
 
 ## Eliminación
 
-Usa **Herramientas → Gestionar plugins → Eliminar** en la tarjeta de un plugin para desinstalarlo del directorio principal de plugins del usuario. Jylos apaga el plugin, retira sus aportaciones de UI, cierra su classloader, borra el JAR y limpia su preferencia de desactivado.
+**Eliminar** en la tarjeta de un plugin de la comunidad lo apaga, retira sus aportaciones de
+UI, cierra su classloader, borra el JAR y olvida su estado. Los principales se apagan; no se
+quitan.
 
-Los plugins cargados desde ubicaciones protegidas del paquete de la aplicación no se eliminan desde el gestor; cópialos primero al directorio de plugins del usuario si quieres que el gestor controle su ciclo de vida.
+## Plugins que Jylos ya no tiene
+
+`RetiredPlugins` los enumera (el asistente de IA, `ai-assistant`). No se cargan nunca; al
+arrancar se borran sus ajustes y las copias que versiones anteriores dejaron en la carpeta de
+plugins del usuario (marcadas con `.bundled-plugins-copied`). Esas versiones copiaban ahí todos
+los plugins principales en el primer arranque; Jylos ya no lo hace, y borra también esas copias.
 
 ## Build
 
@@ -133,11 +176,10 @@ terceros, y depende de que `scripts/build-plugins.sh` haya generado su JAR.
 **Mermaid es la única excepción deliberada.** Vive en
 `jylos/src/main/java/com/example/jylos/plugin/mermaid/`, compilado directamente en el core
 (`PluginLifecycle.registerCoreAndExternalPlugins` lo instancia directamente — sin JAR, sin
-classloader). El empaquetado trata el build de plugins como best-effort: si
-`build-plugins.sh` falla, la app se empaqueta igual, solo que sin esos JARs. El renderizado
-de diagramas Mermaid es lo bastante común, y se espera lo bastante fiable, como para no
-depender de que ese paso tenga éxito — por eso está compilado dentro, no construido desde
-`plugins-source/`. No muevas aquí otros plugins de primera parte por el mismo razonamiento
+classloader). Su renderizador no necesita un paso de build aparte y los diagramas se esperan
+en cualquier instalación, así que está compilado dentro, no construido desde
+`plugins-source/`. (El empaquetado ahora falla si los demás plugins principales no compilan,
+así que ningún instalador sale sin ellos.) No muevas aquí otros plugins de primera parte por el mismo razonamiento
 sin sopesar el trade-off: saca al plugin del mecanismo de JAR (sin activar/desactivar por
 fichero independiente, sin `isPluginRemovable`) a cambio de disponibilidad incondicional.
 
@@ -150,6 +192,7 @@ fichero independiente, sin `isPluginRemovable`) a cambio de disponibilidad incon
 | `registerSidePanel(...)` | Nodo JavaFX en panel derecho |
 | `registerPreviewEnhancer(...)` | CSS/JS en preview Markdown, más post-procesado de HTML por nota (abajo) |
 | `registerToolbarButton(...)` | Botón de toolbar |
+| `registerStatusBarItem(itemId, contenido)` | Nodo en la barra de estado, como `addStatusBarItem()` de Obsidian: se guarda el nodo para actualizarlo (p. ej. un `Label` con `setText`); el mismo `itemId` lo sustituye; se quita solo al desactivar el plugin (`removeStatusBarItem(itemId)` / `removeStatusBarItems()` para quitarlo antes) |
 | `registerEditorHook(EditorHook)` | Hooks del editor |
 | `registerEditorBlockRenderer(language, renderer)` | Renderiza un bloque cercado dentro del Live Preview del editor |
 | `requestOpenNote(note)` | Pedir al shell abrir nota |

@@ -7,17 +7,30 @@ import javafx.scene.layout.*;
 import javafx.scene.input.*;
 import javafx.application.Platform;
 import javafx.animation.PauseTransition;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
 import javafx.event.ActionEvent;
+import javafx.geometry.Pos;
+import javafx.geometry.Side;
+import javafx.scene.Node;
+import javafx.scene.control.ToggleButton;
 import javafx.util.Duration;
 import java.util.*;
 import java.io.File;
+import java.nio.file.Path;
+import java.text.MessageFormat;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 import java.util.prefs.Preferences;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import org.kordamp.ikonli.javafx.FontIcon;
 
 import com.example.jylos.config.LoggerConfig;
@@ -33,11 +46,26 @@ import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
+import com.example.jylos.service.TrashService;
+import com.example.jylos.ui.FolderColorStyle;
+import com.example.jylos.ui.NoteIcons;
+import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.ui.UiNodes;
+import com.example.jylos.ui.components.EditorTabsModel;
+import com.example.jylos.ui.components.ExplorerOrdering;
+import com.example.jylos.ui.components.ExplorerTree;
+import com.example.jylos.ui.components.TreeDisclosureArrow;
+import com.example.jylos.ui.components.TreeIndentGuides;
+import com.example.jylos.ui.components.NewTabGesture;
+import com.example.jylos.util.FileManager;
 
 /**
  * Sidebar: folders, tags, recent, favorites, and trash.
  * Uses explicit callbacks for single-owner selections and typed events where fan-out
  * or cross-feature coordination is useful.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class SidebarController {
 
@@ -96,7 +124,7 @@ public class SidebarController {
     private ListView<String> tagListView;
     @FXML
     private TextField filterTagsField;
-    private final javafx.collections.ObservableList<String> masterTagsList = javafx.collections.FXCollections
+    private final ObservableList<String> masterTagsList = FXCollections
             .observableArrayList();
     private final Map<String, Tag> tagsByTitleCache = new HashMap<>();
     private boolean tagSortAscending = true;
@@ -106,7 +134,7 @@ public class SidebarController {
     private ListView<String> recentNotesListView;
     @FXML
     private TextField filterRecentField;
-    private final javafx.collections.ObservableList<String> masterRecentList = javafx.collections.FXCollections
+    private final ObservableList<String> masterRecentList = FXCollections
             .observableArrayList();
     private boolean recentSortAscending = true;
     private List<Note> cachedRecentNotes = new ArrayList<>();
@@ -116,7 +144,7 @@ public class SidebarController {
     private ListView<String> favoritesListView;
     @FXML
     private TextField filterFavoritesField;
-    private final javafx.collections.ObservableList<String> masterFavoritesList = javafx.collections.FXCollections
+    private final ObservableList<String> masterFavoritesList = FXCollections
             .observableArrayList();
     private boolean favoritesSortAscending = true;
     private List<Note> cachedFavoriteNotes = new ArrayList<>();
@@ -142,7 +170,12 @@ public class SidebarController {
     };
     private Consumer<Note> openNoteAction = note -> {
     };
+    /** Opens a note in a new editor tab (Cmd/Ctrl+click or middle click on Recent/Favorites). */
+    private Consumer<Note> openInNewTabAction = note -> {
+    };
     private Consumer<Folder> createNoteInFolderAction = folder -> {
+    };
+    private Consumer<Folder> createBoardInFolderAction = folder -> {
     };
     private Consumer<Folder> createCanvasInFolderAction = folder -> {
     };
@@ -165,6 +198,15 @@ public class SidebarController {
     private final AtomicLong recentFavoritesLoadVersion = new AtomicLong(0);
     private final AtomicLong folderLoadVersion = new AtomicLong(0);
     private final AtomicLong trashLoadVersion = new AtomicLong(0);
+    /** Drag and drop of notes and folders onto folder rows. */
+    private final FolderDropSupport folderDrop = new FolderDropSupport(
+            () -> noteService, () -> folderService, () -> eventBus, this::getString, this::publishStatusUpdate,
+            () -> {
+                invalidateFolderNoteCountCache();
+                requestFoldersReload();
+                requestRecentFavoritesReload();
+                requestTrashReload();
+            });
 
     private static final class FolderTreeBuildResult {
         private final List<Folder> roots;
@@ -193,6 +235,347 @@ public class SidebarController {
             this.filtering = filtering;
             this.sortAscending = sortAscending;
         }
+    }
+
+    // ---- Explorer layout: the folders tab shows one tree with folders and notes.
+
+    @FXML
+    private Button sortFoldersBtn;
+    @FXML
+    private ToggleButton revealActiveNoteBtn;
+    /** Expands everything, or collapses it when something is open. */
+    @FXML
+    private Button expandCollapseBtn;
+    /** Preference: the note order of the Explorer tree (a {@code NoteService.SortOption} name). */
+    private static final String EXPLORER_NOTE_SORT_KEY = "ui.explorer.note_sort";
+    private ExplorerTree explorerTree;
+    /** Where the Explorer's switches and open folders are saved. */
+    private static Preferences explorerPrefs = Preferences.userNodeForPackage(SidebarController.class);
+
+    /** Saves the Explorer's state somewhere else (tests); {@code null} goes back to the user's. */
+    public static void usePreferences(Preferences prefs) {
+        explorerPrefs = prefs != null ? prefs : Preferences.userNodeForPackage(SidebarController.class);
+    }
+    /** Preference: keep the Explorer tree on the note open in the editor (off by default). */
+    private static final String AUTO_REVEAL_KEY = "ui.explorer.auto_reveal";
+    /** Preference: the Explorer folders left open, one key per line. */
+    private static final String OPEN_FOLDERS_KEY = "ui.explorer.open_folders";
+    private final PauseTransition openFoldersSave = new PauseTransition(Duration.millis(300));
+    private Set<String> openFoldersToSave = Set.of();
+    private boolean explorerMode;
+    private String explorerActiveNoteId;
+    private BiConsumer<Note, EditorTabsModel.OpenTarget> explorerOpenAction = (note, target) -> {
+    };
+    private Function<Note, ContextMenu> explorerNoteMenu = note -> null;
+    private Consumer<Folder> explorerFolderContextAction = folder -> {
+    };
+    private BiConsumer<Note, String> explorerRenameNoteAction = (note, name) -> {
+    };
+    private final PauseTransition explorerRefreshDebounce = new PauseTransition(Duration.millis(200));
+
+    /**
+     * Shows the Explorer tree in the folders tab, in the classic folder tree's place, or the
+     * classic tree again. The classic tree's filter and sort only apply to it, so they are
+     * hidden while the Explorer is shown.
+     */
+    public void setExplorerMode(boolean on) {
+        if (on == explorerMode) {
+            return;
+        }
+        explorerMode = on;
+        Node explorerView = ensureExplorerTree().getView();
+        Node from = on ? folderTreeView : explorerView;
+        Node to = on ? explorerView : folderTreeView;
+        if (from.getParent() instanceof Pane parent) {
+            parent.getChildren().set(parent.getChildren().indexOf(from), to);
+            VBox.setVgrow(to, Priority.ALWAYS);
+        }
+        // One header row for both trees: the filter, the sort button and expand/collapse act on
+        // whichever tree is shown; "reveal the open note" only exists in the Explorer.
+        UiNodes.show(revealActiveNoteBtn, on);
+        if (filterFoldersField != null) {
+            filterFoldersField.clear();
+            filterFoldersField.setPromptText(getString(on ? "tab.explorer.filter" : "tab.folders.filter"));
+        }
+        if (sortFoldersBtn != null) {
+            sortFoldersBtn.setTooltip(new Tooltip(getString(on ? "action.sort_notes" : "action.sort_folders")));
+        }
+        if (on) {
+            explorerTree.setRoot(explorerRootFolder());
+        }
+        updateExpandCollapseButton();
+    }
+
+    public boolean isExplorerMode() {
+        return explorerMode;
+    }
+
+    /** The Explorer tree (created on first use). */
+    public ExplorerTree getExplorerTree() {
+        return ensureExplorerTree();
+    }
+
+    /** What opening a note from the Explorer tree does. */
+    public void setExplorerOpenAction(BiConsumer<Note, EditorTabsModel.OpenTarget> action) {
+        this.explorerOpenAction = action != null ? action : (note, target) -> {
+        };
+    }
+
+    /** The note context menu used by the Explorer tree's note rows. */
+    public void setExplorerNoteMenu(Function<Note, ContextMenu> menu) {
+        this.explorerNoteMenu = menu != null ? menu : note -> null;
+        if (explorerTree != null) {
+            explorerTree.setNoteMenu(this.explorerNoteMenu);
+        }
+    }
+
+    /**
+     * Told which folder new notes should go to when the selection in the Explorer tree
+     * changes: the selected folder, or the folder of the selected note.
+     */
+    public void setExplorerFolderContextAction(Consumer<Folder> action) {
+        this.explorerFolderContextAction = action != null ? action : folder -> {
+        };
+    }
+
+    /** Marks the note open in the editor in the Explorer tree ({@code null}: none). */
+    public void setExplorerActiveNote(String noteId) {
+        explorerActiveNoteId = noteId;
+        if (explorerTree != null) {
+            explorerTree.setActiveNoteId(noteId);
+        }
+        if (isAutoReveal()) {
+            revealExplorerActiveNote();
+        }
+    }
+
+    private boolean isAutoReveal() {
+        return revealActiveNoteBtn != null && revealActiveNoteBtn.isSelected();
+    }
+
+    /** "Show the current file automatically": saved; switching it on shows the open note now. */
+    @FXML
+    private void handleToggleAutoReveal(ActionEvent e) {
+        explorerPrefs.putBoolean(AUTO_REVEAL_KEY, isAutoReveal());
+        if (isAutoReveal()) {
+            revealExplorerActiveNote();
+        }
+    }
+
+    /** One button: expands everything when all is collapsed, otherwise collapses it. */
+    @FXML
+    private void handleToggleExpandAll(ActionEvent e) {
+        if (allCollapsed()) {
+            handleExpandAllFolders(e);
+        } else {
+            handleCollapseAllFolders(e);
+        }
+        updateExpandCollapseButton();
+    }
+
+    /** Whether no folder at the top of the tree shown is open. */
+    private boolean allCollapsed() {
+        TreeView<?> tree = explorerMode && explorerTree != null ? explorerTree.getView() : folderTreeView;
+        if (tree == null || tree.getRoot() == null) {
+            return true;
+        }
+        for (TreeItem<?> child : tree.getRoot().getChildren()) {
+            if (child.isExpanded() && !child.isLeaf()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** The button says what it will do: expand everything, or collapse it. */
+    private void updateExpandCollapseButton() {
+        if (expandCollapseBtn == null) {
+            return;
+        }
+        boolean collapsed = allCollapsed();
+        if (expandCollapseBtn.getGraphic() instanceof FontIcon icon) {
+            icon.setIconLiteral(collapsed ? "fth-chevrons-down" : "fth-chevrons-up");
+        }
+        String text = getString(collapsed ? "action.expand_all" : "action.collapse_all");
+        if (expandCollapseBtn.getTooltip() == null) {
+            expandCollapseBtn.setTooltip(new Tooltip(text));
+        } else {
+            expandCollapseBtn.getTooltip().setText(text);
+        }
+    }
+
+    /** Saves the open Explorer folders a moment after the last change. */
+    private void rememberOpenFolders(Set<String> keys) {
+        openFoldersToSave = keys;
+        openFoldersSave.playFromStart();
+    }
+
+    private static List<String> storedOpenFolders() {
+        String stored = explorerPrefs.get(OPEN_FOLDERS_KEY, "");
+        return stored.isBlank() ? List.of() : List.of(stored.split("\n"));
+    }
+
+    /** Shows the note open in the editor in the Explorer tree (clearing a filter first). */
+    public void revealExplorerActiveNote() {
+        if (explorerMode && explorerTree != null) {
+            if (explorerTree.isFiltering() && filterFoldersField != null) {
+                filterFoldersField.clear();
+                explorerTree.setFilter("");
+            }
+            explorerTree.reveal(explorerActiveNoteId);
+        }
+    }
+
+    /** The Explorer's note order, as a menu under the sort button; the choice is remembered. */
+    private void showExplorerSortMenu() {
+        ContextMenu menu = new ContextMenu();
+        ToggleGroup group = new ToggleGroup();
+        String[][] options = {
+                { "TITLE_ASC", "sort.title_az" }, { "TITLE_DESC", "sort.title_za" },
+                { "MODIFIED_NEWEST", "sort.modified_newest" }, { "MODIFIED_OLDEST", "sort.modified_oldest" },
+                { "CREATED_NEWEST", "sort.created_newest" }, { "CREATED_OLDEST", "sort.created_oldest" } };
+        for (String[] option : options) {
+            NoteService.SortOption sort = NoteService.SortOption.valueOf(option[0]);
+            RadioMenuItem item = new RadioMenuItem(getString(option[1]));
+            item.setToggleGroup(group);
+            item.setSelected(explorerTree.getNoteSort() == sort);
+            item.setOnAction(ev -> {
+                explorerTree.setNoteSort(sort);
+                explorerPrefs.put(EXPLORER_NOTE_SORT_KEY, sort.name());
+            });
+            menu.getItems().add(item);
+        }
+        menu.show(sortFoldersBtn, Side.BOTTOM, 0, 0);
+    }
+
+    private static NoteService.SortOption storedExplorerSort() {
+        String stored = explorerPrefs.get(EXPLORER_NOTE_SORT_KEY, "");
+        for (NoteService.SortOption option : NoteService.SortOption.values()) {
+            if (option.name().equals(stored)) {
+                return option;
+            }
+        }
+        return NoteService.SortOption.TITLE_ASC;
+    }
+
+    private ExplorerTree ensureExplorerTree() {
+        if (explorerTree != null) {
+            return explorerTree;
+        }
+        ExplorerTree.Source source = new ExplorerTree.Source() {
+            @Override
+            public List<Folder> subfolders(Folder folder) {
+                return folderService != null ? folderService.getSubfolders(folder) : List.of();
+            }
+
+            @Override
+            public List<Note> notes(Folder folder) {
+                return noteService != null && folder != null && folder.getId() != null
+                        ? noteService.getNotesByFolder(folder) : List.of();
+            }
+        };
+        explorerTree = new ExplorerTree(source, ExplorerTree.backgroundLoader(), this::getString);
+        explorerTree.getView().getStyleClass().add("sidebar-tree");
+        explorerTree.setNoteSort(storedExplorerSort());
+        explorerTree.setOpenFolders(storedOpenFolders());
+        explorerTree.setOnOpenFoldersChanged(this::rememberOpenFolders);
+        openFoldersSave.setOnFinished(e -> explorerPrefs.put(OPEN_FOLDERS_KEY, String.join("\n", openFoldersToSave)));
+        explorerTree.getView().expandedItemCountProperty()
+                .addListener((obs, was, now) -> updateExpandCollapseButton());
+        // Same count as the classic tree (the folder's notes plus its subfolders'), same preference.
+        explorerTree.setFolderBadge(folder -> {
+            int count = showFolderNoteCounts ? getNoteCountForFolder(folder) : 0;
+            return count > 0 ? String.valueOf(count) : null;
+        });
+        explorerTree.setFolderColor(folder -> folderService != null ? folderService.folderColor(folder) : null);
+        explorerTree.setOnOpenNote((note, target) -> explorerOpenAction.accept(note, target));
+        explorerTree.setNoteMenu(explorerNoteMenu);
+        // In the Explorer, "Rename" puts a name field in the row instead of opening a dialog.
+        explorerTree.setFolderMenu(folder -> FolderContextMenuSupport.create(folder, folderMenuActions(this::renameInExplorer),
+                isFileSystemStorage(), this::getString));
+        explorerTree.setOnRename((item, name) -> {
+            if (item instanceof Note note) {
+                explorerRenameNoteAction.accept(note, name);
+            } else if (item instanceof Folder folder) {
+                renameFolderTo(folder, name.strip());
+            }
+        });
+        explorerTree.setCellDecorator(cell -> {
+            FolderDropSupport.installDragSource(cell, () -> {
+                Component item = cell.getItem();
+                return item instanceof Note note ? FolderDropSupport.notePayload(note)
+                        : item instanceof Folder folder ? FolderDropSupport.folderPayload(folder) : null;
+            });
+            folderDrop.installDropTarget(cell, () -> folderOf(cell.getTreeItem()));
+        });
+        explorerTree.setActiveNoteId(explorerActiveNoteId);
+        explorerTree.getView().getSelectionModel().selectedItemProperty().addListener((obs, old, item) -> {
+            Folder folder = folderOf(item);
+            if (folder != null) {
+                explorerFolderContextAction.accept(folder);
+            }
+        });
+        explorerRefreshDebounce.setOnFinished(e -> {
+            if (explorerMode && explorerTree != null) {
+                explorerTree.refresh();
+            }
+        });
+        return explorerTree;
+    }
+
+    /** The folder a row stands for: itself, or the folder containing the note (drops onto a note land there). */
+    private static Folder folderOf(TreeItem<Component> item) {
+        if (item == null) {
+            return null;
+        }
+        if (item.getValue() instanceof Folder folder) {
+            return folder;
+        }
+        TreeItem<Component> parent = item.getParent();
+        return parent != null && parent.getValue() instanceof Folder folder ? folder : null;
+    }
+
+    private Folder explorerRootFolder() {
+        String title = vaultRootItem != null && vaultRootItem.getValue() != null
+                ? vaultRootItem.getValue().getTitle() : getString("app.my_notes");
+        return new Folder("ROOT", title);
+    }
+
+    private void requestExplorerRefresh() {
+        if (explorerMode && explorerTree != null) {
+            explorerRefreshDebounce.playFromStart();
+        }
+    }
+
+
+    /** What Cmd/Ctrl+click and middle click on a Recent/Favorites entry do with the note. */
+    public void setOpenInNewTabAction(Consumer<Note> action) {
+        this.openInNewTabAction = action != null ? action : note -> {
+        };
+    }
+
+    /**
+     * Cmd/Ctrl+click or middle click on an entry of a title list (Recent, Favorites) opens
+     * that note in a new tab. The press is consumed so the list does not also select the
+     * entry, which would open it in the current tab.
+     */
+    private void installNewTabGesture(ListView<String> list, Supplier<List<Note>> notes) {
+        list.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+            if (!NewTabGesture.opensInNewTab(event)) {
+                return;
+            }
+            Node node = event.getPickResult().getIntersectedNode();
+            while (node != null && !(node instanceof ListCell<?>)) {
+                node = node.getParent();
+            }
+            if (!(node instanceof ListCell<?> cell) || cell.isEmpty() || cell.getItem() == null) {
+                return;
+            }
+            Object title = cell.getItem();
+            event.consume();
+            notes.get().stream().filter(n -> title.equals(n.getTitle())).findFirst()
+                    .ifPresent(openInNewTabAction);
+        });
     }
 
     // Setters for MainController
@@ -261,6 +644,11 @@ public class SidebarController {
         setupFilteredList(tagListView, masterTagsList, filterTagsField);
         setupFilteredList(recentNotesListView, masterRecentList, filterRecentField);
         setupFilteredList(favoritesListView, masterFavoritesList, filterFavoritesField);
+        if (revealActiveNoteBtn != null) {
+            revealActiveNoteBtn.setSelected(explorerPrefs.getBoolean(AUTO_REVEAL_KEY, false));
+        }
+        folderTreeView.expandedItemCountProperty().addListener((obs, was, now) -> updateExpandCollapseButton());
+        updateExpandCollapseButton();
 
         // Selection listeners - Matching MainController patterns
         folderTreeView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
@@ -295,6 +683,9 @@ public class SidebarController {
             }
         });
 
+        installNewTabGesture(recentNotesListView, () -> cachedRecentNotes);
+        installNewTabGesture(favoritesListView, () -> cachedFavoriteNotes);
+
         favoritesListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
                 cachedFavoriteNotes.stream().filter(n -> n.getTitle().equals(newVal)).findFirst().ifPresent(n -> {
@@ -309,7 +700,13 @@ public class SidebarController {
             }
         });
 
-        foldersFilterDebounce.setOnFinished(e -> loadFolders());
+        foldersFilterDebounce.setOnFinished(e -> {
+            if (explorerMode && explorerTree != null) {
+                explorerTree.setFilter(filterFoldersField.getText());
+            } else {
+                loadFolders();
+            }
+        });
         trashFilterDebounce.setOnFinished(e -> loadTrashTree());
         foldersReloadDebounce.setOnFinished(e -> loadFolders());
         trashReloadDebounce.setOnFinished(e -> loadTrashTree());
@@ -381,49 +778,19 @@ public class SidebarController {
         trashTreeView.setShowRoot(false);
     }
 
-    /**
-     * JavaFX's {@code TreeCellSkin} caches ONE shared disclosure-arrow width per
-     * {@code TreeView}, seeded with a hardcoded fallback of 18px and only ever
-     * overwritten once a real disclosure node measures WIDER than the current cached
-     * value (never narrower — see {@code TreeCellSkin.layoutChildren}, "RT-19656:
-     * default width of default disclosure node"). Left to JavaFX's own default arrow
-     * (whose real measured width in this theme is larger than 18px), whichever rows
-     * render before the first expandable folder gets measured use the stale 18px
-     * fallback while later rows use the corrected, larger value — siblings at the same
-     * depth end up indented differently, exactly the skew reported after startup or a
-     * tree rebuild.
-     *
-     * <p>The fix has to land on EXACTLY 18px, not merely "smaller than 18": for a row
-     * WITH children, {@code TreeCellSkin} ignores the cache entirely and uses this
-     * arrow's own real measured width; for a LEAF row it falls back to the cache
-     * (18px, since 18 is never strictly greater than 18 the cache can never grow past
-     * it once every arrow measures exactly that). Any other fixed value — including a
-     * smaller one — makes branch rows and leaf rows use two different, merely
-     * consistently-wrong offsets instead of matching.</p>
-     */
-    private static final double DISCLOSURE_ARROW_SIZE = 18;
-
-    private static StackPane buildFixedSizeDisclosureArrow() {
-        FontIcon chevron = new FontIcon("fth-chevron-right");
-        chevron.setIconSize(12);
-        chevron.getStyleClass().add("feather-icon");
-        StackPane arrow = new StackPane(chevron);
-        arrow.setMinSize(DISCLOSURE_ARROW_SIZE, DISCLOSURE_ARROW_SIZE);
-        arrow.setPrefSize(DISCLOSURE_ARROW_SIZE, DISCLOSURE_ARROW_SIZE);
-        arrow.setMaxSize(DISCLOSURE_ARROW_SIZE, DISCLOSURE_ARROW_SIZE);
-        return arrow;
-    }
-
     private void setupCellFactories() {
         folderTreeView.setCellFactory(tv -> new TreeCell<Folder>() {
-            private final ContextMenu folderContextMenu = createFolderContextMenuForCell(this);
             private final ChangeListener<Boolean> expandedListener = (obs, wasExpanded, isExpanded) -> refreshFolderIcon();
-            private final StackPane disclosureArrow = buildFixedSizeDisclosureArrow();
+            private final StackPane disclosureArrow = TreeDisclosureArrow.create();
+            private final TreeIndentGuides guides = new TreeIndentGuides();
             private TreeItem<Folder> observedFolderItem;
             private Label folderIconLabel;
+            private Folder shownFolder;
 
             {
                 setDisclosureNode(disclosureArrow);
+                FolderDropSupport.installDragSource(this, () -> FolderDropSupport.folderPayload(getItem()));
+                folderDrop.installDropTarget(this, this::getItem);
                 addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
                     if (event.getButton() == MouseButton.SECONDARY && !isEmpty()) {
                         restoringFolderSelection = true;
@@ -436,6 +803,12 @@ public class SidebarController {
             @Override
             protected void updateItem(Folder folder, boolean empty) {
                 super.updateItem(folder, empty);
+                // JavaFX updates :hover only on mouse moves; a row reused for another item
+                // while scrolling under a still mouse would keep highlighting it.
+                if (shownFolder != (empty ? null : folder) && isHover()) {
+                    setHover(false);
+                }
+                shownFolder = empty ? null : folder;
                 TreeItem<Folder> currentItem = getTreeItem();
                 if (observedFolderItem != currentItem) {
                     if (observedFolderItem != null) {
@@ -467,7 +840,8 @@ public class SidebarController {
                                 + (folder != null ? folder.getId() : "null") + ": " + e.getMessage());
                     }
                     HBox container = new HBox(6);
-                    container.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+                    container.setAlignment(Pos.CENTER_LEFT);
+                    FolderColorStyle.apply(container, folderService != null ? folderService.folderColor(folder) : null);
                     Label nameLabel = new Label(folder.getTitle());
                     nameLabel.getStyleClass().add("folder-cell-name");
                     // The name is the flexible element, not a separate spacer: growing to
@@ -497,12 +871,17 @@ public class SidebarController {
                     }
                     setGraphic(container);
                     setText(null);
-                    setContextMenu(folderContextMenu);
+                    setContextMenu(FolderContextMenuSupport.create(folder, folderMenuActions(SidebarController.this::handleRenameFolder), isFileSystemStorage(),
+                            SidebarController.this::getString));
 
                     refreshDisclosureArrowRotation();
-                    setupFolderDragSource(this, folder);
-                    setupFolderDropTargets(this, folder);
                 }
+            }
+
+            @Override
+            protected void layoutChildren() {
+                super.layoutChildren();
+                guides.layout(this, getChildren());
             }
 
             private void refreshFolderIcon() {
@@ -531,48 +910,77 @@ public class SidebarController {
         trashTreeView.setCellFactory(tv -> new TreeCell<Component>() {
             // Same disclosure-arrow cache bug as folderTreeView above (each TreeView has
             // its own independent cache entry) — the trash tree mixes deleted folders
-            // (branch) and deleted notes (leaf) too, so it needs the same fix.
+            // (branch) and deleted notes (leaf) too, so it needs the same fix. Its icons are
+            // the Explorer's (folder and document), since it is the same kind of mixed tree.
+            private final StackPane arrow = TreeDisclosureArrow.create();
+            private final TreeIndentGuides guides = new TreeIndentGuides();
+            private final ChangeListener<Boolean> expandedListener = (obs, was, now) -> rotateArrow();
+            private TreeItem<Component> observed;
+            private Component shown;
+
             {
-                setDisclosureNode(buildFixedSizeDisclosureArrow());
+                setDisclosureNode(arrow);
             }
 
             @Override
             protected void updateItem(Component item, boolean empty) {
                 super.updateItem(item, empty);
+                // JavaFX updates :hover only on mouse moves; a row reused for another item
+                // while scrolling under a still mouse would keep highlighting it.
+                if (shown != (empty ? null : item) && isHover()) {
+                    setHover(false);
+                }
+                shown = empty ? null : item;
+                TreeItem<Component> current = empty ? null : getTreeItem();
+                if (observed != current) {
+                    if (observed != null) {
+                        observed.expandedProperty().removeListener(expandedListener);
+                    }
+                    observed = current;
+                    if (observed != null) {
+                        observed.expandedProperty().addListener(expandedListener);
+                    }
+                }
                 if (empty || item == null) {
                     setText(null);
                     setGraphic(null);
-                } else {
-                    HBox container = new HBox(6);
-                    container.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
-                    if (item instanceof Folder) {
-                        Label iconLabel = new Label("");
-                        iconLabel.getStyleClass().setAll("folder-cell-icon");
-                        TreeItem<Component> ti = getTreeItem();
-                        boolean isExp = ti != null && ti.isExpanded();
-                        iconLabel.setText(isExp ? "[/]" : "[+]");
-                        iconLabel.getStyleClass().add(isExp ? "folder-expanded" : "folder-collapsed");
-                        String title = item.getTitle();
-                        if (title != null && title.equals(".trash"))
-                            title = getString("tab.trash");
-                        else if (title != null) {
-                            int idx = title.lastIndexOf('/');
-                            if (idx != -1)
-                                title = title.substring(idx + 1);
-                        }
-                        Label nameLabel = new Label(title);
-                        nameLabel.getStyleClass().add("folder-cell-name");
-                        container.getChildren().addAll(iconLabel, nameLabel);
-                    } else {
-                        FontIcon noteIcon = new FontIcon("fth-file-text");
-                        noteIcon.getStyleClass().add("feather-icon");
-                        Label nameLabel = new Label(item.getTitle());
-                        nameLabel.getStyleClass().add("folder-cell-name");
-                        container.getChildren().addAll(noteIcon, nameLabel);
-                    }
-                    setGraphic(container);
-                    setText(null);
+                    return;
                 }
+                HBox container = new HBox(6);
+                container.setAlignment(Pos.CENTER_LEFT);
+                String title = item.getTitle();
+                FontIcon icon;
+                if (item instanceof Folder) {
+                    icon = NoteIcons.folderIcon();
+                    if (title != null && title.equals(".trash")) {
+                        title = getString("tab.trash");
+                    } else if (title != null) {
+                        int idx = title.lastIndexOf('/');
+                        if (idx != -1) {
+                            title = title.substring(idx + 1);
+                        }
+                    }
+                } else {
+                    icon = item instanceof Note note ? NoteIcons.iconFor(note) : new FontIcon("fth-file-text");
+                }
+                icon.setIconSize(13);
+                icon.getStyleClass().add("feather-icon");
+                Label nameLabel = new Label(title);
+                nameLabel.getStyleClass().add("folder-cell-name");
+                container.getChildren().addAll(icon, nameLabel);
+                setGraphic(container);
+                setText(null);
+                rotateArrow();
+            }
+
+            private void rotateArrow() {
+                arrow.setRotate(observed != null && observed.isExpanded() ? 90 : 0);
+            }
+
+            @Override
+            protected void layoutChildren() {
+                super.layoutChildren();
+                guides.layout(this, getChildren());
             }
         });
 
@@ -589,138 +997,6 @@ public class SidebarController {
                 }
             }
         });
-    }
-
-    private void setupFolderDragSource(TreeCell<Folder> cell, Folder folder) {
-        if (folder == null || folder.getId() == null) {
-            return;
-        }
-        String folderId = normalizeId(folder.getId());
-        if ("ROOT".equals(folderId)) {
-            return;
-        }
-        cell.setOnDragDetected(event -> {
-            if (cell.isEmpty()) {
-                return;
-            }
-            Dragboard db = cell.startDragAndDrop(TransferMode.MOVE);
-            ClipboardContent content = new ClipboardContent();
-            content.putString("folder:" + folderId);
-            db.setContent(content);
-            event.consume();
-        });
-    }
-
-    private void setupFolderDropTargets(TreeCell<Folder> cell, Folder targetFolder) {
-        cell.setOnDragOver(event -> {
-            Dragboard db = event.getDragboard();
-            if (!db.hasString()) {
-                return;
-            }
-            String payload = db.getString();
-            if (canAcceptDropPayload(payload, targetFolder)) {
-                event.acceptTransferModes(TransferMode.MOVE);
-            }
-            event.consume();
-        });
-
-        cell.setOnDragEntered(event -> {
-            Dragboard db = event.getDragboard();
-            if (db.hasString() && canAcceptDropPayload(db.getString(), targetFolder)) {
-                if (!cell.getStyleClass().contains("drag-over-target")) {
-                    cell.getStyleClass().add("drag-over-target");
-                }
-            }
-            event.consume();
-        });
-
-        cell.setOnDragExited(event -> {
-            cell.getStyleClass().remove("drag-over-target");
-            event.consume();
-        });
-
-        cell.setOnDragDropped(event -> {
-            Dragboard db = event.getDragboard();
-            boolean success = false;
-            if (db.hasString()) {
-                success = handleDroppedPayload(db.getString(), targetFolder);
-            }
-            event.setDropCompleted(success);
-            event.consume();
-        });
-    }
-
-    private boolean canAcceptDropPayload(String payload, Folder targetFolder) {
-        if (payload == null || targetFolder == null || targetFolder.getId() == null) {
-            return false;
-        }
-        String targetId = normalizeId(targetFolder.getId());
-        if ("INVISIBLE_ROOT".equals(targetId)) {
-            return false;
-        }
-        if (payload.startsWith("note:")) {
-            return noteService != null && folderService != null;
-        }
-        if (payload.startsWith("folder:")) {
-            String sourceFolderId = normalizeId(payload.substring("folder:".length()));
-            if (sourceFolderId.isBlank() || sourceFolderId.equals(targetId)) {
-                return false;
-            }
-            if (targetId.startsWith(sourceFolderId + "/")) {
-                return false;
-            }
-            if (folderService == null) {
-                return false;
-            }
-            Optional<Folder> source = folderService.getFolderById(sourceFolderId);
-            return source.isPresent() && folderService.canMoveFolder(source.get(), targetFolder);
-        }
-        return false;
-    }
-
-    private boolean handleDroppedPayload(String payload, Folder targetFolder) {
-        if (!canAcceptDropPayload(payload, targetFolder)) {
-            return false;
-        }
-        try {
-            if (payload.startsWith("note:")) {
-                String noteId = payload.substring("note:".length());
-                Optional<Note> noteOpt = noteService.getNoteById(noteId);
-                if (noteOpt.isEmpty()) {
-                    return false;
-                }
-                Note movedNote = noteOpt.get();
-                String previousNoteId = movedNote.getId();
-                folderService.moveNoteToFolder(movedNote, targetFolder);
-                if (eventBus != null) {
-                    eventBus.publish(new NoteEvents.NoteSavedEvent(movedNote, previousNoteId));
-                }
-                publishStatusUpdate(java.text.MessageFormat.format(getString("status.note_moved_folder"), targetFolder.getTitle()));
-            } else if (payload.startsWith("folder:")) {
-                String folderId = payload.substring("folder:".length());
-                Optional<Folder> folderOpt = folderService.getFolderById(folderId);
-                if (folderOpt.isEmpty()) {
-                    return false;
-                }
-                folderService.moveFolderToFolder(folderOpt.get(), targetFolder);
-                publishStatusUpdate(java.text.MessageFormat.format(getString("status.folder_moved"), targetFolder.getTitle()));
-            } else {
-                return false;
-            }
-            invalidateFolderNoteCountCache();
-            requestFoldersReload();
-            requestRecentFavoritesReload();
-            requestTrashReload();
-            if (eventBus != null) {
-                eventBus.publish(new FolderEvents.FoldersRefreshRequestedEvent());
-                eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
-            }
-            return true;
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "Failed to process drag and drop payload: " + payload, e);
-            publishStatusUpdate(getString("status.error"));
-            return false;
-        }
     }
 
     private void setupTrashContextMenu() {
@@ -753,6 +1029,13 @@ public class SidebarController {
             // filesystem storage a tag has no existence of its own beyond the notes that
             // currently declare it, so the sidebar list must be recomputed too.
             requestTagsReload();
+            // The Explorer tree lists notes, so a note moved to the trash must leave it.
+            requestExplorerRefresh();
+        }));
+        // A note changed outside Jylos (or by another view) may have been renamed or moved.
+        eventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteUpdatedEvent.class, event -> {
+            requestExplorerRefresh();
+            requestRecentFavoritesReload();
         }));
         eventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteCreatedEvent.class, event -> {
             invalidateFolderNoteCountCache();
@@ -770,6 +1053,9 @@ public class SidebarController {
             // a single reload instead of one per tick.
             requestRecentFavoritesReload();
             requestTagsReload();
+            // A save can rename or move the note; the Explorer tree shows notes, so it re-reads
+            // the folders it has open (debounced, like the reloads above).
+            requestExplorerRefresh();
         }));
         eventSubscriptions.add(eventBus.subscribe(FolderEvents.FolderDeletedEvent.class, event -> {
             invalidateFolderNoteCountCache();
@@ -799,9 +1085,9 @@ public class SidebarController {
         sidebarLoadExecutor.shutdownNow();
     }
 
-    private void setupFilteredList(ListView<String> listView, javafx.collections.ObservableList<String> masterList,
+    private void setupFilteredList(ListView<String> listView, ObservableList<String> masterList,
             TextField filterField) {
-        javafx.collections.transformation.FilteredList<String> filteredList = new javafx.collections.transformation.FilteredList<>(
+        FilteredList<String> filteredList = new FilteredList<>(
                 masterList, p -> true);
         listView.setItems(filteredList);
         if (filterField != null) {
@@ -820,6 +1106,7 @@ public class SidebarController {
             Platform.runLater(this::loadFolders);
             return;
         }
+        requestExplorerRefresh();
         if (folderService == null) {
             logger.warning("Cannot load folders: folderService is null");
             return;
@@ -911,7 +1198,8 @@ public class SidebarController {
                 childrenByParent.computeIfAbsent(parentId, k -> new ArrayList<>()).add(f);
             }
         }
-        Comparator<Folder> comp = (f1, f2) -> f1.getTitle().compareToIgnoreCase(f2.getTitle());
+        // Same order as the Explorer: accents and case do not matter, numbers by value.
+        Comparator<Folder> comp = Comparator.comparing(Folder::getTitle, ExplorerOrdering.NAME_ORDER);
         if (!sortAscending) {
             comp = comp.reversed();
         }
@@ -929,7 +1217,8 @@ public class SidebarController {
         if (vaultRootItem == null || buildResult == null) {
             return;
         }
-        Comparator<Folder> comp = (f1, f2) -> f1.getTitle().compareToIgnoreCase(f2.getTitle());
+        // Same order as the Explorer: accents and case do not matter, numbers by value.
+        Comparator<Folder> comp = Comparator.comparing(Folder::getTitle, ExplorerOrdering.NAME_ORDER);
         if (!folderSortAscending) {
             comp = comp.reversed();
         }
@@ -1301,17 +1590,30 @@ public class SidebarController {
 
     @FXML
     public void handleSortFolders(ActionEvent e) {
+        if (explorerMode && explorerTree != null) {
+            showExplorerSortMenu();
+            return;
+        }
         folderSortAscending = !folderSortAscending;
         loadFolders();
     }
 
     @FXML
     public void handleExpandAllFolders(ActionEvent e) {
+        if (explorerMode && explorerTree != null) {
+            // Folders are read as they open, so this opens what is already loaded, one level more.
+            explorerTree.getView().getRoot().getChildren().forEach(item -> expandCollapseRecursive(item, true));
+            return;
+        }
         expandCollapseRecursive(vaultRootItem, true);
     }
 
     @FXML
     public void handleCollapseAllFolders(ActionEvent e) {
+        if (explorerMode && explorerTree != null) {
+            explorerTree.getView().getRoot().getChildren().forEach(item -> expandCollapseRecursive(item, false));
+            return;
+        }
         expandCollapseRecursive(vaultRootItem, false);
     }
 
@@ -1351,21 +1653,24 @@ public class SidebarController {
         alert.setHeaderText(getString("dialog.empty_trash.header"));
         alert.setContentText(getString("dialog.empty_trash.content"));
         alert.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
-        com.example.jylos.ui.UiDialogs.show(alert).filter(r -> r == ButtonType.OK).ifPresent(r -> {
+        UiDialogs.show(alert).filter(r -> r == ButtonType.OK).ifPresent(r -> {
             try {
-                for (Note n : noteService.getTrashNotes())
-                    noteService.permanentlyDeleteNote(n.getId());
-                Folder root = folderService.getTrashFolders();
-                if (root != null)
-                    for (Component c : root.getChildren())
-                        if (c instanceof Folder)
-                            folderService.permanentlyDeleteFolder(c.getId());
-                loadTrashTree();
+                emptyTrashNow();
                 publishStatusUpdate(getString("status.trash_emptied"));
             } catch (Exception ex) {
                 logger.log(Level.WARNING, "Failed to empty trash", ex);
             }
         });
+    }
+
+    /**
+     * Empties the trash, once confirmed. Each item is announced: the views that show notes
+     * update, and this sidebar reloads its trees when it hears it.
+     */
+    void emptyTrashNow() {
+        for (Component deleted : new TrashService(noteService, folderService).emptyTrash()) {
+            publishEvent(new NoteEvents.TrashItemDeletedEvent(deleted));
+        }
     }
 
     private void handleRestoreTrashItem() {
@@ -1402,16 +1707,12 @@ public class SidebarController {
             }
             Alert a = new Alert(Alert.AlertType.CONFIRMATION);
             a.setTitle(getString("dialog.delete_permanently.title"));
-            a.setHeaderText(java.text.MessageFormat.format(getString("dialog.delete_permanently.header"), c.getTitle()));
+            a.setHeaderText(MessageFormat.format(getString("dialog.delete_permanently.header"), c.getTitle()));
             a.setContentText(getString("dialog.delete_permanently.content"));
             a.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
-            if (com.example.jylos.ui.UiDialogs.show(a).orElse(ButtonType.CANCEL) == ButtonType.OK) {
+            if (UiDialogs.show(a).orElse(ButtonType.CANCEL) == ButtonType.OK) {
                 try {
-                    if (c instanceof Folder)
-                        folderService.permanentlyDeleteFolder(c.getId());
-                    else if (c instanceof Note)
-                        noteService.permanentlyDeleteNote(c.getId());
-                    loadTrashTree();
+                    deleteFromTrashNow(c);
                     publishStatusUpdate(getString("status.item_deleted"));
                 } catch (Exception e) {
                     logger.log(Level.WARNING, "Failed to permanently delete trash item", e);
@@ -1420,76 +1721,53 @@ public class SidebarController {
         }
     }
 
-    private ContextMenu createFolderContextMenuForCell(TreeCell<Folder> cell) {
-        ContextMenu m = new ContextMenu();
-        MenuItem newNote = new MenuItem(getString("action.new_note"));
-        newNote.setOnAction(e -> {
-            Folder f = cell != null ? cell.getItem() : null;
-            if (f != null) {
-                handleCreateNoteInFolder(f);
-            }
-        });
-
-        MenuItem newCanvas = new MenuItem(getString("action.new_canvas"));
-        newCanvas.setOnAction(e -> {
-            Folder f = cell != null ? cell.getItem() : null;
-            if (f != null) {
-                handleCreateCanvasInFolder(f);
-            }
-        });
-
-        MenuItem newSubfolder = new MenuItem(getString("action.new_subfolder"));
-        newSubfolder.setOnAction(e -> {
-            Folder f = cell != null ? cell.getItem() : null;
-            if (f != null) {
-                handleCreateSubfolderInFolder(f);
-            }
-        });
-
-        MenuItem r = new MenuItem(getString("action.rename"));
-        r.setOnAction(e -> {
-            Folder f = cell != null ? cell.getItem() : null;
-            if (f != null) {
-                handleRenameFolder(f);
-            }
-        });
-        MenuItem move = new MenuItem(getString("action.move_to"));
-        move.setVisible(canShowMoveFolderAction(cell != null ? cell.getItem() : null));
-        move.setOnAction(e -> {
-            Folder f = cell != null ? cell.getItem() : null;
-            if (f != null) {
-                handleMoveFolder(f);
-            }
-        });
-        MenuItem reveal = new MenuItem(getString("action.reveal_in_files"));
-        reveal.setVisible(isFileSystemStorage());
-        reveal.setOnAction(e -> {
-            Folder f = cell != null ? cell.getItem() : null;
-            if (f != null) {
-                revealFolderInFileManager(f);
-            }
-        });
-        MenuItem d = new MenuItem(getString("action.delete"));
-        d.setOnAction(e -> {
-            Folder f = cell != null ? cell.getItem() : null;
-            if (f != null) {
-                handleDeleteFolder(f);
-            }
-        });
-        m.getItems().addAll(newNote, newCanvas, newSubfolder, new SeparatorMenuItem(), r, move, reveal, d);
-        return m;
+    /** Deletes one item of the trash for good, once confirmed, and announces it. */
+    void deleteFromTrashNow(Component c) {
+        if (c instanceof Folder)
+            folderService.permanentlyDeleteFolder(c.getId());
+        else if (c instanceof Note)
+            noteService.permanentlyDeleteNote(c.getId());
+        publishEvent(new NoteEvents.TrashItemDeletedEvent(c));
     }
 
-    private boolean canShowMoveFolderAction(Folder folder) {
-        if (folder == null || folder.getId() == null) {
-            return false;
+    /** Puts a name field in the Explorer row of {@code item} (once it is shown, if it was just created). */
+    public void renameInExplorer(Component item) {
+        if (explorerTree != null) {
+            explorerTree.startRename(item);
         }
-        String id = normalizeId(folder.getId());
-        return !"ROOT".equals(id) && !"INVISIBLE_ROOT".equals(id);
+    }
+
+    /** What renaming a note in the Explorer row does (the notes list renames it). */
+    public void setExplorerRenameNoteAction(BiConsumer<Note, String> action) {
+        this.explorerRenameNoteAction = action != null ? action : (note, name) -> {
+        };
+    }
+
+    /** What the folder context menu entries do; renaming is in the row in the Explorer, a dialog otherwise. */
+    private FolderContextMenuSupport.Actions folderMenuActions(Consumer<Folder> rename) {
+        return new FolderContextMenuSupport.Actions(
+                folder -> createInFolder(folder, createNoteInFolderAction),
+                folder -> createInFolder(folder, createCanvasInFolderAction),
+                folder -> createInFolder(folder, createBoardInFolderAction),
+                this::handleCreateSubfolderInFolder,
+                rename,
+                this::handleMoveFolder,
+                this::revealFolderInFileManager,
+                this::handleDeleteFolder,
+                this::setFolderColor);
+    }
+
+    /**
+     * Gives {@code folder} the colour {@code hex}, or none for {@code null}, and repaints the trees'
+     * rows. Only reached from a folder's menu, and folders are only listed once the service is set.
+     */
+    private void setFolderColor(Folder folder, String hex) {
+        folderService.setFolderColor(folder, hex);
+        refreshFolderRows();
     }
 
     private void handleMoveFolder(Folder folder) {
-        if (!canShowMoveFolderAction(folder) || folderService == null) {
+        if (!FolderContextMenuSupport.canMove(folder) || folderService == null) {
             return;
         }
         Optional<MoveTargetSupport.MoveTarget> target = chooseMoveTarget(folder);
@@ -1509,7 +1787,7 @@ public class SidebarController {
             }
             publishStatusUpdate(destination == null || "ROOT".equals(destination.getId())
                     ? getString("status.folder_moved_root")
-                    : java.text.MessageFormat.format(getString("status.folder_moved"), destination.getTitle()));
+                    : MessageFormat.format(getString("status.folder_moved"), destination.getTitle()));
         } catch (Exception e) {
             logger.log(Level.WARNING, "Failed to move folder " + folder.getId(), e);
             publishStatusUpdate(getString("status.folder_move_error"));
@@ -1517,14 +1795,7 @@ public class SidebarController {
     }
 
     private Optional<MoveTargetSupport.MoveTarget> chooseMoveTarget(Folder folderToMove) {
-        if (folderService == null) {
-            return Optional.empty();
-        }
-        return MoveTargetSupport.show(
-                folderService.getAllFolders(),
-                folder -> folderService.canMoveFolder(folderToMove, folder),
-                folderService::getParentFolder,
-                this::getString);
+        return MoveTargetSupport.choose(folderService, folderToMove, this::getString);
     }
 
     private boolean isFileSystemStorage() {
@@ -1541,16 +1812,8 @@ public class SidebarController {
             publishStatusUpdate(getString("status.reveal_unavailable"));
             return;
         }
-        String absolute = pathOpt.get();
-        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
         try {
-            if (os.contains("mac")) {
-                new ProcessBuilder("open", absolute).start();
-            } else if (os.contains("win")) {
-                new ProcessBuilder("explorer.exe", absolute).start();
-            } else {
-                new ProcessBuilder("xdg-open", absolute).start();
-            }
+            FileManager.open(Path.of(pathOpt.get()));
             publishStatusUpdate(getString("status.revealed"));
         } catch (Exception ex) {
             logger.log(Level.WARNING, "Failed to reveal folder in file manager", ex);
@@ -1558,20 +1821,18 @@ public class SidebarController {
         }
     }
 
-    private void handleCreateNoteInFolder(Folder folder) {
-        if (folder == null) {
-            return;
+    /** "New note", "New canvas", "New Kanban board" on a folder: selects it, then creates there. */
+    private void createInFolder(Folder folder, Consumer<Folder> create) {
+        if (folder != null) {
+            folderSelectionAction.accept(folder);
+            create.accept(folder);
         }
-        folderSelectionAction.accept(folder);
-        createNoteInFolderAction.accept(folder);
     }
 
-    private void handleCreateCanvasInFolder(Folder folder) {
-        if (folder == null) {
-            return;
-        }
-        folderSelectionAction.accept(folder);
-        createCanvasInFolderAction.accept(folder);
+    /** What "New Kanban board" on a folder does (the window creates the board there and opens it). */
+    public void setCreateBoardInFolderAction(Consumer<Folder> action) {
+        this.createBoardInFolderAction = action != null ? action : folder -> {
+        };
     }
 
     private void handleCreateSubfolderInFolder(Folder folder) {
@@ -1593,7 +1854,15 @@ public class SidebarController {
         d.setHeaderText(getString("dialog.rename_folder.header"));
         d.setContentText(getString("dialog.rename_folder.content"));
         d.getDialogPane().setMinWidth(380);
-        com.example.jylos.ui.UiDialogs.show(d).ifPresent(name -> {
+        UiDialogs.show(d).ifPresent(name -> renameFolderTo(f, name));
+    }
+
+    /** Renames the folder to {@code name}; a blank or unchanged name does nothing. */
+    private void renameFolderTo(Folder f, String name) {
+            if (f == null || folderService == null || name == null || name.isBlank()
+                    || name.strip().equals(f.getTitle())) {
+                return;
+            }
             try {
                 String previousId = f.getId();
                 Folder renamed = folderService.renameFolder(f, name);
@@ -1606,7 +1875,6 @@ public class SidebarController {
                 logger.log(Level.WARNING, "Failed to rename folder " + (f != null ? f.getId() : "null"), e);
                 publishStatusUpdate(getString("status.error_renaming_folder"));
             }
-        });
     }
 
     private void handleDeleteFolder(Folder f) {
@@ -1620,16 +1888,20 @@ public class SidebarController {
         a.setHeaderText(getString("dialog.delete_folder.header"));
         a.setContentText(getString("dialog.delete_folder.content"));
         a.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
-        com.example.jylos.ui.UiDialogs.show(a).filter(r -> r == ButtonType.OK).ifPresent(r -> {
+        UiDialogs.show(a).filter(r -> r == ButtonType.OK).ifPresent(r -> {
             try {
-                folderService.deleteFolder(f.getId());
-                loadFolders();
-                loadTrashTree();
+                deleteFolderNow(f);
             } catch (Exception e) {
                 logger.log(Level.WARNING, "Failed to delete folder " + (f != null ? f.getId() : "null"), e);
                 publishStatusUpdate(getString("status.error_deleting_folder"));
             }
         });
+    }
+
+    /** Moves a folder to the trash, once confirmed, and announces it. */
+    void deleteFolderNow(Folder f) {
+        folderService.deleteFolder(f.getId());
+        publishEvent(new FolderEvents.FolderDeletedEvent(f.getId(), f.getTitle()));
     }
 
     private ContextMenu createTagContextMenu(String tagName) {
@@ -1649,9 +1921,9 @@ public class SidebarController {
         Alert a = new Alert(Alert.AlertType.CONFIRMATION);
         a.setTitle(getString("dialog.delete_tag.title"));
         a.setHeaderText(getString("dialog.delete_tag.header"));
-        a.setContentText(java.text.MessageFormat.format(getString("dialog.delete_tag.content"), tagName));
+        a.setContentText(MessageFormat.format(getString("dialog.delete_tag.content"), tagName));
         a.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
-        com.example.jylos.ui.UiDialogs.show(a).filter(r -> r == ButtonType.OK).ifPresent(r -> {
+        UiDialogs.show(a).filter(r -> r == ButtonType.OK).ifPresent(r -> {
             Optional.ofNullable(tagsByTitleCache.get(tagName)).ifPresent(t -> {
                 try {
                     tagService.deleteTag(t.getId());
@@ -1732,6 +2004,9 @@ public class SidebarController {
         if (vaultRootItem != null) {
             sumRecursiveNoteCount(vaultRootItem);
         }
+        if (explorerTree != null) {
+            explorerTree.refreshDecorations();
+        }
     }
 
     private int sumRecursiveNoteCount(TreeItem<Folder> item) {
@@ -1797,29 +2072,14 @@ public class SidebarController {
         return sidebarPane;
     }
 
-    public TabPane getNavigationTabPane() {
-        return navigationTabPane;
-    }
 
     public TreeView<Folder> getFolderTreeView() {
         return folderTreeView;
     }
 
-    public TreeView<Component> getTrashTreeView() {
-        return trashTreeView;
-    }
 
-    public TextField getFilterFoldersField() {
-        return filterFoldersField;
-    }
 
-    public ListView<String> getTagListView() {
-        return tagListView;
-    }
 
-    public TextField getFilterTrashField() {
-        return filterTrashField;
-    }
 
     /**
      * Keeps the custom sidebar nav bar in sync with {@link TabPane} selection.
@@ -1835,8 +2095,16 @@ public class SidebarController {
             return;
         }
         showFolderNoteCounts = enabled;
+        refreshFolderRows();
+    }
+
+    /** Repaints the folders' rows in both trees (their counts and colours). */
+    private void refreshFolderRows() {
         if (folderTreeView != null) {
             folderTreeView.refresh();
+        }
+        if (explorerTree != null) {
+            explorerTree.refreshDecorations();
         }
     }
 

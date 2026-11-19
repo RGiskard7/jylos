@@ -3,7 +3,6 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
-<?import javafx.scene.web.WebView?>
 <?import org.kordamp.ikonli.javafx.FontIcon?>
 
 <BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" 
@@ -32,12 +31,13 @@
                     <SplitPane fx:id="contentSplitPane" dividerPositions="0.25" styleClass="content-split">
                         <!-- Notes List Panel -->
                         <fx:include source="NotesListView.fxml" fx:id="notesList"/>
-                        <fx:include source="EditorView.fxml" fx:id="editor"/>
+                        <!-- The editor area: the open note, or a view tab such as the graph -->
+                        <StackPane fx:id="editorArea">
+                            <fx:include source="EditorView.fxml" fx:id="editor"/>
+                            <fx:include source="GraphView.fxml" fx:id="graphView"/>
+                        </StackPane>
                     </SplitPane>
                 </SplitPane>
-
-                <!-- Graph overlay (hidden until toggled) -->
-                <fx:include source="GraphView.fxml" fx:id="graphView"/>
             </StackPane>
 
             <VBox fx:id="rightPanel" styleClass="right-panel" minWidth="0" prefWidth="0" maxWidth="0">
@@ -142,11 +142,11 @@
                     <graphic><FontIcon iconLiteral="fth-activity" styleClass="feather-icon-faint"/></graphic>
                 </Label>
             </HBox>
-            <Separator orientation="VERTICAL" styleClass="status-separator"/>
+            <Separator fx:id="statusMessageSeparator" orientation="VERTICAL" styleClass="status-separator"/>
             <!-- Flexible filler: takes remaining width and truncates long messages
                  (e.g. git errors) with an ellipsis instead of squeezing the git bar. -->
             <Label fx:id="statusLabel" text="Ready" styleClass="status-text"
-                   maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                   minWidth="0" prefWidth="0" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
             <Label fx:id="updateIndicator" text="!" styleClass="update-indicator"
                    visible="false" managed="false" onMouseClicked="#handleUpdateIndicatorClick"/>
 
@@ -157,6 +157,14 @@
             <Label fx:id="wordCountLabel" text="" styleClass="status-text-muted" visible="false" managed="false"/>
             <Separator fx:id="wordCharSeparator" orientation="VERTICAL" styleClass="status-separator" visible="false" managed="false"/>
             <Label fx:id="charCountLabel" text="" styleClass="status-text-muted" visible="false" managed="false"/>
+            <!-- Save state and editor mode of the open note (hidden without one). Users did not
+                 find autosave or Live Preview: these name them, and the mode label switches it. -->
+            <HBox fx:id="editorIndicatorsBox" spacing="10" alignment="CENTER_LEFT" visible="false" managed="false">
+                <Separator orientation="VERTICAL" styleClass="status-separator"/>
+                <Label fx:id="saveStateLabel" styleClass="status-text-muted"/>
+                <Separator orientation="VERTICAL" styleClass="status-separator"/>
+                <Label fx:id="editorModeLabel" styleClass="status-text-muted, status-clickable"/>
+            </HBox>
         </HBox>
     </bottom>
 </BorderPane>

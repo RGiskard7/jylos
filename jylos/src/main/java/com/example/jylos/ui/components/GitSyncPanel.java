@@ -16,10 +16,13 @@ import com.example.jylos.git.GitResult;
 import com.example.jylos.git.GitService;
 import com.example.jylos.git.GitStatus;
 import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.ui.UiNodes;
 
+import javafx.application.Platform;
 import javafx.concurrent.Task;
-import javafx.geometry.Insets;
+import javafx.css.PseudoClass;
 import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
@@ -158,7 +161,7 @@ public final class GitSyncPanel {
         dialog.showAndWait();
     }
 
-    // ── Construction ────────────────────────────────────────────────────────────
+    // ── Construction ─────────────────────────────────────────────────────────
 
     /** Assembles the dialog: title, close button, state stack, progress bar, and log area. */
     private void build() {
@@ -180,38 +183,37 @@ public final class GitSyncPanel {
         buildUnavailableView();
         buildLoadingView();
 
-        progress.setVisible(false);
-        progress.setManaged(false);
+        UiNodes.show(progress, false);
         progress.setMaxWidth(Double.MAX_VALUE);
         operationLabel.getStyleClass().add("git-operation-status");
         operationLabel.setText(str("git.panel.ready"));
         configureButton(cancelBtn, "git.panel.cancel_operation", this::cancelRunningOperation);
         cancelBtn.getStyleClass().add("git-cancel-operation-btn");
-        cancelBtn.setVisible(false);
-        cancelBtn.setManaged(false);
+        UiNodes.show(cancelBtn, false);
 
         logArea.setEditable(false);
         logArea.setWrapText(true);
-        logArea.setPrefRowCount(7);
-        logArea.setMinHeight(120);
+        logArea.setPrefRowCount(5);
+        logArea.setMinHeight(90);
+        logArea.setMaxHeight(170);
         logArea.getStyleClass().add("git-log-area");
         logArea.setFocusTraversable(false);
 
         Label logHeader = new Label(str("git.panel.log"));
         logHeader.getStyleClass().add("git-section-header");
 
-        VBox activity = new VBox(6, logHeader, logArea);
+        // The running operation and its cancel button head the log, where its output goes;
+        // the repository's state above takes the room the window has to spare.
+        HBox logHeaderRow = new HBox(8, logHeader, spacer(), operationLabel, cancelBtn);
+        logHeaderRow.setAlignment(Pos.CENTER_LEFT);
+        VBox activity = new VBox(6, logHeaderRow, progress, logArea);
         activity.getStyleClass().add("git-sync-activity");
-        VBox.setVgrow(logArea, Priority.ALWAYS);
 
         stateStack.getStyleClass().add("git-sync-state");
         showState(loadingView);
-        HBox operationRow = new HBox(8, operationLabel, spacer(), cancelBtn);
-        operationRow.setAlignment(Pos.CENTER_LEFT);
-        VBox root = new VBox(10, operationRow, progress, stateStack, activity);
+        VBox root = new VBox(14, stateStack, activity);
         root.getStyleClass().add("git-sync-root");
-        VBox.setVgrow(activity, Priority.ALWAYS);
-        root.setPadding(new Insets(12, 12, 10, 12));
+        VBox.setVgrow(stateStack, Priority.ALWAYS);
         dialog.getDialogPane().setContent(root);
     }
 
@@ -225,8 +227,7 @@ public final class GitSyncPanel {
         summaryLabel.getStyleClass().add("git-status-summary");
         conflictBanner.getStyleClass().add("git-conflict-banner");
         conflictBanner.setWrapText(true);
-        conflictBanner.setVisible(false);
-        conflictBanner.setManaged(false);
+        UiNodes.show(conflictBanner, false);
         workflowHint.getStyleClass().add("git-workflow-hint");
         workflowHint.setWrapText(true);
 
@@ -244,7 +245,7 @@ public final class GitSyncPanel {
         changesList.getStyleClass().add("git-sync-changes");
         changesList.setPrefHeight(155);
         changesList.setMinHeight(110);
-        changesList.setMaxHeight(190);
+        VBox.setVgrow(changesList, Priority.ALWAYS);
 
         configureButton(refreshBtn, "git.panel.refresh", () -> refresh(true));
         configureButton(stageAllBtn, "git.panel.stage_all", () -> runOp("git.panel.stage_all", () -> git.stageAll(vault)));
@@ -284,14 +285,14 @@ public final class GitSyncPanel {
     /** Constructs the "not a Git repository yet" setup view with an init hint and button. */
     private void buildSetupView() {
         Label title = new Label(str("git.panel.not_repo"));
-        title.getStyleClass().add("git-section-header");
+        title.getStyleClass().add("git-empty-title");
         title.setWrapText(true);
         setupHint.setText(str("git.panel.init_hint"));
         setupHint.getStyleClass().add("git-change-path");
         setupHint.setWrapText(true);
         configureButton(initBtn, "git.panel.init", () -> runOp("git.panel.init", () -> git.init(vault)));
         initBtn.getStyleClass().add("git-primary-btn");
-        setupView.setAlignment(Pos.CENTER_LEFT);
+        setupView.setAlignment(Pos.TOP_LEFT);
         setupView.getChildren().setAll(title, setupHint, initBtn);
     }
 
@@ -325,7 +326,7 @@ public final class GitSyncPanel {
         return r;
     }
 
-    // ── Refresh ─────────────────────────────────────────────────────────────────
+    // ── Refresh ──────────────────────────────────────────────────────────────
 
     /** Reloads availability, repository state and the change list off the FX thread. */
     private void refresh(boolean fetchRemote) {
@@ -360,7 +361,7 @@ public final class GitSyncPanel {
             setBusy(false, message);
             if (initialFocusPending) {
                 initialFocusPending = false;
-                javafx.application.Platform.runLater(this::applyInitialFocus);
+                Platform.runLater(this::applyInitialFocus);
             }
         });
         task.setOnFailed(e -> {
@@ -413,8 +414,7 @@ public final class GitSyncPanel {
             conflictBanner.setText(str("git.panel.nested_repository_dirty"));
         }
         boolean hasBlockingChanges = conflicts > 0 || nestedRepositories > 0;
-        conflictBanner.setVisible(hasBlockingChanges);
-        conflictBanner.setManaged(hasBlockingChanges);
+        UiNodes.show(conflictBanner, hasBlockingChanges);
 
         // Conflicts first, then staged, then the rest — the order a user resolves them in.
         List<GitChange> ordered = snap.changes().stream()
@@ -440,12 +440,11 @@ public final class GitSyncPanel {
     private void showState(VBox active) {
         for (VBox view : List.of(repoView, setupView, unavailableView, loadingView)) {
             boolean on = view == active;
-            view.setVisible(on);
-            view.setManaged(on);
+            UiNodes.show(view, on);
         }
     }
 
-    // ── Operations ──────────────────────────────────────────────────────────────
+    // ── Operations ───────────────────────────────────────────────────────────
 
     /** Commits all staged changes using the current commit-message field (or a default timestamp message), then refreshes. */
     private void doCommit() {
@@ -453,7 +452,7 @@ public final class GitSyncPanel {
         runOp("git.panel.commit", () -> {
             GitResult r = git.commit(vault, message);
             if (r.ok()) {
-                javafx.application.Platform.runLater(commitMessage::clear);
+                Platform.runLater(commitMessage::clear);
             }
             return r;
         }, false);
@@ -465,7 +464,7 @@ public final class GitSyncPanel {
         runOp("git.panel.sync", progressListener -> {
             GitResult r = git.sync(vault, message, progressListener);
             if (r.ok()) {
-                javafx.application.Platform.runLater(commitMessage::clear);
+                Platform.runLater(commitMessage::clear);
             }
             return r;
         }, true);
@@ -554,7 +553,7 @@ public final class GitSyncPanel {
         if (!progressUpdatePending.compareAndSet(false, true)) {
             return;
         }
-        javafx.application.Platform.runLater(() -> {
+        Platform.runLater(() -> {
             String message = pendingProgress;
             if (busy) {
                 operationLabel.setText(message);
@@ -584,19 +583,17 @@ public final class GitSyncPanel {
         return glyph + " " + (message.isEmpty() ? result.status().name() : message);
     }
 
-    // ── UI helpers ──────────────────────────────────────────────────────────────
+    // ── UI helpers ───────────────────────────────────────────────────────────
 
     /** Shows operation state and prevents concurrent Git actions while a task is running. */
     private void setBusy(boolean busy, String message) {
         this.busy = busy;
-        progress.setVisible(busy);
-        progress.setManaged(busy);
+        UiNodes.show(progress, busy);
         progress.setProgress(busy ? ProgressBar.INDETERMINATE_PROGRESS : 0);
         operationLabel.setText(message);
-        cancelBtn.setVisible(busy);
-        cancelBtn.setManaged(busy);
+        UiNodes.show(cancelBtn, busy);
         cancelBtn.setDisable(!busy);
-        operationLabel.pseudoClassStateChanged(javafx.css.PseudoClass.getPseudoClass("error"),
+        operationLabel.pseudoClassStateChanged(PseudoClass.getPseudoClass("error"),
                 !busy && message.startsWith("✖"));
         if (busy) {
             for (Button b : actionButtons) {
@@ -650,7 +647,7 @@ public final class GitSyncPanel {
                         owner.getWindow().getWidth(), owner.getWindow().getHeight()).stream()
                         .findFirst().orElse(Screen.getPrimary())
                 : Screen.getPrimary();
-        javafx.geometry.Rectangle2D bounds = screen.getVisualBounds();
+        Rectangle2D bounds = screen.getVisualBounds();
         window.setWidth(Math.min(880, Math.max(680, bounds.getWidth() - 64)));
         window.setHeight(Math.min(720, Math.max(560, bounds.getHeight() - 96)));
         window.centerOnScreen();
@@ -798,8 +795,8 @@ public final class GitSyncPanel {
             case "deleted" -> "D";
             case "renamed" -> "R";
             case "copied" -> "C";
-            case "untracked" -> "??";
-            case "conflicted" -> "UU";
+            case "untracked" -> "U";
+            case "conflicted" -> "!";
             case "nested_repository_dirty" -> "M";
             default -> "•";
         };

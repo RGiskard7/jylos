@@ -26,6 +26,9 @@ import java.util.Map;
  * such as wiki-links, transclusion, local-image embedding, emoji fallback and
  * plugin preview enhancers are layered in {@link MarkdownPreview} before or after
  * this renderer.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class MarkdownProcessor {
     
@@ -36,17 +39,18 @@ public class MarkdownProcessor {
         TaskListItemsExtension.create()
     );
     
-    private static final Parser PARSER = Parser.builder()
-        .extensions(EXTENSIONS)
+    // ==highlight== and > [!type] callouts (see CalloutsAndHighlights).
+    private static final Parser PARSER = CalloutsAndHighlights.addTo(Parser.builder()
+        .extensions(EXTENSIONS))
         .build();
     
-    /*
+        /*
      * escapeHtml and sanitizeUrls are intentionally disabled for preview parity with
      * Markdown apps such as Obsidian: users may author raw HTML, and Jylos wiki-links
      * use a custom jylos:// protocol that URL sanitizing would remove.
      */
-    private static final HtmlRenderer RENDERER = HtmlRenderer.builder()
-        .extensions(EXTENSIONS)
+    private static final HtmlRenderer RENDERER = CalloutsAndHighlights.addTo(HtmlRenderer.builder()
+        .extensions(EXTENSIONS))
         // JavaFX WebView 23 renders raw soft-break characters inside paragraph text as
         // replacement boxes. Emit semantic HTML line breaks instead of relying on its
         // whitespace handling.
@@ -86,7 +90,11 @@ public class MarkdownProcessor {
      * @param text The text to escape
      * @return HTML-escaped text
      */
-    private static String escapeHtml(String text) {
+    /**
+     * Escapes text for HTML element content and quoted attribute values: {@code & < > " '}.
+     * {@code null} becomes an empty string.
+     */
+    public static String escapeHtml(String text) {
         if (text == null) {
             return "";
         }

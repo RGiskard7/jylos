@@ -2,6 +2,7 @@ package com.example.jylos.ui.controller;
 
 import java.io.File;
 import java.text.MessageFormat;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -9,7 +10,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.event.events.SystemActionEvent.ActionType;
 import com.example.jylos.service.ImportService;
+import com.example.jylos.ui.UiDialogs;
 
 import javafx.concurrent.Task;
 import javafx.scene.control.Alert;
@@ -46,6 +49,12 @@ final class ImportSupport {
     }
 
     /** Picks an Obsidian vault folder and imports its notes in the background. */
+    /** Answers the commands that import an Obsidian vault or an Evernote export. */
+    void register(Map<ActionType, Runnable> handlers) {
+        handlers.put(ActionType.IMPORT_OBSIDIAN, this::importObsidianVault);
+        handlers.put(ActionType.IMPORT_ENEX, this::importEnex);
+    }
+
     void importObsidianVault() {
         if (importService == null) {
             return;
@@ -117,7 +126,7 @@ final class ImportSupport {
         }
         alert.setContentText(sb.toString());
         alert.setResizable(true);
-        com.example.jylos.ui.UiDialogs.show(alert);
+        UiDialogs.show(alert);
     }
 
     private Window window() {

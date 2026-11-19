@@ -22,7 +22,7 @@ class WikiLinkTargetTest {
         String md = String.join("\n",
                 "Wiki: [[Note B]] and [[folder/Note C#Heading|alias]]",
                 "Unresolved: [[Ghost Note]]",
-                "Markdown internal: [ok](Other Note.md)",
+                "Markdown internal: [ok](Other%20Note.md)",
                 "External: [g](https://google.com) [w](www.example.com)",
                 "Anchor: [s](#section)   Mail: [m](mailto:a@b.com)",
                 "Image: ![p](diagram.png)   Attachment: [d](report.pdf)",

@@ -18,6 +18,9 @@ import com.example.jylos.data.models.Note;
  * graph.json (that one embeds inline because it is a single page, not a file
  * shared by every page — inlining a multi-thousand-note tree into every one of
  * those pages would multiply its size by the note count instead).
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.6
  */
 final class NavTree {
 

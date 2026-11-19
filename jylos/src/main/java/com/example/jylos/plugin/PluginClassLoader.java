@@ -27,7 +27,7 @@ import java.net.URLClassLoader;
  * can even reach in the first place.</p>
  *
  * @author Edu Díaz (RGiskard7)
- * @since 4.6.0
+ * @since 2.5.6
  */
 final class PluginClassLoader extends URLClassLoader {
 

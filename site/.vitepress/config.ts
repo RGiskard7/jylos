@@ -49,6 +49,8 @@ export default defineConfig({
           { text: "Start", link: "/start/install" },
           { text: "Guides", link: "/guides/creating-notes" },
           { text: "Reference", link: "/reference/" },
+          { text: "Themes", link: "/guides/themes" },
+          { text: "Plugins", link: "/guides/plugins", activeMatch: "^/guides/(community-)?plugins" },
           { text: "Changelog", link: "/changelog" },
           { text: "Download", link: releasesUrl },
         ],
@@ -65,6 +67,7 @@ export default defineConfig({
             text: "Guides",
             items: [
               { text: "Creating Notes", link: "/guides/creating-notes" },
+              { text: "Templates and Daily Note", link: "/guides/templates" },
               { text: "Wiki-links", link: "/guides/wiki-links" },
               { text: "Knowledge Graph", link: "/guides/knowledge-graph" },
               { text: "Kanban", link: "/guides/kanban" },
@@ -72,10 +75,13 @@ export default defineConfig({
               { text: "Private Notes", link: "/guides/encryption" },
               { text: "Git Sync", link: "/guides/git-sync" },
               { text: "Plugins", link: "/guides/plugins" },
+              { text: "Community Plugins", link: "/guides/community-plugins" },
+              { text: "Themes", link: "/guides/themes" },
               { text: "Themes & Snippets", link: "/guides/themes-snippets" },
               { text: "Dataview", link: "/guides/dataview" },
               { text: "Search", link: "/guides/search" },
               { text: "Workspaces", link: "/guides/workspaces" },
+              { text: "Obsidian Compatibility", link: "/guides/obsidian-compatibility" },
             ],
           },
           {
@@ -95,7 +101,8 @@ export default defineConfig({
           },
         ],
         footer: {
-          message: "Free and open source. Local-first, offline, and Markdown-based.",
+          message:
+            'Free and open source. Local-first, offline, and Markdown-based.<br>Contact: <a href="mailto:ed.dzsn@protonmail.com">ed.dzsn@protonmail.com</a>',
           copyright: "© 2025–2026 Eduardo Díaz Sánchez (RGiskard7) · MIT License",
         },
       },
@@ -125,6 +132,8 @@ export default defineConfig({
           { text: "Empezar", link: "/es/start/install" },
           { text: "Guías", link: "/es/guides/creating-notes" },
           { text: "Referencia", link: "/es/reference/" },
+          { text: "Temas", link: "/es/guides/themes" },
+          { text: "Plugins", link: "/es/guides/plugins", activeMatch: "^/es/guides/(community-)?plugins" },
           { text: "Changelog", link: "/changelog" },
           { text: "Descargar", link: releasesUrl },
         ],
@@ -141,6 +150,7 @@ export default defineConfig({
             text: "Guías",
             items: [
               { text: "Crear notas", link: "/es/guides/creating-notes" },
+              { text: "Plantillas y nota diaria", link: "/es/guides/templates" },
               { text: "Wiki-links", link: "/es/guides/wiki-links" },
               { text: "Grafo de conocimiento", link: "/es/guides/knowledge-graph" },
               { text: "Kanban", link: "/es/guides/kanban" },
@@ -148,10 +158,13 @@ export default defineConfig({
               { text: "Notas privadas", link: "/es/guides/encryption" },
               { text: "Sincronización Git", link: "/es/guides/git-sync" },
               { text: "Plugins", link: "/es/guides/plugins" },
+              { text: "Plugins de la comunidad", link: "/es/guides/community-plugins" },
+              { text: "Temas", link: "/es/guides/themes" },
               { text: "Temas y snippets", link: "/es/guides/themes-snippets" },
               { text: "Dataview", link: "/es/guides/dataview" },
               { text: "Búsqueda", link: "/es/guides/search" },
               { text: "Workspaces", link: "/es/guides/workspaces" },
+              { text: "Compatibilidad con Obsidian", link: "/es/guides/obsidian-compatibility" },
             ],
           },
           {
@@ -171,7 +184,8 @@ export default defineConfig({
           },
         ],
         footer: {
-          message: "Gratis y de código abierto. Local-first, sin conexión y basado en Markdown.",
+          message:
+            'Gratis y de código abierto. Local-first, sin conexión y basado en Markdown.<br>Contacto: <a href="mailto:ed.dzsn@protonmail.com">ed.dzsn@protonmail.com</a>',
           copyright: "© 2025–2026 Eduardo Díaz Sánchez (RGiskard7) · Licencia MIT",
         },
       },
@@ -179,6 +193,15 @@ export default defineConfig({
   },
   themeConfig: {
     search: { provider: "local" },
-    socialLinks: [{ icon: "github", link: "https://github.com/RGiskard7/jylos" }],
+    socialLinks: [
+      { icon: "github", link: "https://github.com/RGiskard7/jylos" },
+      {
+        icon: {
+          svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4-8 5-8-5V6l8 5 8-5z"/></svg>',
+        },
+        link: "mailto:ed.dzsn@protonmail.com",
+        ariaLabel: "Email",
+      },
+    ],
   },
 });

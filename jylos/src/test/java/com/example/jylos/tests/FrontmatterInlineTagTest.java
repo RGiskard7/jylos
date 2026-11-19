@@ -92,4 +92,32 @@ class FrontmatterInlineTagTest {
 
         assertFalse(tagTitles(note).contains("notATag"));
     }
+
+    // The tags the vault indexes are the ones the reading view and the editor show as tags,
+    // and the ones Obsidian finds (ReadingSyntax.inlineTags).
+
+    @Test
+    void aTagEndsAtTheFirstCharacterATagCannotHave() {
+        List<String> tags = tagTitles(FrontmatterHandler.parse("Ver #foo.bar y #idea, ahora\n"));
+
+        assertTrue(tags.contains("foo"), "tags: " + tags);
+        assertFalse(tags.contains("foobar"), "tags: " + tags);
+        assertTrue(tags.contains("idea"), "tags: " + tags);
+    }
+
+    @Test
+    void aHashInInlineCodeIsNotATag() {
+        List<String> tags = tagTitles(FrontmatterHandler.parse("Usa `#define` en C y #real\n"));
+
+        assertFalse(tags.contains("define"), "tags: " + tags);
+        assertTrue(tags.contains("real"), "tags: " + tags);
+    }
+
+    @Test
+    void aFenceClosesOnlyWithAFenceLikeItsOwn() {
+        List<String> tags = tagTitles(FrontmatterHandler.parse("````\n```\n#dentro\n```\n````\n#fuera\n"));
+
+        assertFalse(tags.contains("dentro"), "tags: " + tags);
+        assertTrue(tags.contains("fuera"), "tags: " + tags);
+    }
 }

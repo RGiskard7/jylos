@@ -51,7 +51,7 @@ class PluginSubscriptionCleanupTest {
     }
 
     /**
-     * {@code disablePlugin} persists "disabled" into the real user {@link Preferences},
+     * {@code disablePlugin} persists "off" into the real user {@link Preferences},
      * and {@code initializePlugin} then returns {@code true} for such a plugin
      * <em>without</em> initializing it. Left behind, that makes this test pass once and
      * fail on every later run, because the plugin would never get to subscribe.
@@ -60,6 +60,7 @@ class PluginSubscriptionCleanupTest {
         Preferences preferences = Preferences.userNodeForPackage(PluginManager.class);
         for (String id : PLUGIN_IDS) {
             preferences.remove("plugin.disabled." + id);
+            preferences.remove("plugin.enabled." + id);
         }
     }
 
@@ -107,7 +108,7 @@ class PluginSubscriptionCleanupTest {
 
     private static PluginManager managerWith(EventBus eventBus) {
         return new PluginManager(null, null, null, eventBus, null, null, null, null, null, null, null, note -> {
-        }, null, null);
+        }, null, null, null);
     }
 
     /** Subscribes on initialize, then throws on shutdown before it can unsubscribe. */

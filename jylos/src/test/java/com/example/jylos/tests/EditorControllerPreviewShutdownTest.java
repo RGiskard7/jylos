@@ -11,17 +11,17 @@ import org.junit.jupiter.api.Test;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.ui.controller.EditorController;
+import com.example.jylos.ui.web.JavaFxHtmlView;
 
 import javafx.application.Platform;
 import javafx.scene.layout.VBox;
-import javafx.scene.web.WebView;
 
 /**
  * Reproduces a real shutdown-ordering bug: during app quit, a plugin's own
  * {@code shutdown()} can call {@code PluginContext.unregisterPreviewEnhancer}, which
  * queues {@code refreshPreview()} via {@code Platform.runLater}. That queued call always
  * lands on a *later* tick of the event loop — after {@code EditorController.teardown()}
- * has already stopped {@code previewRenderExecutor} — no matter what order teardown()
+ * has already stopped the preview render executor — no matter what order teardown()
  * and plugin shutdown run in beforehand. Before the fix, this threw
  * {@code RejectedExecutionException} on the FX Application Thread for every plugin with
  * a preview enhancer, once per plugin, on every app quit.
@@ -38,7 +38,7 @@ class EditorControllerPreviewShutdownTest {
             Thread.currentThread().setUncaughtExceptionHandler((t, e) -> uncaught[0] = e);
             try {
                 EditorController controller = new EditorController();
-                setField(controller, "previewWebView", new WebView());
+                setField(controller, "previewWebView", new JavaFxHtmlView());
                 VBox previewPane = new VBox();
                 previewPane.setVisible(true);
                 previewPane.setManaged(true);

@@ -8,6 +8,9 @@ import com.example.jylos.data.models.interfaces.Component;
  * Abstract class representing a leaf node in a hierarchical structure.
  * A leaf node is a component that cannot have children.
  * This class extends {@link BaseModel} and implements {@link Component}.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public abstract class LeafModel extends BaseModel implements Component {
 

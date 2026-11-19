@@ -3,77 +3,74 @@ package com.example.jylos.ui.controller;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.MessageFormat;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.ResourceBundle;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.kordamp.ikonli.javafx.FontIcon;
 
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.models.Note;
-import com.example.jylos.data.models.NoteProperty;
 import com.example.jylos.data.models.Tag;
+import com.example.jylos.event.AppEvent;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
+import com.example.jylos.plugin.EditorBlockRenderer;
+import com.example.jylos.plugin.EditorBlockRendererRegistry;
+import com.example.jylos.plugin.EditorHooks;
 import com.example.jylos.plugin.PreviewEnhancer;
+import com.example.jylos.plugin.PreviewEnhancerRegistry;
+import com.example.jylos.service.CanvasReferences;
 import com.example.jylos.service.FileFingerprint;
-import com.example.jylos.service.NoteTitleIndex;
+import com.example.jylos.service.LinkSuggestion;
 import com.example.jylos.service.NoteService;
-import com.example.jylos.service.RichLinkService;
 import com.example.jylos.service.TagService;
+import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.CanvasView;
+import com.example.jylos.ui.components.FileViewer;
 import com.example.jylos.ui.components.MarkdownEditorView;
+import com.example.jylos.ui.web.HtmlView;
+import com.example.jylos.ui.web.JavaFxHtmlView;
 import com.example.jylos.util.AttachmentType;
+import com.example.jylos.util.CanvasModel;
 import com.example.jylos.util.MarkdownPreview;
-import com.example.jylos.util.RichLinks;
 import com.example.jylos.util.SystemBrowser;
-import com.example.jylos.util.WikiLinkResolver;
 
 import javafx.application.Platform;
-import javafx.concurrent.Task;
+import javafx.beans.property.ReadOnlyObjectProperty;
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonBase;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.CheckBox;
 import javafx.scene.control.ContentDisplay;
-import javafx.scene.control.Control;
-import javafx.scene.control.Dialog;
-import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
-import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
-import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.FlowPane;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.scene.text.Text;
-import javafx.scene.text.TextFlow;
-import javafx.scene.web.WebView;
 
 /**
  * FXML controller for the note editor pane.
@@ -90,14 +87,12 @@ import javafx.scene.web.WebView;
  * @author Edu Díaz (RGiskard7)
  * @since 1.3.0
  */
-public class EditorController {
+public class EditorController implements PreviewEnhancerRegistry,
+        EditorBlockRendererRegistry {
 
     private static final Logger logger = LoggerConfig.getLogger(EditorController.class);
-    /** Matches a single wiki-link as the entire property value (full or partial). */
-    private static final Pattern WIKI_VALUE = Pattern.compile(
-            "\\[\\[([^\\[\\]|#\\n]+?)(?:#[^\\[\\]|\\n]+?)?(?:\\|[^\\[\\]\\n]+?)?\\]\\]");
 
-    // ── Service / state ─────────────────────────────────────────────────────
+    // ── Service / state ──────────────────────────────────────────────────────
     private EventBus eventBus;
     private NoteService noteService;
     private TagService tagService;
@@ -109,10 +104,17 @@ public class EditorController {
     private Consumer<Boolean> livePreviewPreferenceAction = enabled -> {
     };
 
+    /** How the note is shown: as source, side by side with the reading view, or only read. */
+    public enum ViewMode {
+        EDITOR_ONLY,
+        SPLIT,
+        PREVIEW_ONLY
+    }
+
+    private final ReadOnlyObjectWrapper<ViewMode> viewMode = new ReadOnlyObjectWrapper<>(ViewMode.EDITOR_ONLY);
+
     /** Obsidian-style centered content column, toggled from Preferences. */
     private boolean readableLineLength = false;
-    /** Theme of the most recent preview render, so a preference toggle can re-render without a caller. */
-    private boolean lastPreviewDarkTheme = false;
     /** Editor/preview font size, independent from the native JavaFX chrome's own font size. */
     private double contentFontSize = 14.0;
 
@@ -125,46 +127,47 @@ public class EditorController {
     private String persistedContent = "";
     private Map<String, String> persistedCustomProperties = new LinkedHashMap<>();
 
-    /** Cancels any in-flight preview render so FX thread is never blocked by markdown parsing. */
-    private volatile Task<String> currentPreviewTask;
-
-    /** How long a newly opened note's render may take before the previous note's preview is cleared. */
-    private static final javafx.util.Duration STALE_PREVIEW_GRACE = javafx.util.Duration.millis(200);
-
-    /**
-     * Runs preview renders off the FX thread, on reused threads (no thread creation on
-     * every pause in typing). Not a single thread: a render can block for a long time on
-     * file I/O — an image or embedded note in a cloud folder (iCloud, OneDrive) that is
-     * not downloaded yet — and cancelling it does not interrupt that read. Queued behind
-     * it, the next note's render would wait too, leaving the previous note on screen.
-     * Only the newest render is ever shown (see the {@code currentPreviewTask} checks).
-     */
-    private final java.util.concurrent.ExecutorService previewRenderExecutor =
-            java.util.concurrent.Executors.newCachedThreadPool(runnable -> {
-                Thread thread = new Thread(runnable, "preview-render");
-                thread.setDaemon(true);
-                return thread;
-            });
-
     private final List<EventBus.Subscription> subscriptions = new ArrayList<>();
 
     /** True when the editor is in "read" (preview-only) view: properties become read-only. */
     private boolean readOnlyView = false;
-    /** Whether the properties panel body is expanded. Collapsed by default. */
-    private boolean propertiesExpanded = false;
+    /** The properties panel: its rows, folded or open, and the add-property dialog. */
+    private final PropertiesPanelSupport properties = new PropertiesPanelSupport(new PropertiesHost());
 
     /** Titles supplier for wiki-link autocomplete. Defaults to the global title index. */
-    private Supplier<List<String>> autocompleteTitlesSupplier = () -> NoteTitleIndex.getInstance().titlesSorted();
+    private Supplier<List<LinkSuggestion>> autocompleteTitlesSupplier = List::of;
 
-    private final Map<String, PreviewEnhancer> previewEnhancers = new HashMap<>();
     private final EditorBlockRenderSupport blockRenderSupport = new EditorBlockRenderSupport();
-    private boolean wikiLinkListenerInstalled;
-    private Double pendingPreviewScrollY;
-    private String pendingPreviewNoteId;
-    private String renderedPreviewNoteId;
     private WikiLinkHandler wikiLinkHandler;
-    private final PreviewJavaBridge previewJavaBridge = new PreviewJavaBridge();
-    private final RichLinkService richLinkService = new RichLinkService();
+    private Consumer<String> tagLinkHandler;
+    /** The reading view: renders, scroll, heading jumps, its page bridge and plugin enhancers. */
+    private final EditorPreviewSupport preview = new EditorPreviewSupport(new PreviewHost());
+    /** Bold, headings, lists, and the link and image dialogs. */
+    /** A board note shown as its board (Kanban), or as Markdown on request. */
+    private final EditorKanbanSupport kanban = new EditorKanbanSupport(new EditorKanbanSupport.Host(
+            this::boardLayer, this::getCurrentContent, text -> {
+                if (this.noteContentArea != null) {
+                    this.noteContentArea.setText(text);
+                }
+            },
+            () -> {
+                reevaluateModifiedState();
+                handleSave(true);
+            },
+            this::showBoard, this::openNoteByTitle, this::publishCreated, () -> preview.lastDarkTheme()),
+            () -> this.noteService, key -> getString(key, key));
+    /** The note's folders and its lock, in the title row. */
+    private final EditorTitleRowSupport titleRow = new EditorTitleRowSupport();
+    private final EditorFormattingSupport formatting = new EditorFormattingSupport(() -> this.noteContentArea,
+            this::applyInsertHooks, this::reevaluateModifiedState, this::getString);
+    /** Inserting templates and dates in the open note. */
+    private final EditorTemplateSupport templates = new EditorTemplateSupport(() -> this.noteContentArea,
+            this::noteOpenForEditing, () -> {
+                propertiesInserted = true; // the panel shows only some of them: the note has changed
+                properties.rebuild();
+                reevaluateModifiedState();
+            });
+    private boolean propertiesInserted;
     private CanvasView currentCanvasView;
     private Path currentCanvasPath;
     private DocumentFingerprint currentCanvasFingerprint;
@@ -176,24 +179,27 @@ public class EditorController {
     /** Opens a note when the user clicks a wiki-link in the Markdown preview. */
     @FunctionalInterface
     public interface WikiLinkHandler {
-        void openNoteByTitle(String title);
+        /** Opens the note {@code title} names, in a new tab when {@code newTab} (Cmd/Ctrl+click). */
+        void openNoteByTitle(String title, boolean newTab);
     }
 
-    // ── FXML — header ───────────────────────────────────────────────────────
+    // ── FXML — header ────────────────────────────────────────────────────────
     @FXML private VBox editorContainer;
     @FXML private ScrollPane editorTabScroll;
     @FXML private HBox editorTabBar;
-    @FXML private HBox editorPathBar;
     @FXML private Label notePathLabel;
     @FXML private HBox editorHeaderBar;
+    /** The header's controls for the open note; with none, only back and forward remain. */
+    @FXML private HBox noteHeaderControls;
+    @FXML private Button boardViewBtn;
+    @FXML private Tooltip boardViewTooltip;
+    @FXML private FontIcon boardViewIcon;
     @FXML private StackPane editorContentStack;
-    @FXML private VBox emptyState;
+    @FXML private ScrollPane emptyState;
     @FXML private Button navBackBtn;
     @FXML private Button navForwardBtn;
     @FXML private TextField noteTitleField;
     @FXML private Label noteTitleLabel;
-    @FXML private Label dirtySaveIndicator;
-    @FXML private Tooltip dirtySaveIndicatorTip;
     @FXML private Label privateIndicator;
     @FXML private FontIcon privateIndicatorIcon;
     @FXML private Tooltip privateIndicatorTip;
@@ -205,36 +211,31 @@ public class EditorController {
     @FXML private Button editorSaveBtn;
     @FXML private ToggleButton pinButton;
     @FXML private ToggleButton favoriteButton;
-    @FXML private ToggleButton focusModeToggleBtn;
 
-    // ── FXML — tags bar ─────────────────────────────────────────────────────
+    // ── FXML — tags bar ──────────────────────────────────────────────────────
     @FXML private VBox tagsContainer;
     @FXML private FlowPane tagsFlowPane;
     @FXML private Label modifiedDateLabel;
 
-    // ── FXML — properties panel ─────────────────────────────────────────────
-    @FXML private VBox  propertiesSection;   // outer, shown when note has custom props
-    @FXML private HBox  propertiesHeader;    // always-visible header row
-    @FXML private Label propertiesCollapseIcon;
-    @FXML private VBox  propertiesContent;   // rows, toggleable via header click
+    // ── FXML — properties panel ──────────────────────────────────────────────
+    @FXML private ToggleButton togglePropertiesBtn; // opens and closes the panel
+    @FXML private Node  propertiesDot;       // on the button: the note has properties
+    @FXML private VBox  propertiesSection;   // the panel under the title row
+    @FXML private VBox  propertiesContent;   // one row per property
+    @FXML private Label propertiesEmptyLabel; // reading view, note without properties
+    @FXML private HBox  addPropertyRow;      // "+ Add property", editing views only
     @FXML private Button addPropertyBtn;
 
-    // ── FXML — editor / preview ─────────────────────────────────────────────
+    // ── FXML — editor / preview ──────────────────────────────────────────────
     @FXML private SplitPane editorPreviewSplitPane;
     @FXML private VBox      editorPane;
     @FXML private MarkdownEditorView noteContentArea;
     @FXML private HBox      formatToolbarContainer;
-    @FXML private Button    heading1Btn, heading2Btn, heading3Btn;
-    @FXML private Button    boldBtn, italicBtn, strikeBtn, underlineBtn;
-    @FXML private Button    highlightBtn, linkBtn, richLinkBtn, imageBtn;
-    @FXML private Button    todoBtn, bulletBtn, numberBtn;
-    @FXML private Button    quoteBtn, codeBtn;
     @FXML private VBox      previewPane;
-    @FXML private WebView previewWebView;
+    /** The reading view's page. */
+    @FXML private JavaFxHtmlView previewWebView;
 
-    // ============================================================
-    // Setters
-    // ============================================================
+    // ── Setters ──────────────────────────────────────────────────────────────
 
     private void setEventBus(EventBus eventBus) {
         subscriptions.forEach(EventBus.Subscription::cancel);
@@ -253,39 +254,15 @@ public class EditorController {
 
     private void setBundle(ResourceBundle bundle) {
         this.bundle = bundle;
-        if (noteContentArea != null) {
-            noteContentArea.setEditorLabels(Map.ofEntries(
-                    Map.entry("undo", getString("action.undo", "Undo")),
-                    Map.entry("redo", getString("action.redo", "Redo")),
-                    Map.entry("cut", getString("action.cut", "Cut")),
-                    Map.entry("copy", getString("action.copy", "Copy")),
-                    Map.entry("paste", getString("action.paste", "Paste")),
-                    Map.entry("selectAll", getString("action.select_all", "Select All")),
-                    Map.entry("Find", getString("editor.search.find", "Find")),
-                    Map.entry("Replace", getString("editor.search.replace", "Replace")),
-                    Map.entry("next", getString("editor.search.next", "next")),
-                    Map.entry("previous", getString("editor.search.previous", "previous")),
-                    Map.entry("all", getString("editor.search.all", "all")),
-                    Map.entry("match case", getString("editor.search.match_case", "match case")),
-                    Map.entry("regexp", getString("editor.search.regexp", "regular expression")),
-                    Map.entry("by word", getString("editor.search.by_word", "whole word")),
-                    Map.entry("replace", getString("editor.search.replace_action", "replace")),
-                    Map.entry("replace all", getString("editor.search.replace_all", "replace all")),
-                    Map.entry("close", getString("action.close", "Close")),
-                    Map.entry("Go to line", getString("editor.search.go_to_line", "Go to line")),
-                    Map.entry("go", getString("editor.search.go", "go")),
-                    Map.entry("current match", getString("editor.search.current_match", "current match")),
-                    Map.entry("on line", getString("editor.search.on_line", "on line")),
-                    Map.entry("replaced $ matches", getString("editor.search.replaced_matches", "replaced $ matches")),
-                    Map.entry("replaced match on line $", getString("editor.search.replaced_match_on_line",
-                            "replaced match on line $"))));
-        }
+        titleRow.setBundle(bundle);
+        EditorLabelsSupport.apply(noteContentArea, previewWebView, this::getString);
     }
 
     public void wire(EventBus eventBus, NoteService noteService, TagService tagService, ResourceBundle bundle,
             Consumer<Note> noteModifiedAction, Consumer<String> statusAction,
-            Supplier<List<String>> autocompleteTitlesSupplier, boolean livePreviewEnabled,
-            Consumer<Boolean> livePreviewPreferenceAction) {
+            Supplier<List<LinkSuggestion>> autocompleteTitlesSupplier, boolean livePreviewEnabled,
+            Consumer<Boolean> livePreviewPreferenceAction, WikiLinkHandler wikiLinkHandler,
+            Consumer<String> tagLinkHandler, EditorHooks editorHooks) {
         setNoteService(noteService);
         setTagService(tagService);
         setBundle(bundle);
@@ -294,9 +271,11 @@ public class EditorController {
         this.statusAction = statusAction != null ? statusAction : message -> {
         };
         saveConflictSupport.wire(key -> getString(key, key));
-        this.autocompleteTitlesSupplier = autocompleteTitlesSupplier != null
-                ? autocompleteTitlesSupplier
-                : () -> NoteTitleIndex.getInstance().titlesSorted();
+        this.autocompleteTitlesSupplier = autocompleteTitlesSupplier != null ? autocompleteTitlesSupplier : List::of;
+        // A link opens the note it names by path, resolved from the note it is written in.
+        this.wikiLinkHandler = wikiLinkHandler;
+        this.tagLinkHandler = tagLinkHandler;
+        this.editorHooks = editorHooks;
         this.livePreviewPreferenceAction = livePreviewPreferenceAction != null
                 ? livePreviewPreferenceAction : enabled -> {
                 };
@@ -306,11 +285,7 @@ public class EditorController {
     }
 
     /** Plugin editor-hook dispatcher (nullable; wired by MainController). */
-    private com.example.jylos.plugin.EditorHooks editorHooks;
-
-    public void setEditorHooks(com.example.jylos.plugin.EditorHooks editorHooks) {
-        this.editorHooks = editorHooks;
-    }
+    private EditorHooks editorHooks;
 
     /**
      * Runs plugin {@code onBeforeTextInsert} hooks over a snippet about to be inserted
@@ -324,9 +299,7 @@ public class EditorController {
         return editorHooks.applyBeforeTextInsert(currentNote, snippet);
     }
 
-    // ============================================================
-    // Header control presentation
-    // ============================================================
+    // ── Header control presentation ──────────────────────────────────────────
 
     /**
      * Renders the compact editor-header controls as icon-only buttons.
@@ -337,7 +310,6 @@ public class EditorController {
         applyIconOnly(editorSaveBtn);
         applyIconOnly(pinButton);
         applyIconOnly(favoriteButton);
-        applyIconOnly(focusModeToggleBtn);
     }
 
     private void applyIconOnly(ButtonBase btn) {
@@ -349,9 +321,7 @@ public class EditorController {
         }
     }
 
-    // ============================================================
-    // Navigation state (called from MainController)
-    // ============================================================
+    // ── Navigation state (called from MainController) ────────────────────────
 
     /**
      * Enables or disables the back/forward navigation arrow buttons.
@@ -362,9 +332,7 @@ public class EditorController {
         if (navForwardBtn != null) navForwardBtn.setDisable(!canGoForward);
     }
 
-    // ============================================================
-    // State accessors
-    // ============================================================
+    // ── State accessors ──────────────────────────────────────────────────────
 
     public Note getCurrentNote() { return currentNote; }
 
@@ -380,10 +348,17 @@ public class EditorController {
         currentNote.setDeleted(note.isDeleted());
         currentNote.setDeletedDate(note.getDeletedDate());
         currentNote.setStatus(note.getStatus());
+        // Jylos itself just wrote the note (a rename, a pin, a favourite): the file on disk and
+        // the title are ours, before the title field changes and is compared with them. Edits
+        // still unsaved in the editor stay unsaved; they are not an outside change.
+        persistedTitle = orEmpty(note.getTitle());
+        persistedFingerprint = noteService != null && note.getId() != null
+                ? noteService.fingerprint(note.getId()).orElse(null)
+                : null;
         if (noteTitleField != null) {
             noteTitleField.setText(note.getTitle() != null ? note.getTitle() : "");
         }
-        updateBreadcrumb(currentNote);
+        titleRow.showPath(currentNote);
         if (!isModified) {
             capturePersistedBaseline(currentNote);
         }
@@ -391,6 +366,10 @@ public class EditorController {
 
     /** Live editor content (includes unsaved edits); empty while viewing an attachment. */
     public String getCurrentContent() {
+        if (currentAttachmentType == AttachmentType.CANVAS && currentCanvasView != null) {
+            // The canvas as it is on screen, unsaved changes included.
+            return currentCanvasView.serialize();
+        }
         if (viewingAttachment) {
             return "";
         }
@@ -409,49 +388,43 @@ public class EditorController {
     // FXML node getters (used by MainController for layout delegation)
     public VBox            getEditorContainer()        { return editorContainer; }
     public HBox            getEditorTabBar()           { return editorTabBar; }
-    public javafx.scene.control.ScrollPane getEditorTabScroll() { return editorTabScroll; }
-    public TextField       getNoteTitleField()         { return noteTitleField; }
-    public ToggleButton    getToggleTagsBtn()           { return toggleTagsBtn; }
-    public Button          getReadingModeButton()       { return readingModeButton; }
-    public ToggleButton    getPinButton()               { return pinButton; }
-    public ToggleButton    getFavoriteButton()          { return favoriteButton; }
-    public VBox            getTagsContainer()           { return tagsContainer; }
-    public FlowPane        getTagsFlowPane()            { return tagsFlowPane; }
+    public ScrollPane getEditorTabScroll() { return editorTabScroll; }
+
+    /** Leaves the title of the open note selected in its field, ready to type a new name. */
+    public void beginTitleRename() {
+        if (noteTitleField != null && noteTitleField.isVisible() && !noteTitleField.isDisabled()) {
+            noteTitleField.requestFocus();
+            noteTitleField.selectAll();
+        }
+    }
     public Label           getModifiedDateLabel()       { return modifiedDateLabel; }
-    public SplitPane       getEditorPreviewSplitPane()  { return editorPreviewSplitPane; }
-    public VBox            getEditorPane()              { return editorPane; }
-    public MarkdownEditorView getNoteContentArea()      { return noteContentArea; }
-    public VBox            getPreviewPane()             { return previewPane; }
-    public javafx.scene.web.WebView getPreviewWebView() { return previewWebView; }
+    public HtmlView getPreviewWebView() { return previewWebView; }
 
-    // ============================================================
-    // FXML action handlers
-    // ============================================================
+    // ── FXML action handlers ─────────────────────────────────────────────────
 
-    @FXML private void handleToggleTags(ActionEvent e)        { publish(SystemActionEvent.ActionType.TOGGLE_TAGS); }
-    @FXML private void handleToggleReadingMode(ActionEvent e) { publish(SystemActionEvent.ActionType.TOGGLE_READING_MODE); }
+    @FXML private void handleToggleTags(ActionEvent e)        { showTagsBar(toggleTagsBtn.isSelected()); }
+    @FXML private void handleToggleReadingMode(ActionEvent e) { toggleReadingMode(); }
     @FXML private void handleTogglePin(ActionEvent e)         { publish(SystemActionEvent.ActionType.TOGGLE_PIN); }
-    @FXML private void handleFocusMode(ActionEvent e)         { publish(SystemActionEvent.ActionType.FOCUS_MODE); }
-    @FXML private void handleSave(ActionEvent e)               { publish(SystemActionEvent.ActionType.SAVE); }
+    @FXML private void handleSave(ActionEvent e)               { handleSave(); }
     @FXML private void handleDelete(ActionEvent e)             { publish(SystemActionEvent.ActionType.DELETE); }
     @FXML private void handleToggleFavorite(ActionEvent e)    { publish(SystemActionEvent.ActionType.TOGGLE_FAVORITE); }
     @FXML private void handleToggleRightPanel(ActionEvent e)  { publish(SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL); }
-    @FXML private void handleHeading1(ActionEvent e)          { publish(SystemActionEvent.ActionType.HEADING1); }
-    @FXML private void handleHeading2(ActionEvent e)          { publish(SystemActionEvent.ActionType.HEADING2); }
-    @FXML private void handleHeading3(ActionEvent e)          { publish(SystemActionEvent.ActionType.HEADING3); }
-    @FXML private void handleBold(ActionEvent e)              { publish(SystemActionEvent.ActionType.BOLD); }
-    @FXML private void handleItalic(ActionEvent e)            { publish(SystemActionEvent.ActionType.ITALIC); }
-    @FXML private void handleStrike(ActionEvent e)            { publish(SystemActionEvent.ActionType.STRIKE); }
-    @FXML private void handleUnderline(ActionEvent e)         { publish(SystemActionEvent.ActionType.UNDERLINE); }
-    @FXML private void handleHighlight(ActionEvent e)         { publish(SystemActionEvent.ActionType.HIGHLIGHT); }
-    @FXML private void handleLink(ActionEvent e)              { publish(SystemActionEvent.ActionType.LINK); }
-    @FXML private void handleRichLink(ActionEvent e)          { publish(SystemActionEvent.ActionType.RICH_LINK); }
-    @FXML private void handleImage(ActionEvent e)             { publish(SystemActionEvent.ActionType.IMAGE); }
-    @FXML private void handleTodoList(ActionEvent e)          { publish(SystemActionEvent.ActionType.TODO_LIST); }
-    @FXML private void handleBulletList(ActionEvent e)        { publish(SystemActionEvent.ActionType.BULLET_LIST); }
-    @FXML private void handleNumberedList(ActionEvent e)      { publish(SystemActionEvent.ActionType.NUMBERED_LIST); }
-    @FXML private void handleQuote(ActionEvent e)             { publish(SystemActionEvent.ActionType.QUOTE); }
-    @FXML private void handleCode(ActionEvent e)              { publish(SystemActionEvent.ActionType.CODE); }
+    @FXML private void handleHeading1(ActionEvent e)          { applyFormat(SystemActionEvent.ActionType.HEADING1); }
+    @FXML private void handleHeading2(ActionEvent e)          { applyFormat(SystemActionEvent.ActionType.HEADING2); }
+    @FXML private void handleHeading3(ActionEvent e)          { applyFormat(SystemActionEvent.ActionType.HEADING3); }
+    @FXML private void handleBold(ActionEvent e)              { applyFormat(SystemActionEvent.ActionType.BOLD); }
+    @FXML private void handleItalic(ActionEvent e)            { applyFormat(SystemActionEvent.ActionType.ITALIC); }
+    @FXML private void handleStrike(ActionEvent e)            { applyFormat(SystemActionEvent.ActionType.STRIKE); }
+    @FXML private void handleUnderline(ActionEvent e)         { applyFormat(SystemActionEvent.ActionType.UNDERLINE); }
+    @FXML private void handleHighlight(ActionEvent e)         { applyFormat(SystemActionEvent.ActionType.HIGHLIGHT); }
+    @FXML private void handleLink(ActionEvent e)              { applyFormat(SystemActionEvent.ActionType.LINK); }
+    @FXML private void handleRichLink(ActionEvent e)          { applyFormat(SystemActionEvent.ActionType.RICH_LINK); }
+    @FXML private void handleImage(ActionEvent e)             { applyFormat(SystemActionEvent.ActionType.IMAGE); }
+    @FXML private void handleTodoList(ActionEvent e)          { applyFormat(SystemActionEvent.ActionType.TODO_LIST); }
+    @FXML private void handleBulletList(ActionEvent e)        { applyFormat(SystemActionEvent.ActionType.BULLET_LIST); }
+    @FXML private void handleNumberedList(ActionEvent e)      { applyFormat(SystemActionEvent.ActionType.NUMBERED_LIST); }
+    @FXML private void handleQuote(ActionEvent e)             { applyFormat(SystemActionEvent.ActionType.QUOTE); }
+    @FXML private void handleCode(ActionEvent e)              { applyFormat(SystemActionEvent.ActionType.CODE); }
 
     /** Back arrow — delegates history logic to MainController via EventBus. */
     @FXML private void handleNavigateBack(ActionEvent e)    { publish(SystemActionEvent.ActionType.NAVIGATE_BACK); }
@@ -459,118 +432,132 @@ public class EditorController {
     /** Forward arrow — delegates history logic to MainController via EventBus. */
     @FXML private void handleNavigateForward(ActionEvent e) { publish(SystemActionEvent.ActionType.NAVIGATE_FORWARD); }
 
-    // ============================================================
-    // Properties panel handlers
-    // ============================================================
+    // ── Properties panel handlers ────────────────────────────────────────────
 
-    /** Toggles (collapses/expands) the properties content area. */
+    /** Opens or closes the properties panel (the button in the title row). */
     @FXML
-    private void handlePropertiesHeaderClick(MouseEvent event) {
-        propertiesExpanded = !propertiesExpanded;
-        applyPropertiesExpandedState();
+    private void handleToggleProperties(ActionEvent event) {
+        properties.setOpen(togglePropertiesBtn.isSelected());
     }
 
-    private void applyPropertiesExpandedState() {
-        if (propertiesContent != null) {
-            propertiesContent.setVisible(propertiesExpanded);
-            propertiesContent.setManaged(propertiesExpanded);
-        }
-        if (propertiesCollapseIcon != null) {
-            propertiesCollapseIcon.setText(propertiesExpanded ? "▼" : "▶");
-        }
-    }
-
-    /** Opens a dialog to add a new YAML property (edit/split view only). */
+    /** Adds an empty property row to fill in place (editing views only). */
     @FXML
     private void handleAddProperty(ActionEvent event) {
-        if (currentNote == null || readOnlyView) return;
+        properties.addProperty();
+    }
 
-        Dialog<String[]> dialog = new Dialog<>();
-        dialog.setTitle(getString("dialog.add_property.title", "Add Property"));
-        dialog.setHeaderText(getString("dialog.add_property.header", "Enter property name and value:"));
-        dialog.getDialogPane().getButtonTypes().addAll(
-                new ButtonType(getString("action.add", "Add"), ButtonBar.ButtonData.OK_DONE),
-                ButtonType.CANCEL);
+    /** The view mode; the window listens to it to show the mode in the status bar. */
+    public ReadOnlyObjectProperty<ViewMode> viewModeProperty() {
+        return viewMode.getReadOnlyProperty();
+    }
 
-        GridPane grid = new GridPane();
-        grid.setHgap(10); grid.setVgap(10);
-        grid.setPadding(new Insets(16));
+    public ViewMode getViewMode() {
+        return viewMode.get();
+    }
 
-        TextField keyField   = new TextField();
-        keyField.setPromptText(getString("dialog.add_property.key_prompt", "e.g. date, priority"));
-        TextField valueField = new TextField();
-        valueField.setPromptText(getString("dialog.add_property.value_prompt", "e.g. 2026-05-31, 1"));
+    /**
+     * Shows the note as source, as the reading view, or both side by side. The reading view
+     * is read-only.
+     *
+     * @param mode the view mode; {@code null} is ignored
+     */
+    public void setViewMode(ViewMode mode) {
+        if (mode == null) {
+            return;
+        }
+        layoutPanes(mode);
+        if (mode != ViewMode.EDITOR_ONLY && isPreviewVisible()) {
+            refreshPreview(preview.lastDarkTheme());
+        }
+        setReadOnlyView(mode == ViewMode.PREVIEW_ONLY);
+        updateReadingModeControl(mode == ViewMode.EDITOR_ONLY);
+        viewMode.set(mode);
+    }
 
-        grid.add(new Label(getString("label.property_key",   "Key:")),   0, 0);
-        grid.add(keyField,   1, 0);
-        grid.add(new Label(getString("label.property_value", "Value:")), 0, 1);
-        grid.add(valueField, 1, 1);
-        dialog.getDialogPane().setContent(grid);
-        dialog.setResultConverter(btn ->
-                btn.getButtonData() == ButtonBar.ButtonData.OK_DONE
-                        ? new String[]{keyField.getText().trim(), valueField.getText().trim()}
-                        : null);
+    /** Switches between editing and the reading view; from the split view, back to editing. */
+    public void toggleReadingMode() {
+        ViewMode next = getViewMode() == ViewMode.EDITOR_ONLY ? ViewMode.PREVIEW_ONLY : ViewMode.EDITOR_ONLY;
+        setViewMode(next);
+        statusAction.accept(next == ViewMode.EDITOR_ONLY
+                ? getString("status.mode_editor", "Editing view")
+                : getString("status.mode_preview", "Reading view"));
+    }
 
-        Platform.runLater(keyField::requestFocus);
-        com.example.jylos.ui.UiDialogs.show(dialog).ifPresent(pair -> {
-            String key = pair[0];
-            String val = pair[1];
-            if (!key.isBlank()) {
-                // Persist into the model immediately, then rebuild so the new row
-                // is rendered with the correct (editable) presentation.
-                currentNote.getCustomProperties().put(key, val);
-                propertiesExpanded = true;
-                rebuildPropertiesPanel();
-                reevaluateModifiedState();
-            }
-        });
+    /** Puts the source pane, the reading pane or both in the editor's split pane. */
+    private void layoutPanes(ViewMode mode) {
+        if (editorPreviewSplitPane == null || editorPane == null || previewPane == null) {
+            return;
+        }
+        boolean source = mode != ViewMode.PREVIEW_ONLY;
+        boolean reading = mode != ViewMode.EDITOR_ONLY;
+        UiNodes.show(editorPane, source);
+        UiNodes.show(previewPane, reading);
+        editorPreviewSplitPane.getItems().clear();
+        if (source) {
+            editorPreviewSplitPane.getItems().add(editorPane);
+        }
+        if (reading) {
+            editorPreviewSplitPane.getItems().add(previewPane);
+        }
+        if (mode == ViewMode.SPLIT) {
+            editorPreviewSplitPane.setDividerPositions(0.5);
+        }
     }
 
     /**
      * Switches the properties panel between editable and read-only presentations.
-     * Called by {@link MainController} when the editor view mode changes
-     * (preview-only = read-only).
+     * Set with the view mode (preview-only = read-only).
      *
      * @param readOnly {@code true} for the "read" view
      */
-    public void setReadOnlyView(boolean readOnly) {
+    void setReadOnlyView(boolean readOnly) {
         if (this.readOnlyView == readOnly) {
             return;
         }
         // When leaving the editable view, capture any in-progress property edits
         // into the model so the read view (and a later save) reflect them.
         if (!this.readOnlyView && currentNote != null) {
-            currentNote.setCustomProperties(collectPropertiesFromPanel());
+            currentNote.setCustomProperties(properties.collect());
         }
         this.readOnlyView = readOnly;
         updateEditorEditableState();
         // In the read (preview-only) view, swap the editable title input for a plain
         // heading Label so the title reads as a title, not an input field.
         if (noteTitleField != null && noteTitleLabel != null) {
-            setNodeVisible(noteTitleField, !readOnly);
-            setNodeVisible(noteTitleLabel, readOnly);
+            UiNodes.show(noteTitleField, !readOnly);
+            UiNodes.show(noteTitleLabel, readOnly);
         }
-        rebuildPropertiesPanel();
+        properties.rebuild();
     }
 
-    // ============================================================
-    // Note loading and saving
-    // ============================================================
+    // ── Note loading and saving ──────────────────────────────────────────────
 
     /** FXML lifecycle hook: start in the empty state (no note open). */
     @FXML
     private void initialize() {
+        titleRow.wire(notePathLabel, editorHeaderBar, privateIndicator, privateIndicatorIcon, privateIndicatorTip);
+        formatToolbar.wire(formatToolbarContainer, editorPane);
         setNoteOpen(false);
+        setViewMode(viewMode.get());
+        // Live Preview shows a note embedded on its own line rendered, as the reading view does.
+        blockRenderSupport.setEmbedRenderer(preview::renderEditorEmbed);
+        if (noteContentArea != null) {
+            noteContentArea.setTagHandler(tag -> {
+                if (tagLinkHandler != null) {
+                    tagLinkHandler.accept(tag);
+                }
+            });
+        }
         if (noteContentArea != null) {
             noteContentArea.setInsertionTransformer(this::applyInsertHooks);
-            noteContentArea.setLinkHandlers(title -> {
+            noteContentArea.setLinkHandlers((title, newTab) -> {
                 if (wikiLinkHandler != null) {
-                    wikiLinkHandler.openNoteByTitle(title);
+                    wikiLinkHandler.openNoteByTitle(title, newTab);
                 }
             }, SystemBrowser::open);
             noteContentArea.setImageSourceResolver(
-                    source -> MarkdownPreview.resolveImageSource(source, previewBaseDir(),
-                            previewContainmentRoot()));
+                    source -> MarkdownPreview.resolveImageSource(source, preview.imageBaseDir(),
+                            preview.imageContainmentRoot()));
             noteContentArea.setTextChangeListener(content -> {
                 if (currentNote != null) {
                     reevaluateModifiedState();
@@ -584,10 +571,31 @@ public class EditorController {
         }
     }
 
+    /** Whether the editor renders Markdown inline (Live Preview) rather than showing raw source. */
+    public boolean isLivePreviewEnabled() {
+        return noteContentArea == null || noteContentArea.isLivePreviewEnabled();
+    }
+
     /** Toggles between Markdown source and source-backed Live Preview. */
     public void toggleLivePreview() {
         boolean enabled = noteContentArea == null || !noteContentArea.isLivePreviewEnabled();
         setLivePreviewEnabled(enabled, true);
+    }
+
+    /** The format bar under the editor: shown or folded, with its arrow and notch. */
+    private final FormatToolbarSupport formatToolbar = new FormatToolbarSupport();
+
+    /**
+     * What clicking the note's folder path in the title row does (the Explorer layout reveals
+     * the note in its tree). {@code null} makes the path plain text, not a link.
+     */
+    public void setPathRevealAction(Runnable action) {
+        titleRow.setPathRevealAction(action);
+    }
+
+    /** The format bar under the editor, shown or folded (Preferences, its arrow, the palette). */
+    FormatToolbarSupport formatToolbar() {
+        return formatToolbar;
     }
 
     /** Applies the persisted default editing mode without writing the preference again. */
@@ -612,12 +620,12 @@ public class EditorController {
             noteContentArea.setReadableLineLength(enabled);
         }
         if (isPreviewVisible()) {
-            refreshPreview(lastPreviewDarkTheme);
+            refreshPreview(preview.lastDarkTheme());
         }
     }
 
     /** Updates the single book/pencil action to reflect the visible editor layout. */
-    public void updateReadingModeControl(boolean editingOnly) {
+    private void updateReadingModeControl(boolean editingOnly) {
         if (readingModeIcon != null) {
             readingModeIcon.setIconLiteral(editingOnly ? "fth-book-open" : "fth-edit-3");
         }
@@ -633,15 +641,16 @@ public class EditorController {
      */
     private void setNoteOpen(boolean open) {
         hideAttachmentViewer();
-        setNodeVisible(editorPathBar, open);
-        setNodeVisible(editorHeaderBar, open);
-        setNodeVisible(noteOnlyControls, open);
-        setNodeVisible(editorPreviewSplitPane, open);
+        // A new tab keeps back and forward, as in Obsidian; the rest belongs to a note.
+        UiNodes.show(editorHeaderBar, true);
+        UiNodes.show(noteHeaderControls, open);
+        UiNodes.show(noteOnlyControls, open);
+        UiNodes.show(editorPreviewSplitPane, open);
         if (!open) {
-            setNodeVisible(tagsContainer, false);
-            setNodeVisible(propertiesSection, false);
+            UiNodes.show(tagsContainer, false);
+            UiNodes.show(propertiesSection, false);
         }
-        setNodeVisible(emptyState, !open);
+        UiNodes.show(emptyState, !open);
         updateEditorEditableState();
     }
 
@@ -651,34 +660,14 @@ public class EditorController {
         }
     }
 
-    /** Builds the {@code folder/sub/note.md} breadcrumb for the path bar. */
-    private void updateBreadcrumb(Note note) {
-        if (notePathLabel == null) return;
-        String id = note.getId();
-        String path;
-        if (id != null && (id.contains("/") || id.contains("\\"))) {
-            path = id.replace('\\', '/');
-            // Keep the real extension for attachments; only assume .md when there is none.
-            if (AttachmentType.extensionOf(path).isEmpty()) {
-                path = path + ".md";
-            }
-        } else {
-            String title = note.getTitle() != null ? note.getTitle() : "";
-            path = title.isBlank() ? "" : (AttachmentType.extensionOf(title).isEmpty() ? title + ".md" : title);
-        }
-        notePathLabel.setText(path);
-    }
 
 
-    @FXML
-    private void handleEmptyCreate(ActionEvent e) {
-        publish(SystemActionEvent.ActionType.NEW_NOTE);
-    }
-
-    @FXML
-    private void handleEmptyGoToFile(ActionEvent e) {
-        publish(SystemActionEvent.ActionType.QUICK_SWITCHER);
-    }
+    @FXML private void handleBoardView(ActionEvent e) { kanban.toggle(currentNote); }
+    @FXML private void handleEmptyCreate(ActionEvent e)       { publish(SystemActionEvent.ActionType.NEW_NOTE); }
+    @FXML private void handleEmptyCreateCanvas(ActionEvent e) { publish(SystemActionEvent.ActionType.NEW_CANVAS); }
+    @FXML private void handleEmptyGoToFile(ActionEvent e)     { publish(SystemActionEvent.ActionType.QUICK_SWITCHER); }
+    @FXML private void handleEmptyOpenGraph(ActionEvent e)    { publish(SystemActionEvent.ActionType.GRAPH_VIEW); }
+    @FXML private void handleEmptyOpenKanban(ActionEvent e)   { publish(SystemActionEvent.ActionType.KANBAN_VIEW); }
 
     public void loadNote(Note note) {
         // The tags bar is per-note UI state, not a sticky global preference: it must
@@ -694,10 +683,10 @@ public class EditorController {
             if (noteTitleField  != null) noteTitleField.clear();
             if (noteContentArea != null) noteContentArea.clear();
             resetEditorUndoHistory();
-            clearPropertiesPanel();
+            properties.clear();
             setNoteOpen(false);
             setModifiedState(false);
-            updatePrivateIndicator();
+            titleRow.showLock(currentNote, viewingAttachment);
             syncFavoritePinButtons(key -> getString(key, key));
             return;
         }
@@ -718,7 +707,7 @@ public class EditorController {
             showAttachment(currentNote, type);
             capturePersistedBaseline(currentNote);
             setModifiedState(false);
-            updatePrivateIndicator();
+            titleRow.showLock(currentNote, viewingAttachment);
             syncFavoritePinButtons(key -> getString(key, key));
             return;
         }
@@ -733,40 +722,15 @@ public class EditorController {
         }
 
         setNoteOpen(true);
-        updateBreadcrumb(currentNote);
-        rebuildPropertiesPanel();
+        UiNodes.show(boardViewBtn, kanban.show(currentNote));
+        titleRow.showPath(currentNote);
+        properties.rebuild();
         capturePersistedBaseline(currentNote);
         setModifiedState(false);
-        updatePrivateIndicator();
+        titleRow.showLock(currentNote, viewingAttachment);
         syncFavoritePinButtons(key -> getString(key, key));
     }
 
-    /**
-     * Shows a lock badge next to the title for private notes: a closed lock when the body
-     * is still locked (🔒 placeholder), an open lock when it is readable this session.
-     * Hidden for normal notes.
-     */
-    private void updatePrivateIndicator() {
-        if (privateIndicator == null) {
-            return;
-        }
-        boolean isPrivate = currentNote != null && currentNote.isPrivate() && !viewingAttachment;
-        privateIndicator.setVisible(isPrivate);
-        privateIndicator.setManaged(isPrivate);
-        if (!isPrivate) {
-            return;
-        }
-        boolean readable = com.example.jylos.service.EncryptionService.getInstance().canRead(currentNote.getId());
-        if (privateIndicatorIcon != null) {
-            privateIndicatorIcon.setIconLiteral(readable ? "fth-unlock" : "fth-lock");
-        }
-        if (privateIndicatorTip != null && bundle != null) {
-            String key = readable ? "tooltip.note_private_unlocked" : "tooltip.note_private_locked";
-            if (bundle.containsKey(key)) {
-                privateIndicatorTip.setText(bundle.getString(key));
-            }
-        }
-    }
 
     /** True while a non-editable attachment (PDF/image) is being shown. */
     public boolean isViewingAttachment() {
@@ -780,7 +744,7 @@ public class EditorController {
         if (attachmentViewer == null) {
             attachmentViewer = new StackPane();
             attachmentViewer.getStyleClass().add("attachment-viewer-host");
-            setNodeVisible(attachmentViewer, false);
+            UiNodes.show(attachmentViewer, false);
             if (editorContentStack != null) {
                 editorContentStack.getChildren().add(attachmentViewer);
             }
@@ -794,10 +758,10 @@ public class EditorController {
         currentAttachmentType = type;
         ensureAttachmentViewer();
 
-        java.nio.file.Path path = (noteService != null)
+        Path path = (noteService != null)
                 ? noteService.getNoteFilePath(note.getId()).orElse(null)
                 : null;
-        javafx.scene.Node attachmentContent;
+        Node attachmentContent;
         if (path != null && type == AttachmentType.CANVAS) {
             if (canReuseCurrentCanvas(path)) {
                 attachmentContent = currentCanvasView;
@@ -805,31 +769,30 @@ public class EditorController {
                 attachmentContent = buildCanvasView(path);
             }
         } else if (path != null) {
-            attachmentContent = com.example.jylos.ui.components.FileViewer.forAttachment(path, type, bundle);
+            attachmentContent = FileViewer.forAttachment(path, type, bundle);
         } else {
-            Label missing = new Label(bundle != null ? bundle.getString("viewer.file_not_found")
-                    : "File not found");
+            Label missing = new Label(getString("viewer.file_not_found", "File not found"));
             missing.getStyleClass().add("viewer-info");
             attachmentContent = missing;
         }
         attachmentViewer.getChildren().setAll(attachmentContent);
 
-        setNodeVisible(editorPathBar, true);
-        setNodeVisible(editorHeaderBar, true);
-        setNodeVisible(noteOnlyControls, false);
+        UiNodes.show(editorHeaderBar, true);
+        UiNodes.show(noteHeaderControls, true);
+        UiNodes.show(noteOnlyControls, false);
         if (noteTitleField != null) {
-            setNodeVisible(noteTitleField, true);
+            UiNodes.show(noteTitleField, true);
             noteTitleField.setEditable(true);
         }
         if (noteTitleLabel != null) {
-            setNodeVisible(noteTitleLabel, false);
+            UiNodes.show(noteTitleLabel, false);
         }
-        setNodeVisible(editorPreviewSplitPane, false);
-        setNodeVisible(tagsContainer, false);
-        setNodeVisible(propertiesSection, false);
-        setNodeVisible(emptyState, false);
-        setNodeVisible(attachmentViewer, true);
-        updateBreadcrumb(note);
+        UiNodes.show(editorPreviewSplitPane, false);
+        UiNodes.show(tagsContainer, false);
+        UiNodes.show(propertiesSection, false);
+        UiNodes.show(emptyState, false);
+        UiNodes.show(attachmentViewer, true);
+        titleRow.showPath(note);
     }
 
     /**
@@ -867,21 +830,30 @@ public class EditorController {
     }
 
     /** Reads, parses and renders a {@code .canvas} file; file nodes open the referenced note. */
-    private javafx.scene.Node buildCanvasView(java.nio.file.Path path) {
+    private Node buildCanvasView(Path path) {
         try {
-            String json = Files.readString(path);
-            com.example.jylos.util.CanvasModel.Document canvasDoc =
-                    com.example.jylos.util.CanvasModel.Document.parse(json);
-            final java.nio.file.Path vaultRoot = vaultRootFor(path, currentNote != null ? currentNote.getId() : "");
-            final Supplier<List<String>> canvasReferenceSuggestions = memoizedCanvasReferenceSuggestions(vaultRoot);
+            String json = canvasContent(path);
+            if (NoteService.LOCKED_PLACEHOLDER.equals(json)) {
+                // A private canvas while locked: nothing to draw, and nothing to save over it.
+                currentCanvasView = null;
+                currentCanvasPath = null;
+                Label locked = new Label(json);
+                locked.getStyleClass().add("viewer-info");
+                return locked;
+            }
+            CanvasModel.Document canvasDoc =
+                    CanvasModel.Document.parse(json);
+            CanvasReferences refs = new CanvasReferences(noteService,
+                    CanvasReferences.vaultRootFor(path, currentNote != null ? currentNote.getId() : ""));
+            final Supplier<List<String>> canvasReferenceSuggestions = memoizedCanvasReferenceSuggestions(refs);
             currentCanvasPath = path;
-            currentCanvasView = new com.example.jylos.ui.components.CanvasView(
+            currentCanvasView = new CanvasView(
                     canvasDoc,
-                    file -> openCanvasReference(vaultRoot, file),
-                    ref -> resolveCanvasFile(vaultRoot, ref),
-                    ref -> canonicalCanvasFileRef(vaultRoot, ref),
-                    noteId -> noteIdToCanvasRef(vaultRoot, noteId),
-                    () -> NoteTitleIndex.getInstance().titlesSorted(),
+                    file -> openNoteByTitle(refs.linkToOpen(file), false),
+                    refs::resolve,
+                    refs::canonical,
+                    refs::refOfNote,
+                    this::noteTitles,
                     canvasReferenceSuggestions,
                     this::persistCurrentCanvas,
                     this::markCanvasModified,
@@ -893,21 +865,34 @@ public class EditorController {
             currentCanvasPath = null;
             currentCanvasFingerprint = null;
             currentCanvasView = null;
-            Label error = new Label(bundle != null ? bundle.getString("viewer.canvas_error")
-                    : "Could not open canvas");
+            Label error = new Label(getString("viewer.canvas_error", "Could not open canvas"));
             error.getStyleClass().add("viewer-info");
             return error;
         }
     }
 
-    private Supplier<List<String>> memoizedCanvasReferenceSuggestions(java.nio.file.Path vaultRoot) {
+    /**
+     * The canvas's JSON. Read through the note service, which decrypts a private canvas (or
+     * gives the lock placeholder while locked); straight from the file without one.
+     */
+    private String canvasContent(Path path) throws IOException {
+        if (noteService != null && currentNote != null && currentNote.getId() != null) {
+            Optional<String> content = noteService.getNoteById(currentNote.getId()).map(Note::getContent);
+            if (content.isPresent()) {
+                return content.get();
+            }
+        }
+        return Files.readString(path);
+    }
+
+    private Supplier<List<String>> memoizedCanvasReferenceSuggestions(CanvasReferences refs) {
         AtomicReference<List<String>> cache = new AtomicReference<>();
         return () -> {
             List<String> cached = cache.get();
             if (cached != null) {
                 return cached;
             }
-            List<String> loaded = canvasFileReferenceSuggestions(vaultRoot);
+            List<String> loaded = refs.suggestions(noteTitles());
             cache.compareAndSet(null, loaded);
             return cache.get();
         };
@@ -932,9 +917,9 @@ public class EditorController {
         noteService.updateNote(currentNote, previousStoredContent);
         currentCanvasPath = noteService.getNoteFilePath(currentNote.getId()).orElse(currentCanvasPath);
         currentCanvasFingerprint = fingerprint(currentCanvasPath);
-        isModified = false;
-        updateBreadcrumb(currentNote);
-        updateSaveIndicator(false);
+        // Through setModifiedState, as a note's save: the window hears it and stops saying "Unsaved".
+        setModifiedState(false);
+        titleRow.showPath(currentNote);
         if (eventBus != null) {
             eventBus.publish(new NoteEvents.NoteSavedEvent(currentNote, previousNoteId));
         }
@@ -975,154 +960,6 @@ public class EditorController {
         return normalized + ".canvas";
     }
 
-    /** Derives the vault root from a note's absolute path and its vault-relative id. */
-    private static java.nio.file.Path vaultRootFor(java.nio.file.Path notePath, String noteId) {
-        java.nio.file.Path root = notePath.getParent();
-        String id = noteId == null ? "" : noteId.replace('\\', '/');
-        long up = id.chars().filter(c -> c == '/').count();
-        for (long i = 0; i < up && root != null; i++) {
-            root = root.getParent();
-        }
-        return root;
-    }
-
-    /**
-     * Resolves a canvas file-node reference (vault-relative) to an absolute path:
-     * directly against the vault root, falling back to the note store's path lookup.
-     */
-    private java.nio.file.Path resolveCanvasFile(java.nio.file.Path vaultRoot, String ref) {
-        if (ref == null || ref.isBlank()) {
-            return null;
-        }
-        String normalizedRef = ref.trim();
-        if (vaultRoot != null) {
-            try {
-                java.nio.file.Path p = vaultRoot.resolve(normalizedRef).normalize();
-                if (java.nio.file.Files.exists(p)) {
-                    return p;
-                }
-            } catch (Exception ignored) {
-                // fall through to the note-store lookup
-            }
-        }
-        if (noteService == null) {
-            return null;
-        }
-        java.nio.file.Path byId = noteService.getNoteFilePath(normalizedRef).orElse(null);
-        if (byId != null) {
-            return byId;
-        }
-        String titleCandidate = normalizedRef.endsWith(".md")
-                ? normalizedRef.substring(0, normalizedRef.length() - 3)
-                : normalizedRef;
-        return noteService.findNoteByTitle(titleCandidate)
-                .flatMap(note -> noteService.getNoteFilePath(note.getId()))
-                .orElse(null);
-    }
-
-    private String canonicalCanvasFileRef(java.nio.file.Path vaultRoot, String ref) {
-        if (ref == null || ref.isBlank()) {
-            return "";
-        }
-        String normalizedRef = ref.trim().replace('\\', '/');
-        java.nio.file.Path resolved = resolveCanvasFile(vaultRoot, normalizedRef);
-        if (resolved == null) {
-            try {
-                java.nio.file.Path absolute = java.nio.file.Path.of(normalizedRef).normalize();
-                if (absolute.isAbsolute() && vaultRoot != null && absolute.startsWith(vaultRoot.normalize())) {
-                    return vaultRoot.normalize().relativize(absolute).toString().replace('\\', '/');
-                }
-                if (absolute.isAbsolute()) {
-                    return "";
-                }
-            } catch (Exception ignored) {
-                // fall through to title-based handling
-            }
-        }
-        if (resolved == null) {
-            if (noteService != null) {
-                String titleCandidate = normalizedRef.endsWith(".md")
-                        ? normalizedRef.substring(0, normalizedRef.length() - 3)
-                        : normalizedRef;
-                java.util.Optional<Note> note = noteService.findNoteByTitle(titleCandidate);
-                if (note.isPresent() && note.get().getId() != null && !note.get().getId().isBlank()) {
-                    return note.get().getId().replace('\\', '/');
-                }
-            }
-            return normalizedRef.contains("/") || AttachmentType.extensionOf(normalizedRef).isEmpty()
-                    ? normalizedRef
-                    : "";
-        }
-        if (vaultRoot != null) {
-            try {
-                return vaultRoot.relativize(resolved).toString().replace('\\', '/');
-            } catch (Exception ignored) {
-                // fall through to note-id lookup
-            }
-        }
-        if (noteService != null) {
-            String titleCandidate = normalizedRef.endsWith(".md")
-                    ? normalizedRef.substring(0, normalizedRef.length() - 3)
-                    : normalizedRef;
-            java.util.Optional<Note> note = noteService.findNoteByTitle(titleCandidate);
-            if (note.isPresent() && note.get().getId() != null && !note.get().getId().isBlank()) {
-                return note.get().getId().replace('\\', '/');
-            }
-        }
-        return normalizedRef;
-    }
-
-    private String noteIdToCanvasRef(java.nio.file.Path vaultRoot, String noteId) {
-        if (noteId == null || noteId.isBlank()) {
-            return "";
-        }
-        if (noteService != null) {
-            java.nio.file.Path path = noteService.getNoteFilePath(noteId).orElse(null);
-            if (path != null && vaultRoot != null) {
-                try {
-                    return vaultRoot.relativize(path).toString().replace('\\', '/');
-                } catch (Exception ignored) {
-                    // fall through to generic canonicalization
-                }
-            }
-        }
-        return canonicalCanvasFileRef(vaultRoot, noteId);
-    }
-
-    private List<String> canvasFileReferenceSuggestions(java.nio.file.Path vaultRoot) {
-        java.util.LinkedHashSet<String> references = new java.util.LinkedHashSet<>();
-        if (autocompleteTitlesSupplier != null) {
-            references.addAll(autocompleteTitlesSupplier.get());
-        }
-        if (vaultRoot != null && java.nio.file.Files.isDirectory(vaultRoot)) {
-            try (java.util.stream.Stream<java.nio.file.Path> stream = java.nio.file.Files.walk(vaultRoot)) {
-                stream.filter(java.nio.file.Files::isRegularFile)
-                        .filter(path -> !path.startsWith(vaultRoot.resolve(".trash")))
-                        .map(path -> vaultRoot.relativize(path).toString().replace('\\', '/'))
-                        .filter(ref -> !ref.isBlank())
-                        .filter(ref -> AttachmentType.fromName(ref) != AttachmentType.MARKDOWN)
-                        .forEach(references::add);
-            } catch (Exception e) {
-                logger.fine("Could not enumerate canvas file references: " + e.getMessage());
-            }
-        }
-        List<String> sorted = new ArrayList<>(references);
-        sorted.sort(String.CASE_INSENSITIVE_ORDER);
-        return sorted;
-    }
-
-    private void openCanvasReference(java.nio.file.Path vaultRoot, String ref) {
-        String canonicalRef = canonicalCanvasFileRef(vaultRoot, ref);
-        if (noteService != null) {
-            java.util.Optional<Note> note = noteService.getNoteById(canonicalRef);
-            if (note.isPresent()) {
-                openNoteByTitle(note.get().getTitle());
-                return;
-            }
-        }
-        openNoteByTitle(canvasFileToTitle(canonicalRef));
-    }
-
     /** Resolves an i18n key, returning the key itself (never throwing) when absent. */
     private String safeI18n(String key) {
         if (bundle == null || key == null) {
@@ -1131,18 +968,28 @@ public class EditorController {
         return bundle.containsKey(key) ? bundle.getString(key) : key;
     }
 
-    /** Turns a canvas file-node reference ({@code Folder/Note.md}) into a note title. */
-    private static String canvasFileToTitle(String file) {
-        if (file == null) {
-            return "";
+    /** Where a board is drawn: the layer over the note's panes that attachments also use. */
+    private StackPane boardLayer() {
+        ensureAttachmentViewer();
+        return attachmentViewer;
+    }
+
+    /** Shows the open board note as its board, or its panes (source and reading view). */
+    private void showBoard(boolean board) {
+        UiNodes.show(editorPreviewSplitPane, !board);
+        UiNodes.show(noteOnlyControls, !board);
+        UiNodes.show(boardLayer(), board);
+        if (!board) {
+            attachmentViewer.getChildren().clear();
         }
-        String f = file.replace('\\', '/');
-        int slash = f.lastIndexOf('/');
-        String name = slash >= 0 ? f.substring(slash + 1) : f;
-        return name.endsWith(".md") ? name.substring(0, name.length() - 3) : name;
+        boardViewIcon.setIconLiteral(board ? "fth-file-text" : "fth-columns");
+        boardViewTooltip.setText(board ? getString("kanban.view_markdown", "View as Markdown")
+                : getString("kanban.view_board", "View as board"));
     }
 
     private void hideAttachmentViewer() {
+        kanban.clear();
+        UiNodes.show(boardViewBtn, false);
         viewingAttachment = false;
         currentAttachmentType = AttachmentType.MARKDOWN;
         if (noteTitleField != null) {
@@ -1150,7 +997,7 @@ public class EditorController {
         }
         if (attachmentViewer != null) {
             attachmentViewer.getChildren().clear(); // release rendered images
-            setNodeVisible(attachmentViewer, false);
+            UiNodes.show(attachmentViewer, false);
         }
     }
 
@@ -1190,7 +1037,6 @@ public class EditorController {
         }
         if (decision == SaveConflictSupport.Decision.CONFLICT_PAUSE) {
             reportStatus(safeI18n("status.save_conflict_paused"));
-            updateSaveIndicator(true);
             return false;
         }
         switch (saveConflictSupport.askResolution(currentNote.getTitle())) {
@@ -1205,7 +1051,6 @@ public class EditorController {
                 }
                 return false;
             default:
-                updateSaveIndicator(true);
                 return false;
         }
     }
@@ -1240,7 +1085,7 @@ public class EditorController {
             if (eventBus != null) {
                 eventBus.publish(new NoteEvents.NoteCreatedEvent(created));
             }
-            reportStatus(java.text.MessageFormat.format(safeI18n("status.save_conflict_copy"), created.getTitle()));
+            reportStatus(MessageFormat.format(safeI18n("status.save_conflict_copy"), created.getTitle()));
             return true;
         } catch (RuntimeException e) {
             reportSaveFailure(e);
@@ -1274,7 +1119,7 @@ public class EditorController {
             }
             capturePersistedBaseline(currentNote);
             setModifiedState(false);
-            updateBreadcrumb(currentNote);
+            titleRow.showPath(currentNote);
             if (eventBus != null) eventBus.publish(new NoteEvents.NoteSavedEvent(currentNote, previousNoteId));
             return;
         }
@@ -1282,7 +1127,7 @@ public class EditorController {
         // Property values are editable only in edit/split view; in read view the
         // model already holds the authoritative values, so we don't collect.
         if (!readOnlyView) {
-            currentNote.setCustomProperties(collectPropertiesFromPanel());
+            currentNote.setCustomProperties(properties.collect());
         }
         String contentBeforeHooks = currentNote.getContent();
         // Plugin editor hooks may transform the content before it is persisted.
@@ -1299,16 +1144,16 @@ public class EditorController {
             reportSaveFailure(e);
             return;
         }
-        if (noteContentArea != null && !java.util.Objects.equals(noteContentArea.getText(), currentNote.getContent())) {
+        if (noteContentArea != null && !Objects.equals(noteContentArea.getText(), currentNote.getContent())) {
             noteContentArea.replaceDocument(currentNote.getContent());
         }
-        if (noteTitleField != null && !java.util.Objects.equals(noteTitleField.getText(), currentNote.getTitle())) {
+        if (noteTitleField != null && !Objects.equals(noteTitleField.getText(), currentNote.getTitle())) {
             noteTitleField.setText(currentNote.getTitle());
         }
-        rebuildPropertiesPanel();
+        properties.rebuild();
         capturePersistedBaseline(currentNote);
         setModifiedState(false);
-        updateBreadcrumb(currentNote);
+        titleRow.showPath(currentNote);
         if (eventBus != null) eventBus.publish(new NoteEvents.NoteSavedEvent(currentNote, previousNoteId));
         if (editorHooks != null && !editorHooks.isEmpty()) {
             editorHooks.fireAfterSave(currentNote, currentNote.getContent());
@@ -1318,7 +1163,6 @@ public class EditorController {
     private void reportSaveFailure(RuntimeException error) {
         logger.log(Level.WARNING, "Could not save current note", error);
         statusAction.accept(safeI18n("status.error_saving"));
-        updateSaveIndicator(true);
     }
 
     private void reportStatus(String message) {
@@ -1327,213 +1171,43 @@ public class EditorController {
         }
     }
 
-    // ============================================================
-    // Properties panel — internal
-    // ============================================================
+    // ── Properties panel — internal ──────────────────────────────────────────
 
-    /**
-     * Rebuilds the whole properties panel for the current note and view mode.
-     *
-     * <ul>
-     *   <li><b>Edit / split view</b>: the section is always shown (even with no
-     *       properties) so the user can add some; values are editable; the
-     *       "add" button is visible.</li>
-     *   <li><b>Read view</b>: the section is shown only when the note actually
-     *       has properties; values are read-only and any {@code [[wiki-links]]}
-     *       render as clickable internal links; the "add" button is hidden.</li>
-     * </ul>
-     */
-    private void rebuildPropertiesPanel() {
-        clearPropertiesPanel();
-
-        Map<String, String> props = currentNote != null ? currentNote.getCustomProperties() : null;
-        boolean hasProps = props != null && !props.isEmpty();
-        boolean sectionVisible = currentNote != null && (readOnlyView ? hasProps : true);
-
-        setNodeVisible(propertiesSection, sectionVisible);
-        if (addPropertyBtn != null) {
-            addPropertyBtn.setVisible(!readOnlyView);
-            addPropertyBtn.setManaged(!readOnlyView);
-        }
-        if (!sectionVisible) {
-            return;
-        }
-
-        applyPropertiesExpandedState();
-
-        if (hasProps) {
-            props.forEach((key, value) -> {
-                if (readOnlyView) {
-                    addReadOnlyPropertyRow(key, value);
-                } else {
-                    addEditablePropertyRow(key, value);
-                }
-            });
-        }
-    }
-
-    /** Editable row: {@code [key] [TextField | CheckBox] [× remove]} — no type icon. */
-    private void addEditablePropertyRow(String key, String value) {
-        if (propertiesContent == null) return;
-
-        NoteProperty prop = NoteProperty.of(key, value != null ? value : "");
-
-        HBox row = new HBox(6);
-        row.setAlignment(Pos.CENTER_LEFT);
-        row.getStyleClass().add("property-row");
-        row.setUserData(key);
-
-        Label keyLabel = new Label(key + ":");
-        keyLabel.getStyleClass().add("property-key");
-        keyLabel.setMinWidth(90);
-        keyLabel.setMaxWidth(120);
-
-        Control valueControl;
-        if (prop.type() == NoteProperty.PropertyType.BOOLEAN) {
-            CheckBox cb = new CheckBox();
-            cb.setSelected("true".equalsIgnoreCase(value));
-            cb.getStyleClass().add("property-value-check");
-            cb.setOnAction(e -> reevaluateModifiedState());
-            valueControl = cb;
-        } else {
-            TextField tf = new TextField(value != null ? value : "");
-            tf.getStyleClass().add("property-value");
-            HBox.setHgrow(tf, Priority.ALWAYS);
-            tf.textProperty().addListener((obs, o, n) -> reevaluateModifiedState());
-            valueControl = tf;
-        }
-
-        Button removeBtn = new Button("×");
-        removeBtn.getStyleClass().add("property-remove-btn");
-        removeBtn.setTooltip(new Tooltip(getString("tooltip.remove_property", "Remove property")));
-        removeBtn.setOnAction(e -> {
-            propertiesContent.getChildren().remove(row);
-            if (currentNote != null) currentNote.getCustomProperties().remove(key);
-            reevaluateModifiedState();
-        });
-
-        row.getChildren().addAll(keyLabel, valueControl, removeBtn);
-        propertiesContent.getChildren().add(row);
-    }
-
-    /** Read-only row: {@code [key] [value]} where wiki-links are clickable. */
-    private void addReadOnlyPropertyRow(String key, String value) {
-        if (propertiesContent == null) return;
-
-        HBox row = new HBox(6);
-        row.setAlignment(Pos.CENTER_LEFT);
-        row.getStyleClass().add("property-row");
-        row.setUserData(key);
-
-        Label keyLabel = new Label(key + ":");
-        keyLabel.getStyleClass().add("property-key");
-        keyLabel.setMinWidth(90);
-        keyLabel.setMaxWidth(120);
-
-        Node valueNode = buildReadOnlyValueNode(value != null ? value : "");
-        HBox.setHgrow(valueNode, Priority.ALWAYS);
-
-        row.getChildren().addAll(keyLabel, valueNode);
-        propertiesContent.getChildren().add(row);
-    }
-
-    /**
-     * Builds the read-only value node: a plain {@link Label} when the value has
-     * no internal links, or a {@link TextFlow} mixing plain text and clickable
-     * {@link Hyperlink}s for each {@code [[wiki-link]]}.
-     */
-    private Node buildReadOnlyValueNode(String value) {
-        Matcher m = WIKI_VALUE.matcher(value);
-        if (!m.find()) {
-            Label label = new Label(value);
-            label.getStyleClass().add("property-readonly-value");
-            label.setWrapText(true);
-            return label;
-        }
-
-        TextFlow flow = new TextFlow();
-        flow.getStyleClass().add("property-readonly-value");
-        int last = 0;
-        m.reset();
-        while (m.find()) {
-            if (m.start() > last) {
-                flow.getChildren().add(new Text(value.substring(last, m.start())));
-            }
-            String title = WikiLinkResolver.extractTitle(m.group(1).trim());
-            Hyperlink link = new Hyperlink(title);
-            link.getStyleClass().add("property-wikilink");
-            link.setOnAction(e -> openNoteByTitle(title));
-            flow.getChildren().add(link);
-            last = m.end();
-        }
-        if (last < value.length()) {
-            flow.getChildren().add(new Text(value.substring(last)));
-        }
-        return flow;
-    }
-
-    private Map<String, String> collectPropertiesFromPanel() {
-        Map<String, String> result = new LinkedHashMap<>();
-        if (propertiesContent == null) return result;
-        for (Node rowNode : propertiesContent.getChildren()) {
-            if (!(rowNode instanceof HBox row)) continue;
-            String key = (String) row.getUserData();
-            if (key == null) continue;
-            for (Node child : row.getChildren()) {
-                if (child instanceof TextField tf) { result.put(key, tf.getText()); break; }
-                if (child instanceof CheckBox cb)  { result.put(key, String.valueOf(cb.isSelected())); break; }
-            }
-        }
-        return result;
-    }
-
-    private void clearPropertiesPanel() {
-        if (propertiesContent != null) propertiesContent.getChildren().clear();
-    }
-
-    /** Opens a note by title via the owning shell callback. */
-    private void openNoteByTitle(String title) {
+    /** Opens a note by title via the owning shell callback, in a new tab when {@code newTab}. */
+    private void openNoteByTitle(String title, boolean newTab) {
         if (title == null || title.isBlank() || wikiLinkHandler == null) {
             return;
         }
-        wikiLinkHandler.openNoteByTitle(title);
+        wikiLinkHandler.openNoteByTitle(title, newTab);
+    }
+
+    /** The names of the vault's notes, once each, for the canvas's note references. */
+    private List<String> noteTitles() {
+        List<LinkSuggestion> notes = autocompleteTitlesSupplier != null ? autocompleteTitlesSupplier.get() : null;
+        return notes == null ? List.of() : notes.stream().map(LinkSuggestion::name)
+                .collect(Collectors.toCollection(() -> new TreeSet<>(String.CASE_INSENSITIVE_ORDER))).stream().toList();
     }
 
     private void refreshAutocompleteTitles() {
         if (noteContentArea == null) return;
-        List<String> titles = autocompleteTitlesSupplier != null
-                ? autocompleteTitlesSupplier.get()
-                : List.of();
-        noteContentArea.setAutocompleteTitles(titles != null ? titles : List.of());
+        List<LinkSuggestion> notes = autocompleteTitlesSupplier != null ? autocompleteTitlesSupplier.get() : List.of();
+        noteContentArea.setLinkSuggestions(notes != null ? notes : List.of());
+        noteContentArea.setLinkHeadingsProvider(link -> noteService != null
+                ? noteService.headingsOf(link, currentNote != null ? currentNote.getId() : null) : List.of());
     }
 
-    // ============================================================
-    // EventBus subscriptions
-    // ============================================================
+    // ── EventBus subscriptions ───────────────────────────────────────────────
 
     private void subscribeToEvents() {
         if (eventBus == null) return;
 
+        // The toolbar's Save and plugins reach the editor through the bus; the editor's own
+        // buttons and the palette call it directly.
         subscriptions.add(eventBus.subscribe(SystemActionEvent.class, event -> Platform.runLater(() -> {
-            switch (event.getActionType()) {
-                case BOLD      -> insertMarkdownFormat("**", "**");
-                case ITALIC    -> insertMarkdownFormat("*", "*");
-                case UNDERLINE -> insertMarkdownFormat("<u>", "</u>");
-                case STRIKE    -> insertMarkdownFormat("~~", "~~");
-                case HIGHLIGHT -> insertMarkdownFormat("==", "==");
-                case HEADING1  -> insertLinePrefix("# ");
-                case HEADING2  -> insertLinePrefix("## ");
-                case HEADING3  -> insertLinePrefix("### ");
-                case BULLET_LIST   -> insertLinePrefix("- ");
-                case NUMBERED_LIST -> insertLinePrefix("1. ");
-                case TODO_LIST -> insertTodoList();
-                case QUOTE     -> insertLinePrefix("> ");
-                case CODE      -> insertCodeBlock();
-                case LINK      -> handleLinkDialog();
-                case RICH_LINK -> handleRichLinkDialog();
-                case IMAGE     -> handleImageDialog();
-                case SAVE      -> handleSave();
-                default        -> { /* not handled here */ }
+            if (event.getActionType() == SystemActionEvent.ActionType.SAVE) {
+                handleSave();
+            } else {
+                applyFormat(event.getActionType());
             }
         })));
 
@@ -1550,7 +1224,7 @@ public class EditorController {
 
         // A rendered block can summarise the whole vault, so its result goes stale when
         // any note changes — not only when the note holding the block is edited.
-        for (Class<? extends com.example.jylos.event.AppEvent> vaultEvent : java.util.List.of(
+        for (Class<? extends AppEvent> vaultEvent : List.of(
                 NoteEvents.NoteCreatedEvent.class, NoteEvents.NoteSavedEvent.class,
                 NoteEvents.NoteUpdatedEvent.class, NoteEvents.NoteDeletedEvent.class,
                 NoteEvents.NotesRefreshRequestedEvent.class)) {
@@ -1570,172 +1244,24 @@ public class EditorController {
 
     public void teardown() {
         blockRenderSupport.shutdown();
-        previewRenderExecutor.shutdownNow();
+        preview.shutdown();
         subscriptions.forEach(EventBus.Subscription::cancel);
         subscriptions.clear();
     }
 
-    // ============================================================
-    // Markdown formatting
-    // ============================================================
-
-    private void insertMarkdownFormat(String prefix, String suffix) {
-        if (noteContentArea == null) return;
-        String sel = noteContentArea.getSelectedText();
-        if (sel != null && !sel.isEmpty()) {
-            noteContentArea.replaceSelection(prefix + sel + suffix);
-        } else {
-            noteContentArea.replaceSelection(prefix + suffix, prefix.length());
-        }
-        noteContentArea.requestFocus();
-        reevaluateModifiedState();
-    }
-
-    private void insertLinePrefix(String prefix) {
-        if (noteContentArea == null) return;
-        int pos = noteContentArea.getCaretPosition();
-        String t = orEmpty(noteContentArea.getText());
-        int lineStart = t.lastIndexOf('\n', pos - 1) + 1;
-        if (t.substring(lineStart, pos).trim().isEmpty() && lineStart == pos) {
-            noteContentArea.replaceRange(pos, pos, prefix, pos + prefix.length());
-        } else {
-            String insertion = "\n" + prefix;
-            noteContentArea.replaceRange(pos, pos, insertion, pos + insertion.length());
-        }
-        noteContentArea.requestFocus();
-        reevaluateModifiedState();
-    }
-
-    private void insertTodoList() {
-        if (noteContentArea == null) return;
-        int pos = noteContentArea.getCaretPosition();
-        String t = orEmpty(noteContentArea.getText());
-        String item = applyInsertHooks("- [ ] ");
-        int lineStart = t.lastIndexOf('\n', pos - 1) + 1;
-        if (t.substring(lineStart, pos).trim().isEmpty()) {
-            noteContentArea.replaceRange(pos, pos, item, pos + item.length());
-        } else {
-            String insertion = "\n" + item;
-            noteContentArea.replaceRange(pos, pos, insertion, pos + insertion.length());
-        }
-        noteContentArea.requestFocus();
-        reevaluateModifiedState();
-    }
-
-    // Always inserts a fenced code block, matching the toolbar tooltip
-    // ("Code block") — inline code has its own affordance via backticks typed
-    // directly, so this button no longer silently falls back to inline code
-    // for a single-line or empty selection.
-    private void insertCodeBlock() {
-        if (noteContentArea == null) return;
-        String sel = noteContentArea.getSelectedText();
-        if (sel != null && !sel.isEmpty()) {
-            noteContentArea.replaceSelection("```\n" + sel + "\n```");
-        } else {
-            String insertion = "```\n\n```";
-            noteContentArea.replaceSelection(insertion, 4);
-        }
-        noteContentArea.requestFocus();
-        reevaluateModifiedState();
-    }
-
-    private void handleLinkDialog() {
-        if (noteContentArea == null) return;
-        TextInputDialog d = new TextInputDialog(getString("dialog.link.default_url", "https://"));
-        d.setTitle(getString("dialog.link.title", "Insert Link"));
-        d.setHeaderText(getString("dialog.link.header", "Enter URL:"));
-        d.setContentText(getString("dialog.link.content", "URL:"));
-        com.example.jylos.ui.UiDialogs.show(d).filter(s -> !s.trim().isEmpty()).ifPresent(url -> {
-            String sel = noteContentArea.getSelectedText();
-            String label = (sel != null && !sel.isEmpty()) ? sel
-                    : getString("dialog.link.default_text", "link text");
-            String link = applyInsertHooks("[" + label + "](" + url.trim() + ")");
-            if (sel != null && !sel.isEmpty()) noteContentArea.replaceSelection(link);
-            else {
-                int pos = noteContentArea.getCaretPosition();
-                noteContentArea.replaceRange(pos, pos, link, pos + link.length());
-            }
-            noteContentArea.requestFocus();
-            reevaluateModifiedState();
-        });
-    }
+    // ── Editor commands (called from other controllers) ──────────────────────
 
     /**
-     * Prompts for a URL, fetches its metadata off the FX thread, and inserts a
-     * {@code ::: rich-link} block at the caret. Fetching never blocks the UI; on any
-     * failure the service returns a minimal card (URL + host) so a block is still
-     * inserted.
+     * Applies a formatting action (bold, a heading, a list, a link…) to the open note at the
+     * cursor or selection. Other action types are ignored.
+     *
+     * @param type the formatting action
      */
-    private void handleRichLinkDialog() {
-        if (noteContentArea == null) return;
-        TextInputDialog d = new TextInputDialog("https://");
-        d.setTitle(getString("dialog.rich_link.title", "Insert rich link"));
-        d.setHeaderText(getString("dialog.rich_link.header", "Paste a URL:"));
-        d.setContentText(getString("dialog.rich_link.content", "URL:"));
-        com.example.jylos.ui.UiDialogs.show(d)
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .ifPresent(this::fetchAndInsertRichLink);
+    public void applyFormat(SystemActionEvent.ActionType type) {
+        formatting.apply(type);
     }
 
-    private void fetchAndInsertRichLink(String url) {
-        Task<RichLinks.RichLink> task = new Task<>() {
-            @Override
-            protected RichLinks.RichLink call() {
-                return richLinkService.fetch(url);
-            }
-        };
-        task.setOnSucceeded(e -> insertRichLinkBlock(task.getValue()));
-        task.setOnFailed(e -> insertRichLinkBlock(
-                new RichLinks.RichLink(url, "", "", "", RichLinks.hostOf(url))));
-        Thread thread = new Thread(task, "rich-link-fetch");
-        thread.setDaemon(true);
-        thread.start();
-    }
-
-    /** Inserts the rich-link block on its own paragraph at the caret. */
-    private void insertRichLinkBlock(RichLinks.RichLink link) {
-        if (noteContentArea == null || link == null) return;
-        String block = RichLinks.toMarkdown(link);
-        int pos = noteContentArea.getCaretPosition();
-        String text = orEmpty(noteContentArea.getText());
-        String before = text.substring(0, pos);
-        // Keep the block as its own paragraph (CommonMark needs a blank line around it).
-        String lead = before.isEmpty() || before.endsWith("\n\n") ? "" : before.endsWith("\n") ? "\n" : "\n\n";
-        String insertion = lead + block + "\n";
-        noteContentArea.replaceRange(pos, pos, insertion, pos + insertion.length());
-        noteContentArea.requestFocus();
-        reevaluateModifiedState();
-    }
-
-    private void handleImageDialog() {
-        if (noteContentArea == null) return;
-        TextInputDialog d = new TextInputDialog("");
-        d.setTitle(getString("dialog.image.title", "Insert Image"));
-        d.setHeaderText(getString("dialog.image.header", "Enter image URL or path:"));
-        d.setContentText(getString("dialog.image.content", "Image:"));
-        com.example.jylos.ui.UiDialogs.show(d).filter(s -> !s.trim().isEmpty()).ifPresent(path -> {
-            String sel = noteContentArea.getSelectedText();
-            String alt = (sel != null && !sel.isEmpty()) ? sel
-                    : getString("dialog.image.default_alt", "image");
-            String img = applyInsertHooks("![" + alt + "](" + path.trim() + ")");
-            if (sel != null && !sel.isEmpty()) noteContentArea.replaceSelection(img);
-            else {
-                int pos = noteContentArea.getCaretPosition();
-                noteContentArea.replaceRange(pos, pos, img, pos + img.length());
-            }
-            noteContentArea.requestFocus();
-            reevaluateModifiedState();
-        });
-    }
-
-    // ============================================================
-    // Editor commands (called from other controllers)
-    // ============================================================
-
-    // ============================================================
-    // Tag management & metadata (called from MainController)
-    // ============================================================
+    // ── Tag management & metadata (called from MainController) ───────────────
 
     public void loadNoteTags(Note note, FlowPane fp, Runnable onAdd, Consumer<Tag> onRemove) {
         if (fp == null) return;
@@ -1746,15 +1272,15 @@ public class EditorController {
             for (Tag tag : tags) {
                 HBox box = new HBox(4); box.setAlignment(Pos.CENTER_LEFT); box.getStyleClass().add("tag-container");
                 Label lbl = new Label(tag.getTitle()); lbl.getStyleClass().add("tag-label");
-                lbl.setTooltip(new Tooltip("Double-click to remove"));
+                lbl.setTooltip(new Tooltip(getString("tooltip.tag_double_click_remove", "Double-click to remove")));
                 lbl.setOnMouseClicked(e -> { if (e.getClickCount() == 2) onRemove.accept(new Tag(tag.getId(), tag.getTitle(), null, null)); });
-                Button rm = new Button("×"); rm.getStyleClass().add("tag-remove-btn");
-                rm.setTooltip(new Tooltip("Remove tag from note"));
+                Button rm = UiNodes.keepWhole(new Button("×")); rm.getStyleClass().add("tag-remove-btn");
+                rm.setTooltip(new Tooltip(getString("tooltip.remove_tag_from_note", "Remove tag from note")));
                 rm.setOnAction(e -> onRemove.accept(new Tag(tag.getId(), tag.getTitle(), null, null)));
                 box.getChildren().addAll(lbl, rm);
                 fp.getChildren().add(box);
             }
-            Button addBtn = new Button("+ Add Tag"); addBtn.getStyleClass().add("add-tag-button");
+            Button addBtn = new Button(getString("action.add_tag_line", "+ Add tag")); addBtn.getStyleClass().add("add-tag-button");
             addBtn.setOnAction(e -> onAdd.run());
             fp.getChildren().add(addBtn);
         } catch (Exception e) {
@@ -1772,20 +1298,16 @@ public class EditorController {
         setLabelSafe(modified, orDash(note.getModifiedDate()));
     }
 
-    // ============================================================
-    // Preview, word count, editor chrome
-    // ============================================================
+    // ── Preview, word count, editor chrome ───────────────────────────────────
 
-    public void setWikiLinkHandler(WikiLinkHandler handler) {
-        this.wikiLinkHandler = handler;
-    }
-
+    @Override
     public void registerEditorBlockRenderer(String pluginId, String language,
-            com.example.jylos.plugin.EditorBlockRenderer renderer) {
+            EditorBlockRenderer renderer) {
         blockRenderSupport.registerRenderer(pluginId, language, renderer);
         Platform.runLater(() -> refreshEditorBlockRenders(true));
     }
 
+    @Override
     public void unregisterEditorBlockRenderers(String pluginId) {
         blockRenderSupport.unregisterRenderers(pluginId);
         Platform.runLater(() -> refreshEditorBlockRenders(true));
@@ -1802,127 +1324,22 @@ public class EditorController {
         if (noteContentArea == null) {
             return;
         }
-        if (blockRenderSupport.isEmpty()) {
-            noteContentArea.setBlockRenders(java.util.Map.of());
-            return;
-        }
         blockRenderSupport.requestRender(currentNote, noteContentArea.getText(), immediate,
                 rendered -> Platform.runLater(() -> noteContentArea.setBlockRenders(rendered)));
     }
 
+    @Override
     public void registerPreviewEnhancer(String pluginId, PreviewEnhancer enhancer) {
-        if (pluginId != null && enhancer != null) {
-            previewEnhancers.put(pluginId, enhancer);
-            Platform.runLater(() -> refreshPreview(false));
-        }
+        preview.registerEnhancer(pluginId, enhancer);
     }
 
+    @Override
     public void unregisterPreviewEnhancer(String pluginId) {
-        if (pluginId != null) {
-            previewEnhancers.remove(pluginId);
-            Platform.runLater(() -> refreshPreview(false));
-        }
+        preview.unregisterEnhancer(pluginId);
     }
 
     public void refreshPreview(boolean darkTheme) {
-        // A plugin's own shutdown() can call unregisterPreviewEnhancer(), which queues
-        // this via Platform.runLater — that queued call always lands on a *later* tick
-        // of the event loop, after teardown() has already stopped previewRenderExecutor
-        // during app shutdown, no matter what order those two run in beforehand. Without
-        // this guard, previewRenderExecutor.execute() below throws
-        // RejectedExecutionException for every plugin that has a preview enhancer.
-        if (previewWebView == null || currentNote == null || !isPreviewVisible()
-                || previewRenderExecutor.isShutdown()) {
-            return;
-        }
-        lastPreviewDarkTheme = darkTheme;
-
-        Task<String> prev = currentPreviewTask;
-        if (prev != null) {
-            prev.cancel();
-        }
-
-        String content = liveEditorContent(currentNote);
-        String noteId = currentNote.getId();
-        boolean preserveScroll = noteId != null && noteId.equals(renderedPreviewNoteId);
-        double scrollY = preserveScroll ? currentPreviewScrollY() : 0;
-        // Capture stable references for the background thread
-        java.util.Collection<PreviewEnhancer> enhancers =
-                new java.util.ArrayList<>(previewEnhancers.values());
-        java.nio.file.Path baseDir = previewBaseDir();
-        java.nio.file.Path containmentRoot = previewContainmentRoot();
-        // Captured on the FX thread so an enhancer post-processing this render always
-        // sees the note this HTML came from, even if the user switches note mid-render.
-        com.example.jylos.plugin.PreviewContext previewContext =
-                new com.example.jylos.plugin.PreviewContext(currentNote, darkTheme);
-        boolean readable = this.readableLineLength;
-        int fontSize = (int) Math.round(this.contentFontSize);
-
-        Task<String> task = new Task<>() {
-            @Override
-            protected String call() {
-                if (content != null && !content.trim().isEmpty()) {
-                    return MarkdownPreview.buildPreviewHtml(content, darkTheme, enhancers, baseDir,
-                            EditorController.this::resolveEmbedContentByTitle, previewContext, readable, fontSize,
-                            containmentRoot);
-                }
-                return MarkdownPreview.buildEmptyHtml(darkTheme);
-            }
-        };
-        task.setOnSucceeded(e -> {
-            if (task != currentPreviewTask || task.isCancelled() || !isPreviewVisible()) {
-                return;
-            }
-            pendingPreviewScrollY = scrollY;
-            pendingPreviewNoteId = noteId;
-            previewWebView.getEngine().loadContent(task.getValue(), "text/html");
-            installWikiLinkListener();
-        });
-        task.setOnCancelled(e -> {
-            if (currentPreviewTask == task) {
-                currentPreviewTask = null;
-            }
-        });
-        task.setOnFailed(e -> {
-            if (currentPreviewTask == task) {
-                currentPreviewTask = null;
-            }
-            logger.warning("Preview render failed: " + task.getException());
-        });
-        currentPreviewTask = task;
-        previewRenderExecutor.execute(task);
-        if (noteId == null || !noteId.equals(renderedPreviewNoteId)) {
-            blankPreviewIfStillRendering(task, darkTheme);
-        }
-    }
-
-    /**
-     * On switching notes the WebView still holds the previous note's page until the new
-     * render lands. Renders are normally a few milliseconds, so that is invisible; when
-     * one is slow (files still downloading from a cloud folder), show an empty page rather
-     * than the previous note's content under the new note's title.
-     */
-    private void blankPreviewIfStillRendering(Task<String> task, boolean darkTheme) {
-        javafx.animation.PauseTransition grace = new javafx.animation.PauseTransition(STALE_PREVIEW_GRACE);
-        grace.setOnFinished(e -> {
-            if (task == currentPreviewTask && !task.isDone() && isPreviewVisible()) {
-                renderedPreviewNoteId = null;
-                previewWebView.getEngine().loadContent(MarkdownPreview.buildEmptyHtml(darkTheme), "text/html");
-            }
-        });
-        grace.play();
-    }
-
-    private double currentPreviewScrollY() {
-        if (previewWebView == null) {
-            return 0;
-        }
-        try {
-            Object value = previewWebView.getEngine().executeScript("window.scrollY || 0");
-            return value instanceof Number number ? Math.max(0, number.doubleValue()) : 0;
-        } catch (Exception e) {
-            return 0;
-        }
+        preview.refresh(darkTheme);
     }
 
     public boolean isPreviewVisible() {
@@ -1932,128 +1349,48 @@ public class EditorController {
                 && previewPane.isManaged();
     }
 
-    private String resolveEmbedContentByTitle(String title) {
-        if (noteService == null || title == null || title.isBlank()) {
-            return null;
-        }
-        return noteService.findNoteByTitle(title)
-                .flatMap(note -> noteService.getNoteById(note.getId()))
-                .map(Note::getContent)
-                .orElse(null);
-    }
-
-    /** Folder of the current note, used to resolve relative image paths in the preview. */
-    private java.nio.file.Path previewBaseDir() {
-        if (noteService == null || currentNote == null || currentNote.getId() == null) {
-            return null;
-        }
-        return noteService.getNoteFilePath(currentNote.getId())
-                .map(java.nio.file.Path::getParent)
-                .orElse(null);
-    }
-
-    /**
-     * Vault root that bounds which local images a note may inline; {@code null} (SQLite)
-     * lets the preview fall back to containing lookups in {@link #previewBaseDir()}.
-     */
-    private java.nio.file.Path previewContainmentRoot() {
-        return noteService != null ? noteService.getStorageRoot().orElse(null) : null;
-    }
-
     public void clearPreview() {
-        if (previewWebView != null) {
-            previewWebView.getEngine().loadContent("", "text/html");
-        }
+        preview.clear();
     }
 
     public void ensurePreviewWebViewThemeClass() {
-        if (previewWebView != null && !previewWebView.getStyleClass().contains("webview-theme")) {
-            previewWebView.getStyleClass().add("webview-theme");
-        }
+        preview.ensureThemeClass();
     }
 
     public void syncFavoritePinButtons(Function<String, String> i18n) {
-        if (favoriteButton != null) {
-            boolean hasNote = currentNote != null;
-            boolean isFav = hasNote && currentNote.isFavorite();
-            favoriteButton.setDisable(!hasNote);
-            favoriteButton.setSelected(isFav);
-            if (favoriteButton.getTooltip() != null && i18n != null) {
-                favoriteButton.getTooltip().setText(
-                        !hasNote ? i18n.apply("tooltip.add_favorite")
-                                : isFav ? i18n.apply("action.remove_favorite") : i18n.apply("action.add_favorite"));
-            }
-        }
-        if (pinButton != null) {
-            boolean hasNote = currentNote != null;
-            boolean isPinned = hasNote && currentNote.isPinned();
-            pinButton.setDisable(!hasNote);
-            pinButton.setSelected(isPinned);
-            if (pinButton.getTooltip() != null && i18n != null) {
-                pinButton.getTooltip().setText(
-                        !hasNote ? i18n.apply("tooltip.pin_note")
-                                : isPinned ? i18n.apply("action.unpin_note") : i18n.apply("tooltip.pin_note"));
-            }
-        }
+        boolean hasNote = currentNote != null;
+        syncToggle(favoriteButton, hasNote, hasNote && currentNote.isFavorite(), i18n,
+                "tooltip.add_favorite", "action.add_favorite", "action.remove_favorite");
+        syncToggle(pinButton, hasNote, hasNote && currentNote.isPinned(), i18n,
+                "tooltip.pin_note", "tooltip.pin_note", "action.unpin_note");
     }
 
     /**
-     * Ids assigned by MarkdownProcessor's heading AttributeProvider: lowercase Unicode
-     * letters/digits (accented letters included — {@code \p{L}} is Unicode-aware, not
-     * ASCII-only) and hyphens.
+     * A note's on/off button: off with no note, on as the note is, and its tooltip saying what
+     * a click does: {@code noNote}, {@code turnOn} or {@code turnOff} (keys of {@code i18n}).
      */
-    private static final java.util.regex.Pattern VALID_HEADING_SLUG =
-            java.util.regex.Pattern.compile("[\\p{L}\\p{N}-]+");
+    private static void syncToggle(ToggleButton button, boolean hasNote, boolean on, Function<String, String> i18n,
+            String noNote, String turnOn, String turnOff) {
+        if (button == null) {
+            return;
+        }
+        button.setDisable(!hasNote);
+        button.setSelected(on);
+        if (button.getTooltip() != null && i18n != null) {
+            button.getTooltip().setText(i18n.apply(!hasNote ? noNote : on ? turnOff : turnOn));
+        }
+    }
 
     /**
      * Navigates to a heading in whichever view is currently showing: the raw-source
      * character offset for the CodeMirror editor, or the rendered heading's anchor id
-     * for the Preview WebView (see {@code MarkdownProcessor.slugifyHeading}).
+     * for the reading view (see {@code MarkdownProcessor.slugifyHeading}).
      */
     public void navigateToHeading(int offset, String headingSlug) {
         if (isPreviewVisible()) {
-            scrollPreviewToHeading(headingSlug);
+            preview.scrollToHeading(headingSlug);
         } else if (noteContentArea != null) {
             noteContentArea.scrollToPosition(offset);
-        }
-    }
-
-    private void scrollPreviewToHeading(String headingSlug) {
-        if (previewWebView == null || headingSlug == null
-                || !VALID_HEADING_SLUG.matcher(headingSlug).matches()) {
-            return;
-        }
-        javafx.concurrent.Worker<Void> loadWorker = previewWebView.getEngine().getLoadWorker();
-        if (loadWorker.getState() == javafx.concurrent.Worker.State.SUCCEEDED) {
-            executeHeadingScroll(headingSlug);
-            return;
-        }
-        // A render triggered moments ago (e.g. just switched to Preview, or a
-        // background refresh from a recent edit) hasn't landed yet — jumping now would
-        // run the script against the page that's about to be replaced. Wait for the
-        // next load to actually finish, once, the same way restorePendingPreviewScroll
-        // waits rather than assuming loadContent() is synchronous.
-        loadWorker.stateProperty().addListener(new javafx.beans.value.ChangeListener<javafx.concurrent.Worker.State>() {
-            @Override
-            public void changed(javafx.beans.value.ObservableValue<? extends javafx.concurrent.Worker.State> obs,
-                    javafx.concurrent.Worker.State oldState, javafx.concurrent.Worker.State newState) {
-                if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
-                    loadWorker.stateProperty().removeListener(this);
-                    executeHeadingScroll(headingSlug);
-                } else if (newState == javafx.concurrent.Worker.State.FAILED
-                        || newState == javafx.concurrent.Worker.State.CANCELLED) {
-                    loadWorker.stateProperty().removeListener(this);
-                }
-            }
-        });
-    }
-
-    private void executeHeadingScroll(String headingSlug) {
-        try {
-            previewWebView.getEngine().executeScript(
-                    "document.getElementById('" + headingSlug + "')?.scrollIntoView({block: 'start'})");
-        } catch (Exception e) {
-            logger.fine("Could not scroll preview to heading: " + e.getMessage());
         }
     }
 
@@ -2066,12 +1403,14 @@ public class EditorController {
             noteTitleField.setStyle("-fx-font-size: " + (editorFontSize + 2) + "px;");
         }
         if (isPreviewVisible()) {
-            refreshPreview(lastPreviewDarkTheme);
+            refreshPreview(preview.lastDarkTheme());
         }
     }
 
     /** Applies the active JavaFX theme values inside the embedded editor page. */
     public void applyEditorTheme(boolean darkTheme, String accentColor) {
+        preview.setDarkTheme(darkTheme);
+        kanban.applyTheme(darkTheme);
         if (noteContentArea != null) {
             noteContentArea.setEditorTheme(darkTheme, accentColor);
         }
@@ -2082,8 +1421,25 @@ public class EditorController {
             toggleTagsBtn.setSelected(false);
         }
         if (tagsContainer != null) {
-            tagsContainer.setVisible(false);
-            tagsContainer.setManaged(false);
+            UiNodes.show(tagsContainer, false);
+        }
+    }
+
+    /** Opens the tags bar if it is closed and closes it if it is open (the palette's "Toggle tags"). */
+    public void toggleTagsBar() {
+        if (tagsContainer != null) {
+            showTagsBar(!tagsContainer.isVisible());
+        }
+    }
+
+    private void showTagsBar(boolean show) {
+        if (toggleTagsBtn != null) {
+            toggleTagsBtn.setSelected(show);
+        }
+        if (tagsContainer != null) {
+            UiNodes.show(tagsContainer, show);
+            statusAction.accept(show ? getString("status.tags_bar_shown", "Tags bar shown")
+                    : getString("status.tags_bar_hidden", "Tags bar hidden"));
         }
     }
 
@@ -2116,39 +1472,42 @@ public class EditorController {
     }
 
     public void performCut() {
-        if (noteTitleField != null && noteTitleField.isFocused()) {
-            noteTitleField.cut();
-        } else if (noteContentArea != null) {
-            noteContentArea.cut();
-        }
+        formatting.cut(noteTitleField);
     }
 
     public void performCopy() {
-        if (noteTitleField != null && noteTitleField.isFocused()) {
-            noteTitleField.copy();
-        } else if (noteContentArea != null) {
-            noteContentArea.copy();
-        }
+        formatting.copy(noteTitleField);
     }
 
     public void performPaste() {
-        if (noteTitleField != null && noteTitleField.isFocused()) {
-            noteTitleField.paste();
-        } else if (noteContentArea != null) {
-            noteContentArea.paste();
-        }
+        formatting.paste(noteTitleField);
     }
 
     public void performFind(Function<String, String> i18n, Consumer<String> status) {
-        if (noteContentArea != null) {
-            noteContentArea.openSearch();
-        }
+        formatting.openSearch(false);
     }
 
     public void performReplace(Function<String, String> i18n, Consumer<String> status) {
-        if (noteContentArea != null) {
-            noteContentArea.openReplace();
+        formatting.openSearch(true);
+    }
+
+    /** Inserts the template {@code write} writes for the selection, its properties in the note's: "Insert template". */
+    public EditorTemplateSupport.Outcome insertTemplate(Function<String, EditorTemplateSupport.Written> write) {
+        return templates.insertTemplate(write);
+    }
+
+    /** Writes {@code text} at the cursor of the note open for editing; {@code false} with none. */
+    public boolean insertText(String text) {
+        return templates.insertText(text);
+    }
+
+    /** The note open for editing, with what its properties panel shows, or {@code null}. */
+    private Note noteOpenForEditing() {
+        if (currentNote == null || readOnlyView || viewingAttachment || currentAttachmentType == AttachmentType.CANVAS) {
+            return null;
         }
+        currentNote.setCustomProperties(properties.collect());
+        return currentNote;
     }
 
     private String liveEditorContent(Note note) {
@@ -2158,88 +1517,102 @@ public class EditorController {
         return note != null ? orEmpty(note.getContent()) : "";
     }
 
-    private int countWords(String text) {
-        if (noteService != null) {
-            return noteService.countWords(text);
+    /** What the properties panel reads from, and tells, this editor. */
+    private final class PropertiesHost implements PropertiesPanelSupport.Host {
+        @Override
+        public PropertiesPanelSupport.Nodes nodes() {
+            return new PropertiesPanelSupport.Nodes(togglePropertiesBtn, propertiesDot, propertiesSection,
+                    propertiesContent, propertiesEmptyLabel, addPropertyRow);
         }
-        if (text == null || text.trim().isEmpty()) {
-            return 0;
+
+        @Override
+        public Note currentNote() {
+            return currentNote;
         }
-        return text.trim().split("\\s+").length;
+
+        @Override
+        public boolean readOnlyView() {
+            return readOnlyView;
+        }
+
+        @Override
+        public boolean viewingAttachment() {
+            return viewingAttachment;
+        }
+
+        @Override
+        public void propertiesChanged() {
+            reevaluateModifiedState();
+        }
+
+        @Override
+        public void openLink(String link, boolean newTab) {
+            openNoteByTitle(link, newTab);
+        }
+
+        @Override
+        public String text(String key, String fallback) {
+            return getString(key, fallback);
+        }
     }
 
-    private void installWikiLinkListener() {
-        if (wikiLinkListenerInstalled || previewWebView == null) {
-            return;
+    /** What the reading view reads from this editor. */
+    private final class PreviewHost implements EditorPreviewSupport.Host {
+        @Override
+        public HtmlView previewWebView() {
+            return previewWebView;
         }
-        wikiLinkListenerInstalled = true;
-        previewWebView.getEngine().getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
-            if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
-                try {
-                    netscape.javascript.JSObject window = (netscape.javascript.JSObject)
-                            previewWebView.getEngine().executeScript("window");
-                    window.setMember("javaApp", previewJavaBridge);
-                    installAcceleratedPreviewScroll();
-                    restorePendingPreviewScroll();
-                } catch (Exception e) {
-                    logger.warning("Failed to inject preview Java bridge: " + e.getMessage());
-                }
+
+        @Override
+        public boolean previewShown() {
+            return isPreviewVisible();
+        }
+
+        @Override
+        public Note currentNote() {
+            return currentNote;
+        }
+
+        @Override
+        public String liveContent() {
+            return liveEditorContent(currentNote);
+        }
+
+        @Override
+        public NoteService noteService() {
+            return noteService;
+        }
+
+        @Override
+        public boolean readableLineLength() {
+            return readableLineLength;
+        }
+
+        @Override
+        public double contentFontSize() {
+            return contentFontSize;
+        }
+
+        @Override
+        public void openLink(String link, boolean newTab) {
+            if (wikiLinkHandler != null) {
+                wikiLinkHandler.openNoteByTitle(link, newTab);
             }
-        });
-    }
-
-    private void installAcceleratedPreviewScroll() {
-        previewWebView.getEngine().executeScript("""
-                if (!window.__jylosWheelSpeedInstalled) {
-                  window.__jylosWheelSpeedInstalled = true;
-                  document.addEventListener('wheel', function(e) {
-                    if (e.ctrlKey || e.metaKey) return;
-                    window.scrollBy(0, e.deltaY * 1.8);
-                    e.preventDefault();
-                  }, { passive: false });
-                }
-                """);
-    }
-
-    private void restorePendingPreviewScroll() {
-        if (pendingPreviewScrollY == null) {
-            return;
-        }
-        double scrollY = pendingPreviewScrollY;
-        String noteId = pendingPreviewNoteId;
-        pendingPreviewScrollY = null;
-        pendingPreviewNoteId = null;
-        previewWebView.getEngine().executeScript("window.scrollTo(0, " + scrollY + ");");
-        renderedPreviewNoteId = noteId;
-    }
-
-    /**
-     * Bridge exposed to the preview WebView as {@code window.javaApp}. JavaFX can only
-     * call methods of a <b>public</b> class from JavaScript, so this must stay public
-     * (a private/package-private bridge silently fails to dispatch clicks).
-     */
-    public final class PreviewJavaBridge {
-        public void openNote(String title) {
-            Platform.runLater(() -> {
-                if (wikiLinkHandler != null) {
-                    wikiLinkHandler.openNoteByTitle(title);
-                }
-            });
         }
 
-        /** Opens an external {@code http(s)} link (e.g. a rich-link card) in the system browser. */
-        public void openExternal(String url) {
-            Platform.runLater(() -> SystemBrowser.open(url));
+        @Override
+        public void openTag(String tag) {
+            if (tagLinkHandler != null) {
+                tagLinkHandler.accept(tag);
+            }
         }
     }
 
-    public void publishAction(EventBus bus, SystemActionEvent.ActionType type) {
-        if (bus != null && type != null) bus.publish(new SystemActionEvent(type));
-    }
+    // ── Private utilities ────────────────────────────────────────────────────
 
-    // ============================================================
-    // Private utilities
-    // ============================================================
+    private void publishCreated(Note note) {
+        if (eventBus != null && note != null) eventBus.publish(new NoteEvents.NoteCreatedEvent(note));
+    }
 
     private void publish(SystemActionEvent.ActionType type) {
         if (eventBus != null) eventBus.publish(new SystemActionEvent(type));
@@ -2249,7 +1622,6 @@ public class EditorController {
         if (currentNote != null) {
             noteModifiedAction.accept(currentNote);
         }
-        updateSaveIndicator(isModified);
     }
 
     private void capturePersistedBaseline(Note note) {
@@ -2259,6 +1631,7 @@ public class EditorController {
         persistedTitle = note != null ? orEmpty(note.getTitle()) : "";
         persistedContent = note != null ? orEmpty(note.getContent()) : "";
         persistedCustomProperties = snapshotCustomProperties(note != null ? note.getCustomProperties() : null);
+        propertiesInserted = false;
     }
 
     private void resetEditorUndoHistory() {
@@ -2282,10 +1655,10 @@ public class EditorController {
     }
 
     private Map<String, String> currentPropertySnapshot() {
-        if (readOnlyView || propertiesContent == null || propertiesContent.getChildren().isEmpty()) {
+        if (readOnlyView || !properties.hasRows()) {
             return snapshotCustomProperties(currentNote != null ? currentNote.getCustomProperties() : null);
         }
-        return snapshotCustomProperties(collectPropertiesFromPanel());
+        return snapshotCustomProperties(properties.collect());
     }
 
     private void reevaluateModifiedState() {
@@ -2302,38 +1675,15 @@ public class EditorController {
         } else {
             dirtyContent = !orEmpty(noteContentArea != null ? noteContentArea.getText() : null).equals(persistedContent);
         }
-        boolean dirtyProperties = !currentPropertySnapshot().equals(persistedCustomProperties);
+        boolean dirtyProperties = propertiesInserted || !currentPropertySnapshot().equals(persistedCustomProperties);
         setModifiedState(dirtyTitle || dirtyContent || dirtyProperties);
     }
 
     private void setModifiedState(boolean dirty) {
         boolean changed = isModified != dirty;
         isModified = dirty;
-        updateSaveIndicator(dirty);
         if (changed || dirty) {
             publishModified();
-        }
-    }
-
-    /**
-     * Updates the inline save-indicator dot next to the title: amber while there are
-     * unsaved changes, green once saved, hidden when no editable note is open.
-     */
-    private void updateSaveIndicator(boolean dirty) {
-        if (dirtySaveIndicator == null) {
-            return;
-        }
-        boolean show = currentNote != null;
-        setNodeVisible(dirtySaveIndicator, show);
-        if (!show) {
-            return;
-        }
-        dirtySaveIndicator.getStyleClass().removeAll("dirty", "saved");
-        dirtySaveIndicator.getStyleClass().add(dirty ? "dirty" : "saved");
-        if (dirtySaveIndicatorTip != null) {
-            dirtySaveIndicatorTip.setText(dirty
-                    ? getString("tooltip.unsaved_changes", "Unsaved changes")
-                    : getString("tooltip.saved", "All changes saved"));
         }
     }
 
@@ -2342,9 +1692,6 @@ public class EditorController {
         return bundle.containsKey(key) ? bundle.getString(key) : fallback;
     }
 
-    private static void setNodeVisible(Node n, boolean visible) {
-        if (n != null) { n.setVisible(visible); n.setManaged(visible); }
-    }
 
     private static String orEmpty(String s)  { return s != null ? s : ""; }
     private static String orDash(String s)   { return (s != null && !s.isBlank()) ? s : "-"; }

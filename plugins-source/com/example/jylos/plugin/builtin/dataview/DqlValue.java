@@ -21,6 +21,9 @@ import java.util.Map;
  * {@code null}, yields a defined result instead of throwing. A query over a real vault
  * inevitably meets pages where a field is missing or holds an unexpected type, and one
  * such page must not blank out the whole table.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
  */
 final class DqlValue {
 

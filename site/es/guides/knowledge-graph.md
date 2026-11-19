@@ -9,17 +9,21 @@ El grafo de conocimiento dibuja tus notas y sus wiki-links como una red interact
 - **Ctrl/Cmd+G**
 - Paleta de comandos
 
+El grafo se abre en una pestaña, como en Obsidian, con la regla de las notas: ocupa la pestaña activa, o una nueva con Cmd/Ctrl+clic o clic central en su botón de la barra. Si ya está abierto, su pestaña pasa al frente, donde está como lo dejaste; la × de la pestaña lo cierra. Un espacio de trabajo guardado lo vuelve a abrir con sus notas. Una pestaña nueva (el **+** tras las pestañas, o **Ctrl/Cmd+T**) también lo ofrece.
+
+Los enlaces cuentan tanto en el cuerpo como en las propiedades de la nota (`up: "[[Índice]]"`), como en Obsidian.
+
 ## Vistas global y local
 
 - **Grafo global** — todas las notas y aristas de wiki-links resueltos, con nodos de etiquetas opcionales y aristas nota→etiqueta.
-- **Grafo local** — la nota actual más sus vecinos dentro de una profundidad configurable.
+- **Grafo local** — la nota actual más las notas a las que llega en hasta **Profundidad** enlaces (de 1 a 5). Las casillas **Enlaces entrantes** y **Enlaces salientes** eligen qué enlaces seguir, y **Enlaces adyacentes** muestra también los enlaces entre esas notas. Por defecto, como en Obsidian: profundidad 1, entrantes y salientes, sin adyacentes.
 
 ## Interactúa
 
-- Zoom y paneo.
+- Zoom y paneo. El grafo abre con el zoom que dejaste, como en Obsidian (el grafo local guarda el suyo). Hasta que eliges uno, o tras **Restablecer vista**, muestra el grafo entero mientras se despliega.
 - Arrastra nodos.
 - Pasa el cursor para resaltar vecinos.
-- Haz clic en un nodo de nota para abrirlo.
+- Haz clic en un nodo de nota para abrirla en la pestaña del grafo; Cmd/Ctrl+clic o el botón central la abren en otra pestaña y el grafo se queda.
 
 ## Ajustes y filtros
 
@@ -32,7 +36,21 @@ El panel de ajustes también incluye filtros que redibujan el grafo sin reconstr
 - **Carpeta** — restringe el grafo a un grupo de carpetas.
 - **Mostrar huérfanos** — oculta/muestra notas sin conexiones.
 - **Mostrar sin resolver** — oculta/muestra nodos de enlaces rotos ("fantasmas").
+- **Mostrar adjuntos** — desactivado por defecto, como en Obsidian. Activado, aparecen las imágenes, PDF, audios y demás ficheros, cada uno unido a las notas que lo incrustan o enlazan. Los canvas aparecen siempre.
 - **Mostrar etiquetas** — incluye/excluye nodos `#etiqueta`.
+
+### Grupos de color
+
+En **Grupos**, **Nuevo grupo** añade una fila con una consulta y un color. Los grupos se prueban en orden y cada nota toma el color del primero con el que coincide; los demás nodos no cambian. La consulta puede ser:
+
+- texto, que se busca en el nombre o en la ruta de la nota;
+- `path:texto`, en la ruta (`path:proyectos/`);
+- `file:texto`, en el nombre;
+- `tag:etiqueta`, las notas con esa etiqueta (y su nodo de etiqueta).
+
+Un color de grupo tiene prioridad sobre **Color por carpeta**. La X de la fila borra el grupo.
+
+Todos los ajustes del grafo (fuerzas, tamaños, casillas, profundidad local y grupos) se guardan y siguen igual la próxima vez.
 
 ## Knowledge Insights
 

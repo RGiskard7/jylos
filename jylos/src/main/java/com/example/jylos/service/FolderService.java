@@ -8,6 +8,8 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.data.dao.FolderColorStore;
+import com.example.jylos.data.dao.VaultSettingsStore;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.models.Folder;
@@ -39,6 +41,10 @@ public class FolderService {
 
     private final FolderDAO folderDAO;
     private final NoteDAO noteDAO;
+    /** The folders' colours; {@code null} where colours are not kept. */
+    private final FolderColorStore colors;
+    /** The vault's settings, which name folders by path; {@code null} where they are not kept. */
+    private final VaultSettingsStore settings;
 
     /**
      * Creates a new FolderService with the required DAOs.
@@ -47,13 +53,44 @@ public class FolderService {
      * @param noteDAO   Data access object for notes
      */
     public FolderService(FolderDAO folderDAO, NoteDAO noteDAO) {
+        this(folderDAO, noteDAO, null);
+    }
+
+    /**
+     * As {@link #FolderService(FolderDAO, NoteDAO)}, keeping the folders' colours in
+     * {@code colors} ({@code null} for none): a folder's colour follows it when it is renamed
+     * or moved, and goes with it when it is deleted.
+     */
+    public FolderService(FolderDAO folderDAO, NoteDAO noteDAO, FolderColorStore colors) {
+        this(folderDAO, noteDAO, colors, null);
+    }
+
+    /**
+     * As {@link #FolderService(FolderDAO, NoteDAO, FolderColorStore)}, and the vault's
+     * {@code settings} ({@code null} for none) follow a folder they name when it is renamed or
+     * moved.
+     */
+    public FolderService(FolderDAO folderDAO, NoteDAO noteDAO, FolderColorStore colors, VaultSettingsStore settings) {
         this.folderDAO = folderDAO;
         this.noteDAO = noteDAO;
+        this.colors = colors;
+        this.settings = settings;
         logger.info("FolderService initialized");
     }
 
-    // ==================== CRUD Operations ====================
+    /** {@code folder}'s colour ({@code #rrggbb}), or {@code null} if it has none. */
+    public String folderColor(Folder folder) {
+        return colors != null && folder != null ? colors.colorOf(folder.getId()) : null;
+    }
 
+    /** Gives {@code folder} the colour {@code hex} ({@code #rrggbb}), or none for {@code null}. */
+    public void setFolderColor(Folder folder, String hex) {
+        if (colors != null && folder != null) {
+            colors.setColor(folder.getId(), hex);
+        }
+    }
+
+    // ── CRUD Operations ─────────────────────────────────────────────────────
     /**
      * Creates a new folder in the root.
      * 
@@ -79,7 +116,17 @@ public class FolderService {
      * @return The created subfolder
      */
     public Folder createSubfolder(String title, Folder parentFolder) {
-        Folder subfolder = createFolder(title);
+        // Created in its parent directly: created at the root and then moved, it took a "(1)"
+        // whenever the root had a folder with the same name.
+        Folder subfolder = new Folder(title);
+        if (parentFolder != null && parentFolder.getId() != null) {
+            subfolder.setParent(parentFolder);
+        }
+        String folderId = folderDAO.createFolder(subfolder);
+        if (folderId == null || folderId.isEmpty()) {
+            throw new DataAccessException("Failed to create folder: " + title, null);
+        }
+        subfolder.setId(folderId);
         if (parentFolder != null && parentFolder.getId() != null) {
             folderDAO.addSubFolder(parentFolder, subfolder);
             logger.info("Added subfolder '" + title + "' to parent: " + parentFolder.getTitle());
@@ -121,8 +168,14 @@ public class FolderService {
         if (folder == null || newName == null || newName.trim().isEmpty()) {
             throw new IllegalArgumentException("Folder and new name cannot be null or empty");
         }
+        String previousId = folderDAO.currentId(folder.getId());
+        String previousPath = pathOf(previousId);
         folder.setTitle(newName.trim());
         updateFolder(folder);
+        if (colors != null) {
+            colors.move(previousId, folder.getId());
+        }
+        settingsFollow(previousPath, folder.getId());
         return folder;
     }
 
@@ -133,7 +186,11 @@ public class FolderService {
      * @param folderId The ID of the folder to delete
      */
     public void deleteFolder(String folderId) {
+        String currentId = folderDAO.currentId(folderId);
         folderDAO.deleteFolder(folderId);
+        if (colors != null) {
+            colors.remove(currentId);
+        }
         folderDAO.refreshCache();
         noteDAO.refreshCache();
         logger.info("Deleted folder ID: " + folderId);
@@ -146,6 +203,9 @@ public class FolderService {
      */
     public void permanentlyDeleteFolder(String folderId) {
         folderDAO.permanentlyDeleteFolder(folderId);
+        if (colors != null) {
+            colors.remove(folderId);
+        }
         folderDAO.refreshCache();
         noteDAO.refreshCache();
         logger.info("Permanently deleted folder ID: " + folderId);
@@ -163,8 +223,7 @@ public class FolderService {
         logger.info("Restored folder ID: " + folderId);
     }
 
-    // ==================== Retrieval Methods ====================
-
+    // ── Retrieval Methods ───────────────────────────────────────────────────
     /**
      * Fetches all folders as a flat list.
      * 
@@ -228,11 +287,8 @@ public class FolderService {
             return new ArrayList<>();
         }
 
-        folderDAO.loadSubFolders(parentFolder);
-        return parentFolder.getChildren().stream()
-                .filter(c -> c instanceof Folder)
-                .map(c -> (Folder) c)
-                .collect(Collectors.toList());
+        // One level: callers that want deeper folders ask for them in turn.
+        return new ArrayList<>(folderDAO.fetchDirectSubfolders(parentFolder));
     }
 
     /**
@@ -288,8 +344,7 @@ public class FolderService {
         }
     }
 
-    // ==================== Note Management ====================
-
+    // ── Note Management ─────────────────────────────────────────────────────
     /**
      * Gets all notes in a folder.
      * 
@@ -351,6 +406,8 @@ public class FolderService {
         if (!canMoveFolder(folder, targetParent)) {
             throw new IllegalArgumentException("Invalid folder move");
         }
+        String previousId = folderDAO.currentId(folder.getId());
+        String previousPath = pathOf(previousId);
         if (targetParent == null || "ROOT".equals(targetParent.getId())) {
             folderDAO.moveFolderToRoot(folder);
             logger.info("Moved folder '" + folder.getTitle() + "' to root");
@@ -358,8 +415,28 @@ public class FolderService {
             folderDAO.addSubFolder(targetParent, folder);
             logger.info("Moved folder '" + folder.getTitle() + "' to folder: " + targetParent.getTitle());
         }
+        if (colors != null) {
+            colors.move(previousId, folder.getId());
+        }
         folderDAO.refreshCache();
         noteDAO.refreshCache();
+        settingsFollow(previousPath, folder.getId());
+    }
+
+    /** The path of the folder {@code folderId} in the vault, as the settings name it. */
+    private String pathOf(String folderId) {
+        return settings != null ? FolderPaths.of(folderDAO, noteDAO.storageRoot().isPresent(), folderId) : "";
+    }
+
+    /** The settings naming the folder that was at {@code previousPath} follow it to where {@code folderId} is now. */
+    private void settingsFollow(String previousPath, String folderId) {
+        if (settings == null || previousPath.isEmpty()) {
+            return;
+        }
+        String now = pathOf(folderDAO.currentId(folderId));
+        if (!now.isEmpty() && !now.equals(previousPath)) {
+            settings.movePath(previousPath, now);
+        }
     }
 
     /**
@@ -391,8 +468,7 @@ public class FolderService {
         return true;
     }
 
-    // ==================== Path Methods ====================
-
+    // ── Path Methods ────────────────────────────────────────────────────────
     /**
      * Gets the full path of a folder (e.g., "/Parent/Child/Current").
      * 
@@ -431,8 +507,7 @@ public class FolderService {
         return path;
     }
 
-    // ==================== Utility Methods ====================
-
+    // ── Utility Methods ─────────────────────────────────────────────────────
     /**
      * Checks if a folder name already exists at root level.
      * 

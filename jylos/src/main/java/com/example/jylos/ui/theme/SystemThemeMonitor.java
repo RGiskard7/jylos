@@ -12,6 +12,9 @@ import javafx.util.Duration;
 
 /**
  * Polls the OS appearance while the app is in built-in "system" theme mode.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.3.0
  */
 public final class SystemThemeMonitor {
 

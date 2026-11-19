@@ -4,7 +4,14 @@ Wiki-links connect your notes into a network, and they are what powers the graph
 
 ## Create a link
 
-Type `[[` in the editor to autocomplete a note title. Jylos also supports internal Markdown links:
+Type `[[` in the editor and Jylos suggests notes as you type:
+
+- Accents and case do not matter (`reunion` finds "Reunión"). Notes whose name starts with what you typed come first, then those with a word that starts with it, then those that contain it, then those with its letters in order (`pj` finds "Proyecto Jylos").
+- Every note is listed with its folder, also two with the same name. Jylos writes the shortest link that names the one you pick: its name, or its path when another note has that name. Typing a `/` searches by path (`personal/reu`).
+- A note's `aliases` are listed too, and are written as `[[Note|alias]]`.
+- After `#` it lists the headings of that note (`[[Note#`), or of the open note (`[[#`). After `|` nothing is suggested: the text the link shows is yours.
+
+Jylos also supports internal Markdown links:
 
 ```markdown
 [[My Note]]

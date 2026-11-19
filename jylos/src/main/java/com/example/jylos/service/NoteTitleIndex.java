@@ -8,6 +8,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
@@ -39,7 +40,8 @@ import com.example.jylos.event.events.NoteEvents;
  */
 public final class NoteTitleIndex {
 
-    private record Snapshot(List<String> sortedTitles, Set<String> titles, Map<String, String> noteIdsByNormalizedTitle) {
+    private record Snapshot(List<String> sortedTitles, Set<String> titles, Map<String, String> noteIdsByNormalizedTitle,
+            LinkIndex links) {
     }
 
     private static final Logger logger = LoggerConfig.getLogger(NoteTitleIndex.class);
@@ -62,17 +64,28 @@ public final class NoteTitleIndex {
      * Returns the set of known note titles (never {@code null}). Rebuilds the cache
      * from the current {@link NoteService} when stale. Returns an empty set until
      * the index is wired to a note service.
+     *
+     * @deprecated titles alone cannot tell two notes of the same name apart; use
+     *             {@link #linkIndex()}, which resolves links by path, or {@link #titlesSorted()}
+     *             for a list to show.
      */
+    @Deprecated
     public Set<String> titles() {
         return snapshot().titles();
     }
 
     /**
-     * Returns the known note titles sorted case-insensitively for UI consumers such as
-     * wiki-link autocomplete. Reuses the same warm snapshot as {@link #titles()}.
+     * Returns the known note titles sorted case-insensitively, once each, for UI lists. The
+     * wiki-link autocomplete uses {@link #linkSuggestions()}, which tells same-named notes
+     * apart. Reuses the same warm snapshot as {@link #titles()}.
      */
     public List<String> titlesSorted() {
         return snapshot().sortedTitles();
+    }
+
+    /** Every note as {@code [[} suggests it while a link is typed, from the same warm snapshot. */
+    public List<LinkSuggestion> linkSuggestions() {
+        return snapshot().links().suggestions();
     }
 
     /**
@@ -84,6 +97,14 @@ public final class NoteTitleIndex {
             return Optional.empty();
         }
         return Optional.ofNullable(snapshot().noteIdsByNormalizedTitle().get(normalize(title)));
+    }
+
+    /**
+     * The vault-wide link index (paths and aliases of every note), from the same warm
+     * snapshot as the titles. Empty until the index is wired to a note service.
+     */
+    public LinkIndex linkIndex() {
+        return snapshot().links();
     }
 
     /** Marks the cache stale; the next {@link #titles()} call rebuilds it. */
@@ -120,11 +141,12 @@ public final class NoteTitleIndex {
         try {
             NoteService ns = noteService;
             if (ns == null) {
-                return new Snapshot(List.of(), Set.of(), Map.of());
+                return new Snapshot(List.of(), Set.of(), Map.of(), LinkIndex.EMPTY);
             }
-            Set<String> titles = new java.util.TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+            Set<String> titles = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
             Map<String, String> noteIdsByNormalizedTitle = new LinkedHashMap<>();
-            for (Note note : ns.getAllNotes()) {
+            List<Note> notes = ns.getAllNotes();
+            for (Note note : notes) {
                 if (note == null || note.getTitle() == null || note.getTitle().isBlank()) {
                     continue;
                 }
@@ -134,11 +156,12 @@ public final class NoteTitleIndex {
                 }
             }
             List<String> sortedTitles = List.copyOf(titles);
-            return new Snapshot(sortedTitles, Set.copyOf(titles), Map.copyOf(noteIdsByNormalizedTitle));
+            return new Snapshot(sortedTitles, Set.copyOf(titles), Map.copyOf(noteIdsByNormalizedTitle),
+                    ns.buildLinkIndex(notes));
         } catch (Exception e) {
             logger.warning("NoteTitleIndex rebuild failed: " + e.getMessage());
         }
-        return new Snapshot(List.of(), Set.of(), Map.of());
+        return new Snapshot(List.of(), Set.of(), Map.of(), LinkIndex.EMPTY);
     }
 
     public void shutdown() {

@@ -6,6 +6,11 @@ on:
     paths:
       - "site/**"
       - ".github/workflows/deploy-pages.yml"
+      # The site is built from these too (scripts/prepare.mjs and .vitepress/data/).
+      - "changelog.md"
+      - "themes/**"
+      - "plugins-source/core-plugins.json"
+      - "community-plugins.json"
   workflow_dispatch:
 
 permissions:

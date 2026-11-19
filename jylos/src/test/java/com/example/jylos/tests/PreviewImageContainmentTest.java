@@ -77,7 +77,7 @@ class PreviewImageContainmentTest {
     void renderedPreviewNeverEmbedsTheBytesOfAFileOutsideTheVault() {
         String html = MarkdownPreview.buildPreviewHtml(
                 "![ok](../attachments/ok.png)\n\n![leak](../../secret.png)",
-                false, null, noteDir, null, null, false, 0, vault);
+                false, null, new MarkdownPreview.PreviewOptions(noteDir, null, null, false, 0, vault, null));
         assertTrue(html.contains(Base64.getEncoder().encodeToString(INSIDE_BYTES)),
                 "the image inside the vault must be inlined");
         assertFalse(html.contains(Base64.getEncoder().encodeToString(SECRET_BYTES)),

@@ -25,12 +25,59 @@ public final class WorkspaceService {
 
     private final WorkspaceRepository repository;
 
+    private final WorkspaceHistoryRepository tabHistory;
+
     public WorkspaceService() {
-        this(new WorkspaceRepository());
+        this(new WorkspaceRepository(), new WorkspaceHistoryRepository());
     }
 
+    /** Without a place for the tabs' history (it is then neither kept nor read). */
     public WorkspaceService(WorkspaceRepository repository) {
+        this(repository, null);
+    }
+
+    public WorkspaceService(WorkspaceRepository repository, WorkspaceHistoryRepository tabHistory) {
         this.repository = repository;
+        this.tabHistory = tabHistory;
+    }
+
+    /**
+     * As {@link #save(String, Workspace)}, keeping also the back and forward of each tab, in
+     * the order of the live state's tabs.
+     */
+    public Workspace save(String name, Workspace liveState, List<TabHistory> history) {
+        Workspace saved = save(name, liveState);
+        if (tabHistory != null) {
+            tabHistory.save(saved.id(), history);
+        }
+        return saved;
+    }
+
+    /** The back and forward of each tab of workspace {@code id}, or an empty list. */
+    public List<TabHistory> history(String id) {
+        return tabHistory != null ? tabHistory.load(id) : List.of();
+    }
+
+    /**
+     * Gives workspace {@code id} the name {@code newName}, keeping everything else.
+     *
+     * @return the renamed workspace, or empty when it does not exist or another one has that name
+     */
+    public Optional<Workspace> rename(String id, String newName) {
+        String clean = sanitize(newName);
+        Workspace[] renamed = new Workspace[1];
+        repository.update(all -> {
+            Workspace current = all.stream().filter(w -> w.id().equals(id)).findFirst().orElse(null);
+            boolean taken = all.stream().anyMatch(w -> !w.id().equals(id) && clean.equalsIgnoreCase(w.name()));
+            if (current != null && !taken) {
+                renamed[0] = new Workspace(current.id(), clean, current.createdAt(), now(), current.openNoteIds(),
+                        current.activeNoteId(), current.viewMode(), current.sidebarVisible(), current.focusMode(),
+                        current.splitMain(), current.splitContent(), current.storageMode());
+                all.replaceAll(w -> w == current ? renamed[0] : w);
+            }
+            return all;
+        });
+        return Optional.ofNullable(renamed[0]);
     }
 
     /** All workspaces, ordered by name (case-insensitive). */
@@ -107,6 +154,9 @@ public final class WorkspaceService {
             all.removeIf(w -> id.equals(w.id()));
             return all;
         });
+        if (tabHistory != null) {
+            tabHistory.delete(id);
+        }
     }
 
     /** Builds a "live state" workspace (no identity yet) to hand to {@link #save}/{@link #update}. */

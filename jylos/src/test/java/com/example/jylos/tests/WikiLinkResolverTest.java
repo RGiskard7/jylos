@@ -100,11 +100,13 @@ class WikiLinkResolverTest {
 
     @Test
     void resolvesFolderPrefixedLink() {
-        // Only the last segment matters for resolution
+        // With only titles known, the last segment decides whether it exists; the link
+        // keeps its folder path so a click opens that note and not another with its name.
         String result = WikiLinkResolver.resolve("[[Daily Notes/2026-05-31]]", Set.of("2026-05-31"));
         assertTrue(result.contains("wikilink\""),
                 "Folder-prefixed link must resolve using basename, got: " + result);
-        assertTrue(result.contains("data-target=\"2026-05-31\""));
+        assertTrue(result.contains("data-target=\"Daily Notes/2026-05-31\""), result);
+        assertTrue(result.contains(">2026-05-31</a>"), "the label is still the note name: " + result);
     }
 
     // ── Markdown internal links ──────────────────────────────────────────

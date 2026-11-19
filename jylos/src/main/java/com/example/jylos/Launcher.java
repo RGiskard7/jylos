@@ -13,6 +13,8 @@ package com.example.jylos;
  * at runtime, before calling the actual Main class.
  * 
  * @see Main
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class Launcher {
     

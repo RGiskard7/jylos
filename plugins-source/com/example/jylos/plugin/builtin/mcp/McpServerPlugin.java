@@ -4,6 +4,10 @@ import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginContext;
 import com.example.jylos.plugin.PluginI18n;
 
+import java.util.ResourceBundle;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+
 /**
  * Exposes the vault to MCP clients (Claude Desktop, Claude Code, and other
  * Streamable-HTTP-capable clients) over a local HTTP server while Jylos is running.
@@ -23,7 +27,7 @@ public class McpServerPlugin implements Plugin {
     private PluginContext context;
     private JylosMcpServer server;
 
-    private static java.util.ResourceBundle bundle;
+    private static ResourceBundle bundle;
 
     private static String tr(String key, String fallback) {
         if (bundle == null) {
@@ -58,19 +62,32 @@ public class McpServerPlugin implements Plugin {
         return "Edu Díaz";
     }
 
+    /** The background start of the server: true once it listens, false if it could not. */
+    private CompletableFuture<Boolean> startup;
+
     @Override
     public void initialize(PluginContext context) {
         this.context = context;
         this.server = new JylosMcpServer(context.getNoteService(), context.getFolderService(),
                 context.getTagService());
 
-        boolean started = server.start();
-        if (started) {
-            context.log("MCP server listening at " + server.endpointUrl());
-        } else {
-            context.log("MCP server could not start — see the log for the cause "
-                    + "(a busy port is the usual reason; override it with -Djylos.mcp.port=<port>).");
-        }
+        // Started off the UI thread: binding the port and starting the HTTP server takes a few
+        // hundred milliseconds, which would freeze the window while the app starts.
+        JylosMcpServer starting = server;
+        startup = CompletableFuture.supplyAsync(() -> {
+            boolean started = starting.start();
+            if (started) {
+                context.log("MCP server listening at " + starting.endpointUrl());
+            } else {
+                context.log("MCP server could not start — see the log for the cause "
+                        + "(a busy port is the usual reason; override it with -Djylos.mcp.port=<port>).");
+            }
+            return started;
+        }, runnable -> {
+            Thread thread = new Thread(runnable, "mcp-server-start");
+            thread.setDaemon(true);
+            thread.start();
+        });
 
         context.registerMenuItem("MCP Server", tr("menu.connectionInfo", "Connection info"), this::showConnectionInfo);
 
@@ -81,6 +98,7 @@ public class McpServerPlugin implements Plugin {
         context.registerCommand("MCP Server: Restart",
                 tr("command.restart.description", "Stops and restarts the embedded MCP server"),
                 () -> {
+                    awaitStarted();
                     server.stop();
                     boolean restarted = server.start();
                     context.showInfo(tr("title", "MCP Server"),
@@ -95,6 +113,7 @@ public class McpServerPlugin implements Plugin {
     @Override
     public void shutdown() {
         if (server != null) {
+            awaitStarted(); // never stop a server half-way through starting
             server.stop();
         }
         if (context != null) {
@@ -102,7 +121,17 @@ public class McpServerPlugin implements Plugin {
         }
     }
 
+    /** Waits until the server started in the background has bound its port, or failed to. */
+    boolean awaitStarted() {
+        try {
+            return startup != null && startup.get(30, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private void showConnectionInfo() {
+        awaitStarted();
         if (server != null && server.isRunning()) {
             context.showInfo(tr("title", "MCP Server"), tr("running.header", "Running"),
                     tr("running.body", "URL: %s\n\n"

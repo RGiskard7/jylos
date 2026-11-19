@@ -1,7 +1,11 @@
 package com.example.jylos.data.dao.sqlite;
 
+import java.nio.file.Path;
 import java.sql.Connection;
 
+import com.example.jylos.AppDataDirectory;
+import com.example.jylos.data.dao.FolderColorStore;
+import com.example.jylos.data.dao.VaultSettingsStore;
 import com.example.jylos.data.dao.interfaces.EncryptionKeyDAO;
 import com.example.jylos.data.dao.interfaces.FactoryDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
@@ -11,6 +15,9 @@ import com.example.jylos.data.dao.interfaces.TagDAO;
 /**
  * Concrete implementation of FactoryDAO for the SQLite storage system.
  * This class provides instances of specific DAO implementations for SQLite.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class FactoryDAOSQLite extends FactoryDAO {
 	
@@ -66,6 +73,18 @@ public class FactoryDAOSQLite extends FactoryDAO {
 	@Override
 	public EncryptionKeyDAO getEncryptionKeyDAO() {
 		return new EncryptionKeyDAOSQLite(connection);
+	}
+
+	/** In the app's data folder; folder ids never change with the database, so no paths to follow. */
+	@Override
+	public FolderColorStore getFolderColorStore() {
+		return new FolderColorStore(Path.of(AppDataDirectory.getDataDirectory(), "folder-colors.json"));
+	}
+
+	/** In the app's data folder. */
+	@Override
+	public VaultSettingsStore getVaultSettingsStore() {
+		return new VaultSettingsStore(Path.of(AppDataDirectory.getDataDirectory(), "vault-settings.json"));
 	}
 
 }

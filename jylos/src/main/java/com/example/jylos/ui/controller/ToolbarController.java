@@ -2,13 +2,23 @@ package com.example.jylos.ui.controller;
 
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.SystemActionEvent;
+import com.example.jylos.ui.UiNodes;
+import com.example.jylos.ui.components.NewTabGesture;
+import com.example.jylos.ui.preferences.LayoutMode;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.geometry.Side;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 
+import java.util.ResourceBundle;
+import java.util.function.Consumer;
+
 /**
  * Controller for the Top Menu Bar and Toolbar (ToolbarView.fxml).
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class ToolbarController {
 
@@ -59,6 +69,19 @@ public class ToolbarController {
     @FXML
     private Button layoutSwitchBtn;
     @FXML
+    private ResourceBundle resources;
+    /** Where the open-note tabs live in the top bar (see TopBarTabsSupport). */
+    @FXML
+    private HBox tabsHost;
+    /** The layout ticked in the layout menu. */
+    private LayoutMode currentLayout =
+            LayoutMode.CLASSIC_COLUMNS;
+    private Consumer<LayoutMode> layoutModeAction = mode -> {
+    };
+    /** In the Explorer layout the notes panel only shows results, so its toggle is hidden. */
+    private boolean notesToggleAvailable = true;
+    private boolean layoutTogglesShown = true;
+    @FXML
     private Button newNoteBtn;
     @FXML
     private Button newFolderBtn;
@@ -68,6 +91,9 @@ public class ToolbarController {
     private TextField searchField;
     @FXML
     private Button searchToggleBtn;
+    /** Opens the graph; with Cmd/Ctrl or the middle button, in a new tab. */
+    @FXML
+    private Button graphViewBtn;
     @FXML
     private ToggleButton rightPanelToggleBtn;
     @FXML
@@ -87,9 +113,7 @@ public class ToolbarController {
     }
 
     @FXML
-    private RadioMenuItem englishLangMenuItem;
-    @FXML
-    private RadioMenuItem spanishLangMenuItem;
+    private Menu languageMenu;
     @FXML
     private RadioMenuItem lightThemeMenuItem;
     @FXML
@@ -115,6 +139,9 @@ public class ToolbarController {
                     collapseSearchIfEmpty();
                 }
             });
+        }
+        if (graphViewBtn != null) {
+            NewTabGesture.onButton(graphViewBtn, () -> publishEvent(SystemActionEvent.ActionType.GRAPH_VIEW_NEW_TAB));
         }
     }
 
@@ -146,12 +173,9 @@ public class ToolbarController {
         return toggleNotesListMenuItem;
     }
 
-    public RadioMenuItem getEnglishLangMenuItem() {
-        return englishLangMenuItem;
-    }
-
-    public RadioMenuItem getSpanishLangMenuItem() {
-        return spanishLangMenuItem;
+    /** View > Language, filled by {@code AppSettings} with the app's languages. */
+    public Menu getLanguageMenu() {
+        return languageMenu;
     }
 
     public RadioMenuItem getLightThemeMenuItem() {
@@ -170,6 +194,10 @@ public class ToolbarController {
         return rightPanelToggleBtn;
     }
 
+    public HBox getTabsHost() {
+        return tabsHost;
+    }
+
     public Button getLayoutSwitchBtn() {
         return layoutSwitchBtn;
     }
@@ -181,6 +209,21 @@ public class ToolbarController {
     @FXML
     private void handleNewNote(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.NEW_NOTE);
+    }
+
+    @FXML
+    private void handleNewKanbanBoard(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.NEW_KANBAN_BOARD);
+    }
+
+    @FXML
+    private void handleFocusMode(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.FOCUS_MODE);
+    }
+
+    @FXML
+    private void handleNewTab(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.NEW_TAB);
     }
 
     @FXML
@@ -249,6 +292,11 @@ public class ToolbarController {
     }
 
     @FXML
+    private void handleToggleFormatToolbar(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.TOGGLE_FORMAT_TOOLBAR);
+    }
+
+    @FXML
     private void handleToggleNotesPanel(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.TOGGLE_NOTES_LIST);
     }
@@ -294,11 +342,6 @@ public class ToolbarController {
     }
 
     @FXML
-    private void handleWorkspaceOpen(ActionEvent event) {
-        publishEvent(SystemActionEvent.ActionType.WORKSPACE_OPEN);
-    }
-
-    @FXML
     private void handleWorkspaceManage(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.WORKSPACE_MANAGE);
     }
@@ -334,9 +377,84 @@ public class ToolbarController {
     }
 
     @FXML
-    private void handleViewLayoutSwitch(ActionEvent event) {
-        publishEvent(SystemActionEvent.ActionType.SWITCH_LAYOUT);
+    private void handleVaultCleanup(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.VAULT_CLEANUP);
     }
+
+    @FXML
+    private void handleImportObsidianBookmarks(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.IMPORT_OBSIDIAN_BOOKMARKS);
+    }
+
+    @FXML
+    private void handleImportObsidianSettings(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.IMPORT_OBSIDIAN_SETTINGS);
+    }
+
+    @FXML
+    private void handleInsertTemplate(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.INSERT_TEMPLATE);
+    }
+
+    @FXML
+    private void handleInsertCurrentDate(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.INSERT_CURRENT_DATE);
+    }
+
+    @FXML
+    private void handleInsertCurrentTime(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.INSERT_CURRENT_TIME);
+    }
+
+    /** The menu the layout button opens: the three layouts, the current one ticked. */
+    ContextMenu layoutMenu() {
+        ContextMenu menu = new ContextMenu();
+        ToggleGroup group = new ToggleGroup();
+        for (LayoutMode mode : LayoutMode.values()) {
+            String key = switch (mode) {
+                case EXPLORER -> "layout.mode.explorer";
+                case CLASSIC_COLUMNS -> "layout.mode.columns";
+                case CLASSIC_STACKED -> "layout.mode.stacked";
+            };
+            RadioMenuItem item = new RadioMenuItem(resources != null && resources.containsKey(key)
+                    ? resources.getString(key) : key);
+            item.setToggleGroup(group);
+            item.setSelected(mode == currentLayout);
+            item.setOnAction(e -> layoutModeAction.accept(mode));
+            menu.getItems().add(item);
+        }
+        return menu;
+    }
+
+    @FXML
+    private void handleLayoutMenu(ActionEvent event) {
+        if (layoutSwitchBtn != null) {
+            layoutMenu().show(layoutSwitchBtn, Side.BOTTOM, 0, 0);
+        }
+    }
+
+    /** What choosing a layout in the layout menu does. */
+    public void setLayoutModeAction(Consumer<LayoutMode> action) {
+        this.layoutModeAction = action != null ? action : mode -> {
+        };
+    }
+
+    /** Ticks {@code mode} in the layout menu and shows the notes-panel toggle only where it applies. */
+    public void showLayoutMode(LayoutMode mode) {
+        if (mode != null) {
+            currentLayout = mode;
+        }
+        notesToggleAvailable = mode != LayoutMode.EXPLORER;
+        applyNotesToggleVisibility();
+    }
+
+    private void applyNotesToggleVisibility() {
+        if (notesPanelToggleBtn != null) {
+            boolean show = layoutTogglesShown && notesToggleAvailable;
+            UiNodes.show(notesPanelToggleBtn, show);
+        }
+    }
+
 
     @FXML
     private void handleZoomIn(ActionEvent event) {
@@ -397,11 +515,9 @@ public class ToolbarController {
             return;
         }
         if (searchToggleBtn != null) {
-            searchToggleBtn.setVisible(false);
-            searchToggleBtn.setManaged(false);
+            UiNodes.show(searchToggleBtn, false);
         }
-        searchField.setVisible(true);
-        searchField.setManaged(true);
+        UiNodes.show(searchField, true);
         searchField.requestFocus();
         if (!searchField.getText().isEmpty()) {
             searchField.selectAll();
@@ -416,11 +532,9 @@ public class ToolbarController {
         if (searchField == null || !searchField.getText().isEmpty()) {
             return;
         }
-        searchField.setVisible(false);
-        searchField.setManaged(false);
+        UiNodes.show(searchField, false);
         if (searchToggleBtn != null) {
-            searchToggleBtn.setVisible(true);
-            searchToggleBtn.setManaged(true);
+            UiNodes.show(searchToggleBtn, true);
         }
     }
 
@@ -462,6 +576,11 @@ public class ToolbarController {
     @FXML
     private void handleGitPull(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.GIT_PULL);
+    }
+
+    @FXML
+    private void handleGitHistory(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.GIT_HISTORY);
     }
 
     @FXML
@@ -555,41 +674,31 @@ public class ToolbarController {
             if (!showSearch) {
                 // Too narrow for search at all — it moves into the overflow menu
                 // instead, so neither the field nor its collapsed icon belong here.
-                searchField.setVisible(false);
-                searchField.setManaged(false);
+                UiNodes.show(searchField, false);
                 if (searchToggleBtn != null) {
-                    searchToggleBtn.setVisible(false);
-                    searchToggleBtn.setManaged(false);
+                    UiNodes.show(searchToggleBtn, false);
                 }
             } else if (searchToggleBtn == null) {
-                searchField.setVisible(true);
-                searchField.setManaged(true);
+                UiNodes.show(searchField, true);
             } else if (!searchField.isVisible()) {
                 // Only set the default (collapsed) state — if the user already has
                 // it expanded, a responsive re-check shouldn't yank it away.
-                searchToggleBtn.setVisible(true);
-                searchToggleBtn.setManaged(true);
+                UiNodes.show(searchToggleBtn, true);
             }
         }
         if (sidebarToggleBtn != null) {
-            sidebarToggleBtn.setVisible(showLayoutToggles);
-            sidebarToggleBtn.setManaged(showLayoutToggles);
-            notesPanelToggleBtn.setVisible(showLayoutToggles);
-            notesPanelToggleBtn.setManaged(showLayoutToggles);
-            layoutSwitchBtn.setVisible(showLayoutToggles);
-            layoutSwitchBtn.setManaged(showLayoutToggles);
+            UiNodes.show(sidebarToggleBtn, showLayoutToggles);
+            layoutTogglesShown = showLayoutToggles;
+            applyNotesToggleVisibility();
+            UiNodes.show(layoutSwitchBtn, showLayoutToggles);
             if (rightPanelToggleBtn != null) {
-                rightPanelToggleBtn.setVisible(showLayoutToggles);
-                rightPanelToggleBtn.setManaged(showLayoutToggles);
+                UiNodes.show(rightPanelToggleBtn, showLayoutToggles);
             }
         }
         if (newNoteBtn != null) {
-            newNoteBtn.setVisible(showFileActions);
-            newNoteBtn.setManaged(showFileActions);
-            newFolderBtn.setVisible(showFileActions);
-            newFolderBtn.setManaged(showFileActions);
-            newTagBtn.setVisible(showFileActions);
-            newTagBtn.setManaged(showFileActions);
+            UiNodes.show(newNoteBtn, showFileActions);
+            UiNodes.show(newFolderBtn, showFileActions);
+            UiNodes.show(newTagBtn, showFileActions);
         }
     }
 

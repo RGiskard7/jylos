@@ -11,7 +11,9 @@
     <MenuBar fx:id="menuBar" styleClass="menu-bar">
         <Menu text="%menu.file">
             <MenuItem text="%action.new_note" onAction="#handleNewNote" accelerator="Shortcut+N"/>
+            <MenuItem text="%action.new_tab" onAction="#handleNewTab" accelerator="Shortcut+T"/>
             <MenuItem text="%action.new_canvas" onAction="#handleNewCanvas"/>
+            <MenuItem text="%action.new_kanban_board" onAction="#handleNewKanbanBoard"/>
             <MenuItem text="%action.new_folder" onAction="#handleNewFolder" accelerator="Shortcut+Shift+N"/>
             <MenuItem text="%action.daily_note" onAction="#handleDailyNote" accelerator="Shortcut+Shift+D"/>
             <MenuItem text="%action.new_from_template" onAction="#handleNewFromTemplate"/>
@@ -23,7 +25,6 @@
                 <MenuItem text="%action.workspace_save" onAction="#handleWorkspaceSave"/>
                 <MenuItem text="%action.workspace_save_as" onAction="#handleWorkspaceSaveAs"/>
                 <SeparatorMenuItem/>
-                <MenuItem text="%action.workspace_open" onAction="#handleWorkspaceOpen"/>
                 <MenuItem text="%action.workspace_manage" onAction="#handleWorkspaceManage"/>
             </Menu>
             <SeparatorMenuItem/>
@@ -48,15 +49,23 @@
             <SeparatorMenuItem/>
             <MenuItem text="%action.find" onAction="#handleFind" accelerator="Shortcut+F"/>
             <MenuItem text="%action.replace" onAction="#handleReplace" accelerator="Shortcut+H"/>
+            <SeparatorMenuItem/>
+            <MenuItem text="%action.insert_template" onAction="#handleInsertTemplate"/>
+            <MenuItem text="%action.insert_current_date" onAction="#handleInsertCurrentDate"/>
+            <MenuItem text="%action.insert_current_time" onAction="#handleInsertCurrentTime"/>
         </Menu>
 
         <Menu text="%menu.view">
             <MenuItem fx:id="toggleSidebarMenuItem" text="%action.toggle_sidebar" onAction="#handleToggleSidebar" accelerator="F9"/>
             <MenuItem fx:id="toggleNotesListMenuItem" text="%action.toggle_notes_list" onAction="#handleToggleNotesPanel" accelerator="F8"/>
+            <MenuItem text="%action.toggle_format_toolbar" onAction="#handleToggleFormatToolbar" accelerator="F7"/>
             <SeparatorMenuItem/>
             <MenuItem text="%action.toggle_reading_view" onAction="#handleToggleReadingMode"/>
             <MenuItem text="%action.open_linked_view" onAction="#handleSplitViewMode"/>
             <MenuItem text="%action.toggle_source_mode" onAction="#handleToggleSourceMode"/>
+            <!-- No accelerator here: the window owns Cmd/Ctrl+Shift+F, which must work while
+                 focus mode hides this menu bar. -->
+            <MenuItem text="%action.focus_mode" onAction="#handleFocusMode"/>
             <SeparatorMenuItem/>
             <MenuItem fx:id="graphViewMenuItem" text="%action.graph_view" onAction="#handleGraphView" accelerator="Shortcut+G"/>
             <MenuItem fx:id="kanbanViewMenuItem" text="%action.kanban_view" onAction="#handleKanbanView" accelerator="Shortcut+K"/>
@@ -70,10 +79,8 @@
             <MenuItem text="%action.zoom_editor_out" onAction="#handleEditorZoomOut" accelerator="Shortcut+Shift+Minus"/>
             <MenuItem text="%action.reset_editor_zoom" onAction="#handleEditorResetZoom" accelerator="Shortcut+Shift+0"/>
             <SeparatorMenuItem/>
-            <Menu text="%menu.language">
-                <RadioMenuItem fx:id="englishLangMenuItem" text="%lang.en"/>
-                <RadioMenuItem fx:id="spanishLangMenuItem" text="%lang.es"/>
-            </Menu>
+            <!-- Filled with the languages the app carries (UiLanguages), each in its own language. -->
+            <Menu fx:id="languageMenu" text="%menu.language"/>
             <SeparatorMenuItem/>
             <Menu text="%menu.theme">
                 <RadioMenuItem fx:id="lightThemeMenuItem" text="%theme.light" selected="true" onAction="#handleLightTheme"/>
@@ -94,6 +101,9 @@
             <MenuItem text="%action.lock_notes" onAction="#handleLockNotes"/>
             <SeparatorMenuItem/>
             <MenuItem text="%action.note_history" onAction="#handleNoteHistory" accelerator="Shortcut+Shift+H"/>
+            <MenuItem text="%action.vault_cleanup" onAction="#handleVaultCleanup"/>
+            <MenuItem text="%action.import_obsidian_bookmarks" onAction="#handleImportObsidianBookmarks"/>
+            <MenuItem text="%action.import_obsidian_settings" onAction="#handleImportObsidianSettings"/>
             <SeparatorMenuItem/>
             <Menu text="%menu.git">
                 <MenuItem text="%action.git_panel" onAction="#handleGitPanel" accelerator="Shortcut+Shift+G"/>
@@ -101,6 +111,7 @@
                 <MenuItem text="%action.git_sync" onAction="#handleGitSync" accelerator="Shortcut+Shift+S"/>
                 <MenuItem text="%action.git_commit_push" onAction="#handleGitCommitPush"/>
                 <MenuItem text="%action.git_pull" onAction="#handleGitPull"/>
+                <MenuItem text="%action.git_history" onAction="#handleGitHistory"/>
                 <SeparatorMenuItem/>
                 <MenuItem text="%action.git_init" onAction="#handleGitInit"/>
                 <MenuItem text="%action.git_add_remote" onAction="#handleGitAddRemote"/>
@@ -126,10 +137,11 @@
         </Menu>
     </MenuBar>
 
-    <!-- Toolbar -->
+    <!-- Toolbar. Vertical padding kept small (4 + 28px buttons + 4): users found the
+         top bar too tall. Left/right 16 stays: the sidebar nav row aligns to it. -->
     <HBox fx:id="toolbarHBox" styleClass="toolbar" spacing="6" alignment="CENTER_LEFT">
         <padding>
-            <Insets top="8" right="16" bottom="8" left="16"/>
+            <Insets top="4" right="16" bottom="4" left="16"/>
         </padding>
 
         <Button fx:id="graphViewBtn" onAction="#handleGraphView" styleClass="toolbar-btn">
@@ -182,7 +194,9 @@
         <HBox fx:id="pluginToolbarContainer" spacing="6" alignment="CENTER_LEFT"
               visible="false" managed="false"/>
 
-        <Region HBox.hgrow="ALWAYS"/>
+        <!-- Open-note tabs (moved here from above the editor by TopBarTabsSupport); a left
+             margin keeps them starting right above the editor. -->
+        <HBox fx:id="tabsHost" styleClass="top-bar-tabs" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS" minWidth="0"/>
 
         <!-- Layout Toggles -->
         <ToggleButton fx:id="sidebarToggleBtn" onAction="#handleToggleSidebar" styleClass="modern-toggle-btn">
@@ -197,7 +211,9 @@
                 <FontIcon iconLiteral="fth-list" styleClass="feather-icon"/>
             </graphic>
         </ToggleButton>
-        <Button fx:id="layoutSwitchBtn" onAction="#handleViewLayoutSwitch" styleClass="toolbar-btn">
+        <!-- Layout: opens a menu with Explorer, classic columns and classic stacked. A plain
+             Button (not a MenuButton) so it is sized and centred like its neighbours. -->
+        <Button fx:id="layoutSwitchBtn" onAction="#handleLayoutMenu" styleClass="toolbar-btn">
             <tooltip><Tooltip text="%action.switch_layout"/></tooltip>
             <graphic>
                 <FontIcon iconLiteral="fth-layout" styleClass="feather-icon"/>

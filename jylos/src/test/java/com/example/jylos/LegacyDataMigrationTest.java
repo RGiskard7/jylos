@@ -237,15 +237,15 @@ class LegacyDataMigrationTest {
     void pluginsThatShipWithTheAppAreNotMigrated() throws IOException {
         Path old = tmp.resolve("Local/Jylos");
         write(old.resolve("logs/app.log"), "log");
-        writePluginJar(old.resolve("plugins/AIPlugin.jar"), true);
+        writePluginJar(old.resolve("plugins/WordCountPlugin.jar"), true);
         writePluginJar(old.resolve("plugins/Mine.jar"), true);
         write(old.resolve("plugins/.bundled-plugins-copied"), "marker");
 
-        LegacyDataMigration.migrate(List.of(new Candidate(old, true)), target(), Set.of("AIPlugin.jar"));
+        LegacyDataMigration.migrate(List.of(new Candidate(old, true)), target(), Set.of("WordCountPlugin.jar"));
 
         Path plugins = target().dataRoot().resolve("plugins");
         assertTrue(Files.exists(plugins.resolve("Mine.jar")));
-        assertFalse(Files.exists(plugins.resolve("AIPlugin.jar")), "an old copy of a bundled plugin");
+        assertFalse(Files.exists(plugins.resolve("WordCountPlugin.jar")), "an old copy of a bundled plugin");
         assertFalse(Files.exists(plugins.resolve(".bundled-plugins-copied")),
                 "the new folder must receive the current bundled plugins");
     }
@@ -270,13 +270,13 @@ class LegacyDataMigrationTest {
         Path root = Path.of("").toAbsolutePath().getRoot();
         Path home = root.resolve("home").resolve("ana");
         Environment windows = new Environment(Os.WINDOWS, "Jylos", home, home, Map.of("LOCALAPPDATA", root.resolve("l").toString()),
-                root.resolve("l/Jylos/Jylos.exe").toString(), null, dir -> true, path -> false);
+                root.resolve("l/Jylos/Jylos.exe").toString(), null, dir -> true, path -> false, false);
         Environment linux = new Environment(Os.LINUX, "Jylos", home, home, Map.of(),
-                root.resolve("opt/jylos/bin/Jylos").toString(), null, dir -> true, path -> false);
+                root.resolve("opt/jylos/bin/Jylos").toString(), null, dir -> true, path -> false, false);
         Environment mac = new Environment(Os.MAC, "Jylos", home, home, Map.of(),
-                root.resolve("Applications/Jylos.app/Contents/MacOS/Jylos").toString(), null, dir -> true, path -> false);
+                root.resolve("Applications/Jylos.app/Contents/MacOS/Jylos").toString(), null, dir -> true, path -> false, false);
         Environment dev = new Environment(Os.LINUX, "Jylos", home, home, Map.of(), null, null,
-                dir -> true, path -> false);
+                dir -> true, path -> false, false);
 
         // The per-user uninstaller deletes the old install folder, data included, before the
         // new version starts: there is nothing left to migrate there (see docs/PACKAGING.md).

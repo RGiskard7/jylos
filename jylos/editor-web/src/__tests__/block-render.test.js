@@ -4,12 +4,13 @@ import { GFM } from "@lezer/markdown";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { markExtension } from "../editor.js";
-import { blockRenderDecorations, blockRenderField, livePreview, setBlockRenders } from "../live-preview.js";
+import { blockRenderDecorations, blockRenderField, livePreview, setBlockRenders, setEditorFocus } from "../live-preview.js";
 
 function makeView(doc) {
   const parent = document.createElement("div");
   document.body.appendChild(parent);
-  return new EditorView({
+  // The cursor reveals Markdown only while the editor has the focus (see live-preview.js).
+  const view = new EditorView({
     state: EditorState.create({
       doc,
       // blockRenderField lives in the base state in editor.js, so mirror that here.
@@ -17,6 +18,8 @@ function makeView(doc) {
     }),
     parent
   });
+  view.dispatch({ effects: setEditorFocus.of(true) });
+  return view;
 }
 
 /** Finds the block widget covering [from, to), if the block was replaced. */

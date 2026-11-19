@@ -8,6 +8,9 @@ import java.util.function.Predicate;
  * Decides where Jylos keeps its files, following each platform's convention for an
  * installed application. Pure: everything it looks at comes in through {@link Environment},
  * so every case can be tested without touching the real machine.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.8
  */
 public final class AppDirectories {
 
@@ -57,9 +60,12 @@ public final class AppDirectories {
      * @param dataDirOverride value of {@code jylos.data.dir}; null when not given
      * @param canWriteDir     whether a directory exists and is writable, or can be created
      * @param exists          whether a path exists
+     * @param installed       {@code -Djylos.installed=true}: installed by a package manager (Nix)
+     *                        that runs the uber-JAR from a script instead of jpackage's launcher
      */
     public record Environment(Os os, String appName, Path userHome, Path userDir, Map<String, String> env,
-            String jpackageAppPath, String dataDirOverride, Predicate<Path> canWriteDir, Predicate<Path> exists) {
+            String jpackageAppPath, String dataDirOverride, Predicate<Path> canWriteDir, Predicate<Path> exists,
+            boolean installed) {
     }
 
     private AppDirectories() {
@@ -68,6 +74,9 @@ public final class AppDirectories {
     public static Layout resolve(Environment env) {
         if (env.dataDirOverride() != null && !env.dataDirOverride().isBlank()) {
             return singleFolder(Mode.OVERRIDE, Path.of(env.dataDirOverride()));
+        }
+        if (env.installed()) {
+            return platformFolders(Mode.INSTALLED, env);
         }
         if (env.jpackageAppPath() != null && !env.jpackageAppPath().isBlank()) {
             Path launcherDir = Path.of(env.jpackageAppPath()).toAbsolutePath().getParent();

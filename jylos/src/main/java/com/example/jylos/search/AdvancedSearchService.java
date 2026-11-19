@@ -110,7 +110,7 @@ public final class AdvancedSearchService {
         return search(rawQuery, source, contentProvider).stream().map(SearchResult::note).toList();
     }
 
-    // ── Result building ──────────────────────────────────────────────────────────
+    // ── Result building ──────────────────────────────────────────────────────
 
     private SearchResult toResult(Note note) {
         return new SearchResult(note, snippet(note), folderName(note), tagTitles(note));
@@ -146,7 +146,7 @@ public final class AdvancedSearchService {
         return c == null ? "" : c.toLowerCase(Locale.ROOT);
     }
 
-    // ── Per-search evaluation (lazy metadata) ─────────────────────────────────────
+    // ── Per-search evaluation (lazy metadata) ────────────────────────────────
 
     /** Evaluates one query against notes, memoizing the expensive lookups it needs. */
     private final class Eval {
@@ -225,7 +225,7 @@ public final class AdvancedSearchService {
             };
         }
 
-        // ── lazy lookups ──
+        // ── lazy lookups ─────────────────────────────────────────────────────
 
         private Set<String> noteIdsForTag(String tagTitle) {
             return tagMembers.computeIfAbsent(tagTitle.toLowerCase(Locale.ROOT), key -> {

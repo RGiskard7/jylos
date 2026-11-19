@@ -5,6 +5,9 @@ import java.util.Objects;
 /**
  * Abstract base class for models that include an ID, title, and timestamps.
  * This serves as a foundation for other data models in the application.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public abstract class BaseModel {
 	private String id;

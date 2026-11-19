@@ -4,13 +4,21 @@ import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.data.models.interfaces.Component;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.exceptions.DataAccessException;
+import com.example.jylos.plugin.NoteContextMenuEntry;
+import com.example.jylos.search.AdvancedSearchService;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
+import com.example.jylos.ui.NoteIcons;
+import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.ui.UiNodes;
+import com.example.jylos.ui.components.NewTabGesture;
+import com.example.jylos.util.FileManager;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
@@ -19,20 +27,26 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.event.ActionEvent;
 import javafx.scene.control.ContextMenu;
-import javafx.scene.control.MenuItem;
-import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.ListCell;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
+import java.nio.file.Path;
+import java.text.MessageFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.ResourceBundle;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
@@ -41,20 +55,26 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.prefs.Preferences;
-import javafx.scene.Parent;
-import javafx.scene.SnapshotParameters;
 import javafx.scene.layout.Priority;
-import javafx.scene.paint.Color;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.kordamp.ikonli.javafx.FontIcon;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
+import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.control.ContentDisplay;
+import javafx.scene.input.Clipboard;
 import javafx.scene.shape.Rectangle;
 
 /**
  * Notes list column: custom cells (title, preview lines, dates), sorting, drag-and-drop,
  * and context actions. Listens to {@link com.example.jylos.event.EventBus} for refresh.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class NotesListController {
     private static final Logger logger = LoggerConfig.getLogger(NotesListController.class);
@@ -64,9 +84,12 @@ public class NotesListController {
     private NoteService noteService;
     private TagService tagService;
     private FolderService folderService;
-    private com.example.jylos.search.AdvancedSearchService advancedSearch;
+    private AdvancedSearchService advancedSearch;
     private ResourceBundle bundle;
     private Consumer<Note> noteSelectionAction = note -> {
+    };
+    /** Opens a note in a new editor tab (Cmd/Ctrl+click, middle click, "Open in new tab"). */
+    private Consumer<Note> openInNewTabAction = note -> {
     };
     private Consumer<Note> noteExportAction = note -> {
     };
@@ -76,8 +99,8 @@ public class NotesListController {
     };
     private Consumer<String> statusUpdateAction = message -> {
     };
-    private Supplier<List<com.example.jylos.plugin.NoteContextMenuEntry>> noteContextMenuItemsSupplier =
-            java.util.Collections::emptyList;
+    private Supplier<List<NoteContextMenuEntry>> noteContextMenuItemsSupplier =
+            Collections::emptyList;
 
     private String currentFilterType = "all";
     private Folder currentFolder;
@@ -98,7 +121,7 @@ public class NotesListController {
     private volatile List<Note> allNotesSearchCache = List.of();
     private volatile boolean allNotesSearchCacheDirty = true;
     /** Lazy cache of full, lowercased note content for true full-text search. */
-    private final java.util.Map<String, String> fullContentCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, String> fullContentCache = new ConcurrentHashMap<>();
 
     /** Number of body-preview lines shown under each note title (0 hides the preview). */
     private int previewLines = 2;
@@ -119,6 +142,10 @@ public class NotesListController {
     private Button refreshBtn;
     @FXML
     private ToggleButton peekRecursiveBtn;
+    @FXML
+    private Button closeResultsBtn;
+    private Runnable closeResultsAction = () -> {
+    };
     @FXML
     private ListView<Note> notesListView;
 
@@ -167,13 +194,12 @@ public class NotesListController {
         }
         Runnable disableHbar = () -> listView.lookupAll(".scroll-bar").forEach(node -> {
             if (node instanceof ScrollBar scrollBar
-                    && scrollBar.getOrientation() == javafx.geometry.Orientation.HORIZONTAL) {
+                    && scrollBar.getOrientation() == Orientation.HORIZONTAL) {
                 scrollBar.setMin(0);
                 scrollBar.setMax(0);
                 scrollBar.setValue(0);
                 scrollBar.setDisable(true);
-                scrollBar.setVisible(false);
-                scrollBar.setManaged(false);
+                UiNodes.show(scrollBar, false);
                 scrollBar.setMinWidth(0);
                 scrollBar.setPrefWidth(0);
                 scrollBar.setMaxWidth(0);
@@ -184,21 +210,6 @@ public class NotesListController {
         });
         Platform.runLater(disableHbar);
         listView.skinProperty().addListener((obs, oldSkin, newSkin) -> Platform.runLater(disableHbar));
-    }
-
-    private static double verticalScrollBarWidth(ListView<?> listView) {
-        if (listView == null) {
-            return 0;
-        }
-        double width = 0;
-        for (javafx.scene.Node node : listView.lookupAll(".scroll-bar")) {
-            if (node instanceof ScrollBar scrollBar
-                    && scrollBar.getOrientation() == javafx.geometry.Orientation.VERTICAL
-                    && scrollBar.isVisible()) {
-                width = Math.max(width, scrollBar.getWidth());
-            }
-        }
-        return width > 0 ? width : 14;
     }
 
     /**
@@ -232,7 +243,6 @@ public class NotesListController {
         return new ListCell<>() {
             private static final double NOTE_ICON_RESERVED_WIDTH = 20;
             private static final double PREVIEW_LINE_HEIGHT = 17;
-            private static final double CELL_HORIZONTAL_PADDING = 14;
             private static final double DATE_ROW_GAP = 6;
             private static final double NARROW_PANEL_WIDTH = 210;
 
@@ -248,39 +258,35 @@ public class NotesListController {
             private final HBox dateRow = new HBox(DATE_ROW_GAP);
             private final Label modifiedLabel = new Label();
             private final Label createdLabel = new Label();
+            /** Pushes the created date to the row's right edge, whatever its length. */
+            private final Region dateSpacer = new Region();
+            /** The note's created date as shown, before "Created" is put in front of it. */
+            private String createdDate = "";
             private final Rectangle clip = new Rectangle();
-            private final ContextMenu contextMenu = new ContextMenu();
-            private final MenuItem openItem = new MenuItem(getString("action.open"));
-            private final MenuItem pinItem = new MenuItem();
-            private final MenuItem favoriteItem = new MenuItem();
-            private final MenuItem privateItem = new MenuItem();
-            private final MenuItem renameItem = new MenuItem(getString("action.rename"));
-            private final MenuItem revealItem = new MenuItem(getString("action.reveal_in_files"));
-            private final MenuItem exportItem = new MenuItem(getString("action.export_note"));
-            private final MenuItem deleteItem = new MenuItem(getString("action.move_to_trash"));
 
             {
                 container.getStyleClass().add("note-cell-container");
-                container.setPadding(new javafx.geometry.Insets(4, 6, 4, 4));
-                setAlignment(javafx.geometry.Pos.TOP_LEFT);
-                setContentDisplay(javafx.scene.control.ContentDisplay.GRAPHIC_ONLY);
+                container.setPadding(new Insets(4, 6, 4, 4));
+                setAlignment(Pos.TOP_LEFT);
+                setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
                 setMinWidth(0);
 
-                titleRow.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+                titleRow.setAlignment(Pos.CENTER_LEFT);
                 titleRow.setMinWidth(0);
                 pinIcon.getStyleClass().add("feather-pin-active");
-                pinIcon.setIconSize(12);
-                favIcon.setIconColor(javafx.scene.paint.Color.GOLD);
-                favIcon.setIconSize(12);
+                pinIcon.getStyleClass().add("icon-12");
+                // A style class, not a colour set here: the theme recolours it on a selected row.
+                favIcon.getStyleClass().add("feather-favorite-active");
+                favIcon.getStyleClass().add("icon-12");
                 lockIcon.getStyleClass().add("note-cell-lock");
-                lockIcon.setIconSize(12);
+                lockIcon.getStyleClass().add("icon-12");
 
                 titleLabel.getStyleClass().add("note-cell-title");
                 titleLabel.setEllipsisString("…");
                 titleLabel.setMinWidth(0);
                 HBox.setHgrow(titleLabel, Priority.ALWAYS);
                 noteIcon.getStyleClass().add("note-cell-icon");
-                noteIcon.setIconSize(14);
+                noteIcon.getStyleClass().add("icon-14");
                 noteIcon.setMouseTransparent(true);
                 noteIconHolder.getChildren().add(noteIcon);
                 noteIconHolder.setMinWidth(NOTE_ICON_RESERVED_WIDTH);
@@ -300,24 +306,25 @@ public class NotesListController {
                 modifiedLabel.getStyleClass().add("note-cell-date");
                 modifiedLabel.setEllipsisString("…");
                 modifiedLabel.setMinWidth(0);
-                HBox.setHgrow(modifiedLabel, Priority.ALWAYS);
+                HBox.setHgrow(modifiedLabel, Priority.NEVER);
+                HBox.setHgrow(dateSpacer, Priority.ALWAYS);
                 createdLabel.getStyleClass().add("note-cell-date-created");
-                createdLabel.setAlignment(javafx.geometry.Pos.CENTER_RIGHT);
+                createdLabel.setAlignment(Pos.CENTER_RIGHT);
                 createdLabel.setEllipsisString("…");
                 createdLabel.setMinWidth(0);
                 HBox.setHgrow(createdLabel, Priority.NEVER);
 
-                dateRow.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+                dateRow.setAlignment(Pos.CENTER_LEFT);
                 dateRow.setMinWidth(0);
-                dateRow.getChildren().addAll(modifiedLabel, createdLabel);
+                dateRow.getChildren().addAll(modifiedLabel, dateSpacer, createdLabel);
 
                 container.getChildren().addAll(titleRow, previewLabel, dateRow);
                 container.setFillWidth(true);
                 container.setMinWidth(0);
 
+                // The row's own width, which the list gives every row alike, scroll bar taken off.
                 container.prefWidthProperty().bind(Bindings.createDoubleBinding(
-                        () -> resolveContentWidth(listView),
-                        listView.widthProperty()));
+                        this::contentWidth, widthProperty(), insetsProperty()));
                 container.maxWidthProperty().bind(container.prefWidthProperty());
                 container.minWidthProperty().bind(container.prefWidthProperty());
                 clip.widthProperty().bind(container.widthProperty());
@@ -326,68 +333,15 @@ public class NotesListController {
 
                 container.widthProperty().addListener((obs, oldW, newW) -> layoutCellContent(newW.doubleValue()));
 
-                openItem.setOnAction(e -> {
-                    Note note = getItem();
-                    if (note != null) {
-                        noteSelectionAction.accept(note);
-                    }
-                });
-                pinItem.setOnAction(e -> {
-                    Note note = getItem();
-                    if (note != null) {
-                        togglePin(note);
-                    }
-                });
-                favoriteItem.setOnAction(e -> {
-                    Note note = getItem();
-                    if (note != null) {
-                        toggleFavorite(note);
-                    }
-                });
-                privateItem.setOnAction(e -> {
-                    Note note = getItem();
-                    if (note != null) {
-                        notePrivacyToggleAction.accept(note);
-                    }
-                });
-                revealItem.setOnAction(e -> {
-                    Note note = getItem();
-                    if (note != null) {
-                        revealInFileManager(note);
-                    }
-                });
-                // "Reveal in file manager" only applies to file (vault) storage.
-                revealItem.setVisible(isFileSystemStorage());
-                exportItem.setOnAction(e -> {
-                    Note note = getItem();
-                    if (note != null) {
-                        noteExportAction.accept(note);
-                    }
-                });
-                renameItem.setOnAction(e -> {
-                    Note note = getItem();
-                    if (note != null) {
-                        renameNote(note);
-                    }
-                });
-                MenuItem moveItem = new MenuItem(getString("action.move_to"));
-                moveItem.setOnAction(e -> {
-                    Note note = getItem();
-                    if (note != null) {
-                        moveNote(note);
-                    }
-                });
-                deleteItem.setOnAction(e -> {
-                    Note note = getItem();
-                    if (note != null) {
-                        deleteNote(note);
-                    }
-                });
-                contextMenu.getItems().addAll(openItem, pinItem, favoriteItem, privateItem, renameItem, moveItem,
-                        revealItem, exportItem,
-                        new SeparatorMenuItem(), deleteItem);
-                appendPluginNoteContextMenuItems(contextMenu, this::getItem);
 
+                // Cmd/Ctrl+click or middle click opens the note in a new tab. Consumed so the
+                // list does not also select it (which would open it in the current tab).
+                addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+                    if (!isEmpty() && getItem() != null && NewTabGesture.opensInNewTab(event)) {
+                        event.consume();
+                        openInNewTabAction.accept(getItem());
+                    }
+                });
                 addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
                     if (event.getButton() == MouseButton.SECONDARY && !isEmpty()) {
                         restoringNotesSelection = true;
@@ -414,12 +368,10 @@ public class NotesListController {
                 });
             }
 
-            private double resolveContentWidth(ListView<Note> lv) {
-                double basis = lv.getWidth();
-                if (basis <= 0) {
-                    return 100;
-                }
-                return Math.max(64, basis - verticalScrollBarWidth(lv) - CELL_HORIZONTAL_PADDING);
+            /** The width inside the row's padding; until the row is laid out, a small one. */
+            private double contentWidth() {
+                double width = getWidth() - snappedLeftInset() - snappedRightInset();
+                return width > 0 ? Math.max(64, width) : 100;
             }
 
             private void layoutCellContent(double contentWidth) {
@@ -444,28 +396,34 @@ public class NotesListController {
 
                 dateRow.setMaxWidth(contentWidth);
                 double createdMax = Math.min(96, Math.max(52, contentWidth * 0.45));
-                double modifiedMax = Math.max(32, contentWidth - createdMax - DATE_ROW_GAP);
+                double modifiedMax = Math.max(32, contentWidth - createdMax - 2 * DATE_ROW_GAP);
                 createdLabel.setMaxWidth(createdMax);
                 modifiedLabel.setMaxWidth(modifiedMax);
+                if (createdDate.isEmpty() || contentWidth < NARROW_PANEL_WIDTH) {
+                    createdLabel.setText(createdDate);
+                } else {
+                    createdLabel.setText(MessageFormat.format(getString("panel.notes.created"), createdDate));
+                }
             }
 
+            /** Small, so the list never scrolls sideways: the list makes every row as wide as itself. */
             @Override
             protected double computePrefWidth(double height) {
-                ListView<Note> lv = getListView();
-                if (lv != null && lv.getWidth() > 0) {
-                    return resolveContentWidth(lv);
-                }
-                return super.computePrefWidth(height);
+                return snappedLeftInset() + snappedRightInset() + 64;
             }
 
-            @Override
-            protected double computeMaxWidth(double height) {
-                return computePrefWidth(height);
-            }
+            /** The note this row showed last, to notice when it is reused for another one. */
+            private Note shownNote;
 
             @Override
             protected void updateItem(Note note, boolean empty) {
                 super.updateItem(note, empty);
+                // JavaFX updates :hover only on mouse moves; a row reused for another note
+                // while scrolling under a still mouse would keep highlighting it.
+                if (shownNote != (empty ? null : note) && isHover()) {
+                    setHover(false);
+                }
+                shownNote = empty ? null : note;
                 if (empty || note == null) {
                     setText(null);
                     setGraphic(null);
@@ -482,47 +440,24 @@ public class NotesListController {
                         titleRow.getChildren().add(lockIcon);
                     }
                     titleLabel.setText(note.getTitle() != null ? note.getTitle() : "");
-                    // Distinguish attachments (PDF/image) from notes with a fitting icon.
-                    switch (com.example.jylos.util.AttachmentType.fromName(note.getId())) {
-                        case IMAGE -> noteIcon.setIconLiteral("fth-image");
-                        case PDF -> noteIcon.setIconLiteral("fth-file");
-                        case CANVAS -> noteIcon.setIconLiteral("fth-grid");
-                        default -> noteIcon.setIconLiteral("fth-file-text");
-                    }
+                    // Attachments, canvases and Kanban boards each have their icon.
+                    NoteIcons.apply(noteIcon, note);
                     titleRow.getChildren().addAll(titleLabel, noteIconHolder);
 
                     boolean showPreview = previewLines > 0;
                     String preview = showPreview ? buildPreviewText(note.getContent(), previewLines) : "";
                     boolean hasPreview = showPreview && preview != null && !preview.isBlank();
-                    previewLabel.setVisible(hasPreview);
-                    previewLabel.setManaged(hasPreview);
+                    UiNodes.show(previewLabel, hasPreview);
                     previewLabel.setText(hasPreview ? preview : "");
 
                     modifiedLabel.setText(formatDate(
                             note.getModifiedDate() != null ? note.getModifiedDate() : note.getCreatedDate()));
-                    String created = formatDate(note.getCreatedDate());
-                    double contentWidth = resolveContentWidth(listView);
-                    if (created.isEmpty()) {
-                        createdLabel.setText("");
-                    } else if (contentWidth < NARROW_PANEL_WIDTH) {
-                        createdLabel.setText(created);
-                    } else {
-                        createdLabel.setText(java.text.MessageFormat.format(getString("panel.notes.created"), created));
-                    }
-                    layoutCellContent(contentWidth);
-
-                    pinItem.setText(note.isPinned() ? getString("action.unpin_note")
-                            : getString("action.pin_note"));
-                    favoriteItem.setText(note.isFavorite() ? getString("action.remove_favorite")
-                            : getString("action.add_favorite"));
-                    privateItem.setText(note.isPrivate() ? getString("action.make_normal")
-                            : getString("action.make_private"));
-                    // Private notes cannot be trashed; they must be turned normal first.
-                    deleteItem.setDisable(note.isPrivate());
+                    createdDate = formatDate(note.getCreatedDate());
+                    layoutCellContent(contentWidth());
 
                     setGraphic(container);
                     setText(null);
-                    setContextMenu(contextMenu);
+                    setContextMenu(createNoteContextMenu(note, noteMenuActions()));
                 }
             }
         };
@@ -553,7 +488,7 @@ public class NotesListController {
             }
         }
 
-        java.util.List<String> previewLines = new java.util.ArrayList<>();
+        List<String> previewLines = new ArrayList<>();
         boolean truncated = false;
         for (String rawLine : text.split("\\R")) {
             String line = stripMarkdownForPreview(rawLine);
@@ -609,7 +544,7 @@ public class NotesListController {
     }
 
     private String wrapPreviewFlow(String flow, int maxLines, boolean alreadyTruncated) {
-        java.util.List<String> lines = new java.util.ArrayList<>();
+        List<String> lines = new ArrayList<>();
         int pos = 0;
         while (pos < flow.length() && lines.size() < maxLines) {
             int end = Math.min(flow.length(), pos + PREVIEW_CHARS_PER_LINE);
@@ -638,49 +573,52 @@ public class NotesListController {
         }
         String datePart = stored.length() >= 10 ? stored.substring(0, 10) : stored;
         try {
-            java.time.LocalDate date = java.time.LocalDate.parse(datePart);
+            LocalDate date = LocalDate.parse(datePart);
             Locale locale = bundle != null ? bundle.getLocale() : Locale.getDefault();
-            return date.format(java.time.format.DateTimeFormatter
-                    .ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
+            return date.format(DateTimeFormatter
+                    .ofLocalizedDate(FormatStyle.MEDIUM)
                     .withLocale(locale));
         } catch (Exception e) {
             return datePart;
         }
     }
 
-    private void toggleFavorite(Note note) {
+    /**
+     * Marks {@code note} favourite or not, from the list or the editor's button: saved,
+     * announced (the editor's buttons and the grid follow the save) and said in the status bar.
+     */
+    void toggleFavorite(Note note) {
         if (note == null || noteService == null) {
             return;
         }
         try {
-            noteService.toggleFavorite(note);
+            boolean favourite = noteService.toggleFavorite(note);
             if (eventBus != null) {
                 eventBus.publish(new NoteEvents.NoteSavedEvent(note));
             }
-            if ("favorites".equals(currentFilterType) && !note.isFavorite()) {
-                notesListView.getItems().removeIf(item -> item != null && Objects.equals(item.getId(), note.getId()));
-            } else {
-                notesListView.refresh();
-            }
+            notesListView.refresh();
+            publishStatusUpdate(getString(favourite ? "status.note_marked_favorite" : "status.note_unmarked_favorite"));
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Failed to toggle favorite", e);
-            publishPersistenceFailure(e, "status.note_update_error");
+            publishPersistenceFailure(e, "status.fav_error");
         }
     }
 
-    private void togglePin(Note note) {
+    /** Pins or unpins {@code note}, as {@link #toggleFavorite}; a pinned note moves to the top. */
+    void togglePin(Note note) {
         if (note == null || noteService == null) {
             return;
         }
         try {
-            noteService.togglePinned(note);
+            boolean pinned = noteService.togglePinned(note);
             if (eventBus != null) {
                 eventBus.publish(new NoteEvents.NoteSavedEvent(note));
             }
             resortVisibleNotes();
+            publishStatusUpdate(getString(pinned ? "status.note_pinned" : "status.note_unpinned"));
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Failed to toggle pin", e);
-            publishPersistenceFailure(e, "status.note_update_error");
+            publishPersistenceFailure(e, "status.pin_error");
         }
     }
 
@@ -693,6 +631,12 @@ public class NotesListController {
         subscriptions.clear();
         this.eventBus = eventBus;
         subscribeToEvents();
+    }
+
+    /** What Cmd/Ctrl+click, middle click and "Open in new tab" do with a note. */
+    public void setOpenInNewTabAction(Consumer<Note> action) {
+        this.openInNewTabAction = action != null ? action : note -> {
+        };
     }
 
     public void wire(EventBus eventBus, NoteService noteService, TagService tagService,
@@ -720,7 +664,7 @@ public class NotesListController {
             Consumer<Note> notePrivacyToggleAction,
             BiConsumer<List<Note>, String> notesLoadedAction,
             Consumer<String> statusUpdateAction,
-            Supplier<List<com.example.jylos.plugin.NoteContextMenuEntry>> noteContextMenuItemsSupplier) {
+            Supplier<List<NoteContextMenuEntry>> noteContextMenuItemsSupplier) {
         setServices(noteService, tagService, folderService);
         setBundle(bundle);
         this.noteSelectionAction = noteSelectionAction != null ? noteSelectionAction : note -> {
@@ -734,34 +678,8 @@ public class NotesListController {
         this.statusUpdateAction = statusUpdateAction != null ? statusUpdateAction : message -> {
         };
         this.noteContextMenuItemsSupplier =
-                noteContextMenuItemsSupplier != null ? noteContextMenuItemsSupplier : java.util.Collections::emptyList;
+                noteContextMenuItemsSupplier != null ? noteContextMenuItemsSupplier : Collections::emptyList;
         setEventBus(eventBus);
-    }
-
-    /**
-     * Appends every plugin-registered note context menu item to {@code menu},
-     * behind a separator — used by both the list-view cell (built once per
-     * cell, {@code noteSupplier} re-resolves {@code getItem()} at click time
-     * since the cell is reused across notes) and the grid-view card (rebuilt
-     * fresh per right-click, so {@code noteSupplier} can just close over the
-     * one note it already knows). A no-op when no plugin has registered anything.
-     */
-    private void appendPluginNoteContextMenuItems(ContextMenu menu, Supplier<Note> noteSupplier) {
-        List<com.example.jylos.plugin.NoteContextMenuEntry> entries = noteContextMenuItemsSupplier.get();
-        if (entries == null || entries.isEmpty()) {
-            return;
-        }
-        menu.getItems().add(new SeparatorMenuItem());
-        for (com.example.jylos.plugin.NoteContextMenuEntry entry : entries) {
-            MenuItem item = new MenuItem(entry.label());
-            item.setOnAction(e -> {
-                Note note = noteSupplier.get();
-                if (note != null) {
-                    entry.action().accept(note);
-                }
-            });
-            menu.getItems().add(item);
-        }
     }
 
     private void subscribeToEvents() {
@@ -769,7 +687,7 @@ public class NotesListController {
             return;
 
         subscriptions.add(eventBus.subscribe(SystemActionEvent.class, event -> {
-            javafx.application.Platform.runLater(() -> {
+            Platform.runLater(() -> {
                 if (event.getActionType() == SystemActionEvent.ActionType.DELETE) {
                     handleDelete(null);
                 }
@@ -788,7 +706,7 @@ public class NotesListController {
                 event -> markNotesListStale(componentId(event.getComponent()))));
         subscriptions.add(eventBus.subscribe(NoteEvents.NotesRefreshRequestedEvent.class, event -> {
             markAllNotesSearchCacheDirty();
-            javafx.application.Platform.runLater(this::refreshCurrentView);
+            Platform.runLater(this::refreshCurrentView);
         }));
     }
 
@@ -803,7 +721,7 @@ public class NotesListController {
         this.tagService = tagService;
         this.folderService = folderService;
         this.advancedSearch = this.noteService != null && this.tagService != null
-                ? new com.example.jylos.search.AdvancedSearchService(this.noteService, this.tagService)
+                ? new AdvancedSearchService(this.noteService, this.tagService)
                 : null;
     }
 
@@ -839,7 +757,6 @@ public class NotesListController {
         return notesListView;
     }
 
-    // Phase 3: Migrated Loading Logic
 
     public void loadAllNotes() {
         if (noteService == null) {
@@ -856,7 +773,7 @@ public class NotesListController {
                     List<Note> sorted = sortNotesData(notes, sortOption);
                     applyNotesPreservingSelection(sorted);
                     String msg = bundle != null
-                            ? java.text.MessageFormat.format(bundle.getString("info.notes_count"), sorted.size())
+                            ? MessageFormat.format(bundle.getString("info.notes_count"), sorted.size())
                             : sorted.size() + " notes";
                     if (notesPanelTitleLabel != null) {
                         notesPanelTitleLabel.setText(msg);
@@ -894,7 +811,7 @@ public class NotesListController {
                     }
                     publishNotesLoadedEvent(sorted,
                             bundle != null
-                                    ? java.text.MessageFormat.format(bundle.getString("status.loaded_folder"),
+                                    ? MessageFormat.format(bundle.getString("status.loaded_folder"),
                                             folder.getTitle())
                                     : "Loaded folder");
                 },
@@ -922,13 +839,13 @@ public class NotesListController {
                         notesWithTag -> {
                             List<Note> sorted = sortNotesData(notesWithTag, sortOption);
                             applyNotesPreservingSelection(sorted);
-                            String msg = java.text.MessageFormat.format(getString("info.notes_count"), sorted.size());
+                            String msg = MessageFormat.format(getString("info.notes_count"), sorted.size());
                             if (notesPanelTitleLabel != null) {
                                 notesPanelTitleLabel.setText(msg);
                             }
                             publishNotesLoadedEvent(sorted,
                                     bundle != null
-                                            ? java.text.MessageFormat.format(bundle.getString("status.filtered_tag"),
+                                            ? MessageFormat.format(bundle.getString("status.filtered_tag"),
                                                     tagName)
                                             : msg);
                         },
@@ -982,14 +899,14 @@ public class NotesListController {
                 filteredNotes -> {
                     applyNotesPreservingSelection(filteredNotes);
                     String msg = bundle != null
-                            ? java.text.MessageFormat.format(bundle.getString("info.notes_found"), filteredNotes.size())
+                            ? MessageFormat.format(bundle.getString("info.notes_found"), filteredNotes.size())
                             : filteredNotes.size() + " notes found";
                     if (notesPanelTitleLabel != null) {
                         notesPanelTitleLabel.setText(msg);
                     }
                     publishNotesLoadedEvent(filteredNotes,
                             bundle != null
-                                    ? java.text.MessageFormat.format(bundle.getString("status.search_active"),
+                                    ? MessageFormat.format(bundle.getString("status.search_active"),
                                             searchText)
                                     : "Search active");
                 },
@@ -1024,7 +941,7 @@ public class NotesListController {
     }
 
     /** The id of a component from a trash event, or {@code null} when it has none. */
-    private static String componentId(com.example.jylos.data.models.interfaces.Component component) {
+    private static String componentId(Component component) {
         return component != null ? component.getId() : null;
     }
 
@@ -1147,7 +1064,7 @@ public class NotesListController {
         // Tag-filtered results are a small subset of the vault, so a full (but scoped)
         // reload here is cheap and the only way to keep membership correct as you type.
         if ("tag".equals(currentFilterType) && currentTag != null) {
-            javafx.application.Platform.runLater(this::refreshCurrentView);
+            Platform.runLater(this::refreshCurrentView);
             return;
         }
         List<Note> items = notesListView.getItems();
@@ -1188,7 +1105,7 @@ public class NotesListController {
                 : (selected != null ? selected.getId() : null);
 
         notesListView.getItems().setAll(notes);
-        lastGridSignature = "";
+        grid.forgetShownNotes();
         if (targetId == null) {
             return;
         }
@@ -1236,6 +1153,29 @@ public class NotesListController {
         publishEvent(SystemActionEvent.ActionType.TOGGLE_NOTES_LIST);
     }
 
+    /** What the close button of the results panel does (Explorer layout). */
+    public void setCloseResultsAction(Runnable action) {
+        this.closeResultsAction = action != null ? action : () -> {
+        };
+    }
+
+    /**
+     * Results panel mode (Explorer layout): the panel shows the notes of a tag or a search,
+     * with a close button, and without the grid view or the "notes of subfolders" toggle,
+     * which only make sense when browsing a folder.
+     */
+    public void setResultsPanelMode(boolean resultsOnly) {
+        UiNodes.show(viewModeToggleBtn, !resultsOnly);
+        UiNodes.show(peekRecursiveBtn, !resultsOnly);
+        UiNodes.show(closeResultsBtn, resultsOnly);
+    }
+
+
+    @FXML
+    private void handleCloseResults(ActionEvent event) {
+        closeResultsAction.run();
+    }
+
     @FXML
     private void handleRefresh(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.REFRESH_NOTES);
@@ -1265,17 +1205,25 @@ public class NotesListController {
 
     @FXML
     private void handleDelete(ActionEvent event) {
-        Note selectedNote = notesListView.getSelectionModel().getSelectedItem();
-        if (selectedNote != null) {
-            deleteNote(selectedNote);
-        } else {
-            // Note: SidebarController also listens to DELETE and handles its managed items.
-            // If we are here and no note is selected, we could just do nothing or
-            // publish a status if we want to be explicit.
-            // However, MainController previously favored Sidebar over Note selection.
-            // Here they both listen, so if Sidebar found something, it acts.
-            // If NotesList finds something, it acts.
-        }
+        deleteNote(deleteTarget());
+    }
+
+    /** The note open in the editor; the delete command falls back to it. */
+    private Supplier<Note> currentNoteSupplier = () -> null;
+
+    public void setCurrentNoteSupplier(Supplier<Note> supplier) {
+        this.currentNoteSupplier = supplier != null ? supplier : () -> null;
+    }
+
+    /**
+     * What the delete command (editor's trash button, menu, shortcut) deletes: the note
+     * selected in the list, or else the note open in the editor. In the Explorer layout the
+     * list has no selection (notes are opened from the tree), so without the fallback the
+     * command did nothing.
+     */
+    Note deleteTarget() {
+        Note selected = notesListView.getSelectionModel().getSelectedItem();
+        return selected != null ? selected : currentNoteSupplier.get();
     }
 
     /**
@@ -1292,24 +1240,13 @@ public class NotesListController {
         if (note == null || noteService == null) {
             return;
         }
-        Optional<java.nio.file.Path> pathOpt = noteService.getNoteFilePath(note.getId());
+        Optional<Path> pathOpt = noteService.getNoteFilePath(note.getId());
         if (pathOpt.isEmpty()) {
             publishStatusUpdate(getString("status.reveal_unavailable"));
             return;
         }
-        String absolute = pathOpt.get().toAbsolutePath().toString();
-        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
         try {
-            if (os.contains("mac")) {
-                new ProcessBuilder("open", "-R", absolute).start();
-            } else if (os.contains("win")) {
-                new ProcessBuilder("explorer.exe", "/select," + absolute).start();
-            } else {
-                String dir = pathOpt.get().toAbsolutePath().getParent() != null
-                        ? pathOpt.get().toAbsolutePath().getParent().toString()
-                        : absolute;
-                new ProcessBuilder("xdg-open", dir).start();
-            }
+            FileManager.reveal(pathOpt.get());
             publishStatusUpdate(getString("status.revealed"));
         } catch (Exception ex) {
             logger.log(Level.WARNING, "Failed to reveal note in file manager", ex);
@@ -1333,9 +1270,13 @@ public class NotesListController {
         dialog.setContentText(getString("dialog.rename_note.content"));
         dialog.getDialogPane().setMinWidth(380);
 
-        com.example.jylos.ui.UiDialogs.show(dialog).ifPresent(name -> {
+        UiDialogs.show(dialog).ifPresent(name -> renameNoteTo(note, name));
+    }
+
+    /** Renames the note to {@code name} (trimmed); a blank or unchanged name does nothing. */
+    public void renameNoteTo(Note note, String name) {
             String trimmed = name != null ? name.trim() : "";
-            if (trimmed.isBlank() || trimmed.equals(note.getTitle())) {
+            if (note == null || noteService == null || trimmed.isBlank() || trimmed.equals(note.getTitle())) {
                 return;
             }
             try {
@@ -1347,13 +1288,12 @@ public class NotesListController {
                 if (eventBus != null) {
                     eventBus.publish(new NoteEvents.NoteSavedEvent(note, previousNoteId));
                 }
-                publishStatusUpdate(java.text.MessageFormat.format(
+                publishStatusUpdate(MessageFormat.format(
                         getString("status.renamed_note"), note.getTitle()));
             } catch (Exception e) {
                 logger.log(Level.WARNING, "Failed to rename note " + note.getId(), e);
                 publishPersistenceFailure(e, "status.note_rename_error");
             }
-        });
     }
 
     private void moveNote(Note note) {
@@ -1380,21 +1320,23 @@ public class NotesListController {
         }
         publishStatusUpdate(destination == null || "ROOT".equals(destination.getId())
                 ? getString("status.note_moved_root")
-                : java.text.MessageFormat.format(getString("status.note_moved_folder"), destination.getTitle()));
+                : MessageFormat.format(getString("status.note_moved_folder"), destination.getTitle()));
     }
 
     private Optional<MoveTargetSupport.MoveTarget> chooseMoveTarget(Folder folderToMove) {
-        if (folderService == null) {
-            return Optional.empty();
-        }
-        return MoveTargetSupport.show(
-                folderService.getAllFolders(),
-                folder -> folderToMove == null || folderService.canMoveFolder(folderToMove, folder),
-                folderService::getParentFolder,
-                this::getString);
+        return MoveTargetSupport.choose(folderService, folderToMove, this::getString);
     }
 
-    private void refreshCurrentView() {
+    /** Whether the list shows the results of a search. */
+    public boolean isShowingSearch() {
+        return "search".equals(currentFilterType);
+    }
+
+    /**
+     * Loads again what the list shows now (all notes, a folder, a tag or a search), so changes
+     * made meanwhile appear. The list is the only owner of what it shows.
+     */
+    public void refreshCurrentView() {
         if ("folder".equals(currentFilterType) && currentFolder != null) {
             loadNotesForFolder(currentFolder);
         } else if ("tag".equals(currentFilterType) && currentTag != null) {
@@ -1437,7 +1379,7 @@ public class NotesListController {
         alert.setHeaderText(getString("dialog.delete_note.header"));
         alert.setContentText(getString("dialog.delete_note.content"));
 
-        Optional<ButtonType> result = com.example.jylos.ui.UiDialogs.show(alert);
+        Optional<ButtonType> result = UiDialogs.show(alert);
         if (result.isPresent() && result.get() == ButtonType.OK) {
             NoteTrashOperations.TrashResult trashed = new NoteTrashOperations(noteService).moveToTrash(note);
             if (!trashed.success()) {
@@ -1471,119 +1413,25 @@ public class NotesListController {
     }
 
     private NotesViewMode notesViewMode = NotesViewMode.LIST;
-    /**
-     * The grid, as a virtualized list of rows: each item is one row of cards.
-     *
-     * <p>It used to be a {@code TilePane} of every card inside a {@code ScrollPane}, which
-     * builds one card — six-odd nodes each — for every note in the vault and keeps them
-     * all in the scene graph. A few thousand notes is tens of thousands of live nodes.
-     * A {@code ListView} only materialises the rows on screen, and the card itself is
-     * unchanged: {@link #createNoteCard} still produces it.</p>
-     */
-    private ListView<List<Note>> notesGridView;
-    private VBox notesPanelContainer;
-    private String lastGridSignature = "";
-    /** Notes currently shown in the grid, kept so a width change can re-chunk them. */
-    private List<Note> gridNotes = List.of();
-    private int gridColumns = 0;
-
-    /** Card width and gap from {@link #createNoteCard}; used to work out how many fit. */
-    private static final double GRID_CARD_WIDTH = 180;
-    private static final double GRID_GAP = 12;
-    private static final double GRID_ROW_HEIGHT = 152; // card prefHeight (140) + gap
+    /** The grid view of the notes: rows of cards, drawn on demand. */
+    private final NotesGridSupport grid = new NotesGridSupport(new GridHost());
 
     public boolean isGridViewActive() {
         return notesViewMode == NotesViewMode.GRID;
     }
 
     public void initializeNotesGrid() {
-        if (notesGridView != null) {
-            return;
-        }
-        notesGridView = new ListView<>();
-        notesGridView.getStyleClass().add("notes-grid-scroll");
-        notesGridView.setStyle("-fx-background-color: transparent;");
-        notesGridView.setFixedCellSize(GRID_ROW_HEIGHT);
-        notesGridView.setFocusTraversable(false);
-        // The selection model is left alone on purpose: nulling it is a documented source
-        // of NPEs inside JavaFX's own list behaviour, and it buys nothing here — the row
-        // cell paints a transparent background inline, which already wins over the
-        // selected-row highlight.
-        notesGridView.setCellFactory(view -> new GridRowCell());
-
-        // The TilePane reflowed its columns as the panel resized; keep that. Re-chunking
-        // only when the column count actually changes means a drag resize does not rebuild
-        // rows on every pixel.
-        notesGridView.widthProperty().addListener((obs, previous, width) -> {
-            if (columnsFor(width.doubleValue()) != gridColumns) {
-                rebuildGridRows();
-            }
-        });
-
-        if (notesListView != null && notesListView.getParent() instanceof VBox parent) {
-            notesPanelContainer = parent;
-        }
+        grid.initialize();
     }
 
-    /**
-     * How many cards fit across {@code width}, at least one. Subtracts the row's own left
-     * and right padding first: counting on the full width overfills the row at just over
-     * a multiple of the card pitch (768px gave four cards needing 780px) and clips the
-     * last card.
-     */
-    private static int columnsFor(double width) {
-        double usable = width - (2 * GRID_GAP);
-        if (usable <= 0) {
-            return 1;
-        }
-        // +GRID_GAP because n cards need only n-1 gaps between them.
-        return Math.max(1, (int) ((usable + GRID_GAP) / (GRID_CARD_WIDTH + GRID_GAP)));
+    public void refreshGridView(
+            ListView<Note> notesListView,
+            boolean isDarkTheme,
+            Function<String, String> i18n,
+            Consumer<Note> openNoteAction,
+            Consumer<String> statusUpdate) {
+        grid.refresh(notesListView, isDarkTheme, i18n, openNoteAction, statusUpdate);
     }
-
-    /** Re-chunks {@link #gridNotes} into rows for the current width. */
-    private void rebuildGridRows() {
-        if (notesGridView == null) {
-            return;
-        }
-        gridColumns = columnsFor(notesGridView.getWidth());
-        List<List<Note>> rows = new ArrayList<>();
-        for (int start = 0; start < gridNotes.size(); start += gridColumns) {
-            rows.add(List.copyOf(gridNotes.subList(start, Math.min(start + gridColumns, gridNotes.size()))));
-        }
-        notesGridView.getItems().setAll(rows);
-    }
-
-    /** Renders one row of note cards. Cells are reused, so the row is rebuilt on update. */
-    private final class GridRowCell extends ListCell<List<Note>> {
-        private final HBox row = new HBox(GRID_GAP);
-
-        private GridRowCell() {
-            row.setPadding(new javafx.geometry.Insets(GRID_GAP / 2, GRID_GAP, GRID_GAP / 2, GRID_GAP));
-            getStyleClass().add("notes-grid-row");
-            setStyle("-fx-background-color: transparent; -fx-padding: 0;");
-        }
-
-        @Override
-        protected void updateItem(List<Note> notes, boolean empty) {
-            super.updateItem(notes, empty);
-            if (empty || notes == null || gridCardFactory == null) {
-                setGraphic(null);
-                return;
-            }
-            row.getChildren().clear();
-            for (Note note : notes) {
-                row.getChildren().add(gridCardFactory.apply(note));
-            }
-            setGraphic(row);
-        }
-    }
-
-    /**
-     * Builds a card for one note, capturing the theme/i18n/callbacks the last refresh was
-     * given. Cells are created lazily as the user scrolls, long after
-     * {@link #refreshGridView} returned, so those arguments have to be reachable from here.
-     */
-    private Function<Note, VBox> gridCardFactory;
 
     public boolean showListView(Runnable gridRefreshAction, Consumer<String> warningLogger) {
         if (notesViewMode == NotesViewMode.LIST) {
@@ -1632,13 +1480,7 @@ public class NotesListController {
     }
 
     private void applyCurrentNotesViewMode(Runnable gridRefreshAction, Consumer<String> warningLogger) {
-        notesPanelContainer = applyNotesViewMode(
-                isGridViewActive(),
-                notesListView,
-                notesGridView,
-                notesPanelContainer,
-                gridRefreshAction,
-                warningLogger);
+        grid.applyViewMode(isGridViewActive(), gridRefreshAction, warningLogger);
     }
 
     public void refreshGridViewIfActive(
@@ -1649,308 +1491,138 @@ public class NotesListController {
         if (!isGridViewActive()) {
             return;
         }
-        initializeNotesGrid();
-        refreshGridView(notesListView, isDarkTheme, i18n, openNoteAction, statusUpdate);
+        grid.initialize();
+        grid.refresh(notesListView, isDarkTheme, i18n, openNoteAction, statusUpdate);
     }
 
-    public VBox applyNotesViewMode(
-            boolean isGridMode,
-            ListView<Note> notesListView,
-            javafx.scene.Node gridNode,
-            VBox currentNotesPanelContainer,
-            Runnable refreshGridViewAction,
-            Consumer<String> warningLogger) {
-        if (notesListView == null || gridNode == null) {
-            return currentNotesPanelContainer;
-        }
-
-        VBox notesPanelContainer = currentNotesPanelContainer;
-        if (notesPanelContainer == null) {
-            Parent parent = notesListView.getParent();
-            if (parent instanceof VBox) {
-                notesPanelContainer = (VBox) parent;
-            } else {
-                parent = gridNode.getParent();
-                if (parent instanceof VBox) {
-                    notesPanelContainer = (VBox) parent;
-                }
-            }
-        }
-
-        if (notesPanelContainer == null) {
-            if (warningLogger != null) {
-                warningLogger.accept("Could not find notes panel container");
-            }
-            return null;
-        }
-
-        VBox resolvedContainer = notesPanelContainer;
-        Runnable applyViewSwitch = () -> {
-            if (isGridMode) {
-                if (resolvedContainer.getChildren().contains(notesListView)) {
-                    resolvedContainer.getChildren().remove(notesListView);
-                }
-                if (!resolvedContainer.getChildren().contains(gridNode)) {
-                    resolvedContainer.getChildren().add(gridNode);
-                    VBox.setVgrow(gridNode, Priority.ALWAYS);
-                }
-                if (refreshGridViewAction != null) {
-                    refreshGridViewAction.run();
-                }
-            } else {
-                if (resolvedContainer.getChildren().contains(gridNode)) {
-                    resolvedContainer.getChildren().remove(gridNode);
-                }
-                if (!resolvedContainer.getChildren().contains(notesListView)) {
-                    resolvedContainer.getChildren().add(notesListView);
-                    VBox.setVgrow(notesListView, Priority.ALWAYS);
-                }
-            }
-        };
-
-        if (Platform.isFxApplicationThread()) {
-            applyViewSwitch.run();
-        } else {
-            Platform.runLater(applyViewSwitch);
-        }
-
-        return notesPanelContainer;
+    /** The note context menu, as the list shows it; the Explorer tree uses it for its note rows. */
+    public ContextMenu noteContextMenu(Note note) {
+        return note == null ? null : createNoteContextMenu(note, noteMenuActions());
     }
 
-    public void refreshGridView(
-            ListView<Note> notesListView,
-            boolean isDarkTheme,
-            Function<String, String> i18n,
-            Consumer<Note> openNoteAction,
-            Consumer<String> statusUpdate) {
-        if (notesGridView == null || notesListView == null || i18n == null || openNoteAction == null
-                || statusUpdate == null) {
+    /** The same menu with another "Rename" (the Explorer renames in the row itself). */
+    public ContextMenu noteContextMenu(Note note, Consumer<Note> rename) {
+        return note == null ? null : createNoteContextMenu(note, noteMenuActions().withRename(rename));
+    }
+
+    private ContextMenu createNoteContextMenu(Note note, NoteContextMenuSupport.Actions actions) {
+        return NoteContextMenuSupport.create(note, actions, isFileSystemStorage(), this::getString,
+                noteContextMenuItemsSupplier.get());
+    }
+
+    /** What the note context menu entries do, shared by the list rows and the grid cards. */
+    private NoteContextMenuSupport.Actions noteMenuActions() {
+        return new NoteContextMenuSupport.Actions(
+                note -> noteSelectionAction.accept(note),
+                note -> openInNewTabAction.accept(note),
+                this::togglePin,
+                this::toggleFavorite,
+                note -> notePrivacyToggleAction.accept(note),
+                this::renameNote,
+                this::moveNote,
+                this::revealInFileManager,
+                note -> noteExportAction.accept(note),
+                this::deleteNote,
+                this::duplicateNote,
+                this::copyNotePath,
+                this::openInDefaultApp);
+    }
+
+    /** Copies the note next to it ("Name 1") and selects the copy. */
+    private void duplicateNote(Note note) {
+        if (note == null || noteService == null) {
             return;
         }
-
-        List<Note> notes = new ArrayList<>(notesListView.getItems());
-        StringBuilder signatureBuilder = new StringBuilder(notes.size() * 24);
-        signatureBuilder.append(isDarkTheme ? "dark|" : "light|");
-        for (Note note : notes) {
-            signatureBuilder.append(note.getId()).append('|')
-                    .append(note.getModifiedDate() != null ? note.getModifiedDate() : "")
-                    .append('|').append(note.isPinned() ? '1' : '0')
-                    .append(note.isFavorite() ? '1' : '0').append(';');
+        try {
+            Note copy = noteService.duplicateNote(note.getId());
+            requestSelectAfterRefresh(copy.getId());
+            if (eventBus != null) {
+                eventBus.publish(new NoteEvents.NoteCreatedEvent(copy));
+            }
+            publishStatusUpdate(MessageFormat.format(getString("status.note_duplicated"), copy.getTitle()));
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Failed to duplicate note " + note.getId(), e);
+            publishPersistenceFailure(e, "status.note_duplicate_error");
         }
-        String signature = signatureBuilder.toString();
-        if (signature.equals(lastGridSignature) && gridNotes.size() == notes.size()) {
+    }
+
+    /** Puts the note's path in the vault ("Folder/Note.md") on the clipboard. */
+    private void copyNotePath(Note note) {
+        if (note == null || note.getId() == null) {
             return;
         }
-
-        // Cards are built on demand by the cell factory as rows scroll into view, so what
-        // is stored here is how to build one — not thousands of already-built cards.
-        gridCardFactory = note -> createNoteCard(note, notesListView, isDarkTheme, i18n, openNoteAction,
-                statusUpdate);
-        gridNotes = notes;
-        rebuildGridRows();
-        lastGridSignature = signature;
+        ClipboardContent content = new ClipboardContent();
+        content.putString(note.getId().replace('\\', '/'));
+        Clipboard.getSystemClipboard().setContent(content);
+        publishStatusUpdate(getString("status.path_copied"));
     }
 
-    private VBox createNoteCard(
-            Note note,
-            ListView<Note> notesListView,
-            boolean isDarkTheme,
-            Function<String, String> i18n,
-            Consumer<Note> openNoteAction,
-            Consumer<String> statusUpdate) {
-        VBox card = new VBox(8);
-        card.setPrefWidth(180);
-        card.setPrefHeight(140);
-        card.setPadding(new javafx.geometry.Insets(12));
-        card.getStyleClass().add("note-card");
-        card.setCursor(javafx.scene.Cursor.HAND);
-
-        HBox titleRow = new HBox(5);
-        titleRow.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
-
-        if (note.isPinned()) {
-            FontIcon pinIcon = new FontIcon("bi-pin-angle");
-            pinIcon.getStyleClass().add("feather-pin-active");
-            pinIcon.setIconSize(12);
-            titleRow.getChildren().add(pinIcon);
+    /** Opens the note's file with the application the system uses for it. */
+    private void openInDefaultApp(Note note) {
+        if (note == null || noteService == null) {
+            return;
         }
-
-        if (note.isFavorite()) {
-            FontIcon favIcon = new FontIcon("fth-star");
-            favIcon.getStyleClass().add("feather-favorite-active");
-            favIcon.setIconSize(12);
-            titleRow.getChildren().add(favIcon);
+        Optional<Path> path = noteService.getNoteFilePath(note.getId());
+        if (path.isEmpty()) {
+            publishStatusUpdate(getString("status.reveal_unavailable"));
+            return;
         }
-
-        Label titleLabel = new Label(note.getTitle() != null ? note.getTitle() : i18n.apply("app.untitled"));
-        titleLabel.getStyleClass().add("note-card-title");
-        titleLabel.setWrapText(true);
-        titleLabel.setMaxHeight(40);
-        titleRow.getChildren().add(titleLabel);
-
-        String preview = note.getContent() != null && !note.getContent().isEmpty()
-                ? note.getContent().replaceAll("^#+\\s*", "").replaceAll("\\n", " ").trim()
-                : "";
-        if (preview.length() > 80) {
-            preview = preview.substring(0, 77) + "...";
-        }
-        Label previewLabel = new Label(preview);
-        previewLabel.getStyleClass().add("note-card-preview");
-        previewLabel.setWrapText(true);
-        previewLabel.setMaxHeight(60);
-        VBox.setVgrow(previewLabel, Priority.ALWAYS);
-
-        String dateText = note.getModifiedDate() != null ? note.getModifiedDate() : note.getCreatedDate();
-        if (dateText != null && dateText.length() > 10) {
-            dateText = dateText.substring(0, 10);
-        }
-        Label dateLabel = new Label(dateText != null ? dateText : "");
-        dateLabel.getStyleClass().add("note-card-date");
-
-        card.getChildren().addAll(titleRow, previewLabel, dateLabel);
-
-        card.setOnMouseClicked(e -> {
-            if (e.getButton() != MouseButton.PRIMARY) {
-                return;
+        String absolute = path.get().toAbsolutePath().toString();
+        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+        try {
+            if (os.contains("mac")) {
+                new ProcessBuilder("open", absolute).start();
+            } else if (os.contains("win")) {
+                new ProcessBuilder("cmd", "/c", "start", "\"\"", absolute).start();
+            } else {
+                new ProcessBuilder("xdg-open", absolute).start();
             }
-            if (noteDragInProgress) {
-                return;
-            }
-            notesListView.getSelectionModel().select(note);
-            openNoteAction.accept(note);
-        });
-        card.setOnContextMenuRequested(event -> {
-            restoringNotesSelection = true;
-            notesListView.getSelectionModel().select(note);
-            Platform.runLater(() -> restoringNotesSelection = false);
-            ContextMenu contextMenu = createGridNoteContextMenu(note, () -> {
-                notesListView.getSelectionModel().select(note);
-                openNoteAction.accept(note);
-            });
-            if (contextMenu != null) {
-                contextMenu.show(card, event.getScreenX(), event.getScreenY());
-            }
-        });
-
-        setupNoteCardDrag(card, note, i18n, statusUpdate);
-        return card;
+        } catch (Exception ex) {
+            logger.log(Level.WARNING, "Failed to open note in the default app", ex);
+            publishStatusUpdate(getString("status.reveal_error"));
+        }
     }
 
+    /** A grid card's context menu: the note's menu, whose "open" opens it from the grid. */
     private ContextMenu createGridNoteContextMenu(Note note, Runnable openAction) {
         if (note == null) {
             return null;
         }
-
-        MenuItem openItem = new MenuItem(getString("action.open"));
-        openItem.setOnAction(e -> openAction.run());
-
-        MenuItem pinItem = new MenuItem(
-                note.isPinned() ? getString("action.unpin_note") : getString("action.pin_note"));
-        pinItem.setOnAction(e -> togglePin(note));
-
-        MenuItem favoriteItem = new MenuItem(
-                note.isFavorite() ? getString("action.remove_favorite") : getString("action.add_favorite"));
-        favoriteItem.setOnAction(e -> toggleFavorite(note));
-
-        MenuItem privateItem = new MenuItem(
-                note.isPrivate() ? getString("action.make_normal") : getString("action.make_private"));
-        privateItem.setOnAction(e -> notePrivacyToggleAction.accept(note));
-
-        MenuItem renameItem = new MenuItem(getString("action.rename"));
-        renameItem.setOnAction(e -> renameNote(note));
-
-        MenuItem moveItem = new MenuItem(getString("action.move_to"));
-        moveItem.setOnAction(e -> moveNote(note));
-
-        MenuItem exportItem = new MenuItem(getString("action.export_note"));
-        exportItem.setOnAction(e -> noteExportAction.accept(note));
-
-        MenuItem deleteItem = new MenuItem(getString("action.move_to_trash"));
-        deleteItem.setOnAction(e -> deleteNote(note));
-
-        ContextMenu menu = new ContextMenu();
-        menu.getItems().addAll(openItem, pinItem, favoriteItem, privateItem, renameItem, moveItem);
-
-        if (isFileSystemStorage()) {
-            MenuItem revealItem = new MenuItem(getString("action.reveal_in_files"));
-            revealItem.setOnAction(e -> revealInFileManager(note));
-            menu.getItems().add(revealItem);
-        }
-
-        menu.getItems().addAll(exportItem, new SeparatorMenuItem(), deleteItem);
-        appendPluginNoteContextMenuItems(menu, () -> note);
-        return menu;
+        return createNoteContextMenu(note, noteMenuActions().withOpen(n -> openAction.run()));
     }
 
-    private void setupNoteCardDrag(
-            VBox card,
-            Note note,
-            Function<String, String> i18n,
-            Consumer<String> statusUpdate) {
-        card.setOnDragDetected(event -> {
-            noteDragInProgress = true;
-            javafx.scene.input.Dragboard db = card.startDragAndDrop(javafx.scene.input.TransferMode.MOVE);
-            javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
-            content.putString("note:" + note.getId());
-            db.setContent(content);
-
-            SnapshotParameters params = new SnapshotParameters();
-            params.setFill(Color.TRANSPARENT);
-            db.setDragView(card.snapshot(params, null));
-
-            event.consume();
-            statusUpdate.accept(java.text.MessageFormat.format(i18n.apply("status.dragging"), note.getTitle()));
-        });
-
-        card.setOnDragDone(event -> {
-            noteDragInProgress = false;
-            if (event.getTransferMode() == javafx.scene.input.TransferMode.MOVE) {
-                statusUpdate.accept(i18n.apply("status.note_moved"));
-            }
-            event.consume();
-        });
-    }
-
-
-    public void refreshNotesList(
-            String currentFilterType,
-            Folder currentFolder,
-            Tag currentTag,
-            String searchText,
-            boolean gridMode,
-            Runnable loadFavoritesAction,
-            Runnable refreshGridView) {
-        switch (currentFilterType) {
-            case "folder":
-                if (currentFolder != null) {
-                    loadNotesForFolder(currentFolder);
-                } else {
-                    loadAllNotes();
-                }
-                break;
-            case "tag":
-                if (currentTag != null && currentTag.getTitle() != null) {
-                    loadNotesForTag(currentTag.getTitle());
-                } else {
-                    loadAllNotes();
-                }
-                break;
-            case "favorites":
-                if (loadFavoritesAction != null) {
-                    loadFavoritesAction.run();
-                }
-                break;
-            case "search":
-                performSearch(searchText != null ? searchText : "");
-                break;
-            case "all":
-            default:
-                loadAllNotes();
-                break;
+    /** What the grid reads from, and asks of, the notes list. */
+    private final class GridHost implements NotesGridSupport.Host {
+        @Override
+        public ListView<Note> notesList() {
+            return notesListView;
         }
 
-        if (gridMode && refreshGridView != null) {
-            refreshGridView.run();
+        @Override
+        public void selectWithoutOpening(Note note) {
+            restoringNotesSelection = true;
+            notesListView.getSelectionModel().select(note);
+            Platform.runLater(() -> restoringNotesSelection = false);
+        }
+
+        @Override
+        public boolean dragInProgress() {
+            return noteDragInProgress;
+        }
+
+        @Override
+        public void setDragInProgress(boolean inProgress) {
+            noteDragInProgress = inProgress;
+        }
+
+        @Override
+        public void openInNewTab(Note note) {
+            openInNewTabAction.accept(note);
+        }
+
+        @Override
+        public ContextMenu menuFor(Note note, Runnable open) {
+            return createGridNoteContextMenu(note, open);
         }
     }
 }

@@ -110,7 +110,8 @@ function Read-AppProperty {
     param([string]$key, [string]$defaultValue)
     $propsFile = Join-Path (Get-Location) 'src\main\resources\app.properties'
     if (Test-Path $propsFile) {
-        $content = Get-Content $propsFile -Raw
+        # UTF-8 explicitly: Windows PowerShell 5 would read the file as ANSI and garble "Díaz" and "©".
+        $content = Get-Content $propsFile -Raw -Encoding UTF8
         if ($content -match "(?m)^\s*$key\s*=\s*(.+)$") {
             return $matches[1].Trim()
         }
@@ -140,7 +141,6 @@ if ($APP_VERSION -like '*${*') {
     $APP_VERSION = Read-PomVersion
 }
 $APP_VENDOR = Read-AppProperty 'app.vendor' 'Jylos'
-$APP_DESCRIPTION = Read-AppProperty 'app.description' 'A free and open-source note-taking application'
 $APP_COPYRIGHT = Read-AppProperty 'app.copyright' 'Copyright 2025 Jylos'
 $APP_ICON = Read-AppProperty 'app.icon.windows' 'src/main/resources/icons/app-icon.ico'
 
@@ -200,16 +200,24 @@ if (-not $jarFile) {
     exit 1
 }
 
-# -- Build plugins (best effort) ------------------------------------------------
+# -- Build plugins ---------------------------------------------------------------
+# Jylos's own plugins are part of the app: without them there is no installer to make.
 $buildPluginsScript = Join-Path $root 'scripts\build-plugins.ps1'
-if (Test-Path $buildPluginsScript) {
-    Write-Host ''
-    Write-Host 'Building plugins...' -ForegroundColor Cyan
-    & $buildPluginsScript
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host 'Warning: plugin build failed; packaging without plugins.' -ForegroundColor Yellow
-    }
+if (-not (Test-Path $buildPluginsScript)) {
+    throw "build-plugins.ps1 not found: the installer would come without Jylos's own plugins."
 }
+Write-Host ''
+Write-Host 'Building plugins...' -ForegroundColor Cyan
+$env:JYLOS_VERSION = $APP_VERSION
+& $buildPluginsScript
+if ($LASTEXITCODE -ne 0) {
+    throw "Plugin build failed: the installer would come without Jylos's own plugins."
+}
+$builtPlugins = @(Get-ChildItem -Path (Join-Path $root 'jylos\plugins') -Filter '*.jar' -ErrorAction SilentlyContinue)
+if ($builtPlugins.Count -eq 0) {
+    throw 'No plugin JAR in jylos\plugins after building them.'
+}
+Write-Host "Plugins built: $($builtPlugins.Count) JAR(s)" -ForegroundColor Gray
 
 # -- Output dir (short path to dodge the Windows path-length limit) --------------
 $currentPath = (Get-Location).Path
@@ -241,7 +249,9 @@ try {
         '--dest', $outputDir,
         '--app-version', $APP_VERSION,
         '--vendor', $APP_VENDOR,
-        '--description', $APP_DESCRIPTION,
+        # Windows shows the description as the program's name: in Task Manager (the app, and
+        # the installer as "Installer of ...") and on the shortcuts. So it is the app name.
+        '--description', $APP_NAME,
         '--copyright', $APP_COPYRIGHT,
         '--java-options', '-Dfile.encoding=UTF-8'
     )
@@ -275,7 +285,9 @@ try {
             '--win-menu-group', $APP_NAME,
             '--win-shortcut',
             '--win-shortcut-prompt',
-            '--win-upgrade-uuid', $UPGRADE_UUID
+            '--win-upgrade-uuid', $UPGRADE_UUID,
+            # Link on the app's entry in Settings > Apps (not valid for the portable app-image).
+            '--about-url', 'https://github.com/RGiskard7/jylos'
         )
         $licenseFile = Join-Path $root 'LICENSE'
         if (Test-Path $licenseFile) {

@@ -1,10 +1,15 @@
 package com.example.jylos.util;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -37,7 +42,6 @@ public final class Transclusion {
 
     /** {@code ![[target]]} where target is {@code Note}, {@code Note#Heading} (alias after | ignored). */
     private static final Pattern EMBED = Pattern.compile("!\\[\\[([^\\[\\]\\n]+?)\\]\\]");
-    private static final Pattern HEADING = Pattern.compile("^(#{1,6})\\s+(.*?)\\s*$");
 
     /** Placeholder delimiters: private-use code points that never occur in note text. */
     private static final char TOK_START = '';
@@ -64,14 +68,32 @@ public final class Transclusion {
      * @param markdown       host Markdown (may be null)
      * @param contentByTitle resolves a note title to its raw Markdown (or null if absent)
      * @param knownTitles    titles used to resolve {@code [[wiki-links]]} inside embeds
+     * @deprecated tells links apart by title only; use {@link #protect(String, Function, Predicate)}
+     *             with the vault's link index.
      */
+    @Deprecated
     public static Result protect(String markdown, Function<String, String> contentByTitle, Set<String> knownTitles) {
+        return protect(markdown, contentByTitle,
+                link -> knownTitles != null && knownTitles.stream()
+                        .anyMatch(t -> t.equalsIgnoreCase(WikiLinkResolver.extractTitle(link))));
+    }
+
+    /**
+     * Same as {@link #protect(String, Function, Set)}, with {@code exists} telling whether a
+     * {@code [[wiki-link]]} inside an embed points to a note. Embeds inside code are text.
+     *
+     * @param markdown       host Markdown (may be null)
+     * @param contentByTitle resolves a link (as written, e.g. {@code Carpeta/Nota}) to the
+     *                       note's raw Markdown (or null if absent)
+     * @param exists         whether a link inside an embed points to an existing note
+     */
+    public static Result protect(String markdown, Function<String, String> contentByTitle, Predicate<String> exists) {
         Map<String, String> embeds = new HashMap<>();
         if (markdown == null || !markdown.contains("![[")) {
             return new Result(markdown == null ? "" : markdown, embeds);
         }
         int[] counter = {0};
-        String out = expand(markdown, contentByTitle, knownTitles, 0, new HashSet<>(), embeds, counter);
+        String out = expand(markdown, contentByTitle, exists, 0, new HashSet<>(), embeds, counter);
         return new Result(out, embeds);
     }
 
@@ -91,14 +113,19 @@ public final class Transclusion {
         return sb.toString();
     }
 
-    private static String expand(String md, Function<String, String> resolver, Set<String> titles,
+    private static String expand(String md, Function<String, String> resolver, Predicate<String> titles,
             int depth, Set<String> visited, Map<String, String> embeds, int[] counter) {
         if (md == null || !md.contains("![[")) {
             return md == null ? "" : md;
         }
+        BitSet code = WikiLinkResolver.codeRanges(md);
         Matcher m = EMBED.matcher(md);
         StringBuilder sb = new StringBuilder(md.length() + 64);
         while (m.find()) {
+            if (code.get(m.start())) {
+                m.appendReplacement(sb, Matcher.quoteReplacement(m.group(0)));
+                continue;
+            }
             String html = renderEmbed(m.group(1).trim(), resolver, titles, depth, visited, embeds, counter);
             String token = "" + TOK_START + (counter[0]++) + TOK_END;
             embeds.put(token, html);
@@ -108,7 +135,7 @@ public final class Transclusion {
         return sb.toString();
     }
 
-    private static String renderEmbed(String ref, Function<String, String> resolver, Set<String> titles,
+    private static String renderEmbed(String ref, Function<String, String> resolver, Predicate<String> titles,
             int depth, Set<String> visited, Map<String, String> embeds, int[] counter) {
         // Split "Title#Heading" (alias after | is ignored for embeds).
         String titlePart = ref;
@@ -122,16 +149,17 @@ public final class Transclusion {
         if (pipe >= 0) {
             titlePart = titlePart.substring(0, pipe);
         }
-        String title = WikiLinkResolver.extractTitle(titlePart.trim());
+        String link = titlePart.trim();
+        String title = WikiLinkResolver.extractTitle(link);
         String display = heading != null && !heading.isEmpty() ? title + " › " + heading : title;
 
         if (depth >= MAX_DEPTH) {
             return notice("embed-too-deep", display, "embeds nested too deep");
         }
-        if (visited.contains(title.toLowerCase())) {
+        if (visited.contains(link.toLowerCase())) {
             return notice("embed-cycle", display, "circular embed");
         }
-        String content = resolver.apply(titlePart.trim());
+        String content = resolver.apply(link);
         if (content == null) {
             return notice("embed-missing", display, "note not found");
         }
@@ -144,15 +172,18 @@ public final class Transclusion {
         }
 
         Set<String> nextVisited = new HashSet<>(visited);
-        nextVisited.add(title.toLowerCase());
-        String inner = expand(section, resolver, titles, depth + 1, nextVisited, embeds, counter);
+        nextVisited.add(link.toLowerCase());
+        // Comments, block anchors and tags inside the embedded note, as in the note itself.
+        String inner = expand(ReadingSyntax.inline(section), resolver, titles, depth + 1, nextVisited, embeds, counter);
         inner = WikiLinkResolver.resolve(inner, titles);
         String innerHtml = MarkdownProcessor.markdownToHtml(inner);
         innerHtml = restore(innerHtml, embeds);
 
         return "<div class=\"embed\">"
-                + "<a class=\"embed-title\" href=\"" + WikiLinkResolver.PROTOCOL + urlEncode(title) + "\">"
-                + escape(display) + "</a>"
+                + "<a class=\"embed-title\" href=\"" + WikiLinkResolver.PROTOCOL + urlEncode(link)
+                + "\" data-target=\"" + MarkdownProcessor.escapeHtml(link)
+                + (heading != null && !heading.isEmpty() ? "\" data-subpath=\"" + MarkdownProcessor.escapeHtml(heading) : "") + "\">"
+                + MarkdownProcessor.escapeHtml(display) + "</a>"
                 + "<div class=\"embed-body\">" + innerHtml + "</div>"
                 + "</div>";
     }
@@ -163,50 +194,92 @@ public final class Transclusion {
      * if no such heading exists.
      */
     static String extractSection(String content, String heading) {
-        String[] lines = content.split("\n", -1);
-        int start = -1;
-        int level = 0;
-        for (int i = 0; i < lines.length; i++) {
-            Matcher hm = HEADING.matcher(lines[i]);
-            if (hm.matches() && hm.group(2).trim().equalsIgnoreCase(heading.trim())) {
-                start = i;
-                level = hm.group(1).length();
-                break;
-            }
+        if (heading != null && heading.strip().startsWith("^")) {
+            return extractBlock(content, heading.strip().substring(1));
         }
-        if (start < 0) {
+        // The headings a link jumps to (NoteAnchors), so an embed and a link agree.
+        List<NoteAnchors.Heading> headings = NoteAnchors.headings(content);
+        for (int i = 0; i < headings.size(); i++) {
+            NoteAnchors.Heading found = headings.get(i);
+            if (!found.title().equalsIgnoreCase(heading.strip())) {
+                continue;
+            }
+            int end = content.length();
+            for (NoteAnchors.Heading next : headings.subList(i + 1, headings.size())) {
+                if (next.level() <= found.level()) {
+                    end = next.offset();
+                    break;
+                }
+            }
+            String section = content.substring(found.offset(), end);
+            return section.endsWith("\n") ? section : section + "\n";
+        }
+        return null;
+    }
+
+    private static final Pattern LIST_ITEM = Pattern.compile("^\\s*([-*+]|\\d+[.)])\\s.*");
+
+    /**
+     * The block marked {@code ^id}, without the marker: the paragraph whose line ends with it,
+     * just the list item when that line is one, or the block above when the id stands on its
+     * own line (how tables and quotes are marked). {@code null} when no block has that id.
+     */
+    static String extractBlock(String content, String id) {
+        if (id.isEmpty()) {
             return null;
         }
-        StringBuilder sb = new StringBuilder();
-        sb.append(lines[start]).append('\n');
-        for (int j = start + 1; j < lines.length; j++) {
-            Matcher hm = HEADING.matcher(lines[j]);
-            if (hm.matches() && hm.group(1).length() <= level) {
-                break;
-            }
-            sb.append(lines[j]).append('\n');
+        // The block a link jumps to (NoteAnchors): a marker inside code marks nothing.
+        int at = NoteAnchors.blockLine(content, id);
+        if (at < 0) {
+            return null;
         }
-        return sb.toString();
+        String[] lines = content.split("\n", -1);
+        Pattern marker = Pattern.compile("(?:^|[ \\t]+)\\^" + Pattern.quote(id) + "[ \\t]*$");
+        int i = (int) content.substring(0, at).chars().filter(c -> c == '\n').count();
+        Matcher m = marker.matcher(lines[i]);
+        if (m.find()) {
+            String rest = lines[i].substring(0, m.start());
+            int from;
+            int to;
+            if (rest.isBlank()) {
+                to = i - 1;
+                while (to >= 0 && lines[to].isBlank()) {
+                    to--;
+                }
+                if (to < 0) {
+                    return null;
+                }
+                from = to;
+                while (from - 1 >= 0 && !lines[from - 1].isBlank()) {
+                    from--;
+                }
+            } else if (LIST_ITEM.matcher(lines[i]).matches()) {
+                from = i;
+                to = i;
+            } else {
+                from = i;
+                while (from - 1 >= 0 && !lines[from - 1].isBlank()) {
+                    from--;
+                }
+                to = i;
+            }
+            StringBuilder sb = new StringBuilder();
+            for (int j = from; j <= to; j++) {
+                sb.append(j == i ? rest : lines[j]).append('\n');
+            }
+            return sb.toString();
+        }
+        return null;
     }
 
     private static String notice(String cssClass, String display, String reason) {
         return "<div class=\"embed " + cssClass + "\">"
-                + "<span class=\"embed-title\">" + escape(display) + "</span>"
-                + "<span class=\"embed-note\">" + escape(reason) + "</span></div>";
+                + "<span class=\"embed-title\">" + MarkdownProcessor.escapeHtml(display) + "</span>"
+                + "<span class=\"embed-note\">" + MarkdownProcessor.escapeHtml(reason) + "</span></div>";
     }
 
     private static String urlEncode(String value) {
-        return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
-    private static String escape(String text) {
-        if (text == null) {
-            return "";
-        }
-        return text.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&#x27;");
-    }
 }

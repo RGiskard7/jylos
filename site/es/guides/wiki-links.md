@@ -4,7 +4,14 @@ Los wiki-links conectan tus notas en una red, y son lo que alimenta el grafo y e
 
 ## Crea un enlace
 
-Escribe `[[` en el editor para autocompletar el título de una nota. Jylos también admite enlaces Markdown internos:
+Escribe `[[` en el editor y Jylos te sugiere notas mientras escribes:
+
+- Las tildes y las mayúsculas dan igual (`reunion` encuentra "Reunión"). Salen primero las notas cuyo nombre empieza por lo escrito, luego las que tienen una palabra que empieza así, luego las que lo contienen y por último las que tienen sus letras en orden (`pj` encuentra "Proyecto Jylos").
+- Cada nota aparece con su carpeta, también dos con el mismo nombre. Jylos escribe el enlace más corto que nombra la que eliges: su nombre, o su ruta si otra nota se llama igual. Con una `/` se busca por ruta (`personal/reu`).
+- También salen los `aliases` de las notas, y se escriben como `[[Nota|alias]]`.
+- Tras `#` salen los encabezados de esa nota (`[[Nota#`) o de la nota abierta (`[[#`). Tras `|` no se sugiere nada: el texto que muestra el enlace es tuyo.
+
+Jylos también admite enlaces Markdown internos:
 
 ```markdown
 [[Mi Nota]]

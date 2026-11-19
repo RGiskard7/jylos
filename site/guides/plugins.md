@@ -1,32 +1,48 @@
+<script setup>
+import { data } from "../.vitepress/data/plugins.data.ts";
+</script>
+
 # Plugins
 
-Jylos loads external plugin JARs from `plugins/` under the application base directory, with a safe load/disable lifecycle and a manager UI.
+There are two kinds of plugins, as in Obsidian:
 
-## Built-in plugins
+- **Core plugins** are Jylos's own. They come with the app, are updated with it, and you turn
+  them on or off in **Tools → Manage plugins**.
+- **Community plugins** are made by other people. You install them in your plugins folder; see
+  [Community plugins](/guides/community-plugins).
 
-These ship with Jylos as first-party plugins built into JARs:
+## Core plugins
 
-- **Dataview** — query your notes' metadata like a database (see the [Dataview guide](/guides/dataview)).
-- **MCP Server** — expose your vault to MCP clients over a local HTTP server.
-- **Publish** — export the whole vault to a self-contained static site.
-- **Outline** — a note outline in a side panel.
-- **Calendar** — a calendar view of your notes.
-- **Daily Notes** — create a note for today.
-- **Reading Time** — show estimated reading time.
-- **Auto Backup** — schedule vault backups.
-- **Templates** — create notes from templates.
-- **AI** — AI assistant integration.
-- **Word Count** — word/character counts.
-- **Table of Contents** — generate a table of contents for a note.
+<table class="catalog-table">
+  <thead><tr><th>Plugin</th><th>What it does</th><th>Default</th></tr></thead>
+  <tbody>
+    <tr v-for="p in data.core" :key="p.id">
+      <td><strong>{{ p.name }}</strong></td>
+      <td>{{ p.description.en }}</td>
+      <td>{{ p.enabledByDefault ? "On" : "Off" }}</td>
+    </tr>
+  </tbody>
+</table>
 
-Mermaid diagram support is compiled **into the core app** rather than shipped as a plugin JAR, so it is always available.
+MCP Server opens a local port, and Publish and Auto Backup write files outside your vault, so
+they start off until you want them. When you update Jylos, each plugin stays as you had it.
 
-## Install and remove
+See also the [Dataview guide](/guides/dataview).
 
-- **Tools → Manage plugins → Install plugin…** selects a `.jar` and copies it into your user plugin directory, loading it when possible.
-- **Tools → Manage plugins → Remove** shuts the plugin down, removes its UI contributions, closes its classloader and deletes the JAR.
+## Restricted mode
 
-You can also drop a JAR into the plugins directory manually and restart.
+Community plugins are code by other people with full access to your computer and your notes, so
+Jylos loads none until you allow them: in **Tools → Manage plugins**, turn on the switch of the
+*Community plugins* section and confirm. A new install starts in restricted mode.
+
+## Install and remove community plugins
+
+- **Install plugin…** copies a `.jar` into your plugins folder and loads it.
+- Or **Open plugins folder**, copy the JAR there and press **Reload plugins**; no restart needed.
+- **Remove** on a community plugin's card shuts it down and deletes its JAR.
+
+A plugin can say in its `MANIFEST.MF` the earliest Jylos it works with (`Plugin-Min-Jylos`); if
+yours is older, it is not loaded and the plugin manager says which version it needs.
 
 ## Plugin API
 
@@ -37,6 +53,7 @@ A plugin extends `AbstractPlugin` and receives a `PluginContext` exposing these 
 - `registerSidePanel(...)` — a node in the right panel.
 - `registerPreviewEnhancer(...)` — CSS/JS and per-note HTML post-processing for the Markdown preview.
 - `registerToolbarButton(...)` — a button in the main toolbar.
+- `registerStatusBarItem(...)` — an item in the status bar, which the plugin keeps and updates (like Obsidian's `addStatusBarItem()`).
 - `registerEditorHook(...)` — `onBeforeTextInsert`, `onBeforeSave`, `onAfterSave`.
 - `registerEditorBlockRenderer(...)` — render a fenced block inline in Live Preview.
 - Event bus access, themed dialogs, progress dialogs and per-plugin preferences.
@@ -45,7 +62,7 @@ Each plugin gets its own classloader with an enforced boundary: it can reach the
 
 ## Build from source
 
-Plugin sources live in `plugins-source/` and build to `jylos/plugins/` with:
+The core plugins' sources live in `plugins-source/` and build to `jylos/plugins/` with:
 
 ```bash
 ./scripts/build-plugins.sh
@@ -57,6 +74,7 @@ Plugin sources live in `plugins-source/` and build to `jylos/plugins/` with:
 
 ## Related
 
-- Technical details: [PLUGINS.md](https://github.com/RGiskard7/jylos/blob/main/docs/PLUGINS.md)
+- Technical details, including the manifest a community plugin needs: [PLUGINS.md](https://github.com/RGiskard7/jylos/blob/main/docs/PLUGINS.md)
+- [Community plugins](/guides/community-plugins)
 - [Dataview guide](/guides/dataview)
 - [MCP Server](https://github.com/RGiskard7/jylos/blob/main/docs/MCP.md)

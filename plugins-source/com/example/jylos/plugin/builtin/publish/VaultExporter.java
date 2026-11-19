@@ -1,6 +1,7 @@
 package com.example.jylos.plugin.builtin.publish;
 
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,6 +30,7 @@ import com.example.jylos.graph.GraphNode;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
+import com.example.jylos.util.AttachmentType;
 import com.example.jylos.util.MarkdownProcessor;
 import com.example.jylos.util.WikiLinkResolver;
 
@@ -73,6 +75,9 @@ import com.example.jylos.util.WikiLinkResolver;
  * rewrites those into real relative hrefs afterward. This guarantees the
  * exported site resolves links exactly the way the app's own preview does,
  * instead of a second, potentially divergent, link-syntax implementation.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.6
  */
 final class VaultExporter {
 
@@ -288,7 +293,7 @@ final class VaultExporter {
             // check as isContentComplete() — that flag also covers a Markdown note
             // that simply hasn't had its full content read from disk yet (see the
             // force-load below), which on a large vault is most of getAllNotes().
-            if (com.example.jylos.util.AttachmentType.isAttachment(note.getTitle())) {
+            if (AttachmentType.isAttachment(note.getTitle())) {
                 skippedAttachments++;
                 continue;
             }
@@ -352,7 +357,12 @@ final class VaultExporter {
                     fullNote = noteService.getNoteById(note.getId()).orElse(note);
                 }
 
-                String withAnchors = WikiLinkResolver.resolve(fullNote.getContent(), model.knownTitles());
+                // A link is resolved by its path from this note, as in the app; it counts as
+                // existing only if the note it names is part of this export.
+                String fromId = note.getId();
+                String withAnchors = WikiLinkResolver.resolve(fullNote.getContent(),
+                        link -> noteService.resolveLink(link, fromId)
+                                .map(target -> model.slugs().pathFor(target.getId()) != null).orElse(false));
                 String bodyHtml = MarkdownProcessor.markdownToHtml(withAnchors);
                 String sourceId = note.getId();
                 WikiLinkRewriter rewriter = new WikiLinkRewriter(title -> hrefFromNoteToTitle(
@@ -456,9 +466,7 @@ final class VaultExporter {
         Files.writeString(assetsDir.resolve("mini-graph.js"), PublishTemplates.miniGraphJs(), StandardCharsets.UTF_8);
     }
 
-    // ------------------------------------------------------------------
-    // Publish options manifest — see PublishOptions' own doc
-    // ------------------------------------------------------------------
+    // ── Publish options manifest — see PublishOptions' own doc ───────────────
 
     private static final String MANIFEST_FILE_NAME = ".jylos-publish.manifest";
 
@@ -534,9 +542,7 @@ final class VaultExporter {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Folder tree walking
-    // ------------------------------------------------------------------
+    // ── Folder tree walking ──────────────────────────────────────────────────
 
     private void walkFolders(List<Folder> folders, List<String> pathSoFar, Map<String, List<String>> out) {
         for (Folder folder : folders) {
@@ -551,14 +557,12 @@ final class VaultExporter {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Wiki-link href resolution (title -> relative href from a given note)
-    // ------------------------------------------------------------------
+    // ── Wiki-link href resolution (title -> relative href from a given note) ───
 
     /**
      * Resolves a wiki-link's target title to an href relative to the note
      * currently being rendered, or {@code null} if the target is not part of this
-     * export. Uses {@link NoteService#findNoteByTitle}, the exact same lookup the
+     * export. Uses {@link NoteService#resolveLink}, the exact same lookup the
      * live app uses to open a wiki-link — an ambiguous title (two notes sharing
      * it) resolves to whichever note the app itself would open, not a different,
      * export-only disambiguation.
@@ -574,7 +578,8 @@ final class VaultExporter {
     private String hrefFromNoteToTitle(String fromNoteId, String fromRelativePath, String title, NoteSlugs slugs,
             Map<String, LinkedHashSet<String>> backlinksByTargetId,
             Map<String, LinkedHashSet<String>> outgoingByNoteId) {
-        Optional<Note> target = noteService.findNoteByTitle(title);
+        // The link as written, resolved by path from the note it is in (see renderAll).
+        Optional<Note> target = noteService.resolveLink(title, fromNoteId);
         if (target.isEmpty()) {
             return null;
         }
@@ -592,9 +597,7 @@ final class VaultExporter {
         return relativize(fromRelativePath, targetPath);
     }
 
-    // ------------------------------------------------------------------
-    // Table of contents, breadcrumb, backlinks
-    // ------------------------------------------------------------------
+    // ── Table of contents, breadcrumb, backlinks ─────────────────────────────
 
     /**
      * Builds the note's own "On this page" outline from the headings
@@ -750,7 +753,7 @@ final class VaultExporter {
     }
 
     private static String urlEncode(String value) {
-        return java.net.URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
+        return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
     /**
@@ -790,9 +793,7 @@ final class VaultExporter {
         return depth;
     }
 
-    // ------------------------------------------------------------------
-    // Graph + index
-    // ------------------------------------------------------------------
+    // ── Graph + index ────────────────────────────────────────────────────────
 
     private String writeGraph(Path outputDir, NoteSlugs slugs, List<Note> exportable) throws IOException {
         Set<String> exportableIds = new LinkedHashSet<>();

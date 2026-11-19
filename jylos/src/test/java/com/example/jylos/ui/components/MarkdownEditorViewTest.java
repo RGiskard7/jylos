@@ -28,6 +28,8 @@ import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.ContextMenuEvent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.input.PickResult;
 import javafx.scene.layout.StackPane;
 import javafx.stage.PopupWindow;
@@ -85,16 +87,11 @@ class MarkdownEditorViewTest {
                         editor.setText("# Heading\n\n- [ ] task\n\n| A | B |\n|---|---|\n| 1 | 2 |"
                                 + "\n\n[Project](Folder/A(B).md \"Title\")\n\n<https://example.com>"
                                 + "\n\n![Diagram](images/A(B).png)");
-                        Number headings = (Number) editor.getWebView().getEngine()
-                                .executeScript("document.querySelectorAll('.cm-live-heading').length");
-                        Number tasks = (Number) editor.getWebView().getEngine()
-                                .executeScript("document.querySelectorAll('.cm-live-task').length");
-                        Number tables = (Number) editor.getWebView().getEngine()
-                                .executeScript("document.querySelectorAll('.cm-live-table-row').length");
-                        Number links = (Number) editor.getWebView().getEngine()
-                                .executeScript("document.querySelectorAll('.cm-live-link').length");
-                        Number images = (Number) editor.getWebView().getEngine()
-                                .executeScript("document.querySelectorAll('.cm-live-image').length");
+                        Number headings = (Number) editor.page().evaluate("document.querySelectorAll('.cm-live-heading').length");
+                        Number tasks = (Number) editor.page().evaluate("document.querySelectorAll('.cm-live-task').length");
+                        Number tables = (Number) editor.page().evaluate("document.querySelectorAll('.cm-live-table-row').length");
+                        Number links = (Number) editor.page().evaluate("document.querySelectorAll('.cm-live-link').length");
+                        Number images = (Number) editor.page().evaluate("document.querySelectorAll('.cm-live-image').length");
                         assertTrue(headings.intValue() > 0);
                         assertTrue(tasks.intValue() > 0);
                         assertTrue(tables.intValue() > 0);
@@ -104,8 +101,7 @@ class MarkdownEditorViewTest {
 
                         String renderedMarkdown = editor.getText();
                         editor.setEditable(false);
-                        editor.getWebView().getEngine()
-                                .executeScript("document.querySelector('.cm-live-task').click()");
+                        editor.page().evaluate("document.querySelector('.cm-live-task').click()");
                         assertEquals(renderedMarkdown, editor.getText(),
                                 "Interactive Live Preview widgets must honor read-only mode.");
 
@@ -193,8 +189,7 @@ class MarkdownEditorViewTest {
                                     "The platform paste shortcut must insert clipboard text exactly once.");
                             assertEquals(0, transformedInsertions.get(),
                                     "Plain paste must not invoke programmatic snippet hooks.");
-                            assertEquals("[[Target]] transformed", editor.getWebView().getEngine()
-                                    .executeScript("window.javaEditor.transformInsertion('[[Target]]')"));
+                            assertEquals("[[Target]] transformed", editor.page().evaluate("window.javaEditor.transformInsertion('[[Target]]')"));
                             assertEquals(1, transformedInsertions.get(),
                                     "Semantic insertions must cross the editor-hook bridge exactly once.");
 
@@ -214,8 +209,8 @@ class MarkdownEditorViewTest {
                             ContextMenuEvent request = new ContextMenuEvent(
                                     ContextMenuEvent.CONTEXT_MENU_REQUESTED,
                                     20, 20, screenX, screenY, false,
-                                    new PickResult(editor.getWebView(), 20, 20));
-                            Event.fireEvent(editor.getWebView(), request);
+                                    new PickResult(editor.page().node(), 20, 20));
+                            Event.fireEvent(editor.page().node(), request);
                             ContextMenu menu = Window.getWindows().stream()
                                     .filter(ContextMenu.class::isInstance)
                                     .map(ContextMenu.class::cast)
@@ -229,11 +224,16 @@ class MarkdownEditorViewTest {
                                             .filter(item -> item.getText() != null && !item.getText().isEmpty())
                                             .map(MenuItem::getText)
                                             .toList());
+                            // JavaFX does not close a menu on a press over the node it was opened
+                            // on, and here that node is the whole editor.
+                            Event.fireEvent(editor.page().node(), new MouseEvent(MouseEvent.MOUSE_PRESSED,
+                                    30, 30, screenX, screenY, MouseButton.PRIMARY, 1, false, false, false, false,
+                                    true, false, false, false, false, true, new PickResult(editor.page().node(), 30, 30)));
+                            assertFalse(menu.isShowing(), "A click in the editor must close its menu.");
 
                             editor.setText("read only");
                             editor.setEditable(false);
-                            assertFalse((Boolean) editor.getWebView().getEngine()
-                                    .executeScript("window.JylosEditor.isEditable()"));
+                            assertFalse((Boolean) editor.page().evaluate("window.JylosEditor.isEditable()"));
                             editor.selectAll();
                             setClipboard("replacement");
                             editor.paste();
@@ -252,7 +252,7 @@ class MarkdownEditorViewTest {
                             failure[0] = error instanceof AssertionError assertion
                                     ? assertion : new AssertionError(error);
                         } finally {
-                            new java.util.ArrayList<>(Window.getWindows()).stream()
+                            new ArrayList<>(Window.getWindows()).stream()
                                     .filter(window -> window instanceof PopupWindow)
                                     .forEach(Window::hide);
                             stage.close();
@@ -284,20 +284,22 @@ class MarkdownEditorViewTest {
                 MarkdownEditorView editor = new MarkdownEditorView();
                 List<String> internal = new ArrayList<>();
                 AtomicReference<String> external = new AtomicReference<>();
-                editor.setLinkHandlers(internal::add, external::set);
+                editor.setLinkHandlers((title, newTab) -> internal.add(title), external::set);
                 stage.setScene(new Scene(new StackPane(editor), 800, 600));
                 stage.show();
                 editor.whenReady(() -> Platform.runLater(() -> {
                     try {
-                        editor.getWebView().getEngine().executeScript(
+                        editor.page().evaluate(
                                 "window.javaEditor.openMarkdownLink('folder/Target%20Note.md')");
-                        editor.getWebView().getEngine().executeScript(
+                        editor.page().evaluate(
                                 "window.javaEditor.openNote('folder/Wiki%20Target.md#Heading')");
-                        editor.getWebView().getEngine().executeScript(
+                        editor.page().evaluate(
                                 "window.javaEditor.openMarkdownLink('https://example.com')");
                         Platform.runLater(() -> {
                             try {
-                                assertEquals(List.of("Target Note", "Wiki Target"), internal);
+                                // The folder is kept so the handler can tell same-named notes apart,
+                                // and the heading so the note opens there.
+                                assertEquals(List.of("folder/Target Note", "folder/Wiki Target#Heading"), internal);
                                 assertEquals("https://example.com", external.get());
                             } catch (AssertionError error) {
                                 failure[0] = error;
@@ -327,7 +329,7 @@ class MarkdownEditorViewTest {
     private static void fireShortcut(MarkdownEditorView editor, KeyCode code, boolean shift) {
         KeyEvent event = new KeyEvent(KeyEvent.KEY_PRESSED, "", "", code,
                 shift, true, false, true);
-        Event.fireEvent(editor.getWebView(), event);
+        Event.fireEvent(editor.page().node(), event);
     }
 
     private static void setClipboard(String text) {
@@ -340,8 +342,7 @@ class MarkdownEditorViewTest {
             Stage stage, CountDownLatch finished, AssertionError[] failure,
             String fencedCode, int attemptsRemaining) {
         try {
-            Number highlightedTokens = (Number) editor.getWebView().getEngine()
-                    .executeScript("Array.from(document.querySelectorAll('.cm-line'))[1]"
+            Number highlightedTokens = (Number) editor.page().evaluate("Array.from(document.querySelectorAll('.cm-line'))[1]"
                             + ".querySelectorAll('span').length");
             if (highlightedTokens.intValue() < 2 && attemptsRemaining > 0) {
                 PauseTransition retry = new PauseTransition(Duration.millis(50));
@@ -351,8 +352,7 @@ class MarkdownEditorViewTest {
                 return;
             }
 
-            String renderedEditor = String.valueOf(editor.getWebView().getEngine()
-                    .executeScript("document.querySelector('.cm-content').innerHTML"));
+            String renderedEditor = String.valueOf(editor.page().evaluate("document.querySelector('.cm-content').innerHTML"));
             assertTrue(highlightedTokens.intValue() >= 2,
                     "Fenced language blocks should use CodeMirror syntax highlighting. DOM: "
                             + renderedEditor);

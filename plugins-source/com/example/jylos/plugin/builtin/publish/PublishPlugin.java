@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Optional;
+import java.util.ResourceBundle;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.Plugin;
@@ -26,6 +27,7 @@ import javafx.stage.DirectoryChooser;
  * pattern as the built-in Auto Backup plugin's own export flow.
  *
  * @author Edu Díaz (RGiskard7)
+ * @since 2.5.6
  */
 public final class PublishPlugin implements Plugin {
 
@@ -33,7 +35,7 @@ public final class PublishPlugin implements Plugin {
     private static final String NAME = "Publish";
     private static final String VERSION = "1.0.0";
     private static final String DESCRIPTION = "Export the vault as a static website (wiki-links, graph, ready for GitHub Pages/Vercel)";
-    private static final String AUTHOR = "Jylos Team";
+    private static final String AUTHOR = "Edu Díaz";
 
     private static final String NOTE_MENU_LABEL = "Publish this note...";
 
@@ -58,7 +60,7 @@ public final class PublishPlugin implements Plugin {
     // initialize() ever runs, so this cannot wait for that. See PluginI18n's own doc for
     // why Locale.getDefault() alone (no PluginContext involved) is enough to pick the
     // right language: Main/AppSettings keep it in sync with the user's Settings choice.
-    private static java.util.ResourceBundle bundle;
+    private static ResourceBundle bundle;
 
     private static String tr(String key, String fallback) {
         if (bundle == null) {

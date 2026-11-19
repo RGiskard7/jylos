@@ -3,6 +3,7 @@ package com.example.jylos.plugin.builtin;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.ResourceBundle;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -47,7 +48,7 @@ public class TableOfContentsPlugin implements Plugin {
     private static final String NAME = "Table of Contents";
     private static final String VERSION = "1.0.0";
     private static final String DESCRIPTION = "Generate table of contents from Markdown headers";
-    private static final String AUTHOR = "Jylos Team";
+    private static final String AUTHOR = "Edu Díaz";
     
     private static final Pattern HEADER_PATTERN = Pattern.compile("^(#{1,6})\\s+(.+)$", Pattern.MULTILINE);
     
@@ -72,7 +73,7 @@ public class TableOfContentsPlugin implements Plugin {
     
     // Loaded once, lazily — getDescription() can be called by the Plugin Manager before
     // initialize() ever runs, so this cannot wait for that.
-    private static java.util.ResourceBundle bundle;
+    private static ResourceBundle bundle;
 
     private static String tr(String key, String fallback) {
         if (bundle == null) {

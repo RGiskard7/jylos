@@ -13,6 +13,16 @@ Los paquetes compilados de la versión actual están en la página de [GitHub Re
 | macOS | Instalador `.dmg` para Apple Silicon (`jylos-macos-arm64.dmg`); en Mac con Intel usa JBang o compila desde el código fuente |
 | Linux x64 | uber-JAR (`jylos-uber.jar`, requiere Java 21): incluye JavaFX solo para Linux, así que en otros sistemas usa JBang, que añade el JavaFX de tu sistema |
 
+### Nix y NixOS
+
+En Linux `x86_64`, un flake instala el paquete de la versión publicada (datos en `~/.local/share/jylos`):
+
+```bash
+nix run "github:RGiskard7/jylos?dir=packaging/nix"
+```
+
+Con Wayland, Jylos funciona a través de XWayland, como toda app JavaFX. La configuración para NixOS está en [packaging/nix](https://github.com/RGiskard7/jylos/tree/main/packaging/nix).
+
 ## Ejecutar con JBang
 
 La forma más rápida de probar Jylos sin compilar nada:

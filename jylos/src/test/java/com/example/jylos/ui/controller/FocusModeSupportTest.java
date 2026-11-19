@@ -1,8 +1,11 @@
 package com.example.jylos.ui.controller;
 
+import static com.example.jylos.tests.FxTestSupport.onFx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.prefs.Preferences;
@@ -13,8 +16,10 @@ import org.junit.jupiter.api.Test;
 import com.example.jylos.tests.FxTestSupport;
 
 import javafx.application.Platform;
+import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.control.SplitPane;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
 /**
@@ -101,6 +106,79 @@ class FocusModeSupportTest {
                         + "be force-expanded just because focus mode was toggled off");
     }
 
+    /**
+     * The editor sits in the editor area with the graph (a StackPane); focus mode keeps that
+     * area whole. Showing the editor alone took it out of the area, and on exit the area came
+     * back empty: no note showed, whatever tab was opened.
+     */
+    @Test
+    void focusModeKeepsTheEditorInsideItsArea() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            SplitPane main = new SplitPane();
+            SplitPane content = new SplitPane();
+            Label sidebar = new Label("sidebar");
+            Label notes = new Label("notes");
+            VBox editor = new VBox();
+            StackPane editorArea = new StackPane(editor, new VBox());
+            main.getItems().setAll(sidebar, content);
+            content.getItems().setAll(notes, editorArea);
+            new Scene(main, 800, 600); // with skins, a SplitPane's items become its children
+            main.applyCss();
+            main.layout();
+            FocusModeSupport support = new FocusModeSupport();
+            support.wire(main, content, () -> new Label("toolbar"), new Label("status"), new VBox(),
+                    () -> editor, Preferences.userRoot().node("/com/example/jylos/test/focus-mode"),
+                    key -> key, message -> { }, new StackPane());
+            List<String> out = new ArrayList<>();
+            support.toggle();
+            main.applyCss();
+            main.layout();
+            out.add("focus: " + (content.getItems().equals(List.of(editorArea)) ? "area alone" : content.getItems())
+                    + ", editor in area " + (editor.getParent() == editorArea));
+            support.toggle();
+            main.applyCss();
+            main.layout();
+            out.add("after: " + (content.getItems().equals(List.of(notes, editorArea)) ? "notes and area"
+                    : content.getItems()) + ", editor in area " + (editor.getParent() == editorArea));
+            return out;
+        });
+
+        assertEquals(List.of("focus: area alone, editor in area true", "after: notes and area, editor in area true"),
+                seen);
+    }
+
+    /**
+     * Focus mode hides the toolbar and its menus, so entering it says how to leave it: a hint
+     * with the shortcut, which goes away by itself, or at once when focus mode ends.
+     */
+    @Test
+    void enteringFocusModeSaysHowToLeaveIt() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            StackPane host = new StackPane();
+            FocusModeSupport support = new FocusModeSupport();
+            support.wire(new SplitPane(), new SplitPane(), () -> new Label("toolbar"), new Label("status"),
+                    new VBox(), () -> null, Preferences.userRoot().node("/com/example/jylos/test/focus-mode"),
+                    key -> key.equals("focus.exit_hint") ? "Pulsa {0} para salir" : key, message -> { }, host);
+            List<String> out = new ArrayList<>();
+            support.toggle();
+            out.add(hints(host));
+            support.toggle();
+            out.add(hints(host));
+            return out;
+        });
+
+        assertEquals(List.of("[Pulsa " + FocusModeSupport.SHORTCUT.getDisplayText() + " para salir]", "[]"), seen);
+    }
+
+    private static String hints(StackPane host) {
+        return host.getChildren().stream().filter(node -> node.getStyleClass().contains("focus-mode-hint"))
+                .map(node -> ((Label) node).getText()).toList().toString();
+    }
+
     private static FocusModeSupport wiredSupport(VBox rightPanel) {
         SplitPane mainSplitPane = new SplitPane();
         SplitPane contentSplitPane = new SplitPane();
@@ -114,7 +192,7 @@ class FocusModeSupportTest {
         support.wire(mainSplitPane, contentSplitPane, () -> new Label("toolbar"),
                 new Label("status"), rightPanel, () -> editorPlaceholder,
                 Preferences.userRoot().node("/com/example/jylos/test/focus-mode"),
-                key -> key, message -> { });
+                key -> key, message -> { }, new StackPane());
         return support;
     }
 

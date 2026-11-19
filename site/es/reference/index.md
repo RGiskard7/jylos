@@ -10,6 +10,7 @@ La documentación técnica en profundidad vive en la carpeta `docs/` del reposit
 | [LAUNCH_APP](https://github.com/RGiskard7/jylos/blob/main/docs/LAUNCH_APP.md) | Lanzadores y notas de JavaFX |
 | [ARCHITECTURE](https://github.com/RGiskard7/jylos/blob/main/docs/ARCHITECTURE.md) | Paquetes, disposición de la UI, almacenamiento, eventos |
 | [ARCHITECTURE_GUIDELINES](https://github.com/RGiskard7/jylos/blob/main/docs/ARCHITECTURE_GUIDELINES.md) | Reglas normativas de arquitectura y crecimiento |
+| [WEBVIEW](https://github.com/RGiskard7/jylos/blob/main/docs/es/WEBVIEW.md) | Limitaciones del WebView de JavaFX, el puente entre Java y la página, y la opción JCEF |
 | [I18N](https://github.com/RGiskard7/jylos/blob/main/docs/I18N.md) | Idiomas soportados y cómo añadir un nuevo idioma |
 | [PLUGINS](https://github.com/RGiskard7/jylos/blob/main/docs/PLUGINS.md) | Flujo de trabajo de plugins JAR externos |
 | [PACKAGING](https://github.com/RGiskard7/jylos/blob/main/docs/PACKAGING.md) | Scripts de empaquetado por plataforma |
@@ -22,6 +23,7 @@ La documentación técnica en profundidad vive en la carpeta `docs/` del reposit
 | [MCP](https://github.com/RGiskard7/jylos/blob/main/docs/MCP.md) | Plugin servidor MCP: herramientas expuestas, transporte, empaquetado de dependencias |
 | [SEARCH](https://github.com/RGiskard7/jylos/blob/main/docs/SEARCH.md) | Sintaxis y arquitectura de la búsqueda avanzada |
 | [WORKSPACES](https://github.com/RGiskard7/jylos/blob/main/docs/WORKSPACES.md) | Comportamiento y persistencia de los workspaces guardados |
+| [VAULT_FORMAT](https://github.com/RGiskard7/jylos/blob/main/docs/VAULT_FORMAT.md) | Qué contiene una nota de la bóveda, `.jylos/`, compatibilidad con Obsidian |
 
 ## Español
 

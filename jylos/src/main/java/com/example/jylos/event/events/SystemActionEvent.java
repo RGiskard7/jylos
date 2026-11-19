@@ -11,6 +11,9 @@ import com.example.jylos.event.AppEvent;
  *   avoid re-publication loops.
  * - Controllers should not re-publish the same action from their action
  *   handler.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class SystemActionEvent extends AppEvent {
     /** Application-level action requested by menus, toolbar buttons or shortcuts. */
@@ -60,6 +63,7 @@ public class SystemActionEvent extends AppEvent {
         EMPTY_TRASH,
         REFRESH_NOTES,
         TOGGLE_TAGS,
+        TOGGLE_FORMAT_TOOLBAR,
         TOGGLE_READING_MODE,
         TOGGLE_SOURCE_MODE,
         SPLIT_VIEW_MODE,
@@ -85,7 +89,14 @@ public class SystemActionEvent extends AppEvent {
         NAVIGATE_BACK,
         NAVIGATE_FORWARD,
         GRAPH_VIEW,
+        /** The graph in a new tab (Cmd/Ctrl+click or middle click on its button). */
+        GRAPH_VIEW_NEW_TAB,
         KNOWLEDGE_INSIGHTS,
+        /** Takes the fields older versions of Jylos wrote out of every note of the vault. */
+        VAULT_CLEANUP,
+        /** Marks as favorites the notes bookmarked in Obsidian (reads its settings, never writes them). */
+        IMPORT_OBSIDIAN_BOOKMARKS,
+        IMPORT_OBSIDIAN_SETTINGS,
         FOCUS_MODE,
         KANBAN_VIEW,
         PRIVATE_TOGGLE,
@@ -100,15 +111,23 @@ public class SystemActionEvent extends AppEvent {
         GIT_SYNC,
         GIT_COMMIT_PUSH,
         GIT_PULL,
+        GIT_HISTORY,
         GIT_INIT,
         GIT_ADD_REMOTE,
         DAILY_NOTE,
         NEW_FROM_TEMPLATE,
+        INSERT_TEMPLATE,
+        INSERT_CURRENT_DATE,
+        INSERT_CURRENT_TIME,
         EXPORT_VAULT,
         WORKSPACE_SAVE,
         WORKSPACE_SAVE_AS,
         WORKSPACE_OPEN,
-        WORKSPACE_MANAGE
+        WORKSPACE_MANAGE,
+        /** A new empty tab (the + after the tabs, Cmd/Ctrl+T). */
+        NEW_TAB,
+        /** A new Kanban board note in the current folder. */
+        NEW_KANBAN_BOARD
     }
 
     private final ActionType actionType;

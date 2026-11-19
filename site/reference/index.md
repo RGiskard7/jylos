@@ -10,6 +10,7 @@ The in-depth technical documentation lives in the repository's `docs/` folder. T
 | [LAUNCH_APP](https://github.com/RGiskard7/jylos/blob/main/docs/LAUNCH_APP.md) | Launchers and JavaFX notes |
 | [ARCHITECTURE](https://github.com/RGiskard7/jylos/blob/main/docs/ARCHITECTURE.md) | Packages, UI layout, storage, events |
 | [ARCHITECTURE_GUIDELINES](https://github.com/RGiskard7/jylos/blob/main/docs/ARCHITECTURE_GUIDELINES.md) | Normative architecture and growth rules |
+| [WEBVIEW](https://github.com/RGiskard7/jylos/blob/main/docs/WEBVIEW.md) | JavaFX WebView limitations, the Java/page bridge, and the JCEF option |
 | [I18N](https://github.com/RGiskard7/jylos/blob/main/docs/I18N.md) | Supported locales and how to add a new language |
 | [PLUGINS](https://github.com/RGiskard7/jylos/blob/main/docs/PLUGINS.md) | External plugin JAR workflow |
 | [PACKAGING](https://github.com/RGiskard7/jylos/blob/main/docs/PACKAGING.md) | Platform packaging scripts |
@@ -22,6 +23,7 @@ The in-depth technical documentation lives in the repository's `docs/` folder. T
 | [MCP](https://github.com/RGiskard7/jylos/blob/main/docs/MCP.md) | MCP server plugin: exposed tools, transport, dependency bundling |
 | [SEARCH](https://github.com/RGiskard7/jylos/blob/main/docs/SEARCH.md) | Advanced search syntax and architecture |
 | [WORKSPACES](https://github.com/RGiskard7/jylos/blob/main/docs/WORKSPACES.md) | Saved workspace behaviour and persistence |
+| [VAULT_FORMAT](https://github.com/RGiskard7/jylos/blob/main/docs/VAULT_FORMAT.md) | What a vault note holds, `.jylos/`, Obsidian compatibility |
 
 ## Spanish
 

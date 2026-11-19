@@ -15,6 +15,9 @@ import javafx.stage.Stage;
 
 /**
  * Command palette / quick switcher creation and global keyboard shortcuts.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.3.0
  */
 class CommandUI {
 

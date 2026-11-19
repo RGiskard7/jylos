@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -16,9 +17,13 @@ import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.service.NoteService;
+import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.util.AttachmentType;
 
 import javafx.concurrent.Task;
 import javafx.scene.control.Alert;
+import javafx.scene.control.ChoiceDialog;
+import javafx.scene.control.Dialog;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Window;
@@ -29,6 +34,9 @@ import javafx.stage.Window;
  * <p>{@link DocumentSupport} keeps the low-level file import/export mechanics.
  * This support owns only the file pickers, background export task and UI status
  * updates extracted from {@link MainController}.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.3.0
  */
 final class DocumentWorkflowSupport {
 
@@ -148,13 +156,13 @@ final class DocumentWorkflowSupport {
         if (noteService == null || documentSupport == null) {
             return;
         }
-        javafx.scene.control.ChoiceDialog<String> formatDialog =
-                new javafx.scene.control.ChoiceDialog<>("PDF", List.of("PDF", "HTML"));
+        ChoiceDialog<String> formatDialog =
+                new ChoiceDialog<>("PDF", List.of("PDF", "HTML"));
         formatDialog.setTitle(getString("dialog.export_vault.title"));
         formatDialog.setHeaderText(getString("dialog.export_vault.header"));
         formatDialog.setContentText(getString("dialog.export_vault.format"));
         styleDialog(formatDialog);
-        java.util.Optional<String> chosen = formatDialog.showAndWait();
+        Optional<String> chosen = formatDialog.showAndWait();
         if (chosen.isEmpty()) {
             return;
         }
@@ -195,7 +203,7 @@ final class DocumentWorkflowSupport {
         int fail = 0;
         for (Note listNote : noteService.getAllNotes()) {
             if (listNote == null || listNote.getId() == null
-                    || com.example.jylos.util.AttachmentType.isAttachment(listNote.getId())) {
+                    || AttachmentType.isAttachment(listNote.getId())) {
                 continue;
             }
             if (listNote.isPrivate()) {
@@ -242,7 +250,7 @@ final class DocumentWorkflowSupport {
         return windowSupplier != null ? windowSupplier.get() : null;
     }
 
-    private void styleDialog(javafx.scene.control.Dialog<?> dialog) {
+    private void styleDialog(Dialog<?> dialog) {
         if (dialog == null) {
             return;
         }
@@ -250,7 +258,7 @@ final class DocumentWorkflowSupport {
         if (window != null) {
             dialog.initOwner(window);
         }
-        com.example.jylos.ui.UiDialogs.apply(dialog);
+        UiDialogs.apply(dialog);
     }
 
     private void showAlert(Alert.AlertType type, String title, String header, String content) {
@@ -258,7 +266,7 @@ final class DocumentWorkflowSupport {
         alert.setTitle(title);
         alert.setHeaderText(header);
         alert.setContentText(content);
-        com.example.jylos.ui.UiDialogs.apply(alert.getDialogPane());
+        UiDialogs.apply(alert.getDialogPane());
         alert.showAndWait();
     }
 

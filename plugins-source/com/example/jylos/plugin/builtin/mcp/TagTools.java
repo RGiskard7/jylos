@@ -32,6 +32,9 @@ import io.modelcontextprotocol.spec.McpSchema.Tool;
  * note, which is the operation an agent actually needs; wiping a tag from every note at
  * once is a vault-wide edit better left to the desktop UI, where it is visible and
  * undoable.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.2
  */
 final class TagTools {
 

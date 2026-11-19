@@ -14,6 +14,9 @@ import com.example.jylos.service.NoteService;
  * protected from deletion) and the actual service call, so that rule is
  * covered by a direct unit test instead of only being reachable through a
  * JavaFX {@code Alert}.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.0
  */
 class NoteTrashOperations {
 

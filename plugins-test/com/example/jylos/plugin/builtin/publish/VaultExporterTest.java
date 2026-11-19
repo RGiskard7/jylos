@@ -5,6 +5,7 @@ import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -340,7 +341,7 @@ public final class VaultExporterTest {
 
         byte[] orphanBytesAfter = Files.readAllBytes(orphanPage);
         check("a note unrelated to Dune (orphan) is byte-for-byte untouched by the single-note republish",
-                java.util.Arrays.equals(orphanBytesBefore, orphanBytesAfter), "orphan.html changed unexpectedly");
+                Arrays.equals(orphanBytesBefore, orphanBytesAfter), "orphan.html changed unexpectedly");
 
         // exportSingleNote must reuse whatever a prior full export's OWN options were
         // (site title, graph on/off) via the manifest — not guess from what happens to
@@ -441,7 +442,8 @@ public final class VaultExporterTest {
 
     private static Object defaultValue(Class<?> type) {
         if (!type.isPrimitive()) {
-            return type == List.class ? List.of() : null;
+            // What a real DAO gives for "nothing": an empty list or Optional, never null.
+            return type == List.class ? List.of() : type == Optional.class ? Optional.empty() : null;
         }
         if (type == boolean.class) return false;
         if (type == int.class) return 0;

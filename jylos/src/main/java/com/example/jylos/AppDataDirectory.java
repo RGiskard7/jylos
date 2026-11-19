@@ -1,6 +1,7 @@
 package com.example.jylos;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,6 +20,9 @@ import java.util.stream.Stream;
  * {@code ~/.local/share/jylos}; logs and caches in their own system folders. Development
  * runs and the uber-JAR keep using the working directory, the Windows portable ZIP the
  * folder it was unpacked to, and {@code -Djylos.data.dir} overrides all of them.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public final class AppDataDirectory {
 
@@ -87,7 +91,8 @@ public final class AppDataDirectory {
                 System.getProperty("jpackage.app-path"),
                 System.getProperty("jylos.data.dir"),
                 path -> canWriteToDirectory(path.toFile()),
-                Files::exists);
+                Files::exists,
+                Boolean.getBoolean("jylos.installed"));
     }
 
     /** Names of the plugin JARs that ship with this installation, next to the app JAR. */
@@ -116,7 +121,7 @@ public final class AppDataDirectory {
                 jars.map(p -> p.getFileName().toString())
                         .filter(n -> n.toLowerCase().endsWith(".jar") && !n.contains("jylos") && !n.contains("uber"))
                         .forEach(names::add);
-            } catch (java.io.IOException ignored) {
+            } catch (IOException ignored) {
                 // An unreadable folder only means fewer names to exclude.
             }
         }

@@ -15,6 +15,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.util.Versions;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -25,6 +26,9 @@ import com.google.gson.JsonParser;
  * <p>The checker is deliberately UI-agnostic: it fetches release metadata,
  * compares semantic versions numerically and returns a small result object. The
  * controller decides how and when to notify the user.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.4.1
  */
 public final class UpdateChecker {
 
@@ -181,45 +185,7 @@ public final class UpdateChecker {
     }
 
     static boolean isNewerVersion(String candidate, String current) {
-        int[] candidateParts = parseSemVer(candidate);
-        int[] currentParts = parseSemVer(current);
-        int max = Math.max(candidateParts.length, currentParts.length);
-        for (int i = 0; i < max; i++) {
-            int candidatePart = i < candidateParts.length ? candidateParts[i] : 0;
-            int currentPart = i < currentParts.length ? currentParts[i] : 0;
-            if (candidatePart != currentPart) {
-                return candidatePart > currentPart;
-            }
-        }
-        return false;
-    }
-
-    private static int[] parseSemVer(String version) {
-        if (version == null || version.isBlank()) {
-            return new int[] {0, 0, 0};
-        }
-        String normalized = version.trim();
-        if (normalized.startsWith("v") || normalized.startsWith("V")) {
-            normalized = normalized.substring(1);
-        }
-        int suffixIndex = normalized.indexOf('-');
-        if (suffixIndex >= 0) {
-            normalized = normalized.substring(0, suffixIndex);
-        }
-        String[] rawParts = normalized.split("\\.");
-        int[] parts = new int[rawParts.length];
-        for (int i = 0; i < rawParts.length; i++) {
-            parts[i] = parsePart(rawParts[i]);
-        }
-        return parts;
-    }
-
-    private static int parsePart(String part) {
-        String digits = part == null ? "" : part.replaceAll("[^0-9].*$", "");
-        if (digits.isBlank()) {
-            return 0;
-        }
-        return Integer.parseInt(digits);
+        return Versions.isNewer(candidate, current);
     }
 
     private static String getRequiredString(JsonObject json, String fieldName) {

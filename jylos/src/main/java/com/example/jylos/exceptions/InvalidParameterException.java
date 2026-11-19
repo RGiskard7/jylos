@@ -2,6 +2,9 @@ package com.example.jylos.exceptions;
 
 /**
  * Custom exception for invalid parameters.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class InvalidParameterException extends RuntimeException {
     private static final long serialVersionUID = 1L;

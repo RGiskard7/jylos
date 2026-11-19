@@ -36,7 +36,7 @@
 Prebuilt packages for all major platforms are available on the [Releases page](../../releases/latest):
 
 - **Windows** — `.exe` installer, `.msi` installer, portable ZIP
-- **Linux** — DEB/RPM (via `jpackage`), `.pkg.tar.zst` for Arch Linux (pacman)
+- **Linux** — DEB/RPM (via `jpackage`), `.pkg.tar.zst` for Arch Linux (pacman), and a Nix flake for Nix/NixOS (`nix run "github:RGiskard7/jylos?dir=packaging/nix"`, x86_64)
 - **macOS** — `.dmg` installer for Apple Silicon; on Intel Macs use JBang or build from source
 - **Linux x64** — uber-JAR (requires Java 21). It bundles JavaFX for Linux only: on other systems use JBang, which adds JavaFX for yours
 - **Via [JBang](https://www.jbang.dev/)** — single command, no build needed:
@@ -58,6 +58,8 @@ Prebuilt packages for all major platforms are available on the [Releases page](.
     - [Task board (Kanban)](#task-board-kanban)
     - [Private notes (encryption)](#private-notes-encryption)
     - [Knowledge graph](#knowledge-graph)
+    - [Templates \& daily note](#templates--daily-note)
+    - [Obsidian compatibility](#obsidian-compatibility)
     - [Vault, Git \& attachments (filesystem mode)](#vault-git--attachments-filesystem-mode)
     - [Productivity](#productivity)
     - [UI/UX](#uiux)
@@ -111,11 +113,14 @@ In concrete terms:
 Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like workflows:
 
 - CodeMirror 6 Markdown editor with Live Preview by default, a dedicated reading view, optional source mode and a linked side-by-side reading view (GFM, KaTeX math, emoji)
-- **Tabs** for multiple open notes, with an inline saved/unsaved indicator
+- **Two layouts**: an **Explorer** tree with folders and notes together, in the style of Obsidian, or the **classic** folders | notes | editor columns (side by side or stacked). Pick one from the toolbar's layout button or in Preferences
+- **Tabs that work like VS Code**: a click opens the note in the current tab; Cmd/Ctrl+click, middle click or "Open in new tab" opens another. The graph and Kanban boards open in tabs too, and **Jylos reopens your last session** on start
 - Folder hierarchy + tags + favorites + recent + trash
 - **Obsidian-compatible internal links** (`[[wiki-links]]`, `[label](note.md)`) with click-to-open in preview
 - **Knowledge graph** (global vault view or local neighbourhood around the open note)
-- **Backlinks** panel listing notes that link to the current note
+- **Links panel**: linked mentions, unlinked mentions (one click turns them into links) and outgoing links of the open note
+- **Templates as in Obsidian**, with optional **Templater** syntax, a **daily note**, and per-vault settings in Preferences → Vault
+- **Shares a vault with Obsidian**: Jylos writes nothing of its own into your notes, keeps properties as they were written, and can take Obsidian's template, daily-note and Templater settings and bookmarks (it only reads `.obsidian`)
 - **Kanban board** stored inside a note, and a distraction-free **focus / writing mode**
 - **Canvas editor**: open and edit Obsidian-compatible `.canvas` files on an infinite, pan/zoom surface — create/move/resize/colour text, link and group nodes, connect and delete edges (with arrowheads), and create new canvases; saves round-trip safely (unknown fields preserved)
 - **Private notes**: optional AES-256 body encryption behind a master password, with per-note or global unlock and delete protection
@@ -129,25 +134,32 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 
 - Create, edit, save, delete, and restore notes
 - Hierarchical folders and subfolders
+- **Explorer layout**: one tree with folders and notes, read folder by folder as you expand it; a filter that searches names across the whole vault (case and accents ignored), note order by name, edit or creation date, and a button to show the open note in the tree. The notes panel only appears for search and tag results
+- **New tab page** (`Ctrl/Cmd+T`) with new note, new canvas, go to file, graph and Kanban
+- **Workspaces as contexts**: the status bar shows the workspace in use and switches, saves or manages them; the last session (tabs and their back/forward history) comes back on start
 - Tags with assignment/removal workflows (SQLite and vault modes)
 - Favorites and recent notes
 - Trash with restore for notes and nested folders
 - **Full-text search** across note titles and bodies (with navigation from results)
-- Sorting and list/grid note views (title, preview lines, dates)
+- Sorting and list/grid note views (title, preview lines, dates) in the classic layout
 
 ### Editor & Preview
 
 - Markdown editor built on an offline CodeMirror 6 bundle, with theme-aware syntax highlighting, source/Live Preview presentation, selection, undo/redo, search/replace, clipboard actions, context menu, and `[[` autocomplete
-- **Tabs** for multiple open notes; **inline save indicator** (amber = unsaved, green = saved)
-- **`[[` autocomplete** for note titles; formatting toolbar (bold, lists, links, …)
-- Source-backed **Live Preview** hides Markdown punctuation outside the active block while preserving one editable document and one undo history
+- **Tabs** like VS Code: a click replaces the note in the current tab, an already open note switches to its tab, and Cmd/Ctrl+click, middle click or the context menu open a new tab ("Always open notes in a new tab" in Preferences restores one tab per note)
+- **Save state and editor mode in the status bar**: "Saved" / "Unsaved" (the tooltip says how often autosave runs) and the current mode, which opens a menu to switch between Live Preview, source, reading and linked reading
+- **`[[` autocomplete** for note titles (accents and case ignored, best matches first); a foldable formatting toolbar (bold, lists, links, …)
+- **Properties** behind a button in the note header, in editing and reading; links in properties (`up: "[[Index]]"`) count in the graph and backlinks
+- **Colour emoji** in the editor, reading view and PDF, and **WebP** images
+- Source-backed **Live Preview** shows each element rendered and only reveals the Markdown of the element under the cursor (headings, quotes and lists per line), all rendered while the editor is not focused, while preserving one editable document and one undo history. It draws callouts and notes embedded on their own line as in the reading view, images embedded with `![[…]]`, math with the bundled KaTeX, footnotes as numbers, clickable `#tags` (Cmd/Ctrl+click), dimmed `%%comments%%` and block ids, and the language of each code block; nothing is rendered inside code
 - A single book/pencil action switches between editing and reading; source mode is configurable in Preferences, while the linked side-by-side reading view is an independent View command
 - The separate reading view remains the canonical full render for transclusions, KaTeX and preview plugins
 - Markdown rendering with GFM tables, autolinks, strikethrough; code-block highlighting in preview (highlight.js)
 - **KaTeX** for `$…$`, `$$…$$`, and LaTeX delimiters (offline assets bundled in the JAR)
 - Emoji in preview via rasterized glyphs (reliable in the JavaFX WebView)
 - **Wiki-link resolution** shared with the graph and backlinks (`WikiLinkResolver`)
-- **Transclusion / embeds**: `![[Note]]` (or `![[Note#Heading]]`) embeds another note's rendered content inline in the preview, with a click-to-open header; bounded recursion with cycle detection
+- **Transclusion / embeds**: `![[Note]]` (or `![[Note#Heading]]`, or a single block with `![[Note#^id]]`) embeds another note's rendered content inline in the preview, with a click-to-open header; bounded recursion with cycle detection
+- **Obsidian syntax in the reading view**: callouts (`> [!tip] Title`, foldable with `+`/`-`), `==highlight==`, hidden `%%comments%%`, footnotes (`[^1]` and inline `^[…]`), block ids (`^id`) that `[[Note#^id]]` links and embeds point to, and clickable `#tags` that list the notes with that tag; none of it applies inside code. Links to a heading or block open the note there, and `[[#Heading]]` jumps within the note
 - **Rich links**: paste a URL to insert it as a visual card (title, description, thumbnail, site) — metadata fetched in the background; external links open in the system browser
 - **Focus / writing mode** (`Ctrl/Cmd+Shift+F`): hides everything but the editor
 - Split-pane proportions are remembered between sessions
@@ -171,12 +183,28 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 
 ### Knowledge graph
 
-- Full-screen overlay: **View → Graph View**, toolbar button, or **`Ctrl+G`** / command palette
-- **Global graph**: all notes and resolved wiki-link edges; optional **tag nodes** and note→tag edges
-- **Local graph**: current note plus neighbours within a configurable hop depth
+- Opens in its own tab: **View → Graph View**, toolbar button, or **`Ctrl+G`** / command palette
+- **Global graph**: all notes and resolved wiki-link edges; optional **tag nodes**, attachments, orphans and unresolved links
+- **Local graph**: the open note and its neighbours, 1 to 5 hops deep, with incoming, outgoing and neighbour links
+- **Color groups**: a query (text, `path:`, `file:` or `tag:`) with a colour; each note takes the first that matches
+- Forces, node sizes and drawing as in Obsidian: a note with many links stays bigger when zoomed out, hovering a note highlights only its links, and lines are a quiet grey
 - Native **JavaFX Canvas** force simulation (Barnes–Hut repulsion, link springs, alpha cooling — idle graph uses no CPU)
-- Zoom/pan, drag nodes, hover highlights neighbours, **click a note node to open it**
-- Settings panel: repulsion, link force/distance, center gravity, orphans/unresolved links, arrows, color-by-folder, label/size/line tuning
+- Zoom/pan, drag nodes, **click a note node to open it**; forces, filters, groups and local-graph options are remembered
+
+### Templates & daily note
+
+- **Templates folder** chosen in Preferences → Vault (subfolders included); **Edit → Insert Template…** writes a template at the cursor and merges its properties with the note's, as Obsidian does
+- Obsidian's variables: `{{title}}`, `{{date}}`, `{{time}}` and `{{date:FORMAT}}` with Obsidian's (moment) formats, in English and Spanish; plus **Insert current date / time**
+- **Daily note** (`Ctrl/Cmd+Shift+D`) with its own folder, name format (`YYYY/MM/DD` makes folders) and template; new notes can go to the folder in view, the vault root or a chosen folder
+- **Templater syntax** (optional): `tp.date`, `tp.file`, `tp.frontmatter` and `tp.system` with Templater's whitespace control, cursor placement and folder templates; anything that runs JavaScript is left as it is and reported
+- Settings live in the vault (`.jylos/settings.json`), so each vault keeps its own. Guide: [Templates and Daily Note](https://jylos.es/guides/templates)
+
+### Obsidian compatibility
+
+- Jylos and Obsidian can open the same vault: Jylos writes nothing of its own into notes (favourites and pinned notes live in `.jylos/`), keeps unchanged properties byte for byte and reads them as YAML 1.2, as Obsidian does
+- **Tools → Clean Up Jylos Metadata…** removes the fields older versions wrote, with a backup of each note
+- **Tools → Import Obsidian Settings…** takes the templates, daily-note, new-note location and Templater settings of the plugins Obsidian has on; **Import Obsidian Bookmarks** turns bookmarks into favourites. `.obsidian` is only read
+- Guide: [Obsidian Compatibility](https://jylos.es/guides/obsidian-compatibility)
 
 ### Vault, Git & attachments (filesystem mode)
 
@@ -185,8 +213,8 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 
 ### Productivity
 
-- **Backlinks** in the right info panel (incoming wiki-links and internal Markdown links)
-- **Daily note** and **new note from template** (`{{title}}`, `{{date}}`, …)
+- **Links panel** in the right info panel: linked mentions with the line of each link, unlinked mentions with a **Link** button, and outgoing links (a missing one creates the note)
+- **Daily note** and **new note from template** — see [Templates & daily note](#templates--daily-note)
 - Per-note and **bulk vault export** to HTML/PDF
 - Import/export of individual notes
 - **Import an Obsidian vault** (folder hierarchy, frontmatter and tags preserved; `.obsidian/` skipped) or an **Evernote `.enex`** export (ENML converted to Markdown, tags kept, attachments noted as placeholders) — File menu
@@ -196,16 +224,18 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 
 - Light, dark, and **system** themes (OS theme polling when “System” is selected) + external CSS themes
 - **CSS snippets**: drop `.css` files into `snippets/` and toggle them in Preferences to tweak the UI over the active theme (Obsidian-style)
-- Sample external theme: Retro Phosphor (`themes/retro-phosphor/`)
+- External themes in `themes/`: Gruvbox, Gruvbox Material, Nord, Catppuccin (Mocha and Latte), Rosé Pine (and Dawn) and Retro Phosphor — download them from the [themes page](https://jylos.es/guides/themes)
+- Optional **coloured icons** by type, a **colour per folder**, and an **icon size** apart from the text size; everything grows with the interface font
 - Configurable sidebar/editor button presentation (text/icons/auto)
 - Centered sidebar navigation (folders, tags, recent, favorites, trash)
+- Layout menu in the toolbar: Explorer, classic columns or classic stacked; the choice is remembered
 - UI strings in **English** and **Spanish** (`i18n/messages*.properties`)
 - Toolbar uses **Feather** and **Bootstrap** icons via Ikonli (`fth-*` / `bi-*` in FXML — not separate image files)
 
 ### Extensibility
 
 - External plugin JARs loaded from `jylos/plugins/` (see `scripts/build-plugins.sh`; bytecode **Java 21**)
-- Plugin manager UI with stable command IDs and safe load/disable lifecycle
+- Plugin manager with **core plugins** (shipped and updated with Jylos, only switched on or off) and **community plugins** (in your plugins folder; restricted mode until you allow them), stable command IDs and a safe load/disable lifecycle
 - Plugin API: command palette, menus, side panels, preview enhancers, **toolbar buttons** and **editor hooks** (`onBeforeTextInsert` / `onBeforeSave` / `onAfterSave`) — see [docs/PLUGINS.md](docs/PLUGINS.md)
 - Built-in **Mermaid** diagram support in preview (plugin source under `plugins-source/`)
 - Theme catalog with external theme discovery and safe fallback
@@ -213,15 +243,36 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 ## Screenshots
 
 <div align="center">
-  <img src="resources/images/interfaz-24.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-25.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-26.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-27.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-28.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-29.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-30.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-31.png" alt="" style="width: 100%; max-width: 100%; margin-bottom: 1.5em; display: block;">
-  <img src="resources/images/interfaz-32.png" alt="" style="width: 100%; max-width: 100%; display: block;">
+  <img src="resources/images/interfaz-33.png" alt="Explorer layout and Live Preview, with the links panel" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Explorer layout and Live Preview, with the links panel</em></p>
+  <img src="resources/images/interfaz-34.png" alt="Source and linked reading view side by side" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Source and linked reading view side by side</em></p>
+  <img src="resources/images/interfaz-35.png" alt="Mermaid diagrams in the reading view" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Mermaid diagrams in the reading view</em></p>
+  <img src="resources/images/interfaz-36.png" alt="Global graph of a large vault, coloured by group" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Global graph of a large vault, coloured by group</em></p>
+  <img src="resources/images/interfaz-37.png" alt="Graph settings: filters, local graph and colour groups" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Graph settings: filters, local graph and colour groups</em></p>
+  <img src="resources/images/interfaz-38.png" alt="Local graph around a note" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Local graph around a note</em></p>
+  <img src="resources/images/interfaz-39.png" alt="Kanban board inside a note" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Kanban board inside a note</em></p>
+  <img src="resources/images/interfaz-40.png" alt="Obsidian-compatible Canvas" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Obsidian-compatible Canvas</em></p>
+  <img src="resources/images/interfaz-41.png" alt="Dataview queries over note properties" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Dataview queries over note properties</em></p>
+  <img src="resources/images/interfaz-42.png" alt="Plugin manager: core and community plugins" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Plugin manager: core and community plugins</em></p>
+  <img src="resources/images/interfaz-43.png" alt="Preferences → Vault: templates, daily note and Templater" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Preferences → Vault: templates, daily note and Templater</em></p>
+  <img src="resources/images/interfaz-44.png" alt="Command palette" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Command palette</em></p>
+  <img src="resources/images/interfaz-45.png" alt="Classic layout: folders, notes and editor in columns" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Classic layout: folders, notes and editor in columns</em></p>
+  <img src="resources/images/interfaz-46.png" alt="External theme: Gruvbox Material" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>External theme: Gruvbox Material</em></p>
+  <img src="resources/images/interfaz-47.png" alt="Light theme" style="width: 100%; max-width: 100%; display: block;">
+  <p><em>Light theme</em></p>
 </div>
 
 ## Technology Stack
@@ -478,7 +529,7 @@ Toolbar/sidebar icons are **Feather** and **Bootstrap Icons** glyphs via Ikonli 
 
 ### Themes
 
-Source packs live in `themes/<id>/` (`theme.properties` + `theme.css`). Development: `./scripts/build-themes.sh` (copies to `jylos/themes/`). **Packaged app:** copy the theme folder to `~/Library/Application Support/Jylos/themes/<id>/` (macOS), `%APPDATA%\Jylos\themes\<id>\` (Windows), or `~/.local/share/jylos/themes/<id>/` (Linux). See [themes/README.md](themes/README.md).
+Source packs live in `themes/<id>/` (`theme.properties` + `theme.css`). Development: `./scripts/build-themes.sh` (copies to `jylos/themes/`). **Packaged app:** Preferences → Appearance → *Open themes folder*, copy the theme folder there and press *Reload themes*; the folder is `~/Library/Application Support/Jylos/themes/<id>/` (macOS), `%APPDATA%\Jylos\themes\<id>\` (Windows), or `~/.local/share/jylos/themes/<id>/` (Linux). See [themes/README.md](themes/README.md).
 
 ### CSS snippets
 
@@ -486,8 +537,9 @@ Drop plain `.css` files into the `snippets/` folder to tweak the interface on to
 
 ### Plugins
 
-- Build: `./scripts/build-plugins.sh` → `jylos/plugins/*.jar` (compile target **Java 21**)
-- Install, remove, enable and disable external JAR plugins in **Tools → Manage plugins**
+- **Core plugins** (Jylos's own) come with the installation and are updated with it; turn them on or off in **Tools → Manage plugins**.
+- **Community plugins** go in your plugins folder; allow them in the plugin manager (restricted mode is on in a new install), then install, reload or remove them there.
+- Build the core plugins: `./scripts/build-plugins.sh` → `jylos/plugins/*.jar` (compile target **Java 21**). See [docs/PLUGINS.md](docs/PLUGINS.md).
 
 ## Documentation
 
@@ -556,5 +608,7 @@ Warnings such as `Failed to build parent project for org.openjfx:javafx-*` are k
 [MIT License](LICENSE) — Copyright © 2025–2026 **Eduardo Díaz Sánchez**.
 
 You may use, modify, and distribute this software under the MIT terms; keep the copyright and license notice in copies or substantial portions. Contact: ed.dzsn@protonmail.com
+
+Jylos bundles third-party libraries, fonts and emoji images under their own licenses (MIT, BSD, Apache-2.0, LGPL-2.1, CC-BY 4.0, SIL OFL 1.1 and others): see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 The Jylos name, logo, icons, and branding are not covered by the MIT License — see [TRADEMARKS.md](TRADEMARKS.md).

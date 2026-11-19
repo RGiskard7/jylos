@@ -1,8 +1,8 @@
 package com.example.jylos.ui.controller;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
@@ -16,6 +16,9 @@ import com.example.jylos.service.NoteService;
  *
  * <p>Uses explicit note/folder services supplied at composition time; the controller
  * only supplies the desired title and target folder and reacts to the returned result.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 class NoteOperations {
 
@@ -49,11 +52,10 @@ class NoteOperations {
                 newNote.setParent(currentFolder);
             }
 
-            // FileSystem DAO relies on a pre-seeded ID to infer the parent folder path.
+            // The filesystem DAO reads the parent folder from a pre-seeded id ("Folder/"); it
+            // names the file itself, from the title.
             if (isFileSystem && isConcreteFolder(currentFolder)) {
-                String folderPath = currentFolder.getId();
-                String sanitizedTitle = safeTitle.replaceAll("[^\\p{L}\\p{N}\\.\\-_ ]", "_");
-                newNote.setId(folderPath + File.separator + sanitizedTitle);
+                newNote.setId(currentFolder.getId() + "/");
             }
 
             Note createdNote = noteService.createNote(newNote);
@@ -74,6 +76,39 @@ class NoteOperations {
             logger.warning("Failed to create note: " + e.getMessage());
             return new NoteCreationResult(false, null, e.getMessage());
         }
+    }
+
+    /** The folder at {@code path} in the vault, named exactly; empty when it is not there or is the root. */
+    Optional<Folder> folderAt(String path) {
+        if (path == null || path.isBlank() || folderService == null) {
+            return Optional.empty();
+        }
+        return folderService.getAllFolders().stream()
+                .filter(folder -> folder != null && path.equals(noteService.folderPath(folder.getId())))
+                .findFirst();
+    }
+
+    /**
+     * The folder at {@code path}, made with the folders above it that are not there yet, as
+     * Obsidian does; an existing one in another case is taken. {@code null} for the root.
+     */
+    Folder folderMaking(String path) {
+        Folder current = null;
+        String sofar = "";
+        for (String segment : path == null ? new String[0] : path.split("/")) {
+            if (segment.isBlank()) {
+                continue;
+            }
+            sofar = sofar.isEmpty() ? segment : sofar + "/" + segment;
+            String wanted = sofar;
+            Optional<Folder> existing = folderService.getAllFolders().stream()
+                    .filter(folder -> folder != null && wanted.equalsIgnoreCase(noteService.folderPath(folder.getId())))
+                    .findFirst();
+            current = existing.isPresent() ? existing.get()
+                    : current == null ? folderService.createFolder(segment) : folderService.createSubfolder(segment, current);
+            sofar = noteService.folderPath(current.getId()).isEmpty() ? sofar : noteService.folderPath(current.getId());
+        }
+        return current;
     }
 
     record NoteMoveResult(boolean success, String previousId, Folder destination) {

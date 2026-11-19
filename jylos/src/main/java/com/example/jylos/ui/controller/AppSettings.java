@@ -1,6 +1,7 @@
 package com.example.jylos.ui.controller;
 
 import java.io.File;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -8,10 +9,15 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.prefs.Preferences;
 
+import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.ui.UiLanguages;
+
 import javafx.application.Platform;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.Menu;
+import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.ToggleGroup;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Window;
@@ -20,6 +26,9 @@ import javafx.stage.Window;
  * App settings flows (theme/language/storage menus and dialogs).
  *
  * <p>Receives an i18n callback from the shell controller; no back-reference held.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.3.0
  */
 class AppSettings {
 
@@ -49,7 +58,7 @@ class AppSettings {
 
         alert.getButtonTypes().setAll(sqliteBtn, filesystemBtn, cancelBtn);
 
-        Optional<ButtonType> result = com.example.jylos.ui.UiDialogs.show(alert);
+        Optional<ButtonType> result = UiDialogs.show(alert);
         if (result.isEmpty() || result.get() == cancelBtn) {
             return;
         }
@@ -99,7 +108,7 @@ class AppSettings {
         restartAlert.setTitle(i18n("app.restart_required"));
         restartAlert.setHeaderText(null);
         restartAlert.setContentText(i18n("app.restart_storage_message"));
-        com.example.jylos.ui.UiDialogs.show(restartAlert);
+        UiDialogs.show(restartAlert);
     }
 
     static StorageSwitchPlan planStorageSwitch(String currentType, String currentPath, String newType, String newPath) {
@@ -120,7 +129,6 @@ class AppSettings {
     ToggleGroup initializeThemeMenu(ToolbarController toolbarController, String currentTheme,
             Supplier<String> detectSystemTheme,
             Consumer<String> setCurrentTheme,
-            Runnable updateThemeMenuSelection,
             Runnable applyTheme) {
         ToggleGroup themeToggleGroup = new ToggleGroup();
 
@@ -136,9 +144,8 @@ class AppSettings {
             }
         }
 
-        if (updateThemeMenuSelection != null) {
-            updateThemeMenuSelection.run();
-        }
+        // With this group: the caller only keeps it once this returns.
+        updateThemeMenuSelection(toolbarController, themeToggleGroup, currentTheme);
 
         if (applyTheme != null) {
             Platform.runLater(applyTheme);
@@ -147,41 +154,33 @@ class AppSettings {
         return themeToggleGroup;
     }
 
+    /**
+     * Fills View > Language with the languages the app carries ({@link UiLanguages}), each in its
+     * own language, the one in use ticked (English when that one is not carried). Picking another
+     * one hands its code to {@code onLanguageSelected}.
+     */
     ToggleGroup initializeLanguageMenu(ToolbarController toolbarController, Preferences prefs,
-            java.util.function.Consumer<String> onLanguageSelected) {
+            Consumer<String> onLanguageSelected) {
         ToggleGroup languageToggleGroup = new ToggleGroup();
-        if (toolbarController == null) {
+        Menu menu = toolbarController != null ? toolbarController.getLanguageMenu() : null;
+        if (menu == null) {
             return languageToggleGroup;
         }
-
-        if (toolbarController.getEnglishLangMenuItem() != null) {
-            toolbarController.getEnglishLangMenuItem().setToggleGroup(languageToggleGroup);
-            toolbarController.getEnglishLangMenuItem().setOnAction(e -> {
-                if (onLanguageSelected != null && toolbarController.getEnglishLangMenuItem().isSelected()) {
-                    onLanguageSelected.accept("en");
+        List<String> languages = UiLanguages.available();
+        String current = prefs.get("language", Locale.getDefault().getLanguage());
+        String ticked = languages.contains(current) ? current : "en";
+        menu.getItems().clear();
+        for (String code : languages) {
+            RadioMenuItem item = new RadioMenuItem(UiLanguages.nameOf(code));
+            item.setToggleGroup(languageToggleGroup);
+            item.setSelected(code.equals(ticked));
+            item.setOnAction(e -> {
+                if (onLanguageSelected != null && item.isSelected()) {
+                    onLanguageSelected.accept(code);
                 }
             });
+            menu.getItems().add(item);
         }
-        if (toolbarController.getSpanishLangMenuItem() != null) {
-            toolbarController.getSpanishLangMenuItem().setToggleGroup(languageToggleGroup);
-            toolbarController.getSpanishLangMenuItem().setOnAction(e -> {
-                if (onLanguageSelected != null && toolbarController.getSpanishLangMenuItem().isSelected()) {
-                    onLanguageSelected.accept("es");
-                }
-            });
-        }
-
-        String currentLang = prefs.get("language", Locale.getDefault().getLanguage());
-        if ("es".equals(currentLang)) {
-            if (toolbarController.getSpanishLangMenuItem() != null) {
-                toolbarController.getSpanishLangMenuItem().setSelected(true);
-            }
-        } else {
-            if (toolbarController.getEnglishLangMenuItem() != null) {
-                toolbarController.getEnglishLangMenuItem().setSelected(true);
-            }
-        }
-
         return languageToggleGroup;
     }
 

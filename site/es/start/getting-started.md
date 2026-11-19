@@ -4,9 +4,17 @@ Un recorrido rápido por los flujos principales para que empieces a escribir ya.
 
 ## La disposición
 
+Jylos tiene dos diseños. Se cambia entre ellos con el botón de diseño, a la derecha de la barra superior, o en **Herramientas → Preferencias**; la elección se recuerda.
+
+- **Explorador** — la barra lateral muestra un solo árbol con tus carpetas y notas juntas, como en Obsidian. Un clic en una carpeta la despliega y un clic en una nota la abre. El panel de notas solo aparece al buscar o al elegir una etiqueta, para mostrar los resultados, y se cierra con su **✕**. Las instalaciones nuevas empiezan en este diseño.
+- **Clásico** — carpetas, lista de notas y editor lado a lado (**columnas**), o las carpetas encima de la lista de notas (**apilado**). La lista de notas añade orden, vista de cuadrícula y la opción de incluir las notas de las subcarpetas.
+
+En los dos diseños:
+
 - **Barra lateral izquierda** — carpetas, etiquetas, recientes, favoritos y papelera.
-- **Centro** — el editor Markdown con Live Preview.
+- **Centro** — el editor Markdown con vista previa en vivo y pestañas (ver [Pestañas](/es/guides/creating-notes#pestanas-y-estado-de-guardado)).
 - **Panel derecho** — backlinks e información de la nota.
+- **Barra de estado** — la bóveda, si la nota está guardada ("Guardado" / "Sin guardar") y el modo del editor. Un clic en el modo permite cambiar entre vista previa en vivo, fuente, lectura y lectura enlazada.
 
 ## Crea y organiza
 

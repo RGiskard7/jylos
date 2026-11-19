@@ -127,7 +127,7 @@ class PluginClassLoaderBoundaryTest {
 
     private static PluginContext dummyContext() {
         return new PluginContext("classloader-boundary-test", null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null);
+                null, null, null, null, null, null);
     }
 
     /** Compiles {@code sourceBody} (must declare {@code package} + a class named {@code className}

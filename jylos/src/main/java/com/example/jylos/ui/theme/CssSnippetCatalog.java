@@ -17,6 +17,9 @@ import com.example.jylos.config.LoggerConfig;
 
 /**
  * Discovers user CSS snippets layered over the active theme.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.2.0
  */
 public final class CssSnippetCatalog {
 

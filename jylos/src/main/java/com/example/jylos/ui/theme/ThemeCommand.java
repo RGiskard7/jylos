@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -12,12 +13,16 @@ import java.util.prefs.Preferences;
 
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
+import com.example.jylos.util.ThemePalette;
 
+import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.web.WebView;
 
 /**
  * Theme selection, OS-theme detection and stylesheet application.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public final class ThemeCommand {
 
@@ -259,7 +264,7 @@ public final class ThemeCommand {
             String externalThemeId,
             ThemeCatalog themeCatalog,
             Class<?> resourceAnchor,
-            WebView previewWebView,
+            Node previewWebView,
             Runnable refreshPreview,
             List<String> snippetCssUris) {
         if (scene == null || themeCatalog == null || resourceAnchor == null) {
@@ -281,6 +286,7 @@ public final class ThemeCommand {
                     scene.getStylesheets().add(baseStylesheet.toExternalForm());
                 }
                 scene.getStylesheets().add(external.cssPath());
+                ActiveThemePalette.set(externalPalette(external, baseStylesheet));
                 String variant = external.darkLike() ? "dark" : "light";
                 applyRootThemeClass(scene, variant);
                 appendSnippets(scene, snippetCssUris);
@@ -303,6 +309,7 @@ public final class ThemeCommand {
         }
 
         scene.getStylesheets().add(themeResource.toExternalForm());
+        ActiveThemePalette.set(null);
         applyRootThemeClass(scene, variant);
         appendSnippets(scene, snippetCssUris);
         ensurePreviewThemeClass(previewWebView);
@@ -311,6 +318,16 @@ public final class ThemeCommand {
         }
         logger.info("Theme applied: requested=" + currentTheme + ", variant=" + variant);
         return new ThemeApplicationResult(currentTheme, variant, false);
+    }
+
+    /** The colours of an external theme over its base stylesheet ({@code null} for none). */
+    ThemePalette externalPalette(ThemeCatalog.ThemeDescriptor external, URL baseStylesheet) {
+        List<String> sheets = new ArrayList<>();
+        if (baseStylesheet != null) {
+            sheets.add(baseStylesheet.toExternalForm());
+        }
+        sheets.add(external.cssPath());
+        return ThemePalette.read(sheets);
     }
 
     URL resolveBuiltinStylesheet(String variant, Class<?> resourceAnchor) {
@@ -329,6 +346,20 @@ public final class ThemeCommand {
         return isDarkThemeActive(currentTheme);
     }
 
+    /**
+     * Whether the app opens in a dark theme, read from the saved preferences: for what has to be
+     * drawn before the main window exists.
+     */
+    public boolean opensDark(Preferences prefs, List<ThemeCatalog.ThemeDescriptor> themes) {
+        String theme = prefs.get("theme", "light");
+        String source = prefs.get(UiPreferencesStore.THEME_SOURCE_KEY, UiPreferencesStore.THEME_SOURCE_BUILTIN);
+        String externalId = prefs.get(UiPreferencesStore.THEME_EXTERNAL_ID_KEY, "");
+        ThemeCatalog.ThemeDescriptor external = UiPreferencesStore.THEME_SOURCE_EXTERNAL.equals(source)
+                ? themes.stream().filter(t -> t.id().equals(externalId)).findFirst().orElse(null)
+                : null;
+        return resolveDarkUi(theme, source, external);
+    }
+
     public static String effectiveThemeSource(String currentTheme, String themeSource) {
         if (UiPreferencesStore.THEME_SOURCE_EXTERNAL.equals(themeSource)) {
             return UiPreferencesStore.THEME_SOURCE_EXTERNAL;
@@ -341,7 +372,7 @@ public final class ThemeCommand {
                 && !UiPreferencesStore.THEME_SOURCE_EXTERNAL.equals(themeSource);
     }
 
-    private void ensurePreviewThemeClass(WebView previewWebView) {
+    private void ensurePreviewThemeClass(Node previewWebView) {
         if (previewWebView != null && !previewWebView.getStyleClass().contains("webview-theme")) {
             previewWebView.getStyleClass().add("webview-theme");
         }

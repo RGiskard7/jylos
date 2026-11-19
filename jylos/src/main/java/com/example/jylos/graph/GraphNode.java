@@ -8,6 +8,8 @@ package com.example.jylos.graph;
  * @param type   {@link Type} of node
  * @param group  grouping key used for coloring (folder path for notes, the tag itself for tags)
  * @param degree number of connected edges (drives node radius and font size)
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public record GraphNode(String id, String label, Type type, String group, int degree) {
 

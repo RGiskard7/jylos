@@ -20,6 +20,9 @@ import com.example.jylos.config.LoggerConfig;
 /**
  * Creates timestamped SQLite copies on startup and prunes old files.
  * Backup files live under {@link AppDataDirectory#getBackupsDirectory()} (gitignored).
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public final class DatabaseBackupService {
 

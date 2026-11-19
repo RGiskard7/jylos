@@ -18,6 +18,8 @@ import java.util.Optional;
  * @param lastModifiedMillis file modification time
  * @param size file size in bytes
  * @param sha256 hex SHA-256 of the file content
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.7
  */
 public record FileFingerprint(long lastModifiedMillis, long size, String sha256) {
 

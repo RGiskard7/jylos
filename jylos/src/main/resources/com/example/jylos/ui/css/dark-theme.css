@@ -51,9 +51,23 @@
     -fx-button-neutral-hover-bg: #39424f;
     -fx-button-neutral-pressed-bg: #28303a;
     -fx-button-border: #495666;
-    -fx-button-border-hover: -fx-accent;
+    -fx-button-border-hover: -fx-button-border;
     -fx-focus-ring: rgba(85, 99, 214, 0.24);
     -fx-accent-soft: rgba(85, 99, 214, 0.24);
+
+    /* The generic controls (labels, fields, buttons, toggles, tooltips): a theme over this
+       one changes them here, not by repeating rules that would also beat the specific ones. */
+    -fx-label-text: #d0d0d0;
+    -fx-input-bg: #2d2d2d;
+    -fx-input-prompt: #666666;
+    -fx-control-bg: #333333;
+    -fx-control-hover-bg: #404040;
+    -fx-control-pressed-bg: #2a2a2a;
+    -fx-control-border: #404040;
+    -fx-control-text: #e0e0e0;
+    -fx-toggle-text: #b0b0b0;
+    -fx-tooltip-bg: #404040;
+    -fx-tooltip-text: #ffffff;
 
     -fx-background-color: -fx-base-bg;
     background-color: -fx-base-bg;
@@ -61,6 +75,44 @@
     color: -fx-text-main;
 }
 
+
+/* Sizes for icons that have no size rule of their own (set in code). Before .feather-icon on
+   purpose: an icon that also has .feather-icon takes that rule's size, as it always has. */
+.icon-12 {
+    -fx-icon-size: 12;
+}
+.icon-14 {
+    -fx-icon-size: 14;
+}
+
+/* Tree rows: an arrow's box and each level's indent (JavaFX's default), in pixels so they grow
+   with the interface font like the icons (see UiSizeScale). */
+.tree-disclosure-arrow {
+    -fx-min-width: 18px;
+    -fx-pref-width: 18px;
+    -fx-max-width: 18px;
+    -fx-min-height: 18px;
+    -fx-pref-height: 18px;
+    -fx-max-height: 18px;
+}
+.tree-cell {
+    -fx-indent: 10px;
+}
+
+/* The empty tab: the gap above the tiles, the tiles' size and the gaps between them, in pixels
+   so they grow with the interface font (the FXML holds the same values as a fallback). */
+.editor-empty-state {
+    -fx-spacing: 16px;
+}
+.empty-state-tiles {
+    -fx-hgap: 12px;
+    -fx-vgap: 12px;
+    -fx-pref-tile-width: 150px;
+    -fx-pref-tile-height: 96px;
+}
+.empty-state-tile VBox {
+    -fx-spacing: 6px;
+}
 .feather-icon {
     -fx-icon-color: -fx-text-muted;
     -fx-fill: -fx-text-muted;
@@ -111,8 +163,8 @@
 .menu-bar {
     -fx-background-color: -fx-sidebar-bg;
     background-color: -fx-sidebar-bg;
-    -fx-padding: 2 8;
-    padding: 2px 8px;
+    -fx-padding: 1 6;
+    padding: 1px 6px;
 }
 
 .menu-bar .menu {
@@ -216,7 +268,7 @@
 .toolbar-btn:hover {
     -fx-background-color: -fx-header-bg;
     background-color: -fx-header-bg;
-    -fx-border-color: -fx-text-faint;
+    -fx-border-color: -fx-button-border;
     border-color: -fx-text-faint;
 }
 
@@ -241,7 +293,7 @@
 .toolbar-btn:selected:hover {
     -fx-background-color: -fx-accent-hover;
     background-color: -fx-accent-hover;
-    -fx-border-color: -fx-accent-hover;
+    -fx-border-color: -fx-accent;
     border-color: -fx-accent-hover;
 }
 
@@ -288,7 +340,7 @@
 .plugin-manager-close-btn:hover {
     -fx-background-color: -fx-accent-hover;
     background-color: -fx-accent-hover;
-    -fx-border-color: -fx-accent-hover;
+    -fx-border-color: -fx-accent;
     border-color: -fx-accent-hover;
 }
 
@@ -332,7 +384,7 @@
 .modern-toggle-btn:hover {
     -fx-background-color: -fx-header-bg;
     background-color: -fx-header-bg;
-    -fx-border-color: -fx-text-muted;
+    -fx-border-color: -fx-button-border;
     border-color: -fx-text-muted;
 }
 
@@ -353,7 +405,7 @@
 .modern-toggle-btn:selected:hover {
     -fx-background-color: -fx-accent-hover;
     background-color: -fx-accent-hover;
-    -fx-border-color: -fx-accent-hover;
+    -fx-border-color: -fx-accent;
     border-color: -fx-accent-hover;
 }
 
@@ -375,7 +427,7 @@
 }
 
 .search-field:focused {
-    -fx-border-color: -fx-accent;
+    -fx-border-color: -fx-control-border;
     border-color: -fx-accent;
     -fx-background-color: -fx-sidebar-bg;
     background-color: -fx-sidebar-bg;
@@ -450,7 +502,7 @@
 .sidebar-nav-btn:hover {
     -fx-background-color: -fx-hover-bg;
     background-color: -fx-hover-bg;
-    -fx-border-color: -fx-accent;
+    -fx-border-color: -fx-fn-border-color;
     border-color: -fx-accent;
 }
 
@@ -580,8 +632,8 @@
     background-color: -fx-accent-hover;
 }
 
-.tree-cell:hover,
-.list-cell:hover {
+.tree-cell:filled:hover,
+.list-cell:filled:hover {
     -fx-background-color: -fx-hover-bg;
     background-color: -fx-hover-bg;
 }
@@ -647,6 +699,13 @@
 .note-cell-lock {
     -fx-icon-color: -fx-accent;
     -fx-fill: -fx-accent;
+}
+
+/* On a selected row (painted with the accent) the lock takes the row's text colour. */
+.tree-cell:selected .note-cell-lock,
+.list-cell:selected .note-cell-lock {
+    -fx-icon-color: -fx-selected-text;
+    -fx-fill: -fx-selected-text;
 }
 
 .list-cell:selected .note-cell-title,
@@ -904,7 +963,7 @@
 .note-card:hover {
     -fx-background-color: -fx-header-bg;
     background-color: -fx-header-bg;
-    -fx-border-color: -fx-text-muted;
+    -fx-border-color: -fx-fn-border-color;
     border-color: -fx-text-muted;
      
 }
@@ -1144,7 +1203,7 @@
     -fx-cursor: hand;
 }
 .kanban-card:hover {
-    -fx-border-color: -fx-accent;
+    -fx-border-color: -fx-fn-border-color;
 }
 .kanban-card-title {
     -fx-font-size: 1em;
@@ -1275,7 +1334,6 @@
 
 .action-btn-danger:hover {
     -fx-background-color: rgba(248, 113, 113, 0.1);
-    -fx-border-color: -fx-danger;
     border-color: -fx-danger;
 }
 
@@ -1393,21 +1451,21 @@
     border-color: -fx-fn-border-color transparent transparent transparent;
     -fx-border-width: 1 0 0 0;
     border-width: 1px 0 0 0;
-    -fx-padding: 4 12 4 4;
-    padding: 4px 12px 4px 4px;
+    -fx-padding: 2 12 2 4;
+    padding: 2px 12px 2px 4px;
     -fx-alignment: center-left;
-    -fx-min-height: 52px;
-    -fx-pref-height: 52px;
-    -fx-max-height: 52px;
+    -fx-min-height: 40px;
+    -fx-pref-height: 40px;
+    -fx-max-height: 40px;
 }
 
 .format-toolbar-scroll {
     -fx-background-color: transparent;
     -fx-border-color: transparent;
     -fx-padding: 0;
-    -fx-min-height: 44px;
-    -fx-pref-height: 44px;
-    -fx-max-height: 44px;
+    -fx-min-height: 36px;
+    -fx-pref-height: 36px;
+    -fx-max-height: 36px;
     -fx-fit-to-height: true;
 }
 
@@ -1751,6 +1809,9 @@
 .content-split,
 .editor-split {
     -fx-background-color: transparent;
+    /* A SplitPane is inset by 1px on every side: a gap around the editor and under the
+       format bar. */
+    -fx-padding: 0;
 }
 
 .split-pane>.split-pane-divider {
@@ -1817,8 +1878,8 @@
    ======================================== */
 
 .tooltip {
-    -fx-background-color: #404040;
-    -fx-text-fill: #ffffff;
+    -fx-background-color: -fx-tooltip-bg;
+    -fx-text-fill: -fx-tooltip-text;
     -fx-font-size: 0.846em;
     -fx-padding: 8 12;
     -fx-background-radius: 6;
@@ -1829,7 +1890,7 @@
    ======================================== */
 
 .label {
-    -fx-text-fill: #d0d0d0;
+    -fx-text-fill: -fx-label-text;
 }
 
 /* CheckBox / RadioButton labels are not `.label` nodes, so without an explicit
@@ -1845,17 +1906,17 @@
    ======================================== */
 
 .text-field {
-    -fx-background-color: #2d2d2d;
-    -fx-border-color: #404040;
+    -fx-background-color: -fx-input-bg;
+    -fx-border-color: -fx-control-border;
     -fx-border-radius: 6;
     -fx-background-radius: 6;
     -fx-padding: 8 12;
-    -fx-text-fill: #e0e0e0;
-    -fx-prompt-text-fill: #666666;
+    -fx-text-fill: -fx-control-text;
+    -fx-prompt-text-fill: -fx-input-prompt;
 }
 
 .text-field:focused {
-    -fx-border-color: -fx-accent;
+    -fx-border-color: -fx-control-border;
 }
 
 /* Every TextField carries the JavaFX-implicit "text-field" style class in addition to
@@ -1884,8 +1945,8 @@
    ======================================== */
 
 .combo-box-popup .list-view {
-    -fx-background-color: #2d2d2d;
-    -fx-border-color: #404040;
+    -fx-background-color: -fx-input-bg;
+    -fx-border-color: -fx-control-border;
     -fx-border-radius: 6;
     -fx-background-radius: 6;
 }
@@ -1895,23 +1956,23 @@
    ======================================== */
 
 .button {
-    -fx-background-color: #333333;
-    -fx-text-fill: #e0e0e0;
+    -fx-background-color: -fx-control-bg;
+    -fx-text-fill: -fx-control-text;
     -fx-font-size: 0.923em;
     -fx-padding: 8 14;
     -fx-background-radius: 6;
     -fx-border-radius: 6;
-    -fx-border-color: #404040;
+    -fx-border-color: -fx-control-border;
     -fx-border-width: 1;
     -fx-cursor: hand;
 }
 
 .button:hover {
-    -fx-background-color: #404040;
+    -fx-background-color: -fx-control-hover-bg;
 }
 
 .button:pressed {
-    -fx-background-color: #2a2a2a;
+    -fx-background-color: -fx-control-pressed-bg;
 }
 
 .button:default {
@@ -1933,14 +1994,14 @@
 .git-primary-btn:hover,
 .plugin-manager-close-btn:hover {
     -fx-background-color: -fx-accent-hover;
-    -fx-border-color: -fx-accent-hover;
+    -fx-border-color: -fx-accent;
 }
 
 .empty-state-btn:pressed,
 .git-primary-btn:pressed,
 .plugin-manager-close-btn:pressed {
     -fx-background-color: derive(-fx-accent-hover, -20%);
-    -fx-border-color: derive(-fx-accent-hover, -20%);
+    -fx-border-color: -fx-accent;
 }
 
 /* ========================================
@@ -1949,7 +2010,7 @@
 
 .toggle-button {
     -fx-background-color: transparent;
-    -fx-text-fill: #b0b0b0;
+    -fx-text-fill: -fx-toggle-text;
     -fx-font-size: 0.923em;
     -fx-padding: 6 12;
     -fx-background-radius: 6;
@@ -1957,7 +2018,7 @@
 }
 
 .toggle-button:hover {
-    -fx-background-color: #333333;
+    -fx-background-color: -fx-control-bg;
 }
 
 .toggle-button:selected {
@@ -2077,7 +2138,7 @@
 .section-title {
     -fx-text-fill: #c0c0c0;
     -fx-font-size: 0.923em;
-    -fx-font-weight: bold;
+    -fx-font-weight: normal;
 }
 
 .section-content {
@@ -2089,7 +2150,7 @@
 .info-label {
     -fx-text-fill: #888888;
     -fx-font-size: 0.692em;
-    -fx-font-weight: bold;
+    -fx-font-weight: normal;
     -fx-text-transform: uppercase;
 }
 
@@ -2242,14 +2303,14 @@
 .icon-btn:hover,
 .icon-btn-small:hover {
     -fx-background-color: -fx-hover-bg;
-    -fx-border-color: -fx-fn-border-color;
+    -fx-border-color: -fx-button-border;
 }
 
 .search-field,
 .text-field,
 .combo-box {
-    -fx-background-color: #2d2d2d;
-    -fx-border-color: #404040;
+    -fx-background-color: -fx-input-bg;
+    -fx-border-color: -fx-control-border;
     -fx-background-radius: 8;
     -fx-border-radius: 8;
     -fx-border-width: 1px;
@@ -2271,7 +2332,7 @@
 .search-field:focused,
 .text-field:focused,
 .combo-box:focused {
-    -fx-border-color: -fx-accent;
+    -fx-border-color: -fx-control-border;
     -fx-border-width: 2px;
 }
 
@@ -2281,8 +2342,8 @@
 .list-view:focused,
 .tree-view:focused,
 .tab-pane:focused {
-    -fx-focus-color: -fx-accent;
-    -fx-faint-focus-color: -fx-focus-ring;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
 }
 
 /* See modern-theme.css's own copy of this rule for why: the default focus-indicator
@@ -2348,7 +2409,7 @@
 .icon-btn:hover,
 .icon-btn-small:hover {
     -fx-background-color: -fx-hover-bg;
-    -fx-border-color: -fx-text-muted;
+    -fx-border-color: -fx-button-border;
 }
 
 .icon-btn .feather-icon,
@@ -2371,9 +2432,9 @@
     -fx-text-fill: -fx-text-main;
 }
 
-.sidebar-tree .tree-cell:hover,
-.sidebar-list .list-cell:hover,
-.sidebar-list .tree-cell:hover {
+.sidebar-tree .tree-cell:filled:hover,
+.sidebar-list .list-cell:filled:hover,
+.sidebar-list .tree-cell:filled:hover {
     -fx-background-color: -fx-hover-bg;
 }
 
@@ -2435,7 +2496,7 @@
 .dialog-btn-primary:pressed {
     -fx-background-color: derive(-fx-accent-hover, -20%);
     background-color: derive(-fx-accent-hover, -20%);
-    -fx-border-color: derive(-fx-accent-hover, -20%);
+    -fx-border-color: -fx-accent;
     border-color: derive(-fx-accent-hover, -20%);
 }
 
@@ -2460,24 +2521,9 @@
     -fx-background-color: -fx-header-bg;
 }
 
-.properties-header {
-    -fx-background-color: -fx-header-bg;
-    -fx-cursor: hand;
-}
 
-.properties-header:hover { -fx-background-color: -fx-hover-bg; }
 
-.properties-collapse-icon {
-    -fx-text-fill: -fx-text-muted;
-    -fx-font-size: 0.692em;
-}
 
-.properties-title {
-    -fx-font-size: 0.923em;
-    -fx-font-weight: bold;
-    -fx-text-fill: -fx-text-muted;
-    -fx-text-transform: uppercase;
-}
 
 .properties-content {
     -fx-background-color: -fx-header-bg;
@@ -2523,7 +2569,7 @@
 }
 
 .property-value:focused {
-    -fx-border-color: -fx-accent;
+    -fx-border-color: transparent;
     -fx-background-color: -fx-base-bg;
     -fx-control-inner-background: -fx-base-bg;
 }
@@ -2600,7 +2646,7 @@
     -fx-text-fill: -fx-accent-contrast;
 }
 
-.autocomplete-list .list-cell:hover { -fx-background-color: -fx-hover-bg; }
+.autocomplete-list .list-cell:filled:hover { -fx-background-color: -fx-hover-bg; }
 
 /* ── Navigation back/forward buttons ───────────────────────── */
 /* Same 28x28 square every other icon-only button in the app uses (.icon-btn) — this
@@ -2676,7 +2722,7 @@
 
 .graph-settings-header {
     -fx-font-size: 0.846em;
-    -fx-font-weight: bold;
+    -fx-font-weight: normal;
     -fx-text-fill: -fx-text-muted;
 }
 
@@ -2771,6 +2817,20 @@
 .status-storage:hover {
     -fx-background-color: -fx-hover-bg;
     -fx-text-fill: -fx-accent;
+}
+/* Status-bar labels that open a menu on click (editor mode). */
+.status-clickable {
+    -fx-cursor: hand;
+    -fx-padding: 1 6;
+    -fx-background-radius: 4;
+}
+.status-clickable:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-accent;
+}
+/* Save state: same colours as the dot next to the note title. */
+.status-text-muted.status-save-dirty {
+    -fx-text-fill: -fx-warning;
 }
 
 /* ── ComboBox / dropdown legibility (theme-variable driven) ───────── */
@@ -2959,7 +3019,7 @@
     -fx-background-radius: 8;
     -fx-padding: 2;
 }
-.overlay-list-view .list-cell:hover {
+.overlay-list-view .list-cell:filled:hover {
     -fx-background-color: -fx-hover-bg;
 }
 .overlay-list-view .list-cell:selected {
@@ -3076,7 +3136,7 @@
 .dialog-pane .combo-box:focused,
 .dialog-pane .list-view:focused,
 .dialog-pane .scroll-pane:focused {
-    -fx-border-color: -fx-accent;
+    -fx-border-color: -fx-fn-border-color;
 }
 .dialog-pane .text-area .content,
 .dialog-pane .scroll-pane > .viewport,
@@ -3089,7 +3149,7 @@
     -fx-background-color: transparent;
     -fx-text-fill: -fx-text-main;
 }
-.dialog-pane .list-cell:hover {
+.dialog-pane .list-cell:filled:hover {
     -fx-background-color: -fx-hover-bg;
 }
 .dialog-pane .list-cell:selected {
@@ -3229,7 +3289,7 @@
 }
 .about-credit {
     -fx-font-size: 0.923em;
-    -fx-font-weight: 700;
+    -fx-font-weight: normal;
     -fx-text-fill: -fx-text-main;
 }
 
@@ -3247,7 +3307,7 @@
     -fx-background-color: -fx-base-bg;
 }
 .text-area:focused {
-    -fx-border-color: -fx-accent;
+    -fx-border-color: -fx-fn-border-color;
 }
 
 
@@ -3288,6 +3348,50 @@
     -fx-font-size: 1.077em;
     -fx-text-fill: -fx-text-muted;
     -fx-padding: 40;
+}
+
+/* A section of the plugin manager (Jylos's own plugins, the community's): its title with small
+   icon actions beside it, and a line saying what it holds. */
+.plugin-manager-section {
+    -fx-spacing: 2;
+    -fx-padding: 10 2 2 2;
+}
+.plugin-manager-section-title {
+    -fx-font-size: 1.077em;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-main;
+}
+.plugin-manager-section-hint {
+    -fx-text-fill: -fx-text-muted;
+}
+/* Inside .plugin-manager: more specific than the final button layer further down. */
+.plugin-manager .plugin-manager-icon-btn,
+.plugin-manager .plugin-manager-icon-btn:hover,
+.plugin-manager .plugin-manager-icon-btn:pressed {
+    -fx-border-color: transparent;
+    -fx-min-height: 0;
+    -fx-min-width: 0;
+    -fx-padding: 5;
+    -fx-background-radius: 6;
+    -fx-background-insets: 0;
+}
+.plugin-manager .plugin-manager-icon-btn {
+    -fx-background-color: transparent;
+}
+.plugin-manager .plugin-manager-icon-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+.plugin-manager .plugin-manager-icon-btn .ikonli-font-icon {
+    -fx-icon-color: -fx-text-muted;
+    -fx-icon-size: 15px;
+}
+.plugin-manager-blocked,
+.plugin-manager-incompatible {
+    -fx-text-fill: -fx-text-muted;
+    -fx-padding: 0 4 0 4;
+}
+.plugin-manager-incompatible {
+    -fx-text-fill: -fx-warning;
 }
 .plugin-card {
     -fx-background-color: -fx-sidebar-bg;
@@ -3355,7 +3459,7 @@
 }
 .plugin-manager-install-btn:hover {
     -fx-background-color: -fx-hover-bg;
-    -fx-border-color: -fx-accent;
+    -fx-border-color: -fx-fn-border-color;
     -fx-text-fill: -fx-text-primary;
 }
 .plugin-manager-remove-btn {
@@ -3408,7 +3512,7 @@
 .calendar-day-name {
     -fx-text-fill: -fx-text-muted;
     -fx-font-size: 0.769em;
-    -fx-font-weight: bold;
+    -fx-font-weight: normal;
     -fx-min-width: 28px; -fx-pref-width: 28px;
     -fx-alignment: center;
 }
@@ -3435,7 +3539,7 @@
 }
 .calendar-today:hover { -fx-background-color: -fx-accent-hover; }
 .calendar-month-label {
-    -fx-font-weight: bold;
+    -fx-font-weight: normal;
     -fx-font-size: 0.923em;
     -fx-text-fill: -fx-text-main;
 }
@@ -3443,7 +3547,7 @@
 .outline-header {
     -fx-text-fill: -fx-text-main;
     -fx-font-size: 0.923em;
-    -fx-font-weight: bold;
+    -fx-font-weight: normal;
     -fx-padding: 6 8;
     -fx-cursor: hand;
     -fx-background-radius: 4;
@@ -3603,7 +3707,7 @@
 /* Git changes dialog: staged / not-staged section headers + separator */
 .git-section-header {
     -fx-font-size: 0.846em;
-    -fx-font-weight: bold;
+    -fx-font-weight: normal;
     -fx-text-fill: -fx-text-muted;
     -fx-padding: 4 2 2 2;
 }
@@ -3641,11 +3745,6 @@
     fill: -fx-selected-text;
 }
 
-/* Preferences dialog scroll container (theme-matched, no white box). */
-.preferences-scroll,
-.preferences-scroll > .viewport {
-    -fx-background-color: transparent;
-}
 
 /* ── Knowledge Insights panel ─────────────────────────────── */
 .insights-metric-label { -fx-font-size: 0.846em; -fx-text-fill: -fx-text-faint; }
@@ -3695,7 +3794,7 @@
     -fx-border-radius: 10;
     -fx-padding: 6 10;
 }
-.canvas-group-label { -fx-text-fill: -fx-text-muted; -fx-font-weight: bold; -fx-font-size: 0.923em; }
+.canvas-group-label { -fx-text-fill: -fx-text-muted; -fx-font-weight: normal; -fx-font-size: 0.923em; }
 .canvas-edge { -fx-stroke: -fx-text-muted; -fx-stroke-width: 2; -fx-cursor: hand; }
 .canvas-edge-selected { -fx-stroke: -fx-accent; -fx-stroke-width: 3.5; }
 .canvas-edge-arrow { -fx-fill: -fx-text-muted; -fx-cursor: hand; }
@@ -3719,13 +3818,11 @@
     -fx-scale-y: 1.2;
     -fx-effect: dropshadow(gaussian, -fx-accent, 10, 0.4, 0, 0);
 }
-.canvas-resize-handle {
-    -fx-background-color: -fx-accent;
-    -fx-border-color: white; -fx-border-width: 2;
-    -fx-background-radius: 8; -fx-border-radius: 8;
-    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.55), 4, 0.3, 0, 1);
-}
-.canvas-resize-handle:hover { -fx-cursor: se-resize; -fx-scale-x: 1.15; -fx-scale-y: 1.15; }
+/* The resize grips along the selected card's sides and corners: only the cursor shows them. */
+.canvas-resize-handle { -fx-background-color: transparent; }
+/* An edge being dragged out of a card, and the card it would connect to. */
+.canvas-edge-pending { -fx-stroke-dash-array: 6 4; }
+.canvas-connection-target { -fx-effect: dropshadow(gaussian, -fx-accent, 14, 0.6, 0, 0); }
 .toolbar-btn-active {
     -fx-background-color: -fx-hover-bg; -fx-border-color: -fx-accent; -fx-text-fill: -fx-accent;
 }
@@ -3736,6 +3833,8 @@
 }
 .canvas-empty { -fx-text-fill: -fx-text-faint; -fx-font-size: 1.077em; }
 .canvas-selected { -fx-effect: dropshadow(gaussian, -fx-accent, 12, 0.55, 0, 0); }
+/* The box dragged on the background to select cards. */
+.canvas-selection-box { -fx-fill: rgba(128, 128, 128, 0.12); -fx-stroke: -fx-accent; -fx-stroke-width: 1; }
 .canvas-node-scroll { -fx-background-color: transparent; -fx-background: transparent; -fx-padding: 0; }
 .canvas-node-scroll > .viewport { -fx-background-color: transparent; }
 .canvas-node-editor {
@@ -3810,7 +3909,7 @@
 .dialog-btn:hover {
     -fx-background-color: -fx-button-neutral-hover-bg;
     background-color: -fx-button-neutral-hover-bg;
-    -fx-border-color: -fx-button-border-hover;
+    -fx-border-color: -fx-button-border;
     border-color: -fx-button-border-hover;
     -fx-text-fill: -fx-text-main;
     color: -fx-text-main;
@@ -3829,7 +3928,7 @@
 .dialog-btn:pressed {
     -fx-background-color: -fx-button-neutral-pressed-bg;
     background-color: -fx-button-neutral-pressed-bg;
-    -fx-border-color: -fx-button-border-hover;
+    -fx-border-color: -fx-button-border;
     border-color: -fx-button-border-hover;
 }
 
@@ -3925,7 +4024,7 @@
 .toolbar-btn-active:hover {
     -fx-background-color: -fx-accent-hover;
     background-color: -fx-accent-hover;
-    -fx-border-color: -fx-accent-hover;
+    -fx-border-color: -fx-accent;
     border-color: -fx-accent-hover;
     -fx-text-fill: -fx-accent-contrast;
     color: -fx-accent-contrast;
@@ -3946,7 +4045,7 @@
 .toolbar-btn-active:pressed {
     -fx-background-color: -fx-accent-pressed;
     background-color: -fx-accent-pressed;
-    -fx-border-color: -fx-accent-pressed;
+    -fx-border-color: -fx-accent;
     border-color: -fx-accent-pressed;
 }
 
@@ -4005,7 +4104,7 @@
 .dialog-btn-danger:pressed {
     -fx-background-color: derive(-fx-danger, -12%);
     background-color: derive(-fx-danger, -12%);
-    -fx-border-color: derive(-fx-danger, -12%);
+    -fx-border-color: -fx-danger;
     border-color: derive(-fx-danger, -12%);
 }
 
@@ -4036,8 +4135,8 @@
 .combo-box:focused,
 .text-field:focused,
 .dialog-pane .button-bar .button:focused {
-    -fx-focus-color: -fx-accent;
-    -fx-faint-focus-color: -fx-focus-ring;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
 }
 
 .button:focused > .focus-indicator,
@@ -4214,7 +4313,7 @@
 .graph-toolbar .toolbar-btn-danger:hover {
     -fx-background-color: -fx-button-neutral-hover-bg;
     background-color: -fx-button-neutral-hover-bg;
-    -fx-border-color: -fx-button-border-hover;
+    -fx-border-color: -fx-button-border;
     border-color: -fx-button-border-hover;
 }
 
@@ -4300,4 +4399,728 @@
 
 .update-indicator:hover {
     -fx-background-color: -fx-accent-hover;
+}
+
+/* Explorer tree (folders and notes in one tree, ExplorerTree) */
+.explorer-tree .tree-cell.explorer-active-note:filled {
+    -fx-background-color: -fx-accent-soft;
+}
+
+.explorer-tree .tree-cell.explorer-active-note:filled:selected {
+    -fx-background-color: -fx-selected-bg;
+}
+
+.explorer-tree .tree-cell.explorer-loading-row {
+    -fx-text-fill: -fx-text-faint;
+    -fx-font-style: italic;
+}
+
+.explorer-tree .explorer-cell-name {
+    -fx-text-fill: -fx-text-main;
+}
+
+.explorer-tree .tree-cell:filled:selected .explorer-cell-name {
+    -fx-text-fill: -fx-selected-text;
+}
+
+/* ------------------------------------------------------------------------------------
+   Flat icon buttons (top bar, sidebar, notes list header, editor header, format bar).
+   As in Obsidian: no border and no background at rest; a soft background on hover; a
+   toggled-on button keeps that background and shows its icon in the accent colour.
+   Kept last, with a .root prefix, so it wins over the older per-area button rules.
+   ------------------------------------------------------------------------------------ */
+.root .toolbar-btn,
+.root .modern-toggle-btn,
+.root .icon-btn,
+.root .icon-btn-small,
+.root .sidebar-nav-btn,
+.root .nav-btn,
+.root .format-btn {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-background-insets: 0;
+    -fx-background-radius: 6;
+    -fx-effect: null;
+}
+
+.root .toolbar-btn:hover,
+.root .modern-toggle-btn:hover,
+.root .icon-btn:hover,
+.root .icon-btn-small:hover,
+.root .sidebar-nav-btn:hover,
+.root .nav-btn:hover,
+.root .format-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-border-color: transparent;
+}
+
+.root .toolbar-btn:selected,
+.root .modern-toggle-btn:selected,
+.root .sidebar-nav-btn:selected,
+.root .sidebar-nav-btn-selected {
+    -fx-background-color: -fx-hover-bg;
+    -fx-border-color: transparent;
+}
+
+.root .toolbar-btn:selected .feather-icon,
+.root .modern-toggle-btn:selected .feather-icon,
+.root .sidebar-nav-btn:selected .feather-icon,
+.root .sidebar-nav-btn-selected .feather-icon {
+    -fx-icon-color: -fx-accent;
+    -fx-fill: -fx-accent;
+}
+
+.root .toolbar-btn:selected:hover,
+.root .modern-toggle-btn:selected:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+
+.root .toolbar-btn:disabled,
+.root .nav-btn:disabled,
+.root .format-btn:disabled {
+    -fx-background-color: transparent;
+}
+
+/* Folder path of the open note, in the title row before the title. */
+.editor-header .note-path {
+    -fx-text-fill: -fx-text-faint;
+    -fx-font-size: 0.92em;
+    -fx-padding: 0 2 0 4;
+}
+
+.editor-header .note-path-link:hover {
+    -fx-text-fill: -fx-accent;
+    -fx-underline: true;
+}
+
+/* Properties panel: part of the document, as in Obsidian. No band of its own, no line under
+   it, a plain title, values without a box until hovered or edited, and "+ Add property" as
+   a plain text line under the rows. */
+.root .properties-panel,
+.root .properties-content {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+}
+
+
+
+.root .property-value,
+.root .property-key-field {
+    -fx-background-color: transparent;
+    -fx-control-inner-background: transparent;
+    -fx-border-color: transparent;
+}
+
+.root .property-row:hover .property-value,
+.root .property-row:hover .property-key-field,
+.root .property-value:hover,
+.root .property-key-field:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+
+.root .property-value:focused,
+.root .property-key-field:focused {
+    -fx-background-color: -fx-base-bg;
+    -fx-control-inner-background: -fx-base-bg;
+    -fx-border-color: transparent;
+}
+
+.root .add-property-btn {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-text-fill: -fx-text-faint;
+    -fx-padding: 2 4;
+}
+
+.root .add-property-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-text-main;
+}
+
+/* Indent guides in the trees (TreeIndentGuides): a thin line under each open folder. */
+.tree-indent-guide {
+    -fx-background-color: -fx-fn-border-color;
+}
+
+/* Flat buttons also in the PDF/image viewers and the Kanban board's "+ Add card/column". */
+.root .viewer-btn,
+.root .kanban-add-card {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-background-insets: 0;
+    -fx-background-radius: 6;
+    -fx-effect: null;
+}
+
+.root .viewer-btn:hover,
+.root .kanban-add-card:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-border-color: transparent;
+}
+
+.root .viewer-btn:selected {
+    -fx-background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-accent;
+}
+
+.root .kanban-add-card {
+    -fx-text-fill: -fx-text-faint;
+}
+
+.root .kanban-add-card:hover {
+    -fx-text-fill: -fx-text-main;
+}
+
+/* Tags bar: "+ Add tag" as plain text, like "+ Add property". */
+.root .add-tag-button {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-text-fill: -fx-text-faint;
+    -fx-padding: 2 4;
+}
+
+.root .add-tag-button:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-text-main;
+}
+
+/* Open-note tabs in the top bar: no strip background or line of their own there. */
+.toolbar .top-bar-tabs .editor-tab-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+}
+
+.toolbar .top-bar-tabs .editor-tab-bar {
+    -fx-padding: 0;
+}
+
+.toolbar .top-bar-tabs .editor-tab {
+    -fx-background-radius: 6;
+    -fx-padding: 4 8 4 10;
+}
+
+/* Tabs in the top bar are as tall as its buttons, so the bar keeps its height. */
+.toolbar .top-bar-tabs .editor-tab-scroll {
+    -fx-pref-height: 28;
+    -fx-max-height: 28;
+    -fx-min-height: 28;
+}
+
+.toolbar .top-bar-tabs .editor-tab {
+    -fx-pref-height: 28;
+    -fx-max-height: 28;
+    -fx-min-height: 28;
+    -fx-padding: 0 6 0 10;
+}
+
+/* Tabs resting on the top bar's bottom line: rounded only at the top. */
+.toolbar .top-bar-tabs .editor-tab {
+    -fx-background-radius: 6 6 0 0;
+}
+
+/* Links panel (right panel): linked mentions, unlinked mentions, outgoing links. */
+.root .links-section-header {
+    -fx-padding: 3 4 3 2;
+    -fx-background-radius: 4;
+    -fx-cursor: hand;
+}
+.root .links-section-header:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+.root .links-section-title {
+    -fx-font-size: 0.923em;
+    -fx-font-weight: normal;
+    -fx-text-fill: -fx-text-muted;
+}
+.root .links-section-arrow {
+    -fx-icon-size: 12;
+    -fx-icon-color: -fx-text-muted;
+}
+.root .links-flair {
+    -fx-font-size: 0.846em;
+    -fx-text-fill: -fx-text-muted;
+    -fx-padding: 0 6 0 6;
+    -fx-background-color: -fx-hover-bg;
+    -fx-background-radius: 8;
+}
+.root .links-group-title {
+    -fx-padding: 3 4 3 4;
+    -fx-background-radius: 4;
+    -fx-cursor: hand;
+}
+.root .links-group-title:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+.root .links-group-name {
+    -fx-font-size: 0.923em;
+    -fx-text-fill: -fx-accent;
+}
+.root .links-match-row {
+    -fx-padding: 2 4 2 12;
+    -fx-background-radius: 4;
+    -fx-cursor: hand;
+}
+.root .links-match-row:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+.root .links-match-text {
+    -fx-font-size: 0.846em;
+    -fx-fill: -fx-text-muted;
+}
+.root .links-match-highlight {
+    -fx-font-size: 0.846em;
+    -fx-font-weight: bold;
+    -fx-fill: -fx-accent;
+}
+.root .links-link-btn {
+    -fx-font-size: 0.846em;
+    -fx-padding: 1 8 1 8;
+    -fx-background-color: transparent;
+    -fx-border-width: 0;
+    -fx-text-fill: -fx-accent;
+    -fx-cursor: hand;
+}
+.root .links-link-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-background-radius: 4;
+}
+.root .links-outgoing-row {
+    -fx-padding: 3 4 3 4;
+    -fx-background-radius: 4;
+    -fx-cursor: hand;
+}
+.root .links-outgoing-row:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+.root .links-outgoing-name {
+    -fx-font-size: 0.923em;
+    -fx-text-fill: -fx-accent;
+}
+.root .links-outgoing-icon {
+    -fx-icon-size: 12;
+    -fx-icon-color: -fx-text-muted;
+}
+.root .links-outgoing-missing .links-outgoing-name {
+    -fx-text-fill: -fx-text-muted;
+}
+.root .links-empty {
+    -fx-padding: 2 4 2 4;
+}
+
+/* A header switch that is on (the Explorer's "show the current file"): the icon in the accent colour. */
+.icon-btn:selected .feather-icon,
+.icon-btn:selected .ikonli-font-icon {
+    -fx-icon-color: -fx-accent;
+}
+
+/* The name field of an Explorer row being renamed. */
+.explorer-rename-field { -fx-padding: 0 4; -fx-background-radius: 4; }
+
+/* Graph colour groups: a query field, its colour and a remove button per row. */
+.graph-color-group .color-picker { -fx-color-label-visible: false; -fx-padding: 2 4; }
+.graph-new-group { -fx-max-width: Infinity; }
+
+/* "New group" in the graph settings: flat, like "+ Add card". */
+.root .graph-new-group {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-background-insets: 0;
+    -fx-background-radius: 6;
+    -fx-effect: null;
+    -fx-text-fill: -fx-text-faint;
+}
+
+.root .graph-new-group:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-text-main;
+}
+
+/* Properties: the dot on the title row's button marks a note that has properties. */
+.root .toggle-dot {
+    -fx-min-width: 6;
+    -fx-min-height: 6;
+    -fx-max-width: 6;
+    -fx-max-height: 6;
+    -fx-background-color: -fx-accent;
+    -fx-background-radius: 3;
+    -fx-translate-x: 3;
+    -fx-translate-y: -2;
+}
+.root .properties-empty {
+    -fx-text-fill: -fx-text-faint;
+    -fx-font-size: 0.923em;
+}
+.root .property-key-field {
+    -fx-font-size: 0.923em;
+}
+
+/* Empty state: the tiles under "New note". */
+.root .empty-state-tile {
+    -fx-padding: 18 8 12 8;
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+}
+.root .empty-state-tile .feather-icon {
+    -fx-icon-size: 20;
+}
+.root .empty-state-tile-label {
+    -fx-text-fill: -fx-text-main;
+}
+.root .empty-state-shortcut {
+    -fx-text-fill: -fx-text-faint;
+    -fx-font-size: 0.846em;
+}
+
+/* The notch a folded format bar leaves on the editor's bottom edge: a small tab that brings it back. */
+.root .format-toolbar-notch {
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-width: 1 1 0 1;
+    -fx-background-radius: 6 6 0 0;
+    -fx-border-radius: 6 6 0 0;
+    -fx-padding: 0 14;
+    -fx-min-height: 14px;
+    -fx-pref-height: 14px;
+    -fx-max-height: 14px;
+    -fx-cursor: hand;
+}
+.root .format-toolbar-notch .feather-icon {
+    -fx-icon-size: 12;
+    -fx-icon-color: -fx-text-faint;
+    -fx-fill: -fx-text-faint;
+}
+.root .format-toolbar-notch:hover .feather-icon {
+    -fx-icon-color: -fx-text-main;
+    -fx-fill: -fx-text-main;
+}
+
+/* ── Modals: one look for every dialog ────────────────────────────────────────
+   Last in the file on purpose: it settles the dialog rules above. Title on the dialog's
+   own background, no stock icons, even padding, and borders that keep their colour. */
+.dialog-pane > .header-panel {
+    -fx-background-color: transparent;
+    -fx-padding: 20 24 2 24;
+}
+.dialog-pane > .header-panel .label {
+    -fx-font-size: 1.15em;
+    -fx-font-weight: bold;
+}
+.dialog-pane.alert,
+.dialog-pane.text-input-dialog,
+.dialog-pane.choice-dialog {
+    -fx-graphic: null;
+    -fx-min-width: 26em;
+}
+.dialog-pane > .content {
+    -fx-padding: 12 24 8 24;
+}
+.dialog-pane > .content.label {
+    -fx-text-fill: -fx-text-muted;
+    -fx-line-spacing: 2;
+}
+.dialog-pane > .button-bar > .container {
+    -fx-padding: 14 24 20 24;
+}
+.dialog-pane .color-picker {
+    -fx-background-color: -fx-base-bg;
+    -fx-border-color: -fx-fn-border-color;
+    -fx-border-width: 1;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-background-insets: 0;
+}
+
+/* Section headings inside modals: small and muted, so in the normal weight (bold at
+   this size smudges). */
+.dialog-pane .git-section-header {
+    -fx-font-size: 0.92em;
+    -fx-font-weight: normal;
+    -fx-text-fill: -fx-text-muted;
+    -fx-padding: 4 0 2 0;
+}
+
+/* A text area keeps one outline: the scroll pane inside it takes none of the dialog's
+   scroll-pane border. */
+.dialog-pane .text-area .scroll-pane,
+.dialog-pane .text-area .scroll-pane > .viewport {
+    -fx-border-width: 0;
+    -fx-border-color: transparent;
+    -fx-background-color: transparent;
+    -fx-background-radius: 0;
+    -fx-border-radius: 0;
+}
+
+/* ── Settings window (SettingsPane): sections on the left, a page of rows on the right ── */
+.preferences-dialog {
+    -fx-pref-width: 58em;
+    -fx-pref-height: 41em;
+}
+.preferences-dialog > .content {
+    -fx-padding: 0;
+}
+.preferences-dialog > .button-bar {
+    -fx-border-color: -fx-fn-border-color transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+.dialog-pane .settings-nav,
+.dialog-pane .settings-page-scroll {
+    -fx-border-width: 0;
+    -fx-border-color: transparent;
+    -fx-background-radius: 0;
+    -fx-border-radius: 0;
+    -fx-background-insets: 0;
+}
+.dialog-pane .settings-nav,
+.dialog-pane .settings-nav .virtual-flow,
+.dialog-pane .settings-nav .clipped-container,
+.dialog-pane .settings-nav .sheet {
+    -fx-background-color: -fx-sidebar-bg;
+}
+.dialog-pane .settings-nav {
+    -fx-pref-width: 12em;
+    -fx-padding: 12 8 12 8;
+    -fx-border-color: transparent -fx-fn-border-color transparent transparent;
+    -fx-border-width: 0 1 0 0;
+}
+.dialog-pane .settings-nav .list-cell {
+    -fx-background-color: transparent;
+    -fx-background-radius: 6;
+    -fx-padding: 7 12 7 12;
+    -fx-text-fill: -fx-text-muted;
+}
+.dialog-pane .settings-nav .list-cell:filled:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+.dialog-pane .settings-nav .list-cell:filled:selected {
+    -fx-background-color: -fx-selected-bg;
+    -fx-text-fill: -fx-text-main;
+}
+.dialog-pane .settings-page-scroll,
+.dialog-pane .settings-page-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+.settings-page {
+    -fx-padding: 22 32 28 32;
+}
+.dialog-pane .settings-section-title {
+    -fx-font-size: 1.35em;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-main;
+    -fx-padding: 0 0 10 0;
+}
+.settings-row {
+    -fx-spacing: 24;
+    -fx-padding: 14 0 14 0;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+}
+.settings-row-text {
+    -fx-min-width: 10em;
+    -fx-spacing: 4;
+}
+.dialog-pane .settings-row-name {
+    -fx-text-fill: -fx-text-main;
+}
+.dialog-pane .settings-row-description {
+    -fx-text-fill: -fx-text-muted;
+    -fx-font-size: 0.92em;
+}
+.settings-row > .combo-box-base {
+    -fx-min-width: 6em;
+}
+.settings-controls {
+    -fx-spacing: 8;
+}
+.settings-page > .settings-block {
+    -fx-padding: 6 0 0 0;
+}
+.dialog-pane .settings-page > .dialog-hint-label {
+    -fx-font-size: 0.92em;
+    -fx-text-fill: -fx-text-muted;
+    -fx-padding: 0 0 6 0;
+}
+
+/* ── Git window ── */
+.git-sync-dialog > .content {
+    -fx-padding: 16 24 4 24;
+}
+.git-sync-dialog .git-sync-repository {
+    -fx-spacing: 10;
+}
+.git-sync-dialog .git-sync-activity {
+    -fx-padding: 12 0 0 0;
+    -fx-border-color: -fx-fn-border-color transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+.dialog-pane .git-operation-status {
+    -fx-font-size: 0.85em;
+    -fx-font-weight: normal;
+    -fx-text-fill: -fx-text-faint;
+}
+.dialog-pane .git-workflow-hint {
+    -fx-font-size: 0.92em;
+    -fx-text-fill: -fx-text-muted;
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+.dialog-pane .git-status-remote {
+    -fx-padding: 0 0 0 6;
+}
+.git-sync-dialog .git-sync-changes .list-cell:filled {
+    -fx-padding: 8 10 8 6;
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+    -fx-border-width: 0 0 1 0;
+}
+.dialog-pane .git-change-badge {
+    -fx-min-width: 22px;
+}
+.dialog-pane .git-stage-btn {
+    -fx-min-height: 26px;
+    -fx-padding: 3 12 3 12;
+    -fx-font-size: 0.92em;
+}
+.dialog-pane .button:disabled {
+    -fx-opacity: 0.45;
+}
+.dialog-pane .settings-block .dialog-muted-label {
+    -fx-text-fill: -fx-text-muted;
+}
+.dialog-pane .git-empty-title {
+    -fx-font-size: 1.2em;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-main;
+}
+.git-sync-dialog .git-change-path {
+    -fx-text-fill: -fx-text-muted;
+}
+
+/* A part of a settings section (CSS snippets in Appearance): its title, and small icon
+   actions beside it. */
+.settings-subheading {
+    -fx-spacing: 4;
+    -fx-padding: 30 0 4 0;
+}
+.dialog-pane .settings-subheading-title {
+    -fx-font-size: 1.15em;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-main;
+}
+.dialog-pane .settings-icon-btn,
+.dialog-pane .settings-icon-btn:hover,
+.dialog-pane .settings-icon-btn:pressed {
+    -fx-border-color: transparent;
+    -fx-min-height: 0;
+    -fx-min-width: 0;
+    -fx-padding: 5;
+    -fx-background-radius: 6;
+    -fx-background-insets: 0;
+}
+.dialog-pane .settings-icon-btn {
+    -fx-background-color: transparent;
+}
+.dialog-pane .settings-icon-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+.dialog-pane .settings-icon-btn .ikonli-font-icon {
+    -fx-icon-color: -fx-text-muted;
+    -fx-icon-size: 15px;
+}
+
+/* The empty tab scrolls when it does not fit; the scroll pane itself shows nothing. */
+.editor-empty-state-scroll,
+.editor-empty-state-scroll > .viewport {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+    -fx-background-insets: 0;
+    -fx-border-width: 0;
+    -fx-padding: 0;
+}
+
+/* A settings section's Reset, beside its title: quiet until pointed at. */
+.dialog-pane .settings-reset-btn,
+.dialog-pane .settings-reset-btn:hover,
+.dialog-pane .settings-reset-btn:pressed {
+    -fx-border-color: transparent;
+    -fx-min-height: 0;
+    -fx-padding: 4 10 4 8;
+    -fx-background-radius: 6;
+    -fx-background-insets: 0;
+    -fx-graphic-text-gap: 6;
+}
+.dialog-pane .settings-reset-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: -fx-text-muted;
+    -fx-font-size: 0.92em;
+}
+.dialog-pane .settings-reset-btn:hover {
+    -fx-background-color: -fx-hover-bg;
+    -fx-text-fill: -fx-text-main;
+}
+.dialog-pane .settings-reset-btn .ikonli-font-icon {
+    -fx-icon-color: -fx-text-muted;
+    -fx-icon-size: 13px;
+}
+.settings-section-heading {
+    -fx-padding: 0 0 10 0;
+}
+.settings-section-heading > .settings-section-title {
+    -fx-padding: 0;
+}
+
+/* Coloured icons (Appearance > Coloured icons by type): each kind of file told apart by its
+   icon. Only with the root's .colored-icons; a selected row keeps the selection's colour. */
+.root {
+    -fx-icon-folder: #d4a72c;
+    -fx-icon-pdf: #e5534b;
+    -fx-icon-image: #57ab5a;
+    -fx-icon-canvas: #b083f0;
+    -fx-icon-board: #539bf5;
+}
+.colored-icons .icon-type-folder {
+    -fx-icon-color: -fx-icon-folder;
+}
+.colored-icons .icon-type-pdf {
+    -fx-icon-color: -fx-icon-pdf;
+}
+.colored-icons .icon-type-image {
+    -fx-icon-color: -fx-icon-image;
+}
+.colored-icons .icon-type-canvas {
+    -fx-icon-color: -fx-icon-canvas;
+}
+.colored-icons .icon-type-board {
+    -fx-icon-color: -fx-icon-board;
+}
+
+/* A folder's own colour (folder menu > Colour), on its row's icon only (as Obsidian's Iconize
+   does), the name keeping its usual colour: in the classic tree the icon is the [/] [+] mark.
+   Set as -fx-folder-custom on the row (FolderColorStyle); a selected row keeps the selection's
+   colours, its rules being more specific. After the coloured-icons rules, so it wins over them. */
+.folder-colored > .explorer-folder-icon {
+    -fx-icon-color: -fx-folder-custom;
+}
+.folder-colored > .folder-cell-icon {
+    -fx-text-fill: -fx-folder-custom;
+}
+
+/* An editable drop-down is one box: its field has no background or border of its own. */
+.combo-box:editable > .text-field,
+.combo-box:editable > .text-field:focused {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-insets: 0;
+}
+/* Preferences > Vault: folders, notes and date formats in one column of the same width. */
+.settings-row > .vault-path,
+.settings-row .vault-format > .text-field {
+    -fx-min-width: 17em;
+    -fx-pref-width: 17em;
 }

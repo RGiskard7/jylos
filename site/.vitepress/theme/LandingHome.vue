@@ -15,6 +15,7 @@ type Feature = { icon: string; title: string; text: string };
 type PluginCard = { title: string; text: string; bullets: string[] };
 type DocsLink = { icon: "rocket" | "network" | "workflow" | "refresh"; title: string; text: string; link: string };
 type SimpleItem = { title: string; text: string };
+type ViewerImage = { src: string; alt: string; title: string };
 type DownloadPlatform = {
   platform: string;
   subtitle: string;
@@ -59,6 +60,11 @@ type Copy = {
   ctaTitle: string;
   ctaText: string;
   ctaButton: string;
+  ctaContact: string;
+  viewerOpen: string;
+  viewerClose: string;
+  viewerPrev: string;
+  viewerNext: string;
 };
 
 const githubUrl = "https://github.com/RGiskard7/jylos";
@@ -77,12 +83,13 @@ const downloadPlatforms: DownloadPlatform[] = [
   },
   {
     platform: "Linux",
-    subtitle: "x64 · deb · rpm · pacman",
+    subtitle: "x64 · deb · rpm · pacman · Nix",
     icon: "linux",
     links: [
       { label: ".deb (Debian / Ubuntu)", href: `${releasesBase}/jylos-linux-amd64.deb` },
       { label: ".rpm (Fedora / RHEL / openSUSE)", href: `${releasesBase}/jylos-linux-amd64.rpm` },
       { label: ".pkg.tar.zst (Arch Linux)", href: `${releasesBase}/jylos-linux-amd64.pkg.tar.zst` },
+      { label: "Nix / NixOS (flake)", href: "/start/install#nix-and-nixos" },
     ],
   },
   {
@@ -120,15 +127,15 @@ const en: Copy = {
   featuresSubtitle: "Notes, wiki-links, a knowledge graph, Kanban, Canvas, plugins and Git — all offline.",
   features: [
     { icon: "editor", title: "Markdown Editor", text: "WYSIWYG: type Markdown and it renders as you type — GFM tables, KaTeX math and emoji." },
-    { icon: "wiki", title: "Wiki-links", text: "Wiki-link autocomplete, backlinks panel and click-to-open navigation between notes." },
-    { icon: "graph", title: "Knowledge Graph", text: "Interactive force-directed graph. Zoom, pan, drag nodes, local neighbourhood views." },
+    { icon: "wiki", title: "Wiki-links", text: "Wiki-link autocomplete, a links panel with linked and unlinked mentions, and click-to-open navigation." },
+    { icon: "graph", title: "Knowledge Graph", text: "Force-directed graph drawn as in Obsidian, with colour groups and local neighbourhood views." },
     { icon: "board", title: "Canvas & Kanban", text: "Obsidian-compatible Canvas boards and Kanban workflows for projects and planning." },
     { icon: "git", title: "Git Sync", text: "Stage, commit, push and pull from a unified panel. Full Git integration in vault mode." },
     { icon: "lock", title: "AES-256 Encryption", text: "Encrypt note bodies with AES-256-GCM behind a master password, with delete protection." },
     { icon: "storage", title: "Storage Freedom", text: "SQLite database or plain Markdown vault. Switch anytime, your choice." },
     { icon: "plugin", title: "Plugins & Themes", text: "Plugin JARs, Mermaid diagrams, CSS themes, snippets and a plugin manager." },
     { icon: "search", title: "Advanced Search", text: "Operators, date shorthands, command palette and quick switcher." },
-    { icon: "workspace", title: "Workspaces", text: "Save and restore open tabs, view state and layout per context." },
+    { icon: "workspace", title: "Workspaces", text: "Save and restore tabs and layout per context — and your last session reopens on start." },
   ],
   featureSections: [
     {
@@ -139,9 +146,9 @@ const en: Copy = {
       description:
         "Built on CodeMirror 6, it renders as you type — true WYSIWYG. You see GFM tables, KaTeX math, emoji and `![[embeds]]` live, while the Markdown source stays available when you want it.",
       cards: [
-        { title: "Live Preview editor", image: "interfaz-24.png", alt: "Jylos editor and preview" },
-        { title: "Tabs, split views and source mode", image: "interfaz-26.png", alt: "Tabs, split views and source mode" },
-        { title: "Mermaid diagrams in real time", image: "interfaz-25.png", alt: "Mermaid diagrams" },
+        { title: "Explorer layout and Live Preview", image: "interfaz-33.png", alt: "Jylos editor in the Explorer layout, with the links panel" },
+        { title: "Source and linked reading, side by side", image: "interfaz-34.png", alt: "Source and reading view side by side" },
+        { title: "Mermaid diagrams", image: "interfaz-35.png", alt: "Mermaid diagrams in the reading view" },
       ],
     },
     {
@@ -149,10 +156,11 @@ const en: Copy = {
       label: "Knowledge graph",
       title: "A map of every link in your notes",
       description:
-        "A force-directed graph built from your wiki-links. Zoom, pan and drag, open any note with a click, and switch between the whole vault and the local neighbourhood of the note you are reading. Knowledge Insights also reports orphan notes, broken links and a graph health score.",
+        "A force-directed graph built from your wiki-links. Zoom, pan and drag, open any note with a click, and switch between the whole vault and the local neighbourhood of the note you are reading. Colour groups paint notes by path, name or tag. Knowledge Insights also reports orphan notes, broken links and a graph health score.",
       cards: [
-        { title: "Interactive global graph", image: "interfaz-27.png", alt: "Knowledge graph" },
-        { title: "Local neighbourhoods", image: "interfaz-28.png", alt: "Knowledge graph zoom" },
+        { title: "Global graph of a large vault", image: "interfaz-36.png", alt: "Global knowledge graph with colour groups" },
+        { title: "Filters, local graph and colour groups", image: "interfaz-37.png", alt: "Graph settings panel" },
+        { title: "Local neighbourhoods", image: "interfaz-38.png", alt: "Local graph around a note" },
       ],
     },
     {
@@ -162,8 +170,19 @@ const en: Copy = {
       description:
         "A board is just a note whose headings are columns and its list items are cards — drag cards across columns, set WIP limits and colors. The Canvas editor opens Obsidian-compatible `.canvas` files on an infinite surface.",
       cards: [
-        { title: "Kanban boards inside notes", image: "interfaz-29.png", alt: "Kanban board" },
-        { title: "Obsidian-compatible Canvas", image: "interfaz-32.png", alt: "Canvas editor" },
+        { title: "Kanban boards inside notes", image: "interfaz-39.png", alt: "Kanban board" },
+        { title: "Obsidian-compatible Canvas", image: "interfaz-40.png", alt: "Canvas editor" },
+      ],
+    },
+    {
+      icon: "pen",
+      label: "Templates",
+      title: "Templates that Obsidian and Templater understand",
+      description:
+        "Insert a template at the cursor with Obsidian's {{title}}, {{date}} and {{time}} variables, open today's daily note, and turn on Templater's syntax — tp.date, tp.file, prompts and folder templates. Each vault keeps its own settings, and they can be taken from Obsidian's.",
+      cards: [
+        { title: "Preferences → Vault", image: "interfaz-43.png", alt: "Vault preferences: templates, daily note and Templater" },
+        { title: "Template commands in the palette", image: "interfaz-44.png", alt: "Command palette" },
       ],
     },
     {
@@ -171,16 +190,28 @@ const en: Copy = {
       label: "Extensible",
       title: "Plugins, themes and snippets",
       description:
-        "Dataview, MCP Server and Publish ship built-in; drop external JARs into the plugin folder to add commands, side panels, preview enhancers and toolbar buttons. CSS themes and snippets restyle the app.",
+        "Dataview, MCP Server and Publish ship as core plugins; drop external JARs into the plugin folder to add commands, side panels, preview enhancers and toolbar buttons. CSS themes and snippets restyle the app.",
       cards: [
-        { title: "Dataview queries", image: "interfaz-30.png", alt: "Dataview plugin" },
-        { title: "Plugin manager", image: "interfaz-31.png", alt: "Plugins" },
+        { title: "Dataview queries", image: "interfaz-41.png", alt: "Dataview plugin" },
+        { title: "Plugin manager", image: "interfaz-42.png", alt: "Plugin manager" },
+        { title: "External themes", image: "interfaz-46.png", alt: "Gruvbox Material theme" },
+      ],
+    },
+    {
+      icon: "board",
+      label: "Your way",
+      title: "Your layout, your look",
+      description:
+        "One tree with folders and notes, or the classic folders | notes | editor columns. Light, dark or system theme, coloured icons by type and a colour for each folder.",
+      cards: [
+        { title: "Classic layout", image: "interfaz-45.png", alt: "Classic layout in columns" },
+        { title: "Light theme", image: "interfaz-47.png", alt: "Light theme" },
       ],
     },
   ],
   pluginsLabel: "Power features",
   pluginsTitle: "Ask your notes, connect your AI, publish your vault",
-  pluginsSubtitle: "Three built-in tools that go beyond note-taking — on by default.",
+  pluginsSubtitle: "Three core plugins that go beyond note-taking: Dataview is on by default, MCP Server and Publish one switch away.",
   plugins: [
     {
       title: "Dataview",
@@ -233,6 +264,11 @@ const en: Copy = {
   ctaTitle: "Open source and actively maintained",
   ctaText: "Jylos is released under MIT and built with Java 21 and JavaFX 23. Issues, feedback and pull requests are welcome.",
   ctaButton: "Contribute on GitHub",
+  ctaContact: "Contact",
+  viewerOpen: "View larger",
+  viewerClose: "Close",
+  viewerPrev: "Previous image",
+  viewerNext: "Next image",
 };
 
 const es: Copy = {
@@ -261,12 +297,13 @@ const es: Copy = {
     },
     {
       platform: "Linux",
-      subtitle: "x64 · deb · rpm · pacman",
+      subtitle: "x64 · deb · rpm · pacman · Nix",
       icon: "linux",
       links: [
         { label: ".deb (Debian / Ubuntu)", href: `${releasesBase}/jylos-linux-amd64.deb` },
         { label: ".rpm (Fedora / RHEL / openSUSE)", href: `${releasesBase}/jylos-linux-amd64.rpm` },
         { label: ".pkg.tar.zst (Arch Linux)", href: `${releasesBase}/jylos-linux-amd64.pkg.tar.zst` },
+        { label: "Nix / NixOS (flake)", href: "/start/install#nix-y-nixos" },
       ],
     },
     {
@@ -275,7 +312,7 @@ const es: Copy = {
       icon: "apple",
       links: [
         { label: "Instalador .dmg (Apple Silicon)", href: `${releasesBase}/jylos-macos-arm64.dmg` },
-        { label: "Mac con Intel: ejecútalo con JBang", href: "/es/start/install#ejecutar-con-jbang" },
+        { label: "Mac con Intel: ejecútalo con JBang", href: "/start/install#ejecutar-con-jbang" },
       ],
     },
   ],
@@ -289,15 +326,15 @@ const es: Copy = {
   featuresSubtitle: "Notas, wiki-links, un grafo de conocimiento, Kanban, Canvas, plugins y Git — todo sin conexión.",
   features: [
     { icon: "editor", title: "Editor Markdown", text: "WYSIWYG: escribe Markdown y se renderiza al instante — tablas GFM, fórmulas KaTeX y emoji." },
-    { icon: "wiki", title: "Wiki-links", text: "Autocompletado de wiki-links, panel de backlinks y navegación entre notas con un clic." },
-    { icon: "graph", title: "Grafo de conocimiento", text: "Grafo interactivo por fuerzas. Zoom, paneo, arrastre de nodos, vistas de vecindario local." },
+    { icon: "wiki", title: "Wiki-links", text: "Autocompletado de wiki-links, un panel de enlaces con menciones con y sin enlace, y navegación con un clic." },
+    { icon: "graph", title: "Grafo de conocimiento", text: "Grafo por fuerzas dibujado como en Obsidian, con grupos de color y vistas de vecindario local." },
     { icon: "board", title: "Canvas y Kanban", text: "Canvas compatible con Obsidian y flujos Kanban para proyectos y planificación." },
     { icon: "git", title: "Sincronización Git", text: "Prepara, confirma, haz push y pull desde un panel unificado. Integración Git completa en modo vault." },
     { icon: "lock", title: "Cifrado AES-256", text: "Cifra el contenido de las notas con AES-256-GCM tras una contraseña maestra, con protección de borrado." },
     { icon: "storage", title: "Libertad de almacenamiento", text: "Base de datos SQLite o vault Markdown plano. Cambia cuando quieras." },
     { icon: "plugin", title: "Plugins y temas", text: "Plugins JAR, diagramas Mermaid, temas CSS, snippets y gestor de plugins." },
     { icon: "search", title: "Búsqueda avanzada", text: "Operadores, atajos de fecha, paleta de comandos y selector rápido." },
-    { icon: "workspace", title: "Workspaces", text: "Guarda y restaura pestañas abiertas, estado de vistas y layout por contexto." },
+    { icon: "workspace", title: "Workspaces", text: "Guarda y restaura pestañas y diseño por contexto — y tu última sesión vuelve al arrancar." },
   ],
   featureSections: [
     {
@@ -308,9 +345,9 @@ const es: Copy = {
       description:
         "Construido sobre CodeMirror 6, renderiza mientras escribes — WYSIWYG de verdad. Ves tablas GFM, fórmulas KaTeX, emoji y `![[embebidos]]` en vivo, y el código Markdown sigue disponible cuando lo necesitas.",
       cards: [
-        { title: "Editor con Live Preview", image: "interfaz-24.png", alt: "Editor y vista previa de Jylos" },
-        { title: "Pestañas, vistas divididas y modo fuente", image: "interfaz-26.png", alt: "Pestañas, vistas divididas y modo fuente" },
-        { title: "Diagramas Mermaid en tiempo real", image: "interfaz-25.png", alt: "Diagramas Mermaid" },
+        { title: "Diseño Explorador y vista previa en vivo", image: "interfaz-33.png", alt: "Editor de Jylos en el diseño Explorador, con el panel de enlaces" },
+        { title: "Fuente y lectura enlazada, lado a lado", image: "interfaz-34.png", alt: "Fuente y vista de lectura lado a lado" },
+        { title: "Diagramas Mermaid", image: "interfaz-35.png", alt: "Diagramas Mermaid en la vista de lectura" },
       ],
     },
     {
@@ -318,10 +355,11 @@ const es: Copy = {
       label: "Grafo de conocimiento",
       title: "Un mapa de cada enlace de tus notas",
       description:
-        "Un grafo por fuerzas construido a partir de tus wiki-links. Haz zoom, panea y arrastra, abre cualquier nota con un clic, y alterna entre el vault completo y el vecindario local de la nota que estás leyendo. Knowledge Insights también detecta notas huérfanas, enlaces rotos y una puntuación de salud del grafo.",
+        "Un grafo por fuerzas construido a partir de tus wiki-links. Haz zoom, panea y arrastra, abre cualquier nota con un clic, y alterna entre el vault completo y el vecindario local de la nota que estás leyendo. Los grupos de color pintan las notas por ruta, nombre o etiqueta. Knowledge Insights también detecta notas huérfanas, enlaces rotos y una puntuación de salud del grafo.",
       cards: [
-        { title: "Grafo global interactivo", image: "interfaz-27.png", alt: "Grafo de conocimiento" },
-        { title: "Vecindarios locales", image: "interfaz-28.png", alt: "Zoom del grafo de conocimiento" },
+        { title: "Grafo global de una bóveda grande", image: "interfaz-36.png", alt: "Grafo de conocimiento global con grupos de color" },
+        { title: "Filtros, grafo local y grupos de color", image: "interfaz-37.png", alt: "Panel de ajustes del grafo" },
+        { title: "Vecindarios locales", image: "interfaz-38.png", alt: "Grafo local alrededor de una nota" },
       ],
     },
     {
@@ -331,8 +369,19 @@ const es: Copy = {
       description:
         "Un tablero es solo una nota cuyos encabezados son columnas y sus elementos de lista son tarjetas — arrastra tarjetas entre columnas, define límites WIP y colores. El editor Canvas abre ficheros `.canvas` compatibles con Obsidian sobre una superficie infinita.",
       cards: [
-        { title: "Tableros Kanban dentro de notas", image: "interfaz-29.png", alt: "Tablero Kanban" },
-        { title: "Canvas compatible con Obsidian", image: "interfaz-32.png", alt: "Editor Canvas" },
+        { title: "Tableros Kanban dentro de notas", image: "interfaz-39.png", alt: "Tablero Kanban" },
+        { title: "Canvas compatible con Obsidian", image: "interfaz-40.png", alt: "Editor Canvas" },
+      ],
+    },
+    {
+      icon: "pen",
+      label: "Plantillas",
+      title: "Plantillas que entienden Obsidian y Templater",
+      description:
+        "Inserta una plantilla en el cursor con las variables {{title}}, {{date}} y {{time}} de Obsidian, abre la nota diaria de hoy y activa la sintaxis de Templater — tp.date, tp.file, preguntas y plantillas por carpeta. Cada bóveda guarda sus ajustes, y se pueden tomar de los de Obsidian.",
+      cards: [
+        { title: "Preferencias → Bóveda", image: "interfaz-43.png", alt: "Preferencias de la bóveda: plantillas, nota diaria y Templater" },
+        { title: "Órdenes de plantillas en la paleta", image: "interfaz-44.png", alt: "Paleta de comandos" },
       ],
     },
     {
@@ -340,16 +389,28 @@ const es: Copy = {
       label: "Extensible",
       title: "Plugins, temas y snippets",
       description:
-        "Dataview, MCP Server y Publish vienen integrados; suelta JARs externos en la carpeta de plugins para añadir comandos, paneles laterales, mejoras de la vista previa y botones de la barra. Los temas CSS y los snippets cambian el aspecto de la app.",
+        "Dataview, MCP Server y Publish vienen como plugins principales; suelta JARs externos en la carpeta de plugins para añadir comandos, paneles laterales, mejoras de la vista previa y botones de la barra. Los temas CSS y los snippets cambian el aspecto de la app.",
       cards: [
-        { title: "Consultas Dataview", image: "interfaz-30.png", alt: "Plugin Dataview" },
-        { title: "Gestor de plugins", image: "interfaz-31.png", alt: "Plugins" },
+        { title: "Consultas Dataview", image: "interfaz-41.png", alt: "Plugin Dataview" },
+        { title: "Gestor de plugins", image: "interfaz-42.png", alt: "Gestor de plugins" },
+        { title: "Temas externos", image: "interfaz-46.png", alt: "Tema Gruvbox Material" },
+      ],
+    },
+    {
+      icon: "board",
+      label: "A tu manera",
+      title: "Tu diseño, tu aspecto",
+      description:
+        "Un solo árbol con carpetas y notas, o las columnas clásicas carpetas | notas | editor. Tema claro, oscuro o del sistema, iconos de colores por tipo y un color para cada carpeta.",
+      cards: [
+        { title: "Diseño clásico", image: "interfaz-45.png", alt: "Diseño clásico en columnas" },
+        { title: "Tema claro", image: "interfaz-47.png", alt: "Tema claro" },
       ],
     },
   ],
   pluginsLabel: "Capacidades destacadas",
   pluginsTitle: "Consulta tus notas, conecta tu IA, publica tu vault",
-  pluginsSubtitle: "Tres herramientas integradas que van más allá de tomar notas — activadas por defecto.",
+  pluginsSubtitle: "Tres plugins principales que van más allá de tomar notas: Dataview viene activado y MCP Server y Publish, a un clic.",
   plugins: [
     {
       title: "Dataview",
@@ -402,6 +463,11 @@ const es: Copy = {
   ctaTitle: "Código abierto y mantenimiento activo",
   ctaText: "Jylos se publica bajo licencia MIT y está construido con Java 21 y JavaFX 23. Los issues, el feedback y los pull requests son bienvenidos.",
   ctaButton: "Contribuir en GitHub",
+  ctaContact: "Contacto",
+  viewerOpen: "Ver en grande",
+  viewerClose: "Cerrar",
+  viewerPrev: "Imagen anterior",
+  viewerNext: "Imagen siguiente",
 };
 
 const { lang } = useData();
@@ -410,6 +476,47 @@ const t = computed(() => (isEs.value ? es : en));
 
 const asset = (path: string) => withBase(`/landing/${path}`);
 const route = (path: string) => withBase(`${isEs.value ? "/es" : ""}${path}`);
+
+/** A link inside the site goes to the page in the language being read; others are left as they are. */
+const href = (link: string) => (link.startsWith("/") ? route(link) : link);
+
+// Image viewer: a native modal dialog (focus kept inside, Escape closes, focus returns to the
+// image that opened it); the arrows step through the images of the same section.
+const viewer = ref<HTMLDialogElement | null>(null);
+const viewerImages = ref<ViewerImage[]>([]);
+const viewerIndex = ref(0);
+const viewerCurrent = computed(() => viewerImages.value[viewerIndex.value]);
+
+const sectionImages = (section: FeatureSection): ViewerImage[] =>
+  section.cards.map((card) => ({ src: asset(card.image), alt: card.alt, title: card.title }));
+const heroImages = computed<ViewerImage[]>(() => [
+  { src: asset("interfaz-33.png"), alt: t.value.featureSections[0].cards[0].alt, title: t.value.featureSections[0].cards[0].title },
+]);
+
+const openViewer = (images: ViewerImage[], index: number) => {
+  viewerImages.value = images;
+  viewerIndex.value = index;
+  viewer.value?.showModal();
+};
+const closeViewer = () => viewer.value?.close();
+const stepViewer = (delta: number) => {
+  const count = viewerImages.value.length;
+  if (count > 1) {
+    viewerIndex.value = (viewerIndex.value + delta + count) % count;
+  }
+};
+const onViewerKey = (event: KeyboardEvent) => {
+  if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+    event.preventDefault();
+    stepViewer(event.key === "ArrowRight" ? 1 : -1);
+  }
+};
+/** A click on the dimmed area around the image, which is the dialog itself, closes it. */
+const onViewerClick = (event: MouseEvent) => {
+  if (event.target === viewer.value) {
+    closeViewer();
+  }
+};
 
 const jbangCode = "jbang jylos@RGiskard7/jylos";
 const copied = ref(false);
@@ -460,9 +567,14 @@ const copyJbang = async () => {
     </section>
 
     <section class="landing-container hero-screenshot">
-      <div class="screenshot-frame">
-        <img class="screenshot-image" :src="asset('interfaz-24.png')" alt="Jylos editor and preview" draggable="false" />
-      </div>
+      <button
+        type="button"
+        class="screenshot-frame"
+        :aria-label="`${t.viewerOpen}: ${heroImages[0].title}`"
+        @click="openViewer(heroImages, 0)"
+      >
+        <img class="screenshot-image" :src="asset('interfaz-33.png')" :alt="heroImages[0].alt" draggable="false" />
+      </button>
     </section>
 
     <section id="download" class="download-band">
@@ -487,7 +599,7 @@ const copyJbang = async () => {
             <div class="download-card-title">{{ platform.platform }}</div>
             <div class="download-card-subtitle">{{ platform.subtitle }}</div>
             <div class="download-card-btns">
-              <a v-for="link in platform.links" :key="link.label" class="download-link" :href="link.href">{{ link.label }}</a>
+              <a v-for="link in platform.links" :key="link.label" class="download-link" :href="href(link.href)">{{ link.label }}</a>
             </div>
           </div>
         </div>
@@ -598,13 +710,18 @@ const copyJbang = async () => {
         <p>{{ section.description }}</p>
       </div>
       <div class="feature-grid" :class="{ 'three-card-grid': section.cards.length === 3 }">
-        <article v-for="card in section.cards" :key="card.title" class="feature-card-image">
+        <article v-for="(card, index) in section.cards" :key="card.title" class="feature-card-image">
           <div class="feature-window-bar">
             <span class="feature-window-title">{{ card.title }}</span>
           </div>
-          <div class="feature-image">
+          <button
+            type="button"
+            class="feature-image"
+            :aria-label="`${t.viewerOpen}: ${card.title}`"
+            @click="openViewer(sectionImages(section), index)"
+          >
             <img :src="asset(card.image)" :alt="card.alt" loading="lazy" />
-          </div>
+          </button>
         </article>
       </div>
     </section>
@@ -700,9 +817,39 @@ const copyJbang = async () => {
           </svg>
           {{ t.ctaButton }}
         </a>
+        <p class="cta-contact">
+          {{ t.ctaContact }}: <a href="mailto:ed.dzsn@protonmail.com">ed.dzsn@protonmail.com</a>
+        </p>
         <p class="cta-copyright">© 2025–2026 Eduardo Díaz Sánchez (RGiskard7)</p>
       </div>
     </section>
+
+    <dialog
+      ref="viewer"
+      class="image-viewer"
+      :aria-label="viewerCurrent?.title"
+      @click="onViewerClick"
+      @keydown="onViewerKey"
+    >
+      <button type="button" class="image-viewer-button image-viewer-close" :aria-label="t.viewerClose" @click="closeViewer">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+      </button>
+      <figure v-if="viewerCurrent" class="image-viewer-figure">
+        <img :src="viewerCurrent.src" :alt="viewerCurrent.alt" />
+        <figcaption>
+          <span>{{ viewerCurrent.title }}</span>
+          <span v-if="viewerImages.length > 1" class="image-viewer-count">{{ viewerIndex + 1 }} / {{ viewerImages.length }}</span>
+        </figcaption>
+      </figure>
+      <template v-if="viewerImages.length > 1">
+        <button type="button" class="image-viewer-button image-viewer-prev" :aria-label="t.viewerPrev" @click="stepViewer(-1)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+        </button>
+        <button type="button" class="image-viewer-button image-viewer-next" :aria-label="t.viewerNext" @click="stepViewer(1)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+        </button>
+      </template>
+    </dialog>
   </main>
 </template>
 
@@ -869,8 +1016,13 @@ const copyJbang = async () => {
 
 .screenshot-frame {
   position: relative;
+  display: block;
   width: min(100%, 1160px);
   margin: 0 auto;
+  padding: 0;
+  background: none;
+  font: inherit;
+  cursor: zoom-in;
   overflow: hidden;
   border: 1px solid var(--landing-border);
   border-radius: 12px;
@@ -1224,9 +1376,164 @@ const copyJbang = async () => {
 }
 
 .feature-image {
+  display: block;
+  width: 100%;
   aspect-ratio: 16 / 10;
   overflow: hidden;
+  padding: 0;
+  border: 0;
   background: #fff;
+  font: inherit;
+  cursor: zoom-in;
+}
+
+.screenshot-frame:focus-visible,
+.feature-image:focus-visible,
+.image-viewer-button:focus-visible {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: 3px;
+}
+
+/* Image viewer */
+:global(html:has(.image-viewer[open])) {
+  overflow: hidden;
+}
+
+.image-viewer {
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 56px 72px 24px;
+  border: 0;
+  background: transparent;
+  color: #e8e8f0;
+}
+
+.image-viewer[open] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-viewer::backdrop {
+  background: rgba(6, 6, 18, 0.92);
+  backdrop-filter: blur(6px);
+}
+
+.image-viewer-figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
+}
+
+.image-viewer-figure img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100dvh - 120px);
+  width: auto;
+  height: auto;
+  border-radius: 10px;
+  box-shadow: 0 24px 80px -12px rgba(0, 0, 0, 0.6);
+}
+
+.image-viewer-figure figcaption {
+  display: flex;
+  gap: 14px;
+  font-size: 14px;
+}
+
+.image-viewer-count {
+  color: #9a9ab0;
+  font-variant-numeric: tabular-nums;
+}
+
+.image-viewer-button {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  background: rgba(20, 20, 40, 0.7);
+  color: #fff;
+  cursor: pointer;
+}
+
+.image-viewer-button:hover {
+  background: rgba(60, 60, 100, 0.85);
+}
+
+.image-viewer-button svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.image-viewer-close {
+  top: 12px;
+  right: 16px;
+}
+
+.image-viewer-prev,
+.image-viewer-next {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.image-viewer-prev {
+  left: 16px;
+}
+
+.image-viewer-next {
+  right: 16px;
+}
+
+@media (max-width: 640px) {
+  .image-viewer {
+    padding: 56px 8px 16px;
+  }
+
+  .image-viewer-prev,
+  .image-viewer-next {
+    top: auto;
+    bottom: 12px;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .image-viewer[open] .image-viewer-figure {
+    animation: image-viewer-in 0.18s ease-out;
+  }
+
+  .image-viewer[open]::backdrop {
+    animation: image-viewer-fade 0.18s ease-out;
+  }
+}
+
+@keyframes image-viewer-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+@keyframes image-viewer-fade {
+  from {
+    opacity: 0;
+  }
 }
 
 .feature-image img {
@@ -1403,8 +1710,20 @@ const copyJbang = async () => {
   margin-top: 20px;
 }
 
+.cta-contact {
+  margin: 24px 0 0;
+  color: #c8c8c0;
+  font-size: 14px;
+}
+
+.cta-contact a {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .cta-copyright {
-  margin: 28px 0 0;
+  margin: 12px 0 0;
   color: #a0a098;
   font-size: 13px;
 }

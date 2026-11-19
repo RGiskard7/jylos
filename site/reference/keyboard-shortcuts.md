@@ -7,6 +7,7 @@ Shortcuts use `Cmd` on macOS and `Ctrl` on Windows and Linux (shown here as `Ctr
 | Shortcut | Action |
 | --- | --- |
 | `Ctrl/Cmd+N` | New note |
+| `Ctrl/Cmd+T` | New tab |
 | `Ctrl/Cmd+Shift+N` | New folder |
 | `Ctrl/Cmd+Shift+D` | Daily note |
 | `Ctrl/Cmd+S` | Save |
@@ -23,8 +24,18 @@ Shortcuts use `Cmd` on macOS and `Ctrl` on Windows and Linux (shown here as `Ctr
 | `Ctrl/Cmd+K` | Kanban view |
 | `Ctrl/Cmd+Shift+K` | Knowledge Insights |
 | `Ctrl/Cmd+Shift+F` | Focus / writing mode |
-| `F8` | Toggle notes list |
+| `F8` | Toggle notes list (Explorer layout: close the results panel) |
 | `F9` | Toggle sidebar |
+
+## Tabs and the Explorer tree
+
+| Gesture | Action |
+| --- | --- |
+| Click on a note | Open it in the current tab |
+| `Ctrl/Cmd`+click or middle click on a note | Open it in a new tab |
+| Middle click on a tab | Close the tab |
+| `Enter` in the Explorer tree | Open the selected note, or expand/collapse the selected folder |
+| `Ctrl/Cmd+Enter` in the Explorer tree | Open the selected note in a new tab |
 
 ## Search and commands
 

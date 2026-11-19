@@ -18,6 +18,9 @@ import com.example.jylos.data.models.abstractLayers.LeafModel;
  * service/UI level: title, body/content when available, tags, workflow status,
  * privacy and document metadata such as favorite/pinned. Storage-specific details
  * live in the DAO implementations.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class Note extends LeafModel implements Serializable {
 	private static final long serialVersionUID = 1L;
@@ -57,6 +60,11 @@ public class Note extends LeafModel implements Serializable {
 	 */
 	private Map<String, String> customProperties = new LinkedHashMap<>();
 	private transient Map<String, Object> structuredFrontmatterProperties = new LinkedHashMap<>();
+	/**
+	 * Properties a template added that the file does not have yet, in the template's order,
+	 * with the values the template wrote: not kept, written into the file at the next save.
+	 */
+	private transient Map<String, Object> addedFrontmatter = new LinkedHashMap<>();
 	private transient Set<String> displayableFrontmatterPropertyKeys = new LinkedHashSet<>();
 
 	/**
@@ -319,6 +327,15 @@ public class Note extends LeafModel implements Serializable {
 	 * @param structuredFrontmatterProperties structured frontmatter values, or
 	 *                                        {@code null} to clear
 	 */
+	/** The properties a template added, not written yet, in its order ({@link #addedFrontmatter}). */
+	public Map<String, Object> getAddedFrontmatter() {
+		return addedFrontmatter;
+	}
+
+	public void setAddedFrontmatter(Map<String, Object> addedFrontmatter) {
+		this.addedFrontmatter = addedFrontmatter != null ? new LinkedHashMap<>(addedFrontmatter) : new LinkedHashMap<>();
+	}
+
 	public void setStructuredFrontmatterProperties(Map<String, Object> structuredFrontmatterProperties) {
 		this.structuredFrontmatterProperties = structuredFrontmatterProperties != null
 				? new LinkedHashMap<>(structuredFrontmatterProperties)

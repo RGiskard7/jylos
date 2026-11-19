@@ -50,7 +50,7 @@ class UiPreferencesStoreTest {
             assertFalse(store.load(prefs).readableLineLength());
 
             store.save(prefs, new UiPreferencesStore.UiPreferencesData(
-                    true, 2000, UiPreferencesStore.THEME_SOURCE_BUILTIN, "", 2, 14, "", true, true, 14, true));
+                    true, 2000, UiPreferencesStore.THEME_SOURCE_BUILTIN, "", 2, 14, "", true, true, 14, true, false));
 
             assertTrue(store.loadReadableLineLength(prefs));
             assertTrue(store.load(prefs).readableLineLength());
@@ -88,9 +88,29 @@ class UiPreferencesStoreTest {
         Preferences prefs = Preferences.userRoot().node("/com/example/jylos/test/" + UUID.randomUUID());
         try {
             store.save(prefs, new UiPreferencesStore.UiPreferencesData(
-                    true, 2000, UiPreferencesStore.THEME_SOURCE_BUILTIN, "", 2, 14, "", false, false, 14, true));
+                    true, 2000, UiPreferencesStore.THEME_SOURCE_BUILTIN, "", 2, 14, "", false, false, 14, true, false));
 
             assertFalse(store.load(prefs).livePreviewEnabled());
+        } finally {
+            prefs.removeNode();
+        }
+    }
+
+    @Test
+    void alwaysOpenInNewTabDefaultsToOffAndPersistsBothWays() throws BackingStoreException {
+        UiPreferencesStore store = new UiPreferencesStore();
+        Preferences prefs = Preferences.userRoot().node("/com/example/jylos/test/" + UUID.randomUUID());
+        try {
+            // Off by default: a plain open replaces the note in the current tab, like VS Code.
+            assertFalse(store.load(prefs).alwaysOpenInNewTab());
+
+            store.save(prefs, new UiPreferencesStore.UiPreferencesData(
+                    true, 2000, UiPreferencesStore.THEME_SOURCE_BUILTIN, "", 2, 14, "", true, false, 14, true, true));
+            assertTrue(store.load(prefs).alwaysOpenInNewTab());
+
+            store.save(prefs, new UiPreferencesStore.UiPreferencesData(
+                    true, 2000, UiPreferencesStore.THEME_SOURCE_BUILTIN, "", 2, 14, "", true, false, 14, true, false));
+            assertFalse(store.load(prefs).alwaysOpenInNewTab());
         } finally {
             prefs.removeNode();
         }

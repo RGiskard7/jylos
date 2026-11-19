@@ -15,6 +15,17 @@
             <Insets top="8" right="16" bottom="8" left="16"/>
         </padding>
 
+        <!-- Back and forward in the graph's tab, as in a note's header. -->
+        <Button fx:id="graphBackBtn" onAction="#handleNavigateBack" styleClass="nav-btn" disable="true">
+            <tooltip><Tooltip text="%tooltip.navigate_back"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-chevron-left" styleClass="feather-icon"/></graphic>
+        </Button>
+        <Button fx:id="graphForwardBtn" onAction="#handleNavigateForward" styleClass="nav-btn" disable="true">
+            <tooltip><Tooltip text="%tooltip.navigate_forward"/></tooltip>
+            <graphic><FontIcon iconLiteral="fth-chevron-right" styleClass="feather-icon"/></graphic>
+        </Button>
+        <Separator orientation="VERTICAL" styleClass="header-separator"/>
+
         <FontIcon iconLiteral="fth-share-2" styleClass="feather-icon">
             <HBox.margin><Insets left="6"/></HBox.margin>
         </FontIcon>
@@ -93,6 +104,24 @@
                     <ComboBox fx:id="folderFilterCombo" maxWidth="Infinity"/>
                     <CheckBox fx:id="orphansCheck" text="%graph.show_orphans" selected="true" onAction="#handleFilters"/>
                     <CheckBox fx:id="ghostsCheck" text="%graph.show_unresolved" selected="true" onAction="#handleFilters"/>
+                    <CheckBox fx:id="attachmentsCheck" text="%graph.show_attachments" onAction="#handleFilters"/>
+
+                    <!-- Local graph (applies when the graph shows the open note) -->
+                    <Separator/>
+                    <Label text="%graph.local_section" styleClass="graph-settings-header"/>
+                    <Label text="%graph.local_depth" styleClass="graph-settings-label"/>
+                    <Slider fx:id="localDepthSlider" min="1" max="5" value="1" majorTickUnit="1" minorTickCount="0"
+                            snapToTicks="true" showTickLabels="true" showTickMarks="true"/>
+                    <CheckBox fx:id="localIncomingCheck" text="%graph.local_incoming" selected="true" onAction="#handleFilters"/>
+                    <CheckBox fx:id="localOutgoingCheck" text="%graph.local_outgoing" selected="true" onAction="#handleFilters"/>
+                    <CheckBox fx:id="localNeighborCheck" text="%graph.local_neighbors" onAction="#handleFilters"/>
+
+                    <!-- Colour groups: the first one a note matches gives its colour -->
+                    <Separator/>
+                    <Label text="%graph.groups" styleClass="graph-settings-header"/>
+                    <VBox fx:id="colorGroupsBox" spacing="4"/>
+                    <Button fx:id="addColorGroupBtn" text="%graph.new_group" onAction="#handleAddColorGroup"
+                            styleClass="graph-new-group"/>
 
                     <Separator/>
                     <Label text="%graph.display" styleClass="graph-settings-header"/>
@@ -108,13 +137,13 @@
                     <Separator/>
                     <Label text="%graph.forces" styleClass="graph-settings-header"/>
                     <Label text="%graph.center_force" styleClass="graph-settings-label"/>
-                    <Slider fx:id="centerSlider" min="0" max="150"/>
+                    <Slider fx:id="centerSlider" min="0" max="300"/>
                     <Label text="%graph.repulsion" styleClass="graph-settings-label"/>
-                    <Slider fx:id="repulsionSlider" min="40" max="700"/>
+                    <Slider fx:id="repulsionSlider" min="0" max="2000"/>
                     <Label text="%graph.link_force" styleClass="graph-settings-label"/>
                     <Slider fx:id="linkForceSlider" min="0" max="200"/>
                     <Label text="%graph.link_distance" styleClass="graph-settings-label"/>
-                    <Slider fx:id="linkDistanceSlider" min="10" max="140"/>
+                    <Slider fx:id="linkDistanceSlider" min="30" max="500"/>
                 </VBox>
             </content>
         </ScrollPane>

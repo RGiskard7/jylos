@@ -17,7 +17,7 @@ Español: [es/EVENT_BUS_CONTRACT.md](es/EVENT_BUS_CONTRACT.md)
 
 ## System actions
 
-Toolbar and menu items publish `SystemActionEvent` with an `ActionType` enum value. `MainController` owns a single `EnumMap<ActionType, Runnable>` handler table (including view toggles such as `GRAPH_VIEW`, `KANBAN_VIEW`, `FOCUS_MODE`, editor modes, `PRIVATE_TOGGLE`/`NOTES_LOCK`, and Git actions when enabled). Handlers commonly delegate to the relevant feature support class (`OverlaySupport`, `GitController`, `PrivacySupport`, …).
+Toolbar and menu items publish `SystemActionEvent` with an `ActionType` enum value. `MainController` owns a single `EnumMap<ActionType, Runnable>` handler table (including view toggles such as `GRAPH_VIEW`, `KANBAN_VIEW`, `FOCUS_MODE`, editor modes, `PRIVATE_TOGGLE`/`NOTES_LOCK`, and Git actions when enabled). Handlers commonly delegate to the relevant feature support class (`TabsSupport`, `GitController`, `PrivacySupport`, …).
 
 Handlers must not re-publish the same `SystemActionEvent` they were invoked for.
 

@@ -173,6 +173,12 @@ class GraphCanvasLabelTest {
                 stage.show();
                 gc.setData(new GraphData(List.of(hub, leaf), List.of()));
                 gc.pause();
+                // Far apart, so the box looked at under one node never reaches the other's
+                // label (the hub's is wide), whatever the seeded layout.
+                setDoubleArrayElement(gc, "x", 0, -600.0);
+                setDoubleArrayElement(gc, "y", 0, 0.0);
+                setDoubleArrayElement(gc, "x", 1, 600.0);
+                setDoubleArrayElement(gc, "y", 1, 0.0);
 
                 // A scale between the two nodes' own reveal thresholds: past the
                 // hub's (big radius → low threshold), short of the leaf's (small
@@ -297,7 +303,7 @@ class GraphCanvasLabelTest {
 
     /**
      * Scans a box below-and-around where the label for node {@code index} is drawn
-     * (same {@code sx(x)}, {@code sy(y) + r*scale + 12} anchor {@code draw()} itself
+     * (same {@code sx(x)}, {@code sy(y) + screen radius + 12} anchor {@code draw()} itself
      * uses) for any pixel that isn't the plain background colour.
      *
      * <p>The box half-extent is capped well under half the on-screen distance to the
@@ -315,7 +321,7 @@ class GraphCanvasLabelTest {
 
     /**
      * Scans a box below-and-around where the label for node {@code index} is drawn
-     * (same {@code sx(x)}, {@code sy(y) + r*scale + 12} anchor {@code draw()} itself
+     * (same {@code sx(x)}, {@code sy(y) + screen radius + 12} anchor {@code draw()} itself
      * uses) and returns the strongest squared colour distance from the plain
      * background found there — {@code 0} if the label isn't showing at all, larger
      * for a label drawn at higher opacity.
@@ -338,7 +344,8 @@ class GraphCanvasLabelTest {
         double offsetY = getDouble(gc, "offsetY");
 
         double labelCenterX = x[index] * scale + offsetX;
-        double labelCenterY = y[index] * scale + offsetY + radius[index] * scale + 12;
+        double labelCenterY = y[index] * scale + offsetY
+                + GraphCanvas.screenRadiusFor(radius[index], scale, getDouble(gc, "nodeScale")) + 12;
         double closestOther = Double.MAX_VALUE;
         for (int other = 0; other < x.length; other++) {
             if (other == index) {

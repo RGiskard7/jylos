@@ -30,7 +30,7 @@ Run with JavaFX module-path via `scripts/launch-jylos.*`, not plain `java -jar` 
 Each script:
 
 1. Runs `mvn clean package -DskipTests` inside `jylos/`
-2. Optionally runs `scripts/build-plugins.sh` (JARs → `jylos/plugins/`)
+2. Runs `scripts/build-plugins.sh` (Jylos's core plugins → `jylos/plugins/`, shipped with `--app-content`); packaging stops if they do not build, so no installer comes without them
 3. Invokes `jpackage` with `--main-class com.example.jylos.Launcher`
 
 Release automation sets `JYLOS_RELEASE_VERSION` from the pushed tag (for example
@@ -160,6 +160,27 @@ Icons (see `jylos/src/main/resources/app.properties` and [icons README](../jylos
 
 Update **`app-icon.png`** before dev runs; update **`icon.*`** before native packages (Dock/taskbar icons come from the installer assets).
 
+## Nix and NixOS
+
+`packaging/nix/` is a flake (`flake.nix`, `jylos.nix`, `flake.lock`) that repackages the
+release's `jylos-linux-amd64.deb` for `x86_64-linux`: `autoPatchelfHook` patches the jpackage
+launcher and runtime, the wrapper adds the libraries JavaFX opens at run time (GTK, OpenGL, X11)
+and sets `GDK_BACKEND=x11` (JavaFX has no Wayland backend; under Wayland it runs on XWayland).
+It also installs a `.desktop` entry and the icon.
+
+It follows the releases by itself: after publishing one, the `nix-package` job of
+`release-jylos.yml` points `jylos.nix` at the new `.deb` (its `version` and the `hash`, the
+`sha256` in SRI form), builds the flake and opens a pull request with the change, to review and
+merge. `nix.yml` builds the flake on every change to `packaging/nix/`. A package built from source (`maven.buildMavenPackage`) would also cover
+ARM, but needs every Maven dependency fetched ahead, the plugins' own included.
+
+Check it with Docker (also on Apple Silicon, emulated):
+
+```bash
+docker run -d --name jylos-nix --platform linux/amd64 -v "$PWD/packaging/nix":/flake:ro nixos/nix sleep infinity
+docker exec jylos-nix sh -c 'printf "experimental-features = nix-command flakes\nsandbox = false\nfilter-syscalls = false\n" >> /etc/nix/nix.conf && cp -r /flake /root/flake && nix build path:/root/flake#jylos --out-link /root/result'
+```
+
 ## In-app updater (unsigned builds)
 
 Jylos releases are not signed or notarized (see above — an Apple Developer
@@ -215,5 +236,5 @@ under "Removing this later".
 2. Create, edit, and delete a note (SQLite mode).
 3. Open **Graph View** (`Ctrl+G`) and click a node to open a note.
 4. Repeat key flows in filesystem vault mode if you ship that configuration (optional Git bar).
-5. Plugin manager lists JARs in `plugins/` when present (plugins must be Java 21 bytecode).
-6. External themes: copy `themes/<id>/` into the user data `themes/` folder (see [themes/README.md](../themes/README.md)), then **Preferences → External theme**.
+5. **Tools → Manage plugins** lists the core plugins (MCP Server, Publish and Auto Backup off in a new install) and the community section in restricted mode.
+6. External themes: **Preferences → Appearance → Open themes folder**, copy `themes/<id>/` there and **Reload themes** (see [themes/README.md](../themes/README.md)).

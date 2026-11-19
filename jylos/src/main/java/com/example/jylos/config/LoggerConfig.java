@@ -20,6 +20,9 @@ import com.example.jylos.AppDataDirectory;
  * 
  * Note: AppDataDirectory.ensureDirectoriesExist() must be called before
  * this class is loaded (done in Main's static block).
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class LoggerConfig {
 

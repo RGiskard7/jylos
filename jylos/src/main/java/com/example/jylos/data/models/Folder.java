@@ -8,6 +8,9 @@ import com.example.jylos.data.models.abstractLayers.CompositeModel;
  * Represents a folder (or notebook) in the application.
  * This class extends CompositeModel to inherit hierarchical properties
  * and implements Serializable for persistence.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class Folder extends CompositeModel implements Serializable {
     private static final long serialVersionUID = 1L;

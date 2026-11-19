@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -128,6 +129,37 @@ class UiControllerCompositionGuardTest {
             assertFalse(source.contains(setter),
                     "Primary UI controller should not expose public composition setter " + setter + " in "
                             + file.getFileName());
+        }
+    }
+
+    /**
+     * A ceiling for the size of the biggest controllers, in lines of code (imports, blank lines
+     * and comments do not count), at the size they were left at after features were moved out
+     * of them. Growing past it means a feature is going back in: move it to its own class (a
+     * {@code *Support} with its state) instead of raising the number. Lower a number when a
+     * controller shrinks, so the ceiling follows it down.
+     */
+    @Test
+    void theBiggestControllersDoNotGrow() throws IOException {
+        Map<String, Integer> ceilings = Map.of(
+                "MainController.java", 2378,
+                "EditorController.java", 1252,
+                "SidebarController.java", 1813,
+                "NotesListController.java", 1290);
+        for (Map.Entry<String, Integer> ceiling : ceilings.entrySet()) {
+            Path file = Path.of("src/main/java/com/example/jylos/ui/controller", ceiling.getKey());
+            long lines;
+            // Code only: imports, blank lines and comments are not features, so adding or
+            // documenting one must not count against the ceiling.
+            try (Stream<String> all = Files.lines(file, StandardCharsets.UTF_8)) {
+                lines = all.filter(line -> !line.startsWith("import "))
+                        .map(String::strip)
+                        .filter(line -> !line.isEmpty() && !line.startsWith("//") && !line.startsWith("*")
+                                && !line.startsWith("/*"))
+                        .count();
+            }
+            assertTrue(lines <= ceiling.getValue(), ceiling.getKey() + " has " + lines + " lines, over its ceiling of "
+                    + ceiling.getValue() + ": move a feature out instead of raising it");
         }
     }
 }

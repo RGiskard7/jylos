@@ -156,6 +156,22 @@ try {
 
 Write-Host "Classpath configured" -ForegroundColor Gray
 
+# Each JAR's card in its manifest (as in build-plugins.sh): Plugin-Id, read from the
+# plugin's source (a "String ID = ..." constant or "getId() { return ... }"), and
+# Plugin-Min-Jylos, the version of Jylos these plugins are built with (pom.xml <revision>).
+# The packaging script passes the installer's version as JYLOS_VERSION.
+$JylosVersion = if ($env:JYLOS_VERSION) { $env:JYLOS_VERSION } else {
+    ([regex]::Match((Get-Content (Join-Path $JylosDir "pom.xml") -Raw), '<revision>\s*([^<]+?)\s*</revision>')).Groups[1].Value
+}
+function Get-PluginId([string]$SourceFile) {
+    $text = (Get-Content $SourceFile -Raw) -replace "`r?`n", " "
+    $m = [regex]::Match($text, 'String (?:PLUGIN_)?ID *= *"([^"]+)"|getId\(\) *\{ *return *"([^"]+)"')
+    if (-not $m.Success) { return "" }
+    if ($m.Groups[1].Success) { return $m.Groups[1].Value }
+    return $m.Groups[2].Value
+}
+Write-Host "Plugins built for Jylos $JylosVersion" -ForegroundColor Gray
+
 # Multi-file plugins: a directory holding a plugin.properties descriptor is one plugin
 # built from every .java below it, instead of the default "one source file = one JAR".
 # Needed by plugins too large for a single file (parser + evaluator + renderer), which
@@ -351,9 +367,12 @@ foreach ($bundleDir in $BundleDirs) {
     # BOM bytes get read as part of the first header name). Manifest content here
     # is always plain ASCII (fixed keys + a Java class name), so ASCII is exact,
     # not just "close enough", and never carries a BOM.
+    $BundleSource = Join-Path $PluginsSource (($BundleClass -replace '\.', [IO.Path]::DirectorySeparatorChar) + ".java")
     @(
         "Manifest-Version: 1.0",
         "Plugin-Class: $BundleClass",
+        "Plugin-Id: $(Get-PluginId $BundleSource)",
+        "Plugin-Min-Jylos: $JylosVersion",
         "Created-By: Jylos Plugin Builder",
         ""
     ) | Set-Content -Path $ManifestFile -Encoding ASCII
@@ -484,9 +503,12 @@ foreach ($pluginFile in $PluginFiles) {
     
     # Create manifest
     $ManifestFile = Join-Path $TempDir "MANIFEST.MF"
+    $PluginId = Get-PluginId $pluginFile.FullName
     $ManifestContent = @"
 Manifest-Version: 1.0
 Plugin-Class: $ClassName
+Plugin-Id: $PluginId
+Plugin-Min-Jylos: $JylosVersion
 Created-By: Jylos Plugin Builder
 
 "@

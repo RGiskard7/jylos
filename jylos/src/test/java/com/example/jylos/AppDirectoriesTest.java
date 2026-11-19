@@ -39,7 +39,7 @@ class AppDirectoriesTest {
     private static Environment env(Os os, Map<String, String> vars, String appPath, String override,
             Set<Path> existing) {
         return new Environment(os, "Jylos", HOME, CWD, vars, appPath, override,
-                dir -> true, existing::contains);
+                dir -> true, existing::contains, false);
     }
 
     private static void assertLayout(Layout layout, Mode mode, String data, String logs, String cache) {
@@ -116,6 +116,23 @@ class AppDirectoriesTest {
         assertLayout(layout, Mode.OVERRIDE, "/data/jy", "/data/jy/logs", "/data/jy");
     }
 
+    /**
+     * Installed by a package manager (Nix), the uber-JAR is run by a script, not by jpackage's
+     * launcher: {@code -Djylos.installed=true} gives it the platform folders, not the working
+     * directory it was started from. A data folder given explicitly still wins.
+     */
+    @Test
+    void aPackageManagersInstallUsesThePlatformFoldersWhateverTheWorkingDirectory() {
+        Environment installed = new Environment(Os.LINUX, "Jylos", HOME, CWD, Map.of(), null, null,
+                dir -> true, path -> false, true);
+        Environment overridden = new Environment(Os.LINUX, "Jylos", HOME, CWD, Map.of(), null, s("/data/jylos"),
+                dir -> true, path -> false, true);
+
+        assertLayout(AppDirectories.resolve(installed), Mode.INSTALLED, "/home/ana/.local/share/jylos",
+                "/home/ana/.local/state/jylos/logs", "/home/ana/.cache/jylos");
+        assertEquals(Mode.OVERRIDE, AppDirectories.resolve(overridden).mode());
+    }
+
     @Test
     void developmentRunUsesTheWorkingDirectoryWhenWritable() {
         Layout layout = AppDirectories.resolve(env(Os.LINUX, Map.of(), null, null, Set.of()));
@@ -128,7 +145,7 @@ class AppDirectoriesTest {
     void developmentRunFallsBackToThePlatformFoldersWhenTheWorkingDirectoryIsReadOnly() {
         // An uber-JAR double-clicked in Finder starts in "/", which is not writable.
         Environment env = new Environment(Os.MAC, "Jylos", HOME, ROOT, Map.of(), null, null,
-                dir -> false, path -> false);
+                dir -> false, path -> false, false);
 
         assertLayout(AppDirectories.resolve(env), Mode.DEVELOPMENT,
                 "/home/ana/Library/Application Support/Jylos", "/home/ana/Library/Logs/Jylos",

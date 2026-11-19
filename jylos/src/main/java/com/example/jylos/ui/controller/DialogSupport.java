@@ -2,6 +2,7 @@ package com.example.jylos.ui.controller;
 
 import java.io.File;
 import java.text.MessageFormat;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -13,11 +14,19 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 
+import org.kordamp.ikonli.javafx.FontIcon;
+
+import com.example.jylos.data.models.VaultSettings;
 import com.example.jylos.AppConfig;
 import com.example.jylos.AppLinks;
 import com.example.jylos.ui.AppIconLoader;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.service.TagService;
+import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.ui.UiNodes;
+import com.example.jylos.ui.components.SettingsPane;
+import com.example.jylos.ui.preferences.IconSize;
+import com.example.jylos.ui.preferences.LayoutMode;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
 import com.example.jylos.ui.theme.CssSnippetCatalog;
 import com.example.jylos.ui.theme.ThemeCatalog;
@@ -30,21 +39,29 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ColorPicker;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.Tooltip;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
+import javafx.util.StringConverter;
 
 /**
  * Lightweight application dialogs (preferences, about, docs, new tag).
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 class DialogSupport {
 
@@ -92,34 +109,43 @@ class DialogSupport {
             boolean readableLineLength,
             int contentFontSize,
             boolean showFolderNoteCounts,
-            Set<String> enabledSnippets) {
+            boolean alwaysOpenInNewTab,
+            LayoutMode layoutMode,
+            boolean showFormatToolbar,
+            Set<String> enabledSnippets,
+            IconSize iconSize,
+            boolean coloredIcons,
+            VaultSettings vaultSettings) {
+
+        /** The interface preferences chosen, as they are stored. */
+        UiPreferencesStore.UiPreferencesData uiPreferences() {
+            return new UiPreferencesStore.UiPreferencesData(autosaveEnabled, autosaveIdleMs, themeSource,
+                    externalThemeId, notesPreviewLines, uiFontSize, accentColor, livePreviewEnabled,
+                    readableLineLength, contentFontSize, showFolderNoteCounts, alwaysOpenInNewTab);
+        }
     }
 
     Optional<PreferencesDialogResult> showPreferences(
             UiPreferencesStore.UiPreferencesData current,
-            List<ThemeCatalog.ThemeDescriptor> themes,
+            ThemeCatalog themeCatalog,
             CssSnippetCatalog snippetCatalog,
-            Set<String> enabledSnippets) {
+            Set<String> enabledSnippets,
+            LayoutMode currentLayout,
+            boolean currentShowFormatToolbar,
+            IconSize currentIconSize,
+            boolean currentColoredIcons,
+            VaultSettingsSupport vault) {
         Dialog<PreferencesDialogResult> dialog = new Dialog<>();
         dialog.setTitle(i18n("dialog.preferences.title"));
-        dialog.setHeaderText(i18n("dialog.preferences.header"));
+        dialog.setResizable(true);
 
         ButtonType saveButton = new ButtonType(i18n("action.save"), ButtonBar.ButtonData.OK_DONE);
         ButtonType closeButton = new ButtonType(i18n("action.close"), ButtonBar.ButtonData.CANCEL_CLOSE);
         dialog.getDialogPane().getButtonTypes().addAll(saveButton, closeButton);
 
-        VBox content = new VBox(15);
-        content.setPadding(new Insets(20));
-        content.getStyleClass().add("preferences-content");
-
-        Label dbLabel = new Label(i18n("dialog.preferences.storage_location"));
-        Label dbPathLabel = new Label(currentStorageLocation());
-        dbPathLabel.getStyleClass().add("dialog-muted-label");
-
-        CheckBox autosaveEnabledCheck = new CheckBox(i18n("dialog.preferences.autosave_enabled"));
+        CheckBox autosaveEnabledCheck = new CheckBox();
         autosaveEnabledCheck.setSelected(current.autosaveEnabled());
 
-        Label autosaveIntervalLabel = new Label(i18n("dialog.preferences.autosave_interval"));
         ComboBox<String> autosaveIntervalCombo = new ComboBox<>();
         autosaveIntervalCombo.getItems().addAll("1s", "2s", "5s");
         String autosaveText = current.autosaveIdleMs() <= 1200 ? "1s"
@@ -129,7 +155,6 @@ class DialogSupport {
         autosaveEnabledCheck.selectedProperty()
                 .addListener((obs, oldVal, newVal) -> autosaveIntervalCombo.setDisable(!newVal));
 
-        Label notesPreviewLinesLabel = new Label(i18n("dialog.preferences.notes_preview_lines"));
         ComboBox<Integer> notesPreviewLinesCombo = new ComboBox<>();
         for (int i = UiPreferencesStore.MIN_NOTES_PREVIEW_LINES; i <= UiPreferencesStore.MAX_NOTES_PREVIEW_LINES; i++) {
             notesPreviewLinesCombo.getItems().add(i);
@@ -137,20 +162,45 @@ class DialogSupport {
         notesPreviewLinesCombo.getSelectionModel()
                 .select(Integer.valueOf(UiPreferencesStore.clampPreviewLines(current.notesPreviewLines())));
 
-        Label editingModeLabel = new Label(i18n("dialog.preferences.default_editing_mode"));
         ComboBox<String> editingModeCombo = new ComboBox<>();
         editingModeCombo.getItems().addAll(
                 i18n("editing_mode.live_preview"),
                 i18n("editing_mode.source"));
         editingModeCombo.getSelectionModel().select(current.livePreviewEnabled() ? 0 : 1);
 
-        CheckBox readableLineLengthCheck = new CheckBox(i18n("dialog.preferences.readable_line_length"));
+        CheckBox readableLineLengthCheck = new CheckBox();
         readableLineLengthCheck.setSelected(current.readableLineLength());
 
-        CheckBox showFolderNoteCountsCheck = new CheckBox(i18n("dialog.preferences.show_folder_note_counts"));
+        CheckBox showFolderNoteCountsCheck = new CheckBox();
         showFolderNoteCountsCheck.setSelected(current.showFolderNoteCounts());
 
-        Label fontSizeLabel = new Label(i18n("dialog.preferences.font_size"));
+        CheckBox alwaysOpenInNewTabCheck = new CheckBox();
+        alwaysOpenInNewTabCheck.setSelected(current.alwaysOpenInNewTab());
+
+        CheckBox showFormatToolbarCheck = new CheckBox();
+        showFormatToolbarCheck.setSelected(currentShowFormatToolbar);
+
+        // Same three layouts as the toolbar's layout menu.
+        ComboBox<LayoutMode> layoutCombo = new ComboBox<>();
+        layoutCombo.getItems().setAll(LayoutMode.values());
+        layoutCombo.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(LayoutMode mode) {
+                return mode == null ? "" : i18n(switch (mode) {
+                    case EXPLORER -> "layout.mode.explorer";
+                    case CLASSIC_COLUMNS -> "layout.mode.columns";
+                    case CLASSIC_STACKED -> "layout.mode.stacked";
+                });
+            }
+
+            @Override
+            public LayoutMode fromString(String text) {
+                return null;
+            }
+        });
+        layoutCombo.setValue(currentLayout != null ? currentLayout
+                : LayoutMode.CLASSIC_COLUMNS);
+
         ComboBox<Integer> fontSizeCombo = new ComboBox<>();
         for (int i = UiPreferencesStore.MIN_UI_FONT_SIZE; i <= UiPreferencesStore.MAX_UI_FONT_SIZE; i++) {
             fontSizeCombo.getItems().add(i);
@@ -158,7 +208,24 @@ class DialogSupport {
         fontSizeCombo.getSelectionModel()
                 .select(Integer.valueOf(UiPreferencesStore.clampFontSize(current.uiFontSize())));
 
-        Label contentFontSizeLabel = new Label(i18n("dialog.preferences.font_size_content"));
+        // Icons on top of the interface font: small, normal or large.
+        ComboBox<IconSize> iconSizeCombo = new ComboBox<>();
+        iconSizeCombo.getItems().setAll(IconSize.values());
+        iconSizeCombo.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(IconSize size) {
+                return size == null ? "" : i18n("icon_size." + size.key());
+            }
+
+            @Override
+            public IconSize fromString(String text) {
+                return null;
+            }
+        });
+        iconSizeCombo.setValue(currentIconSize != null ? currentIconSize : IconSize.NORMAL);
+        CheckBox coloredIconsCheck = new CheckBox();
+        coloredIconsCheck.setSelected(currentColoredIcons);
+
         ComboBox<Integer> contentFontSizeCombo = new ComboBox<>();
         for (int i = UiPreferencesStore.MIN_CONTENT_FONT_SIZE; i <= UiPreferencesStore.MAX_CONTENT_FONT_SIZE; i++) {
             contentFontSizeCombo.getItems().add(i);
@@ -167,45 +234,56 @@ class DialogSupport {
                 .select(Integer.valueOf(UiPreferencesStore.clampContentFontSize(current.contentFontSize())));
 
         // Accent color: opt-in override of the theme's -fx-accent (Obsidian-style).
-        CheckBox customAccentCheck = new CheckBox(i18n("dialog.preferences.accent_custom"));
-        javafx.scene.control.ColorPicker accentPicker = new javafx.scene.control.ColorPicker();
+        CheckBox customAccentCheck = new CheckBox();
+        ColorPicker accentPicker = new ColorPicker();
         boolean hasCustomAccent = current.accentColor() != null && !current.accentColor().isBlank();
         customAccentCheck.setSelected(hasCustomAccent);
-        accentPicker.setDisable(!hasCustomAccent);
+        UiNodes.show(accentPicker, hasCustomAccent);
         try {
-            accentPicker.setValue(javafx.scene.paint.Color.web(
+            accentPicker.setValue(Color.web(
                     hasCustomAccent ? current.accentColor() : "#7c3aed"));
         } catch (IllegalArgumentException ignored) {
-            accentPicker.setValue(javafx.scene.paint.Color.web("#7c3aed"));
+            accentPicker.setValue(Color.web("#7c3aed"));
         }
         customAccentCheck.selectedProperty()
-                .addListener((obs, oldVal, newVal) -> accentPicker.setDisable(!newVal));
+                .addListener((obs, oldVal, newVal) -> UiNodes.show(accentPicker, newVal));
 
-        Label themeModeLabel = new Label(i18n("dialog.preferences.theme_mode"));
         ComboBox<String> themeModeCombo = new ComboBox<>();
         themeModeCombo.getItems().addAll(i18n("pref.theme.builtin"), i18n("pref.theme.external"));
         themeModeCombo.getSelectionModel().select(
                 UiPreferencesStore.THEME_SOURCE_EXTERNAL.equals(current.themeSource()) ? 1 : 0);
 
-        Label externalThemeLabel = new Label(i18n("dialog.preferences.external_theme"));
+        // The themes besides light and dark: those that come with Jylos and those the user put in
+        // the themes folder. Reload reads the folder again, keeping the theme chosen.
         ComboBox<String> externalThemeCombo = new ComboBox<>();
-        externalThemeCombo.getItems().add(i18n("pref.theme.none"));
-        int externalSelected = 0;
-        if (themes != null) {
-            int idx = 1;
-            for (ThemeCatalog.ThemeDescriptor descriptor : themes) {
-                if (!"external".equals(descriptor.source())) {
-                    continue;
-                }
+        List<ThemeCatalog.ThemeDescriptor> otherThemes = new ArrayList<>();
+        Runnable populateThemes = () -> {
+            String kept = externalThemeCombo.getValue();
+            otherThemes.clear();
+            if (themeCatalog != null) {
+                themeCatalog.getAvailableThemes().stream().filter(t -> !"builtin".equals(t.source()))
+                        .forEach(otherThemes::add);
+            }
+            externalThemeCombo.getItems().setAll(i18n("pref.theme.none"));
+            int selected = 0;
+            for (ThemeCatalog.ThemeDescriptor descriptor : otherThemes) {
                 String display = descriptor.name() + " [" + descriptor.id() + "]";
                 externalThemeCombo.getItems().add(display);
-                if (descriptor.id().equals(current.externalThemeId())) {
-                    externalSelected = idx;
+                if (kept != null ? kept.equals(display) : descriptor.id().equals(current.externalThemeId())) {
+                    selected = externalThemeCombo.getItems().size() - 1;
                 }
-                idx++;
             }
-        }
-        externalThemeCombo.getSelectionModel().select(externalSelected);
+            externalThemeCombo.getSelectionModel().select(selected);
+        };
+        populateThemes.run();
+        Button reloadThemes = settingsIconButton("fth-refresh-cw", i18n("dialog.preferences.themes_reload"));
+        reloadThemes.setOnAction(e -> populateThemes.run());
+        Button openThemesFolder = settingsIconButton("fth-folder", i18n("dialog.preferences.themes_open"));
+        openThemesFolder.setOnAction(e -> {
+            if (themeCatalog != null) {
+                openFolder(themeCatalog.userDirectory().toString());
+            }
+        });
         externalThemeCombo.setDisable(themeModeCombo.getSelectionModel().getSelectedIndex() != 1);
         themeModeCombo.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             externalThemeCombo.setDisable(themeModeCombo.getSelectionModel().getSelectedIndex() != 1);
@@ -216,11 +294,11 @@ class DialogSupport {
         // current choices even for snippets not yet on disk.
         Set<String> selectedSnippets = new LinkedHashSet<>(
                 enabledSnippets != null ? enabledSnippets : Set.of());
-        Label snippetsLabel = new Label(i18n("dialog.preferences.css_snippets"));
         Label snippetsHint = new Label(i18n("dialog.preferences.css_snippets_hint"));
         snippetsHint.getStyleClass().add("dialog-hint-label");
         snippetsHint.setWrapText(true);
-        VBox snippetsBox = new VBox(6);
+        VBox snippetsBox = new VBox();
+        snippetsBox.getStyleClass().add("settings-block");
         Runnable populateSnippets = () -> {
             snippetsBox.getChildren().clear();
             List<CssSnippetCatalog.SnippetDescriptor> available =
@@ -232,7 +310,7 @@ class DialogSupport {
                 return;
             }
             for (CssSnippetCatalog.SnippetDescriptor snippet : available) {
-                CheckBox box = new CheckBox(snippet.name());
+                CheckBox box = new CheckBox();
                 box.setSelected(selectedSnippets.contains(snippet.name()));
                 box.selectedProperty().addListener((obs, oldVal, newVal) -> {
                     if (Boolean.TRUE.equals(newVal)) {
@@ -241,49 +319,86 @@ class DialogSupport {
                         selectedSnippets.remove(snippet.name());
                     }
                 });
-                snippetsBox.getChildren().add(box);
+                snippetsBox.getChildren().add(SettingsPane.rowNode(snippet.name(), null, box));
             }
         };
         populateSnippets.run();
-        Button openSnippetsFolder = new Button(i18n("dialog.preferences.css_snippets_open"));
+        // Reload and open the folder: small icons beside the part's title, as in Obsidian.
+        Button reloadSnippets = settingsIconButton("fth-refresh-cw", i18n("dialog.preferences.css_snippets_reload"));
+        reloadSnippets.setOnAction(e -> populateSnippets.run());
+        Button openSnippetsFolder = settingsIconButton("fth-folder", i18n("dialog.preferences.css_snippets_open"));
         openSnippetsFolder.setOnAction(e -> {
             if (snippetCatalog != null) {
                 openFolder(snippetCatalog.primaryDirectory().toString());
             }
         });
-        Button reloadSnippets = new Button(i18n("dialog.preferences.css_snippets_reload"));
-        reloadSnippets.setOnAction(e -> populateSnippets.run());
 
-        content.getChildren().addAll(
-                new Label(i18n("dialog.preferences.general_settings")),
-                dbLabel, dbPathLabel,
-                new Separator(),
-                autosaveEnabledCheck,
-                new HBox(8, autosaveIntervalLabel, autosaveIntervalCombo),
-                new Separator(),
-                editingModeLabel, editingModeCombo,
-                readableLineLengthCheck,
-                showFolderNoteCountsCheck,
-                notesPreviewLinesLabel, notesPreviewLinesCombo,
-                fontSizeLabel, fontSizeCombo,
-                contentFontSizeLabel, contentFontSizeCombo,
-                new Separator(),
-                themeModeLabel, themeModeCombo,
-                externalThemeLabel, externalThemeCombo,
-                new Separator(),
-                new HBox(8, customAccentCheck, accentPicker),
-                new Separator(),
-                snippetsLabel, snippetsHint, snippetsBox,
-                new HBox(8, openSnippetsFolder, reloadSnippets));
-
-        // The settings list has outgrown a fixed pane: scroll vertically when needed
-        // so no row is ever clipped (no horizontal bar — content fits the width).
-        javafx.scene.control.ScrollPane scroll = new javafx.scene.control.ScrollPane(content);
-        scroll.setFitToWidth(true);
-        scroll.setHbarPolicy(javafx.scene.control.ScrollPane.ScrollBarPolicy.NEVER);
-        scroll.getStyleClass().add("preferences-scroll");
-        dialog.getDialogPane().setContent(scroll);
-        dialog.getDialogPane().setPrefSize(500, 620);
+        // Sections on the left, one row per setting: name and description wrap, control on the right.
+        // Each section's Reset puts its controls back to a new install's values; nothing is
+        // stored until Save, so Close still discards it.
+        String reset = i18n("dialog.preferences.reset");
+        SettingsPane settings = new SettingsPane();
+        settings.addSection(i18n("dialog.preferences.section.general"))
+                .resettable(reset, () -> {
+                    autosaveEnabledCheck.setSelected(true);
+                    autosaveIntervalCombo.getSelectionModel().select("2s");
+                })
+                .row(i18n("dialog.preferences.storage_location"), currentStorageLocation(), null)
+                .row(i18n("dialog.preferences.autosave_enabled"), null, autosaveEnabledCheck)
+                .row(i18n("dialog.preferences.autosave_interval"),
+                        i18n("dialog.preferences.autosave_interval_desc"), autosaveIntervalCombo);
+        settings.addSection(i18n("dialog.preferences.section.editor"))
+                .resettable(reset, () -> {
+                    editingModeCombo.getSelectionModel().select(0);
+                    readableLineLengthCheck.setSelected(false);
+                    showFormatToolbarCheck.setSelected(true);
+                    contentFontSizeCombo.getSelectionModel().select(
+                            Integer.valueOf(UiPreferencesStore.DEFAULT_CONTENT_FONT_SIZE));
+                })
+                .row(i18n("dialog.preferences.default_editing_mode"), null, editingModeCombo)
+                .row(i18n("dialog.preferences.readable_line_length"),
+                        i18n("dialog.preferences.readable_line_length_desc"), readableLineLengthCheck)
+                .row(i18n("dialog.preferences.show_format_toolbar"), null, showFormatToolbarCheck)
+                .row(i18n("dialog.preferences.font_size_content"), null, contentFontSizeCombo);
+        settings.addSection(i18n("dialog.preferences.section.notes"))
+                .resettable(reset, () -> {
+                    layoutCombo.setValue(LayoutMode.EXPLORER);
+                    alwaysOpenInNewTabCheck.setSelected(false);
+                    showFolderNoteCountsCheck.setSelected(true);
+                    notesPreviewLinesCombo.getSelectionModel().select(
+                            Integer.valueOf(UiPreferencesStore.DEFAULT_NOTES_PREVIEW_LINES));
+                })
+                .row(i18n("dialog.preferences.layout"), null, layoutCombo)
+                .row(i18n("dialog.preferences.always_open_in_new_tab"),
+                        i18n("dialog.preferences.always_open_in_new_tab_desc"), alwaysOpenInNewTabCheck)
+                .row(i18n("dialog.preferences.show_folder_note_counts"), null, showFolderNoteCountsCheck)
+                .row(i18n("dialog.preferences.notes_preview_lines"),
+                        i18n("dialog.preferences.notes_preview_lines_desc"), notesPreviewLinesCombo);
+        settings.addSection(i18n("dialog.preferences.section.appearance"))
+                .resettable(reset, () -> {
+                    fontSizeCombo.getSelectionModel().select(Integer.valueOf(UiPreferencesStore.DEFAULT_UI_FONT_SIZE));
+                    iconSizeCombo.setValue(IconSize.NORMAL);
+                    coloredIconsCheck.setSelected(false);
+                    themeModeCombo.getSelectionModel().select(0);
+                    externalThemeCombo.getSelectionModel().select(0);
+                    customAccentCheck.setSelected(false);
+                })
+                .row(i18n("dialog.preferences.font_size"), null, fontSizeCombo)
+                .row(i18n("dialog.preferences.icon_size"), i18n("dialog.preferences.icon_size_desc"), iconSizeCombo)
+                .row(i18n("dialog.preferences.colored_icons"), i18n("dialog.preferences.colored_icons_desc"),
+                        coloredIconsCheck)
+                .row(i18n("dialog.preferences.theme_mode"), null, themeModeCombo)
+                .row(i18n("dialog.preferences.external_theme"), i18n("dialog.preferences.external_theme_desc"),
+                        SettingsPane.controls(externalThemeCombo, reloadThemes, openThemesFolder))
+                .row(i18n("dialog.preferences.accent_custom"), null, SettingsPane.controls(accentPicker, customAccentCheck))
+                .subheading(i18n("dialog.preferences.css_snippets"), reloadSnippets, openSnippetsFolder)
+                .block(snippetsHint)
+                .block(snippetsBox);
+        if (vault != null) {
+            vault.addTo(settings, reset);
+        }
+        dialog.getDialogPane().setContent(settings);
+        dialog.getDialogPane().getStyleClass().add("preferences-dialog");
 
         dialog.setResultConverter(buttonType -> {
             if (buttonType != saveButton) {
@@ -304,20 +419,15 @@ class DialogSupport {
                 externalThemeId = selectedExternal.substring(start + 1, selectedExternal.length() - 1).trim();
             }
             if (UiPreferencesStore.THEME_SOURCE_EXTERNAL.equals(themeSource) && externalThemeId.isBlank()
-                    && themes != null) {
-                for (ThemeCatalog.ThemeDescriptor descriptor : themes) {
-                    if ("external".equals(descriptor.source())) {
-                        externalThemeId = descriptor.id();
-                        break;
-                    }
-                }
+                    && !otherThemes.isEmpty()) {
+                externalThemeId = otherThemes.get(0).id();
             }
             Integer previewLines = notesPreviewLinesCombo.getSelectionModel().getSelectedItem();
             Integer fontSize = fontSizeCombo.getSelectionModel().getSelectedItem();
             Integer contentFontSize = contentFontSizeCombo.getSelectionModel().getSelectedItem();
             String accent = "";
             if (customAccentCheck.isSelected() && accentPicker.getValue() != null) {
-                javafx.scene.paint.Color c = accentPicker.getValue();
+                Color c = accentPicker.getValue();
                 accent = String.format("#%02x%02x%02x",
                         (int) Math.round(c.getRed() * 255),
                         (int) Math.round(c.getGreen() * 255),
@@ -335,9 +445,25 @@ class DialogSupport {
                     readableLineLengthCheck.isSelected(),
                     contentFontSize != null ? contentFontSize : UiPreferencesStore.DEFAULT_CONTENT_FONT_SIZE,
                     showFolderNoteCountsCheck.isSelected(),
-                    new LinkedHashSet<>(selectedSnippets));
+                    alwaysOpenInNewTabCheck.isSelected(),
+                    layoutCombo.getValue(),
+                    showFormatToolbarCheck.isSelected(),
+                    new LinkedHashSet<>(selectedSnippets),
+                    iconSizeCombo.getValue(),
+                    coloredIconsCheck.isSelected(),
+                    vault != null ? vault.edited() : null);
         });
-        return com.example.jylos.ui.UiDialogs.show(dialog);
+        return UiDialogs.show(dialog);
+    }
+
+    /** A small icon button with its text as a tooltip. */
+    private static Button settingsIconButton(String icon, String text) {
+        Button button = new Button();
+        button.setGraphic(new FontIcon(icon));
+        button.setTooltip(new Tooltip(text));
+        button.setAccessibleText(text);
+        button.getStyleClass().add("settings-icon-btn");
+        return button;
     }
 
     /** Opens a folder in the OS file manager (best-effort, mirrors the notes-list reveal). */
@@ -366,7 +492,7 @@ class DialogSupport {
         alert.setContentText(i18n("dialog.documentation.content"));
         alert.setResizable(true);
         alert.getDialogPane().setPrefSize(500, 400);
-        com.example.jylos.ui.UiDialogs.show(alert);
+        UiDialogs.show(alert);
     }
 
     void showKeyboardShortcuts() {
@@ -376,7 +502,7 @@ class DialogSupport {
         alert.setContentText(i18n("dialog.shortcuts.content"));
         alert.setResizable(true);
         alert.getDialogPane().setPrefSize(450, 500);
-        com.example.jylos.ui.UiDialogs.show(alert);
+        UiDialogs.show(alert);
     }
 
     void showAbout() {
@@ -423,6 +549,9 @@ class DialogSupport {
                 aboutLink(i18n("about.repository"), AppLinks.REPOSITORY), new Label("·"),
                 aboutLink(i18n("about.report_issue"), AppLinks.ISSUES));
         links.setAlignment(Pos.CENTER);
+        // Twemoji's CC-BY 4.0 license asks for credit wherever its images are shown.
+        Hyperlink credits = aboutLink(i18n("about.third_party"), AppLinks.THIRD_PARTY);
+        credits.getStyleClass().add("about-meta");
 
         // What is actually running, not a hardcoded stack: the details asked for in a bug
         // report, copyable in one click.
@@ -432,7 +561,7 @@ class DialogSupport {
         runtimeLabel.setWrapText(true);
         runtimeLabel.setMaxWidth(380);
         runtimeLabel.setAlignment(Pos.CENTER);
-        runtimeLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+        runtimeLabel.setTextAlignment(TextAlignment.CENTER);
         Button copyButton = new Button(i18n("about.copy_info"));
         copyButton.setOnAction(e -> {
             ClipboardContent clip = new ClipboardContent();
@@ -444,7 +573,7 @@ class DialogSupport {
         content.getChildren().addAll(
                 titleLabel, versionLabel, descLabel,
                 separator,
-                copyrightLabel, links,
+                copyrightLabel, links, credits,
                 new Separator(),
                 runtimeLabel, copyButton);
 
@@ -456,7 +585,7 @@ class DialogSupport {
                 AppIconLoader.load().ifPresent(img -> stage.getIcons().add(img));
             }
         });
-        com.example.jylos.ui.UiDialogs.show(dialog);
+        UiDialogs.show(dialog);
     }
 
     private static Hyperlink aboutLink(String text, String url) {
@@ -472,7 +601,7 @@ class DialogSupport {
         dialog.setContentText(i18n("dialog.new_tag.content"));
         dialog.getDialogPane().setMinWidth(380);
 
-        Optional<String> result = com.example.jylos.ui.UiDialogs.show(dialog);
+        Optional<String> result = UiDialogs.show(dialog);
         if (result.isEmpty() || result.get().trim().isEmpty()) {
             return;
         }
@@ -488,7 +617,7 @@ class DialogSupport {
                 alert.setTitle(i18n("dialog.tag_exists.title"));
                 alert.setHeaderText(i18n("dialog.tag_exists.header"));
                 alert.setContentText(i18n("dialog.tag_exists.content"));
-                com.example.jylos.ui.UiDialogs.show(alert);
+                UiDialogs.show(alert);
                 return;
             }
 

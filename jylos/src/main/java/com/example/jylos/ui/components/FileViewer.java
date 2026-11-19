@@ -5,9 +5,11 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ResourceBundle;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -21,12 +23,14 @@ import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.ui.UiNodes;
 import com.example.jylos.util.AttachmentType;
 
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressIndicator;
@@ -78,14 +82,14 @@ public final class FileViewer {
     }
 
     /** Builds the appropriate viewer for {@code path} given its {@code type}. */
-    public static Region forAttachment(Path path, AttachmentType type, java.util.ResourceBundle bundle) {
+    public static Region forAttachment(Path path, AttachmentType type, ResourceBundle bundle) {
         if (type == AttachmentType.PDF) {
             return pdfViewer(path, bundle);
         }
         return imageViewer(path);
     }
 
-    private static String tr(java.util.ResourceBundle bundle, String key, String fallback) {
+    private static String tr(ResourceBundle bundle, String key, String fallback) {
         try {
             return bundle != null ? bundle.getString(key) : fallback;
         } catch (Exception e) {
@@ -93,7 +97,7 @@ public final class FileViewer {
         }
     }
 
-    // ── Image viewer ──────────────────────────────────────────────────────────
+    // ── Image viewer ─────────────────────────────────────────────────────────
 
     private static Region imageViewer(Path path) {
         ImageView view = new ImageView();
@@ -108,7 +112,10 @@ public final class FileViewer {
         scroll.setFitToHeight(true);
         scroll.getStyleClass().add("viewer-scroll");
 
-        Image image = new Image(path.toUri().toString(), true); // background load
+        // JavaFX decodes the usual formats itself, in the background; WebP is read through
+        // ImageIO (TwelveMonkeys plugin), also off the UI thread.
+        boolean webp = AttachmentType.extensionOf(path.toString()).equals("webp");
+        Image image = webp ? null : new Image(path.toUri().toString(), true);
         view.setImage(image);
 
         // Default: fit the image to the viewport width.
@@ -126,11 +133,28 @@ public final class FileViewer {
                 fit.run();
             }
         });
-        image.progressProperty().addListener((o, a, p) -> {
-            if (p.doubleValue() >= 1.0) {
-                Platform.runLater(apply);
-            }
-        });
+        if (webp) {
+            Thread reader = new Thread(() -> {
+                try {
+                    BufferedImage read = ImageIO.read(path.toFile());
+                    Image converted = read != null ? toFxImage(read) : null;
+                    Platform.runLater(() -> {
+                        view.setImage(converted);
+                        apply.run();
+                    });
+                } catch (Exception e) {
+                    logger.fine("Could not read WebP image: " + e.getMessage());
+                }
+            }, "jylos-webp-viewer");
+            reader.setDaemon(true);
+            reader.start();
+        } else {
+            image.progressProperty().addListener((o, a, p) -> {
+                if (p.doubleValue() >= 1.0) {
+                    Platform.runLater(apply);
+                }
+            });
+        }
 
         HBox toolbar = viewerToolbar();
         Button zoomOut = toolBtn("−");
@@ -139,16 +163,16 @@ public final class FileViewer {
         Button fullBtn = toolBtn("100%");
         zoomOut.setOnAction(e -> {
             double base = zoom[0] > 0 ? zoom[0] : view.getBoundsInLocal().getWidth();
-            zoom[0] = Math.max(image.getWidth() * MIN_ZOOM, base / ZOOM_STEP);
+            zoom[0] = Math.max(shownWidth(view) * MIN_ZOOM, base / ZOOM_STEP);
             apply.run();
         });
         zoomIn.setOnAction(e -> {
             double base = zoom[0] > 0 ? zoom[0] : view.getBoundsInLocal().getWidth();
-            zoom[0] = Math.min(image.getWidth() * MAX_ZOOM, base * ZOOM_STEP);
+            zoom[0] = Math.min(shownWidth(view) * MAX_ZOOM, base * ZOOM_STEP);
             apply.run();
         });
         fitBtn.setOnAction(e -> { zoom[0] = 0; apply.run(); });
-        fullBtn.setOnAction(e -> { zoom[0] = image.getWidth(); apply.run(); });
+        fullBtn.setOnAction(e -> { zoom[0] = shownWidth(view); apply.run(); });
         toolbar.getChildren().addAll(zoomOut, zoomIn, fitBtn, fullBtn);
 
         BorderPane root = new BorderPane(scroll);
@@ -157,9 +181,9 @@ public final class FileViewer {
         return root;
     }
 
-    // ── PDF viewer ──────────────────────────────────────────────────────────
+    // ── PDF viewer ───────────────────────────────────────────────────────────
 
-    private static Region pdfViewer(Path path, java.util.ResourceBundle bundle) {
+    private static Region pdfViewer(Path path, ResourceBundle bundle) {
         String positionKey = path.toAbsolutePath().normalize().toString();
         VBox pages = new VBox(12);
         pages.setAlignment(Pos.TOP_CENTER);
@@ -178,8 +202,7 @@ public final class FileViewer {
         thumbnailScroll.setFitToWidth(true);
         thumbnailScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         thumbnailScroll.getStyleClass().addAll("viewer-scroll", "viewer-thumbnail-scroll");
-        thumbnailScroll.setVisible(false);
-        thumbnailScroll.setManaged(false);
+        UiNodes.show(thumbnailScroll, false);
 
         ProgressIndicator spinner = new ProgressIndicator();
         spinner.setMaxSize(48, 48);
@@ -272,8 +295,7 @@ public final class FileViewer {
                 }
             });
             thumbnailsBtn.selectedProperty().addListener((obs, wasSelected, selected) -> {
-                thumbnailScroll.setVisible(selected);
-                thumbnailScroll.setManaged(selected);
+                UiNodes.show(thumbnailScroll, selected);
                 if (selected) {
                     session.renderThumbnails(thumbnailSlots);
                     selectThumbnail(thumbnailSlots, visiblePageIndex(scroll, pages, slots));
@@ -461,7 +483,7 @@ public final class FileViewer {
         }
 
         List<PdfPageSlot> createSlots() {
-            List<PdfPageSlot> slots = new java.util.ArrayList<>();
+            List<PdfPageSlot> slots = new ArrayList<>();
             for (PDPage page : document.getPages()) {
                 float width = page.getMediaBox().getWidth();
                 float height = page.getMediaBox().getHeight();
@@ -471,7 +493,7 @@ public final class FileViewer {
         }
 
         List<PdfThumbnailSlot> createThumbnailSlots() {
-            List<PdfThumbnailSlot> slots = new java.util.ArrayList<>();
+            List<PdfThumbnailSlot> slots = new ArrayList<>();
             for (int i = 0; i < pageCount(); i++) {
                 slots.add(new PdfThumbnailSlot(i + 1));
             }
@@ -699,7 +721,7 @@ public final class FileViewer {
         void setImage(Image image) {
             imageView.setImage(image);
             Label badge = null;
-            for (javafx.scene.Node node : getChildren()) {
+            for (Node node : getChildren()) {
                 if (node instanceof Label label && label.getStyleClass().contains("viewer-thumbnail-number")) {
                     badge = label;
                     break;
@@ -723,6 +745,11 @@ public final class FileViewer {
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
+
+    /** Width of the picture shown, 0 while it loads. */
+    private static double shownWidth(ImageView view) {
+        return view.getImage() != null ? view.getImage().getWidth() : 0;
+    }
 
     private static Image toFxImage(BufferedImage image) throws Exception {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {

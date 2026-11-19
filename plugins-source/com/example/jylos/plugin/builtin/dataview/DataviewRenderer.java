@@ -6,7 +6,12 @@ import com.example.jylos.plugin.builtin.dataview.QueryEngine.QueryResult;
 import com.example.jylos.plugin.builtin.dataview.QueryEngine.ResultGroup;
 import com.example.jylos.plugin.builtin.dataview.QueryEngine.ResultRow;
 
-/** Renders query results as the HTML injected back into the note preview. */
+/**
+ * Renders query results as the HTML injected back into the note preview.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
+ */
 final class DataviewRenderer {
 
     private DataviewRenderer() {

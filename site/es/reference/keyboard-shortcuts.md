@@ -7,6 +7,7 @@ Los atajos usan `Cmd` en macOS y `Ctrl` en Windows y Linux (mostrados aquí como
 | Atajo | Acción |
 | --- | --- |
 | `Ctrl/Cmd+N` | Nueva nota |
+| `Ctrl/Cmd+T` | Nueva pestaña |
 | `Ctrl/Cmd+Shift+N` | Nueva carpeta |
 | `Ctrl/Cmd+Shift+D` | Nota diaria |
 | `Ctrl/Cmd+S` | Guardar |
@@ -23,8 +24,18 @@ Los atajos usan `Cmd` en macOS y `Ctrl` en Windows y Linux (mostrados aquí como
 | `Ctrl/Cmd+K` | Vista Kanban |
 | `Ctrl/Cmd+Shift+K` | Knowledge Insights |
 | `Ctrl/Cmd+Shift+F` | Modo concentración / escritura |
-| `F8` | Mostrar/ocultar lista de notas |
+| `F8` | Mostrar/ocultar lista de notas (diseño Explorador: cerrar el panel de resultados) |
 | `F9` | Mostrar/ocultar barra lateral |
+
+## Pestañas y árbol Explorador
+
+| Gesto | Acción |
+| --- | --- |
+| Clic en una nota | Abrirla en la pestaña actual |
+| `Ctrl/Cmd`+clic o clic central en una nota | Abrirla en una pestaña nueva |
+| Clic central en una pestaña | Cerrar la pestaña |
+| `Intro` en el árbol Explorador | Abrir la nota seleccionada, o desplegar/plegar la carpeta seleccionada |
+| `Ctrl/Cmd+Intro` en el árbol Explorador | Abrir la nota seleccionada en una pestaña nueva |
 
 ## Búsqueda y comandos
 

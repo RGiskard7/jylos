@@ -1,6 +1,7 @@
 package com.example.jylos.ui;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import javafx.scene.Scene;
@@ -68,7 +69,7 @@ public final class UiDialogs {
     }
 
     /** Themes a dialog and shows it modally, returning its result. */
-    public static <T> java.util.Optional<T> show(Dialog<T> dialog) {
+    public static <T> Optional<T> show(Dialog<T> dialog) {
         apply(dialog);
         return dialog.showAndWait();
     }
@@ -98,7 +99,7 @@ public final class UiDialogs {
      * windows such as the plugin manager). Adds the {@code root-container} style
      * class to the root so theme variables resolve.
      */
-    public static void apply(javafx.scene.Scene scene) {
+    public static void apply(Scene scene) {
         if (scene == null) {
             return;
         }
@@ -108,7 +109,7 @@ public final class UiDialogs {
         }
     }
 
-    private static void applyToScene(javafx.scene.Scene scene) {
+    private static void applyToScene(Scene scene) {
         if (scene != null && !stylesheets.isEmpty()) {
             scene.getStylesheets().setAll(stylesheets);
         }

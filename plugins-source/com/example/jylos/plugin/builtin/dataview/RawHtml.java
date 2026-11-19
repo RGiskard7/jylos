@@ -8,6 +8,8 @@ package com.example.jylos.plugin.builtin.dataview;
  * path for a note to inject arbitrary HTML into the preview.</p>
  *
  * @param html safe, fully-escaped markup
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
  */
 record RawHtml(String html) {
 

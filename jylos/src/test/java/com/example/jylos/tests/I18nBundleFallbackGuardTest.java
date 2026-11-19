@@ -1,10 +1,12 @@
 package com.example.jylos.tests;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.ResourceBundle;
@@ -48,6 +50,12 @@ class I18nBundleFallbackGuardTest {
         "cmd.toggle_sidebar",
         "cmd.graph_view",
         "cmd.knowledge_insights",
+        "cmd.vault_cleanup",
+        "cmd.import_obsidian_bookmarks",
+        "cmd.import_obsidian_settings",
+        "cmd.insert_template",
+        "cmd.insert_current_date",
+        "cmd.insert_current_time",
         "cmd.workspace_save",
         "cmd.workspace_save_as",
         "cmd.workspace_open",
@@ -105,12 +113,7 @@ class I18nBundleFallbackGuardTest {
         "plugin.daily-notes.daily-notes-open-yesterday",
         "plugin.daily-notes.daily-notes-open-tomorrow",
         "plugin.daily-notes.daily-notes-this-week",
-        "plugin.outline.outline-refresh",
-        "plugin.ai-assistant.ai-summarize-note",
-        "plugin.ai-assistant.ai-translate-note",
-        "plugin.ai-assistant.ai-improve-writing",
-        "plugin.ai-assistant.ai-generate-content",
-        "plugin.ai-assistant.ai-configure-api"
+        "plugin.outline.outline-refresh"
     };
 
     @Test
@@ -140,6 +143,22 @@ class I18nBundleFallbackGuardTest {
     }
 
     /** No duplicate keys in any bundle (a Properties load would silently drop them). */
+    /**
+     * The base bundle is the English one: what a language without its own bundle gets. Kept
+     * identical, text and all, so an English fix made in one is not missing from the other.
+     */
+    @Test
+    void theBaseBundleIsTheEnglishOne() throws Exception {
+        try (InputStream base = getClass().getResourceAsStream(BUNDLES[0]);
+                InputStream english = getClass().getResourceAsStream(BUNDLES[1])) {
+            assertNotNull(base);
+            assertNotNull(english);
+            assertEquals(new String(english.readAllBytes(), StandardCharsets.UTF_8),
+                    new String(base.readAllBytes(), StandardCharsets.UTF_8),
+                    "messages.properties must stay identical to messages_en.properties");
+        }
+    }
+
     @Test
     void bundlesHaveNoDuplicateKeys() throws Exception {
         for (String path : BUNDLES) {
@@ -152,7 +171,7 @@ class I18nBundleFallbackGuardTest {
             }
             long rawKeyLines;
             try (InputStream in = getClass().getResourceAsStream(path)) {
-                rawKeyLines = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+                rawKeyLines = new String(in.readAllBytes(), StandardCharsets.UTF_8)
                         .lines()
                         .filter(l -> l.matches("^[A-Za-z][A-Za-z0-9._-]*=.*"))
                         .count();

@@ -2,22 +2,30 @@ package com.example.jylos.data.dao.filesystem;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
@@ -30,6 +38,7 @@ import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.exceptions.DataAccessException;
 import com.example.jylos.exceptions.InvalidParameterException;
+import com.example.jylos.service.EncryptionService;
 import com.example.jylos.util.AttachmentType;
 import com.example.jylos.util.PathContainment;
 import com.example.jylos.util.WikiLinkResolver;
@@ -37,6 +46,9 @@ import com.example.jylos.util.WikiLinkResolver;
 /**
  * File System implementation of NoteDAO.
  * Stores notes as Markdown files with YAML frontmatter.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class NoteDAOFileSystem implements NoteDAO {
 
@@ -49,6 +61,8 @@ public class NoteDAOFileSystem implements NoteDAO {
 
     // Cache to map Note ID (Relative Path) -> Absolute Path
     private final Map<String, Path> idToPathMap = new ConcurrentHashMap<>();
+    /** Where folders went during this session; shared with the folder DAO of the same vault. */
+    private FileSystemPathRedirects redirects = new FileSystemPathRedirects();
     // Cache to map Note ID -> Note object (Lightweight)
     private final Map<String, Note> cachedNotes = new ConcurrentHashMap<>();
     // Index: folderId -> notes (direct children only)
@@ -59,6 +73,20 @@ public class NoteDAOFileSystem implements NoteDAO {
     /** Body characters kept on cached notes for the notes list preview. */
     private static final int LIGHTWEIGHT_BODY_CHARS = 900;
     private volatile long lastPruneTimestampMs = 0L;
+
+    // Notes longer than the head read for the list: their links come from the persistent
+    // cache, or from a full read in the background (see indexLongNotes).
+    /** Reads the stored cache; called once, on first use (see {@link #linkCache()}). */
+    private final Supplier<LinkCache> linkCacheLoader;
+    private final Object linkCacheLock = new Object();
+    private volatile LinkCache linkCache;
+    /** Long notes whose links so far cover only the head read. */
+    private final Set<String> pendingLongNotes = ConcurrentHashMap.newKeySet();
+    /** Every long note of the vault, to drop the cache entries of notes that are gone. */
+    private final Set<String> longNoteIds = ConcurrentHashMap.newKeySet();
+    private final AtomicBoolean longNoteIndexingScheduled = new AtomicBoolean();
+    private volatile boolean autoIndexLongNotes;
+    private volatile Runnable onLinksIndexed;
     private volatile boolean notesByFolderIndexDirty = true;
 
     // Deferred (background) content-load coordination — see the two-arg constructor.
@@ -87,6 +115,27 @@ public class NoteDAOFileSystem implements NoteDAO {
      *        When {@code false}, contents load synchronously.
      */
     public NoteDAOFileSystem(String rootDirectory, boolean deferContentLoad) {
+        this(rootDirectory, deferContentLoad, (Path) null);
+    }
+
+    /**
+     * @param linkCacheFile where the links of long notes are kept between sessions, or
+     *        {@code null} to index them again on every start (see {@link LinkCache})
+     */
+    public NoteDAOFileSystem(String rootDirectory, boolean deferContentLoad, Path linkCacheFile) {
+        this(rootDirectory, deferContentLoad,
+                () -> linkCacheFile != null ? LinkCache.load(linkCacheFile) : LinkCache.inMemory());
+    }
+
+    /**
+     * @param linkCacheLoader reads the stored link cache. With a deferred load it runs on the
+     *        background loader: the vault is opened on the JavaFX thread while the window is
+     *        built, and the cache of a big vault is megabytes of JSON.
+     */
+    NoteDAOFileSystem(String rootDirectory, boolean deferContentLoad,
+            Supplier<LinkCache> linkCacheLoader) {
+        this.linkCacheLoader = linkCacheLoader;
+        this.autoIndexLongNotes = deferContentLoad;
         this.rootPath = Paths.get(rootDirectory);
         this.metadataStore = new FileSystemDocumentMetadataStore(this.rootPath);
         if (!Files.exists(rootPath)) {
@@ -115,6 +164,93 @@ public class NoteDAOFileSystem implements NoteDAO {
     public void refreshCache() {
         metadataStore.clearCache();
         rebuildCache(this::createLightweightNote);
+        scheduleLongNoteIndexing();
+    }
+
+    /** The link cache, read from disk the first time it is needed. */
+    private LinkCache linkCache() {
+        LinkCache cache = linkCache;
+        if (cache == null) {
+            synchronized (linkCacheLock) {
+                cache = linkCache;
+                if (cache == null) {
+                    cache = linkCacheLoader.get();
+                    linkCache = cache;
+                }
+            }
+        }
+        return cache;
+    }
+
+    /** Long notes whose links still cover only the head read; {@link #indexLongNotes()} reads them in full. */
+    public int pendingLongNoteCount() {
+        return pendingLongNotes.size();
+    }
+
+    /** Called (off the FX thread) after {@link #indexLongNotes()} found links the list had not read. */
+    @Override
+    public void setOnLinksIndexed(Runnable callback) {
+        this.onLinksIndexed = callback;
+    }
+
+    /**
+     * Reads in full every long note whose links are not in the cache, stores the result (in
+     * memory, on the cached notes, and on disk) and reports it through
+     * {@link #setOnLinksIndexed(Runnable)} when anything was read. Slow on a big or
+     * cloud-backed vault, so it runs on a background thread after the list has loaded.
+     *
+     * @return how many notes were read
+     */
+    public int indexLongNotes() {
+        int indexed = 0;
+        for (String id : new ArrayList<>(pendingLongNotes)) {
+            Path path = idToPathMap.get(id);
+            if (path == null) {
+                pendingLongNotes.remove(id);
+                continue;
+            }
+            try {
+                // Stat before reading: if the file changes meanwhile the entry is merely
+                // outdated and the next start reads it again.
+                BasicFileAttributes attrs =
+                        Files.readAttributes(path, BasicFileAttributes.class);
+                String content = Files.readString(path, StandardCharsets.UTF_8);
+                List<String> links = FrontmatterHandler.linksOf(content);
+                linkCache().put(id, attrs.lastModifiedTime().toMillis(), attrs.size(), links);
+                cachedNotes.computeIfPresent(id, (key, note) -> {
+                    note.setLinkTargets(links);
+                    return note;
+                });
+                indexed++;
+            } catch (IOException | RuntimeException e) {
+                logger.log(Level.FINE, "Could not index links of " + id, e);
+            }
+            pendingLongNotes.remove(id);
+        }
+        linkCache().retainOnly(longNoteIds);
+        linkCache().save();
+        Runnable callback = onLinksIndexed;
+        if (indexed > 0 && callback != null) {
+            runCallbackSafely(callback);
+        }
+        return indexed;
+    }
+
+    /** Runs {@link #indexLongNotes()} once on a daemon thread, if the DAO indexes on its own. */
+    private void scheduleLongNoteIndexing() {
+        if (!autoIndexLongNotes || pendingLongNotes.isEmpty()
+                || !longNoteIndexingScheduled.compareAndSet(false, true)) {
+            return;
+        }
+        Thread indexer = new Thread(() -> {
+            try {
+                indexLongNotes();
+            } finally {
+                longNoteIndexingScheduled.set(false);
+            }
+        }, "vault-long-note-indexer");
+        indexer.setDaemon(true);
+        indexer.start();
     }
 
     @Override
@@ -124,8 +260,8 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
         FileSystemIoLock.LOCK.lock();
         try {
-            String previousId = normalizeId(previousNoteId);
-            String currentId = normalizeId(movedNote.getId());
+            String previousId = FileSystemNames.normalizeId(previousNoteId);
+            String currentId = FileSystemNames.normalizeId(movedNote.getId());
             Path currentPath = rootPath.resolve(currentId.replace("/", File.separator)).toAbsolutePath().normalize();
 
             if (!previousId.isBlank() && !previousId.equals(currentId)) {
@@ -164,24 +300,26 @@ public class NoteDAOFileSystem implements NoteDAO {
      * file (full head read vs metadata only) — that is the only difference between the
      * full and metadata-only refreshes.
      */
-    private void rebuildCache(java.util.function.BiFunction<String, Path, Note> noteFactory) {
+    private void rebuildCache(BiFunction<String, Path, Note> noteFactory) {
         FileSystemIoLock.LOCK.lock();
         try {
             idToPathMap.clear();
             cachedNotes.clear();
+            pendingLongNotes.clear();
+            longNoteIds.clear();
             try (Stream<Path> walk = Files.walk(rootPath)) {
                 // Parallel walk for faster initial load of thousands of files.
                 walk.filter(Files::isRegularFile)
                         // Markdown notes plus viewable attachments (PDF, images) so the vault
                         // lists them alongside notes (Obsidian-style).
                         .filter(p -> p.toString().endsWith(".md")
-                                || com.example.jylos.util.AttachmentType.isAttachment(p.getFileName().toString()))
+                                || AttachmentType.isAttachment(p.getFileName().toString()))
                         // Exclude hidden entries inside the vault (.trash, .git); a hidden
                         // directory *above* the vault (e.g. ~/.config) must not hide it all.
                         .filter(p -> !FileSystemNames.isHiddenWithinVault(rootPath, p))
                         .parallel()
                         .forEach(path -> {
-                            String relativePath = normalizeId(rootPath.relativize(path).toString());
+                            String relativePath = FileSystemNames.normalizeId(rootPath.relativize(path).toString());
                             idToPathMap.put(relativePath, path);
                             // Maps are concurrent, so parallel population is safe.
                             cachedNotes.put(relativePath, noteFactory.apply(relativePath, path));
@@ -205,6 +343,7 @@ public class NoteDAOFileSystem implements NoteDAO {
     private void startBackgroundContentLoad() {
         Thread loader = new Thread(() -> {
             try {
+                linkCache();   // here, before the notes that need it are read, and off the UI thread
                 List<Map.Entry<String, Path>> snapshot = new ArrayList<>(idToPathMap.entrySet());
                 int threads = Math.max(4, Math.min(32, Runtime.getRuntime().availableProcessors() * 4));
                 ExecutorService pool = Executors.newFixedThreadPool(threads, r -> {
@@ -240,6 +379,8 @@ public class NoteDAOFileSystem implements NoteDAO {
             } finally {
                 markContentLoaded();
             }
+            // After the list is usable: reading long notes in full may block on a cloud download.
+            scheduleLongNoteIndexing();
         }, "vault-content-loader-main");
         loader.setDaemon(true);
         loader.start();
@@ -292,7 +433,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         Note note = new Note(id, title, "");
         note.setContentComplete(false);
         applyFileTimestampsIfMissing(note, path);
-        if (com.example.jylos.util.AttachmentType.isAttachment(filename)) {
+        if (AttachmentType.isAttachment(filename)) {
             metadataStore.applyDocumentMetadata(id, note);
         }
         return note;
@@ -310,7 +451,7 @@ public class NoteDAOFileSystem implements NoteDAO {
 
         // Attachments (PDF, images) are binary: never parse them as Markdown/frontmatter.
         // Keep the full filename as title so the list shows "report.pdf", "diagram.png".
-        if (com.example.jylos.util.AttachmentType.isAttachment(filename)) {
+        if (AttachmentType.isAttachment(filename)) {
             Note attachment = new Note(id, title, "");
             attachment.setContentComplete(false);
             applyFileTimestampsIfMissing(attachment, path);
@@ -328,11 +469,28 @@ public class NoteDAOFileSystem implements NoteDAO {
             note.setId(id);
             note.setTitle(title);
             note.setContentComplete(false);
+            metadataStore.applyNoteMarks(id, note);
             applyFileTimestampsIfMissing(note, path);
             // Index outgoing links from the (untruncated) content head already read, so the
             // backlink index needs no second full-file read per note — critical on large or
             // cloud-backed vaults where each read can block on an on-demand download.
-            note.setLinkTargets(WikiLinkResolver.extractLinkTargets(FrontmatterHandler.stripFrontmatter(head)));
+            List<String> links = FrontmatterHandler.linksOf(head);
+            // A longer file has links the head does not show: take them from the cache when the
+            // file is unchanged, and queue it for a full read in the background otherwise.
+            BasicFileAttributes attrs =
+                    Files.readAttributes(path, BasicFileAttributes.class);
+            if (attrs.size() > LIGHTWEIGHT_READ_BYTES && filename.endsWith(".md")) {
+                longNoteIds.add(id);
+                Optional<List<String>> cached =
+                        linkCache().get(id, attrs.lastModifiedTime().toMillis(), attrs.size());
+                if (cached.isPresent()) {
+                    links = cached.get();
+                    pendingLongNotes.remove(id);
+                } else {
+                    pendingLongNotes.add(id);
+                }
+            }
+            note.setLinkTargets(links);
             return note;
         } catch (IOException | RuntimeException e) {
             logger.log(Level.FINE, "Failed lightweight read for: " + path, e);
@@ -344,7 +502,7 @@ public class NoteDAOFileSystem implements NoteDAO {
     }
 
     private static boolean isCanvasFile(String filename) {
-        return com.example.jylos.util.AttachmentType.fromName(filename) == com.example.jylos.util.AttachmentType.CANVAS;
+        return AttachmentType.fromName(filename) == AttachmentType.CANVAS;
     }
 
     private Note readCanvasNote(String id, Path path) throws IOException {
@@ -402,7 +560,7 @@ public class NoteDAOFileSystem implements NoteDAO {
 
             // Determine parent directory
             Path parentDir = rootPath;
-            String suggestedId = normalizeId(note.getId());
+            String suggestedId = FileSystemNames.normalizeId(note.getId());
 
             if (!suggestedId.isEmpty()) {
                 // Check if the ID implies a folder path (e.g. "Folder/Note.md" or just
@@ -424,7 +582,7 @@ public class NoteDAOFileSystem implements NoteDAO {
 
             // Attachments (e.g. .canvas) keep their own extension and are written as raw
             // bytes — no ".md" suffix and no frontmatter wrapper.
-            boolean attachment = com.example.jylos.util.AttachmentType.isAttachment(note.getTitle());
+            boolean attachment = AttachmentType.isAttachment(note.getTitle());
             String base;
             String ext;
             if (attachment) {
@@ -452,7 +610,7 @@ public class NoteDAOFileSystem implements NoteDAO {
             }
 
             // Set the ID to relative path
-            String relativePath = normalizeId(rootPath.relativize(filePath).toString());
+            String relativePath = FileSystemNames.normalizeId(rootPath.relativize(filePath).toString());
             note.setId(relativePath);
 
             try {
@@ -467,6 +625,9 @@ public class NoteDAOFileSystem implements NoteDAO {
                 FileSystemAtomicWriter.writeString(filePath, fileContent, StandardCharsets.UTF_8);
                 if (attachment) {
                     metadataStore.persistDocumentMetadata(note);
+                } else {
+                    // Also clears marks left by a note that was at this path before.
+                    metadataStore.persistNoteMarks(note, FrontmatterHandler.claimsMarks(fileContent));
                 }
                 idToPathMap.put(relativePath, filePath);
                 cachedNotes.put(relativePath, note);
@@ -482,8 +643,8 @@ public class NoteDAOFileSystem implements NoteDAO {
     }
 
     @Override
-    public java.util.Optional<Path> storageRoot() {
-        return java.util.Optional.of(rootPath.toAbsolutePath().normalize());
+    public Optional<Path> storageRoot() {
+        return Optional.of(rootPath.toAbsolutePath().normalize());
     }
 
     /**
@@ -496,7 +657,7 @@ public class NoteDAOFileSystem implements NoteDAO {
             return walk.filter(Files::isRegularFile)
                     .filter(p -> p.getFileName().toString().endsWith(".md"))
                     .anyMatch(this::isPrivateNoteFile);
-        } catch (IOException | java.io.UncheckedIOException e) {
+        } catch (IOException | UncheckedIOException e) {
             logger.log(Level.WARNING, "Could not scan vault for private notes", e);
             return false;
         }
@@ -512,21 +673,21 @@ public class NoteDAOFileSystem implements NoteDAO {
     }
 
     @Override
-    public java.util.Optional<Path> resolveFilePath(String id) {
+    public Optional<Path> resolveFilePath(String id) {
         if (id == null || !isInsideVault(id)) {
-            return java.util.Optional.empty();
+            return Optional.empty();
         }
         Path path = idToPathMap.get(id);
         if (path == null) {
-            path = idToPathMap.get(normalizeId(id));
+            path = idToPathMap.get(FileSystemNames.normalizeId(id));
         }
         if (path == null) {
-            Path potential = rootPath.resolve(normalizeId(id).replace("/", File.separator));
+            Path potential = rootPath.resolve(FileSystemNames.normalizeId(id).replace("/", File.separator));
             if (Files.exists(potential)) {
                 path = potential.toAbsolutePath().normalize();
             }
         }
-        return java.util.Optional.ofNullable(path).filter(Files::exists);
+        return Optional.ofNullable(path).filter(Files::exists);
     }
 
     /** Reads and fully parses the Markdown file for {@code id}, resolving the path from the cache or disk. */
@@ -535,7 +696,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         if (id == null || !isInsideVault(id))
             return null;
 
-        String normalizedId = normalizeId(id);
+        String normalizedId = FileSystemNames.normalizeId(id);
         Path path = idToPathMap.get(id);
         if (path == null) {
             path = idToPathMap.get(normalizedId);
@@ -556,13 +717,17 @@ public class NoteDAOFileSystem implements NoteDAO {
                 path = potential.toAbsolutePath().normalize();
                 idToPathMap.put(normalizedId, path);
             } else {
-                return null;
+                // Read before a folder above it was renamed or moved: follow it there.
+                String moved = redirects.current(normalizedId);
+                boolean there = !moved.equals(normalizedId)
+                        && Files.exists(rootPath.resolve(moved.replace("/", File.separator)));
+                return there ? getNoteById(moved) : null;
             }
         }
 
         // Attachments (PDF, images) are binary — return their metadata, never decode
         // the bytes as Markdown text.
-        if (com.example.jylos.util.AttachmentType.isAttachment(path.getFileName().toString())) {
+        if (AttachmentType.isAttachment(path.getFileName().toString())) {
             if (isCanvasFile(path.getFileName().toString())) {
                 try {
                     return readCanvasNote(normalizedId, path);
@@ -583,6 +748,7 @@ public class NoteDAOFileSystem implements NoteDAO {
             Note note = FrontmatterHandler.parse(content);
             // Override ID with our path-based ID
             note.setId(normalizedId);
+            metadataStore.applyNoteMarks(normalizedId, note);
 
             // Sync Title with Filename
             String filename = path.getFileName().toString();
@@ -591,7 +757,7 @@ public class NoteDAOFileSystem implements NoteDAO {
             note.setTitle(filename);
 
             // Full read → full-body link coverage for the backlink index.
-            note.setLinkTargets(WikiLinkResolver.extractLinkTargets(FrontmatterHandler.stripFrontmatter(content)));
+            note.setLinkTargets(FrontmatterHandler.linksOf(content));
 
             return note;
         } catch (IOException e) {
@@ -601,6 +767,11 @@ public class NoteDAOFileSystem implements NoteDAO {
             logger.warning("Could not read note file (skipped): " + path + " — " + e.getMessage());
             return null;
         }
+    }
+
+    /** Shares where folders went with the folder DAO of the same vault. */
+    void usePathRedirects(FileSystemPathRedirects shared) {
+        this.redirects = shared;
     }
 
     /** Persists changes to an existing note file; renames the file when the title has changed. */
@@ -625,7 +796,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                 throw new InvalidParameterException("Invalid note");
             requireInsideVault(note.getId());
 
-            String normalizedId = normalizeId(note.getId());
+            String normalizedId = FileSystemNames.normalizeId(note.getId());
             note.setId(normalizedId);
             Path path = idToPathMap.get(note.getId());
             if (path == null) {
@@ -634,6 +805,16 @@ public class NoteDAOFileSystem implements NoteDAO {
             if (path == null) {
                 // Check if file exists at ID location
                 path = rootPath.resolve(normalizedId.replace("/", File.separator));
+            }
+            if (!Files.exists(path)) {
+                // Held since before a folder above it was renamed or moved: save it where it is
+                // now, not as a copy under the old folder.
+                String moved = redirects.current(normalizedId);
+                Path movedPath = rootPath.resolve(moved.replace("/", File.separator));
+                if (!moved.equals(normalizedId) && Files.exists(movedPath)) {
+                    path = movedPath.toAbsolutePath().normalize();
+                    note.setId(moved);
+                }
             }
 
             boolean attachment = isAttachmentNote(path, note);
@@ -671,7 +852,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                 Path newPath = path.resolveSibling(expectedFilename);
                 if (!Files.exists(newPath) && missingOnDisk) {
                     String oldId = normalizedId;
-                    String newId = normalizeId(rootPath.relativize(newPath).toString());
+                    String newId = FileSystemNames.normalizeId(rootPath.relativize(newPath).toString());
                     idToPathMap.remove(oldId);
                     cachedNotes.remove(oldId);
                     note.setId(newId);
@@ -685,8 +866,8 @@ public class NoteDAOFileSystem implements NoteDAO {
                         idToPathMap.remove(oldId);
                         cachedNotes.remove(oldId);
 
-                        String newId = normalizeId(rootPath.relativize(newPath).toString());
-                        if (attachment) {
+                        String newId = FileSystemNames.normalizeId(rootPath.relativize(newPath).toString());
+                        if (usesSidecarMetadata(newPath)) {
                             metadataStore.moveDocumentMetadata(oldId, newId);
                         }
                         idToPathMap.put(newId, newPath);
@@ -707,8 +888,16 @@ public class NoteDAOFileSystem implements NoteDAO {
                     Files.createDirectories(path.getParent());
                 }
                 if (!attachment) {
-                    String serialized = FrontmatterHandler.generate(note);
-                    FileSystemAtomicWriter.writeString(path, serialized, StandardCharsets.UTF_8);
+                    // The file as it is now: what it had stays as it was unless the note changed it.
+                    String previous = !missingOnDisk && Files.exists(path)
+                            ? new String(Files.readAllBytes(path), StandardCharsets.UTF_8) : null;
+                    String serialized = FrontmatterHandler.generate(note, previous);
+                    if (!serialized.equals(previous)) {
+                        // Nothing changed (a mark, say, which lives in .jylos/): the file is left alone.
+                        FileSystemAtomicWriter.writeString(path, serialized, StandardCharsets.UTF_8);
+                    }
+                    note.setAddedFrontmatter(null); // what a template added is in the file now
+                    metadataStore.persistNoteMarks(note, FrontmatterHandler.claimsMarks(serialized));
                     if (resyncInlineTags) {
                         // The caller may have just typed a new inline #tag; note.getTags() at
                         // this point still holds whatever was in memory before this edit, since
@@ -724,8 +913,12 @@ public class NoteDAOFileSystem implements NoteDAO {
                     // toggle rewrite a real .canvas file with an empty lightweight body.
                     if (content != null && !content.isBlank()) {
                         try {
-                            FileSystemAtomicWriter.writeString(path, metadataStore.normalizeCanvasDocument(content),
-                                    StandardCharsets.UTF_8);
+                            // A private canvas is stored encrypted, as a private note's body: written
+                            // as it is, not as canvas JSON.
+                            String stored = EncryptionService.isEncrypted(content)
+                                    ? content
+                                    : metadataStore.normalizeCanvasDocument(content);
+                            FileSystemAtomicWriter.writeString(path, stored, StandardCharsets.UTF_8);
                         } catch (IllegalArgumentException e) {
                             throw new DataAccessException("Invalid canvas document: " + note.getId(), e);
                         }
@@ -736,7 +929,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                 if (attachment && isCanvasFile(path.getFileName().toString())) {
                     metadataStore.persistDocumentMetadata(note);
                 }
-                String currentId = normalizeId(note.getId());
+                String currentId = FileSystemNames.normalizeId(note.getId());
                 removeCacheAliasesForIds(normalizedId, currentId);
                 if (!normalizedId.equals(currentId)) {
                     cachedNotes.remove(normalizedId);
@@ -802,14 +995,15 @@ public class NoteDAOFileSystem implements NoteDAO {
             return;
         }
         requireInsideVault(id);
-        String normalizedId = normalizeId(id);
+        // Listed before a folder above it was renamed or moved: the note where it is now.
+        String normalizedId = redirects.locateId(rootPath, id);
 
         Path sourcePath = idToPathMap.get(id);
         if (sourcePath == null) {
             sourcePath = idToPathMap.get(normalizedId);
         }
-        if (sourcePath == null) {
-            Path candidate = rootPath.resolve(normalizedId.replace("/", File.separator));
+        if (sourcePath == null || !Files.exists(sourcePath)) {
+            Path candidate = redirects.locate(rootPath, normalizedId);
             if (Files.exists(candidate)) {
                 sourcePath = candidate;
             }
@@ -826,7 +1020,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         if (sourcePath != null && Files.exists(sourcePath)) {
             try {
                 // Determine target path in trash while preserving relative structure
-                Path trashDir = rootPath.resolve(".trash");
+                Path trashDir = rootPath.resolve(FileSystemNames.TRASH_DIR);
                 Path targetPath = trashDir.resolve(normalizedId.replace("/", File.separator));
 
                 // Ensure target parent directories exist in trash
@@ -846,7 +1040,7 @@ public class NoteDAOFileSystem implements NoteDAO {
 
                 Files.move(sourcePath, targetPath);
                 if (usesSidecarMetadata(sourcePath)) {
-                    String trashedId = normalizeId(rootPath.relativize(targetPath).toString());
+                    String trashedId = FileSystemNames.normalizeId(rootPath.relativize(targetPath).toString());
                     metadataStore.moveDocumentMetadata(normalizedId, trashedId);
                 }
 
@@ -870,10 +1064,11 @@ public class NoteDAOFileSystem implements NoteDAO {
 
             } catch (IOException e) {
                 logger.log(Level.SEVERE, "Failed to move note to trash: " + sourcePath, e);
+                throw new DataAccessException("Could not move note to the trash: " + id, e);
             }
         } else {
             // Idempotent delete: if already in trash or already gone, do not treat as warning.
-            Path trashedPath = rootPath.resolve(".trash").resolve(normalizedId.replace("/", File.separator));
+            Path trashedPath = rootPath.resolve(FileSystemNames.TRASH_DIR).resolve(normalizedId.replace("/", File.separator));
             if (Files.exists(trashedPath)) {
                 logger.fine("Delete request ignored because note is already in trash: " + normalizedId);
             } else {
@@ -891,7 +1086,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         FileSystemIoLock.LOCK.lock();
         try {
             List<Note> deletedNotes = new ArrayList<>();
-            Path trashPath = rootPath.resolve(".trash");
+            Path trashPath = rootPath.resolve(FileSystemNames.TRASH_DIR);
             if (Files.exists(trashPath) && Files.isDirectory(trashPath)) {
                 try (Stream<Path> stream = Files.walk(trashPath)) {
                     stream.filter(Files::isRegularFile)
@@ -944,20 +1139,12 @@ public class NoteDAOFileSystem implements NoteDAO {
             if (!Files.exists(source)) {
                 // Try fallback to just filename if id is not found (for old trashed notes)
                 String filename = Paths.get(normalizedId).getFileName().toString();
-                source = rootPath.resolve(".trash").resolve(filename);
+                source = rootPath.resolve(FileSystemNames.TRASH_DIR).resolve(filename);
             }
 
             if (Files.exists(source)) {
                 // Calculate original relative path
-                String originalRelPath = normalizedId;
-                if (normalizedId.startsWith(".trash/")) {
-                    originalRelPath = normalizedId.substring(".trash/".length());
-                } else if (normalizedId.startsWith(".trash")) {
-                    originalRelPath = normalizedId.substring(6);
-                    if (originalRelPath.startsWith("/")) {
-                        originalRelPath = originalRelPath.substring(1);
-                    }
-                }
+                String originalRelPath = FileSystemNames.originalPathOfTrashed(normalizedId);
 
                 Path target = rootPath.resolve(originalRelPath.replace("/", File.separator));
 
@@ -970,7 +1157,8 @@ public class NoteDAOFileSystem implements NoteDAO {
 
                 // Handle conflicts
                 if (Files.exists(target)) {
-                    target = withConflictSuffix(target, "_restored_" + System.currentTimeMillis());
+                    target = target.resolveSibling(FileSystemNames.withSuffix(target.getFileName().toString(),
+                            "_restored_" + System.currentTimeMillis()));
                 }
 
                 // Ensure parent exists (always true if it's rootPath, but safe to keep)
@@ -980,7 +1168,7 @@ public class NoteDAOFileSystem implements NoteDAO {
 
                 Files.move(source, target);
                 if (usesSidecarMetadata(target)) {
-                    String restoredId = normalizeId(rootPath.relativize(target).toString());
+                    String restoredId = FileSystemNames.normalizeId(rootPath.relativize(target).toString());
                     metadataStore.moveDocumentMetadata(normalizedId, restoredId);
                 }
 
@@ -989,6 +1177,7 @@ public class NoteDAOFileSystem implements NoteDAO {
             }
         } catch (IOException e) {
             logger.log(Level.SEVERE, "Failed to restore note: " + id, e);
+            throw new DataAccessException("Could not restore note: " + id, e);
         }
         } finally {
             FileSystemIoLock.LOCK.unlock();
@@ -1005,7 +1194,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         FileSystemIoLock.LOCK.lock();
         try {
         try {
-            String normalizedId = normalizeId(id);
+            String normalizedId = FileSystemNames.normalizeId(id);
             Path path = rootPath.resolve(normalizedId.replace("/", File.separator)); // id starts with .trash/ usually
 
             if (Files.exists(path)) {
@@ -1021,17 +1210,18 @@ public class NoteDAOFileSystem implements NoteDAO {
             } else {
                 // Try fallback to filename in trash root
                 String filename = path.getFileName().toString();
-                Path fallback = rootPath.resolve(".trash").resolve(filename);
+                Path fallback = rootPath.resolve(FileSystemNames.TRASH_DIR).resolve(filename);
                 if (Files.exists(fallback)) {
                     Files.delete(fallback);
                 }
             }
             // Also remove from cache
             cachedNotes.remove(id);
-            cachedNotes.remove(normalizeId(id));
+            cachedNotes.remove(FileSystemNames.normalizeId(id));
             notesByFolderIndexDirty = true;
         } catch (IOException e) {
             logger.log(Level.SEVERE, "Failed to permanently delete note: " + id, e);
+            throw new DataAccessException("Could not delete note: " + id, e);
         }
         } finally {
             FileSystemIoLock.LOCK.unlock();
@@ -1203,18 +1393,114 @@ public class NoteDAOFileSystem implements NoteDAO {
     }
 
     private boolean isAttachmentNote(Path path, Note note) {
-        return (path != null && com.example.jylos.util.AttachmentType.isAttachment(path.getFileName().toString()))
-                || (note != null && com.example.jylos.util.AttachmentType.isAttachment(note.getTitle()));
+        return (path != null && AttachmentType.isAttachment(path.getFileName().toString()))
+                || (note != null && AttachmentType.isAttachment(note.getTitle()));
     }
 
+    /**
+     * The notes whose properties an older Jylos wrote ({@code id}, {@code favorite},
+     * {@code pinned}, {@code deleted}…), by path, the trash's included. Hidden folders such as
+     * {@code .obsidian} are not notes. Reads only.
+     */
+    public List<String> notesWithJylosFields() {
+        FileSystemIoLock.LOCK.lock();
+        try (Stream<Path> walk = Files.walk(rootPath)) {
+            return walk.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".md"))
+                    .filter(path -> !inHiddenFolder(path))
+                    .filter(path -> {
+                        try {
+                            return FrontmatterHandler.hasJylosFields(
+                                    new String(Files.readAllBytes(path), StandardCharsets.UTF_8));
+                        } catch (IOException e) {
+                            logger.log(Level.WARNING, "Could not read " + path, e);
+                            return false;
+                        }
+                    })
+                    .map(path -> FileSystemNames.normalizeId(rootPath.relativize(path).toString()))
+                    .sorted()
+                    .toList();
+        } catch (IOException e) {
+            throw new DataAccessException("Could not read the vault", e);
+        } finally {
+            FileSystemIoLock.LOCK.unlock();
+        }
+    }
+
+    /**
+     * Takes the fields an older Jylos wrote out of these notes. Each one is first copied to
+     * {@code backupDir}, at the same path; its favorite and pinned marks move to Jylos' data
+     * unless that already has marks for it. A note whose properties Jylos did not write is left
+     * alone.
+     *
+     * @return how many notes were cleaned
+     */
+    public int cleanJylosFields(List<String> ids, Path backupDir) {
+        FileSystemIoLock.LOCK.lock();
+        try {
+            int cleaned = 0;
+            for (String id : ids) {
+                String normalizedId = FileSystemNames.normalizeId(id);
+                requireInsideVault(normalizedId);
+                Path path = rootPath.resolve(normalizedId.replace("/", File.separator));
+                if (!Files.isRegularFile(path)) {
+                    continue;
+                }
+                String file = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+                if (!FrontmatterHandler.hasJylosFields(file)) {
+                    continue;
+                }
+                Path copy = backupDir.resolve(normalizedId.replace("/", File.separator));
+                Files.createDirectories(copy.getParent());
+                Files.copy(path, copy, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+
+                Note old = FrontmatterHandler.parse(file);
+                old.setId(normalizedId);
+                if (!metadataStore.hasNoteMarks(normalizedId)) {
+                    metadataStore.persistNoteMarks(old, false);
+                }
+                String clean = FrontmatterHandler.withoutJylosFields(file);
+                if (clean == null) {
+                    clean = FrontmatterHandler.generate(old, file);
+                }
+                FileSystemAtomicWriter.writeString(path, clean, StandardCharsets.UTF_8);
+                cleaned++;
+            }
+            return cleaned;
+        } catch (IOException e) {
+            throw new DataAccessException("Could not clean the notes of the vault", e);
+        } finally {
+            FileSystemIoLock.LOCK.unlock();
+        }
+    }
+
+    /** Whether {@code path} is under a hidden folder of the vault other than the trash. */
+    private boolean inHiddenFolder(Path path) {
+        Path relative = rootPath.relativize(path).getParent();
+        if (relative == null) {
+            return false;
+        }
+        for (Path part : relative) {
+            String name = part.toString();
+            if (name.startsWith(".") && !name.equals(FileSystemNames.TRASH_DIR)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether Jylos keeps this file's marks in {@code .jylos/}: attachments and notes alike. */
     private boolean usesSidecarMetadata(Path path) {
-        return path != null
-                && com.example.jylos.util.AttachmentType.isAttachment(path.getFileName().toString());
+        if (path == null) {
+            return false;
+        }
+        String name = path.getFileName().toString();
+        return AttachmentType.isAttachment(name) || name.toLowerCase(Locale.ROOT).endsWith(".md");
     }
 
     private String expectedAttachmentFilename(String currentFilename, String requestedTitle) {
         String sanitized = sanitizeFilename(requestedTitle);
-        String currentExtension = com.example.jylos.util.AttachmentType.extensionOf(currentFilename);
+        String currentExtension = AttachmentType.extensionOf(currentFilename);
         String extension = currentExtension;
         String base = sanitized;
 
@@ -1226,17 +1512,10 @@ public class NoteDAOFileSystem implements NoteDAO {
         return extension.isEmpty() ? base : base + "." + extension;
     }
 
-    private Path withConflictSuffix(Path targetPath, String suffix) {
-        String filename = targetPath.getFileName().toString();
-        int dot = filename.lastIndexOf('.');
-        String base = dot > 0 ? filename.substring(0, dot) : filename;
-        String extension = dot > 0 ? filename.substring(dot) : "";
-        return targetPath.getParent().resolve(base + suffix + extension);
-    }
 
     /** Whether {@code id} resolves to a path inside the vault root (see {@link PathContainment}). */
     private boolean isInsideVault(String id) {
-        return PathContainment.resolveInside(rootPath, normalizeId(id)).isPresent();
+        return PathContainment.resolveInside(rootPath, FileSystemNames.normalizeId(id)).isPresent();
     }
 
     /** Rejects ids that would resolve outside the vault before any mutation touches the disk. */
@@ -1246,30 +1525,23 @@ public class NoteDAOFileSystem implements NoteDAO {
         }
     }
 
-    /** Normalizes a note ID to use forward slashes and returns an empty string for null input. */
-    private String normalizeId(String id) {
-        if (id == null) {
-            return "";
-        }
-        return id.replace("\\", "/");
-    }
 
     /**
      * Removes stale alias entries that can appear after filesystem moves/renames
      * performed outside the NoteDAO cache ownership path.
      */
     private void removeCacheAliasesForIds(String previousId, String currentId) {
-        String normalizedPreviousId = normalizeId(previousId);
-        String normalizedCurrentId = normalizeId(currentId);
+        String normalizedPreviousId = FileSystemNames.normalizeId(previousId);
+        String normalizedCurrentId = FileSystemNames.normalizeId(currentId);
         if (normalizedCurrentId.equals(normalizedPreviousId) && cachedNotes.containsKey(normalizedCurrentId)) {
             return;
         }
 
         List<String> aliasKeys = new ArrayList<>();
         for (Map.Entry<String, Note> entry : cachedNotes.entrySet()) {
-            String entryKey = normalizeId(entry.getKey());
+            String entryKey = FileSystemNames.normalizeId(entry.getKey());
             Note cached = entry.getValue();
-            String cachedId = cached != null ? normalizeId(cached.getId()) : "";
+            String cachedId = cached != null ? FileSystemNames.normalizeId(cached.getId()) : "";
 
             boolean previousAlias = !normalizedPreviousId.isBlank()
                     && cachedId.equals(normalizedPreviousId)
@@ -1285,9 +1557,9 @@ public class NoteDAOFileSystem implements NoteDAO {
 
         for (String aliasKey : aliasKeys) {
             cachedNotes.remove(aliasKey);
-            cachedNotes.remove(normalizeId(aliasKey));
+            cachedNotes.remove(FileSystemNames.normalizeId(aliasKey));
             idToPathMap.remove(aliasKey);
-            idToPathMap.remove(normalizeId(aliasKey));
+            idToPathMap.remove(FileSystemNames.normalizeId(aliasKey));
         }
     }
 
@@ -1304,7 +1576,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                     continue;
                 }
 
-                String noteId = normalizeId(note.getId());
+                String noteId = FileSystemNames.normalizeId(note.getId());
                 Path resolved = rootPath.resolve(noteId.replace("/", File.separator));
                 if (!Files.exists(resolved)) {
                     Path mapped = idToPathMap.get(noteId);
@@ -1365,7 +1637,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                 if (note == null || note.getId() == null || note.getId().isBlank() || note.isDeleted()) {
                     continue;
                 }
-                String noteId = normalizeId(note.getId());
+                String noteId = FileSystemNames.normalizeId(note.getId());
                 String folderKey = extractFolderKeyFromNoteId(noteId);
                 notesByFolderIndex.computeIfAbsent(folderKey, k -> new ArrayList<>()).add(note);
             }
@@ -1380,7 +1652,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         if (folderId == null || folderId.isBlank() || ROOT_ID.equals(folderId)) {
             return ROOT_ID;
         }
-        return normalizeId(folderId);
+        return FileSystemNames.normalizeId(folderId);
     }
 
     /** Extracts the parent directory portion of a note's relative path to use as the folder-index key. */
@@ -1388,7 +1660,7 @@ public class NoteDAOFileSystem implements NoteDAO {
         if (noteId == null || noteId.isBlank()) {
             return ROOT_ID;
         }
-        String normalized = normalizeId(noteId);
+        String normalized = FileSystemNames.normalizeId(noteId);
         int idx = normalized.lastIndexOf('/');
         if (idx <= 0) {
             return ROOT_ID;

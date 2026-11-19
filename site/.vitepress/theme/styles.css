@@ -245,3 +245,38 @@ html.jylos-landing-page #app {
 .jylos-landing-shell .VPFooter {
   display: none;
 }
+
+/* Catalogs built from the repository at build time (Themes, Plugins, Community plugins). */
+.vp-doc .catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.vp-doc .catalog-card {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 10px;
+  background: var(--vp-c-bg-soft);
+  padding: 16px 18px;
+}
+.vp-doc .catalog-card h3 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+.vp-doc .catalog-card p {
+  margin: 6px 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+.vp-doc .catalog-meta,
+.vp-doc .catalog-empty {
+  color: var(--vp-c-text-2);
+}
+.vp-doc .catalog-card a {
+  display: inline-block;
+  margin-top: 6px;
+  font-weight: 600;
+}
+.vp-doc .catalog-table td:last-child {
+  white-space: nowrap;
+}

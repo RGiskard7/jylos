@@ -10,6 +10,7 @@ Technical docs for Jylos. User-facing overview: [README.md](../README.md).
 | [LAUNCH_APP.md](LAUNCH_APP.md) | Launchers and JavaFX notes |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Packages, UI layout, storage, events |
 | [ARCHITECTURE_GUIDELINES.md](ARCHITECTURE_GUIDELINES.md) | Normative architecture and growth rules |
+| [WEBVIEW.md](WEBVIEW.md) | JavaFX WebView limitations, the Java/page bridge, and the JCEF option |
 | [I18N.md](I18N.md) | Supported locales and how to add a new language |
 | [PLUGINS.md](PLUGINS.md) | External plugin JAR workflow |
 | [PACKAGING.md](PACKAGING.md) | Platform packaging scripts |
@@ -22,6 +23,7 @@ Technical docs for Jylos. User-facing overview: [README.md](../README.md).
 | [MCP.md](MCP.md) | MCP server plugin: exposed tools, transport, dependency bundling |
 | [SEARCH.md](SEARCH.md) | Advanced search syntax and architecture |
 | [WORKSPACES.md](WORKSPACES.md) | Saved workspace behaviour and persistence |
+| [VAULT_FORMAT.md](VAULT_FORMAT.md) | What a vault note holds, `.jylos/`, Obsidian compatibility and clean-up |
 
 Other repo docs:
 

@@ -1,13 +1,18 @@
 package com.example.jylos.ui.preferences;
 
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Set;
+import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
 import com.example.jylos.ui.theme.CssSnippetCatalog;
 
 /**
  * Centralizes UI preference keys, defaults and persistence.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public final class UiPreferencesStore {
 
@@ -23,6 +28,11 @@ public final class UiPreferencesStore {
     public static final String READABLE_LINE_LENGTH_KEY = "ui.editor.readable_line_length";
     public static final String CONTENT_FONT_SIZE_KEY = "ui.content.font_size";
     public static final String SHOW_FOLDER_NOTE_COUNTS_KEY = "ui.sidebar.show_folder_note_counts";
+    public static final String ALWAYS_OPEN_IN_NEW_TAB_KEY = "ui.tabs.always_new_tab";
+    public static final String LAYOUT_MODE_KEY = "ui.layout.mode";
+    public static final String SHOW_FORMAT_TOOLBAR_KEY = "ui.editor.format_toolbar";
+    public static final String ICON_SIZE_KEY = "ui.icon.size";
+    public static final String COLORED_ICONS_KEY = "ui.icons.colored";
     public static final String SPLIT_MAIN_KEY = "ui.split.main";
     public static final String SPLIT_CONTENT_KEY = "ui.split.content";
     public static final double DEFAULT_SPLIT_MAIN = 0.22;
@@ -57,6 +67,8 @@ public final class UiPreferencesStore {
      * @param contentFontSize font size applied to the note editor (CodeMirror) and preview body text —
      *                        independent from {@code uiFontSize}, which only affects the native JavaFX chrome
      * @param showFolderNoteCounts whether the sidebar folder tree shows each folder's note count
+     * @param alwaysOpenInNewTab whether every opened note gets its own tab instead of replacing the
+     *                           note in the current tab (off by default, like VS Code)
      */
     public record UiPreferencesData(
             boolean autosaveEnabled,
@@ -69,7 +81,8 @@ public final class UiPreferencesStore {
             boolean livePreviewEnabled,
             boolean readableLineLength,
             int contentFontSize,
-            boolean showFolderNoteCounts) {
+            boolean showFolderNoteCounts,
+            boolean alwaysOpenInNewTab) {
     }
 
     public UiPreferencesData load(Preferences prefs) {
@@ -92,7 +105,8 @@ public final class UiPreferencesStore {
         String accent = sanitizeAccent(prefs != null ? prefs.get(UI_ACCENT_KEY, "") : "");
         return new UiPreferencesData(autosaveEnabled, autosaveIdleMs, source, externalId, previewLines, fontSize,
                 accent, loadLivePreviewEnabled(prefs), loadReadableLineLength(prefs), loadContentFontSize(prefs),
-                loadShowFolderNoteCounts(prefs));
+                loadShowFolderNoteCounts(prefs),
+                prefs != null && prefs.getBoolean(ALWAYS_OPEN_IN_NEW_TAB_KEY, false));
     }
 
     public void save(Preferences prefs, UiPreferencesData value) {
@@ -108,6 +122,7 @@ public final class UiPreferencesStore {
         prefs.putBoolean(READABLE_LINE_LENGTH_KEY, value.readableLineLength());
         prefs.putInt(CONTENT_FONT_SIZE_KEY, clampContentFontSize(value.contentFontSize()));
         prefs.putBoolean(SHOW_FOLDER_NOTE_COUNTS_KEY, value.showFolderNoteCounts());
+        prefs.putBoolean(ALWAYS_OPEN_IN_NEW_TAB_KEY, value.alwaysOpenInNewTab());
 
         String source = THEME_SOURCE_EXTERNAL.equals(value.themeSource()) ? THEME_SOURCE_EXTERNAL : THEME_SOURCE_BUILTIN;
         prefs.put(THEME_SOURCE_KEY, source);
@@ -190,7 +205,7 @@ public final class UiPreferencesStore {
             return "";
         }
         String v = value.trim();
-        return v.matches("#[0-9a-fA-F]{6}") ? v.toLowerCase(java.util.Locale.ROOT) : "";
+        return v.matches("#[0-9a-fA-F]{6}") ? v.toLowerCase(Locale.ROOT) : "";
     }
 
     public static int clampPreviewLines(int lines) {
@@ -203,5 +218,67 @@ public final class UiPreferencesStore {
 
     public static int clampContentFontSize(int size) {
         return Math.max(MIN_CONTENT_FONT_SIZE, Math.min(MAX_CONTENT_FONT_SIZE, size));
+    }
+
+    /**
+     * Decides the layout on the first start of a version that has the setting, and stores
+     * it, so the guess happens once. Call it before anything else writes preferences: a node
+     * that already holds keys means Jylos ran before (an upgrade), an empty one a new install.
+     */
+    public LayoutMode initLayoutMode(Preferences prefs) {
+        String stored = prefs.get(LAYOUT_MODE_KEY, null);
+        LayoutMode mode = LayoutMode.resolveDefault(stored, ranBefore(prefs));
+        if (!mode.key().equals(stored)) {
+            prefs.put(LAYOUT_MODE_KEY, mode.key());
+        }
+        return mode;
+    }
+
+    /**
+     * Whether Jylos ran before, read from the main preferences before anything writes them at
+     * startup: a node that already holds keys means an upgrade, an empty one a new install.
+     */
+    public static boolean ranBefore(Preferences prefs) {
+        try {
+            return prefs.keys().length > 0;
+        } catch (BackingStoreException e) {
+            return true;
+        }
+    }
+
+    /** The stored layout; classic columns if none was stored (see {@link #initLayoutMode}). */
+    public LayoutMode loadLayoutMode(Preferences prefs) {
+        return LayoutMode.resolveDefault(prefs.get(LAYOUT_MODE_KEY, null), true);
+    }
+
+    public void saveLayoutMode(Preferences prefs, LayoutMode mode) {
+        prefs.put(LAYOUT_MODE_KEY, (mode != null ? mode : LayoutMode.CLASSIC_COLUMNS).key());
+    }
+
+    /** Whether the format bar under the editor is shown; on unless the user turned it off. */
+    public boolean loadShowFormatToolbar(Preferences prefs) {
+        return prefs.getBoolean(SHOW_FORMAT_TOOLBAR_KEY, true);
+    }
+
+    public void saveShowFormatToolbar(Preferences prefs, boolean show) {
+        prefs.putBoolean(SHOW_FORMAT_TOOLBAR_KEY, show);
+    }
+
+    /** How large icons are drawn, on top of the interface font; normal unless chosen. */
+    public IconSize loadIconSize(Preferences prefs) {
+        return IconSize.fromKey(prefs.get(ICON_SIZE_KEY, null));
+    }
+
+    public void saveIconSize(Preferences prefs, IconSize size) {
+        prefs.put(ICON_SIZE_KEY, (size != null ? size : IconSize.NORMAL).key());
+    }
+
+    /** Whether each kind of file's icon has its own colour; off unless chosen. */
+    public boolean loadColoredIcons(Preferences prefs) {
+        return prefs.getBoolean(COLORED_ICONS_KEY, false);
+    }
+
+    public void saveColoredIcons(Preferences prefs, boolean colored) {
+        prefs.putBoolean(COLORED_ICONS_KEY, colored);
     }
 }

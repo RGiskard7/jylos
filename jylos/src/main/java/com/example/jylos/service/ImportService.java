@@ -69,9 +69,7 @@ public class ImportService {
         this.folderService = folderService;
     }
 
-    // ------------------------------------------------------------------
-    // Obsidian vault
-    // ------------------------------------------------------------------
+    // ── Obsidian vault ───────────────────────────────────────────────────────
 
     /**
      * Imports every {@code .md} note under {@code vaultDir}, recreating the folder
@@ -102,11 +100,8 @@ public class ImportService {
                     if (hasFrontmatter && parsed.getTitle() != null && !parsed.getTitle().isBlank()) {
                         title = parsed.getTitle();
                     }
-                    // Without frontmatter keep the raw body verbatim (the parser would
-                    // otherwise consume the first heading as a synthetic title).
-                    String content = hasFrontmatter
-                            ? (parsed.getContent() != null ? parsed.getContent() : "")
-                            : raw;
+                    // Without frontmatter the parser keeps the whole file as the text.
+                    String content = parsed.getContent() != null ? parsed.getContent() : "";
 
                     Note note = new Note(title, content);
                     note.setStatus(parsed.getStatus());
@@ -178,9 +173,7 @@ public class ImportService {
         return dot > 0 ? fileName.substring(0, dot) : fileName;
     }
 
-    // ------------------------------------------------------------------
-    // Evernote .enex
-    // ------------------------------------------------------------------
+    // ── Evernote .enex ───────────────────────────────────────────────────────
 
     /**
      * Imports the notes of an Evernote {@code .enex} export file. Bodies are converted

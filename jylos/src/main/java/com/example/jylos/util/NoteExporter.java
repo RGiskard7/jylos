@@ -5,6 +5,7 @@ import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.function.Function;
 
 import org.jsoup.Jsoup;
@@ -12,6 +13,8 @@ import org.jsoup.helper.W3CDom;
 import org.jsoup.nodes.Document;
 
 import com.example.jylos.data.models.Note;
+import com.example.jylos.plugin.PreviewContext;
+import com.example.jylos.service.LinkIndex;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 
 /**
@@ -37,7 +40,7 @@ public final class NoteExporter {
      *
      * @param baseDir folder to resolve relative image paths against, or {@code null}
      */
-    public static void exportHtml(Note note, File target, java.nio.file.Path baseDir) throws Exception {
+    public static void exportHtml(Note note, File target, Path baseDir) throws Exception {
         exportHtml(note, target, baseDir, null);
     }
 
@@ -45,7 +48,7 @@ public final class NoteExporter {
      * Writes the note as a self-contained, styled HTML document using the provided
      * embed resolver for {@code ![[transclusions]]}.
      */
-    public static void exportHtml(Note note, File target, java.nio.file.Path baseDir,
+    public static void exportHtml(Note note, File target, Path baseDir,
             Function<String, String> embeddedContentResolver) throws Exception {
         exportHtml(note, target, baseDir, embeddedContentResolver, null);
     }
@@ -55,18 +58,30 @@ public final class NoteExporter {
      * {@code imageContainmentRoot} (normally the vault root) bounding which local images
      * get embedded; {@code null} contains them to {@code baseDir}.
      */
-    public static void exportHtml(Note note, File target, java.nio.file.Path baseDir,
-            Function<String, String> embeddedContentResolver, java.nio.file.Path imageContainmentRoot)
+    public static void exportHtml(Note note, File target, Path baseDir,
+            Function<String, String> embeddedContentResolver, Path imageContainmentRoot)
             throws Exception {
-        String html = MarkdownPreview.buildPreviewHtml(content(note), false, null, baseDir, embeddedContentResolver,
-                null, false, 0, imageContainmentRoot);
+        exportHtml(note, target, baseDir, embeddedContentResolver, imageContainmentRoot, null);
+    }
+
+    /**
+     * Same as {@link #exportHtml(Note, File, java.nio.file.Path, Function, java.nio.file.Path)},
+     * with the vault's {@code links} telling links to existing notes from links to notes to create.
+     */
+    public static void exportHtml(Note note, File target, Path baseDir,
+            Function<String, String> embeddedContentResolver, Path imageContainmentRoot,
+            LinkIndex links) throws Exception {
+        // The note as context, so its links resolve from its own folder, as in the reading view.
+        String html = MarkdownPreview.buildPreviewHtml(content(note), false, null,
+                new MarkdownPreview.PreviewOptions(baseDir, embeddedContentResolver,
+                        new PreviewContext(note, false), false, 0, imageContainmentRoot, links));
         Files.writeString(target.toPath(), html, StandardCharsets.UTF_8);
     }
 
     /**
      * Renders the note to a print-friendly PDF.
      *
-     * <p>Emojis are rendered as inline monochrome images (see
+     * <p>Emojis are rendered as inline images, Twemoji in colour (see
      * {@link MarkdownPreview#emojifyToImages}); the emoji font is deliberately kept out
      * of the CSS {@code font-family}, since registering it as a fallback made
      * openhtmltopdf use that font's oversized space glyph for every space.</p>
@@ -75,7 +90,24 @@ public final class NoteExporter {
      *                Markdown — should point at the note's source folder; may be null
      */
     public static void exportPdf(Note note, File target, String baseUri) throws Exception {
-        String xhtml = buildPrintHtml(note);
+        exportPdf(note, target, baseUri, null);
+    }
+
+    /**
+     * Same as {@link #exportPdf(Note, File, String)}, with {@code embeddedContentResolver}
+     * giving the Markdown of the notes embedded with {@code ![[…]]}.
+     */
+    public static void exportPdf(Note note, File target, String baseUri,
+            Function<String, String> embeddedContentResolver) throws Exception {
+        exportPdf(note, target, baseUri, embeddedContentResolver, null);
+    }
+
+    /** Same, with the vault's {@code links} to resolve the note's links from its folder. */
+    public static void exportPdf(Note note, File target, String baseUri,
+            Function<String, String> embeddedContentResolver, LinkIndex links)
+            throws Exception {
+        String xhtml = buildPrintHtml(note, new MarkdownPreview.PreviewOptions(null, embeddedContentResolver,
+                new PreviewContext(note, false), false, 0, null, links));
         Document jsoupDoc = Jsoup.parse(xhtml);
         jsoupDoc.outputSettings()
                 .syntax(Document.OutputSettings.Syntax.xml)
@@ -94,11 +126,14 @@ public final class NoteExporter {
     }
 
     /** Print-oriented XHTML: rendered Markdown body + a clean, paper-friendly stylesheet. */
-    private static String buildPrintHtml(Note note) {
-        String title = note != null && note.getTitle() != null ? escape(note.getTitle()) : "";
-        // Emojis as inline images (same approach as the preview): openhtmltopdf renders
-        // <img> fine, and this avoids the emoji font's oversized space glyph issue.
-        String body = MarkdownPreview.emojifyToImages(MarkdownProcessor.markdownToHtml(content(note)), false);
+    private static String buildPrintHtml(Note note, MarkdownPreview.PreviewOptions options) {
+        String title = note != null && note.getTitle() != null ? MarkdownProcessor.escapeHtml(note.getTitle()) : "";
+        // The reading view's body: comments stay hidden (they may hold what the author never
+        // meant to share), footnotes are listed, ^block ids hidden, links shown as their text
+        // and embeds with their note. Emojis are inline images: openhtmltopdf renders <img>
+        // fine, and this avoids the emoji font's oversized space glyph. Tags stay plain text:
+        // a link to the app means nothing on paper. Images resolve against the PDF's base URI.
+        String body = MarkdownPreview.renderBody(content(note), false, false, options);
         return """
                 <!DOCTYPE html>
                 <html lang="en">
@@ -131,6 +166,13 @@ public final class NoteExporter {
                         img { max-width: 100%%; height: auto; }
                         img.emoji { height: 1.05em; width: auto; max-width: none; vertical-align: -0.12em; }
                         hr { border: none; border-top: 1px solid #ddd; margin: 1.2em 0; }
+                        .callout { border-left: 3px solid #888; background: #f5f5f5; margin: 0.6em 0;
+                                   padding: 6px 12px; display: block; }
+                        .callout-title { font-weight: bold; display: block; }
+                        .callout-icon, .footnote-backref { display: none; }
+                        details, summary { display: block; }
+                        .footnotes { font-size: 9pt; color: #444; }
+                        mark { background: #fff3a3; }
                     </style>
                 </head>
                 <body>
@@ -144,7 +186,4 @@ public final class NoteExporter {
         return note != null && note.getContent() != null ? note.getContent() : "";
     }
 
-    private static String escape(String text) {
-        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-    }
 }

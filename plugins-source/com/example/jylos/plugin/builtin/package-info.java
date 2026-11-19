@@ -1,18 +1,13 @@
 /**
- * Built-in plugins that come bundled with Jylos.
- * 
- * <p>This package contains official plugins that provide additional
- * functionality out of the box:</p>
- * 
- * <ul>
- *   <li>{@link com.example.jylos.plugin.builtin.WordCountPlugin} - 
- *       Word and character statistics</li>
- *   <li>{@link com.example.jylos.plugin.builtin.DailyNotesPlugin} - 
- *       Daily note creation and management</li>
- *   <li>{@link com.example.jylos.plugin.builtin.ReadingTimePlugin} - 
- *       Reading time estimation</li>
- * </ul>
- * 
+ * Jylos's own plugins (core plugins): built into JARs that the installers ship next to the
+ * app, updated with it, and turned on or off in the plugin manager (they are not removed).
+ * The list, with each one's state in a new install, is
+ * {@link com.example.jylos.plugin.CorePlugins}.
+ *
+ * <p>Single-file plugins live here (Outline, Calendar, Daily Notes, Reading Time, Auto Backup,
+ * Templates, Word Count, Table of Contents); larger ones are bundles in their own folder with a
+ * {@code plugin.properties} (Dataview, MCP Server, Publish). See docs/PLUGINS.md.</p>
+ *
  * <h2>Creating Custom Plugins</h2>
  * <p>To create a custom plugin, implement the 
  * {@link com.example.jylos.plugin.Plugin} interface and register

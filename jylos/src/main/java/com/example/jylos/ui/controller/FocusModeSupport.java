@@ -1,5 +1,6 @@
 package com.example.jylos.ui.controller;
 
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -7,11 +8,23 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.prefs.Preferences;
 
+import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
 
+import javafx.animation.FadeTransition;
+import javafx.animation.PauseTransition;
+import javafx.animation.SequentialTransition;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.control.Label;
 import javafx.scene.control.SplitPane;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
+import javafx.util.Duration;
 
 /**
  * Focus / writing mode: hides everything but the editor (sidebar, notes list, right
@@ -23,10 +36,18 @@ import javafx.scene.layout.Region;
  * before entering focus mode. Owns the focus state, extracted from
  * {@code MainController}.</p>
  *
+ * <p>It has no button: it is entered and left with {@link #SHORTCUT} (or the command palette
+ * and the View menu), and since it hides the toolbar and its menus, entering it shows a hint
+ * with the shortcut that leaves it.</p>
+ *
  * @author Edu Díaz (RGiskard7)
  * @since 2.0.0
  */
 final class FocusModeSupport {
+
+    /** Enters and leaves focus mode: Cmd/Ctrl+Shift+F. */
+    static final KeyCombination SHORTCUT = new KeyCodeCombination(KeyCode.F,
+            KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN);
 
     private SplitPane mainSplitPane;
     private SplitPane contentSplitPane;
@@ -37,6 +58,9 @@ final class FocusModeSupport {
     private Preferences prefs;
     private Function<String, String> i18n;
     private Consumer<String> status;
+    /** Where the hint on how to leave focus mode shows. */
+    private StackPane hintHost;
+    private Label hint;
 
     private boolean focusMode;
     private boolean savedRightVisible;
@@ -47,7 +71,8 @@ final class FocusModeSupport {
 
     void wire(SplitPane mainSplitPane, SplitPane contentSplitPane, Supplier<Node> toolbar,
             Node statusBar, Region rightPanel, Supplier<Node> editorContainer, Preferences prefs,
-            Function<String, String> i18n, Consumer<String> status) {
+            Function<String, String> i18n, Consumer<String> status, StackPane hintHost) {
+        this.hintHost = hintHost;
         this.mainSplitPane = mainSplitPane;
         this.contentSplitPane = contentSplitPane;
         this.toolbar = toolbar;
@@ -79,8 +104,8 @@ final class FocusModeSupport {
         savedMainItems = mainSplitPane != null ? new ArrayList<>(mainSplitPane.getItems()) : null;
         savedContentItems = contentSplitPane != null ? new ArrayList<>(contentSplitPane.getItems()) : null;
 
-        setShown(tb, false);
-        setShown(statusBar, false);
+        UiNodes.show(tb, false);
+        UiNodes.show(statusBar, false);
         // The right panel lives inside a SplitPane (editor | right panel), not a plain
         // Box — a SplitPane still reserves that item's divided region even once it's
         // set invisible/unmanaged, since collapsing happens via divider position, not
@@ -93,13 +118,54 @@ final class FocusModeSupport {
         if (mainSplitPane != null && contentSplitPane != null) {
             mainSplitPane.getItems().setAll(contentSplitPane);
         }
-        Node editor = editorContainer != null ? editorContainer.get() : null;
-        if (contentSplitPane != null && editor != null) {
-            contentSplitPane.getItems().setAll(editor);
+        Node editorArea = itemHolding(contentSplitPane, editorContainer != null ? editorContainer.get() : null);
+        if (editorArea != null) {
+            contentSplitPane.getItems().setAll(editorArea);
         }
 
         focusMode = true;
         updateStatus(getString("status.focus_on"));
+        showHint();
+    }
+
+    /**
+     * The item of {@code split} that is {@code node} or holds it: the editor sits inside the
+     * editor area (with the graph), and taking it out on its own would leave the area empty.
+     */
+    private static Node itemHolding(SplitPane split, Node node) {
+        for (Node current = node; split != null && current != null; current = current.getParent()) {
+            if (split.getItems().contains(current)) {
+                return current;
+            }
+        }
+        return null;
+    }
+
+    /** Says how to leave focus mode, for a few seconds: the toolbar and its menus are hidden. */
+    private void showHint() {
+        if (hintHost == null) {
+            return;
+        }
+        hideHint();
+        hint = new Label(MessageFormat.format(getString("focus.exit_hint"), SHORTCUT.getDisplayText()));
+        hint.getStyleClass().addAll("update-toast", "update-toast-message", "focus-mode-hint");
+        hint.setMouseTransparent(true);
+        StackPane.setAlignment(hint, Pos.TOP_CENTER);
+        StackPane.setMargin(hint, new Insets(16));
+        hintHost.getChildren().add(hint);
+        Label shown = hint;
+        FadeTransition fade = new FadeTransition(Duration.millis(600), shown);
+        fade.setToValue(0);
+        fade.setOnFinished(e -> hintHost.getChildren().remove(shown));
+        SequentialTransition life = new SequentialTransition(new PauseTransition(Duration.seconds(3)), fade);
+        life.play();
+    }
+
+    private void hideHint() {
+        if (hint != null && hintHost != null) {
+            hintHost.getChildren().remove(hint);
+        }
+        hint = null;
     }
 
     private void exit() {
@@ -118,8 +184,8 @@ final class FocusModeSupport {
             contentSplitPane.setDividerPositions(
                     prefs.getDouble(UiPreferencesStore.SPLIT_CONTENT_KEY, UiPreferencesStore.DEFAULT_SPLIT_CONTENT));
         }
-        setShown(toolbar != null ? toolbar.get() : null, savedToolbarVisible);
-        setShown(statusBar, savedStatusVisible);
+        UiNodes.show(toolbar != null ? toolbar.get() : null, savedToolbarVisible);
+        UiNodes.show(statusBar, savedStatusVisible);
         if (savedRightVisible) {
             expandRightPanel();
         }
@@ -127,15 +193,10 @@ final class FocusModeSupport {
         // enter() already squeezed it to 0 and nothing since has changed that.
 
         focusMode = false;
+        hideHint();
         updateStatus(getString("status.focus_off"));
     }
 
-    private static void setShown(Node node, boolean shown) {
-        if (node != null) {
-            node.setVisible(shown);
-            node.setManaged(shown);
-        }
-    }
 
     /** Same "collapsed" check {@code UiLayout.toggleRightPanel} itself uses. */
     private boolean isRightPanelExpanded() {

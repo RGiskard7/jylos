@@ -1,5 +1,6 @@
 package com.example.jylos.util;
 
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 
@@ -25,9 +26,12 @@ public enum AttachmentType {
     /** An Obsidian-compatible JSON Canvas, shown in the canvas viewer. */
     CANVAS;
 
-    /** Image extensions JavaFX can decode natively. */
+    /**
+     * Image extensions the image viewer shows: the ones JavaFX decodes, plus WebP, read
+     * through ImageIO. SVG and AVIF are left out: the viewer cannot draw them.
+     */
     private static final Set<String> IMAGE_EXTENSIONS =
-            Set.of("png", "jpg", "jpeg", "gif", "bmp");
+            Set.of("png", "jpg", "jpeg", "gif", "bmp", "webp");
 
     /** Markdown / text extensions handled by the editor. */
     private static final Set<String> TEXT_EXTENSIONS =
@@ -37,7 +41,7 @@ public enum AttachmentType {
     public static final Set<String> ATTACHMENT_EXTENSIONS = buildAttachmentExtensions();
 
     private static Set<String> buildAttachmentExtensions() {
-        var all = new java.util.HashSet<>(IMAGE_EXTENSIONS);
+        var all = new HashSet<>(IMAGE_EXTENSIONS);
         all.add("pdf");
         all.add("canvas");
         return Set.copyOf(all);

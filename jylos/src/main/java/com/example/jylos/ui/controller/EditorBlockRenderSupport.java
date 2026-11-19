@@ -1,7 +1,9 @@
 package com.example.jylos.ui.controller;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -10,6 +12,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -18,6 +21,7 @@ import java.util.regex.Pattern;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.plugin.EditorBlockRenderer;
+import com.example.jylos.util.MarkdownProcessor;
 
 /**
  * Produces the rendered HTML that the editor's Live Preview shows in place of fenced
@@ -35,6 +39,9 @@ import com.example.jylos.plugin.EditorBlockRenderer;
  * keystroke, while switching notes renders immediately so a block does not sit visibly as
  * source. Only the newest request survives — an older pending one is cancelled, and a
  * completed one is dropped if a newer request started while it was running.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
  */
 final class EditorBlockRenderSupport {
 
@@ -53,6 +60,15 @@ final class EditorBlockRenderSupport {
             Pattern.MULTILINE | Pattern.DOTALL);
 
     private final Map<String, Registration> renderersByLanguage = new ConcurrentHashMap<>();
+
+    /** Renders a note embedded on a line of its own ({@code ![[link]]}), or null to leave it as source. */
+    private volatile Function<String, String> embedRenderer = link -> null;
+
+    private static final Pattern FENCE_LINE = Pattern.compile("^[ \\t]{0,3}(`{3,}|~{3,})");
+    private static final Pattern CALLOUT_START = Pattern.compile("^[ \\t]{0,3}>[ \\t]?\\[![^\\]\\n]+\\]");
+    private static final Pattern QUOTE_LINE = Pattern.compile("^[ \\t]{0,3}>");
+    private static final Pattern EMBED_LINE = Pattern.compile("^!\\[\\[([^\\]\\n]+)\\]\\]$");
+    private static final Pattern IMAGE = Pattern.compile("(?i).*\\.(png|jpe?g|gif|webp|svg|bmp|avif)$");
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
         Thread thread = new Thread(runnable, "editor-block-render");
@@ -81,6 +97,11 @@ final class EditorBlockRenderSupport {
         }
     }
 
+    /** How to render a note embedded on its own line, given the link as written (without display text). */
+    void setEmbedRenderer(Function<String, String> renderer) {
+        this.embedRenderer = renderer != null ? renderer : link -> null;
+    }
+
     /** True when no plugin claims any language, letting callers skip the work entirely. */
     boolean isEmpty() {
         return renderersByLanguage.isEmpty();
@@ -95,11 +116,13 @@ final class EditorBlockRenderSupport {
      * @param onRendered receives the block key to HTML table, on the scheduler thread
      */
     void requestRender(Note note, String markdown, boolean immediate, Consumer<Map<String, String>> onRendered) {
-        if (onRendered == null) {
+        // After shutdown (the app is closing) there is nothing to render for: plugins shutting
+        // down still unregister their renderers, which asks for one more render.
+        if (onRendered == null || scheduler.isShutdown()) {
             return;
         }
         cancelPending();
-        if (renderersByLanguage.isEmpty() || markdown == null || markdown.isEmpty()) {
+        if (markdown == null || markdown.isEmpty()) {
             // Still deliver, so the editor drops results left over from the previous note.
             onRendered.accept(Map.of());
             return;
@@ -130,6 +153,21 @@ final class EditorBlockRenderSupport {
 
     private Map<String, String> render(Note note, String markdown) {
         Map<String, String> rendered = new LinkedHashMap<>();
+        for (HostBlock block : hostBlocks(markdown)) {
+            if (rendered.containsKey(block.key())) {
+                continue;
+            }
+            try {
+                String html = "callout".equals(block.kind())
+                        ? MarkdownProcessor.markdownToHtml(block.source())
+                        : embedRenderer.apply(block.source());
+                if (html != null && !html.isBlank()) {
+                    rendered.put(block.key(), html);
+                }
+            } catch (RuntimeException e) {
+                logger.log(Level.FINE, "Could not render " + block.kind() + " for Live Preview", e);
+            }
+        }
         for (Block block : extractBlocks(markdown)) {
             Registration registration = renderersByLanguage.get(block.language());
             if (registration == null || rendered.containsKey(block.key())) {
@@ -147,6 +185,64 @@ final class EditorBlockRenderSupport {
             }
         }
         return rendered;
+    }
+
+    /**
+     * A block the host renders for Live Preview without any plugin: a callout ({@code > [!type]}
+     * and the quote lines after it) or a note embedded on a line of its own.
+     *
+     * @param key    the key the editor looks the HTML up by
+     * @param kind   {@code callout} or {@code embed}
+     * @param source the callout's lines, or the embed's link (display text dropped)
+     */
+    record HostBlock(String key, String kind, String source) {
+    }
+
+    /**
+     * The callouts and line embeds of {@code markdown}, outside fenced code, found exactly as
+     * the editor's {@code scanHostBlocks} finds them. Embeds of images are left to the editor.
+     */
+    static List<HostBlock> hostBlocks(String markdown) {
+        List<HostBlock> blocks = new ArrayList<>();
+        if (markdown == null || markdown.isEmpty()) {
+            return blocks;
+        }
+        String[] lines = markdown.split("\n", -1);
+        String fence = null;
+        for (int i = 0; i < lines.length; i++) {
+            Matcher fenceMatch = FENCE_LINE.matcher(lines[i]);
+            boolean isFence = fenceMatch.find();
+            if (fence != null) {
+                if (isFence && fenceMatch.group(1).charAt(0) == fence.charAt(0)
+                        && fenceMatch.group(1).length() >= fence.length()) {
+                    fence = null;
+                }
+                continue;
+            }
+            if (isFence) {
+                fence = fenceMatch.group(1);
+                continue;
+            }
+            if (CALLOUT_START.matcher(lines[i]).find()) {
+                StringBuilder source = new StringBuilder(lines[i]);
+                while (i + 1 < lines.length && QUOTE_LINE.matcher(lines[i + 1]).find()) {
+                    source.append('\n').append(lines[++i]);
+                }
+                blocks.add(new HostBlock("callout\n" + source, "callout", source.toString()));
+                continue;
+            }
+            Matcher embed = EMBED_LINE.matcher(lines[i].strip());
+            if (embed.matches()) {
+                String link = embed.group(1);
+                int pipe = link.indexOf('|');
+                link = (pipe >= 0 ? link.substring(0, pipe) : link).strip();
+                int hash = link.indexOf('#');
+                if (!IMAGE.matcher(hash >= 0 ? link.substring(0, hash) : link).matches()) {
+                    blocks.add(new HostBlock("embed\n" + link, "embed", link));
+                }
+            }
+        }
+        return blocks;
     }
 
     /** A claimed fenced block: its language, trimmed body, and the key the editor looks up by. */
@@ -167,12 +263,12 @@ final class EditorBlockRenderSupport {
     }
 
     static String normalizeLanguage(String language) {
-        return language == null ? "" : language.trim().toLowerCase(java.util.Locale.ROOT);
+        return language == null ? "" : language.trim().toLowerCase(Locale.ROOT);
     }
 
     /** Finds every fenced block carrying an info string, in document order. */
     static List<Block> extractBlocks(String markdown) {
-        List<Block> blocks = new java.util.ArrayList<>();
+        List<Block> blocks = new ArrayList<>();
         if (markdown == null || markdown.isEmpty()) {
             return blocks;
         }

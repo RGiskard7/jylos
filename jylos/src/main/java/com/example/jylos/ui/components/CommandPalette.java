@@ -2,6 +2,7 @@ package com.example.jylos.ui.components;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -124,7 +125,7 @@ public class CommandPalette {
             if (category == null || category.isBlank()) {
                 return "";
             }
-            return i18n(bundle, "palette.category." + category.toLowerCase(java.util.Locale.ROOT), category);
+            return i18n(bundle, "palette.category." + category.toLowerCase(Locale.ROOT), category);
         }
         public void setAction(Runnable action) { this.action = action; }
         public void execute() { if (action != null) action.run(); }
@@ -236,11 +237,27 @@ public class CommandPalette {
         // View commands
         commands.add(
                 new Command("cmd.toggle_sidebar", "Toggle Sidebar", "Show/hide sidebar", "F9", "|", "View", null));
+        commands.add(new Command("cmd.toggle_format_toolbar", "Toggle Format Bar",
+                "Show/hide the format bar under the editor", "F7", "\u2261", "View", null));
         commands.add(new Command("cmd.graph_view", "Graph View",
                 "Open the knowledge graph", "Ctrl+G", "\u2b21", "View", null));
         commands.add(new Command("cmd.knowledge_insights", "Knowledge Insights",
                 "Analyze orphans, broken links, connections, tags and graph health",
                 "Ctrl+Shift+K", "\u2261", "View", null));
+        commands.add(new Command("cmd.vault_cleanup", "Clean Up Jylos Metadata\u2026",
+                "Take out of the vault's notes the fields older versions of Jylos wrote", null, "\u2261", "Tools",
+                null));
+        commands.add(new Command("cmd.import_obsidian_bookmarks", "Import Obsidian Bookmarks",
+                "Mark as favorites the notes bookmarked in Obsidian", null, "\u2605", "Tools", null));
+        commands.add(new Command("cmd.import_obsidian_settings", "Import Obsidian Settings\u2026",
+                "Take Obsidian's templates, daily note, new notes and Templater settings for this vault", null,
+                "\u2261", "Tools", null));
+        commands.add(new Command("cmd.insert_template", "Templates: Insert template",
+                "Insert a template of the templates folder where the cursor is", null, "\u2261", "Edit", null));
+        commands.add(new Command("cmd.insert_current_date", "Templates: Insert current date",
+                "Write today's date where the cursor is", null, "\u2261", "Edit", null));
+        commands.add(new Command("cmd.insert_current_time", "Templates: Insert current time",
+                "Write the time where the cursor is", null, "\u2261", "Edit", null));
         commands.add(new Command("cmd.workspace_save", "Workspace: Save Current",
                 "Save the current tabs and layout to the active workspace", null, "\u25a3", "Workspace", null));
         commands.add(new Command("cmd.workspace_save_as", "Workspace: Save As\u2026",
@@ -248,7 +265,7 @@ public class CommandPalette {
         commands.add(new Command("cmd.workspace_open", "Workspace: Open\u2026",
                 "Open a saved workspace", null, "\u25a4", "Workspace", null));
         commands.add(new Command("cmd.workspace_manage", "Workspace: Manage\u2026",
-                "Open or delete saved workspaces", null, "\u25a4", "Workspace", null));
+                "Open, rename or delete saved workspaces", null, "\u25a4", "Workspace", null));
         commands.add(new Command("cmd.git_panel", "Git: Sync Panel",
                 "Open the Git Sync panel (status, changes, commit, pull & push)", "Ctrl+Shift+G",
                 "\u2387", "Git", null));

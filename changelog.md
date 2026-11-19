@@ -2,6 +2,186 @@
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-11-16
+
+- **Nuevo diseño Explorador:** un solo árbol en la barra lateral con las carpetas y las notas juntas. **Las instalaciones nuevas empiezan en Explorador; si actualizas, sigues en el diseño clásico hasta que lo cambies** con el botón de diseño de la barra superior (Explorador, clásico en columnas o clásico apilado) o en Preferencias. El diseño elegido se recuerda; antes volvía siempre a columnas.
+  - Un clic en una carpeta la despliega y uno en una nota la abre. Cada carpeta se lee al desplegarla, así que una bóveda grande no tarda más en abrir. Los menús contextuales y el arrastrar y soltar son los del diseño clásico.
+  - En la cabecera: un filtro que busca por nombre y por ruta ("trabajo/acta" encuentra las actas de la carpeta Trabajo), sin distinguir mayúsculas ni acentos; el orden (nombre, edición o creación); "Mostrar automáticamente el archivo actual", que abre las carpetas de la nota abierta y la selecciona; y un botón para expandir o colapsar todo.
+  - Se renombra en la propia fila: F2 o "Renombrar", Enter para aplicar y Escape para cancelar. Una nota o carpeta nueva se crea como "Sin título" o "Sin nombre", con el nombre listo para escribir.
+  - Marca las notas fijadas, favoritas y privadas con los iconos de la lista de notas, y pone primero las fijadas. Las carpetas que dejas abiertas siguen abiertas la próxima vez, y una carpeta cerrada se abre si mantienes una nota encima al arrastrarla.
+  - El panel de notas solo aparece para los resultados de una búsqueda o de una etiqueta, y se cierra con la ✕.
+  - Nuevas opciones en el menú de las notas: "Duplicar" (también canvas), "Copiar ruta" y "Abrir en la app por defecto".
+
+- **Pestañas:**
+  - **Están en la barra superior**, justo encima del editor, y siguen al editor al mover un divisor u ocultar un panel. En modo concentración se ocultan con la barra.
+  - **Un clic abre la nota en la pestaña actual**, en lugar de añadir una pestaña cada vez. Si la nota ya está abierta, se activa su pestaña. Cmd/Ctrl+clic, el clic central o "Abrir en pestaña nueva" la abren en otra, a la derecha. El clic central sobre una pestaña la cierra. Quien prefiera lo anterior puede activar "Abrir siempre las notas en una pestaña nueva" en Preferencias.
+  - **El grafo y cada tablero Kanban se abren en su pestaña**, como las notas, y ya no tapan la ventana. Cmd/Ctrl+clic o el clic central en el botón del grafo lo abren en una pestaña nueva. El grafo se encuentra como lo dejaste al volver a su pestaña, y un espacio de trabajo guardado lo vuelve a abrir.
+  - **Botón + y Cmd/Ctrl+T abren una pestaña nueva**, con "Nueva nota" destacada y tarjetas para nuevo lienzo, ir a archivo, vista de grafo y tablero Kanban, cada una con su atajo. Las tarjetas se recolocan según el ancho: cuatro por fila, dos o una.
+  - **Los enlaces de la vista de lectura se abren en una pestaña nueva** con Cmd/Ctrl+clic o el clic central, como en el árbol o la lista; el clic normal, en la pestaña actual. **En el editor**, donde el clic sirve para escribir y Cmd/Ctrl+clic sigue el enlace en la pestaña actual, Cmd/Ctrl+Mayús+clic o el clic central lo abren en una nueva; vale para los enlaces `[[…]]` y los Markdown, en modo fuente y en Live Preview.
+  - **Atrás y adelante recorren lo que mostró cada pestaña**, no todas las notas abiertas.
+  - **Con la letra de la interfaz grande, el título se acorta, pero la × de cerrar y el punto de cambios sin guardar se ven siempre**, igual que la × de las etiquetas y de las propiedades.
+
+- **Kanban:** abrir una nota-tablero (desde el árbol, el selector rápido o un enlace) la muestra como tablero, y un botón de la cabecera la muestra como Markdown y vuelta. Los cambios se guardan como cualquier edición. Ctrl/Cmd+K y el menú Ver muestran la lista de tableros para elegir uno o crear otro, y un tablero nuevo también se crea desde el menú Archivo, la paleta o el menú de una carpeta. Los tableros tienen su icono en el árbol, la lista y la pestaña. Al pulsar una tarjeta enlazada, la nota se abre en la pestaña del tablero, y atrás vuelve a él; con Cmd/Ctrl+clic, el clic central o "Abrir en pestaña nueva" en el menú de la tarjeta se abre en una pestaña nueva y el tablero sigue abierto. El clic derecho en una tarjeta enlazada ya no abre la nota, solo su menú.
+
+- **Menús contextuales:** el del editor, el del canvas y los de las tarjetas del Kanban y de la cuadrícula se cierran al pulsar fuera de ellos, también sobre el propio editor, lienzo o tarjeta; antes solo se cerraban con Escape. Otro clic derecho sustituye al menú abierto en lugar de abrir uno encima. La vista de lectura y las notas de versión tienen su propio menú, en el idioma de la app, con Copiar (si hay algo seleccionado) y Seleccionar todo, en lugar del menú en inglés del motor, que ofrecía recargar la página o abrir enlaces en ventanas nuevas.
+
+- **Espacios de trabajo como contextos:** la barra de estado muestra el espacio en uso y, al pulsarlo, permite cambiar a otro, guardarlo, guardarlo como espacio nuevo o gestionarlos. Abrir un espacio sustituye las pestañas abiertas por las suyas, en lugar de añadirlas a las que ya había; antes se preguntan los cambios sin guardar de la nota abierta. Por defecto, el espacio en uso se guarda al cambiar a otro, así que se recupera como se dejó (se puede desactivar en ese mismo menú). Cada pestaña guarda también su atrás y adelante. "Sin espacio" es un contexto más: al abrir un espacio desde él se guardan sus pestañas, y al elegirlo de nuevo vuelven. El menú muestra los ocho espacios usados más recientemente; si hay más, "Todos los espacios…" abre el diálogo de gestión, que reúne abrir (también con doble clic), renombrar y eliminar, con un campo de búsqueda que no distingue mayúsculas ni tildes. "Abrir espacio…" ya no es un diálogo aparte.
+- **Jylos reabre la última sesión:** al arrancar vuelven las pestañas que estaban abiertas al cerrar, con su atrás y adelante, y el espacio que estaba en uso. Las notas borradas mientras tanto se omiten.
+- **Editor:**
+  - **La vista previa en vivo solo enseña el Markdown de lo que estás editando**, por elemento y no por bloque: con el cursor en una `**negrita**`, solo esa negrita muestra sus asteriscos. Sin el foco en el editor, todo se ve renderizado. También dibuja callouts, notas incrustadas e imágenes `![[…]]`, fórmulas con KaTeX, notas al pie, `#etiquetas` (Cmd/Ctrl+clic muestra sus notas), comentarios `%%…%%` y `^id` atenuados, y el lenguaje de cada bloque de código. Nada de esto se aplica dentro de código.
+  - **Propiedades con su botón en la cabecera**, como la barra de etiquetas, en edición y en lectura. El botón lleva un punto cuando la nota tiene propiedades, y su descripción dice cuántas. Una propiedad nueva se escribe en el propio panel, con "+ Añadir propiedad". El panel forma parte del documento, sin franja ni cajas en los valores hasta pasar el ratón.
+  - **La barra de formato es más baja y se puede plegar:** su flecha la oculta y deja una pequeña muesca en el borde inferior del editor para volver a mostrarla. También responde a F7, al menú Ver, a la paleta y a Preferencias, y se recuerda.
+  - **Emojis en color**, en el editor, en la vista de lectura y en el PDF, también los tonos de piel, las banderas y las familias. En macOS se ven los del sistema; donde el sistema no los pinta en color (Windows, Linux) y en las secuencias, se usan las imágenes de Twemoji. Las flechas y símbolos como ↩ o ✔ siguen en monocromo.
+  - **Imágenes WebP**, en el editor, en la vista de lectura y en el visor de imágenes. Muchas imágenes de la web se sirven en WebP aunque la dirección acabe en `.png`, como las de los artículos de Medium guardados con el clipper, y antes solo salía su enlace en un recuadro. Ahora Jylos las convierte en segundo plano. Los `.webp` de la bóveda aparecen en el explorador.
+  - **Más fluido:** escribir ya no vuelve a dibujar las fórmulas, imágenes y bloques de alrededor (cada tecla cuesta la mitad en una nota de dos mil líneas). El scroll ya no da saltos al entrar en pantalla una imagen, un callout o una fórmula, y cada imagen se lee del disco una sola vez.
+  - **Corregido:**
+    - la negrita y los títulos no se veían en negrita;
+    - un clic bajo una imagen, una fórmula o un bloque renderizado caía en otra línea;
+    - el cursor dentro de un elemento no mostraba su Markdown;
+    - bajo cada imagen aparecía su nombre de fichero;
+    - Cmd/Ctrl+clic en un enlace recién editado abría el destino anterior;
+    - en un título subrayado con `---` o `===`, el subrayado no se veía con el cursor en la línea del texto.
+
+- **Bóveda compatible con Obsidian:**
+  - **Jylos ya no escribe nada suyo en las notas**, como Obsidian: antes añadía `id`, `title`, `created`, `modified`, `favorite`, `pinned` y `deleted` a cada nota que guardaba, y Obsidian los mostraba como propiedades. El favorito y el fijado se guardan ahora en `.jylos/`, dentro de la bóveda, y siguen a la nota al renombrarla, moverla o pasarla por la papelera; marcar un favorito no toca el fichero de la nota. Una nota guardada por una versión anterior pierde esos campos la próxima vez que se guarda, pero no su favorito, su fijado ni su `created`; los mismos campos escritos por el usuario son suyos y se conservan.
+  - **Herramientas → "Limpiar metadatos de Jylos…"** limpia de una vez toda la bóveda de esos campos antiguos, sin esperar a guardar cada nota. Dice antes cuántas notas va a tocar y pide confirmación, copia cada una a `.jylos/backups/` y conserva su favorito y su fijado. Solo toca notas cuyo frontmatter escribió Jylos; si el usuario escribió alguno de esos campos, no se toca.
+  - **Guardar una nota respeta su fichero:** las propiedades que no cambian se quedan byte a byte (comentarios, comillas, orden y saltos de línea de Windows), una nota sin propiedades se guarda sin ellas y unas propiedades que no se leen como YAML no se sobrescriben. Las listas que escribe Jylos llevan la sangría de Obsidian (`  - elemento`).
+  - **Las `#etiquetas` escritas en el texto ya no se copian a la propiedad `tags:` al guardar la nota**, así que quitarlas del texto las quita de la nota; antes quedaban en `tags:` y la nota la seguía teniendo. Las añadidas desde la barra de etiquetas sí van a `tags:`, y las que ya estaban conservan su orden en lugar de reordenarse en cada guardado.
+  - **Herramientas → "Importar marcadores de Obsidian"** convierte en favoritas las notas con marcador en Obsidian, también las de dentro de grupos. Solo lee los marcadores de Obsidian, sin cambiarlos; los de búsquedas, carpetas, encabezados o bloques no tienen equivalente y se saltan, y al terminar dice cuántas notas marcó, cuántas ya lo eran, cuántas no encontró y cuántos marcadores saltó.
+  - **Herramientas → "Importar ajustes de Obsidian…"** toma de `.obsidian` los ajustes de la bóveda que Jylos también tiene: la carpeta de plantillas y sus formatos, la nota diaria, dónde se crean las notas nuevas y los de Templater (su carpeta, si escribe las notas al crearlas y sus plantillas por carpeta). Solo los de los plugins que Obsidian tiene activos, con los valores por defecto de Obsidian donde no hay ajuste. Antes de cambiar nada dice qué cambiaría y pide confirmación. Al abrir por primera vez una bóveda con ajustes de Obsidian, Jylos lo ofrece una vez. Los ficheros de Obsidian solo se leen.
+  - **Corregido:**
+    - una nota sin frontmatter que empezaba por `# Título` perdía esa línea al guardarla: al leerla se tomaba como título y salía del texto, y el título es el nombre del fichero, así que desaparecía del disco. Pasaba con casi cualquier nota de una bóveda de Obsidian. Ahora es un encabezado más y se conserva; las notas que ya la perdieron no la recuperan;
+    - las propiedades se leían como YAML 1.1, no como las lee Obsidian (YAML 1.2): al cambiar cualquiera, `no`, `yes`, `on` y `off` se reescribían como `false` o `true`, `10:30` como `630`, `0123` como `83` y `1_000` como `1000`;
+    - al cambiar una propiedad, `tags` y `status` pasaban al principio, una propiedad vacía se volvía `''`, un `tags:` vacío desaparecía, un `author:` en lista pasaba a texto, las fechas ganaban comillas y se quitaban las líneas en blanco y la sangría de antes del texto; unas propiedades añadidas a una nota sin ellas dejaban una línea en blanco de más;
+    - un `title:` escrito por el usuario se sustituía por el nombre del fichero, y el de una plantilla cambiaba el nombre de la nota.
+
+- **Plantillas y nota diaria, como en Obsidian:**
+  - **Insertar plantilla:** Edición → "Insertar plantilla…" (y en la paleta, "Plantillas: Insertar plantilla") busca una plantilla y la escribe donde está el cursor, con sus propiedades añadidas a las de la nota: las nuevas van al final, en el orden de la plantilla, y las listas se juntan sin repetir. Las variables son las de Obsidian: `{{title}}`, `{{date}}` y `{{time}}`, también con formato (`{{date:dddd D [de] MMMM}}`), con los nombres de días y meses en el idioma de la app; Jylos añade `{{datetime}}`. "Insertar fecha actual" e "Insertar hora actual" escriben la fecha o la hora en el cursor. "Nueva desde plantilla" usa las mismas variables y crea la nota con la plantilla tal como está escrita, comentarios incluidos.
+  - **Preferencias → Bóveda:** la carpeta de plantillas (también sus subcarpetas) y sus formatos de fecha y hora, con una vista previa de lo que escribe cada formato. Se guardan en `.jylos/settings.json`, dentro de la bóveda, y siguen a las carpetas al renombrarlas o moverlas desde Jylos. Sin carpeta elegida, las plantillas siguen siendo las de una carpeta llamada Templates, como hasta ahora.
+  - **Nota diaria**, con su formato, su carpeta y su plantilla en Preferencias → Bóveda. El nombre sigue el formato de fecha (`YYYY-MM-DD`, `dddd D [de] MMMM`…), y un formato con barras (`YYYY/MM/DD`) la guarda en carpetas, que se crean si faltan. Si ya existe en esa ruta, se abre; antes se tomaba cualquier nota con ese título en cualquier carpeta. En su plantilla, `{{title}}` es su nombre y `{{date}}`/`{{time}}` se escriben como en Obsidian (`YYYY-MM-DD`, `HH:mm`). Si la carpeta o la plantilla no están, lo dice y no crea nada.
+  - **Dónde crear las notas nuevas**, en Preferencias → Bóveda: en la carpeta que estás viendo (como hasta ahora), en la raíz de la bóveda o en una carpeta concreta. Vale para las notas nuevas, las de un enlace a una nota que no existe y las de "Nueva desde plantilla". Si la carpeta elegida no está, la nota va a la raíz, como en Obsidian.
+  - **Plantillas de Templater**, activando "Entender la sintaxis de Templater" en Preferencias → Bóveda: las plantillas escriben `<% tp.date.now("YYYY-MM-DD", 7) %>`, `tp.date.tomorrow`, `yesterday` y `weekday`, `tp.file.title`, `folder`, `path`, `tags`, `content`, `creation_date`, `last_modified_date`, `selection`, `exists` e `include("[[Nota]]")`, `tp.frontmatter.campo` y `tp.system.prompt`, `suggester` y `clipboard`, con sus argumentos (desplazamientos en días o como `P1M`, fechas de referencia con su formato) y el control de espacios de `<%-`, `-%>`, `<%_` y `_%>`, como Templater; `tp.file.cursor()` deja ahí el cursor al insertar. Lo que ejecuta código (`<%* %>`, `tp.user`, `tp.web`, `tp.app` y cualquier otro JavaScript) se deja tal cual y la barra de estado lo dice; lo que haría que Templater detuviera la plantilla (una fecha de referencia que no sigue su formato, una nota incluida que no está) la detiene también, sin escribir nada.
+  - **Plantillas por carpeta de Templater:** con "Aplicar al crear una nota", una nota nueva vacía recibe la plantilla de su carpeta, o la de la carpeta más cercana hacia arriba que tenga una. Con esa opción, las etiquetas de Templater de la plantilla de la nota diaria también se escriben, como cuando Templater está instalado en Obsidian; sin ella se quedan como están, como en el plugin de notas diarias de Obsidian.
+  - **Cambia:**
+    - `{{time}}` escribe la hora como Obsidian, `HH:mm` (09:30); antes incluía los segundos. El formato se cambia en Preferencias → Bóveda;
+    - sin carpeta propia, la nota diaria va a la raíz de la bóveda (o a la carpeta de las notas nuevas, si se ha elegido una), no a la carpeta que estás viendo, y sin plantilla se crea vacía, sin el título como encabezado. Sin plantilla elegida, sigue usando la nota "daily" de la carpeta de plantillas.
+
+- **Sintaxis en la vista de lectura**, también en las notas incrustadas y al exportar a HTML:
+  - **Callouts** (`> [!tip] Título`), con los tipos y alias de Obsidian, plegables (`[!tipo]-`, `[!tipo]+`) y anidables.
+  - **`==resaltado==`**, y **comentarios `%%…%%`**, que no se muestran.
+  - **Notas al pie** (`[^1]` y `^[texto]`), numeradas por orden y listadas al final.
+  - **Bloques y secciones:** `^id` marca un bloque, `![[Nota#^id]]` lo incrusta, y `[[Nota#Encabezado]]`, `[[Nota#^id]]` o `[[#Encabezado]]` llevan a ese punto, también con Cmd/Ctrl+clic en el editor.
+  - **Etiquetas clicables**, que muestran las notas con esa etiqueta.
+
+  En el PDF los comentarios no salen, las notas al pie se listan y los callouts se imprimen con su contenido.
+
+- **Enlaces:**
+  - **Sugerencias al escribir `[[`:** las tildes y las mayúsculas dan igual ("reunion" encuentra "Reunión"), y la lista sale ordenada: primero los nombres que empiezan por lo escrito, luego los que tienen una palabra que empieza así, luego los que lo contienen y por último los que tienen sus letras en orden ("pj" encuentra "Proyecto Jylos"). Cada nota sale con su carpeta, también dos que se llaman igual (antes solo salía una y la otra no se podía enlazar), y se escribe el enlace más corto que la nombra: su nombre, o su ruta si otra nota se llama igual. Con una "/" se busca por ruta. Salen también los alias de las notas, que se escriben como `[[Nota|alias]]`. Tras `#` salen los encabezados de esa nota, o de la abierta con `[[#`; tras `|` no se sugiere nada.
+  - **Por ruta:** con dos notas "Reunión" en carpetas distintas, `[[Reunión]]` lleva a la de la misma carpeta (o, si no hay, a la de ruta más corta), y `[[Proyectos/Reunión]]` a esa. `[[../Plan]]` y `[[./Sub/Nota]]` son relativos a la carpeta de la nota. No importan las mayúsculas ni los acentos, y los `aliases` cuentan como último recurso (en bóvedas de carpetas; SQLite no guarda propiedades). Antes todo iba a la primera nota con ese nombre.
+    - Vale en backlinks, grafo, vista de lectura, incrustaciones, clic en enlaces, exportar a HTML, publicar la bóveda y las tarjetas de Canvas y de Kanban.
+  - **Desde las propiedades:** `up: "[[Índice]]"` cuenta como enlace en el grafo y los backlinks. Solo cuentan los enlaces entre comillas, porque sin comillas YAML lo lee como una lista. En la vista de lectura, el panel de propiedades muestra el enlace como la nota: con su alias (`[[Índice|inicio]]` se lee "inicio") o con su encabezado (`[[Índice#Temas]]` se lee "Índice › Temas"), y al pulsarlo abre la nota en ese encabezado. Antes mostraba siempre el nombre de la nota y la abría por el principio. Con Cmd/Ctrl+clic o el clic central, el enlace se abre en una pestaña nueva.
+  - **Notas largas:** un enlace escrito más allá de los primeros 16 KB de una nota ya cuenta como backlink. Jylos las lee en segundo plano y guarda el resultado en su caché, nunca en la bóveda.
+  - **Se leen bien:**
+    - un punto en el nombre (`[[Guía 5.0]]`, `[[Python vs. Java]]`) ya no lo convierte en un fichero;
+    - un `+` es un `+`, en enlaces, rutas de imagen y encabezados;
+    - se reconocen los enlaces Markdown con `< >` (`[texto](<Mi nota.md>)`), y dejan de contar los que tienen espacios sin `< >` ni `%20` o rutas con `:`, que Obsidian tampoco cuenta;
+    - un `[[enlace]]` o un `^id` dentro de código es texto;
+    - una línea con `#` dentro de un bloque de código ya no corta la sección que incrusta `![[Nota#Encabezado]]`.
+  - **Etiquetas:** `#foo.bar` es la etiqueta `foo`, como la muestran el editor y la lectura (antes se indexaba `foobar`).
+
+- **Panel de enlaces completo:** la sección "Enlaces" del panel derecho tiene ahora tres apartados.
+  - **Menciones con enlaces:** las notas que enlazan a la abierta, con la línea de cada enlace.
+  - **Menciones sin enlace:** las notas que nombran la abierta (por su título o un alias) sin `[[ ]]`, cada una con un botón **Enlazar** que la convierte en enlace.
+  - **Enlaces salientes:** a dónde enlaza la nota; un clic en uno que aún no existe crea la nota.
+
+- **Grafo:**
+  - **Mismas fuerzas que Obsidian:** las notas conectadas se reparten por todo el círculo en lugar de apiñarse en el centro. Al cambiar un filtro, las notas que ya estaban no se mueven. Abre con el zoom que dejaste.
+  - **Grupos de color:** una consulta (texto, `path:`, `file:` o `tag:`) con un color; cada nota toma el del primero que coincide.
+  - **Grafo local:** profundidad de 1 a 5, y enlaces entrantes, salientes y adyacentes.
+  - **"Mostrar adjuntos"**, desactivado por defecto: las imágenes y PDF ya no forman un anillo de nodos sueltos.
+  - **Los ajustes se guardan:** fuerzas, filtros, grupos y opciones del grafo local.
+  - **Una nota con muchos enlaces se ve más grande también de lejos:** el tamaño de las notas en pantalla sigue la raíz cuadrada del zoom, como en Obsidian. Antes, al alejarse, casi todas quedaban en el mismo punto mínimo y una nota con cinco enlaces se veía igual que una sin ninguno.
+  - **Al pasar el ratón por una nota se resaltan solo sus enlaces**, en el color de acento; antes se encendían también los que unen a sus vecinas entre sí. El resto se atenúa.
+  - **Las líneas son de un gris opaco** entre el fondo y el texto del tema: cien enlaces que se cruzan ya no forman una mancha tan brillante como las notas.
+  - **Corregido:**
+    - con la base de datos, el filtro de carpeta listaba identificadores en lugar de los nombres; ahora muestra la ruta de cada carpeta;
+    - cerrar el grafo antes de que terminara de dibujarse dejaba la aplicación lenta unos segundos;
+    - borrar una carpeta o vaciar la papelera no actualizaba el grafo ni la lista de notas.
+
+- **Canvas más cómodo:**
+  - **Edición:**
+    - aristas curvas;
+    - selección múltiple con un recuadro, Mayús+clic o Cmd/Ctrl+A;
+    - copiar, cortar y pegar tarjetas, también entre canvas;
+    - deshacer y rehacer.
+  - **Colocar:**
+    - ajuste a la rejilla y a las tarjetas cercanas;
+    - conectar arrastrando el punto de un lado, que al soltarlo en el vacío ofrece crear una tarjeta conectada;
+    - redimensionar desde cualquier lado o esquina.
+  - **Moverse:** la rueda y el trackpad desplazan el lienzo (Shift + rueda, en horizontal), igual que arrastrar con el botón derecho o el central, o con el izquierdo manteniendo Espacio. El zoom es Cmd/Ctrl + rueda o pellizcar.
+  - **Corregido:** los menús contextuales se quedaban abiertos y se acumulaban; ahora solo hay uno y se cierra al pulsar en el lienzo.
+  - **Un Canvas se puede hacer privado**, como una nota. Las imágenes y los PDF ya no ofrecen "Hacer privada", porque cifrarlos los rompería.
+
+- **Interfaz más ligera:**
+  - **Botones y barras:** los botones de icono son planos, con un fondo suave al pasar el ratón y el icono en color de acento cuando están activados. La barra superior es 8 px más baja, y la cabecera del editor mide lo mismo que la del panel lateral.
+  - **Fila del título:** las carpetas de la nota aparecen delante del título, en lugar de en una fila aparte; en el diseño Explorador, un clic en ellas muestra la nota en el árbol.
+  - **Barra de estado:**
+    - muestra si la nota está guardada y el modo del editor, que se cambia con un clic;
+    - ya no repite el título de la nota abierta;
+    - en una bóveda con Git, tiene una sola entrada con la rama, la sincronización y los cambios.
+  - **Árboles:** muestran líneas guía bajo cada carpeta abierta y ordenan los acentos y los números de forma natural, también en el árbol clásico. La papelera usa los iconos de carpeta del Explorador.
+  - **Arranque:** una ventana de carga muestra el icono y el nombre mientras se prepara la ventana principal, ya sin destello en tema claro al abrir en oscuro. La ventana responde antes.
+  - **Modo concentración:** ya no tiene botón; se activa y se sale con Cmd/Ctrl+Shift+F, el menú Ver o la paleta.
+  - **Preferencias rediseñadas:** las secciones a la izquierda (General, Editor, Notas y pestañas y Apariencia) y una fila por ajuste, con una breve explicación bajo el nombre. Los snippets CSS están al final de Apariencia, uno por fila, con recargar y abrir la carpeta junto a su título. Los textos largos saltan de línea en vez de cortarse, y la ventana es más grande, se puede redimensionar y crece con la letra de la interfaz.
+  - **Todo crece con la letra de la interfaz:** al subirla en Preferencias o con Cmd/Ctrl+más, los iconos, sus botones, las flechas del árbol, los márgenes y las tarjetas de la pestaña nueva crecen con el texto, en lugar de quedarse pequeños o apretados.
+  - **Tamaño de los iconos, aparte del texto:** en Preferencias → Apariencia, iconos pequeños, normales, grandes o muy grandes sin cambiar la letra.
+  - **Iconos de colores por tipo (opcional):** en Preferencias → Apariencia, carpetas, PDF, imágenes, lienzos y tableros Kanban con su propio color en el árbol, la lista de notas, la papelera y las pestañas, para distinguirlos de un vistazo. La papelera muestra además el icono de cada tipo, en lugar de todo como nota.
+  - **Color propio por carpeta:** clic derecho en una carpeta → Color, con seis colores o ninguno, en el icono de la carpeta en los dos árboles; el nombre conserva su color. Se guarda dentro de la bóveda, así que viaja con ella si la sincronizas, y sigue a la carpeta al renombrarla o moverla desde Jylos. Al mandarla a la papelera pierde el color.
+  - **Los temas externos llegan al editor, la vista de lectura y el grafo:** toman el fondo, el texto, el acento y los bordes del tema, en lugar de quedarse en el oscuro o el claro de siempre; Retro Phosphor, por ejemplo, se ve verde también al escribir y al leer. El acento elegido en Preferencias sigue mandando, y con los temas claro y oscuro integrados nada cambia.
+  - **Instalar un tema sin buscar carpetas ni reiniciar:** en Preferencias → Apariencia, "Abrir carpeta de temas" abre la carpeta donde van (la crea si no existe) y "Recargar temas" muestra en la lista el que acabas de copiar.
+  - **Temas nuevos en la carpeta `themes/` del repositorio:** Gruvbox, Gruvbox Material, Nord, Catppuccin (Mocha y Latte) y Rosé Pine (y Dawn), cada uno en oscuro y en claro, con sus paletas oficiales y licencia MIT, junto a Retro Phosphor, que ya no cambia el color de los bordes al pasar el ratón o al escribir en un campo. Se descargan en la página de temas de la web, y todos los temas del repositorio cumplen el contraste de lectura WCAG AA. Los colores de etiquetas, campos, botones y tooltips del tema oscuro son ahora variables que un tema puede cambiar.
+  - **Ver → Idioma lista todos los idiomas que trae la app**, cada uno con su nombre en su propio idioma ("English", "Español"): añadir una traducción es añadir su fichero de textos, sin tocar el menú.
+  - **"Restablecer" en cada sección de Preferencias:** devuelve los ajustes de esa sección a los valores de una instalación nueva; se aplica al guardar.
+  - **Ventanas y avisos con un mismo estilo:** el título va sobre el fondo de la ventana, sin franja ni el icono genérico de pregunta, y el contenido tiene más aire. Los bordes ya no cambian de color al pasar el ratón ni al escribir en un campo, los cuadros de texto de los diálogos tienen un solo borde, y las cabeceras pequeñas ya no van en una negrita apretada.
+  - **Panel de Git más claro:** la lista de cambios ocupa el espacio libre y el registro de actividad tiene una altura fija, con el estado de la operación en su cabecera. Los ficheros nuevos se marcan con "U" y los conflictos con "!", y una bóveda sin repositorio muestra arriba su título y el botón para crearlo.
+
+- **Plugins:** `registerStatusBarItem(id, nodo)` añade un elemento a la barra de estado, como `addStatusBarItem()` en Obsidian.
+- **Fuera el plugin de IA (AI Assistant):** era una prueba y no estaba a la altura. Al actualizar, Jylos ya no lo carga, borra sus ajustes (con la API key que guardaba) y quita la copia que versiones anteriores dejaron en la carpeta de plugins; un JAR que pusiera el usuario allí se queda, sin cargarse.
+- **Plugins de Jylos y de la comunidad, por separado:** los que vienen con la instalación son de Jylos y se actualizan con ella; los de la carpeta de plugins del usuario son de la comunidad. Jylos ya no copia sus plugins a la carpeta del usuario al primer arranque (esas copias no se actualizaban nunca): las que dejaron versiones anteriores se borran, y una copia de un plugin de Jylos en esa carpeta ya no se carga en lugar del que viene con la app. Un plugin de Jylos no se puede quitar, también en la versión portable. Un plugin de la comunidad con "jylos" en el nombre del fichero ya no se ignora.
+- **Gestor de plugins en dos secciones:** "Plugins principales", que vienen con Jylos y solo se encienden o apagan, y "Plugins de la comunidad", que se pueden quitar, con botones para abrir la carpeta de plugins y recargarla sin reiniciar. En una instalación nueva, MCP Server (abre un puerto local), Publish y Auto Backup (escriben ficheros fuera de la bóveda) empiezan apagados; el resto, encendidos. Al actualizar se conserva lo que cada uno tenía encendido o apagado. Como en Obsidian, los principales no muestran autor; los de la comunidad, sí.
+- **Modo restringido para los plugins de la comunidad, como en Obsidian:** en una instalación nueva no se carga ninguno hasta que lo permites en el gestor de plugins, que avisa de que son código de otras personas con acceso completo al equipo; mientras tanto el gestor lista los que hay en la carpeta y no deja instalar otros. Si al actualizar ya tenías plugins propios, siguen cargándose. Un plugin puede indicar en su `MANIFEST.MF` la versión mínima de Jylos que necesita (`Plugin-Min-Jylos`): si es posterior a la instalada, no se carga y el gestor dice cuál necesita.
+- **Los instaladores siempre llevan los plugins de Jylos:** si no compilan, el empaquetado se detiene en lugar de generar un instalador sin ellos. Cada JAR lleva en su manifiesto su id (`Plugin-Id`) y la versión de Jylos con la que se compiló (`Plugin-Min-Jylos`). Documentación de plugins al día: plugins principales y de la comunidad, modo restringido y la ficha del manifiesto.
+- **Paquete para Nix y NixOS** (`x86_64`): un flake en `packaging/nix` instala Jylos a partir del paquete `.deb` de la versión publicada, con sus datos en `~/.local/share/jylos`, entrada en el menú de aplicaciones y, con Wayland, funcionando a través de XWayland. Se ha construido y arrancado en un contenedor de Nix; falta probarlo en un escritorio NixOS real. La sección de descargas de la web lo enlaza junto a los paquetes de Linux.
+- **La web tiene páginas de temas y de plugins:** "Temas" lista los de la carpeta `themes/` con su descarga en zip, "Plugins" los principales con lo que hacen y si empiezan encendidos, y "Plugins de la comunidad" los publicados en `community-plugins.json` y cómo añadir uno. Todo se genera al compilar la web a partir del repositorio, igual que el changelog, que ya no se queda atrás. Las dos están en la barra superior de la web.
+- **Guías nuevas en la web:** "Compatibilidad con Obsidian" (qué comparten las dos apps en una misma bóveda, qué guarda cada una para sí, qué pasa con las notas guardadas por versiones anteriores y qué ajustes se importan) y "Plantillas y nota diaria" (variables, nota diaria y lo que se admite de Templater). La documentación técnica describe el formato de la bóveda y `.jylos/`.
+- **Capturas nuevas en la web y en el README**, con la interfaz actual: diseño Explorador, grafo, Kanban, Canvas, Dataview, plantillas, plugins, temas y diseño clásico. El README describe además las plantillas, la compatibilidad con Obsidian, el panel de enlaces y los temas nuevos. La web enseña el correo de contacto en la barra superior y al final de la portada. Un clic en una captura de la portada la abre en grande; las flechas pasan a las demás de su sección y Escape o un clic fuera la cierran.
+
+- **Exportar a PDF imprime la nota como se lee:** `[[Nota|texto]]` sale como su texto, `![[Nota]]` imprime la nota incrustada y se imprimen las tarjetas de enlace.
+
+- **Corregido:**
+  - **El tamaño de letra de la interfaz se conserva al cerrar:** antes la app volvía a abrir con la letra de siempre, aunque Preferencias mostrara la elegida.
+  - **Errores visibles:**
+    - si el disco o la base de datos rechaza un cambio (mover, renombrar, borrar o restaurar), Jylos lo dice, en lugar de parecer hecho;
+    - "Mover a Carpeta..." vuelve al menú contextual de las carpetas;
+    - la paleta "Toggle Tags Panel" no hacía nada.
+  - **Detalles de la interfaz:**
+    - fijar una nota o marcarla como favorita desde la lista lo dice en la barra de estado;
+    - una fila ya no se queda resaltada al desplazarse sin mover el ratón;
+    - los enlaces de las notas de versión que se muestran antes de actualizar se abren en el navegador;
+    - "+ Añadir etiqueta" aparecía siempre en inglés;
+    - en la lista de notas, el icono y la fecha de creación de todas las filas acaban en el mismo borde, el de la fila; antes quedaban descuadrados hasta redimensionar el panel, y la fecha acababa donde acababa su texto;
+    - la barra lateral y el panel de notas mantienen su ancho al abrir o cerrar el panel derecho; antes se ensanchaban al cerrarlo. Al cambiar el tamaño de la ventana, los paneles laterales (también el derecho) mantienen su ancho y es el editor el que crece o se estrecha.
+  - **Temas:**
+    - la vista de lectura conserva el tema oscuro al activar o desactivar un plugin;
+    - el menú Ver > Tema marca el tema con el que se abre la aplicación.
+  - **Carpetas:**
+    - crear una subcarpeta con el mismo nombre que otra de la raíz ya no le añade "(1)";
+    - en una bóveda de carpetas, renombrar una carpeta y justo después otra de dentro ya no se queda sin efecto;
+    - lo mismo al mover, borrar o crear notas y carpetas en una carpeta recién renombrada o movida;
+    - guardar la nota abierta después de renombrar o mover su carpeta ya no deja una copia con la ruta anterior;
+    - cambiar solo mayúsculas y minúsculas del nombre de una carpeta ("trabajo" a "Trabajo") ahora la renombra;
+    - renombrar una carpeta con el nombre de otra que ya existe en el mismo sitio muestra un error, en lugar de no hacer nada.
+
 ## [2.5.8] - 2026-11-04
 
 - **Java 21 en todos los scripts.** Jylos requiere Java 21, pero varios scripts seguían en Java 17: `build_all` instalaba Java 17 si no encontraba Java (con lo que luego no compilaba), los lanzadores y empaquetadores pedían "Java 17 o superior", y `build-plugins.ps1` usaba un JDK 17 antes que uno 21 si estaban los dos. Ahora todos piden e instalan Java 21. La web y los README dejan de ofrecer el uber-JAR para Mac con Intel o "cualquier plataforma": solo incluye JavaFX para Linux, así que fuera de Linux x64 la opción es JBang, que añade el JavaFX de cada sistema.

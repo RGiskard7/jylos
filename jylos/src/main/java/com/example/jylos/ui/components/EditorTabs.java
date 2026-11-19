@@ -1,13 +1,23 @@
 package com.example.jylos.ui.components;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+
+import org.kordamp.ikonli.javafx.FontIcon;
+
+import com.example.jylos.ui.NoteIcons;
+import com.example.jylos.ui.UiNodes;
+import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
 
 import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
+import javafx.scene.input.MouseButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -16,12 +26,12 @@ import javafx.scene.layout.Region;
  * A lightweight, presentational tab strip for the editor: one tab per open note,
  * each showing a dirty dot, the note title and a close button.
  *
- * <p>This component is intentionally "dumb": it renders tabs and reports user
- * gestures through a {@link Listener}. It does <b>not</b> decide which note is
- * loaded — {@link com.example.jylos.ui.controller.MainController} remains the single
- * source of truth and calls {@link #setActive(String)} / {@link #ensureTab} to keep
- * the strip in sync with the editor. This avoids the open/select feedback loops the
- * event-bus contract warns about.</p>
+ * <p>This component is intentionally "dumb": which tabs exist and in which order is
+ * decided by {@link EditorTabsModel} (VS Code rules: a plain open replaces the active tab,
+ * an open note is never duplicated, "open in new tab" inserts after the active one). It
+ * reports user gestures through a {@link Listener}; it does <b>not</b> decide which note
+ * is loaded — {@link com.example.jylos.ui.controller.MainController} remains the single
+ * source of truth and calls {@link #open} to keep the strip in sync with the editor.</p>
  *
  * <p>Because the editor hosts a single note at a time, only the active tab can hold
  * unsaved edits; closing a non-active tab is therefore always safe.</p>
@@ -36,7 +46,7 @@ public final class EditorTabs {
         /** A tab body was clicked (only fired when it is not already the active tab). */
         void onSelect(String noteId);
 
-        /** A tab's close button was clicked. */
+        /** A tab's close button (or the tab itself, with the middle button) was clicked. */
         void onClose(String noteId);
     }
 
@@ -48,13 +58,14 @@ public final class EditorTabs {
     private final Region visibilityNode;
     private final Listener listener;
     /** i18n lookup for the close tooltip (nullable; falls back to English). */
-    private final java.util.function.Function<String, String> i18n;
-    /** Insertion-ordered so tab order is stable and neighbour lookup is predictable. */
-    private final Map<String, TabNode> tabs = new LinkedHashMap<>();
-    private String activeId;
+    private final Function<String, String> i18n;
+    private final EditorTabsModel model = new EditorTabsModel();
+    private final Map<String, TabNode> nodes = new HashMap<>();
+    /** The + after the tabs, as in Obsidian; {@code null} until {@link #setNewTabAction}. */
+    private Button newTabButton;
 
     public EditorTabs(HBox container, Region visibilityNode, Listener listener,
-            java.util.function.Function<String, String> i18n) {
+            Function<String, String> i18n) {
         this.container = container;
         this.visibilityNode = visibilityNode != null ? visibilityNode : container;
         this.listener = listener;
@@ -68,11 +79,11 @@ public final class EditorTabs {
     /** A single rendered tab, always {@link #TAB_WIDTH} wide with an ellipsised title. */
     private final class TabNode {
         final HBox root = new HBox();
-        final Label dot = new Label("●");
+        final Label dot = UiNodes.keepWhole(new Label("●"));
         final Label title = new Label();
         String noteId;
 
-        TabNode(String noteId, String titleText) {
+        TabNode(String noteId, String titleText, String iconLiteral) {
             this.noteId = noteId;
             root.getStyleClass().add("editor-tab");
             root.setSpacing(6);
@@ -83,7 +94,7 @@ public final class EditorTabs {
             root.setMaxWidth(TAB_WIDTH);
 
             dot.getStyleClass().add("editor-tab-dot");
-            setNodeVisible(dot, false); // clean by default
+            UiNodes.show(dot, false); // clean by default
 
             title.getStyleClass().add("editor-tab-title");
             title.setText(displayTitle(titleText));
@@ -91,7 +102,7 @@ public final class EditorTabs {
             title.setMaxWidth(Double.MAX_VALUE);
             HBox.setHgrow(title, Priority.ALWAYS);
 
-            Label close = new Label("×");
+            Label close = UiNodes.keepWhole(new Label("×"));
             close.getStyleClass().add("editor-tab-close");
             String closeText = i18n != null ? i18n.apply("tooltip.close_note") : null;
             close.setTooltip(new Tooltip(closeText != null ? closeText : "Close note"));
@@ -102,34 +113,47 @@ public final class EditorTabs {
                 }
             });
 
-            root.getChildren().addAll(dot, title, close);
+            root.getChildren().add(dot);
+            if (iconLiteral != null) {
+                FontIcon icon = new FontIcon(iconLiteral);
+                icon.getStyleClass().addAll("feather-icon", "editor-tab-icon");
+                String kind = NoteIcons.typeClassForLiteral(iconLiteral);
+                if (kind != null) {
+                    icon.getStyleClass().add(kind);
+                }
+                root.getChildren().add(icon);
+            }
+            root.getChildren().addAll(title, close);
             root.setOnMouseClicked(e -> {
-                if (listener != null && !noteId.equals(activeId)) {
+                if (listener == null) {
+                    return;
+                }
+                if (e.getButton() == MouseButton.MIDDLE) {
+                    listener.onClose(this.noteId);
+                } else if (e.getButton() == MouseButton.PRIMARY && !this.noteId.equals(model.getActiveId())) {
                     listener.onSelect(this.noteId);
                 }
             });
         }
     }
 
-    // ------------------------------------------------------------------
-    // Queries
-    // ------------------------------------------------------------------
+    // ── Queries ──────────────────────────────────────────────────────────────
 
     public boolean isOpen(String id) {
-        return id != null && tabs.containsKey(id);
+        return model.isOpen(id);
     }
 
-    /** Open tab note ids in display (insertion) order. */
+    /** Open tab note ids in display order. */
     public List<String> getOpenIds() {
-        return new ArrayList<>(tabs.keySet());
+        return model.getIds();
     }
 
     public boolean isEmpty() {
-        return tabs.isEmpty();
+        return model.getIds().isEmpty();
     }
 
     public String getActiveId() {
-        return activeId;
+        return model.getActiveId();
     }
 
     /**
@@ -137,70 +161,125 @@ public final class EditorTabs {
      * (the previous tab, or the next one, or {@code null} if it was the only tab).
      */
     public String neighborOf(String id) {
-        List<String> ids = new ArrayList<>(tabs.keySet());
-        int idx = ids.indexOf(id);
-        if (idx < 0) {
-            return null;
-        }
-        if (idx > 0) {
-            return ids.get(idx - 1);
-        }
-        return ids.size() > 1 ? ids.get(idx + 1) : null;
+        return model.neighborOf(id);
     }
 
-    // ------------------------------------------------------------------
-    // Mutations (called by MainController)
-    // ------------------------------------------------------------------
+    // ── Mutations (called by MainController) ─────────────────────────────────
 
-    /** Creates a tab for {@code id} if none exists yet. No-op for a {@code null} id. */
-    public void ensureTab(String id, String title) {
-        if (id == null || tabs.containsKey(id)) {
+    /**
+     * Shows {@code id} as the active tab, opening it where {@code target} says (see
+     * {@link EditorTabsModel}). A {@code null} title keeps the tab's title. No callback is
+     * fired. No-op for a {@code null} id.
+     */
+    public void open(String id, String title, OpenTarget target) {
+        open(id, title, null, target);
+    }
+
+    /**
+     * As {@link #open(String, String, OpenTarget)}, with an icon before the title (a Feather
+     * icon literal, or {@code null}); used for view tabs such as the graph ({@link ViewTabs}).
+     */
+    public void open(String id, String title, String iconLiteral, OpenTarget target) {
+        if (id == null) {
             return;
         }
-        TabNode node = new TabNode(id, title);
-        tabs.put(id, node);
-        if (container != null) {
-            container.getChildren().add(node.root);
+        model.open(id, target);
+        TabNode node = nodes.get(id);
+        if (node == null) {
+            nodes.put(id, new TabNode(id, title, iconLiteral));
+        } else if (title != null) {
+            node.title.setText(displayTitle(title));
         }
-        updateVisibility();
+        render();
     }
 
-    /** Marks {@code id} as the visually active tab (no callback fired). */
-    public void setActive(String id) {
-        this.activeId = id;
-        for (Map.Entry<String, TabNode> e : tabs.entrySet()) {
-            boolean active = e.getKey().equals(id);
-            HBox root = e.getValue().root;
-            root.getStyleClass().remove("active");
-            if (active) {
-                root.getStyleClass().add("active");
-            }
+    /**
+     * Back in the active tab (see {@link EditorTabsModel#back}): returns what it shows now, or
+     * {@code null}. The strip is redrawn when the caller shows it, through {@link #open}.
+     */
+    public String back() {
+        return model.back();
+    }
+
+    /** Forward in the active tab; as {@link #back}. */
+    public String forward() {
+        return model.forward();
+    }
+
+    public boolean canGoBack() {
+        return model.canGoBack();
+    }
+
+    public boolean canGoForward() {
+        return model.canGoForward();
+    }
+
+    /** What back goes through in {@code id}'s tab (see {@link EditorTabsModel#backOf}). */
+    public List<String> backOf(String id) {
+        return model.backOf(id);
+    }
+
+    /** What forward goes through in {@code id}'s tab. */
+    public List<String> forwardOf(String id) {
+        return model.forwardOf(id);
+    }
+
+    /** Gives {@code id}'s tab this back and forward (see {@link EditorTabsModel#setHistory}). */
+    public void setHistory(String id, List<String> back, List<String> forward) {
+        model.setHistory(id, back, forward);
+    }
+
+    /** A note that no longer exists leaves every tab's history. */
+    public void forget(String id) {
+        model.forget(id);
+    }
+
+    /**
+     * Shows a + after the tabs that runs {@code action} (a new tab). With it, the strip stays
+     * visible with no tab open, so the + is always there.
+     */
+    public void setNewTabAction(Runnable action) {
+        if (newTabButton == null) {
+            newTabButton = new Button();
+            // A size of its own (the theme's icon-12): an icon left to take the font's size
+            // would keep a larger one after the interface font is lowered again.
+            FontIcon plus = new FontIcon("fth-plus");
+            plus.getStyleClass().add("icon-12");
+            newTabButton.setGraphic(plus);
+            newTabButton.getStyleClass().addAll("editor-tab-new", "icon-btn");
+            String tip = i18n != null ? i18n.apply("tooltip.new_tab") : null;
+            newTabButton.setTooltip(new Tooltip(tip != null ? tip : "New tab"));
         }
+        newTabButton.setOnAction(e -> {
+            if (action != null) {
+                action.run();
+            }
+        });
+        render();
+    }
+
+    /** "Always open notes in a new tab" preference. */
+    public void setAlwaysNewTab(boolean alwaysNewTab) {
+        model.setAlwaysNewTab(alwaysNewTab);
     }
 
     /** Removes the tab for {@code id} (if present). */
     public void removeTab(String id) {
-        TabNode node = tabs.remove(id);
-        if (node != null && container != null) {
-            container.getChildren().remove(node.root);
-        }
-        if (id != null && id.equals(activeId)) {
-            activeId = null;
-        }
-        updateVisibility();
+        model.remove(id);
+        render();
     }
 
-    /** Shows/hides the dirty dot for a tab. */
+    /** Shows/hides the dirty dot for a tab; a view tab has nothing to save and never shows it. */
     public void setDirty(String id, boolean dirty) {
-        TabNode node = tabs.get(id);
-        if (node != null) {
-            setNodeVisible(node.dot, dirty);
+        TabNode node = nodes.get(id);
+        if (node != null && !ViewTabs.isView(id)) {
+            UiNodes.show(node.dot, dirty);
         }
     }
 
     /** Updates a tab's displayed title (e.g. after a rename/save). */
     public void setTitle(String id, String title) {
-        TabNode node = tabs.get(id);
+        TabNode node = nodes.get(id);
         if (node != null) {
             node.title.setText(displayTitle(title));
         }
@@ -214,60 +293,50 @@ public final class EditorTabs {
         if (oldId == null || newId == null) {
             return;
         }
-        if (oldId.equals(newId)) {
-            setTitle(newId, title);
-            return;
+        TabNode node = nodes.get(oldId);
+        if (!oldId.equals(newId) && node != null && !nodes.containsKey(newId)) {
+            nodes.remove(oldId);
+            node.noteId = newId;
+            nodes.put(newId, node);
         }
-
-        TabNode node = tabs.get(oldId);
-        if (node == null) {
-            setTitle(newId, title);
-            return;
-        }
-        if (tabs.containsKey(newId)) {
-            removeTab(oldId);
-            setTitle(newId, title);
-            return;
-        }
-
-        node.noteId = newId;
-        node.title.setText(displayTitle(title));
-
-        Map<String, TabNode> rebound = new LinkedHashMap<>();
-        for (Map.Entry<String, TabNode> entry : tabs.entrySet()) {
-            if (entry.getKey().equals(oldId)) {
-                rebound.put(newId, node);
-            } else {
-                rebound.put(entry.getKey(), entry.getValue());
-            }
-        }
-        tabs.clear();
-        tabs.putAll(rebound);
-
-        if (oldId.equals(activeId)) {
-            activeId = newId;
-        }
+        model.rebind(oldId, newId);
+        setTitle(newId, title);
+        render();
     }
 
     /** Closes all tabs. */
     public void clear() {
-        tabs.clear();
-        activeId = null;
+        model.clear();
+        render();
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    /** Lays the tab nodes out in the model's order, marks the active one and drops closed ones. */
+    private void render() {
+        List<String> ids = model.getIds();
+        nodes.keySet().retainAll(ids);
         if (container != null) {
-            container.getChildren().clear();
+            List<Node> children = new ArrayList<>(ids.stream().map(id -> (Node) nodes.get(id).root).toList());
+            if (newTabButton != null) {
+                children.add(newTabButton);
+            }
+            container.getChildren().setAll(children);
         }
+        String activeId = model.getActiveId();
+        nodes.forEach((id, node) -> {
+            node.root.getStyleClass().remove("active");
+            if (id.equals(activeId)) {
+                node.root.getStyleClass().add("active");
+            }
+        });
         updateVisibility();
     }
 
-    // ------------------------------------------------------------------
-    // Helpers
-    // ------------------------------------------------------------------
-
     private void updateVisibility() {
         if (visibilityNode != null) {
-            boolean show = !tabs.isEmpty();
-            visibilityNode.setVisible(show);
-            visibilityNode.setManaged(show);
+            boolean show = newTabButton != null || !model.getIds().isEmpty();
+            UiNodes.show(visibilityNode, show);
         }
     }
 
@@ -275,10 +344,4 @@ public final class EditorTabs {
         return (title != null && !title.isBlank()) ? title : "(untitled)";
     }
 
-    private static void setNodeVisible(javafx.scene.Node n, boolean visible) {
-        if (n != null) {
-            n.setVisible(visible);
-            n.setManaged(visible);
-        }
-    }
 }

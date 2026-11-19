@@ -46,7 +46,6 @@ import com.example.jylos.ui.components.CommandPalette;
 public class PluginManager {
 
     private static final Logger logger = LoggerConfig.getLogger(PluginManager.class);
-    private static final String PREFS_DISABLED_PREFIX = "plugin.disabled.";
 
     /**
      * Plugin states.
@@ -70,6 +69,7 @@ public class PluginManager {
     private final PreviewEnhancerRegistry previewEnhancerRegistry;
     private final EditorHookRegistry editorHookRegistry;
     private final ToolbarRegistry toolbarRegistry;
+    private final StatusBarRegistry statusBarRegistry;
     private final EditorBlockRendererRegistry editorBlockRendererRegistry;
     private final Consumer<Note> noteOpenAction;
     private final BiConsumer<Integer, String> editorNavigateAction;
@@ -78,7 +78,8 @@ public class PluginManager {
     private final Map<String, Plugin> plugins = new HashMap<>();
     private final Map<String, PluginState> pluginStates = new HashMap<>();
     private final Map<String, PluginContext> pluginContexts = new HashMap<>();
-    private final Preferences pluginPreferences = Preferences.userNodeForPackage(PluginManager.class);
+    private final Map<String, PluginOrigin> origins = new HashMap<>();
+    private PluginStates states = new PluginStates(Preferences.userNodeForPackage(PluginManager.class));
 
     /**
      * Creates a new PluginManager.
@@ -97,6 +98,7 @@ public class PluginManager {
      * @param noteOpenAction     Owner callback for plugin note-open requests
      * @param editorNavigateAction Owner callback for plugin heading-navigation requests (nullable)
      * @param noteContextMenuRegistry The note context menu registry (nullable)
+     * @param statusBarRegistry  The status bar item registry (nullable)
      */
     public PluginManager(
             NoteService noteService,
@@ -112,7 +114,8 @@ public class PluginManager {
             EditorBlockRendererRegistry editorBlockRendererRegistry,
             Consumer<Note> noteOpenAction,
             BiConsumer<Integer, String> editorNavigateAction,
-            PluginNoteContextMenuRegistry noteContextMenuRegistry) {
+            PluginNoteContextMenuRegistry noteContextMenuRegistry,
+            StatusBarRegistry statusBarRegistry) {
         this.noteService = noteService;
         this.folderService = folderService;
         this.tagService = tagService;
@@ -123,6 +126,7 @@ public class PluginManager {
         this.previewEnhancerRegistry = previewEnhancerRegistry;
         this.editorHookRegistry = editorHookRegistry;
         this.toolbarRegistry = toolbarRegistry;
+        this.statusBarRegistry = statusBarRegistry;
         this.editorBlockRendererRegistry = editorBlockRendererRegistry;
         this.noteOpenAction = noteOpenAction;
         this.editorNavigateAction = editorNavigateAction;
@@ -130,12 +134,23 @@ public class PluginManager {
     }
 
     /**
-     * Registers a plugin.
+     * Registers a community plugin.
      * 
      * @param plugin The plugin to register
      * @return true if registered successfully, false otherwise
      */
     public boolean registerPlugin(Plugin plugin) {
+        return registerPlugin(plugin, PluginOrigin.COMMUNITY);
+    }
+
+    /**
+     * Registers a plugin, Jylos's own or the community's.
+     *
+     * @param plugin The plugin to register
+     * @param origin where it comes from
+     * @return true if registered successfully, false otherwise
+     */
+    public boolean registerPlugin(Plugin plugin, PluginOrigin origin) {
         if (plugin == null) {
             logger.warning("Attempted to register null plugin");
             return false;
@@ -154,6 +169,7 @@ public class PluginManager {
 
         plugins.put(pluginId, plugin);
         pluginStates.put(pluginId, PluginState.REGISTERED);
+        origins.put(pluginId, origin != null ? origin : PluginOrigin.COMMUNITY);
         logger.info("Registered plugin: " + plugin.getName() + " (" + pluginId + ")");
 
         return true;
@@ -176,6 +192,7 @@ public class PluginManager {
         // Remove plugin
         plugins.remove(pluginId);
         pluginStates.remove(pluginId);
+        origins.remove(pluginId);
         pluginContexts.remove(pluginId);
 
         // Remove UI components
@@ -206,7 +223,7 @@ public class PluginManager {
             return false;
         }
 
-        if (isDisabledInPreferences(pluginId)) {
+        if (!states.isEnabled(pluginId, originOf(pluginId))) {
             pluginStates.put(pluginId, PluginState.DISABLED);
             logger.info("Plugin disabled by preferences, skipping initialization: " + pluginId);
             return true;
@@ -250,7 +267,8 @@ public class PluginManager {
                     editorBlockRendererRegistry,
                     noteOpenAction,
                     editorNavigateAction,
-                    noteContextMenuRegistry);
+                    noteContextMenuRegistry,
+                    statusBarRegistry);
             pluginContexts.put(pluginId, context);
 
             // Initialize plugin
@@ -259,7 +277,7 @@ public class PluginManager {
             pluginStates.put(pluginId, PluginState.INITIALIZED);
             logger.info("Initialized plugin: " + plugin.getName() + " (" + pluginId + ")");
 
-            if (plugin.isEnabled() && !isDisabledInPreferences(pluginId)) {
+            if (plugin.isEnabled() && states.isEnabled(pluginId, originOf(pluginId))) {
                 enablePlugin(pluginId);
             } else {
                 pluginStates.put(pluginId, PluginState.DISABLED);
@@ -385,7 +403,7 @@ public class PluginManager {
             return true;
         }
 
-        setDisabledInPreferences(pluginId, false);
+        states.setEnabled(pluginId, true);
         if (currentState == PluginState.REGISTERED || currentState == PluginState.DISABLED) {
             if (!initializePlugin(pluginId)) {
                 return false;
@@ -417,7 +435,7 @@ public class PluginManager {
 
         pluginStates.put(pluginId, PluginState.DISABLED);
         cleanupPluginRuntime(pluginId);
-        setDisabledInPreferences(pluginId, true);
+        states.setEnabled(pluginId, false);
 
         logger.info("Disabled plugin: " + pluginId);
         return true;
@@ -431,8 +449,16 @@ public class PluginManager {
      * @throws IOException if the JAR cannot be copied or loaded
      */
     public Plugin installPluginJar(Path sourceJar) throws IOException {
+        if (!communityPluginsAllowed()) {
+            throw new IOException("Community plugins are turned off (restricted mode)");
+        }
         Path installedJar = PluginLoader.installPluginJar(sourceJar);
-        Plugin plugin = PluginLoader.loadPluginJar(installedJar);
+        Plugin plugin = PluginLoader.loadCommunityJar(installedJar);
+        String needed = PluginLoader.incompatibleCommunityJars().get(installedJar.getFileName().toString());
+        if (plugin == null && needed != null) {
+            deleteInstalledCopyIfNeeded(sourceJar, installedJar);
+            throw new IOException("This plugin needs Jylos " + needed + " or later");
+        }
         if (plugin == null) {
             deleteInstalledCopyIfNeeded(sourceJar, installedJar);
             throw new IOException("The selected JAR does not contain a valid Jylos plugin");
@@ -442,10 +468,11 @@ public class PluginManager {
             deleteInstalledCopyIfNeeded(sourceJar, installedJar);
             throw new IOException("Plugin already installed: " + plugin.getId());
         }
-        setDisabledInPreferences(plugin.getId(), false);
-        if (!registerPlugin(plugin) || !initializePlugin(plugin.getId())) {
+        states.setEnabled(plugin.getId(), true);
+        if (!registerPlugin(plugin, PluginOrigin.COMMUNITY) || !initializePlugin(plugin.getId())) {
             plugins.remove(plugin.getId());
             pluginStates.remove(plugin.getId());
+            origins.remove(plugin.getId());
             pluginContexts.remove(plugin.getId());
             PluginLoader.releasePluginJar(installedJar);
             deleteInstalledCopyIfNeeded(sourceJar, installedJar);
@@ -480,8 +507,9 @@ public class PluginManager {
 
         plugins.remove(pluginId);
         pluginStates.remove(pluginId);
+        origins.remove(pluginId);
         pluginContexts.remove(pluginId);
-        clearDisabledPreference(pluginId);
+        states.forget(pluginId);
 
         logger.info("Uninstalled plugin: " + pluginId);
         return plugin;
@@ -494,7 +522,72 @@ public class PluginManager {
      * @return {@code true} when its JAR is in the user plugins directory
      */
     public boolean isPluginRemovable(String pluginId) {
-        return PluginLoader.isPluginRemovable(pluginId);
+        // Jylos's own plugins come with the installation, even when the portable build keeps
+        // them in the user's folder.
+        return originOf(pluginId) == PluginOrigin.COMMUNITY && PluginLoader.isPluginRemovable(pluginId);
+    }
+
+    /**
+     * Loads the plugins the user has copied into their plugins folder since they were last read,
+     * as community plugins, without restarting. A JAR whose plugin id is already loaded is left out.
+     *
+     * @return the plugins added
+     */
+    public List<Plugin> reloadCommunityPlugins() {
+        List<Plugin> added = new ArrayList<>();
+        if (!communityPluginsAllowed()) {
+            return added;
+        }
+        for (Path jar : PluginLoader.unloadedCommunityJars()) {
+            Plugin plugin = PluginLoader.loadCommunityJar(jar);
+            if (plugin == null) {
+                continue;
+            }
+            if (plugins.containsKey(plugin.getId())) {
+                logger.info("Not loading " + jar + ": plugin '" + plugin.getId() + "' is already loaded");
+                PluginLoader.releasePluginJar(jar);
+                continue;
+            }
+            if (registerPlugin(plugin, PluginOrigin.COMMUNITY) && initializePlugin(plugin.getId())) {
+                added.add(plugin);
+            }
+        }
+        return added;
+    }
+
+    /** Whether community plugins are loaded (restricted mode off). */
+    public boolean communityPluginsAllowed() {
+        return states.communityAllowed(PluginLoader.getPluginsDirectoryFile().toPath());
+    }
+
+    /**
+     * Turns restricted mode off ({@code allowed}) or on. On, the community plugins are stopped
+     * and unloaded, keeping whether each one was on; off, they are loaded again as they were.
+     */
+    public void setCommunityPluginsAllowed(boolean allowed) {
+        states.setCommunityAllowed(allowed);
+        if (allowed) {
+            reloadCommunityPlugins();
+            return;
+        }
+        for (String id : new ArrayList<>(plugins.keySet())) {
+            if (originOf(id) != PluginOrigin.COMMUNITY) {
+                continue;
+            }
+            shutdownPlugin(id);
+            Path jar = PluginLoader.jarOf(id);
+            plugins.remove(id);
+            pluginStates.remove(id);
+            pluginContexts.remove(id);
+            origins.remove(id);
+            PluginLoader.releasePluginJar(jar);
+            logger.info("Restricted mode: unloaded community plugin " + id);
+        }
+    }
+
+    /** Whether the plugin is Jylos's own or the community's ({@code COMMUNITY} if unknown). */
+    public PluginOrigin originOf(String pluginId) {
+        return origins.getOrDefault(pluginId, PluginOrigin.COMMUNITY);
     }
 
     private void deleteInstalledCopyIfNeeded(Path sourceJar, Path installedJar) throws IOException {
@@ -527,6 +620,9 @@ public class PluginManager {
         if (toolbarRegistry != null) {
             toolbarRegistry.removeToolbarButtons(pluginId);
         }
+        if (statusBarRegistry != null) {
+            statusBarRegistry.removeStatusBarItems(pluginId);
+        }
         if (editorBlockRendererRegistry != null) {
             editorBlockRendererRegistry.unregisterEditorBlockRenderers(pluginId);
         }
@@ -537,16 +633,12 @@ public class PluginManager {
         }
     }
 
-    private boolean isDisabledInPreferences(String pluginId) {
-        return pluginPreferences.getBoolean(PREFS_DISABLED_PREFIX + pluginId, false);
-    }
-
-    private void setDisabledInPreferences(String pluginId, boolean disabled) {
-        pluginPreferences.putBoolean(PREFS_DISABLED_PREFIX + pluginId, disabled);
-    }
-
-    private void clearDisabledPreference(String pluginId) {
-        pluginPreferences.remove(PREFS_DISABLED_PREFIX + pluginId);
+    /**
+     * Keeps the plugins' states (on or off, restricted mode) in {@code node} instead of the
+     * user's preferences; for tests, which must not depend on or change the user's.
+     */
+    public void usePreferences(Preferences node) {
+        this.states = new PluginStates(node);
     }
 
     /**

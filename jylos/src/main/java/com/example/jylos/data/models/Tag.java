@@ -9,6 +9,9 @@ import com.example.jylos.data.models.abstractLayers.BaseModel;
  * A tag is used to categorize and organize notes.
  * It consists of an ID, title, and optional timestamps for creation and
  * modification.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class Tag extends BaseModel implements Serializable {
     private static final long serialVersionUID = 1L;

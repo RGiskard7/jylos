@@ -1,18 +1,25 @@
 package com.example.jylos.ui.graph;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import com.example.jylos.graph.GraphData;
 import com.example.jylos.graph.GraphEdge;
 import com.example.jylos.graph.GraphNode;
+import com.example.jylos.ui.theme.ActiveThemePalette;
+import com.example.jylos.util.ThemePalette;
 
 import javafx.animation.AnimationTimer;
+import javafx.scene.Cursor;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.input.MouseButton;
 import javafx.scene.layout.Region;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
@@ -47,35 +54,41 @@ import javafx.scene.text.TextAlignment;
  */
 public final class GraphCanvas extends Region {
 
-    // ── Physics tuning (close to Obsidian's defaults) ───────────────────────
+    // ── Physics tuning (close to Obsidian's defaults) ────────────────────────
     private static final double ALPHA_INIT     = 1.0;
-    private static final double ALPHA_MIN      = 0.0015;
-    private static final double ALPHA_DECAY    = 0.0135;   // longer settle → fuller spread
+    // Obsidian's simulation (its graph worker): alpha 1 down to .001 in about 300 steps,
+    // keeping 60 % of the velocity each step.
+    private static final double ALPHA_MIN      = 0.001;
+    private static final double ALPHA_DECAY    = 1 - Math.pow(0.001, 1.0 / 300);
     private static final double VELOCITY_DECAY = 0.60;     // fraction of velocity kept per tick
-    private static final double CHARGE         = -260.0;   // many-body repulsion (negative = repel)
+    private static final double CHARGE         = -1000.0;  // many-body repulsion (negative = repel)
+    private static final double CHARGE_MIN_DISTANCE2 = 30.0 * 30.0;
     private static final double THETA2         = 0.81;     // Barnes–Hut accuracy (theta=0.9)^2
-    private static final double LINK_DISTANCE  = 36.0;
-    private static final double CENTER_GRAVITY = 0.035;    // weak pull → orphans drift to the rim
-    private static final double MAX_VELOCITY   = 160.0;    // clamp to avoid explosions
-    private static final double COLLISION_PADDING  = 2.0;  // small visual gap even when circles "touch"
-    private static final double COLLISION_STRENGTH = 0.7;  // d3-force's own default — unlike charge/link,
+    private static final double LINK_DISTANCE  = 250.0;
+    private static final double CENTER_GRAVITY = 0.1;      // pulls every node toward the centre
+    private static final double MAX_VELOCITY   = 10_000.0; // only a guard against blow-ups
+    private static final double COLLISION_RADIUS = 60.0;   // every node keeps this much room
+    private static final double COLLISION_STRENGTH = 0.5;
                                                              // this is not scaled by alpha: collisions must
                                                              // keep resolving even once the simulation has
                                                              // cooled down, or an overlap in an already-settled
                                                              // layout would never get corrected
 
-    // ── Interaction tuning ──────────────────────────────────────────────────
+    // ── Interaction tuning ───────────────────────────────────────────────────
     private static final double MIN_SCALE = 0.02;
     private static final double MAX_SCALE = 8.0;
+    private static final double GHOST_ALPHA = 0.5;         // opacity of a note that does not exist yet (Obsidian's)
+    private static final double ZOOM_EASE = 0.85;          // share of the zoom gap left after a frame (Obsidian's)
     private static final double CLICK_SLOP = 4.0;          // px movement still counts as a click
     private static final double MIN_NODE_PX = 2.0;         // floor on on-screen node radius (Obsidian-like dots)
-    private static final double HOVER_DIM_ALPHA = 0.28;    // opacity for nodes/labels not part of the hovered relation
+    private static final double HOVER_DIM_ALPHA = 0.2;     // opacity of what the hovered note is not related to (Obsidian's)
+    private static final double LINK_SHADE = 0.17;         // a link's share of the text over the background (Obsidian's --graph-line)
     private static final double HOVER_EASE_RATE = 0.25;    // fraction of the remaining hover-fade gap closed
                                                              // per animation frame — a simple exponential ease,
                                                              // not a fixed-duration tween: no elapsed-time
                                                              // bookkeeping needed, and it self-adjusts to
                                                              // whatever frame rate is actually delivered
-    private static final double BASE_NODE_RADIUS = 2.4;    // smallest normal (non-ghost) note radius, degree 0 —
+    private static final double BASE_NODE_RADIUS = 8.0;    // smallest note radius (Obsidian's minimum size)
                                                              // the reference point labelThreshold is calibrated
                                                              // against; a bigger node's label reveals at a
                                                              // proportionally lower zoom than that reference
@@ -83,20 +96,20 @@ public final class GraphCanvas extends Region {
     private final Canvas canvas = new Canvas();
     private final GraphicsContext g = canvas.getGraphicsContext2D();
 
-    // ── Live-adjustable forces (defaults from the constants above) ──────────
+    // ── Live-adjustable forces (defaults from the constants above) ───────────
     private double charge = CHARGE;
     private double linkDistance = LINK_DISTANCE;
     private double centerGravity = CENTER_GRAVITY;
     private double linkForce = 1.0;        // spring strength multiplier (Obsidian "link force")
     private boolean colorByFolder = false;
 
-    // ── Live-adjustable display options ─────────────────────────────────────
+    // ── Live-adjustable display options ──────────────────────────────────────
     private double nodeScale = 1.0;        // node radius multiplier
     private double lineThickness = 1.0;    // edge width multiplier
     private boolean showArrows = false;    // draw directional arrowheads on edges
     private double labelThreshold = 0.4;   // min zoom at which labels appear (text fade)
 
-    // ── Node arrays (struct-of-arrays for cache-friendly physics) ───────────
+    // ── Node arrays (struct-of-arrays for cache-friendly physics) ────────────
     private int n = 0;
     private double[] x = new double[0];
     private double[] y = new double[0];
@@ -107,6 +120,9 @@ public final class GraphCanvas extends Region {
     private String[] ids = new String[0];
     private String[] labels = new String[0];
     private String[] group = new String[0];   // folder/tag group, for color-by-folder
+    /** Colour groups: the colour of each node a group matched, by node id. */
+    private Map<String, Color> nodeColors = Map.of();
+    private Color[] groupFill = new Color[0];
     private int[][] neighbors = new int[0][];
     /** Node indices sorted by descending radius, computed once per model build (radius
      *  never changes afterward) so the label pass doesn't re-sort on every frame. */
@@ -117,19 +133,31 @@ public final class GraphCanvas extends Region {
     private static final int KIND_TAG = 1;
     private static final int KIND_GHOST = 2;
 
-    // ── Edges (index pairs) + per-node link counts (for spring strength) ────
+    // ── Edges (index pairs) + per-node link counts (for spring strength) ─────
     private int[] edgeA = new int[0];
     private int[] edgeB = new int[0];
     private int[] linkCount = new int[0];
 
-    // ── View transform (world → screen): screen = world*scale + offset ──────
+    // ── View transform (world → screen): screen = world*scale + offset ───────
     private double scale = 1.0;
     private double offsetX = 0;
     private double offsetY = 0;
+    /** The zoom the view eases toward, a little each frame, as Obsidian's does. */
+    private double targetScale = 1.0;
+    /** Until the user zooms or drags the view, it keeps the whole graph framed. */
+    private boolean followFit = true;
+    /** The next data starts a fresh view, as opening the graph: see {@link #openView}. */
+    private boolean openPending = true;
+    private Double openScale = null;
+    private Consumer<Double> onZoomChosen = s -> { };
+    private double lastWidth = 0;
+    private double lastHeight = 0;
 
-    // ── Simulation / interaction state ──────────────────────────────────────
+    // ── Simulation / interaction state ───────────────────────────────────────
     private double alpha = 0;
     private boolean timerRunning = false;
+    /** Hidden: nothing starts the animation loop until {@link #resume}. */
+    private boolean paused = false;
     private int hoverIndex = -1;
     /** The node whose highlight is currently being shown/animated — updates the
      *  instant a new node is hovered, but (unlike {@link #hoverIndex}) holds its
@@ -143,19 +171,18 @@ public final class GraphCanvas extends Region {
     private int dragIndex = -1;
     private boolean panning = false;
     private boolean movedSincePress = false;
-    private boolean needsInitialFit = false;
     private double pressX, pressY;        // screen coords at mouse-press
     private double lastDragX, lastDragY;  // screen coords for incremental pan
 
-    private Consumer<String> onOpenNote = id -> { };
+    /** Told the note clicked, and whether it asks for a new tab (Cmd/Ctrl or the middle button). */
+    private BiConsumer<String, Boolean> onOpenNote = (id, newTab) -> { };
     private Palette palette = Palette.light();
 
     private final AnimationTimer timer = new AnimationTimer() {
         @Override
         public void handle(long now) {
-            tick();
-            draw();
-            if (alpha < ALPHA_MIN && dragIndex < 0) {
+            frame();
+            if (alpha < ALPHA_MIN && dragIndex < 0 && !viewMoving()) {
                 stopTimer();
             }
         }
@@ -201,13 +228,42 @@ public final class GraphCanvas extends Region {
 
     // ── Public API ───────────────────────────────────────────────────────────
 
-    public void setOnOpenNote(Consumer<String> handler) {
-        this.onOpenNote = handler != null ? handler : id -> { };
+    /**
+     * Told the note clicked, and whether the click asks for a new tab (Cmd/Ctrl or the middle
+     * button), as a link click does.
+     */
+    public void setOnOpenNote(BiConsumer<String, Boolean> handler) {
+        this.onOpenNote = handler != null ? handler : (id, newTab) -> { };
     }
 
-    /** Applies the dark/light palette and repaints. */
+    /**
+     * Told the zoom the user chooses (wheel, buttons), to keep it for next time; told
+     * {@code null} when they reset the view, which goes back to framing the whole graph.
+     */
+    public void setOnZoomChosen(Consumer<Double> handler) {
+        this.onZoomChosen = handler != null ? handler : s -> { };
+    }
+
+    /**
+     * Makes the next {@link #setData} start the view afresh, as Obsidian opens its graph: centred
+     * on the middle of the graph, from close up, zooming out to {@code savedScale}; with no zoom
+     * kept ({@code null}) it frames the whole graph while it spreads out, until the user zooms or
+     * drags the view. The notes are all placed anew too.
+     */
+    public void openView(Double savedScale) {
+        openPending = true;
+        openScale = savedScale != null && savedScale > 0 ? savedScale : null;
+    }
+
+    /** Applies the dark/light palette, or the external theme's colours if one is in use, and repaints. */
     public void setDarkTheme(boolean dark) {
-        this.palette = dark ? Palette.dark() : Palette.light();
+        setTheme(dark, ActiveThemePalette.get());
+    }
+
+    /** Applies an external theme's colours over the dark/light palette ({@code null}: that palette alone). */
+    public void setTheme(boolean dark, ThemePalette theme) {
+        Palette own = dark ? Palette.dark() : Palette.light();
+        this.palette = theme != null ? Palette.from(own, theme, dark) : own;
         draw();
     }
 
@@ -298,6 +354,43 @@ public final class GraphCanvas extends Region {
         g.strokeLine(tipX, tipY, rx, ry);
     }
 
+    /**
+     * The colours the colour groups give, by node id; nodes not in the map keep their usual
+     * colour. A group's colour wins over "colour by folder", as in Obsidian.
+     */
+    public void setNodeColors(Map<String, Color> colors) {
+        nodeColors = colors != null ? Map.copyOf(colors) : Map.of();
+        applyNodeColors();
+        drawIfIdle();
+    }
+
+    private void applyNodeColors() {
+        groupFill = new Color[n];
+        for (int i = 0; i < n; i++) {
+            groupFill[i] = nodeColors.get(ids[i]);
+        }
+    }
+
+    /** The colour a node is drawn with when the pointer is not on it; null if it is not shown. */
+    public Color fillOf(String nodeId) {
+        for (int i = 0; i < n; i++) {
+            if (ids[i].equals(nodeId)) {
+                return kind[i] == KIND_GHOST ? null : restingFill(i);
+            }
+        }
+        return null;
+    }
+
+    private Color restingFill(int i) {
+        if (i < groupFill.length && groupFill[i] != null) {
+            return groupFill[i];
+        }
+        if (kind[i] == KIND_TAG) {
+            return palette.tag;
+        }
+        return colorByFolder ? groupColor(group[i]) : palette.node;
+    }
+
     /** Stable pastel color derived from a group key (folder path). */
     private Color groupColor(String key) {
         if (key == null || key.isBlank()) {
@@ -313,13 +406,37 @@ public final class GraphCanvas extends Region {
      * (re)heats the simulation.
      */
     public void setData(GraphData data) {
+        boolean opening = openPending;
+        // As Obsidian: the notes already on the graph stay where they are; only a fresh view
+        // (or an empty graph before) places them all anew.
+        Map<String, double[]> kept = opening || n == 0 ? Map.of() : currentPositions();
         buildModel(data != null ? data : GraphData.empty());
-        seedLayout();
-        // If the canvas hasn't been laid out yet, defer the initial framing to
-        // the first real resize so the graph isn't pushed off-screen.
-        needsInitialFit = width() <= 0 || height() <= 0;
-        resetView();
-        reheat();
+        applyNodeColors();
+        seedLayout(kept);
+        if (opening) {
+            openPending = false;
+            startView();
+        }
+        alpha = kept.isEmpty() ? ALPHA_INIT : Math.max(alpha, 0.3);
+        draw();
+        startTimer();
+    }
+
+    private Map<String, double[]> currentPositions() {
+        Map<String, double[]> positions = new HashMap<>(n * 2);
+        for (int i = 0; i < n; i++) {
+            positions.put(ids[i], new double[] {x[i], y[i]});
+        }
+        return positions;
+    }
+
+    /** Centred on the middle of the graph, close up (Obsidian starts at zoom 1), easing out. */
+    private void startView() {
+        scale = 1.0;
+        offsetX = width() / 2.0;
+        offsetY = height() / 2.0;
+        followFit = openScale == null;
+        targetScale = openScale != null ? clamp(openScale, MIN_SCALE, MAX_SCALE) : scale;
     }
 
     /** Zooms in one step about the viewport center. */
@@ -334,23 +451,51 @@ public final class GraphCanvas extends Region {
 
     /** Multiplies the zoom by {@code factor}, keeping the given screen point fixed. */
     private void zoomBy(double factor, double anchorX, double anchorY) {
-        double newScale = clamp(scale * factor, MIN_SCALE, MAX_SCALE);
+        zoomTo(clamp(scale * factor, MIN_SCALE, MAX_SCALE), anchorX, anchorY);
+        takeView();
+        onZoomChosen.accept(scale);
+        drawIfIdle();
+    }
+
+    private void zoomTo(double newScale, double anchorX, double anchorY) {
         double wx = (anchorX - offsetX) / scale;
         double wy = (anchorY - offsetY) / scale;
         scale = newScale;
         offsetX = anchorX - wx * scale;
         offsetY = anchorY - wy * scale;
-        drawIfIdle();
     }
 
-    /** Re-frames the viewport so the whole graph fits with a small margin. */
+    /** The user has taken the view: it stays where they leave it. */
+    private void takeView() {
+        followFit = false;
+        targetScale = scale;
+    }
+
+    /**
+     * Re-frames the viewport so the whole graph fits with a small margin, and keeps it framed
+     * while the graph moves, until the user zooms or drags the view again.
+     */
     public void resetView() {
-        if (n == 0) {
+        double[] fit = fitView();
+        if (fit == null) {
             scale = 1.0;
             offsetX = width() / 2.0;
             offsetY = height() / 2.0;
-            draw();
-            return;
+        } else {
+            scale = fit[0];
+            offsetX = fit[1];
+            offsetY = fit[2];
+        }
+        followFit = true;
+        targetScale = scale;
+        onZoomChosen.accept(null);
+        draw();
+    }
+
+    /** The zoom and offsets that fit the whole graph in the view, or null with nothing to fit. */
+    private double[] fitView() {
+        if (n == 0 || width() <= 0 || height() <= 0) {
+            return null;
         }
         double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE;
         double maxX = -Double.MAX_VALUE, maxY = -Double.MAX_VALUE;
@@ -365,20 +510,100 @@ public final class GraphCanvas extends Region {
         double vw = Math.max(1, width());
         double vh = Math.max(1, height());
         double margin = 0.86;
-        scale = clamp(Math.min(vw / w, vh / h) * margin, MIN_SCALE, MAX_SCALE);
+        double fitScale = clamp(Math.min(vw / w, vh / h) * margin, MIN_SCALE, MAX_SCALE);
         double cx = (minX + maxX) / 2.0;
         double cy = (minY + maxY) / 2.0;
-        offsetX = vw / 2.0 - cx * scale;
-        offsetY = vh / 2.0 - cy * scale;
+        return new double[] {fitScale, vw / 2.0 - cx * fitScale, vh / 2.0 - cy * fitScale};
+    }
+
+    /** One frame: a step of the simulation while it runs, the view eased, and a repaint. */
+    private void frame() {
+        if (alpha >= ALPHA_MIN || dragIndex >= 0) {
+            tick();
+        }
+        easeView();
         draw();
     }
 
-    /** Stops the animation loop (call when the view is hidden). */
+    /**
+     * Moves the view a step toward where it should be: framing the whole graph while
+     * {@link #followFit}, otherwise toward {@link #targetScale} about the middle of the view.
+     * Each frame closes 15 % of the way, as Obsidian's zoom does.
+     */
+    private void easeView() {
+        if (followFit) {
+            double[] fit = fitView();
+            if (fit == null) {
+                return;
+            }
+            targetScale = fit[0];
+            scale = eased(scale, targetScale);
+            // Keep the middle of the graph where the fit puts it, at the eased zoom.
+            double cx = (width() / 2.0 - fit[1]) / fit[0];
+            double cy = (height() / 2.0 - fit[2]) / fit[0];
+            offsetX = width() / 2.0 - cx * scale;
+            offsetY = height() / 2.0 - cy * scale;
+            return;
+        }
+        if (scale != targetScale) {
+            zoomTo(eased(scale, targetScale), width() / 2.0, height() / 2.0);
+        }
+    }
+
+    private static double eased(double from, double to) {
+        double next = to + (from - to) * ZOOM_EASE;
+        return Math.abs(next / to - 1) < 0.001 ? to : next;
+    }
+
+    /** Whether the view is still easing toward its zoom. */
+    private boolean viewMoving() {
+        return scale != targetScale;
+    }
+
+    /** Runs {@code frames} frames at once, as the view does one per screen refresh (tests). */
+    void runFrames(int frames) {
+        for (int f = 0; f < frames; f++) {
+            frame();
+        }
+    }
+
+    /** {@code {zoom, offsetX, offsetY}}: where graph point (0,0) is on screen, and the zoom (tests). */
+    double[] view() {
+        return new double[] {scale, offsetX, offsetY};
+    }
+
+    /** {@code {minX, minY, maxX, maxY}} of the nodes' circles on screen (tests). */
+    double[] screenBounds() {
+        double[] box = {Double.MAX_VALUE, Double.MAX_VALUE, -Double.MAX_VALUE, -Double.MAX_VALUE};
+        for (int i = 0; i < n; i++) {
+            double r = screenRadius(i);
+            box[0] = Math.min(box[0], sx(x[i]) - r);
+            box[1] = Math.min(box[1], sy(y[i]) - r);
+            box[2] = Math.max(box[2], sx(x[i]) + r);
+            box[3] = Math.max(box[3], sy(y[i]) + r);
+        }
+        return box;
+    }
+
+    /**
+     * Stops the animation loop while the view is hidden. It stays stopped until {@link #resume}:
+     * new data or a resize meanwhile does not start it, since the layout runs on the interface
+     * thread and, with a whole vault on the graph, slows everything else down.
+     */
     public void pause() {
+        paused = true;
         stopTimer();
     }
 
-    // ── Model construction ─────────────────────────────────────────────────────
+    /** Lets the view move again (shown again), carrying on where the layout was left. */
+    public void resume() {
+        paused = false;
+        if (n > 0 && (alpha >= ALPHA_MIN || viewMoving() || followFit)) {
+            startTimer();
+        }
+    }
+
+    // ── Model construction ───────────────────────────────────────────────────
 
     private void buildModel(GraphData data) {
         List<GraphNode> ns = data.nodes();
@@ -408,8 +633,7 @@ public final class GraphCanvas extends Region {
                 case GHOST -> KIND_GHOST;
                 default -> KIND_NOTE;
             };
-            double base = node.type() == GraphNode.Type.GHOST ? 2.0 : BASE_NODE_RADIUS;
-            radius[i] = base + Math.sqrt(Math.max(0, node.degree())) * 1.5;
+            radius[i] = nodeSize(node.degree());
         }
 
         // Resolve edges to index pairs, dropping any dangling endpoints.
@@ -456,7 +680,7 @@ public final class GraphCanvas extends Region {
         for (int i = 0; i < n; i++) {
             boxed[i] = i;
         }
-        java.util.Arrays.sort(boxed, (a, b) -> Double.compare(radius[b], radius[a]));
+        Arrays.sort(boxed, (a, b) -> Double.compare(radius[b], radius[a]));
         labelOrder = new int[n];
         for (int i = 0; i < n; i++) {
             labelOrder[i] = boxed[i];
@@ -467,21 +691,64 @@ public final class GraphCanvas extends Region {
     }
 
     /**
-     * Seeds nodes at random positions inside a disk. A random (symmetry-breaking)
-     * start is essential: an ordered seed (e.g. phyllotaxis) is itself the
-     * uniform-repulsion equilibrium, so the simulation would never break it into
-     * Obsidian-like organic clusters. The PRNG is seeded for reproducible layouts.
+     * Places the notes as Obsidian's graph view does before its simulation starts. A note in
+     * {@code kept} stays where it was. Each new one starts beside the notes it links to that are
+     * already placed (their mean, plus up to half of {@code sqrt(60·60·new notes)} on each axis),
+     * so a cluster starts together wherever its first note fell and stays spread over the graph,
+     * instead of forming in the middle of notes scattered all over the disc. A new note with
+     * nothing placed to link to starts at random in a ring of area {@code 60·60·new notes}
+     * around the notes already there (a disc when there are none). The PRNG is seeded so a
+     * layout can be reproduced.
      */
-    private void seedLayout() {
-        java.util.Random rnd = new java.util.Random(0x5DEECE66DL ^ n);
-        double spread = 60.0 + Math.sqrt(Math.max(1, n)) * 26.0;
+    private void seedLayout(Map<String, double[]> kept) {
+        Random rnd = new Random(0x5DEECE66DL ^ n);
+        boolean[] placed = new boolean[n];
+        double keptRadius2 = 0;
+        int fresh = 0;
         for (int i = 0; i < n; i++) {
-            double a = rnd.nextDouble() * Math.PI * 2.0;
-            double r = spread * Math.sqrt(rnd.nextDouble());
-            x[i] = Math.cos(a) * r;
-            y[i] = Math.sin(a) * r;
             vx[i] = 0;
             vy[i] = 0;
+            double[] p = kept.get(ids[i]);
+            if (p != null) {
+                x[i] = p[0];
+                y[i] = p[1];
+                placed[i] = true;
+                keptRadius2 = Math.max(keptRadius2, x[i] * x[i] + y[i] * y[i]);
+            } else {
+                fresh++;
+            }
+        }
+        if (fresh == 0) {
+            return;
+        }
+        double area = 60.0 * 60.0 * fresh;
+        double inner = Math.sqrt(keptRadius2);
+        double ring = Math.sqrt(area / Math.PI + keptRadius2) - inner;
+        double jitter = Math.sqrt(area);
+        for (int i = 0; i < n; i++) {
+            if (placed[i]) {
+                continue;
+            }
+            double sumX = 0;
+            double sumY = 0;
+            int count = 0;
+            for (int j : neighbors[i]) {
+                if (placed[j]) {
+                    sumX += x[j];
+                    sumY += y[j];
+                    count++;
+                }
+            }
+            if (count > 0) {
+                x[i] = sumX / count + (rnd.nextDouble() - 0.5) * jitter;
+                y[i] = sumY / count + (rnd.nextDouble() - 0.5) * jitter;
+            } else {
+                double a = rnd.nextDouble() * Math.PI * 2.0;
+                double r = inner + Math.sqrt(rnd.nextDouble()) * ring;
+                x[i] = Math.cos(a) * r;
+                y[i] = Math.sin(a) * r;
+            }
+            placed[i] = true;
         }
     }
 
@@ -490,7 +757,29 @@ public final class GraphCanvas extends Region {
         startTimer();
     }
 
-    // ── Simulation step ────────────────────────────────────────────────────────
+    // ── Simulation step ──────────────────────────────────────────────────────
+
+    /** The radius of a note node with {@code degree} connections, before zoom and the size slider. */
+    static double nodeSize(int degree) {
+        return Math.max(BASE_NODE_RADIUS, Math.min(3 * Math.sqrt(Math.max(0, degree) + 1), 30));
+    }
+
+    /** Runs {@code ticks} steps of the simulation at once (tests; the view runs them per frame). */
+    void runTicks(int ticks) {
+        for (int t = 0; t < ticks; t++) {
+            tick();
+        }
+    }
+
+    /** Where a node is, in graph coordinates (the centre of the simulation is 0,0); null if absent. */
+    double[] positionOf(String nodeId) {
+        for (int i = 0; i < n; i++) {
+            if (ids[i].equals(nodeId)) {
+                return new double[] {x[i], y[i]};
+            }
+        }
+        return null;
+    }
 
     private void tick() {
         if (n == 0) {
@@ -538,20 +827,21 @@ public final class GraphCanvas extends Region {
                 dy = jiggle();
                 d = Math.sqrt(dx * dx + dy * dy);
             }
-            // Stronger springs for low-degree endpoints (d3's bias heuristic).
+            // d3's default (stronger springs for low-degree ends), times the link force (1).
             double strength = 1.0 / Math.min(linkCount[s], linkCount[t]);
             double l = (d - linkDistance) / d * alpha * strength * linkForce;
             double fx = dx * l;
             double fy = dy * l;
+            // As d3: the end with fewer links moves more (target by bias, source by 1 - bias).
             double bias = (double) linkCount[s] / (linkCount[s] + linkCount[t]);
-            vx[t] -= fx * (1 - bias);
-            vy[t] -= fy * (1 - bias);
-            vx[s] += fx * bias;
-            vy[s] += fy * bias;
+            vx[t] -= fx * bias;
+            vy[t] -= fy * bias;
+            vx[s] += fx * (1 - bias);
+            vy[s] += fy * (1 - bias);
         }
     }
 
-    // ── Barnes–Hut many-body repulsion ──────────────────────────────────────────
+    // ── Barnes–Hut many-body repulsion ───────────────────────────────────────
 
     private void applyManyBody(QuadNode root) {
         if (n < 2 || root == null) {
@@ -562,7 +852,7 @@ public final class GraphCanvas extends Region {
         }
     }
 
-    // ── Collision (node circles never overlap once the layout settles) ─────────
+    // ── Collision (node circles never overlap once the layout settles) ───────
 
     private void applyCollisions(QuadNode root) {
         if (n < 2 || root == null) {
@@ -595,7 +885,7 @@ public final class GraphCanvas extends Region {
             }
             double dx = (x[j] + vx[j]) - (x[i] + vx[i]);
             double dy = (y[j] + vy[j]) - (y[i] + vy[i]);
-            double minDist = radius[i] + radius[j] + COLLISION_PADDING;
+            double minDist = 2 * COLLISION_RADIUS;
             double d2 = dx * dx + dy * dy;
             if (d2 >= minDist * minDist) {
                 return;
@@ -622,7 +912,7 @@ public final class GraphCanvas extends Region {
         double closestY = clamp(y[i], node.y0, node.y0 + node.size);
         double dx = closestX - x[i];
         double dy = closestY - y[i];
-        double maxReach = radius[i] + node.maxRadius + COLLISION_PADDING;
+        double maxReach = 2 * COLLISION_RADIUS;
         if (dx * dx + dy * dy > maxReach * maxReach) {
             return;
         }
@@ -647,6 +937,9 @@ public final class GraphCanvas extends Region {
         }
         // Far enough to treat the whole cell as one body? (size^2 / dist^2 < theta^2)
         if (node.leaf || (node.size * node.size) < THETA2 * d2) {
+            if (d2 < CHARGE_MIN_DISTANCE2) {
+                d2 = Math.sqrt(CHARGE_MIN_DISTANCE2 * d2); // d3's distanceMin: no huge push up close
+            }
             double w = charge * alpha * node.count / d2;
             vx[i] += dx * w;
             vy[i] += dy * w;
@@ -785,19 +1078,19 @@ public final class GraphCanvas extends Region {
             }
         }
 
-        // Edges — thin, constant-ish width so relationships always read clearly.
+        // Edges — one pixel on screen at any zoom (times the thickness slider), as Obsidian's.
         // Colors ease between resting and highlighted/dimmed via hoverStrength
         // instead of switching outright, so the whole highlight (edges, nodes,
         // labels below) reads as one smooth transition rather than some parts
         // snapping instantly while others fade.
-        g.setLineWidth(clamp(scale, 0.7, 1.6) * lineThickness);
+        g.setLineWidth(lineThickness);
         for (int e = 0; e < edgeA.length; e++) {
             int s = edgeA[e];
             int t = edgeB[e];
             if (!hoveringDisplay) {
                 g.setStroke(palette.link);
             } else {
-                Color target = (active[s] && active[t]) ? palette.linkActive : palette.linkDim;
+                Color target = highlightsEdge(s, t, displayHoverIndex) ? palette.linkActive : palette.linkDim;
                 g.setStroke(palette.link.interpolate(target, hoverStrength));
             }
             double x1 = sx(x[s]), y1 = sy(y[s]), x2 = sx(x[t]), y2 = sy(y[t]);
@@ -816,20 +1109,16 @@ public final class GraphCanvas extends Region {
             g.setGlobalAlpha(dim ? 1.0 - (1.0 - HOVER_DIM_ALPHA) * hoverStrength : 1.0);
 
             if (kind[i] == KIND_GHOST) {
-                // Unresolved link → hollow node (Obsidian style).
-                g.setStroke(i == displayHoverIndex ? palette.accent : palette.ghost);
-                g.setLineWidth(1.2);
-                g.strokeOval(px - r, py - r, r * 2, r * 2);
+                // A note that does not exist yet: a faint dot at half opacity, as Obsidian's.
+                g.setFill(i == displayHoverIndex ? palette.accent : palette.ghost);
+                g.setGlobalAlpha(g.getGlobalAlpha() * GHOST_ALPHA);
+                g.fillOval(px - r, py - r, r * 2, r * 2);
             } else {
                 Color fill;
                 if (i == displayHoverIndex) {
                     fill = palette.node.interpolate(palette.accent, hoverStrength);
-                } else if (kind[i] == KIND_TAG) {
-                    fill = palette.tag;
-                } else if (colorByFolder) {
-                    fill = groupColor(group[i]);
                 } else {
-                    fill = palette.node;
+                    fill = restingFill(i);
                 }
                 g.setFill(fill);
                 g.fillOval(px - r, py - r, r * 2, r * 2);
@@ -936,7 +1225,7 @@ public final class GraphCanvas extends Region {
         }
         double w = width();
         double h = height();
-        double r = radius[idx] * scale;
+        double r = screenRadius(idx);
         double cx = sx(x[idx]);
         double cy = sy(y[idx]) + r + 12;
         double halfW = labels[idx].length() * avgCharWidth / 2.0 + 2;
@@ -955,7 +1244,7 @@ public final class GraphCanvas extends Region {
         g.fillText(labels[idx], cx, cy);
     }
 
-    // ── Interaction ────────────────────────────────────────────────────────────
+    // ── Interaction ──────────────────────────────────────────────────────────
 
     private void installInteraction() {
         canvas.setOnScroll(e -> {
@@ -969,6 +1258,7 @@ public final class GraphCanvas extends Region {
             lastDragX = e.getX();
             lastDragY = e.getY();
             movedSincePress = false;
+            takeView();
             int hit = pick(e.getX(), e.getY());
             if (hit >= 0) {
                 dragIndex = hit;
@@ -1003,7 +1293,7 @@ public final class GraphCanvas extends Region {
             if (!movedSincePress) {
                 int hit = pick(e.getX(), e.getY());
                 if (hit >= 0 && kind[hit] == KIND_NOTE) {
-                    onOpenNote.accept(ids[hit]);
+                    onOpenNote.accept(ids[hit], e.isShortcutDown() || e.getButton() == MouseButton.MIDDLE);
                 }
             }
             if (dragIndex >= 0) {
@@ -1022,7 +1312,7 @@ public final class GraphCanvas extends Region {
                 if (hit >= 0) {
                     displayHoverIndex = hit; // switch immediately — only the fade *out* holds the old value
                 }
-                canvas.setCursor(hit >= 0 ? javafx.scene.Cursor.HAND : javafx.scene.Cursor.DEFAULT);
+                canvas.setCursor(hit >= 0 ? Cursor.HAND : Cursor.DEFAULT);
                 setHoverTarget(hit >= 0 ? 1.0 : 0.0);
             }
         });
@@ -1052,10 +1342,10 @@ public final class GraphCanvas extends Region {
         return best;
     }
 
-    // ── Timer / helpers ────────────────────────────────────────────────────────
+    // ── Timer / helpers ──────────────────────────────────────────────────────
 
     private void startTimer() {
-        if (!timerRunning) {
+        if (!timerRunning && !paused) {
             timerRunning = true;
             timer.start();
         }
@@ -1078,9 +1368,13 @@ public final class GraphCanvas extends Region {
     private void resize() {
         canvas.setWidth(width());
         canvas.setHeight(height());
-        if (needsInitialFit && width() > 0 && height() > 0 && n > 0) {
-            needsInitialFit = false;
-            resetView();
+        // As Obsidian: what was in the middle of the view stays in the middle.
+        offsetX += (width() - lastWidth) / 2.0;
+        offsetY += (height() - lastHeight) / 2.0;
+        lastWidth = width();
+        lastHeight = height();
+        if (followFit && n > 0) {
+            startTimer(); // re-frame for the new size
         } else {
             draw();
         }
@@ -1088,7 +1382,30 @@ public final class GraphCanvas extends Region {
 
     /** On-screen node radius, floored so nodes stay visible at any zoom level. */
     private double screenRadius(int i) {
-        return Math.max(MIN_NODE_PX, radius[i] * scale * nodeScale);
+        return screenRadiusFor(radius[i], scale, nodeScale);
+    }
+
+    /**
+     * The radius on screen of a node of {@code radius} at {@code zoom}, times the size slider:
+     * it follows the square root of the zoom, as in Obsidian, so zoomed out a note with many links
+     * stays bigger than a lone one instead of both shrinking to the same dot.
+     */
+    static double screenRadiusFor(double radius, double zoom, double sizeMultiplier) {
+        return Math.max(MIN_NODE_PX, radius * sizeMultiplier * Math.sqrt(Math.max(0, zoom)));
+    }
+
+    /** Whether hovering the node {@code hovered} lights up the link {@code source}–{@code target}: only its own. */
+    static boolean highlightsEdge(int source, int target, int hovered) {
+        return source == hovered || target == hovered;
+    }
+
+    /**
+     * A link's colour at rest: opaque, a little of the text over the background, as Obsidian's
+     * {@code --graph-line}; being opaque, many links crossing do not add up to a bright patch.
+     */
+    static Color restingLinkColor(Color background, Color text) {
+        Color mixed = background.interpolate(text, LINK_SHADE);
+        return Color.color(mixed.getRed(), mixed.getGreen(), mixed.getBlue());
     }
 
     private double width()  { return Math.max(0, getWidth()); }
@@ -1125,11 +1442,37 @@ public final class GraphCanvas extends Region {
                     Color.web("#7c3aed"),                 // tag
                     Color.web("#9aa0bf"),                 // ghost (hollow outline)
                     Color.web("#23263a", 0.55),           // node ring (dark, visible on light bg)
-                    Color.web("#3a3f70", 0.30),           // link
-                    Color.web("#5b21b6", 0.95),           // link active
-                    Color.web("#3a3f70", 0.07),           // link dim
+                    restingLinkColor(Color.web("#f4f4f6"), Color.web("#2a2e44")), // link
+                    Color.web("#e0723a"),                 // link active: the accent
+                    dimmed(restingLinkColor(Color.web("#f4f4f6"), Color.web("#2a2e44"))), // link dim
                     Color.web("#2a2e44"),                 // text
                     Color.web("#e0723a"));                // accent / hover (warm, pops on light)
+        }
+
+        /**
+         * The theme's background, text and accent; notes in its muted text, notes still to
+         * write in its faint one. Tags and the ring around notes stay as {@code own}'s.
+         */
+        static Palette from(Palette own, ThemePalette theme, boolean dark) {
+            Color text = Color.web(theme.text());
+            Color background = Color.web(theme.background());
+            Color link = restingLinkColor(background, text);
+            return new Palette(
+                    background,
+                    Color.web(theme.muted()),
+                    own.tag(),
+                    Color.web(theme.faint()),
+                    own.nodeRing(),
+                    link,
+                    Color.web(theme.accent()),
+                    dimmed(link),
+                    text,
+                    Color.web(theme.accent()));
+        }
+
+        /** {@code link} while another note is hovered: Obsidian's links fade to a fifth. */
+        private static Color dimmed(Color link) {
+            return Color.color(link.getRed(), link.getGreen(), link.getBlue(), link.getOpacity() * HOVER_DIM_ALPHA);
         }
 
         static Palette dark() {
@@ -1139,9 +1482,9 @@ public final class GraphCanvas extends Region {
                     Color.web("#c39bff"),                 // tag
                     Color.web("#6b7390"),                 // ghost (hollow outline)
                     Color.web("#0d0f16", 0.55),           // node ring (dark halo for separation)
-                    Color.web("#ffffff", 0.18),           // link
-                    Color.web("#eaf0ff", 0.95),           // link active
-                    Color.web("#ffffff", 0.05),           // link dim
+                    restingLinkColor(Color.web("#1a1a1a"), Color.web("#d4dcf0")), // link
+                    Color.web("#ffb066"),                 // link active: the accent
+                    dimmed(restingLinkColor(Color.web("#1a1a1a"), Color.web("#d4dcf0"))), // link dim
                     Color.web("#d4dcf0"),                 // text
                     Color.web("#ffb066"));                // accent / hover
         }

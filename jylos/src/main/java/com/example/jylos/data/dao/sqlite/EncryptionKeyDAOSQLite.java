@@ -8,12 +8,16 @@ import java.sql.Statement;
 import java.util.Optional;
 
 import com.example.jylos.data.dao.interfaces.EncryptionKeyDAO;
+import com.example.jylos.data.database.SQLiteDB;
 import com.example.jylos.data.models.KeyMaterial;
 import com.example.jylos.exceptions.DataAccessException;
 
 /**
  * Keeps the private-notes key material in the SQLite database itself (table
  * {@code app_settings}), so a copied or restored database can still be unlocked.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.7
  */
 public class EncryptionKeyDAOSQLite implements EncryptionKeyDAO {
 
@@ -30,14 +34,12 @@ public class EncryptionKeyDAOSQLite implements EncryptionKeyDAO {
 
     public EncryptionKeyDAOSQLite(Connection connection) {
         this.connection = connection;
-        synchronized (connection) {
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate(CREATE_TABLE);
-                commitIfNeeded();
-            } catch (SQLException e) {
-                throw new DataAccessException("Could not prepare encryption settings table", e);
-            }
-        }
+        SQLiteDB.inTransaction(connection,
+                "Could not prepare encryption settings table", () -> {
+                    try (Statement statement = connection.createStatement()) {
+                        statement.executeUpdate(CREATE_TABLE);
+                    }
+                });
     }
 
     @Override
@@ -59,17 +61,12 @@ public class EncryptionKeyDAOSQLite implements EncryptionKeyDAO {
 
     @Override
     public void save(KeyMaterial material) {
-        synchronized (connection) {
-            try {
-                write(SALT, material.salt());
-                write(VERIFIER, material.verifier());
-                write(ITERATIONS, Integer.toString(material.iterations()));
-                commitIfNeeded();
-            } catch (SQLException e) {
-                rollbackQuietly();
-                throw new DataAccessException("Could not write encryption settings", e);
-            }
-        }
+        SQLiteDB.inTransaction(connection, "Could not write encryption settings",
+                () -> {
+                    write(SALT, material.salt());
+                    write(VERIFIER, material.verifier());
+                    write(ITERATIONS, Integer.toString(material.iterations()));
+                });
     }
 
     private String read(String key) throws SQLException {
@@ -86,22 +83,6 @@ public class EncryptionKeyDAOSQLite implements EncryptionKeyDAO {
             statement.setString(1, key);
             statement.setString(2, value);
             statement.executeUpdate();
-        }
-    }
-
-    private void commitIfNeeded() throws SQLException {
-        if (!connection.getAutoCommit()) {
-            connection.commit();
-        }
-    }
-
-    private void rollbackQuietly() {
-        try {
-            if (!connection.getAutoCommit()) {
-                connection.rollback();
-            }
-        } catch (SQLException ignored) {
-            // the original failure is what gets reported
         }
     }
 }

@@ -438,9 +438,12 @@
     -fx-prompt-text-fill: -fx-text-faint;
 }
 
-.text-field:focused {
-    -fx-border-color: -fx-accent;
-    border-color: -fx-accent;
+/* Borders keep their colour on focus, as in the built-in themes. */
+.search-field:focused,
+.text-field:focused,
+.combo-box:focused {
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
 }
 
 .combo-box,
@@ -473,8 +476,8 @@
 .button:hover {
     -fx-background-color: #1f4a38;
     background-color: #1f4a38;
-    -fx-border-color: -fx-accent;
-    border-color: -fx-accent;
+    -fx-border-color: -fx-fn-border-color;
+    border-color: -fx-fn-border-color;
 }
 
 .button:pressed {

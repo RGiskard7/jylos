@@ -3,6 +3,9 @@ package com.example.jylos.data.models;
 /**
  * Represents a specialized type of Note that includes To-Do attributes.
  * A ToDoNote extends a regular Note by adding due date and completion status.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class ToDoNote extends Note {
 	private static final long serialVersionUID = 1L;

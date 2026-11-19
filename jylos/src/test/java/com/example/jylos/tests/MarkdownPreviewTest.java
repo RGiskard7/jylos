@@ -1,10 +1,18 @@
 package com.example.jylos.tests;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.util.Base64;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import javax.imageio.ImageIO;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -29,11 +37,11 @@ class MarkdownPreviewTest {
         assertFalse(withoutOption.contains("max-width: 700px"),
                 "Default preview must not cap content width");
 
-        String withOptionOff = MarkdownPreview.buildPreviewHtml("Some note text.", false, null, null, null, null, false);
+        String withOptionOff = MarkdownPreview.buildPreviewHtml("Some note text.", false, null, new MarkdownPreview.PreviewOptions(null, null, null, false, 0, null, null));
         assertFalse(withOptionOff.contains("max-width: 700px"),
                 "readableLineLength=false must not cap content width");
 
-        String withOptionOn = MarkdownPreview.buildPreviewHtml("Some note text.", false, null, null, null, null, true);
+        String withOptionOn = MarkdownPreview.buildPreviewHtml("Some note text.", false, null, new MarkdownPreview.PreviewOptions(null, null, null, true, 0, null, null));
         assertTrue(withOptionOn.contains("max-width: 700px"),
                 "readableLineLength=true must cap the body to a centered, readable column");
         assertTrue(withOptionOn.contains("margin-left: auto") && withOptionOn.contains("margin-right: auto"),
@@ -47,12 +55,12 @@ class MarkdownPreviewTest {
                 "existing 3-arg callers (tests, NoteExporter) must render exactly as before");
 
         String zeroMeansUnset = MarkdownPreview.buildPreviewHtml(
-                "Some note text.", false, null, null, null, null, false, 0);
+                "Some note text.", false, null, new MarkdownPreview.PreviewOptions(null, null, null, false, 0, null, null));
         assertFalse(zeroMeansUnset.contains("body { font-size:"),
                 "contentFontSize=0 must leave the WebView's own default font size untouched");
 
         String withSize = MarkdownPreview.buildPreviewHtml(
-                "Some note text.", false, null, null, null, null, false, 18);
+                "Some note text.", false, null, new MarkdownPreview.PreviewOptions(null, null, null, false, 18, null, null));
         assertTrue(withSize.contains("body { font-size: 18px; }"),
                 "a positive contentFontSize must set the body's text size explicitly");
     }
@@ -86,6 +94,83 @@ class MarkdownPreviewTest {
         assertTrue(html.contains("data:image/png;base64,"),
                 "emoji should be rasterised to an inline image data URI");
         assertTrue(html.contains("class=\"emoji\""), "emoji image should carry the emoji class");
+    }
+
+    @Test
+    void anEmojiTheEngineCanDrawInColourCarriesItsCharacter() {
+        String body = MarkdownPreview.renderBody("Launch 🚀 now ❤️", false, true, null);
+        assertTrue(body.contains("data-emoji=\"&#x1F680;\" data-emoji-kind=\"colour\""), body);
+        assertTrue(body.contains("data-emoji=\"&#x2764;&#xFE0F;\" data-emoji-kind=\"colour\""), body);
+    }
+
+    @Test
+    void eachEmojiOfARunIsItsOwnImage() {
+        String body = MarkdownPreview.renderBody("party 🎉🚀", false, true, null);
+        assertEquals(2, body.split("class=\"emoji\"", -1).length - 1, body);
+        assertTrue(body.contains("data-emoji=\"&#x1F389;\""), body);
+        assertTrue(body.contains("data-emoji=\"&#x1F680;\""), body);
+    }
+
+    @Test
+    void sequencesTheEngineCannotDrawStayImagesOnly() {
+        String body = MarkdownPreview.renderBody("ok 👍🏽 and 🇪🇸", false, true, null);
+        assertEquals(2, body.split("class=\"emoji\"", -1).length - 1, body);
+        assertFalse(body.contains("data-emoji="), body);
+    }
+
+    @Test
+    void textSymbolsAreMarkedAsText() {
+        String body = MarkdownPreview.renderBody("done ✔", false, true, null);
+        assertTrue(body.contains("data-emoji=\"&#x2714;\" data-emoji-kind=\"text\""), body);
+    }
+
+    @Test
+    void thePageSwapsEmojiImagesForTextWhereTheEngineDrawsColour() {
+        String html = MarkdownPreview.buildPreviewHtml("Launch 🚀 now", false, null);
+        assertTrue(html.contains("__jylosColourEmoji"), "the colour-emoji script must be on the page");
+        assertTrue(html.contains(".emoji-glyph"), "the emoji font rule must be on the page");
+    }
+
+    /**
+     * Where the engine draws no colour emoji (Windows, Linux) every emoji stays an image, and
+     * so do the sequences everywhere: those images are the colour Twemoji ones, not the
+     * monochrome font. A symbol shown as text (✔) keeps its monochrome image.
+     */
+    @Test
+    void emojiImagesAreInColourAndTextSymbolsAreNot() throws Exception {
+        assertTrue(colouredPixels(firstEmojiImage("ok 👍🏽")) > 200, "skin-tone sequence in colour");
+        assertTrue(colouredPixels(firstEmojiImage("flag 🇪🇸")) > 200, "flag in colour");
+        assertTrue(colouredPixels(firstEmojiImage("family 👨‍👩‍👧")) > 200, "ZWJ family in colour");
+        assertTrue(colouredPixels(firstEmojiImage("rocket 🚀")) > 200, "simple emoji in colour");
+        assertTrue(colouredPixels(firstEmojiImage("love ❤️")) > 200, "emoji with FE0F in colour");
+        assertEquals(0, colouredPixels(firstEmojiImage("done ✔")), "a text symbol stays monochrome");
+    }
+
+    private static BufferedImage firstEmojiImage(String markdown) throws Exception {
+        String body = MarkdownPreview.renderBody(markdown, false, true, null);
+        Matcher m = Pattern
+                .compile("class=\"emoji\"[^>]*src=\"data:image/png;base64,([^\"]+)\"").matcher(body);
+        assertTrue(m.find(), "no emoji image in " + body);
+        return ImageIO.read(new ByteArrayInputStream(
+                Base64.getDecoder().decode(m.group(1))));
+    }
+
+    /** Opaque pixels whose channels differ clearly: a colour image has many, a grey one none. */
+    private static int colouredPixels(BufferedImage image) {
+        int coloured = 0;
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                int argb = image.getRGB(x, y);
+                int a = argb >>> 24;
+                int r = (argb >> 16) & 0xff;
+                int g = (argb >> 8) & 0xff;
+                int b = argb & 0xff;
+                if (a > 128 && (Math.abs(r - g) > 40 || Math.abs(g - b) > 40)) {
+                    coloured++;
+                }
+            }
+        }
+        return coloured;
     }
 
     @Test
@@ -158,5 +243,69 @@ class MarkdownPreviewTest {
         assertTrue(scrollYAfterClick[0] > 0,
                 "clicking the TOC link should have scrolled the real WebView down; scrollY was "
                         + scrollYAfterClick[0]);
+    }
+
+    /**
+     * In the real bundled WebKit: where the engine draws colour emoji (macOS), a single
+     * emoji becomes text in its own element and a symbol becomes plain text, while a
+     * skin-tone sequence stays an image. Elsewhere every emoji stays an image.
+     */
+    @Test
+    void theRealWebViewShowsColourEmojiAsTextWhereItCan() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        String state = emojiState(MarkdownPreview.buildPreviewHtml("Launch 🚀 now ✔ ok 👍🏽", false, null));
+        if (System.getProperty("os.name", "").toLowerCase().contains("mac")) {
+            assertEquals("1f680|1|true", state, "glyphs | images | symbol as text");
+        } else {
+            assertEquals("|3|false", state, "glyphs | images | symbol as text");
+        }
+    }
+
+    /**
+     * Off macOS the pages are told the engine draws no colour emoji, whatever drawing one on a
+     * canvas suggests. Here, on a Mac where that check does say yes, the page is given the
+     * Windows answer.
+     */
+    @Test
+    void offMacOsEveryEmojiStaysAnImageWhateverTheCanvasCheckSays() throws Exception {
+        assertEquals("", MarkdownPreview.colourEmojiOverride("Mac OS X"), "macOS keeps its own check");
+        String windows = MarkdownPreview.colourEmojiOverride("Windows 11");
+        assertTrue(windows.contains("__jylosColourEmoji = false"), windows);
+        assertEquals(windows, MarkdownPreview.colourEmojiOverride("Linux"));
+
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        String html = MarkdownPreview.buildPreviewHtml("Launch 🚀 now ✔ ok 👍🏽", false, null);
+        assertTrue(html.contains("<head>"), "the page has a head to put the answer in");
+        String state = emojiState(html.replaceFirst("<head>", "<head><script>" + windows + "</script>"));
+        assertEquals("|3|false", state, "glyphs | images | symbol as text");
+    }
+
+    /** Which emoji the page shows as text glyphs, how many as images, and whether ✔ is text. */
+    private static String emojiState(String html) throws Exception {
+        CountDownLatch loaded = new CountDownLatch(1);
+        String[] state = { null };
+        Platform.runLater(() -> {
+            Stage stage = new Stage();
+            WebView view = new WebView();
+            stage.setScene(new Scene(view, 800, 600));
+            stage.show();
+            view.getEngine().getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
+                if (newState == Worker.State.SUCCEEDED) {
+                    // Code points as numbers: a string with emoji does not survive the trip
+                    // back to Java intact.
+                    state[0] = String.valueOf(view.getEngine().executeScript(
+                            "Array.from(document.querySelectorAll('.emoji-glyph'),"
+                                    + " e => e.textContent.codePointAt(0).toString(16)).join(',')"
+                                    + " + '|' + document.querySelectorAll('img.emoji').length"
+                                    + " + '|' + document.body.textContent.includes('\\u2714')"));
+                    stage.close();
+                    loaded.countDown();
+                }
+            });
+            view.getEngine().loadContent(html, "text/html");
+        });
+
+        assertTrue(loaded.await(30, TimeUnit.SECONDS), "preview page never finished loading");
+        return state[0];
     }
 }

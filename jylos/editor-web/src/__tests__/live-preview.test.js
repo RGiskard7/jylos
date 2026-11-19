@@ -4,7 +4,7 @@ import { GFM } from "@lezer/markdown";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { markExtension } from "../editor.js";
-import { livePreview, livePreviewPlugin } from "../live-preview.js";
+import { livePreview, livePreviewPlugin, setEditorFocus } from "../live-preview.js";
 
 function countDecorations(rangeSet) {
   let count = 0;
@@ -30,29 +30,34 @@ function isHidden(rangeSet, from, to) {
 function makeView(doc) {
   const parent = document.createElement("div");
   document.body.appendChild(parent);
-  return new EditorView({
+  // The cursor reveals Markdown only while the editor has the focus (see live-preview.js).
+  const view = new EditorView({
     state: EditorState.create({
       doc,
       extensions: [markdown({ extensions: [GFM, markExtension] }), livePreview()]
     }),
     parent
   });
+  view.dispatch({ effects: setEditorFocus.of(true) });
+  return view;
 }
 
 describe("live-preview decoration rebuild", () => {
-  it("does not rebuild decorations while the selection moves within the same block", () => {
+  it("does not rebuild decorations while a drag-select is in progress, and rebuilds once on release", () => {
+    // Swapping widgets under the pointer mid-drag resets the native selection anchor, so a
+    // drag must not rebuild even when the selection reaches an element it would reveal.
     const doc = "Hello **world** and more plain text on this very same paragraph line.";
     const view = makeView(doc);
-    const plugin = view.plugin(livePreviewPlugin);
-    const initialDecorations = plugin.decorations;
+    const initialDecorations = view.plugin(livePreviewPlugin).decorations;
 
-    // Simulate the continuous selectionchange ticks a native drag-select
-    // produces, all landing inside the same paragraph as the anchor.
-    for (const pos of [5, 10, 15, 20, 30, 40]) {
-      view.dispatch({ selection: { anchor: pos } });
+    view.contentDOM.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+    for (const head of [5, 10, 15, 20, 30, 40]) {
+      view.dispatch({ selection: { anchor: 0, head } });
     }
-
     expect(view.plugin(livePreviewPlugin).decorations).toBe(initialDecorations);
+
+    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
+    expect(view.plugin(livePreviewPlugin).decorations).not.toBe(initialDecorations);
     view.destroy();
   });
 

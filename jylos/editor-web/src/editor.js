@@ -1,4 +1,5 @@
 import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from "@codemirror/autocomplete";
+import { setLinkNotes, setLinkTitles, wikiLinkCompletion } from "./link-suggest.js";
 import { defaultKeymap, history, historyKeymap, indentWithTab, redo, redoDepth, undo, undoDepth } from "@codemirror/commands";
 import { bracketMatching, defaultHighlightStyle, HighlightStyle, indentOnInput, syntaxHighlighting, syntaxTree } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
@@ -17,7 +18,8 @@ import {
 } from "@codemirror/view";
 import { Tag, tags } from "@lezer/highlight";
 import { GFM } from "@lezer/markdown";
-import { blockRenderField, livePreview, setBlockRenders } from "./live-preview.js";
+import { colourEmojiSupported, EMOJI_FONT_FAMILY, EMOJI_RUN, emojiClusters, emojiKind } from "./emoji.js";
+import { blockRenderField, imageConverted, livePreview, openMarkdownLink, openNoteLink, setBlockRenders, setMathReady } from "./live-preview.js";
 
 // `==mark==` highlight syntax is a common CommonMark extension (Obsidian,
 // Typora) but isn't part of GFM, so @lezer/markdown has no built-in node for
@@ -54,7 +56,6 @@ const markExtension = {
 };
 
 let view;
-let autocompleteTitles = [];
 let suppressChangeNotification = false;
 const themeCompartment = new Compartment();
 const fontCompartment = new Compartment();
@@ -65,20 +66,21 @@ const editableCompartment = new Compartment();
 
 function editorHighlight(config) {
   const dark = Boolean(config?.dark);
-  const accent = config?.accent || (dark ? "#7da6ff" : "#315fbd");
-  const foreground = dark ? "#e6e6e6" : "#23252a";
-  const muted = dark ? "#9ca3af" : "#667085";
+  const palette = config?.palette || {};
+  const accent = config?.accent || palette.accent || (dark ? "#7da6ff" : "#315fbd");
+  const foreground = palette.foreground || (dark ? "#e6e6e6" : "#23252a");
+  const muted = palette.muted || (dark ? "#9ca3af" : "#667085");
   const code = dark ? "#d7ba7d" : "#8a4b08";
   const string = dark ? "#a8cc8c" : "#347a37";
   const keyword = dark ? "#c792ea" : "#7c3db5";
   const number = dark ? "#f78c6c" : "#a33b20";
 
   return HighlightStyle.define([
-    { tag: tags.heading1, color: accent, fontSize: "1.35em", fontWeight: "750" },
-    { tag: tags.heading2, color: accent, fontSize: "1.22em", fontWeight: "725" },
+    { tag: tags.heading1, color: accent, fontSize: "1.35em", fontWeight: "700" },
+    { tag: tags.heading2, color: accent, fontSize: "1.22em", fontWeight: "700" },
     { tag: tags.heading3, color: accent, fontSize: "1.12em", fontWeight: "700" },
     { tag: tags.heading, color: accent, fontWeight: "700" },
-    { tag: tags.strong, color: foreground, fontWeight: "750" },
+    { tag: tags.strong, color: foreground, fontWeight: "700" },
     { tag: tags.emphasis, fontStyle: "italic" },
     { tag: tags.strikethrough, textDecoration: "line-through" },
     { tag: markContentTag, backgroundColor: dark ? "#5a4a1f" : "#fff3b0", color: foreground },
@@ -109,16 +111,13 @@ const wikiLinkDecorations = ViewPlugin.fromClass(class {
   }
 }, { decorations: value => value.decorations });
 
-// Matches MarkdownPreview.java's EMOJI_RUN exactly (same codepoint ranges), so an
-// editor and Preview agree on what counts as "an emoji" worth rasterising.
-const EMOJI_RUN = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{2300}-\u{23FF}\u{2190}-\u{21FF}\u{FE00}-\u{FE0F}\u{20E3}\u{200D}\u{1F1E6}-\u{1F1FF}\u{1F3FB}-\u{1F3FF}]+/gu;
-
-// JavaFX WebView cannot render colour-emoji fonts (see MarkdownPreview.java's own
-// comment on the same limitation), so an emoji run is replaced by an <img> rasterised
-// by the same Java2D path the Preview already uses. The bridge call only happens in
-// toDOM(), which CodeMirror calls only for a genuinely new widget (eq() reuses the
-// existing DOM node otherwise) — typing and scrolling over already-rendered emoji
-// never touch the bridge again, and the Java side caches by run+theme besides.
+// Where the engine draws colour emoji (see emoji.js), each one is wrapped in its own
+// element with an emoji font and stays editable text. Elsewhere, and for sequences the
+// engine cannot draw whole, an emoji is replaced by an <img> rasterised by the same
+// Java2D path the reading view uses. The bridge call only happens in toDOM(), which
+// CodeMirror calls only for a genuinely new widget (eq() reuses the existing DOM node
+// otherwise) — typing and scrolling over already-rendered emoji never touch the bridge
+// again, and the Java side caches by run+theme besides.
 class EmojiWidget extends WidgetType {
   constructor(run) {
     super();
@@ -148,21 +147,32 @@ class EmojiWidget extends WidgetType {
   }
 }
 
-// A run under the cursor/selection stays raw text, editable and selectable like any
-// other character — only emoji fully outside the selection become images.
+const emojiGlyph = Decoration.mark({ class: "cm-emoji-glyph" });
+
+// An emoji image under the cursor/selection stays raw text, editable and selectable
+// like any other character — only emoji fully outside the selection become images.
 function buildEmojiDecorations(editorView) {
+  const colour = colourEmojiSupported();
   const decorations = [];
   const selectionRanges = editorView.state.selection.ranges;
   for (const visible of editorView.visibleRanges) {
     const text = editorView.state.sliceDoc(visible.from, visible.to);
     for (const match of text.matchAll(EMOJI_RUN)) {
-      const from = visible.from + match.index;
-      const to = from + match[0].length;
-      // Strict inequalities: a caret merely touching an edge (e.g. resting right
-      // after a just-typed emoji) does not count as "inside" it — only a caret or
-      // selection that actually spans into the run keeps it as raw, editable text.
-      if (selectionRanges.some(range => range.from < to && range.to > from)) continue;
-      decorations.push(Decoration.replace({ widget: new EmojiWidget(match[0]) }).range(from, to));
+      let from = visible.from + match.index;
+      for (const cluster of emojiClusters(match[0])) {
+        const to = from + cluster.length;
+        const kind = colour ? emojiKind(cluster) : "sequence";
+        if (kind === "colour") {
+          decorations.push(emojiGlyph.range(from, to));
+        } else if (kind === "sequence"
+            // Strict inequalities: a caret merely touching an edge (e.g. resting right
+            // after a just-typed emoji) does not count as "inside" it — only a caret or
+            // selection that actually spans into it keeps it as raw, editable text.
+            && !selectionRanges.some(range => range.from < to && range.to > from)) {
+          decorations.push(Decoration.replace({ widget: new EmojiWidget(cluster) }).range(from, to));
+        }
+        from = to;
+      }
     }
   }
   return Decoration.set(decorations, true);
@@ -179,33 +189,6 @@ const emojiDecorations = ViewPlugin.fromClass(class {
     }
   }
 }, { decorations: value => value.decorations });
-
-// CodeMirror filters (fuzzily) and ranks the options itself, against the text
-// between `from` and the caret. So `from` must be where the title starts, after
-// the `[[`: matching titles against "[[al" would discard every one of them.
-function wikiLinkCompletion(context) {
-  const before = context.matchBefore(/\[\[[^\]\[\n]*$/);
-  if (!before) return null;
-  const options = autocompleteTitles.map(title => ({
-    label: title,
-    type: "text",
-    apply(editorView, _completion, from, to) {
-      if (editorView.state.readOnly) return;
-      // Replace the whole link: the opening `[[` and, when closeBrackets already
-      // inserted it, the `]]` after the caret.
-      const linkFrom = from - 2;
-      const linkTo = editorView.state.sliceDoc(to, to + 2) === "]]" ? to + 2 : to;
-      const raw = `[[${title}]]`;
-      const inserted = window.javaEditor?.transformInsertion(raw) || raw;
-      editorView.dispatch({
-        changes: { from: linkFrom, to: linkTo, insert: inserted },
-        selection: { anchor: linkFrom + inserted.length },
-        userEvent: "input.complete"
-      });
-    }
-  }));
-  return { from: before.from + 2, options, validFor: /^[^\]\[\n]*$/ };
-}
 
 // JavaFX's WebKit leaves KeyboardEvent.key empty, so CodeMirror names keys from
 // keyCode as if the keyboard were US. On a Spanish Mac, Option + the key right of P
@@ -237,15 +220,20 @@ function typingSafeKeymap(bindings) {
 // listener needed, same as Obsidian (also a web-rendered editor underneath).
 const READABLE_LINE_LENGTH_PX = 700;
 
+// An external theme's colours (config.palette, sent by Java) win over the built-in dark and
+// light ones; the accent chosen in Preferences (config.accent) wins over the theme's.
 function editorTheme(config) {
   const dark = Boolean(config.dark);
-  const accent = config.accent || (dark ? "#7da6ff" : "#315fbd");
-  const background = dark ? "#1e1e1e" : "#ffffff";
-  const foreground = dark ? "#e6e6e6" : "#23252a";
-  const muted = dark ? "#9ca3af" : "#667085";
-  const panel = dark ? "#292929" : "#f5f6f8";
-  const border = dark ? "#3b3b3b" : "#d8dce3";
-  const selection = dark ? "#35548a" : "#b9d2ff";
+  const palette = config.palette || {};
+  const accent = config.accent || palette.accent || (dark ? "#7da6ff" : "#315fbd");
+  const background = palette.background || (dark ? "#1e1e1e" : "#ffffff");
+  const foreground = palette.foreground || (dark ? "#e6e6e6" : "#23252a");
+  const muted = palette.muted || (dark ? "#9ca3af" : "#667085");
+  const panel = palette.panel || (dark ? "#292929" : "#f5f6f8");
+  const border = palette.border || (dark ? "#3b3b3b" : "#d8dce3");
+  const selection = palette.selection || (dark ? "#35548a" : "#b9d2ff");
+  const surface = palette.surface || (dark ? "#242424" : "#f7f9fc");
+  const codeBackground = palette.surface || (dark ? "#252525" : "#f4f5f7");
   const readableLineLength = Boolean(config.readableLineLength);
 
   return EditorView.theme({
@@ -257,7 +245,7 @@ function editorTheme(config) {
       "--jylos-muted": muted,
       "--jylos-panel": panel,
       "--jylos-border": border,
-      "--jylos-code-bg": dark ? "#252525" : "#f4f5f7"
+      "--jylos-code-bg": codeBackground
     },
     ".cm-scroller": {
       overflow: "auto",
@@ -277,7 +265,7 @@ function editorTheme(config) {
     ".cm-line": { padding: "0" },
     ".cm-dropCursor": { borderLeftColor: foreground },
     "::selection": { backgroundColor: selection },
-    ".cm-activeLine": { backgroundColor: dark ? "#242424" : "#f7f9fc" },
+    ".cm-activeLine": { backgroundColor: surface },
     ".cm-panels": { color: foreground, backgroundColor: panel, borderColor: border },
     ".cm-panels.cm-panels-top": { borderBottom: `1px solid ${border}` },
     ".cm-search label": { color: foreground },
@@ -286,6 +274,7 @@ function editorTheme(config) {
     ".cm-tooltip": { color: foreground, backgroundColor: panel, border: `1px solid ${border}` },
     ".cm-tooltip-autocomplete > ul > li[aria-selected]": { color: foreground, backgroundColor: selection },
     ".cm-wikilink, .cm-embed": { color: accent, fontWeight: "600" },
+    ".cm-emoji-glyph": { fontFamily: EMOJI_FONT_FAMILY },
     ".cm-emoji": { height: "1.05em", width: "auto", maxWidth: "none", verticalAlign: "-0.15em", margin: "0 0.04em", display: "inline" },
     ".cm-embed": { textDecoration: "underline" },
     ".tok-link, .tok-url": { color: accent },
@@ -338,36 +327,47 @@ function selectAll() {
   return true;
 }
 
+// In source mode a click is for writing: Cmd/Ctrl+click follows a link in the active tab,
+// and with Shift too, or with the middle button (which fires no click), in a new tab.
 function sourceLinkNavigation() {
   return EditorView.domEventHandlers({
     click(event, editorView) {
       if (window.__jylosEditorConfig?.livePreview || !(event.metaKey || event.ctrlKey)) return false;
-      const position = editorView.posAtCoords({ x: event.clientX, y: event.clientY });
-      if (position == null) return false;
+      return followLinkAt(event, editorView, event.shiftKey);
+    },
+    mousedown(event, editorView) {
+      if (window.__jylosEditorConfig?.livePreview || event.button !== 1) return false;
+      return followLinkAt(event, editorView, true);
+    }
+  });
+}
 
-      const line = editorView.state.doc.lineAt(position);
-      for (const match of line.text.matchAll(/!?\[\[([^\]\n]+)\]\]/g)) {
-        const from = line.from + match.index;
-        const to = from + match[0].length;
-        if (position >= from && position <= to) {
-          window.javaEditor?.openNote(match[1].split("|", 1)[0].split("#", 1)[0].trim());
-          event.preventDefault();
-          return true;
-        }
-      }
+function followLinkAt(event, editorView, newTab) {
+  const position = editorView.posAtCoords({ x: event.clientX, y: event.clientY });
+  if (position == null) return false;
 
-      let node = syntaxTree(editorView.state).resolveInner(position, 1);
-      while (node && !["Link", "Autolink"].includes(node.name)) node = node.parent;
-      if (!node) return false;
-      const urlNode = directChild(node, "URL");
-      const target = urlNode
-        ? editorView.state.sliceDoc(urlNode.from, urlNode.to).trim()
-        : editorView.state.sliceDoc(node.from, node.to).replace(/^<|>$/g, "");
-      window.javaEditor?.openMarkdownLink(target);
+  const line = editorView.state.doc.lineAt(position);
+  for (const match of line.text.matchAll(/!?\[\[([^\]\n]+)\]\]/g)) {
+    const from = line.from + match.index;
+    const to = from + match[0].length;
+    if (position >= from && position <= to) {
+      // The heading or block stays in the link, so the note opens there.
+      openNoteLink(match[1].split("|", 1)[0].trim(), newTab);
       event.preventDefault();
       return true;
     }
-  });
+  }
+
+  let node = syntaxTree(editorView.state).resolveInner(position, 1);
+  while (node && !["Link", "Autolink"].includes(node.name)) node = node.parent;
+  if (!node) return false;
+  const urlNode = directChild(node, "URL");
+  const target = urlNode
+    ? editorView.state.sliceDoc(urlNode.from, urlNode.to).trim()
+    : editorView.state.sliceDoc(node.from, node.to).replace(/^<|>$/g, "");
+  openMarkdownLink(target, newTab);
+  event.preventDefault();
+  return true;
 }
 
 function directChild(node, name) {
@@ -492,6 +492,8 @@ window.JylosEditor = {
   getSelectionFrom: () => view ? selectedRange().from : 0,
   getSelectionTo: () => view ? selectedRange().to : 0,
   getCaretPosition: () => view ? selectedRange().head : 0,
+  // Document position under a point of the page (diagnostics, tests): -1 when none.
+  positionAt: (x, y) => view ? (view.posAtCoords({ x, y }) ?? -1) : -1,
   replaceSelection,
   replaceRange,
   scrollToOffset,
@@ -530,7 +532,11 @@ window.JylosEditor = {
     view?.dispatch({ effects: fontCompartment.reconfigure(fontTheme(size)) });
   },
   setAutocompleteTitles(titles) {
-    autocompleteTitles = Array.isArray(titles) ? titles.filter(title => typeof title === "string") : [];
+    setLinkTitles(titles);
+  },
+  /** The notes [[ suggests: { name, folder, link, aliases } each (see link-suggest.js). */
+  setLinkSuggestions(notes) {
+    setLinkNotes(notes);
   },
   setLabels(labels) {
     window.__jylosEditorConfig.labels = labels || {};
@@ -539,6 +545,11 @@ window.JylosEditor = {
   setBlockRenders(renders) {
     view?.dispatch({ effects: setBlockRenders.of(renders || {}) });
   },
+  setMathReady() {
+    view?.dispatch({ effects: setMathReady.of(true) });
+  },
+  // The host's answer to javaEditor.convertImage(id, source): a PNG data URI, or "".
+  imageConverted,
   setLivePreviewEnabled(enabled) {
     window.__jylosEditorConfig.livePreview = Boolean(enabled);
     view?.dispatch({ effects: presentationCompartment.reconfigure(enabled ? livePreview() : []) });

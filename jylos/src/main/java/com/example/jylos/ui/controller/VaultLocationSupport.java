@@ -23,6 +23,9 @@ import javafx.stage.Window;
  * the configured vault cannot be found (unplugged drive, unmounted cloud folder, renamed
  * directory) instead of silently opening the default data directory — where the user would
  * see an empty or unrelated vault and keep writing new notes in the wrong place.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.7
  */
 final class VaultLocationSupport {
 

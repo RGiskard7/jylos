@@ -1,0 +1,197 @@
+/*
+ * Gruvbox Dark: over the built-in dark theme (theme.properties base=dark).
+ * The Gruvbox palette, by Pavel Pertsev (morhetz), MIT licence: https://github.com/morhetz/gruvbox
+ * Only colours change: the variables below, and the few surfaces the base theme paints with
+ * fixed colours, here in those variables.
+ */
+
+.root,
+.root-container {
+    -fx-base-bg: #282828;
+    -fx-sidebar-bg: #32302f;
+    -fx-header-bg: #3c3836;
+
+    -fx-accent: #d79921;
+    -fx-accent-hover: #fabd2f;
+    -fx-accent-pressed: #b57614;
+    -fx-accent-contrast: #282828;
+
+    -fx-text-main: #ebdbb2;
+    -fx-text-muted: #bdae93;
+    -fx-text-faint: #928374;
+    -fx-fn-border-color: #504945;
+
+    -fx-hover-bg: #3c3836;
+    -fx-hover-text: #fbf1c7;
+
+    -fx-selected-bg: #504945;
+    -fx-selected-text: #fbf1c7;
+
+    -fx-success: #b8bb26;
+    -fx-warning: #fabd2f;
+    -fx-danger: #fb4934;
+
+    -fx-folder-all: #83a598;
+    -fx-folder-open: #8ec07c;
+    -fx-folder-closed: #fe8019;
+
+    -fx-button-neutral-bg: #3c3836;
+    -fx-button-neutral-hover-bg: #504945;
+    -fx-button-neutral-pressed-bg: #32302f;
+    -fx-button-border: #665c54;
+    -fx-focus-ring: rgba(215, 153, 33, 0.30);
+    -fx-accent-soft: rgba(215, 153, 33, 0.24);
+
+    -fx-icon-folder: #fabd2f;
+    -fx-icon-pdf: #fb4934;
+    -fx-icon-image: #b8bb26;
+    -fx-icon-canvas: #d3869b;
+    -fx-icon-board: #83a598;
+
+    /* The base theme's generic controls (labels, fields, buttons, toggles, tooltips). */
+    -fx-label-text: #ebdbb2;
+    -fx-input-bg: #1d2021;
+    -fx-input-prompt: #928374;
+    -fx-control-bg: #3c3836;
+    -fx-control-hover-bg: #504945;
+    -fx-control-pressed-bg: #32302f;
+    -fx-control-border: #665c54;
+    -fx-control-text: #ebdbb2;
+    -fx-toggle-text: #bdae93;
+    -fx-tooltip-bg: #3c3836;
+    -fx-tooltip-text: #fbf1c7;
+
+    -fx-gb-thumb: #504945;
+    -fx-gb-thumb-hover: #665c54;
+    -fx-gb-danger-soft: rgba(251, 73, 52, 0.14);
+    -fx-gb-highlight-bg: rgba(250, 189, 47, 0.18);
+    -fx-gb-code: #fe8019;
+
+    -fx-background-color: -fx-base-bg;
+    -fx-text-fill: -fx-text-main;
+}
+
+/* ── Surfaces the base theme paints with fixed colours, in this palette ── */
+
+.scroll-bar .thumb,
+.viewer-scroll .scroll-bar:vertical .thumb {
+    -fx-background-color: -fx-gb-thumb;
+}
+
+.scroll-bar .thumb:hover,
+.viewer-scroll .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: -fx-gb-thumb-hover;
+}
+
+.separator:horizontal .line,
+.separator:vertical .line {
+    -fx-border-color: -fx-fn-border-color;
+}
+
+.toolbar-separator {
+    -fx-background-color: -fx-fn-border-color;
+}
+
+/* ── Icons ─────────────────────────────────────────────────────────── */
+
+.toolbar-btn .feather-icon {
+    -fx-icon-color: -fx-text-main;
+    -fx-fill: -fx-text-main;
+}
+
+.toolbar-btn:hover .feather-icon {
+    -fx-icon-color: -fx-hover-text;
+    -fx-fill: -fx-hover-text;
+}
+
+.toolbar-btn-danger .feather-icon,
+.toolbar-btn-danger:hover .feather-icon,
+.feather-icon-danger {
+    -fx-icon-color: -fx-danger;
+    -fx-fill: -fx-danger;
+}
+
+.icon-btn,
+.icon-btn-small {
+    -fx-border-color: -fx-button-border;
+}
+
+.icon-btn .feather-icon,
+.icon-btn-small .feather-icon {
+    -fx-icon-color: -fx-text-muted;
+    -fx-fill: -fx-text-muted;
+}
+
+.folder-all-notes {
+    -fx-text-fill: -fx-folder-all;
+}
+
+.folder-expanded {
+    -fx-text-fill: -fx-folder-open;
+}
+
+.folder-collapsed {
+    -fx-text-fill: -fx-folder-closed;
+}
+
+.action-btn-danger:hover {
+    -fx-background-color: -fx-gb-danger-soft;
+}
+
+/* ── Right panel (note info, links) ────────────────────────────────── */
+
+.right-panel {
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-border-color: -fx-fn-border-color transparent transparent transparent;
+}
+
+.panel-header,
+.panel-section {
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+}
+
+.panel-close-btn,
+.collapse-icon,
+.info-label {
+    -fx-text-fill: -fx-text-faint;
+}
+
+.panel-close-btn:hover {
+    -fx-text-fill: -fx-hover-text;
+    -fx-background-color: -fx-hover-bg;
+}
+
+.section-header:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+
+.section-title,
+.info-value-small {
+    -fx-text-fill: -fx-text-muted;
+}
+
+.info-value {
+    -fx-text-fill: -fx-text-main;
+}
+
+/* ── Editor format toolbar and note previews ───────────────────────── */
+
+.format-toolbar-inner {
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-border-color: -fx-fn-border-color transparent transparent transparent;
+}
+
+.format-toolbar .format-highlight,
+.format-toolbar .format-highlight:hover {
+    -fx-background-color: -fx-gb-highlight-bg;
+    -fx-text-fill: -fx-warning;
+}
+
+.md-mini-inline-code,
+.md-mini-code {
+    -fx-fill: -fx-gb-code;
+}
+
+.md-mini-codeblock {
+    -fx-background-color: -fx-sidebar-bg;
+}

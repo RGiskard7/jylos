@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
@@ -15,12 +16,18 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.service.LinkSuggestion;
+import com.example.jylos.ui.theme.ActiveThemePalette;
+import com.example.jylos.ui.web.HtmlView;
+import com.example.jylos.ui.web.JavaFxHtmlView;
 import com.example.jylos.util.MarkdownPreview;
+import com.example.jylos.util.ThemePalette;
 import com.example.jylos.util.WikiLinkResolver;
 import com.google.gson.Gson;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
 
 import javafx.application.Platform;
-import javafx.concurrent.Worker;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
@@ -30,22 +37,19 @@ import javafx.scene.input.ContextMenuEvent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.StackPane;
-import javafx.scene.web.WebEngine;
-import javafx.scene.web.WebView;
-import netscape.javascript.JSObject;
 
 /**
  * JavaFX host for the offline CodeMirror 6 Markdown editor.
  *
  * <p>The component is the only Java-to-JavaScript boundary for text editing. It
- * owns the embedded {@link WebView}, keeps a Java-side text snapshot, and exposes
- * typed operations used by the editor controller. Domain state and persistence
- * remain outside this class.</p>
+ * owns the embedded editor page (an {@link HtmlView}), keeps a Java-side text
+ * snapshot, and exposes typed operations used by the editor controller. Domain
+ * state and persistence remain outside this class.</p>
  *
- * @author Edu Diaz (RGiskard7)
+ * @author Edu Díaz (RGiskard7)
  * @since 2.5.0
  */
-public final class MarkdownEditorView extends StackPane {
+public final class MarkdownEditorView extends StackPane implements TextEditing {
 
     private static final Logger logger = LoggerConfig.getLogger(MarkdownEditorView.class);
     private static final Gson GSON = new Gson();
@@ -53,8 +57,8 @@ public final class MarkdownEditorView extends StackPane {
     private static final String BUNDLE_RESOURCE = "/com/example/jylos/ui/editor/editor.bundle.js";
     private static final String BUNDLE_PLACEHOLDER = "/*__JYLOS_EDITOR_BUNDLE__*/";
 
-    private final WebView webView = new WebView();
-    private final WebEngine engine = webView.getEngine();
+    /** The editor page (CodeMirror) and the way to talk to it. */
+    private final JavaFxHtmlView page = new JavaFxHtmlView();
     private final EditorBridge bridge = new EditorBridge();
     private final Queue<Runnable> pendingActions = new ArrayDeque<>();
     private final ContextMenu editorContextMenu = new ContextMenu();
@@ -67,11 +71,16 @@ public final class MarkdownEditorView extends StackPane {
 
     private Consumer<String> textChangeListener = text -> {
     };
-    private Consumer<String> wikiLinkHandler = title -> {
+    private BiConsumer<String, Boolean> wikiLinkHandler = (title, newTab) -> {
     };
     private Consumer<String> externalLinkHandler = url -> {
     };
     private Function<String, String> imageSourceResolver = source -> "";
+    private Function<String, List<String>> linkHeadings = link -> List.of();
+    private Consumer<String> tagHandler = tag -> {
+    };
+    /** KaTeX is loaded into the editor page the first time a note has math. */
+    private boolean mathLoaded;
     private UnaryOperator<String> insertionTransformer = UnaryOperator.identity();
     private String text = "";
     private boolean ready;
@@ -93,27 +102,16 @@ public final class MarkdownEditorView extends StackPane {
 
     public MarkdownEditorView() {
         getStyleClass().add("markdown-editor-view");
-        webView.getStyleClass().add("markdown-editor-webview");
-        webView.setContextMenuEnabled(false);
-        webView.setMinSize(0, 0);
-        webView.setPrefSize(0, 0);
-        getChildren().add(webView);
+        page.getStyleClass().add("markdown-editor-webview");
+        page.setContextMenuEnabled(false);
+        page.setMinSize(0, 0);
+        page.setPrefSize(0, 0);
+        getChildren().add(page);
         installDesktopEditingIntegration();
 
-        engine.setJavaScriptEnabled(true);
-        engine.setOnError(event -> logger.warning("CodeMirror WebView error: " + event.getMessage()));
-        engine.setOnAlert(event -> logger.warning("CodeMirror alert: " + event.getData()));
-        engine.getLoadWorker().exceptionProperty().addListener((obs, oldError, error) -> {
-            if (error != null) {
-                logger.log(Level.SEVERE, "Could not load CodeMirror editor", error);
-            }
-        });
-        engine.getLoadWorker().stateProperty().addListener((obs, oldState, state) -> {
-            if (state == Worker.State.SUCCEEDED) {
-                initializeBridge();
-            }
-        });
-        engine.loadContent(loadEditorHtml(), "text/html");
+        page.exposeBridge("javaEditor", bridge);
+        page.onLoaded(this::initializeBridge);
+        page.loadHtml(loadEditorHtml());
     }
 
     /** Sets the listener invoked after user or command-driven document changes. */
@@ -127,11 +125,20 @@ public final class MarkdownEditorView extends StackPane {
         insertionTransformer = transformer != null ? transformer : UnaryOperator.identity();
     }
 
-    /** Sets the handlers used by links rendered inside editable Live Preview. */
-    public void setLinkHandlers(Consumer<String> wikiLinks, Consumer<String> externalLinks) {
-        wikiLinkHandler = wikiLinks != null ? wikiLinks : title -> {
+    /**
+     * Sets the handlers used by links followed in the editor: a note's link (and whether it
+     * opens in a new tab: the middle button, or Cmd/Ctrl+Shift+click), and an external one.
+     */
+    public void setLinkHandlers(BiConsumer<String, Boolean> wikiLinks, Consumer<String> externalLinks) {
+        wikiLinkHandler = wikiLinks != null ? wikiLinks : (title, newTab) -> {
         };
         externalLinkHandler = externalLinks != null ? externalLinks : url -> {
+        };
+    }
+
+    /** What a Cmd/Ctrl+click on a {@code #tag} in Live Preview does (given the tag without {@code #}). */
+    public void setTagHandler(Consumer<String> handler) {
+        tagHandler = handler != null ? handler : tag -> {
         };
     }
 
@@ -149,7 +156,24 @@ public final class MarkdownEditorView extends StackPane {
             // controller pushes the new note's renders right after loading it.
             blockRenders = Map.of();
             execute("window.JylosEditor.setDocument(" + GSON.toJson(text) + ")");
+            loadMathIfNeeded(text);
         }
+    }
+
+    /**
+     * Loads the bundled KaTeX into the editor page the first time a document has math, and
+     * tells Live Preview it can draw it. Notes without math never pay for it.
+     */
+    private void loadMathIfNeeded(String content) {
+        if (mathLoaded || !ready || !MarkdownPreview.mightContainMath(content)) {
+            return;
+        }
+        mathLoaded = true;
+        execute(MarkdownPreview.katexScript());
+        execute("(function(){var s=document.createElement('style');s.textContent="
+                + GSON.toJson(MarkdownPreview.katexStylesheet())
+                + ";document.head.appendChild(s);})()");
+        execute("window.JylosEditor.setMathReady()");
     }
 
     /**
@@ -169,6 +193,7 @@ public final class MarkdownEditorView extends StackPane {
     }
 
     /** Returns the latest editor snapshot without crossing the JavaScript bridge. */
+    @Override
     public String getText() {
         return text;
     }
@@ -181,10 +206,12 @@ public final class MarkdownEditorView extends StackPane {
         return stringResult("window.JylosEditor.getSelectedText()", "");
     }
 
+    @Override
     public int getSelectionStart() {
         return intResult("window.JylosEditor.getSelectionFrom()", 0);
     }
 
+    @Override
     public int getSelectionEnd() {
         return intResult("window.JylosEditor.getSelectionTo()", getSelectionStart());
     }
@@ -197,6 +224,7 @@ public final class MarkdownEditorView extends StackPane {
         replaceSelection(value, -1);
     }
 
+    @Override
     public void replaceSelection(String value, int cursorOffset) {
         String insertion = value != null ? value : "";
         whenReady(() -> execute("window.JylosEditor.replaceSelection("
@@ -249,9 +277,15 @@ public final class MarkdownEditorView extends StackPane {
         whenReady(() -> execute("window.JylosEditor.openReplace()"));
     }
 
-    public void setAutocompleteTitles(List<String> titles) {
-        List<String> snapshot = titles != null ? List.copyOf(titles) : List.of();
-        whenReady(() -> execute("window.JylosEditor.setAutocompleteTitles(" + GSON.toJson(snapshot) + ")"));
+    /** The notes {@code [[} suggests while a link is typed (see {@link LinkSuggestion}). */
+    public void setLinkSuggestions(List<LinkSuggestion> notes) {
+        List<LinkSuggestion> snapshot = notes != null ? List.copyOf(notes) : List.of();
+        whenReady(() -> execute("window.JylosEditor.setLinkSuggestions(" + GSON.toJson(snapshot) + ")"));
+    }
+
+    /** The headings of the note a link names, for {@code [[Nota#}. */
+    public void setLinkHeadingsProvider(Function<String, List<String>> provider) {
+        linkHeadings = provider != null ? provider : link -> List.of();
     }
 
     public void setEditorLabels(Map<String, String> values) {
@@ -260,11 +294,39 @@ public final class MarkdownEditorView extends StackPane {
         whenReady(() -> execute("window.JylosEditor.setLabels(" + GSON.toJson(labels) + ")"));
     }
 
+    /** Dark or light, the accent chosen in Preferences, and the colours of the external theme in use. */
     public void setEditorTheme(boolean dark, String accentColor) {
         darkTheme = dark;
         accent = accentColor != null ? accentColor : "";
-        whenReady(() -> execute("window.JylosEditor.setTheme("
-                + GSON.toJson(Map.of("dark", darkTheme, "accent", accent)) + ")"));
+        ThemePalette palette = ActiveThemePalette.get();
+        whenReady(() -> execute("window.JylosEditor.setTheme(" + themeConfig(darkTheme, accent, palette) + ")"));
+    }
+
+    /**
+     * The theme as the editor page takes it. The page keeps what it was told before, so without
+     * a palette it is told {@code null}, to go back to its own colours.
+     */
+    static String themeConfig(boolean dark, String accent, ThemePalette palette) {
+        JsonObject config = new JsonObject();
+        config.addProperty("dark", dark);
+        config.addProperty("accent", accent != null ? accent : "");
+        if (palette == null) {
+            config.add("palette", JsonNull.INSTANCE);
+        } else {
+            JsonObject colours = new JsonObject();
+            colours.addProperty("background", palette.background());
+            colours.addProperty("foreground", palette.text());
+            colours.addProperty("muted", palette.muted());
+            colours.addProperty("panel", palette.header());
+            colours.addProperty("surface", palette.surface());
+            colours.addProperty("border", palette.border());
+            // The accent behind selected text would hide it; the hover colour is soft enough.
+            colours.addProperty("selection", palette.hover());
+            colours.addProperty("accent", palette.accent());
+            config.add("palette", colours);
+        }
+        // toString(), not Gson.toJson: Gson leaves out a null member, and the page would keep the last palette.
+        return config.toString();
     }
 
     public void setEditorFontSize(double size) {
@@ -316,14 +378,13 @@ public final class MarkdownEditorView extends StackPane {
         whenReady(() -> execute("window.JylosEditor.focus()"));
     }
 
-    public WebView getWebView() {
-        return webView;
+    /** The editor page, for tests that look into it. */
+    HtmlView page() {
+        return page;
     }
 
     private void initializeBridge() {
         try {
-            JSObject window = (JSObject) engine.executeScript("window");
-            window.setMember("javaEditor", bridge);
             Map<String, Object> config = Map.of(
                     "dark", darkTheme,
                     "accent", accent,
@@ -332,9 +393,14 @@ public final class MarkdownEditorView extends StackPane {
                     "livePreview", livePreviewEnabled,
                     "readableLineLength", readableLineLength,
                     "editable", editable);
+            String colourEmoji = MarkdownPreview.colourEmojiOverride(System.getProperty("os.name", ""));
+            if (!colourEmoji.isEmpty()) {
+                execute(colourEmoji);
+            }
             execute("window.JylosEditor.initialize(" + GSON.toJson(config) + ")");
             ready = true;
             execute("window.JylosEditor.setDocument(" + GSON.toJson(text) + ")");
+            loadMathIfNeeded(text);
             while (!pendingActions.isEmpty()) {
                 pendingActions.remove().run();
             }
@@ -366,15 +432,15 @@ public final class MarkdownEditorView extends StackPane {
         editorContextMenu.setOnShowing(event -> refreshContextMenuState());
         updateContextMenuLabels();
 
-        webView.addEventFilter(ContextMenuEvent.CONTEXT_MENU_REQUESTED, event -> {
+        page.addEventFilter(ContextMenuEvent.CONTEXT_MENU_REQUESTED, event -> {
             if (!ready) {
                 return;
             }
             refreshContextMenuState();
-            editorContextMenu.show(webView, event.getScreenX(), event.getScreenY());
+            ContextMenus.show(editorContextMenu, page, event.getScreenX(), event.getScreenY());
             event.consume();
         });
-        webView.addEventFilter(KeyEvent.KEY_PRESSED, this::handleDesktopShortcut);
+        page.addEventFilter(KeyEvent.KEY_PRESSED, this::handleDesktopShortcut);
     }
 
     private void handleDesktopShortcut(KeyEvent event) {
@@ -383,7 +449,7 @@ public final class MarkdownEditorView extends StackPane {
         // tick behind after switching notes/panels, silently dropping the
         // shortcut since JavaFX WebView has no native clipboard paste to fall
         // back on for a contentEditable element.
-        if (!ready || !event.isShortcutDown() || event.isAltDown() || !webView.isFocused()) {
+        if (!ready || !event.isShortcutDown() || event.isAltDown() || !page.hasFocus()) {
             return;
         }
 
@@ -466,12 +532,7 @@ public final class MarkdownEditorView extends StackPane {
     }
 
     private Object execute(String script) {
-        try {
-            return engine.executeScript(script);
-        } catch (RuntimeException e) {
-            logger.log(Level.WARNING, "CodeMirror command failed", e);
-            return null;
-        }
+        return page.evaluate(script);
     }
 
     private String stringResult(String script, String fallback) {
@@ -508,11 +569,18 @@ public final class MarkdownEditorView extends StackPane {
     public final class EditorBridge {
         public void onDocumentChanged(String content) {
             text = content != null ? content : "";
+            loadMathIfNeeded(text);
             textChangeListener.accept(text);
         }
 
         public String transformInsertion(String content) {
             return MarkdownEditorView.this.transformInsertion(content);
+        }
+
+        /** The headings of the note {@code link} names, as a JSON list, for {@code [[Nota#}. */
+        public String headingsOf(String link) {
+            List<String> headings = link != null && !link.isBlank() ? linkHeadings.apply(link) : null;
+            return GSON.toJson(headings != null ? headings : List.of());
         }
 
         public void copyToClipboard(String content) {
@@ -527,10 +595,28 @@ public final class MarkdownEditorView extends StackPane {
         }
 
         public void openNote(String title) {
-            String resolvedTitle = WikiLinkResolver.internalNoteTarget(title);
-            Platform.runLater(() -> wikiLinkHandler.accept(resolvedTitle != null
-                    ? resolvedTitle
-                    : title != null ? title : ""));
+            follow(title, false);
+        }
+
+        /** A note's link followed with the middle button or Cmd/Ctrl+Shift: in a new tab. */
+        public void openNoteInNewTab(String title) {
+            follow(title, true);
+        }
+
+        private void follow(String title, boolean newTab) {
+            // The link as written (folder path kept), so the right one of two same-named notes
+            // opens, and its heading or block, so it opens there.
+            String path = WikiLinkResolver.internalLinkPath(title);
+            String subpath = WikiLinkResolver.subpathOf(title);
+            String resolvedTitle = path != null && subpath != null ? path + "#" + subpath : path;
+            String link = resolvedTitle != null ? resolvedTitle : title != null ? title : "";
+            Platform.runLater(() -> wikiLinkHandler.accept(link, newTab));
+        }
+
+        public void openTag(String tag) {
+            if (tag != null && !tag.isBlank()) {
+                Platform.runLater(() -> tagHandler.accept(tag));
+            }
         }
 
         public void openExternal(String url) {
@@ -538,9 +624,20 @@ public final class MarkdownEditorView extends StackPane {
         }
 
         public void openMarkdownLink(String target) {
-            String title = WikiLinkResolver.internalNoteTarget(target);
+            followMarkdownLink(target, false);
+        }
+
+        /** A Markdown link followed with the middle button or Cmd/Ctrl+Shift: a note's, in a new tab. */
+        public void openMarkdownLinkInNewTab(String target) {
+            followMarkdownLink(target, true);
+        }
+
+        private void followMarkdownLink(String target, boolean newTab) {
+            String path = WikiLinkResolver.internalLinkPath(target);
+            String subpath = WikiLinkResolver.subpathOf(target != null ? WikiLinkResolver.urlDecode(target) : null);
+            String title = path != null && subpath != null ? path + "#" + subpath : path;
             if (title != null) {
-                Platform.runLater(() -> wikiLinkHandler.accept(title));
+                Platform.runLater(() -> wikiLinkHandler.accept(title, newTab));
             } else {
                 Platform.runLater(() -> externalLinkHandler.accept(target != null ? target : ""));
             }
@@ -551,10 +648,16 @@ public final class MarkdownEditorView extends StackPane {
             return resolved != null ? resolved : "";
         }
 
+        /** An image the editor could not draw (WebP): answered later with a PNG copy, or "". */
+        public void convertImage(String id, String source) {
+            WebViewImages.convert(page, WebViewImages.EDITOR, id, source);
+        }
+
         /**
-         * Rasterises an emoji run for the editor's emoji decoration, reusing the same
-         * cache and bundled font as the Preview (see {@link MarkdownPreview}) — the
-         * WebView's own font rendering cannot show colour emoji.
+         * Rasterises an emoji for the editor's emoji decoration, reusing the same cache
+         * and bundled font as the Preview (see {@link MarkdownPreview}). The editor asks
+         * for every emoji where the WebView draws no colour emoji, and elsewhere only for
+         * sequences it cannot draw whole (skin tones, ZWJ, flags, keycaps).
          */
         public String rasterizeEmoji(String run) {
             String dataUri = MarkdownPreview.rasterizeEmojiRun(run, darkTheme);

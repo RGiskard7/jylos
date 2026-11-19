@@ -3,6 +3,7 @@ package com.example.jylos.search;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 /**
@@ -32,7 +33,7 @@ public final class SearchDates {
         if (token == null) {
             return false;
         }
-        String t = token.trim().toLowerCase(java.util.Locale.ROOT);
+        String t = token.trim().toLowerCase(Locale.ROOT);
         return switch (t) {
             case "today", "yesterday", "last-week", "last-month" -> true;
             default -> YMD.matcher(t).matches();
@@ -78,7 +79,7 @@ public final class SearchDates {
             return false;
         }
         LocalDate today = LocalDate.now();
-        String t = token.trim().toLowerCase(java.util.Locale.ROOT);
+        String t = token.trim().toLowerCase(Locale.ROOT);
         return switch (t) {
             case "today" -> date.isEqual(today);
             case "yesterday" -> date.isEqual(today.minusDays(1));

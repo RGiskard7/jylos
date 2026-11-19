@@ -9,6 +9,9 @@ import com.example.jylos.data.models.Note;
  *
  * <p>Keeping it in one place is what makes the two surfaces agree — a query must not
  * produce a different table depending on whether the note is being read or edited.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
  */
 final class DataviewRunner {
 

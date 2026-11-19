@@ -12,6 +12,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -20,10 +21,14 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.prefs.Preferences;
+import java.util.stream.Stream;
 
+import com.example.jylos.AppConfig;
 import com.example.jylos.AppDataDirectory;
 import com.example.jylos.AppDirectories;
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.util.Versions;
 
 /**
  * Loads external plugins from the plugins/ directory.
@@ -46,13 +51,18 @@ import com.example.jylos.config.LoggerConfig;
  * </ul>
  * 
  * @author Edu Díaz (RGiskard7)
- * @since 4.4.0
+ * @since 1.0.0
  */
 public class PluginLoader {
 
     private static final Logger logger = LoggerConfig.getLogger(PluginLoader.class);
     private static final String PLUGINS_DIR = "plugins";
-    private static final String BUNDLED_COPY_MARKER = ".bundled-plugins-copied";
+
+    /** Manifest attribute with the earliest Jylos version a community plugin works with. */
+    public static final String MIN_JYLOS_ATTRIBUTE = "Plugin-Min-Jylos";
+
+    /** Community JARs left out because they need a later Jylos: file name and that version. */
+    private static final Map<String, String> incompatibleCommunityJars = new ConcurrentHashMap<>();
 
     /** Major version of the {@link PluginContext}/{@link Plugin} API this build exposes. */
     private static final String SUPPORTED_HOST_API_VERSION = "1";
@@ -70,10 +80,22 @@ public class PluginLoader {
     public static final class PluginLoadReport {
         private final List<Plugin> plugins;
         private final List<String> failures;
+        private final Map<String, PluginOrigin> origins;
 
         public PluginLoadReport(List<Plugin> plugins, List<String> failures) {
+            this(plugins, failures, Map.of());
+        }
+
+        PluginLoadReport(List<Plugin> plugins, List<String> failures, Map<String, PluginOrigin> origins) {
             this.plugins = plugins;
             this.failures = failures;
+            this.origins = Map.copyOf(origins);
+        }
+
+        /** Whether {@code plugin} is Jylos's own or the community's; community if it was not loaded here. */
+        public PluginOrigin originOf(Plugin plugin) {
+            return plugin == null ? PluginOrigin.COMMUNITY
+                    : origins.getOrDefault(plugin.getId(), PluginOrigin.COMMUNITY);
         }
 
         public List<Plugin> getPlugins() {
@@ -86,11 +108,9 @@ public class PluginLoader {
     }
 
     /**
-     * Scans the plugins directory and loads all available plugins.
-     * Checks multiple locations: app bundle (jpackage), AppData, and relative path.
-     * On first run of a packaged app, copies bundled plugins to AppData so they are
-     * found.
-     * 
+     * Loads Jylos's own plugins from the installation and the community's from the user's
+     * plugins folder.
+     *
      * @return List of loaded plugin instances
      */
     public static List<Plugin> loadExternalPlugins() {
@@ -98,108 +118,247 @@ public class PluginLoader {
     }
 
     /**
-     * Scans and loads plugins and returns a detailed report.
+     * Loads Jylos's own plugins from the installation, then the community's from the user's
+     * plugins folder, and says where each one comes from. Before that, removes what plugins
+     * Jylos no longer has left behind ({@link RetiredPlugins}).
      *
-     * This is additive and keeps {@link #loadExternalPlugins()} behavior intact.
-     *
-     * @return plugin loading report with loaded plugins and failures
+     * @return plugin loading report with loaded plugins, their origin and failures
      */
     public static PluginLoadReport loadExternalPluginsWithReport() {
-        // Copy bundled plugins to AppData on first run (packaged apps: DMG, MSI, etc.)
-        copyBundledPluginsToAppDataIfNeeded();
+        Preferences node = Preferences.userNodeForPackage(PluginManager.class);
+        RetiredPlugins.cleanUp(getPluginsDirectory(), node).forEach(logger::info);
+        boolean communityAllowed = new PluginStates(node).communityAllowed(getPluginsDirectory());
+        return load(corePluginDirs(), getPluginsDirectory(), communityAllowed, AppConfig.getAppVersion());
+    }
 
+    /** {@link #load(List, Path, boolean, String)} with community plugins allowed, for this Jylos. */
+    static PluginLoadReport load(List<Path> coreDirs, Path userDir) {
+        return load(coreDirs, userDir, true, AppConfig.getAppVersion());
+    }
+
+    /**
+     * Loads the plugins in {@code coreDirs} as Jylos's own and those in {@code userDir} as the
+     * community's.
+     * <ul>
+     * <li>A plugin in the user's folder with the id of one already loaded from the installation
+     * is not used and its JAR is released: Jylos's own plugin is updated with the app, a copy is
+     * not.</li>
+     * <li>The copies older versions of Jylos made in the user's folder (with
+     * {@link RetiredPlugins#BUNDLED_COPY_MARKER}) of a JAR the installation has are deleted.</li>
+     * <li>In a folder that is both (the Windows portable build), a plugin is core when its id is
+     * one of {@link CorePlugins}.</li>
+     * </ul>
+     */
+    static PluginLoadReport load(List<Path> coreDirs, Path userDir, boolean communityAllowed, String appVersion) {
         List<Plugin> plugins = new ArrayList<>();
+        incompatibleCommunityJars.clear();
         List<String> failures = new ArrayList<>();
-        Set<Path> scannedDirs = new HashSet<>();
+        Map<String, PluginOrigin> origins = new LinkedHashMap<>();
+        Path user = userDir != null ? userDir.toAbsolutePath().normalize() : null;
+        Set<Path> scanned = new HashSet<>();
+        Set<String> coreJarNames = new HashSet<>();
 
-        for (Path pluginsPath : getPluginSearchPaths()) {
-            if (pluginsPath == null || !Files.exists(pluginsPath) || !Files.isDirectory(pluginsPath)) {
+        for (Path dir : coreDirs) {
+            Path core = dir.toAbsolutePath().normalize();
+            if (!scanned.add(core)) {
                 continue;
             }
-            if (scannedDirs.contains(pluginsPath.normalize())) {
-                continue;
+            boolean shared = core.equals(user);
+            // The installation's own folder also holds the application's JAR: not a plugin.
+            for (Path jar : jarsIn(core, failures, true)) {
+                Plugin plugin = loadInto(jar, plugins, failures, origins);
+                if (plugin == null) {
+                    continue;
+                }
+                PluginOrigin origin = shared && !CorePlugins.isCore(plugin.getId())
+                        ? PluginOrigin.COMMUNITY : PluginOrigin.CORE;
+                origins.put(plugin.getId(), origin);
+                if (origin == PluginOrigin.CORE) {
+                    coreJarNames.add(jar.getFileName().toString());
+                }
             }
-            scannedDirs.add(pluginsPath.normalize());
+        }
 
-            try {
-                Files.list(pluginsPath)
-                        .filter(path -> path.toString().toLowerCase().endsWith(".jar"))
-                        .filter(path -> !path.getFileName().toString().contains("jylos")
-                                && !path.getFileName().toString().contains("uber"))
-                        .forEach(jarPath -> {
-                            try {
-                                Plugin plugin = loadPluginFromJar(jarPath);
-                                if (plugin != null) {
-                                    plugins.add(plugin);
-                                    logger.info(
-                                            "Loaded external plugin: " + plugin.getName() + " v" + plugin.getVersion());
-                                } else {
-                                    failures.add("Could not load plugin from " + jarPath.getFileName());
-                                }
-                            } catch (Exception e) {
-                                String message = "Failed to load plugin from " + jarPath.getFileName();
-                                logger.log(Level.WARNING, message, e);
-                                failures.add(message + ": " + e.getMessage());
-                            }
-                        });
-            } catch (IOException e) {
-                String message = "Failed to scan plugins directory " + pluginsPath;
-                logger.log(Level.WARNING, message, e);
-                failures.add(message + ": " + e.getMessage());
+        if (user != null && scanned.add(user)) {
+            removeOldBundledCopies(user, coreJarNames).forEach(logger::info);
+            if (!communityAllowed) {
+                logger.info("Restricted mode: community plugins in " + user + " are not loaded");
+            }
+            for (Path jar : communityAllowed ? jarsIn(user, failures, false) : List.<Path>of()) {
+                if (!compatible(jar, appVersion)) {
+                    continue;
+                }
+                Plugin plugin = loadInto(jar, plugins, failures, origins);
+                if (plugin != null) {
+                    origins.put(plugin.getId(), PluginOrigin.COMMUNITY);
+                }
             }
         }
 
         logger.info("Loaded " + plugins.size() + " external plugin(s)");
-        return new PluginLoadReport(plugins, failures);
+        return new PluginLoadReport(plugins, failures, origins);
+    }
+
+    /** Loads one JAR into {@code plugins}; {@code null} if it is not a plugin or its id is taken. */
+    private static Plugin loadInto(Path jar, List<Plugin> plugins, List<String> failures,
+            Map<String, PluginOrigin> loaded) {
+        Plugin plugin;
+        try {
+            plugin = loadPluginFromJar(jar);
+        } catch (Exception e) {
+            String message = "Failed to load plugin from " + jar.getFileName();
+            logger.log(Level.WARNING, message, e);
+            failures.add(message + ": " + e.getMessage());
+            return null;
+        }
+        if (plugin == null) {
+            failures.add("Could not load plugin from " + jar.getFileName());
+            return null;
+        }
+        if (loaded.containsKey(plugin.getId())) {
+            logger.info("Skipping " + jar + ": plugin '" + plugin.getId() + "' is already loaded from "
+                    + pluginJarPathsById.get(plugin.getId()));
+            releaseDuplicate(jar);
+            return null;
+        }
+        plugins.add(plugin);
+        logger.info("Loaded external plugin: " + plugin.getName() + " v" + plugin.getVersion());
+        return plugin;
+    }
+
+    /** The JARs in {@code dir}, sorted by name; without the application's own JAR when {@code skipAppJars}. */
+    private static List<Path> jarsIn(Path dir, List<String> failures, boolean skipAppJars) {
+        if (!Files.isDirectory(dir)) {
+            return List.of();
+        }
+        try (Stream<Path> files = Files.list(dir)) {
+            return files.filter(path -> path.toString().toLowerCase().endsWith(".jar"))
+                    .filter(path -> !skipAppJars || !isApplicationJar(path))
+                    .sorted()
+                    .toList();
+        } catch (IOException e) {
+            String message = "Failed to scan plugins directory " + dir;
+            logger.log(Level.WARNING, message, e);
+            failures.add(message + ": " + e.getMessage());
+            return List.of();
+        }
+    }
+
+    private static boolean isApplicationJar(Path jar) {
+        String name = jar.getFileName().toString();
+        return name.contains("jylos") || name.contains("uber");
     }
 
     /**
-     * Gets all paths where plugins may be located.
-     * Order: 1) app bundle (jpackage), 2) the user's plugins folder (which honours
-     * -Djylos.data.dir), 3) relative.
-     * 
-     * @return List of plugin directory paths to search
+     * Deletes from the user's folder the JARs older versions of Jylos copied there (its
+     * {@link RetiredPlugins#BUNDLED_COPY_MARKER} is present) whose name the installation has.
      */
-    private static List<Path> getPluginSearchPaths() {
-        List<Path> paths = new ArrayList<>();
+    private static List<String> removeOldBundledCopies(Path userDir, Set<String> coreJarNames) {
+        List<String> done = new ArrayList<>();
+        if (coreJarNames.isEmpty() || !Files.exists(userDir.resolve(RetiredPlugins.BUNDLED_COPY_MARKER))) {
+            return done;
+        }
+        for (String name : coreJarNames) {
+            Path copy = userDir.resolve(name);
+            try {
+                if (Files.deleteIfExists(copy)) {
+                    done.add("Removed an old copy of a plugin that comes with Jylos: " + copy);
+                }
+            } catch (IOException e) {
+                logger.warning("Could not remove old plugin copy " + copy + ": " + e.getMessage());
+            }
+        }
+        return done;
+    }
 
-        // 1. App bundle directory (jpackage) - plugins alongside main JAR or in
-        // plugins/ subdir
+    /** Closes the classloader of a JAR whose plugin id was already loaded from another JAR. */
+    private static void releaseDuplicate(Path jar) {
+        Path normalized = jar.toAbsolutePath().normalize();
+        URLClassLoader classLoader = activeClassLoadersByJarPath.get(normalized);
+        closePluginClassLoaderForJar(normalized);
+        pluginJarPathsById.entrySet().removeIf(entry -> entry.getValue().equals(normalized));
+        if (classLoader != null) {
+            activeClassLoadersByPluginId.values().removeIf(loader -> loader == classLoader);
+        }
+    }
+
+    /** The JARs in the user's plugins folder that are not loaded yet. */
+    public static List<Path> unloadedCommunityJars() {
+        return unloadedCommunityJars(getPluginsDirectory());
+    }
+
+    /** The JARs in {@code dir} that are not loaded. */
+    static List<Path> unloadedCommunityJars(Path dir) {
+        return jarsIn(dir.toAbsolutePath().normalize(), new ArrayList<>(), false).stream()
+                .filter(jar -> !activeClassLoadersByJarPath.containsKey(jar.toAbsolutePath().normalize()))
+                .toList();
+    }
+
+    /**
+     * Loads a community plugin's JAR if this Jylos is recent enough for it; {@code null} if it is
+     * not (see {@link #incompatibleCommunityJars()}) or the JAR holds no valid plugin.
+     */
+    public static Plugin loadCommunityJar(Path jar) {
+        return compatible(jar, AppConfig.getAppVersion()) ? loadPluginFromJar(jar) : null;
+    }
+
+    /** The community JARs left out because they need a later Jylos: file name and version they need. */
+    public static Map<String, String> incompatibleCommunityJars() {
+        return Map.copyOf(incompatibleCommunityJars);
+    }
+
+    /**
+     * Whether a community JAR can be loaded by this Jylos: its manifest's {@value #MIN_JYLOS_ATTRIBUTE}
+     * is not later than {@code appVersion}. A JAR without it is loaded, with a note in the log; so
+     * is any JAR when this Jylos does not know its own version.
+     */
+    private static boolean compatible(Path jar, String appVersion) {
+        String name = jar.getFileName().toString();
+        incompatibleCommunityJars.remove(name);
+        String needed = manifestAttribute(jar, MIN_JYLOS_ATTRIBUTE);
+        if (needed == null || needed.isBlank()) {
+            logger.info("Plugin " + name + " does not say which Jylos it needs (" + MIN_JYLOS_ATTRIBUTE + ")");
+            return true;
+        }
+        if (appVersion == null || appVersion.isBlank() || Versions.compare(appVersion, needed.trim()) >= 0) {
+            return true;
+        }
+        logger.warning("Not loading " + name + ": it needs Jylos " + needed.trim() + " or later (this is " + appVersion + ")");
+        incompatibleCommunityJars.put(name, needed.trim());
+        return false;
+    }
+
+    /** The JAR a loaded plugin came from, or {@code null}. */
+    static Path jarOf(String pluginId) {
+        return pluginJarPathsById.get(pluginId);
+    }
+
+    /** How many plugin classloaders are open. */
+    static int openClassLoaderCount() {
+        return activeClassLoaders.size();
+    }
+
+    /**
+     * The installation's plugin folders, where Jylos's own plugins are: next to the application
+     * JAR, its {@code plugins/} folder and the installation's {@code plugins/} (where jpackage's
+     * {@code --app-content} puts them); when developing, the repository's {@code plugins/}.
+     */
+    private static List<Path> corePluginDirs() {
+        List<Path> paths = new ArrayList<>();
         Path appDir = getApplicationDirectory();
         if (appDir != null) {
-            paths.add(appDir); // Same dir as JAR (--app-content puts plugins here)
-            paths.add(appDir.resolve(PLUGINS_DIR)); // app/plugins/ subdirectory
-            // Installation folder plugins/ (Windows: next to .exe; next to app/ folder)
+            paths.add(appDir);
+            paths.add(appDir.resolve(PLUGINS_DIR));
             Path installDir = appDir.getParent();
             if (installDir != null) {
                 paths.add(installDir.resolve(PLUGINS_DIR));
             }
         }
-
-        // 2. The user's plugins folder (AppDataDirectory, including -Djylos.data.dir)
-        paths.add(Paths.get(AppDataDirectory.getBaseDirectory(), PLUGINS_DIR));
-
-        // 3. Relative to CWD: the repo's jylos/plugins when developing. Never for a
-        // packaged build, where the working directory is just wherever it was launched.
+        // Never for a packaged build, where the working directory is wherever it was launched.
         if (AppDataDirectory.layout().mode() == AppDirectories.Mode.DEVELOPMENT) {
             paths.add(Paths.get(PLUGINS_DIR));
         }
-
-        // Normalize all paths and remove duplicates
-        List<Path> uniquePaths = new ArrayList<>();
-        Set<String> seen = new HashSet<>();
-        for (Path p : paths) {
-            try {
-                Path absolute = p.toAbsolutePath().normalize();
-                if (seen.add(absolute.toString())) {
-                    uniquePaths.add(absolute);
-                }
-            } catch (Exception e) {
-                logger.fine("Skipping invalid plugin search path '" + p + "': " + e.getMessage());
-            }
-        }
-
-        return uniquePaths;
+        return paths;
     }
 
     /**
@@ -232,66 +391,6 @@ public class PluginLoader {
      */
     private static Path getPluginsDirectory() {
         return Paths.get(AppDataDirectory.getBaseDirectory(), PLUGINS_DIR);
-    }
-
-    /**
-     * Copies bundled plugins to AppData on first run.
-     * When installing from DMG/MSI/DEB, plugins are packed via --app-content but
-     * may not be in a location the classloader finds. Copying to AppData ensures
-     * they are found on all platforms.
-     */
-    private static void copyBundledPluginsToAppDataIfNeeded() {
-        Path appDataPlugins = Paths.get(AppDataDirectory.getBaseDirectory(), PLUGINS_DIR);
-        try {
-            if (!Files.exists(appDataPlugins)) {
-                Files.createDirectories(appDataPlugins);
-            }
-            Path copyMarker = appDataPlugins.resolve(BUNDLED_COPY_MARKER);
-            if (Files.exists(copyMarker)) {
-                return;
-            }
-            long existingCount;
-            try (var stream = Files.list(appDataPlugins)) {
-                existingCount = stream
-                        .filter(p -> p.toString().toLowerCase().endsWith(".jar"))
-                        .count();
-            }
-            if (existingCount > 0) {
-                Files.writeString(copyMarker, "Bundled plugins already managed by Jylos.\n");
-                return;
-            }
-            Path appDir = getApplicationDirectory();
-            if (appDir == null) {
-                return;
-            }
-            Path bundleSource = null;
-            if (Files.exists(appDir.resolve(PLUGINS_DIR))) {
-                bundleSource = appDir.resolve(PLUGINS_DIR);
-            } else {
-                bundleSource = appDir;
-            }
-            List<Path> jars = new ArrayList<>();
-            try (var stream = Files.list(bundleSource)) {
-                stream
-                        .filter(p -> p.toString().toLowerCase().endsWith(".jar"))
-                        .filter(p -> !p.getFileName().toString().contains("jylos")
-                                && !p.getFileName().toString().contains("uber"))
-                        .forEach(jars::add);
-            }
-            if (jars.isEmpty()) {
-                return;
-            }
-            for (Path jar : jars) {
-                Path dest = appDataPlugins.resolve(jar.getFileName());
-                if (!Files.exists(dest)) {
-                    Files.copy(jar, dest);
-                    logger.info("Copied bundled plugin to AppData: " + jar.getFileName());
-                }
-            }
-            Files.writeString(copyMarker, "Bundled plugins copied by Jylos.\n");
-        } catch (IOException e) {
-            logger.fine("Could not copy bundled plugins: " + e.getMessage());
-        }
     }
 
     /**
@@ -353,6 +452,12 @@ public class PluginLoader {
             }
 
             Plugin plugin = (Plugin) pluginClass.getDeclaredConstructor().newInstance();
+            if (RetiredPlugins.isRetired(plugin.getId())) {
+                logger.info("Skipping " + jarPath.getFileName() + ": plugin '" + plugin.getId()
+                        + "' is no longer part of Jylos");
+                closeQuietly(classLoader);
+                return null;
+            }
 
             String pluginApiVersion = plugin.getHostApiVersion();
             if (!isHostApiCompatible(pluginApiVersion)) {
@@ -397,14 +502,16 @@ public class PluginLoader {
      * @return The plugin class name, or null if not found
      */
     private static String getPluginClassFromManifest(Path jarPath) {
+        return manifestAttribute(jarPath, "Plugin-Class");
+    }
+
+    /** A main attribute of the JAR's manifest, or {@code null}. */
+    private static String manifestAttribute(Path jarPath, String name) {
         try (JarFile jarFile = new JarFile(jarPath.toFile())) {
             var manifest = jarFile.getManifest();
-            if (manifest == null) {
-                return null;
-            }
-            return manifest.getMainAttributes().getValue("Plugin-Class");
+            return manifest == null ? null : manifest.getMainAttributes().getValue(name);
         } catch (Exception e) {
-            // Manifest might not exist or not have Plugin-Class entry
+            // Not a JAR, or no manifest
             return null;
         }
     }

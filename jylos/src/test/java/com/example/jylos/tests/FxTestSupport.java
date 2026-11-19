@@ -1,8 +1,10 @@
 package com.example.jylos.tests;
 
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javafx.application.Platform;
 
@@ -16,6 +18,8 @@ import javafx.application.Platform;
 public final class FxTestSupport {
 
     private static final int STARTUP_TIMEOUT_SECONDS = 30;
+    /** Generous: a few tests run hundreds of graph simulation frames in one call. */
+    private static final int FX_WORK_TIMEOUT_SECONDS = 120;
 
     private static volatile Boolean available;
 
@@ -70,5 +74,53 @@ public final class FxTestSupport {
             Thread.currentThread().interrupt();
             return false;
         }
+    }
+
+    /** Work for the FX thread that returns nothing and may throw. */
+    @FunctionalInterface
+    public interface FxWork {
+        void run() throws Exception;
+    }
+
+    /**
+     * Runs {@code work} on the JavaFX Application Thread and returns its result. A failure in
+     * it is thrown here as an {@link AssertionError} wrapping it; on the FX thread already, it
+     * runs right away.
+     */
+    public static <T> T onFx(Callable<T> work) throws Exception {
+        // Started here too: a test class run on its own may not have started it.
+        if (!isFxRuntimeAvailable()) {
+            throw new AssertionError("the JavaFX runtime could not be started");
+        }
+        if (Platform.isFxApplicationThread()) {
+            return work.call();
+        }
+        AtomicReference<T> result = new AtomicReference<>();
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        CountDownLatch done = new CountDownLatch(1);
+        Platform.runLater(() -> {
+            try {
+                result.set(work.call());
+            } catch (Throwable t) {
+                failure.set(t);
+            } finally {
+                done.countDown();
+            }
+        });
+        if (!done.await(FX_WORK_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+            throw new AssertionError("never completed on the FX thread");
+        }
+        if (failure.get() != null) {
+            throw new AssertionError(failure.get());
+        }
+        return result.get();
+    }
+
+    /** {@link #onFx} for work that returns nothing. */
+    public static void runFx(FxWork work) throws Exception {
+        onFx(() -> {
+            work.run();
+            return null;
+        });
     }
 }

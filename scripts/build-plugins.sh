@@ -175,6 +175,18 @@ fi
 echo -e "${GRAY}Classpath configured${NC}"
 echo ""
 
+# Each JAR's card in its manifest: Plugin-Id, read from the plugin's source (a
+# "String ID = ..." constant or "getId() { return ... }"), and Plugin-Min-Jylos, the
+# version of Jylos these plugins are built with (jylos/pom.xml <revision>).
+# The packaging scripts pass the installer's version as JYLOS_VERSION.
+JYLOS_VERSION="${JYLOS_VERSION:-$(sed -n 's:.*<revision>\(.*\)</revision>.*:\1:p' "$JYLOS_DIR/pom.xml" | head -n 1 | tr -d ' \r')}"
+plugin_id_of() {
+    tr '\n' ' ' < "$1" \
+        | grep -oE 'String (PLUGIN_)?ID *= *"[^"]+"|getId\(\) *\{ *return *"[^"]+"' \
+        | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/'
+}
+echo -e "${GRAY}Plugins built for Jylos ${JYLOS_VERSION}${NC}"
+
 # Multi-file plugins: a directory holding a plugin.properties descriptor is one plugin
 # built from every .java below it, instead of the default "one source file = one JAR".
 # Needed by plugins too large for a single file (parser + evaluator + renderer), which
@@ -324,10 +336,13 @@ for bundle_dir in $BUNDLE_DIRS; do
     fi
 
     echo -e "${GRAY}  Plugin class: $BUNDLE_CLASS${NC}"
+    BUNDLE_ID=$(plugin_id_of "$PLUGINS_SOURCE/$(echo "$BUNDLE_CLASS" | tr '.' '/').java")
     MANIFEST_FILE="$TEMP_DIR/MANIFEST.MF"
     cat > "$MANIFEST_FILE" << EOF
 Manifest-Version: 1.0
 Plugin-Class: $BUNDLE_CLASS
+Plugin-Id: $BUNDLE_ID
+Plugin-Min-Jylos: $JYLOS_VERSION
 Created-By: Jylos Plugin Builder
 
 EOF
@@ -408,6 +423,8 @@ while IFS= read -r plugin_file; do
     cat > "$MANIFEST_FILE" << EOF
 Manifest-Version: 1.0
 Plugin-Class: $CLASS_NAME
+Plugin-Id: $(plugin_id_of "$plugin_file")
+Plugin-Min-Jylos: $JYLOS_VERSION
 Created-By: Jylos Plugin Builder
 
 EOF

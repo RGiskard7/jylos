@@ -1,16 +1,22 @@
 package com.example.jylos.ui.controller;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.service.FolderService;
+import com.example.jylos.util.UntitledNames;
 
 /**
  * Folder creation logic, free of controller/UI state.
  *
  * <p>Pure persistence orchestration: results are returned as records and the
  * controller decides how to reflect them in the UI.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.3.0
  */
 class FolderOperations {
 
@@ -45,5 +51,26 @@ class FolderOperations {
             logger.warning("Failed to create folder: " + e.getMessage());
             return new FolderCreationResult(false, null, e.getMessage());
         }
+    }
+
+    /**
+     * Creates a folder named {@code base} ("Sin nombre"), or "base 1", "base 2", ... the first
+     * name free among the folders next to it, as Obsidian does before letting it be renamed.
+     */
+    FolderCreationResult createUntitledFolder(String base, Folder parent, boolean inRoot) {
+        if (folderService == null) {
+            return new FolderCreationResult(false, null, "FolderService is null");
+        }
+        boolean root = inRoot || parent == null;
+        List<String> taken = new ArrayList<>();
+        try {
+            Folder where = root ? new Folder("ROOT", "") : parent;
+            for (Folder sibling : folderService.getSubfolders(where)) {
+                taken.add(sibling.getTitle());
+            }
+        } catch (RuntimeException e) {
+            logger.warning("Could not list folders before creating one: " + e.getMessage());
+        }
+        return createFolder(UntitledNames.next(base, taken), parent, root);
     }
 }

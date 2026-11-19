@@ -1,22 +1,34 @@
 package com.example.jylos.data.dao.filesystem;
 
+import static org.yaml.snakeyaml.nodes.Tag.NULL;
+
+import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.AbstractConstruct;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
+import org.yaml.snakeyaml.nodes.Node;
+import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.representer.Representer;
 import org.yaml.snakeyaml.resolver.Resolver;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.data.models.ToDoNote;
+import com.example.jylos.service.EncryptionService;
+import com.example.jylos.util.ReadingSyntax;
+import com.example.jylos.util.WikiLinkResolver;
 
 /**
  * Parses and generates Obsidian-compatible YAML frontmatter in Markdown files.
@@ -24,10 +36,20 @@ import com.example.jylos.data.models.ToDoNote;
  * <p>Known note fields are mapped to {@link Note} properties. Every non-system
  * frontmatter entry is preserved through round-trips, including nested YAML
  * structures that the flat properties UI cannot edit directly.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public final class FrontmatterHandler {
 
     private static final String SEPARATOR = "---";
+
+    /**
+     * The fields older versions of Jylos wrote in every note. They are not written any more;
+     * when the user wrote one of these keys, it is theirs and stays.
+     */
+    private static final List<String> JYLOS_FIELDS = List.of(
+            "id", "title", "created", "modified", "favorite", "pinned", "deleted", "deleted_date");
 
     /** Keys consumed by the fixed Note schema — never exposed as custom properties. */
     private static final List<String> SYSTEM_KEYS = List.of(
@@ -85,35 +107,59 @@ public final class FrontmatterHandler {
     }
 
     public static String generate(Note note) {
+        return generate(note, null);
+    }
+
+    /**
+     * The file for {@code note}, given the file as it is on disk now ({@code previousFile},
+     * {@code null} for a new note). Only what the user wrote goes in it, as Obsidian does:
+     * <ul>
+     *   <li>Jylos' own fields are not written: the id is the path, the title the file name, the
+     *       dates the file's, the favorite and pinned marks are kept in {@code .jylos/} and the
+     *       trash is a folder. The same keys written by the user are theirs and stay as they
+     *       were; of the fields an older Jylos wrote ({@link #isJylosFrontmatter}) only
+     *       {@code created} stays.</li>
+     *   <li>Unchanged properties are copied byte for byte (comments, quotes, order, line ends),
+     *       and so are properties that do not read as YAML, which Jylos cannot know.</li>
+     *   <li>A note with no properties is written without a properties block.</li>
+     *   <li>Its {@code tags:} keep the ones it had that the note still has, in their order, and
+     *       gain those added from the app; a {@code #tag} of the text stays in the text.</li>
+     * </ul>
+     */
+    public static String generate(Note note, String previousFile) {
+        String text = note.getContent() != null ? note.getContent() : "";
+        FrontmatterBlock before = previousFile != null ? extractLeadingFrontmatter(previousFile) : null;
+        Map<String, Object> previous = before != null ? readableYaml(before.yaml()) : Map.of();
+        if (previous == null) {
+            return before.head() + text; // unreadable properties: kept as the user wrote them
+        }
+        boolean byJylos = isJylosFrontmatter(previous);
         Map<String, Object> root = new LinkedHashMap<>();
 
-        putIfNotBlank(root, "id", note.getId());
-        putIfNotBlank(root, "title", note.getTitle());
-        putIfNotBlank(root, "created", note.getCreatedDate());
-        putIfNotBlank(root, "modified", note.getModifiedDate());
-        root.put("favorite", note.isFavorite());
-        root.put("pinned", note.isPinned());
-        root.put("deleted", note.isDeleted());
-        putIfNotBlank(root, "deleted_date", note.getDeletedDate());
-        putIfNotBlank(root, "status", note.getStatus());
+        for (String key : JYLOS_FIELDS) {
+            if (previous.containsKey(key) && (!byJylos || "created".equals(key))) {
+                root.put(key, previous.get(key));
+            }
+        }
+        putKeeping(root, previous, "status", note.getStatus());
         if (note.isPrivate()) {
             root.put("private", true);
         }
-        putIfNotBlank(root, "author", note.getAuthor());
-        putIfNotBlank(root, "source_url", note.getSourceUrl());
+        putKeeping(root, previous, "author", note.getAuthor());
+        putKeeping(root, previous, "source_url", note.getSourceUrl());
 
-        List<String> tags = note.getTags().stream()
-                .map(Tag::getTitle)
-                .filter(title -> title != null && !title.isBlank())
-                .toList();
+        List<String> tags = propertyTags(note, previousFile);
+        Object writtenTags = previous.get("tags");
         if (!tags.isEmpty()) {
-            root.put("tags", tags);
+            root.put("tags", writtenTags != null && toStringList(writtenTags).equals(tags) ? writtenTags : tags);
+        } else if (previous.containsKey("tags") && (writtenTags == null || toStringList(writtenTags).isEmpty())) {
+            root.put("tags", writtenTags); // "tags:" or "tags: []", empty as written
         }
 
         if (note instanceof ToDoNote todo) {
             root.put("is_todo", true);
-            putIfNotBlank(root, "todo_due", todo.getToDoDue());
-            putIfNotBlank(root, "todo_completed", todo.getToDoCompleted());
+            putKeeping(root, previous, "todo_due", todo.getToDoDue());
+            putKeeping(root, previous, "todo_completed", todo.getToDoCompleted());
         }
 
         Map<String, Object> structured = note.getStructuredFrontmatterProperties();
@@ -142,21 +188,95 @@ public final class FrontmatterHandler {
             }
             Object preserved = structured != null ? structured.get(key) : null;
             String value = entry.getValue() != null ? entry.getValue() : "";
-            if (preserved != null && value.equals(toDisplayableCustomValue(preserved))) {
+            if (preserved == null && value.isEmpty() && structured != null && structured.containsKey(key)) {
+                root.put(key, null); // an empty property ("key:") stays empty
+            } else if (preserved != null && value.equals(toDisplayableCustomValue(preserved))) {
                 root.put(key, deepCopyYamlValue(preserved));
             } else {
                 root.put(key, parseCustomPropertyValue(value));
             }
         }
 
-        StringBuilder sb = new StringBuilder();
-        sb.append(SEPARATOR).append('\n');
-        sb.append(trimTrailingDocumentMarker(newYamlDumper().dump(root)));
-        sb.append(SEPARATOR).append("\n\n");
-        if (note.getContent() != null) {
-            sb.append(note.getContent());
+        root = inPreviousOrder(root, previous);
+        root = withAdded(root, previous, note);
+        if (before != null && root.equals(previous)) {
+            return before.head() + text;
         }
-        return sb.toString();
+        if (root.isEmpty()) {
+            return text;
+        }
+        String lineEnd = before != null && before.head().contains("\r\n") ? "\r\n" : "\n";
+        String yaml = trimTrailingDocumentMarker(newYamlDumper().dump(root));
+        if (!"\n".equals(lineEnd)) {
+            yaml = yaml.replace("\n", lineEnd);
+        }
+        // New properties go right before the text, as Obsidian writes them; existing ones keep their gap.
+        return SEPARATOR + lineEnd + yaml + SEPARATOR + lineEnd + (before != null ? before.gap() : "") + text;
+    }
+
+    /**
+     * {@code value} under {@code key}, as {@code previous} wrote it when it is the same: read
+     * the way the note's field was read from it, so {@code author:} written as a list of one
+     * stays a list.
+     */
+    private static void putKeeping(Map<String, Object> root, Map<String, Object> previous, String key, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        Object written = previous.get(key);
+        root.put(key, written != null && value.equals(stringValue(written)) ? written : value);
+    }
+
+    /** A line of a field an older Jylos wrote ({@code created} stays: it is kept). */
+    private static final Pattern JYLOS_FIELD_LINE =
+            Pattern.compile("^(id|title|modified|favorite|pinned|deleted|deleted_date)[ \\t]*:([ \\t]|$)");
+
+    /** Whether the properties of {@code file} were written by an older Jylos ({@link #isJylosFrontmatter}). */
+    public static boolean hasJylosFields(String file) {
+        FrontmatterBlock block = file != null ? extractLeadingFrontmatter(file) : null;
+        Map<String, Object> properties = block != null ? readableYaml(block.yaml()) : null;
+        return properties != null && isJylosFrontmatter(properties);
+    }
+
+    /**
+     * {@code file} without the fields an older Jylos wrote in it, taken out as lines so the rest
+     * of its properties stays exactly as written ({@code created} included); a block left with
+     * nothing goes. Unchanged when Jylos did not write its properties. {@code null} when one of
+     * those fields spans several lines: then the note has to be written again instead.
+     */
+    public static String withoutJylosFields(String file) {
+        FrontmatterBlock block = file != null ? extractLeadingFrontmatter(file) : null;
+        Map<String, Object> properties = block != null ? readableYaml(block.yaml()) : null;
+        if (properties == null || !isJylosFrontmatter(properties)) {
+            return file;
+        }
+        String[] lines = block.yaml().split("(?<=\\n)");
+        StringBuilder kept = new StringBuilder();
+        for (int i = 0; i < lines.length; i++) {
+            if (JYLOS_FIELD_LINE.matcher(lines[i]).find()) {
+                String next = i + 1 < lines.length ? lines[i + 1] : "";
+                if (next.startsWith(" ") || next.startsWith("\t") || next.startsWith("-")) {
+                    return null;
+                }
+                continue;
+            }
+            kept.append(lines[i]);
+        }
+        if (kept.toString().isBlank()) {
+            return block.body();
+        }
+        String lineEnd = block.head().contains("\r\n") ? "\r\n" : "\n";
+        return SEPARATOR + lineEnd + kept + SEPARATOR + lineEnd + block.gap() + block.body();
+    }
+
+    /**
+     * Whether the properties of {@code file} mark the note favorite or pinned: keys the user
+     * wrote (Jylos keeps its marks in {@code .jylos/}).
+     */
+    public static boolean claimsMarks(String file) {
+        FrontmatterBlock block = file != null ? extractLeadingFrontmatter(file) : null;
+        Map<String, Object> properties = block != null ? readableYaml(block.yaml()) : null;
+        return properties != null && (booleanValue(properties.get("favorite")) || booleanValue(properties.get("pinned")));
     }
 
     public static Note parseLightweight(String fileContent, int maxBodyChars) {
@@ -176,6 +296,212 @@ public final class FrontmatterHandler {
                 ? bodyRaw.substring(0, limit)
                 : bodyRaw;
         return buildNote(parseYaml(block.yaml()), body);
+    }
+
+    /**
+     * Every note link of a file, as Obsidian counts them: first the links written in its
+     * properties ({@code up: "[[Índice]]"}, a list of {@code "[[Note]]"}), then those of its
+     * body. Same rules as {@code WikiLinkResolver.extractRawLinks}; de-duplicated, in order.
+     */
+    public static List<String> linksOf(String fileContent) {
+        if (fileContent == null) {
+            return List.of();
+        }
+        FrontmatterBlock block = extractLeadingFrontmatter(fileContent);
+        LinkedHashSet<String> links = new LinkedHashSet<>();
+        if (block != null) {
+            for (String value : textValues(block.yaml())) {
+                links.addAll(WikiLinkResolver.extractRawLinks(value));
+            }
+        }
+        links.addAll(WikiLinkResolver.extractRawLinks(
+                block != null ? block.body() : fileContent));
+        return List.copyOf(links);
+    }
+
+    /**
+     * The text values of a properties block, in order (lists walked into). A link counts in a
+     * property only when it is text, as in Obsidian: {@code up: "[[A]]"}; written without
+     * quotes YAML reads {@code [[A]]} as a list, not a link. Unreadable YAML has none.
+     */
+    private static List<String> textValues(String yaml) {
+        List<String> values = new ArrayList<>();
+        try {
+            collectText(parseYaml(yaml).values(), values);
+        } catch (RuntimeException e) {
+            return List.of();
+        }
+        return values;
+    }
+
+    private static void collectText(Collection<?> items, List<String> into) {
+        for (Object item : items) {
+            if (item instanceof String text) {
+                into.add(text);
+            } else if (item instanceof Collection<?> list) {
+                collectText(list, into);
+            } else if (item instanceof Map<?, ?> map) {
+                collectText(map.values(), into);
+            }
+        }
+    }
+
+    /** The text of a file's leading properties block (without the {@code ---} lines), or "". */
+    public static String frontmatterText(String fileContent) {
+        FrontmatterBlock block = fileContent == null ? null : extractLeadingFrontmatter(fileContent);
+        return block != null ? block.yaml() : "";
+    }
+
+    /**
+     * A template's text, split as Obsidian's Templates splits it: its leading properties, and
+     * the text after their closing {@code ---} line, blank lines included.
+     *
+     * @param properties its properties, by key, in their order (empty when it has none)
+     * @param content    what follows them
+     */
+    public record TemplateText(Map<String, Object> properties, String content) {
+    }
+
+    /**
+     * Splits {@code text} into its properties and its text ({@link TemplateText}).
+     *
+     * @throws IllegalArgumentException when its properties are not YAML
+     */
+    public static TemplateText splitTemplate(String text) {
+        String all = text != null ? text : "";
+        FrontmatterBlock block = extractLeadingFrontmatter(all);
+        if (block == null) {
+            return new TemplateText(new LinkedHashMap<>(), all);
+        }
+        try {
+            return new TemplateText(parseYaml(block.yaml()), block.gap() + block.body());
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException("Invalid YAML in template properties", e);
+        }
+    }
+
+    /** The properties of {@code note} as they would be written, by key, in their order. */
+    public static Map<String, Object> propertiesOf(Note note) {
+        FrontmatterBlock block = extractLeadingFrontmatter(generate(note));
+        Map<String, Object> properties = block != null ? readableYaml(block.yaml()) : null;
+        return properties != null ? properties : new LinkedHashMap<>();
+    }
+
+    /**
+     * Adds {@code template}'s properties to {@code note}'s, as Obsidian does when a template
+     * is inserted in a note: a key the note does not have is added at the end; two lists are
+     * joined, without repeating a value; two maps are merged the same way; otherwise the
+     * template's value takes the place of the note's, unless the template's is empty (null)
+     * and the note's is not. A note's empty value ({@code ""}, {@code 0}, {@code false}) takes
+     * the template's.
+     */
+    public static void mergeProperties(Note note, Map<String, Object> template) {
+        if (note == null || template == null || template.isEmpty()) {
+            return;
+        }
+        Map<String, Object> current = propertiesOf(note);
+        Map<String, Object> merged = new LinkedHashMap<>(current);
+        mergeInto(merged, template);
+        // Jylos' own names are only properties here: the note keeps its name, dates and marks.
+        Map<String, Object> fields = new LinkedHashMap<>(merged);
+        JYLOS_FIELDS.forEach(fields::remove);
+        applyImportedFrontmatter(note, fields, note.getContent() != null ? note.getContent() : "");
+        Map<String, Object> added = new LinkedHashMap<>(note.getAddedFrontmatter());
+        for (Map.Entry<String, Object> entry : merged.entrySet()) {
+            String key = entry.getKey();
+            if (!current.containsKey(key) || JYLOS_FIELDS.contains(key) || WRITTEN_AS_IS.contains(key)) {
+                added.put(key, entry.getValue());
+            }
+        }
+        note.setAddedFrontmatter(added);
+    }
+
+    /** Fields Jylos reads into its own strings, written back as the template wrote them while they are the same. */
+    private static final List<String> WRITTEN_AS_IS = List.of("author", "status", "source_url");
+
+    /**
+     * {@code root} with what a template added ({@link Note#getAddedFrontmatter}): a property the
+     * file does not have goes at the end, in the template's order; Jylos' own names take the
+     * template's value; {@code author}, {@code status} and {@code source_url} its written form
+     * while the note's value is the same; the others are the note's.
+     */
+    private static Map<String, Object> withAdded(Map<String, Object> root, Map<String, Object> previous, Note note) {
+        Map<String, Object> added = note.getAddedFrontmatter();
+        if (added == null || added.isEmpty()) {
+            return root;
+        }
+        Map<String, Object> out = new LinkedHashMap<>(root);
+        for (Map.Entry<String, Object> entry : added.entrySet()) {
+            String key = entry.getKey();
+            Object value;
+            if (JYLOS_FIELDS.contains(key)) {
+                value = entry.getValue();
+            } else if (WRITTEN_AS_IS.contains(key) && out.containsKey(key)) {
+                Object mine = out.get(key);
+                value = mine != null && String.valueOf(mine).equals(stringValue(entry.getValue())) ? entry.getValue() : mine;
+            } else if ("tags".equals(key) && !out.containsKey(key)) {
+                Object theirs = entry.getValue();
+                if (theirs != null && !toStringList(theirs).isEmpty()) {
+                    continue; // the tags were taken away since
+                }
+                value = theirs;
+            } else if (out.containsKey(key)) {
+                value = out.get(key);
+            } else {
+                continue; // taken away since
+            }
+            if (previous.containsKey(key)) {
+                out.put(key, value);
+            } else {
+                out.remove(key);
+                out.put(key, value);
+            }
+        }
+        return out;
+    }
+
+    /** Obsidian's merge of {@code from} into {@code into} (see {@link #mergeProperties}). */
+    @SuppressWarnings("unchecked")
+    private static void mergeInto(Map<String, Object> into, Map<String, Object> from) {
+        for (Map.Entry<String, Object> entry : from.entrySet()) {
+            Object mine = into.get(entry.getKey());
+            Object theirs = entry.getValue();
+            if (!truthy(mine)) {
+                into.put(entry.getKey(), theirs);
+            } else if (mine instanceof List<?> a && theirs instanceof List<?> b) {
+                List<Object> joined = new ArrayList<>(a);
+                for (Object value : b) {
+                    if (!joined.contains(value)) {
+                        joined.add(value);
+                    }
+                }
+                into.put(entry.getKey(), joined);
+            } else if (mine instanceof Map<?, ?> a && theirs instanceof Map<?, ?> b) {
+                Map<String, Object> inner = new LinkedHashMap<>((Map<String, Object>) a);
+                mergeInto(inner, (Map<String, Object>) b);
+                into.put(entry.getKey(), inner);
+            } else if (theirs != null) {
+                into.put(entry.getKey(), theirs);
+            }
+        }
+    }
+
+    /** Whether JavaScript reads {@code value} as true: anything but null, "", 0 and false. */
+    private static boolean truthy(Object value) {
+        if (value == null) {
+            return false;
+        }
+        if (value instanceof String text) {
+            return !text.isEmpty();
+        }
+        if (value instanceof Boolean flag) {
+            return flag;
+        }
+        if (value instanceof Number number) {
+            double d = number.doubleValue();
+            return d != 0 && !Double.isNaN(d);
+        }
+        return true;
     }
 
     public static String stripFrontmatter(String fileContent) {
@@ -310,12 +636,24 @@ public final class FrontmatterHandler {
     private static Yaml newYamlParser() {
         LoaderOptions loaderOptions = new LoaderOptions();
         DumperOptions dumperOptions = createDumperOptions();
-        return new Yaml(new SafeConstructor(loaderOptions), new Representer(dumperOptions), dumperOptions,
+        return new Yaml(new FrontmatterConstructor(loaderOptions), new Representer(dumperOptions), dumperOptions,
                 loaderOptions, new FrontmatterResolver());
     }
 
     private static Yaml newYamlDumper() {
-        return new Yaml(createDumperOptions());
+        DumperOptions options = createDumperOptions();
+        LoaderOptions loaderOptions = new LoaderOptions();
+        // The reader's resolver: a date stays plain text ("created: 2026-01-01"), as Obsidian writes it.
+        return new Yaml(new FrontmatterConstructor(loaderOptions), new EmptyNullRepresenter(options), options, loaderOptions,
+                new FrontmatterResolver());
+    }
+
+    /** Writes an empty property as Obsidian does, {@code key:}, not {@code key: null}. */
+    private static final class EmptyNullRepresenter extends Representer {
+        EmptyNullRepresenter(DumperOptions options) {
+            super(options);
+            this.nullRepresenter = data -> representScalar(NULL, "");
+        }
     }
 
     private static String trimTrailingDocumentMarker(String dumpedYaml) {
@@ -421,8 +759,16 @@ public final class FrontmatterHandler {
             int lineEnd = findLineEnd(content, lineStart);
             if (SEPARATOR.equals(content.substring(lineStart, lineEnd))) {
                 int bodyStart = skipLineBreak(content, lineEnd);
+                // The blank lines between the properties and the text are kept apart, to be
+                // written back as they were; the text starts at its first line, indentation kept.
+                int textStart = bodyStart;
+                while (textStart < content.length()
+                        && (content.charAt(textStart) == '\n' || content.charAt(textStart) == '\r')) {
+                    textStart++;
+                }
                 return new FrontmatterBlock(content.substring(yamlStart, lineStart),
-                        content.substring(bodyStart).stripLeading());
+                        content.substring(textStart), content.substring(bodyStart, textStart),
+                        content.substring(0, textStart));
             }
             if (lineEnd >= content.length()) {
                 return null;
@@ -447,7 +793,13 @@ public final class FrontmatterHandler {
         return cursor;
     }
 
-    private record FrontmatterBlock(String yaml, String body) {
+    /**
+     * @param yaml the properties, without the {@code ---} lines
+     * @param body the text, from its first line
+     * @param gap  the blank lines between the closing {@code ---} line and the text
+     * @param head everything before the text, exactly as written
+     */
+    private record FrontmatterBlock(String yaml, String body, String gap, String head) {
     }
 
     /**
@@ -455,16 +807,52 @@ public final class FrontmatterHandler {
      * Java date-serialization format; coercing it to {@code Date} changes the value
      * and breaks round-trips with external Markdown tools.
      */
+    /**
+     * What a plain value is, as Obsidian reads it: YAML 1.2's core schema. {@code no},
+     * {@code yes}, {@code on}, {@code 10:30} or {@code 1_000} are text, not a boolean or a number
+     * as in YAML 1.1; a date is text too.
+     */
     private static final class FrontmatterResolver extends Resolver {
+        private static final Pattern CORE_BOOL = Pattern.compile("^(?:true|True|TRUE|false|False|FALSE)$");
+        private static final Pattern CORE_INT = Pattern.compile("^(?:[-+]?[0-9]+|0o[0-7]+|0x[0-9a-fA-F]+)$");
+        private static final Pattern CORE_FLOAT = Pattern.compile(
+                "^(?:[-+]?(?:\\.[0-9]+|[0-9]+(?:\\.[0-9]*)?)(?:[eE][-+]?[0-9]+)?|[-+]?\\.(?:inf|Inf|INF)|\\.(?:nan|NaN|NAN))$");
+        private static final Pattern CORE_NULL = Pattern.compile("^(?:~|null|Null|NULL)$");
+
         @Override
         protected void addImplicitResolvers() {
-            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.BOOL, BOOL, "yYnNtTfFoO", 10);
-            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.INT, INT, "-+0123456789");
-            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.FLOAT, FLOAT, "-+0123456789.");
+            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.BOOL, CORE_BOOL, "tTfF", 10);
+            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.INT, CORE_INT, "-+0123456789");
+            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.FLOAT, CORE_FLOAT, "-+0123456789.");
             addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.MERGE, MERGE, "<", 10);
-            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.NULL, NULL, "~nN\0", 10);
+            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.NULL, CORE_NULL, "~nN", 10);
             addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.NULL, EMPTY, null, 10);
             addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.YAML, YAML, "!&*", 10);
+        }
+    }
+
+    /** Builds YAML 1.2's integers: {@code 0123} is 123 (not octal, as in YAML 1.1), {@code 0o17} is 15. */
+    private static final class FrontmatterConstructor extends SafeConstructor {
+        FrontmatterConstructor(LoaderOptions options) {
+            super(options);
+            this.yamlConstructors.put(org.yaml.snakeyaml.nodes.Tag.INT, new AbstractConstruct() {
+                @Override
+                public Object construct(Node node) {
+                    String text = constructScalar((ScalarNode) node);
+                    BigInteger value;
+                    if (text.startsWith("0x")) {
+                        value = new BigInteger(text.substring(2), 16);
+                    } else if (text.startsWith("0o")) {
+                        value = new BigInteger(text.substring(2), 8);
+                    } else {
+                        value = new BigInteger(text.startsWith("+") ? text.substring(1) : text);
+                    }
+                    if (value.bitLength() < 32) {
+                        return value.intValue();
+                    }
+                    return value.bitLength() < 64 ? (Object) value.longValue() : value;
+                }
+            });
         }
     }
 
@@ -511,26 +899,107 @@ public final class FrontmatterHandler {
         options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
         options.setPrettyFlow(true);
         options.setIndent(2);
-        options.setIndicatorIndent(1);
+        options.setIndicatorIndent(2);
+        options.setIndentWithIndicator(true); // "  - item", as Obsidian writes a list
         options.setProcessComments(false);
         return options;
     }
 
+    /**
+     * A file without frontmatter (most notes of an Obsidian vault): all of it is the note's text.
+     * A first {@code # } line is a heading like any other, not the title, which is the file name
+     * (set by the caller): taking it out of the text lost it from the file at the next save.
+     */
     private static Note parseWithoutFrontmatter(String content) {
-        String title = "Untitled";
         String body = content;
-        String[] lines = content.split("\n", 2);
-        if (lines[0].startsWith("# ")) {
-            title = lines[0].substring(2).trim();
-            body = lines.length > 1 ? lines[1] : "";
-        }
-        Note note = new Note(title, body);
+        Note note = new Note("Untitled", body);
         // A note with no YAML frontmatter at all is common for a vault Jylos did not
         // create (an existing Obsidian vault, a plain synced folder): it has not gone
         // through buildNote() even once, so without this call its inline #tags would
         // never be picked up until Jylos itself wrote the note once.
         extractInlineTags(body, note);
         return note;
+    }
+
+    /**
+     * The tags {@code tags:} holds: first those it held in {@code previousFile} that the note
+     * still has, in their order and spelling, then the note's other tags that its text does not
+     * have as {@code #tag}, now or in {@code previousFile} (so, added from the app), by name. Tag
+     * names compare without case. The text of a private note is encrypted: its tags are all kept
+     * in {@code tags:}.
+     */
+    private static List<String> propertyTags(Note note, String previousFile) {
+        Map<String, String> current = new LinkedHashMap<>();
+        note.getTags().stream().map(Tag::getTitle).filter(title -> title != null && !title.isBlank()).sorted()
+                .forEach(title -> current.putIfAbsent(foldTag(title), title));
+        // A #tag of the text, now or before this edit (one just taken out of the text is still
+        // in the note's tags until it is read again), is the text's, not one added from the app.
+        Set<String> inline = new LinkedHashSet<>();
+        addInlineTags(note.getContent(), inline);
+        addInlineTags(previousFile != null ? stripFrontmatter(previousFile) : null, inline);
+        List<String> out = new ArrayList<>();
+        Set<String> written = new LinkedHashSet<>();
+        for (String before : frontmatterTagsOf(previousFile)) {
+            if (current.containsKey(foldTag(before)) && written.add(foldTag(before))) {
+                out.add(before);
+            }
+        }
+        current.forEach((key, title) -> {
+            if (!inline.contains(key) && written.add(key)) {
+                out.add(title);
+            }
+        });
+        return out;
+    }
+
+    private static void addInlineTags(String text, Set<String> into) {
+        if (text != null && !EncryptionService.isEncrypted(text)) {
+            ReadingSyntax.inlineTags(text).forEach(tag -> into.add(foldTag(tag)));
+        }
+    }
+
+    /**
+     * Whether these properties were written by Jylos, which always wrote {@code id},
+     * {@code favorite}, {@code pinned} and {@code deleted} together; a note of Obsidian
+     * practically never has all four. Then its {@code title} is Jylos's, not the user's.
+     */
+    static boolean isJylosFrontmatter(Map<String, Object> properties) {
+        return properties.containsKey("id") && properties.containsKey("favorite")
+                && properties.containsKey("pinned") && properties.containsKey("deleted");
+    }
+
+    /** The keys of {@code root}: first those {@code previous} had, in its order, then the new ones. */
+    private static Map<String, Object> inPreviousOrder(Map<String, Object> root, Map<String, Object> previous) {
+        if (previous.isEmpty()) {
+            return root;
+        }
+        Map<String, Object> ordered = new LinkedHashMap<>();
+        previous.keySet().stream().filter(root::containsKey).forEach(key -> ordered.put(key, root.get(key)));
+        root.forEach(ordered::putIfAbsent);
+        return ordered;
+    }
+
+    /** The properties of a frontmatter, or {@code null} when it does not read as YAML. */
+    private static Map<String, Object> readableYaml(String yaml) {
+        try {
+            return parseYaml(yaml);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /** The names in the {@code tags:} property of a file, in order; none when it has none or it does not read. */
+    private static List<String> frontmatterTagsOf(String file) {
+        FrontmatterBlock block = file != null ? extractLeadingFrontmatter(file) : null;
+        if (block == null) {
+            return List.of();
+        }
+        Map<String, Object> properties = readableYaml(block.yaml());
+        return properties != null ? toStringList(properties.get("tags")) : List.of();
+    }
+
+    private static String foldTag(String tag) {
+        return tag.strip().toLowerCase(Locale.ROOT);
     }
 
     private static void putIfNotBlank(Map<String, Object> root, String key, String value) {
@@ -540,33 +1009,17 @@ public final class FrontmatterHandler {
     }
 
     /**
-     * Scans line by line rather than the whole content at once, so a fenced code block —
-     * a shell comment ({@code # note}), a CSS id selector, a Dataview query referencing
-     * {@code FROM #tag} — is skipped instead of being read as a real tag on the note that
-     * merely contains the example.
+     * The note's {@code #tags} as the reading view and the editor show them, and as Obsidian
+     * finds them ({@link com.example.jylos.util.ReadingSyntax#inlineTags}): never inside code
+     * (a shell comment, a CSS id selector, a Dataview {@code FROM #tag}), a link or a URL, and
+     * ending at the first character a tag cannot have ({@code #foo.bar} is {@code foo}).
      */
     private static void extractInlineTags(String content, Note note) {
         if (content == null || content.isBlank() || note == null) {
             return;
         }
-        boolean inFence = false;
-        for (String line : content.split("\r?\n", -1)) {
-            String trimmed = line.trim();
-            if (trimmed.startsWith("```") || trimmed.startsWith("~~~")) {
-                inFence = !inFence;
-                continue;
-            }
-            if (inFence) {
-                continue;
-            }
-            for (String word : line.split("\\s+")) {
-                if (word.startsWith("#") && word.length() > 1) {
-                    String tag = word.substring(1).replaceAll("[^\\p{L}\\p{N}_/-]", "");
-                    if (!tag.isBlank()) {
-                        note.addTag(new Tag(tag));
-                    }
-                }
-            }
+        for (String tag : ReadingSyntax.inlineTags(content)) {
+            note.addTag(new Tag(tag));
         }
     }
 }

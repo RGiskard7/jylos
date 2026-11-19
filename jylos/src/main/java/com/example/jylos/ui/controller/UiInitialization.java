@@ -7,18 +7,23 @@ import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
+import com.example.jylos.ui.UiNodes;
 
 /**
  * One-time UI wiring extracted from {@link MainController}.
  *
  * <p>This class initializes controls that do not own business state: sort choices,
  * toolbar overflow behavior, collapsible sections and startup toggle groups.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 class UiInitialization {
 
@@ -74,8 +79,7 @@ class UiInitialization {
         wireCollapsibleSection(noteInfoHeader, noteInfoContent, noteInfoCollapseIcon);
 
         if (pluginPanelsContainer != null) {
-            pluginPanelsContainer.setVisible(true);
-            pluginPanelsContainer.setManaged(true);
+            UiNodes.show(pluginPanelsContainer, true);
         }
     }
 
@@ -91,8 +95,7 @@ class UiInitialization {
         }
         header.setOnMouseClicked(e -> {
             boolean expand = !content.isVisible();
-            content.setVisible(expand);
-            content.setManaged(expand);
+            UiNodes.show(content, expand);
             collapseIcon.setText(expand ? "▼" : "▶");
             if (onToggle != null) {
                 onToggle.accept(expand);
@@ -154,12 +157,6 @@ class UiInitialization {
 
         toolbarController.setResponsiveState(showSearch, showLayoutToggles, showFileActions);
 
-        toolbarController.getSidebarToggleBtn().setVisible(showLayoutToggles);
-        toolbarController.getSidebarToggleBtn().setManaged(showLayoutToggles);
-        toolbarController.getNotesPanelToggleBtn().setVisible(showLayoutToggles);
-        toolbarController.getNotesPanelToggleBtn().setManaged(showLayoutToggles);
-        toolbarController.getLayoutSwitchBtn().setVisible(showLayoutToggles);
-        toolbarController.getLayoutSwitchBtn().setManaged(showLayoutToggles);
 
         toolbarController.getToolbarOverflowBtn().getItems().clear();
         boolean needsOverflow = !showFileActions || !showSearch || !showLayoutToggles;
@@ -197,18 +194,19 @@ class UiInitialization {
                 toggleNotes.setOnAction(e -> overflowActions.toggleNotesPanel().run());
                 MenuItem toggleRightPanel = new MenuItem(i18n("action.toggle_right_panel"));
                 toggleRightPanel.setOnAction(e -> overflowActions.toggleRightPanel().run());
-                MenuItem switchLayout = new MenuItem(i18n("action.switch_layout"));
-                switchLayout.setOnAction(e -> overflowActions.viewLayoutSwitch().run());
+                // Same three layouts as the toolbar's layout button, rebuilt on each opening so
+                // the tick follows the current layout.
+                Menu switchLayout = new Menu(i18n("action.switch_layout"));
+                switchLayout.getItems().setAll(toolbarController.layoutMenu().getItems());
+                switchLayout.setOnShowing(e -> switchLayout.getItems().setAll(toolbarController.layoutMenu().getItems()));
                 toolbarController.getToolbarOverflowBtn().getItems().addAll(
                         toggleSidebar, toggleNotes, toggleRightPanel, switchLayout);
             }
 
-            toolbarController.getToolbarOverflowBtn().setVisible(true);
-            toolbarController.getToolbarOverflowBtn().setManaged(true);
+            UiNodes.show(toolbarController.getToolbarOverflowBtn(), true);
         } else {
             toolbarController.getToolbarOverflowBtn().getItems().clear();
-            toolbarController.getToolbarOverflowBtn().setVisible(false);
-            toolbarController.getToolbarOverflowBtn().setManaged(false);
+            UiNodes.show(toolbarController.getToolbarOverflowBtn(), false);
         }
     }
 }

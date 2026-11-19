@@ -2,6 +2,9 @@ package com.example.jylos.plugin;
 
 /**
  * Naming helpers for plugin commands and stable identifiers.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public final class PluginIds {
 

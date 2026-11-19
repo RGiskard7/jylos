@@ -2,12 +2,17 @@ package com.example.jylos.data.dao.interfaces;
 
 import java.sql.Connection;
 
+import com.example.jylos.data.dao.FolderColorStore;
+import com.example.jylos.data.dao.VaultSettingsStore;
 import com.example.jylos.data.dao.sqlite.FactoryDAOSQLite;
 import com.example.jylos.data.dao.filesystem.FactoryDAOFileSystem;
 
 /**
  * Abstract Factory class for creating DAO instances.
  * This class defines the contract for DAO factory implementations.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public abstract class FactoryDAO {
 
@@ -43,6 +48,22 @@ public abstract class FactoryDAO {
      * @return An EncryptionKeyDAO instance.
      */
     public abstract EncryptionKeyDAO getEncryptionKeyDAO();
+
+    /**
+     * Where the folders' colours are kept: next to the notes in a folder vault (so they travel
+     * with it), in the app's data folder with the database.
+     *
+     * @return The FolderColorStore of this storage.
+     */
+    public abstract FolderColorStore getFolderColorStore();
+
+    /**
+     * Where the vault's own settings are kept (templates, daily note, new notes): in it in a
+     * folder vault, so they travel with it; in the app's data folder with the database.
+     *
+     * @return The VaultSettingsStore of this storage.
+     */
+    public abstract VaultSettingsStore getVaultSettingsStore();
 
     /**
      * Factory method to obtain a concrete implementation of FactoryDAO based on the

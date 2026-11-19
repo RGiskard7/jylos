@@ -1,5 +1,7 @@
 package com.example.jylos.util;
 
+import java.net.URI;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -53,7 +55,7 @@ public final class RichLinks {
     private static final Pattern BLOCK = Pattern.compile(
             "(?m)^:::[ \\t]*rich-link[ \\t]*\\r?\\n([\\s\\S]*?)\\r?\\n:::[ \\t]*$");
 
-    // ── Markdown generation ─────────────────────────────────────────────────
+    // ── Markdown generation ──────────────────────────────────────────────────
 
     /** Builds the {@code ::: rich-link} block for {@code link}, omitting blank fields. */
     public static String toMarkdown(RichLink link) {
@@ -79,7 +81,7 @@ public final class RichLinks {
         return value == null ? "" : value.replaceAll("\\s*\\r?\\n\\s*", " ").trim();
     }
 
-    // ── OpenGraph parsing ───────────────────────────────────────────────────
+    // ── OpenGraph parsing ────────────────────────────────────────────────────
 
     /**
      * Extracts rich-link metadata from a fetched HTML page, preferring OpenGraph
@@ -120,7 +122,7 @@ public final class RichLinks {
     /** Bare host name (no {@code www.}) of a URL, or "" if it cannot be parsed. */
     public static String hostOf(String url) {
         try {
-            String host = java.net.URI.create(url.trim()).getHost();
+            String host = URI.create(url.trim()).getHost();
             if (host == null) {
                 return "";
             }
@@ -130,7 +132,7 @@ public final class RichLinks {
         }
     }
 
-    // ── Preview rendering ───────────────────────────────────────────────────
+    // ── Preview rendering ────────────────────────────────────────────────────
 
     /**
      * Replaces every {@code ::: rich-link} block in {@code markdown} with the HTML
@@ -166,7 +168,7 @@ public final class RichLinks {
             if (colon < 0) {
                 continue;
             }
-            String key = line.substring(0, colon).trim().toLowerCase(java.util.Locale.ROOT);
+            String key = line.substring(0, colon).trim().toLowerCase(Locale.ROOT);
             String value = line.substring(colon + 1).trim();
             switch (key) {
                 case "url" -> url = value;
@@ -185,17 +187,17 @@ public final class RichLinks {
 
     /** Builds the card HTML, escaping all text and only honouring {@code http(s)} URLs/images. */
     private static String cardHtml(RichLink link) {
-        String safeUrl = escape(link.url());
-        String title = escape(firstNonBlank(link.title(), link.url()));
-        String description = escape(link.description());
-        String site = escape(firstNonBlank(link.siteName(), hostOf(link.url())));
+        String safeUrl = MarkdownProcessor.escapeHtml(link.url());
+        String title = MarkdownProcessor.escapeHtml(firstNonBlank(link.title(), link.url()));
+        String description = MarkdownProcessor.escapeHtml(link.description());
+        String site = MarkdownProcessor.escapeHtml(firstNonBlank(link.siteName(), hostOf(link.url())));
 
         StringBuilder card = new StringBuilder();
         card.append("<div class=\"rich-link\">");
         card.append("<a class=\"rich-link-card\" href=\"").append(safeUrl).append("\">");
         if (isHttpUrl(link.image())) {
             card.append("<span class=\"rich-link-thumb\" style=\"background-image:url('")
-                    .append(escape(link.image())).append("')\"></span>");
+                    .append(MarkdownProcessor.escapeHtml(link.image())).append("')\"></span>");
         }
         card.append("<span class=\"rich-link-body\">");
         card.append("<span class=\"rich-link-title\">").append(title).append("</span>");
@@ -213,7 +215,7 @@ public final class RichLinks {
         if (url == null) {
             return false;
         }
-        String u = url.trim().toLowerCase(java.util.Locale.ROOT);
+        String u = url.trim().toLowerCase(Locale.ROOT);
         return u.startsWith("http://") || u.startsWith("https://");
     }
 
@@ -226,15 +228,4 @@ public final class RichLinks {
         return "";
     }
 
-    /** Minimal HTML-attribute/text escaping for values that originate from the web. */
-    private static String escape(String text) {
-        if (text == null) {
-            return "";
-        }
-        return text.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&#x27;");
-    }
 }

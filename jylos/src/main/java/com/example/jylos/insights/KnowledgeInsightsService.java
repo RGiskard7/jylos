@@ -106,7 +106,7 @@ public final class KnowledgeInsightsService {
     public record Health(int score, int orphanPenalty, int untaggedPenalty, int brokenPenalty) {
     }
 
-    // ── internals ───────────────────────────────────────────────────────────────
+    // ── internals ────────────────────────────────────────────────────────────
 
     private List<KnowledgeHealthReport.NoteRef> notesWithoutTags() {
         List<KnowledgeHealthReport.NoteRef> result = new ArrayList<>();

@@ -1,0 +1,199 @@
+/*
+ * Nord Dark: over the built-in dark theme (theme.properties base=dark).
+ * The Nord palette, by Arctic Ice Studio and Sven Greb, MIT licence: https://www.nordtheme.com
+ * Only colours change: the variables below, and the few surfaces the base theme paints with
+ * fixed colours, here in those variables.
+ * The accent hover and pressed shades, the faint text and the field background are
+ * mixed from Nord's own colours.
+ */
+
+.root,
+.root-container {
+    -fx-base-bg: #2e3440;
+    -fx-sidebar-bg: #3b4252;
+    -fx-header-bg: #3b4252;
+
+    -fx-accent: #88c0d0;
+    -fx-accent-hover: #a6d0dc;
+    -fx-accent-pressed: #729dac;
+    -fx-accent-contrast: #2e3440;
+
+    -fx-text-main: #eceff4;
+    -fx-text-muted: #d8dee9;
+    -fx-text-faint: #8b95a9;
+    -fx-fn-border-color: #434c5e;
+
+    -fx-hover-bg: #434c5e;
+    -fx-hover-text: #eceff4;
+
+    -fx-selected-bg: #4c566a;
+    -fx-selected-text: #eceff4;
+
+    -fx-success: #a3be8c;
+    -fx-warning: #ebcb8b;
+    -fx-danger: #bf616a;
+
+    -fx-folder-all: #81a1c1;
+    -fx-folder-open: #8fbcbb;
+    -fx-folder-closed: #d08770;
+
+    -fx-button-neutral-bg: #3b4252;
+    -fx-button-neutral-hover-bg: #434c5e;
+    -fx-button-neutral-pressed-bg: #2e3440;
+    -fx-button-border: #4c566a;
+    -fx-focus-ring: rgba(136, 192, 208, 0.30);
+    -fx-accent-soft: rgba(136, 192, 208, 0.24);
+
+    -fx-icon-folder: #ebcb8b;
+    -fx-icon-pdf: #bf616a;
+    -fx-icon-image: #a3be8c;
+    -fx-icon-canvas: #b48ead;
+    -fx-icon-board: #81a1c1;
+
+    /* The base theme's generic controls (labels, fields, buttons, toggles, tooltips). */
+    -fx-label-text: #eceff4;
+    -fx-input-bg: #292e39;
+    -fx-input-prompt: #8b95a9;
+    -fx-control-bg: #3b4252;
+    -fx-control-hover-bg: #434c5e;
+    -fx-control-pressed-bg: #2e3440;
+    -fx-control-border: #4c566a;
+    -fx-control-text: #eceff4;
+    -fx-toggle-text: #d8dee9;
+    -fx-tooltip-bg: #3b4252;
+    -fx-tooltip-text: #eceff4;
+
+    -fx-gb-thumb: #434c5e;
+    -fx-gb-thumb-hover: #4c566a;
+    -fx-gb-danger-soft: rgba(191, 97, 106, 0.14);
+    -fx-gb-highlight-bg: rgba(235, 203, 139, 0.18);
+    -fx-gb-code: #8fbcbb;
+
+    -fx-background-color: -fx-base-bg;
+    -fx-text-fill: -fx-text-main;
+}
+
+/* ── Surfaces the base theme paints with fixed colours, in this palette ── */
+
+.scroll-bar .thumb,
+.viewer-scroll .scroll-bar:vertical .thumb {
+    -fx-background-color: -fx-gb-thumb;
+}
+
+.scroll-bar .thumb:hover,
+.viewer-scroll .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: -fx-gb-thumb-hover;
+}
+
+.separator:horizontal .line,
+.separator:vertical .line {
+    -fx-border-color: -fx-fn-border-color;
+}
+
+.toolbar-separator {
+    -fx-background-color: -fx-fn-border-color;
+}
+
+/* ── Icons ─────────────────────────────────────────────────────────── */
+
+.toolbar-btn .feather-icon {
+    -fx-icon-color: -fx-text-main;
+    -fx-fill: -fx-text-main;
+}
+
+.toolbar-btn:hover .feather-icon {
+    -fx-icon-color: -fx-hover-text;
+    -fx-fill: -fx-hover-text;
+}
+
+.toolbar-btn-danger .feather-icon,
+.toolbar-btn-danger:hover .feather-icon,
+.feather-icon-danger {
+    -fx-icon-color: -fx-danger;
+    -fx-fill: -fx-danger;
+}
+
+.icon-btn,
+.icon-btn-small {
+    -fx-border-color: -fx-button-border;
+}
+
+.icon-btn .feather-icon,
+.icon-btn-small .feather-icon {
+    -fx-icon-color: -fx-text-muted;
+    -fx-fill: -fx-text-muted;
+}
+
+.folder-all-notes {
+    -fx-text-fill: -fx-folder-all;
+}
+
+.folder-expanded {
+    -fx-text-fill: -fx-folder-open;
+}
+
+.folder-collapsed {
+    -fx-text-fill: -fx-folder-closed;
+}
+
+.action-btn-danger:hover {
+    -fx-background-color: -fx-gb-danger-soft;
+}
+
+/* ── Right panel (note info, links) ────────────────────────────────── */
+
+.right-panel {
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-border-color: -fx-fn-border-color transparent transparent transparent;
+}
+
+.panel-header,
+.panel-section {
+    -fx-border-color: transparent transparent -fx-fn-border-color transparent;
+}
+
+.panel-close-btn,
+.collapse-icon,
+.info-label {
+    -fx-text-fill: -fx-text-faint;
+}
+
+.panel-close-btn:hover {
+    -fx-text-fill: -fx-hover-text;
+    -fx-background-color: -fx-hover-bg;
+}
+
+.section-header:hover {
+    -fx-background-color: -fx-hover-bg;
+}
+
+.section-title,
+.info-value-small {
+    -fx-text-fill: -fx-text-muted;
+}
+
+.info-value {
+    -fx-text-fill: -fx-text-main;
+}
+
+/* ── Editor format toolbar and note previews ───────────────────────── */
+
+.format-toolbar-inner {
+    -fx-background-color: -fx-sidebar-bg;
+    -fx-border-color: -fx-fn-border-color transparent transparent transparent;
+}
+
+.format-toolbar .format-highlight,
+.format-toolbar .format-highlight:hover {
+    -fx-background-color: -fx-gb-highlight-bg;
+    -fx-text-fill: -fx-warning;
+}
+
+.md-mini-inline-code,
+.md-mini-code {
+    -fx-fill: -fx-gb-code;
+}
+
+.md-mini-codeblock {
+    -fx-background-color: -fx-sidebar-bg;
+}

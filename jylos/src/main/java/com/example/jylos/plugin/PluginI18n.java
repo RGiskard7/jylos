@@ -22,6 +22,7 @@ import java.util.ResourceBundle;
  * alongside the compiled classes so they are actually there to load at runtime.</p>
  *
  * @author Edu Díaz (RGiskard7)
+ * @since 2.5.6
  */
 public final class PluginI18n {
 

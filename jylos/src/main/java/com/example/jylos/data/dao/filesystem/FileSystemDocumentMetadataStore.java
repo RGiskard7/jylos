@@ -22,6 +22,9 @@ import com.google.gson.JsonParser;
  * keep Jylos-only document metadata in a private sidecar index inside the vault
  * so metadata changes never rewrite binary payloads or Obsidian canvas JSON by
  * accident.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.4.0
  */
 final class FileSystemDocumentMetadataStore {
 
@@ -72,6 +75,50 @@ final class FileSystemDocumentMetadataStore {
         } else {
             index.put(normalizedId, metadata);
         }
+        writeBinaryIndex(index);
+    }
+
+    /**
+     * Gives {@code note} the favorite and pinned marks kept for it here. A note of the vault
+     * keeps them here, not in its file; with no entry (a note an older Jylos marked in its
+     * file), the note keeps what it read.
+     */
+    void applyNoteMarks(String noteId, Note note) {
+        DocumentMetadata metadata = documentIndex().get(normalizeId(noteId));
+        if (metadata != null) {
+            note.setFavorite(metadata.favorite());
+            note.setPinned(metadata.pinned());
+        }
+    }
+
+    /** Whether Jylos keeps marks for this note (even "not marked"). */
+    boolean hasNoteMarks(String noteId) {
+        return reloadDocumentIndex().containsKey(normalizeId(noteId));
+    }
+
+    /**
+     * Keeps the favorite and pinned marks of a note of the vault. With neither, its entry
+     * goes, unless its file marks it ({@code fileClaimsMarks}: a property the user wrote), so
+     * "not marked" is kept and the file does not bring the mark back. Written only on a change.
+     */
+    void persistNoteMarks(Note note, boolean fileClaimsMarks) {
+        if (note == null || note.getId() == null || note.getId().isBlank()) {
+            return;
+        }
+        String normalizedId = normalizeId(note.getId());
+        Map<String, DocumentMetadata> index = new LinkedHashMap<>(reloadDocumentIndex());
+        DocumentMetadata current = index.get(normalizedId);
+        if (!note.isFavorite() && !note.isPinned() && !fileClaimsMarks) {
+            if (current != null) {
+                index.remove(normalizedId);
+                writeBinaryIndex(index);
+            }
+            return;
+        }
+        if (current != null && current.favorite() == note.isFavorite() && current.pinned() == note.isPinned()) {
+            return;
+        }
+        index.put(normalizedId, new DocumentMetadata(note.isFavorite(), note.isPinned(), false, false, null, null));
         writeBinaryIndex(index);
     }
 

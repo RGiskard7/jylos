@@ -6,6 +6,9 @@ import java.util.function.Predicate;
 
 /**
  * Command routing table with stable IDs and backward-compatible aliases.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.3.0
  */
 class CommandRouting {
 

@@ -1,13 +1,26 @@
 package com.example.jylos.service;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.data.dao.filesystem.FrontmatterHandler;
+import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.models.Folder;
@@ -15,6 +28,7 @@ import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.exceptions.NoteException;
 import com.example.jylos.util.AttachmentType;
+import com.example.jylos.util.NoteAnchors;
 
 /**
  * Service layer for note-related business logic.
@@ -90,8 +104,7 @@ public class NoteService {
         this.noteTitleIndex = noteTitleIndex;
     }
 
-    // ==================== CRUD Operations ====================
-
+    // ── CRUD Operations ─────────────────────────────────────────────────────
     /**
      * Creates a new note with the given title and content.
      *
@@ -131,6 +144,76 @@ public class NoteService {
     }
 
     /**
+     * Copies a note next to the original, named as Obsidian does: "Name 1", "Name 2", ... (the
+     * first one free in that folder). Content, properties and tags are copied; a canvas stays a
+     * canvas. Binary attachments (images, PDF) are not notes and are not duplicated here.
+     *
+     * @return the copy, with its id
+     */
+    public Note duplicateNote(String id) {
+        Note source = getNoteById(id).orElseThrow(() -> new NoteException("Note not found: " + id));
+        String title = source.getTitle() != null ? source.getTitle() : "";
+        String extension = "";
+        int dot = title.lastIndexOf('.');
+        if (AttachmentType.isAttachment(title) && dot > 0) {
+            extension = title.substring(dot);
+            title = title.substring(0, dot);
+        }
+        Optional<Path> file = getNoteFilePath(id);
+        Path dir = file.map(Path::getParent).orElse(null);
+        Folder folder = file.isEmpty() ? noteDAO.getFolderOfNote(id) : null;
+        Set<String> siblingTitles = new HashSet<>();
+        if (dir == null) {
+            List<Note> siblings = folder != null ? getNotesByFolder(folder)
+                    : getAllNotes().stream().filter(n -> n.getParent() == null).toList();
+            siblings.forEach(n -> siblingTitles.add(n.getTitle()));
+        }
+        String fileExtension = extension.isEmpty() ? ".md" : extension;
+        String copyTitle;
+        int number = 1;
+        while (true) {
+            copyTitle = title + " " + number++;
+            boolean taken = dir != null
+                    ? Files.exists(dir.resolve(copyTitle + fileExtension))
+                    : siblingTitles.contains(copyTitle + extension);
+            if (!taken) {
+                break;
+            }
+        }
+        Note copy = new Note(copyTitle + extension, source.getContent());
+        copy.setTags(source.getTags() != null ? new ArrayList<>(source.getTags()) : new ArrayList<>());
+        if (source.getCustomProperties() != null) {
+            copy.setCustomProperties(new LinkedHashMap<>(source.getCustomProperties()));
+        }
+        if (source.getStructuredFrontmatterProperties() != null) {
+            copy.setStructuredFrontmatterProperties(new LinkedHashMap<>(source.getStructuredFrontmatterProperties()));
+        }
+        if (source.getDisplayableFrontmatterPropertyKeys() != null) {
+            copy.setDisplayableFrontmatterPropertyKeys(new LinkedHashSet<>(source.getDisplayableFrontmatterPropertyKeys()));
+        }
+        copy.setAuthor(source.getAuthor());
+        copy.setSource(source.getSource());
+        copy.setSourceUrl(source.getSourceUrl());
+        copy.setSourceApplication(source.getSourceApplication());
+        copy.setStatus(source.getStatus());
+        copy.setLatitude(source.getLatitude());
+        copy.setLongitude(source.getLongitude());
+        copy.setPrivate(source.isPrivate());
+        Path root = getStorageRoot().orElse(null);
+        if (dir != null && root != null && !root.toAbsolutePath().normalize().equals(dir.toAbsolutePath().normalize())) {
+            // File storage takes the folder from the id it is given (see NoteDAOFileSystem.createNote).
+            String folderPath = root.toAbsolutePath().normalize().relativize(dir.toAbsolutePath().normalize())
+                    .toString().replace('\\', '/');
+            copy.setId(folderPath + "/" + copyTitle + fileExtension);
+        }
+        Note created = createNote(copy);
+        if (folder != null && folderDAO != null) {
+            folderDAO.addNote(folder, created);
+        }
+        return created;
+    }
+
+    /**
      * Creates a new note in a specific folder.
      * 
      * @param title   The note title
@@ -167,7 +250,25 @@ public class NoteService {
      * @param id note id
      * @return the note's file path, or empty when storage has no files (SQLite)
      */
-    public Optional<java.nio.file.Path> getNoteFilePath(String id) {
+    /**
+     * The text of the note's properties block as written in its file (file storage only; ""
+     * otherwise), to show where a link in the properties is.
+     */
+    public String propertiesText(String id) {
+        Optional<Path> file = getNoteFilePath(id);
+        if (file.isEmpty()) {
+            return "";
+        }
+        try {
+            return FrontmatterHandler.frontmatterText(
+                    Files.readString(file.get(), StandardCharsets.UTF_8));
+        } catch (IOException | RuntimeException e) {
+            logger.fine("Could not read the properties of " + id + ": " + e.getMessage());
+            return "";
+        }
+    }
+
+    public Optional<Path> getNoteFilePath(String id) {
         return noteDAO.resolveFilePath(id);
     }
 
@@ -183,7 +284,20 @@ public class NoteService {
     }
 
     /** Vault root for file-backed storage; empty in SQLite mode. */
-    public Optional<java.nio.file.Path> getStorageRoot() {
+    /**
+     * The notes of a folder vault whose properties an older Jylos wrote (see
+     * {@link NoteDAOFileSystem#notesWithJylosFields}); none in SQLite.
+     */
+    public List<String> notesWithJylosFields() {
+        return noteDAO instanceof NoteDAOFileSystem vault ? vault.notesWithJylosFields() : List.of();
+    }
+
+    /** Cleans those notes, copying each to {@code backupDir} first; how many were cleaned. */
+    public int cleanJylosFields(List<String> ids, Path backupDir) {
+        return noteDAO instanceof NoteDAOFileSystem vault ? vault.cleanJylosFields(ids, backupDir) : 0;
+    }
+
+    public Optional<Path> getStorageRoot() {
         return noteDAO.storageRoot();
     }
 
@@ -309,9 +423,7 @@ public class NoteService {
         return historyService;
     }
 
-    // ------------------------------------------------------------------
-    // Encryption hooks (private notes) — see EncryptionService
-    // ------------------------------------------------------------------
+    // ── Encryption hooks (private notes) — see EncryptionService ─────────────
 
     /**
      * Encrypts the note body in place when it is private, the session is unlocked, and
@@ -423,8 +535,7 @@ public class NoteService {
         logger.info("Trash emptied: " + trash.size() + " notes deleted permanently");
     }
 
-    // ==================== Retrieval Methods ====================
-
+    // ── Retrieval Methods ───────────────────────────────────────────────────
     /**
      * Fetches all notes from the database.
      * 
@@ -516,8 +627,7 @@ public class NoteService {
                 .collect(Collectors.toList());
     }
 
-    // ==================== WikiLinks Support ====================
-
+    // ── WikiLinks Support ───────────────────────────────────────────────────
     /**
      * Finds a note by its exact title (case-insensitive).
      * Used by WikiLinks resolution to navigate to linked notes.
@@ -545,8 +655,116 @@ public class NoteService {
                 .findFirst();
     }
 
-    // ==================== Search Methods ====================
+    // ── Link resolution ─────────────────────────────────────────────────────
+    /**
+     * The note a link written in note {@code sourceNoteId} points to, resolved the way
+     * Obsidian does: by path, preferring the source note's folder, then aliases (see
+     * {@link LinkResolver}). A plain title the index does not know yet (a note created a
+     * moment ago) falls back to the title lookup.
+     *
+     * @param rawLink      the link as written ({@code Carpeta/Nota}, {@code Nota#Sección})
+     * @param sourceNoteId the note the link is written in, or null
+     * @return the linked note, if any
+     */
+    public Optional<Note> resolveLink(String rawLink, String sourceNoteId) {
+        if (rawLink == null || rawLink.isBlank()) {
+            return Optional.empty();
+        }
+        Optional<String> id = linkIndex().resolveId(rawLink, sourceNoteId);
+        if (id.isPresent()) {
+            Optional<Note> note = getNoteById(id.get());
+            if (note.isPresent()) {
+                return note;
+            }
+        }
+        String target = LinkResolver.stripTarget(rawLink);
+        if (target.isEmpty() || target.contains("/")) {
+            return Optional.empty();
+        }
+        if (target.toLowerCase(Locale.ROOT).endsWith(".md")) {
+            target = target.substring(0, target.length() - 3);
+        }
+        return findNoteByTitle(target);
+    }
 
+    /** The vault-wide link index: the warm one of the title index, or a fresh one. */
+    public LinkIndex linkIndex() {
+        if (noteTitleIndex != null) {
+            return noteTitleIndex.linkIndex();
+        }
+        return buildLinkIndex(getAllNotes());
+    }
+
+    /**
+     * The headings of the note {@code rawLink} names, written in {@code sourceNoteId}, in order
+     * and outside code ({@code [[Nota#} lists them); none when it names no note.
+     */
+    public List<String> headingsOf(String rawLink, String sourceNoteId) {
+        if (rawLink == null || rawLink.isBlank()) {
+            return List.of();
+        }
+        return resolveLink(rawLink, sourceNoteId)
+                .map(note -> NoteAnchors.headings(note.getContent()).stream().map(NoteAnchors.Heading::title).toList())
+                .orElse(List.of());
+    }
+
+    /** Builds a link index for {@code notes}, giving each note its path in the vault. */
+    public LinkIndex buildLinkIndex(List<Note> notes) {
+        boolean fileVault = getStorageRoot().isPresent();
+        Map<String, String> folderPaths = new HashMap<>();
+        return LinkIndex.build(notes, note -> vaultPathOf(note, fileVault, folderPaths));
+    }
+
+    /**
+     * The path of a note in the vault, as a link would write it: the file path in a folder
+     * vault, the folder chain plus the title in SQLite ({@code Carpeta/Sub/Nota.md}).
+     */
+    private String vaultPathOf(Note note, boolean fileVault, Map<String, String> folderPaths) {
+        if (fileVault) {
+            return note.getId();
+        }
+        String title = note.getTitle();
+        if (title == null || title.isBlank()) {
+            return null;
+        }
+        String name = title.strip().replace('/', '-').replace('\\', '-') + ".md";
+        String folderId = note.getParent() != null ? note.getParent().getId() : null;
+        if (folderId == null || folderId.isBlank() || folderDAO == null) {
+            return name;
+        }
+        String folder = folderPaths.computeIfAbsent(folderId, this::folderPathOf);
+        return folder.isEmpty() ? name : folder + "/" + name;
+    }
+
+    /**
+     * The path of the folder {@code folderId} in the vault ({@code Trabajo/Reuniones}): its id
+     * in a folder vault, the chain of folder names with the database; empty when it has none.
+     */
+    public String folderPath(String folderId) {
+        return FolderPaths.of(folderDAO, getStorageRoot().isPresent(), folderId);
+    }
+
+    private String folderPathOf(String folderId) {
+        return FolderPaths.of(folderDAO, false, folderId);
+    }
+
+    /** The path of every folder of the vault ({@link #folderPath}), in no particular order. */
+    public List<String> folderPaths() {
+        if (folderDAO == null) {
+            return List.of();
+        }
+        boolean fileVault = getStorageRoot().isPresent();
+        List<String> paths = new ArrayList<>();
+        for (Folder folder : folderDAO.fetchAllFoldersAsList()) {
+            String path = folder != null ? FolderPaths.of(folderDAO, fileVault, folder.getId()) : "";
+            if (!path.isEmpty()) {
+                paths.add(path);
+            }
+        }
+        return paths;
+    }
+
+    // ── Search Methods ──────────────────────────────────────────────────────
     /**
      * Searches notes by title and content.
      * 
@@ -610,8 +828,7 @@ public class NoteService {
         return false;
     }
 
-    // ==================== Sorting Methods ====================
-
+    // ── Sorting Methods ─────────────────────────────────────────────────────
     /**
      * Sorts a list of notes according to the specified option.
      * 
@@ -682,8 +899,7 @@ public class NoteService {
         return note.getCreatedDate() != null ? note.getCreatedDate() : "";
     }
 
-    // ==================== Favorites Management ====================
-
+    // ── Favorites Management ────────────────────────────────────────────────
     /**
      * Toggles the favorite status of a note.
      * 
@@ -720,8 +936,7 @@ public class NoteService {
         return newStatus;
     }
 
-    // ==================== Utility Methods ====================
-
+    // ── Utility Methods ─────────────────────────────────────────────────────
     /**
      * Counts words in text content.
      * 

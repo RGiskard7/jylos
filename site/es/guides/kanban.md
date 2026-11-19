@@ -1,6 +1,6 @@
 # Kanban
 
-Un tablero Kanban es una nota normal cuyo cuerpo Markdown guarda columnas y tarjetas, en el espíritu del plugin Kanban de Obsidian.
+Un tablero Kanban es una nota normal cuyo cuerpo Markdown guarda columnas y tarjetas, en el espíritu del plugin Kanban de Obsidian. Una nota-tablero se abre como tablero, en su propia pestaña como cualquier nota.
 
 ## Estructura
 
@@ -18,7 +18,13 @@ Un tablero Kanban es una nota normal cuyo cuerpo Markdown guarda columnas y tarj
 
 ## Abrir un tablero
 
-Usa **Ver → Tablero Kanban** o **Ctrl/Cmd+K**, y luego elige o crea un tablero desde la barra de herramientas.
+Abre la nota del tablero como cualquier nota (el árbol, el selector rápido, un enlace); los tableros tienen su propio icono en el árbol, la lista de notas y la pestaña. **Ver → Tablero Kanban**, **Ctrl/Cmd+K** o **Tablero Kanban** en una pestaña nueva muestran la lista de tableros, el cambiado más recientemente primero, para elegir uno o crear otro.
+
+## Nuevo tablero
+
+**Archivo → Nuevo tablero Kanban**, la paleta de comandos, **Nuevo tablero Kanban** en una carpeta del árbol, o **+ Nuevo tablero** en la lista de tableros. Se crea como una nota nueva, con tres columnas (por hacer, en curso, hecho) y el título listo para renombrarlo.
+
+El botón de tablero de la cabecera de la nota la muestra como Markdown, y vuelta. Lo que cambias en el tablero se guarda como cualquier edición.
 
 ## Editar
 
@@ -28,7 +34,7 @@ Usa **Ver → Tablero Kanban** o **Ctrl/Cmd+K**, y luego elige o crea un tablero
 
 ## Tarjetas y notas
 
-Una tarjeta puede enlazar a una nota (`[[Título]]`) o convertirse en nota.
+Una tarjeta puede enlazar a una nota (`[[Título]]`, `[[Carpeta/Título]]`) o convertirse en nota. Al pulsar una tarjeta enlazada, la nota se abre en la pestaña del tablero; atrás vuelve al tablero. Cmd/Ctrl+clic, el clic central o **Abrir en pestaña nueva** en el menú de la tarjeta la abren en una pestaña nueva y el tablero sigue abierto.
 
 ## Opciones de columna
 

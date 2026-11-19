@@ -17,6 +17,9 @@ import com.google.gson.JsonParser;
 /**
  * Keeps the private-notes key material in {@code .jylos/encryption.json} inside the vault,
  * so a vault synced or copied to another machine can still be unlocked with its password.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.7
  */
 public class EncryptionKeyDAOFileSystem implements EncryptionKeyDAO {
 

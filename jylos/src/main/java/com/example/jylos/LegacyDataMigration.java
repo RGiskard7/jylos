@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -26,6 +27,9 @@ import com.example.jylos.AppDirectories.Mode;
  * folder on Linux. Only files Jylos itself creates are moved, nothing is overwritten, and
  * whatever is not recognised stays where it is: a home folder's {@code data/} may well
  * hold the user's own files.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.8
  */
 public final class LegacyDataMigration {
 
@@ -306,7 +310,7 @@ public final class LegacyDataMigration {
 
         /** Renames {@code path} to {@code <name>.before-migration-<date>}. */
         private boolean setAside(Path path) {
-            String base = path.getFileName() + ".before-migration-" + java.time.LocalDate.now();
+            String base = path.getFileName() + ".before-migration-" + LocalDate.now();
             Path aside = path.resolveSibling(base);
             for (int i = 2; Files.exists(aside); i++) {
                 aside = path.resolveSibling(base + "-" + i);

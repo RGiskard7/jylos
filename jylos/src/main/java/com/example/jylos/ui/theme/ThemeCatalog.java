@@ -1,6 +1,7 @@
 package com.example.jylos.ui.theme;
 
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -10,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 
@@ -18,6 +20,9 @@ import com.example.jylos.AppDirectories;
 
 /**
  * Scans built-in and external theme descriptors.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.3.0
  */
 public final class ThemeCatalog {
 
@@ -57,6 +62,22 @@ public final class ThemeCatalog {
         }
     }
 
+    /** The menu's own themes: a theme with one of these ids would be confused with them. */
+    private static final Set<String> RESERVED_IDS = Set.of("light", "dark", "system");
+
+    /** The folders the user's themes are read from, the first one being where to put them; null for the usual ones. */
+    private final List<Path> userDirs;
+
+    public ThemeCatalog() {
+        this.userDirs = null;
+    }
+
+    /** Reads the user's themes from {@code userDirs} instead of the usual folders. */
+    public ThemeCatalog(List<Path> userDirs) {
+        this.userDirs = List.copyOf(userDirs);
+    }
+
+    /** The menu's light, dark and system themes, then the ones in the themes folders, by name. */
     public List<ThemeDescriptor> getAvailableThemes() {
         List<ThemeDescriptor> out = new ArrayList<>();
         out.add(new ThemeDescriptor("light", "Light", "builtin",
@@ -66,17 +87,8 @@ public final class ThemeCatalog {
         out.add(new ThemeDescriptor("system", "System", "builtin",
                 "/com/example/jylos/ui/css/modern-theme.css", false, "system"));
 
-        // The working-directory folders are the repo's themes/ when developing; a packaged
-        // build only reads the user's themes folder.
-        List<Path> baseDirs = AppDataDirectory.layout().mode() == AppDirectories.Mode.DEVELOPMENT
-                ? List.of(
-                        Paths.get(AppDataDirectory.getBaseDirectory(), "themes"),
-                        Paths.get(System.getProperty("user.dir", "."), "themes"),
-                        Paths.get(System.getProperty("user.dir", "."), "..", "themes").normalize())
-                : List.of(Paths.get(AppDataDirectory.getBaseDirectory(), "themes"));
-
         Map<String, ThemeDescriptor> unique = new LinkedHashMap<>();
-        for (Path baseDir : baseDirs) {
+        for (Path baseDir : userDirs()) {
             if (baseDir == null || !Files.exists(baseDir) || !Files.isDirectory(baseDir)) {
                 continue;
             }
@@ -100,6 +112,31 @@ public final class ThemeCatalog {
         external.sort(Comparator.comparing(ThemeDescriptor::name, String.CASE_INSENSITIVE_ORDER));
         out.addAll(external);
         return out;
+    }
+
+    /** The folder where the user puts the themes they download, created if it is not there yet. */
+    public Path userDirectory() {
+        Path dir = userDirs().get(0);
+        try {
+            Files.createDirectories(dir);
+        } catch (IOException e) {
+            logger.warning("Could not create themes directory '" + dir + "': " + e.getMessage());
+        }
+        return dir;
+    }
+
+    private List<Path> userDirs() {
+        if (userDirs != null) {
+            return userDirs;
+        }
+        // The working-directory folders are the repo's themes/ when developing; a packaged
+        // build only reads the user's themes folder.
+        return AppDataDirectory.layout().mode() == AppDirectories.Mode.DEVELOPMENT
+                ? List.of(
+                        Paths.get(AppDataDirectory.getBaseDirectory(), "themes"),
+                        Paths.get(System.getProperty("user.dir", "."), "themes"),
+                        Paths.get(System.getProperty("user.dir", "."), "..", "themes").normalize())
+                : List.of(Paths.get(AppDataDirectory.getBaseDirectory(), "themes"));
     }
 
     public ThemeDescriptor findById(List<ThemeDescriptor> themes, String id) {
@@ -127,17 +164,20 @@ public final class ThemeCatalog {
             return null;
         }
 
-        String id = valueOrDefault(p.getProperty("id"), dir.getFileName().toString().trim());
-        String name = valueOrDefault(p.getProperty("name"), id);
         String css = valueOrDefault(p.getProperty("css"), "theme.css");
-        boolean darkLike = Boolean.parseBoolean(valueOrDefault(p.getProperty("darkLike"), "false"));
-        String base = valueOrDefault(p.getProperty("base"), "auto");
-
         Path cssPath = dir.resolve(css).normalize();
         if (!Files.exists(cssPath) || !Files.isRegularFile(cssPath)) {
-            logger.warning("Theme '" + id + "' ignored (css not found): " + cssPath);
+            logger.warning("Theme in '" + dir + "' ignored (css not found): " + cssPath);
             return null;
         }
+        String id = valueOrDefault(p.getProperty("id"), dir.getFileName().toString().trim());
+        if (RESERVED_IDS.contains(id.toLowerCase())) {
+            logger.warning("Theme '" + id + "' ignored: light, dark and system are the menu's own themes");
+            return null;
+        }
+        String name = valueOrDefault(p.getProperty("name"), id);
+        boolean darkLike = Boolean.parseBoolean(valueOrDefault(p.getProperty("darkLike"), "false"));
+        String base = valueOrDefault(p.getProperty("base"), "auto");
         return new ThemeDescriptor(id, name, "external", cssPath.toUri().toString(), darkLike, base);
     }
 

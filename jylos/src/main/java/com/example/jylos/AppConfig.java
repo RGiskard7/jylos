@@ -1,6 +1,9 @@
 package com.example.jylos;
 
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 import java.util.logging.Logger;
 
@@ -11,6 +14,9 @@ import com.example.jylos.config.VersionConfig;
  *
  * <p>Release builds may override the version through filtered resources; when the
  * properties file is absent or unresolved, values fall back to safe defaults.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public final class AppConfig {
     
@@ -37,17 +43,17 @@ public final class AppConfig {
                 // Set defaults
                 properties.setProperty("app.name", "Jylos");
                 properties.setProperty("app.version", VersionConfig.getVersion());
-                properties.setProperty("app.vendor", "Jylos");
+                properties.setProperty("app.vendor", "Eduardo Díaz Sánchez");
                 properties.setProperty("app.description", "A free and open-source note-taking application");
-                properties.setProperty("app.copyright", "Copyright © 2026 Eduardo Díaz Sánchez");
+                properties.setProperty("app.copyright", "Copyright © 2025–2026 Eduardo Díaz Sánchez");
                 properties.setProperty("app.window.title", "Jylos - Knowledge Management");
                 return;
             }
             
             // app.properties is UTF-8 (it contains © and accented names). Properties.load(InputStream)
             // would decode it as ISO-8859-1 and mangle those characters, so read via a UTF-8 Reader.
-            try (java.io.Reader reader = new java.io.InputStreamReader(
-                    input, java.nio.charset.StandardCharsets.UTF_8)) {
+            try (Reader reader = new InputStreamReader(
+                    input, StandardCharsets.UTF_8)) {
                 properties.load(reader);
             }
             logger.info("Application properties loaded successfully");
@@ -56,9 +62,9 @@ public final class AppConfig {
             // Set defaults on error
             properties.setProperty("app.name", "Jylos");
             properties.setProperty("app.version", VersionConfig.getVersion());
-            properties.setProperty("app.vendor", "Jylos");
+            properties.setProperty("app.vendor", "Eduardo Díaz Sánchez");
             properties.setProperty("app.description", "A free and open-source note-taking application");
-            properties.setProperty("app.copyright", "Copyright © 2026 Eduardo Díaz Sánchez");
+            properties.setProperty("app.copyright", "Copyright © 2025–2026 Eduardo Díaz Sánchez");
             properties.setProperty("app.window.title", "Jylos - Local-first Knowledge Management");
         }
     }
@@ -83,7 +89,7 @@ public final class AppConfig {
     
     /** @return application vendor */
     public static String getAppVendor() {
-        return getProperty("app.vendor", "Jylos");
+        return getProperty("app.vendor", "Eduardo Díaz Sánchez");
     }
     
     /** @return short product description */
@@ -93,7 +99,7 @@ public final class AppConfig {
     
     /** @return copyright notice */
     public static String getAppCopyright() {
-        return getProperty("app.copyright", "Copyright © 2026 Eduardo Díaz Sánchez");
+        return getProperty("app.copyright", "Copyright © 2025–2026 Eduardo Díaz Sánchez");
     }
     
     /** @return main window title */

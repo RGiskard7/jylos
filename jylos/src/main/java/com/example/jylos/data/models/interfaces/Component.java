@@ -7,6 +7,9 @@ import java.util.List;
  * application.
  * It allows elements to have a parent-child relationship, supporting
  * hierarchical structures.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public interface Component {
 

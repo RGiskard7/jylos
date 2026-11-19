@@ -49,8 +49,7 @@ public class TagService {
         logger.info("TagService initialized");
     }
 
-    // ==================== CRUD Operations ====================
-
+    // ── CRUD Operations ─────────────────────────────────────────────────────
     /**
      * Creates a new tag.
      * 
@@ -177,8 +176,7 @@ public class TagService {
         logger.info("Deleted tag ID: " + tagId);
     }
 
-    // ==================== Retrieval Methods ====================
-
+    // ── Retrieval Methods ───────────────────────────────────────────────────
     /**
      * Fetches all tags.
      * 
@@ -216,8 +214,7 @@ public class TagService {
                 .collect(Collectors.toList());
     }
 
-    // ==================== Note-Tag Relationships ====================
-
+    // ── Note-Tag Relationships ──────────────────────────────────────────────
     /**
      * Gets all notes that have a specific tag.
      * 
@@ -306,8 +303,7 @@ public class TagService {
         logger.info("Removed tag '" + tag.getTitle() + "' from note: " + note.getTitle());
     }
 
-    // ==================== Statistics ====================
-
+    // ── Statistics ──────────────────────────────────────────────────────────
     /**
      * Gets the total count of tags.
      * 
@@ -350,8 +346,7 @@ public class TagService {
                 .collect(Collectors.toList());
     }
 
-    // ==================== Utility Methods ====================
-
+    // ── Utility Methods ─────────────────────────────────────────────────────
     /**
      * Checks if a tag with the given title exists.
      * 

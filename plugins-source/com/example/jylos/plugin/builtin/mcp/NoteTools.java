@@ -49,6 +49,9 @@ import io.modelcontextprotocol.spec.McpSchema.Tool;
  * the host gives it, with no registry of other plugins' capabilities. Exposing "run this
  * Dataview query" over MCP would need a host-level extension point that does not exist
  * today.</p>
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.1
  */
 final class NoteTools {
 

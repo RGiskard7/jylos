@@ -9,6 +9,8 @@ package com.example.jylos.exceptions;
  * It extends {@link RuntimeException}, consistent with the other exceptions in
  * this package, so callers are not forced to catch or declare it.
  *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
 public class NoteException extends RuntimeException {
     private static final long serialVersionUID = 1L;

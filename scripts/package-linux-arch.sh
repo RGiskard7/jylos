@@ -105,11 +105,18 @@ BUILD_PLUGINS_SCRIPT="$ROOT_DIR/scripts/build-plugins.sh"
 if [ -f "$BUILD_PLUGINS_SCRIPT" ]; then
     echo ""
     echo "Building plugins..."
-    if ! bash "$BUILD_PLUGINS_SCRIPT"; then
-        echo "Warning: Plugin build failed. Packaged app will run without plugins."
+    # Jylos's own plugins are part of the app: without them there is no installer to make.
+    if ! JYLOS_VERSION="$APP_VERSION" bash "$BUILD_PLUGINS_SCRIPT"; then
+        echo "ERROR: Plugin build failed: the installer would come without Jylos's own plugins."
+        exit 1
+    fi
+    if [ "$(find "$JYLOS_DIR/plugins" -maxdepth 1 -name "*.jar" 2>/dev/null | wc -l | tr -d ' ')" -eq 0 ]; then
+        echo "ERROR: No plugin JAR in $JYLOS_DIR/plugins after building them."
+        exit 1
     fi
 else
-    echo "Warning: build-plugins.sh not found. Packaged app will run without plugins."
+    echo "ERROR: build-plugins.sh not found: the installer would come without Jylos's own plugins."
+    exit 1
 fi
 
 OUTPUT_DIR="$JYLOS_DIR/target/installers"

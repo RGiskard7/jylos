@@ -2,6 +2,8 @@ package com.example.jylos.plugin.builtin;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.ResourceBundle;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -40,7 +42,7 @@ public class OutlinePlugin implements Plugin {
     private static final String NAME = "Outline";
     private static final String VERSION = "1.0.0";
     private static final String DESCRIPTION = "Shows document structure (headers) in sidebar";
-    private static final String AUTHOR = "Jylos Team";
+    private static final String AUTHOR = "Edu Díaz";
     
     private static final String PANEL_ID = "outline-panel";
     private static final Pattern HEADER_PATTERN = Pattern.compile("^(#{1,6})\\s+(.+)$", Pattern.MULTILINE);
@@ -55,7 +57,7 @@ public class OutlinePlugin implements Plugin {
 
     // Loaded once, lazily — getDescription() can be called by the Plugin Manager before
     // initialize() ever runs, so this cannot wait for that.
-    private static java.util.ResourceBundle bundle;
+    private static ResourceBundle bundle;
 
     private static String tr(String key, String fallback) {
         if (bundle == null) {
@@ -103,7 +105,7 @@ public class OutlinePlugin implements Plugin {
         
         // Subscribe to note content changes (if available)
         EventBus.Subscription saveSub = context.subscribe(NoteEvents.NoteSavedEvent.class, event -> {
-            if (currentNote != null && java.util.Objects.equals(event.getNote().getId(), currentNote.getId())) {
+            if (currentNote != null && Objects.equals(event.getNote().getId(), currentNote.getId())) {
                 this.currentNote = event.getNote();
                 Platform.runLater(() -> updateOutline(currentNote.getContent()));
             }

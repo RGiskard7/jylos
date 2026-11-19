@@ -1,25 +1,28 @@
 package com.example.jylos.ui.controller;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.sql.Connection;
-import java.util.ArrayDeque;
+import java.text.MessageFormat;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.ResourceBundle;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 
+import com.example.jylos.AppDataDirectory;
 import com.example.jylos.config.LoggerConfig;
-import com.example.jylos.config.VersionConfig;
+import com.example.jylos.data.dao.VaultSettingsStore;
 import com.example.jylos.data.dao.interfaces.FactoryDAO;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
 import com.example.jylos.data.dao.interfaces.NoteDAO;
@@ -34,53 +37,61 @@ import com.example.jylos.event.events.FolderEvents;
 import com.example.jylos.graph.GraphData;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
+import com.example.jylos.insights.KnowledgeInsightsService;
+import com.example.jylos.plugin.EditorHooks;
+import com.example.jylos.plugin.PluginLoader;
 import com.example.jylos.plugin.PluginManager;
-import com.example.jylos.plugin.PluginMenuRegistry;
-import com.example.jylos.plugin.PreviewEnhancer;
-import com.example.jylos.plugin.PreviewEnhancerRegistry;
-import com.example.jylos.plugin.SidePanelRegistry;
+import com.example.jylos.service.BacklinkService;
 import com.example.jylos.service.EncryptionService;
 import com.example.jylos.service.FolderService;
+import com.example.jylos.service.ImportService;
+import com.example.jylos.service.NoteHistoryService;
 import com.example.jylos.service.NoteService;
+import com.example.jylos.service.NoteTitleIndex;
 import com.example.jylos.service.TagService;
-import com.example.jylos.service.UpdateChecker;
+import com.example.jylos.ui.NoteIcons;
+import com.example.jylos.ui.UiDialogs;
+import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.CommandPalette;
+import com.example.jylos.ui.components.EditorTabs;
+import com.example.jylos.ui.components.EditorTabsModel;
+import com.example.jylos.ui.components.ViewTabs;
+import com.example.jylos.ui.components.GitSyncPanel;
+import com.example.jylos.ui.components.KnowledgeInsightsPanel;
 import com.example.jylos.ui.components.PluginManagerDialog;
 import com.example.jylos.ui.components.QuickSwitcher;
+import com.example.jylos.ui.preferences.LayoutMode;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
-import com.example.jylos.ui.theme.CssSnippetCatalog;
-import com.example.jylos.ui.theme.SystemThemeMonitor;
-import com.example.jylos.ui.theme.ThemeCatalog;
-import com.example.jylos.ui.theme.ThemeCommand;
+import com.example.jylos.ui.theme.UiSizeScale;
+import com.example.jylos.util.NoteAnchors;
 import com.example.jylos.util.SystemBrowser;
+import com.example.jylos.util.WikiLinkResolver;
+import com.example.jylos.workspace.Workspace;
+import com.example.jylos.workspace.WorkspaceService;
 
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
-import javafx.geometry.Pos;
 import javafx.fxml.FXML;
+import javafx.geometry.Orientation;
+import javafx.scene.Scene;
 import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
-import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
-import javafx.scene.control.Menu;
-import javafx.scene.control.MenuItem;
 import javafx.scene.control.Separator;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextInputDialog;
-import javafx.scene.control.ToggleButton;
-import javafx.scene.control.ToggleGroup;
-import javafx.scene.control.Tooltip;
-import javafx.scene.control.TreeItem;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 import javafx.util.Duration;
 
 /**
@@ -88,10 +99,11 @@ import javafx.util.Duration;
  * and {@link com.example.jylos.event.EventBus} subscriptions. Business logic
  * for persistence is delegated to DAOs and {@link com.example.jylos.service.NoteService}
  * where possible; this class focuses on UI state and command routing.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 1.0.0
  */
-public class MainController implements PluginMenuRegistry, SidePanelRegistry, PreviewEnhancerRegistry,
-        com.example.jylos.plugin.ToolbarRegistry, com.example.jylos.plugin.EditorBlockRendererRegistry,
-        com.example.jylos.plugin.PluginNoteContextMenuRegistry {
+public class MainController {
 
     private static final Logger logger = LoggerConfig.getLogger(MainController.class);
 
@@ -110,8 +122,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         return editorController != null && editorController.isModified();
     }
 
-    private String currentFilterType = "all"; // "all", "folder", "tag", "favorites", "search"
-    private Tag currentTag = null;
 
     @FXML
     private SplitPane mainSplitPane;
@@ -134,13 +144,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private GraphController graphViewController;
 
     /** Open-note tab strip (one tab per open note). Driven by this controller. */
-    private com.example.jylos.ui.components.EditorTabs editorTabs;
+    private EditorTabs editorTabs;
 
     private VBox notesPanel;
     private ComboBox<String> sortComboBox;
     private ListView<Note> notesListView;
 
-    private boolean isStackedLayout = false;
     private final CommandRouting commandRouting = new CommandRouting();
     private final Map<SystemActionEvent.ActionType, Runnable> systemActionHandlers = new EnumMap<>(
             SystemActionEvent.ActionType.class);
@@ -151,9 +160,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     @FXML
     private VBox rightPanel;
     @FXML
-    private javafx.scene.layout.HBox statusBar;
+    private HBox statusBar;
     @FXML
-    private javafx.scene.layout.StackPane centerStack;
+    private StackPane centerStack;
+    /** The editor area: the open note, or the view of a view tab such as the graph. */
+    @FXML
+    private StackPane editorArea;
 
     private final FocusModeSupport focusModeSupport = new FocusModeSupport();
     @FXML
@@ -191,7 +203,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     @FXML
     private Label infoModifiedLabel;
 
-    private ToggleGroup themeToggleGroup;
 
     @FXML
     private Label statusLabel;
@@ -206,6 +217,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     @FXML
     private Label charCountLabel;
     @FXML
+    private HBox editorIndicatorsBox;
+    @FXML
+    private Label saveStateLabel;
+    @FXML
+    private Label editorModeLabel;
+    @FXML
     private Separator statsSeparator;
     @FXML
     private Separator wordCharSeparator;
@@ -213,6 +230,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private Separator gitSeparator;
     @FXML
     private HBox gitBar;
+    @FXML
+    private Separator statusMessageSeparator;
     @FXML
     private Label gitInitLabel;
     @FXML
@@ -228,13 +247,19 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     private final GitController gitController = new GitController();
     private final WorkspaceController workspaceController = new WorkspaceController();
+    private final VaultCleanupSupport vaultCleanup = new VaultCleanupSupport();
+    private final ObsidianImportSupport obsidian = new ObsidianImportSupport();
     private final PrivacySupport privacySupport = new PrivacySupport();
     private final VaultLocationSupport vaultLocationSupport = new VaultLocationSupport();
-    private final OverlaySupport overlaySupport = new OverlaySupport();
+    /** The editor's tabs (notes, the graph, new tabs) and their back/forward; and the Kanban board. */
+    private final TabsSupport tabsSupport = new TabsSupport();
+    /** Which Kanban board to open, or a new one. */
+    private final KanbanPickerSupport kanbanPicker = new KanbanPickerSupport(this::getPrimaryStage,
+            () -> this.resources, this::handleUiNoteOpenRequest, () -> this.noteCreationSupport.createNewBoard());
     private final StatusBarSupport statusBarSupport = new StatusBarSupport();
     private final BacklinksSupport backlinksSupport = new BacklinksSupport();
     /** Editor hook dispatcher shared by the plugin system and the editor. */
-    private final com.example.jylos.plugin.EditorHooks editorHooks = new com.example.jylos.plugin.EditorHooks();
+    private final EditorHooks editorHooks = new EditorHooks();
     private final ImportSupport importSupport = new ImportSupport();
     // REMOVABLE: in-app updater — a workaround for shipping unsigned installers, not
     // meant to be permanent. Delete alongside every other spot tagged "REMOVABLE:
@@ -243,26 +268,13 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     // docs/PACKAGING.md, section "In-app updater (unsigned builds)".
     private final UpdateInstallSupport updateInstallSupport = new UpdateInstallSupport();
     private final HistorySupport historySupport = new HistorySupport();
-    /** pluginId → toolbar buttons contributed via {@link com.example.jylos.plugin.ToolbarRegistry}. */
-    private final Map<String, List<javafx.scene.Node>> pluginToolbarButtons = new HashMap<>();
-
-    private final Map<String, Menu> pluginCategoryMenus = new HashMap<>();
-    private final Map<String, List<MenuItem>> pluginMenuItems = new HashMap<>();
-    /** pluginId → note context menu entries via {@link com.example.jylos.plugin.PluginNoteContextMenuRegistry}. */
-    private final Map<String, List<com.example.jylos.plugin.NoteContextMenuEntry>> pluginNoteContextMenuItems =
-            new HashMap<>();
-
+    /** The right panel's area for plugin side panels (see {@link PluginUi}). */
     @FXML
     private VBox pluginPanelsContainer;
-    private final Map<String, VBox> pluginPanels = new HashMap<>();
-    private final Map<String, List<String>> pluginPanelIds = new HashMap<>();
-
+    /** The status bar's area for plugin items (see {@link PluginUi}). */
     @FXML
     private HBox pluginStatusBarContainer;
-    private final Map<String, javafx.scene.Node> pluginStatusBarItems = new HashMap<>();
-    private final Map<String, List<String>> pluginStatusBarItemIds = new HashMap<>();
 
-    private UiLayout.ViewMode currentViewMode = UiLayout.ViewMode.EDITOR_ONLY;
 
 
     private CommandPalette commandPalette;
@@ -270,8 +282,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     private NoteService noteService;
     private FolderService folderService;
+    /** The open vault's own settings: templates, daily note, new notes. */
+    private VaultSettingsStore vaultSettings;
     private TagService tagService;
-    private com.example.jylos.service.BacklinkService backlinkService;
+    private BacklinkService backlinkService;
     private EventBus eventBus;
     private PluginManager pluginManager;
     private NoteOperations noteOperations;
@@ -291,12 +305,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     private final NavigationCommand navigationCommand = new NavigationCommand();
     private final DialogSupport dialogSupport = new DialogSupport();
-    private final ThemeCommand themeCommand = new ThemeCommand();
-    private final ThemeCatalog themeCatalog = new ThemeCatalog();
-    private final CssSnippetCatalog cssSnippetCatalog = new CssSnippetCatalog();
-    private final SystemThemeMonitor systemThemeMonitor = new SystemThemeMonitor(
-            () -> themeCommand.detectSystemTheme(),
-            this::applyThemeAndRefreshDependents);
+    /** The window's theme: light, dark or system, built-in or external, and CSS snippets. */
+    private final ThemeSupport theme = new ThemeSupport();
     private final UiPreferencesStore uiPreferences = new UiPreferencesStore();
     private final PluginUi pluginUi = new PluginUi();
     private final AppSettings appSettings = new AppSettings();
@@ -305,7 +315,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private EventBus.Subscription pluginUiRefreshSubscription = EventBus.Subscription.NO_OP;
 
     @FXML
-    private java.util.ResourceBundle resources;
+    private ResourceBundle resources;
 
     private double uiFontSize = 13.0;
     /** Custom accent ({@code #rrggbb}) or "" for the theme default. */
@@ -319,27 +329,14 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private String pendingSearchText = "";
     private boolean searchListenerBound = false;
 
-    // ── Navigation history (back / forward arrows) ──────────────────────
-    /** IDs of previously visited notes, most-recent last. */
-    private final Deque<String> navBackStack    = new ArrayDeque<>();
-    /** IDs of notes skipped via back, most-recent last. */
-    private final Deque<String> navForwardStack = new ArrayDeque<>();
-    /** Suppresses history recording during programmatic back/forward jumps. */
-    private boolean navJumping = false;
-    private static final int NAV_MAX_HISTORY = 50;
+    /** The back and forward arrows. */
     private final ExecutorService quickSwitcherExecutor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "jylos-quick-switcher-loader");
         t.setDaemon(true);
         return t;
     });
-    private final ExecutorService updateCheckExecutor = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "jylos-update-checker");
-        t.setDaemon(true);
-        return t;
-    });
-    private final UpdateChecker updateChecker = new UpdateChecker();
-    private UpdateChecker.ReleaseInfo availableUpdate;
-    private javafx.scene.Node updateToast;
+    /** Update checks, the update toast and its status-bar indicator. */
+    private final UpdateNotificationSupport updateNotifications = new UpdateNotificationSupport();
     private final AtomicLong quickSwitcherLoadVersion = new AtomicLong(0);
     private final AtomicLong backendSessionGeneration = new AtomicLong(0);
     private volatile List<Note> quickSwitcherNotesCache = List.of();
@@ -348,10 +345,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private boolean autosaveEnabled = true;
     private int autosaveIdleMs = UiPreferencesStore.DEFAULT_AUTOSAVE_IDLE_MS;
     private boolean autosaveRunning = false;
-    private String themeSource = UiPreferencesStore.THEME_SOURCE_BUILTIN;
-    private String externalThemeId = "";
-    /** Filenames of the CSS snippets the user has enabled; layered over the theme. */
-    private java.util.Set<String> enabledSnippets = java.util.Set.of();
 
     private enum SaveDialogDecision {
         SAVE,
@@ -375,11 +368,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             configureToolbarSearchDebounce();
             configureAutosaveDebounce();
             navSplitPane = new SplitPane();
-            navSplitPane.setOrientation(javafx.geometry.Orientation.VERTICAL);
+            navSplitPane.setOrientation(Orientation.VERTICAL);
 
             initializeBackendSession();
             appSettings.wire(this::getString);
-            pluginUi.wire(this::getString, this::updateStatus, this::getPluginManager);
+            pluginUi.wire(this::getString, this::updateStatus, this::getPluginManager, () -> toolbarController,
+                    pluginPanelsContainer, pluginStatusBarContainer);
             uiInitialization.wire(this::getString, new UiInitialization.OverflowActions(
                     () -> handleNewNote(null),
                     () -> handleNewCanvas(null),
@@ -399,6 +393,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                         () -> handleDarkTheme(null),
                         () -> handleSystemTheme(null),
                         () -> handleToggleRightPanel(null));
+                toolbarController.setLayoutModeAction(this::setLayoutMode);
             }
             initializeCommandRouting();
             initializeSystemActionHandlers();
@@ -408,6 +403,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 subscribeToShellAndDomainEvents();
             }
             bindBackendSession();
+            // After bindBackendSession(): it is what fetches the notes panel from its controller.
+            uiLayout.wire(new UiLayout.Panes(mainSplitPane, contentSplitPane, navSplitPane, centerRightSplitPane,
+                    sidebarController != null ? sidebarController.getSidebarPane() : null, notesPanel, editorArea,
+                    rightPanel), () -> toolbarController, this::getString, this::updateStatus);
 
             bindToolbarSearchFieldDebounced();
 
@@ -420,9 +419,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             applyUiPreferencesFromStore();
             initializeThemeMenu();
             installSystemThemeFocusRefresh();
+            applyLayoutMode(uiPreferences.loadLayoutMode(prefs), false);
             setupSplitPanePersistence();
 
             refreshBackendSessionViews(false);
+            // The tabs open when the app last closed, and the workspace in use, come back.
+            Platform.runLater(workspaceController::restoreSession);
 
             Platform.runLater(this::initializeKeyboardShortcuts);
 
@@ -431,14 +433,16 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                     () -> toolbarController != null ? toolbarController.getToolbarHBox() : null,
                     statusBar, rightPanel,
                     () -> editorController != null ? editorController.getEditorContainer() : null,
-                    prefs, this::getString, this::updateStatus);
+                    prefs, this::getString, this::updateStatus, centerStack);
             updateStatus(getString("status.ready"));
-            checkForUpdatesAtStartup();
+            updateNotifications.wire(centerStack, updateIndicator, this::getString, this::updateStatus,
+                    this::openExternalUrl, updateInstallSupport::installUpdate);
+            updateNotifications.checkAtStartup();
             logger.info("MainController initialized successfully");
 
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Failed to initialize MainController", e);
-            updateStatus(java.text.MessageFormat.format(getString("status.error_details"), e.getMessage()));
+            updateStatus(MessageFormat.format(getString("status.error_details"), e.getMessage()));
         }
     }
     /** Selects the configured storage backend, opens the active session, then builds all DAOs and services. */
@@ -451,7 +455,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             if ("filesystem".equalsIgnoreCase(storageType)) {
                 vaultLocationSupport.wire(this::getString);
                 String dataDir = vaultLocationSupport.chooseVaultDirectory(prefs,
-                        com.example.jylos.AppDataDirectory.getDataDirectory(), getMainWindow());
+                        AppDataDirectory.getDataDirectory(), getMainWindow());
                 logger.info("Using File System Storage at " + dataDir);
 
                 factory = FactoryDAO.getFactory(FactoryDAO.FILE_SYSTEM_FACTORY, dataDir);
@@ -471,15 +475,16 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             EncryptionService.getInstance().wire(factory.getEncryptionKeyDAO(),
                     EncryptionService.legacyUserPreferencesStore(), sessionNoteDAO::hasPrivateNotes);
             noteService = new NoteService(noteDAO, folderDAO);
-            noteService.setHistoryService(new com.example.jylos.service.NoteHistoryService(
-                    java.nio.file.Path.of(com.example.jylos.AppDataDirectory.getBaseDirectory(), "history")));
-            folderService = new FolderService(folderDAO, noteDAO);
+            noteService.setHistoryService(new NoteHistoryService(
+                    Path.of(AppDataDirectory.getBaseDirectory(), "history")));
+            vaultSettings = factory.getVaultSettingsStore();
+            folderService = new FolderService(folderDAO, noteDAO, factory.getFolderColorStore(), vaultSettings);
             tagService = new TagService(tagDAO, noteDAO);
             noteOperations = new NoteOperations(noteService, folderService);
             eventBus = EventBus.getInstance();
-            backlinkService = new com.example.jylos.service.BacklinkService(noteService, eventBus);
-            com.example.jylos.service.NoteTitleIndex titleIndex =
-                    com.example.jylos.service.NoteTitleIndex.getInstance();
+            backlinkService = new BacklinkService(noteService, eventBus);
+            NoteTitleIndex titleIndex =
+                    NoteTitleIndex.getInstance();
             titleIndex.wire(noteService, eventBus);
             noteService.setNoteTitleIndex(titleIndex);
 
@@ -498,15 +503,15 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 this::switchFilesystemVault);
     }
 
-    /** Builds the theme toggle group (light / dark / system) in the menu bar and applies the saved preference. */
+    /** Builds the theme items (light / dark / system) of the View menu and applies the saved preference. */
     private void initializeThemeMenu() {
-        themeToggleGroup = appSettings.initializeThemeMenu(
-                toolbarController,
-                currentTheme,
-                this::detectSystemTheme,
-                theme -> currentTheme = theme,
-                this::updateThemeMenuSelection,
-                this::applyTheme);
+        theme.wire(prefs, () -> mainSplitPane != null && editorController != null,
+                () -> mainSplitPane != null ? mainSplitPane.getScene() : null,
+                () -> editorController != null ? editorController.getPreviewWebView().node() : null,
+                () -> getCurrentNote() != null ? this::refreshEditorPreview : null,
+                this::refreshUiThemeDependents, () -> toolbarController, appSettings, this::getString,
+                this::updateStatus);
+        theme.initializeMenu();
     }
 
     /** Sets up the language toggle group, wiring each item to persist and announce the locale change. */
@@ -526,11 +531,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     }
 
     private void updateThemeMenuSelection() {
-        appSettings.updateThemeMenuSelection(toolbarController, themeToggleGroup, currentTheme);
+        theme.updateMenuSelection();
     }
 
     private void bindBackendSession() {
-        navigationCommand.wire(this::getString, this::updateStatus, noteService);
+        navigationCommand.wire(this::getString, this::updateStatus);
         documentSupport.wire(noteService, folderService);
         dialogSupport.wire(this::getString, this::updateStatus, tagService);
         tagManagement.wire(this::getString, this::updateStatus, tagService);
@@ -543,11 +548,23 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                     noteCreationSupport::createNewNoteInFolder,
                     noteCreationSupport::createNewCanvasInFolder,
                     this::updateStatus);
+            sidebarController.setOpenInNewTabAction(this::openNoteInNewTab);
+            sidebarController.setCreateBoardInFolderAction(noteCreationSupport::createNewBoardInFolder);
+            sidebarController.setExplorerOpenAction(this::loadNoteInEditor);
+            sidebarController.setExplorerFolderContextAction(folder -> currentFolder = folder);
         }
         if (notesListController != null) {
             notesListController.wire(eventBus, noteService, tagService, folderService, resources,
-                    this::loadNoteInEditor, this::exportNote, this::toggleNotePrivacy,
-                    this::handleUiNotesLoaded, this::updateStatus, this::getNoteContextMenuItems);
+                    this::loadNoteInEditor, this::exportNote, privacySupport::toggle,
+                    this::handleUiNotesLoaded, this::updateStatus, pluginUi::getNoteContextMenuItems);
+            notesListController.setOpenInNewTabAction(this::openNoteInNewTab);
+            notesListController.setCloseResultsAction(this::closeResultsPanel);
+            notesListController.setCurrentNoteSupplier(this::getCurrentNote);
+            if (sidebarController != null) {
+                sidebarController.setExplorerNoteMenu(
+                        note -> notesListController.noteContextMenu(note, sidebarController::renameInExplorer));
+                sidebarController.setExplorerRenameNoteAction(notesListController::renameNoteTo);
+            }
             notesPanel = notesListController.getNotesPanel();
             sortComboBox = notesListController.getSortComboBox();
             notesListView = notesListController.getNotesListView();
@@ -555,54 +572,119 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (editorController != null) {
             editorController.wire(eventBus, noteService, tagService, resources,
                     this::handleUiNoteModified, this::updateStatus,
-                    com.example.jylos.service.NoteTitleIndex.getInstance()::titlesSorted,
+                    NoteTitleIndex.getInstance()::linkSuggestions,
                     uiPreferences.loadLivePreviewEnabled(prefs),
-                    enabled -> uiPreferences.saveLivePreviewEnabled(prefs, enabled));
-            editorController.setWikiLinkHandler(title -> noteService.findNoteByTitle(title).ifPresentOrElse(
-                    this::handleUiNoteOpenRequest,
-                    () -> updateStatus("Note not found: " + title)));
-            editorController.setEditorHooks(editorHooks);
+                    enabled -> uiPreferences.saveLivePreviewEnabled(prefs, enabled),
+                    // A link opens the note it names by path, resolved from the note it is
+                    // written in, and scrolls to its heading or block when it names one.
+                    this::openLink, this::loadNotesForTag, editorHooks);
+            editorController.viewModeProperty().addListener((obs, old, mode) -> refreshEditorIndicators());
             if (editorTabs == null) {
                 editorController.initializeTagsBarCollapsed();
-                editorTabs = new com.example.jylos.ui.components.EditorTabs(
+                editorTabs = new EditorTabs(
                         editorController.getEditorTabBar(),
                         editorController.getEditorTabScroll(),
-                        new com.example.jylos.ui.components.EditorTabs.Listener() {
-                            @Override public void onSelect(String noteId) { openNoteInTab(noteId); }
-                            @Override public void onClose(String noteId) { closeTab(noteId); }
+                        new EditorTabs.Listener() {
+                            @Override public void onSelect(String id) {
+                                tabsSupport.select(id);
+                            }
+                            @Override public void onClose(String id) {
+                                tabsSupport.close(id);
+                            }
                         },
                         this::getString);
+                editorTabs.setAlwaysNewTab(uiPreferences.load(prefs).alwaysOpenInNewTab());
+                editorTabs.setNewTabAction(tabsSupport::newTab);
+                if (toolbarController != null && toolbarController.getTabsHost() != null && editor != null) {
+                    // Tabs in the top bar, as in Obsidian, starting above the editor.
+                    TopBarTabsSupport.install(toolbarController.getTabsHost(),
+                            editorController.getEditorTabScroll(), editorArea);
+                }
             }
+            editorController.formatToolbar().bind(uiPreferences.loadShowFormatToolbar(prefs),
+                    shown -> uiPreferences.saveShowFormatToolbar(prefs, shown));
         }
-        overlaySupport.wire(centerStack, graphView, graphViewController, noteService,
-                this::isDarkThemeActive, this::getString, this::updateStatus, this::handleUiNoteOpenRequest,
-                this::publishNoteCreated, this::publishNoteUpdated, this::updateRightPanelContext);
+        tabsSupport.wire(graphView, graphViewController, noteService,
+                this::isDarkThemeActive, this::getString, this::updateStatus, () -> editorTabs,
+                new TabsSupport.Host(this::confirmLeaveCurrent, this::openNoteInTab, this::openNoteInNewTab,
+                        this::handleUiNoteOpenRequest, this::clearEditorToEmpty, () -> {
+                            updateRightPanelContext();
+                            refreshEditorIndicators();
+                            updateNavigationButtons();
+                        },
+                        kanbanPicker::show));
         if (graphViewController != null) {
             graphViewController.wire(eventBus, noteService, tagService, resources,
-                    overlaySupport::openNoteFromGraph, overlaySupport::hideGraph,
+                    tabsSupport::openNoteFromGraph, tabsSupport::closeGraph,
                     () -> getCurrentNote() != null ? getCurrentNote().getId() : null,
                     this::updateGraphInfoSection);
         }
 
         statusBarSupport.wire(storageLabel, wordCountLabel, charCountLabel, statsSeparator,
                 wordCharSeparator, prefs, this::getString);
-        java.util.function.Supplier<javafx.scene.Scene> sceneSupplier =
+        statusBarSupport.wireEditorIndicators(saveStateLabel, editorModeLabel, editorIndicatorsBox,
+                this::applyEditorMode);
+        Supplier<Scene> sceneSupplier =
                 () -> mainSplitPane != null ? mainSplitPane.getScene() : null;
         gitController.wire(gitSeparator, gitBar, gitInitLabel, gitRemoteLabel, gitChangesLabel,
                 gitCommitLabel, gitSyncLabel, gitHistoryLabel, prefs, this::getString, this::updateStatus,
                 sceneSupplier, () -> handleRefresh(null));
-        privacySupport.wire(this::getString, this::updateStatus, sceneSupplier);
+        privacySupport.wire(this::getString, this::updateStatus, sceneSupplier, new PrivacySupport.Shell() {
+            @Override
+            public NoteService notes() {
+                return noteService;
+            }
+
+            @Override
+            public EventBus eventBus() {
+                return eventBus;
+            }
+
+            @Override
+            public Note openNote() {
+                return getCurrentNote();
+            }
+
+            @Override
+            public String openNoteText() {
+                return editorController.getCurrentContent();
+            }
+
+            @Override
+            public void reloadInEditor(Note note) {
+                editorController.loadNote(note);
+            }
+
+            @Override
+            public void refreshNotesList() {
+                MainController.this.refreshNotesList();
+            }
+        });
         backlinksSupport.wire(backlinksContent, backlinkService, noteService, this::getString,
                 this::loadNoteInEditor,
                 () -> backlinksSection != null && backlinksSection.isVisible() && backlinksSection.isManaged()
                         && backlinksContent != null && backlinksContent.isVisible() && backlinksContent.isManaged());
+        backlinksSupport.setCreateNoteAction(noteCreationSupport::createNoteWithTitle);
+        backlinksSupport.setStatusAction(this::updateStatus);
+        // "Link" rewrote a mention in another note: tell the list, tabs and indexes it was saved.
+        backlinksSupport.setMentionLinkedAction(note -> {
+            if (eventBus != null) {
+                eventBus.publish(new NoteEvents.NoteSavedEvent(note));
+            }
+        });
         historySupport.wire(noteService, this::getString, this::updateStatus, sceneSupplier,
                 this::getCurrentNote, this::loadNoteInEditor);
+        noteCreationSupport.useVault(() -> vaultSettings, () -> editorController, this::getPrimaryStage, () -> resources);
+        noteCreationSupport.setBeginTitleRename(() -> {
+            if (editorController != null) {
+                editorController.beginTitleRename();
+            }
+        });
         noteCreationSupport.wire(noteService, noteOperations,
                 () -> !"sqlite".equals(prefs.get("storage_type", "sqlite")),
                 this::getString, this::updateStatus,
                 this::getMainWindow,
-                () -> currentFolder, this::loadNoteInEditor,
+                () -> currentFolder, this::openNoteInNewTab,
                 note -> {
                     if (eventBus != null) {
                         eventBus.publish(new NoteEvents.NoteCreatedEvent(note));
@@ -630,7 +712,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                         sidebarController.loadRecentNotes();
                     }
                 });
-        importSupport.wire(new com.example.jylos.service.ImportService(noteService, folderService),
+        importSupport.wire(new ImportService(noteService, folderService),
                 this::getString, this::updateStatus,
                 this::getMainWindow,
                 () -> {
@@ -641,8 +723,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                         sidebarController.loadRecentNotes();
                     }
                 });
-        workspaceController.wire(this::captureLiveWorkspace, this::applyWorkspace,
-                this::getString, this::updateStatus, sceneSupplier);
+        workspaceController.wire(new WorkspaceController.Host(this::captureLiveWorkspace, tabsSupport::histories,
+                tabsSupport::closeAll, tabsSupport::restoreTabs, this::applyWorkspaceLayout),
+                this::getString, this::updateStatus, sceneSupplier, prefs, statusBar);
         // REMOVABLE: in-app updater (see docs/PACKAGING.md).
         updateInstallSupport.wire(this::getString, this::updateStatus, this::openExternalUrl,
                 this::requestApplicationClose, () -> {
@@ -663,13 +746,13 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
         if (forceAllNotes) {
             loadAllNotes();
-            Platform.runLater(this::goToAllNotes);
+            Platform.runLater(this::loadAllNotes);
         } else {
             Platform.runLater(() -> {
                 if (sidebarController != null
                         && sidebarController.getFolderTreeView() != null
                         && sidebarController.getFolderTreeView().getSelectionModel().getSelectedItem() == null) {
-                    goToAllNotes();
+                    loadAllNotes();
                 }
             });
         }
@@ -677,7 +760,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         gitController.refreshStatus();
     }
 
-    private javafx.stage.Window getMainWindow() {
+    private Window getMainWindow() {
         return mainSplitPane != null && mainSplitPane.getScene() != null ? mainSplitPane.getScene().getWindow() : null;
     }
 
@@ -701,11 +784,23 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             }
             Platform.runLater(() -> onVaultContentLoaded(generation));
         });
+        // Long notes are read in full in the background: once their links are known, backlinks
+        // and the title index are rebuilt from them.
+        noteDAO.setOnLinksIndexed(() -> {
+            if (!isActiveBackendSession(generation)) {
+                return;
+            }
+            if (backlinkService != null) {
+                backlinkService.invalidate();
+            }
+            NoteTitleIndex.getInstance().invalidate();
+        });
     }
 
     private void disposeCurrentBackendSession() {
         if (noteDAO != null) {
             noteDAO.setOnContentLoaded(null);
+            noteDAO.setOnLinksIndexed(null);
         }
         if (backlinkService != null) {
             backlinkService.shutdown();
@@ -741,13 +836,24 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             toolbarController.getSearchField().clear();
         }
         currentFolder = null;
-        currentTag = null;
-        currentFilterType = "all";
         if (editorTabs != null) {
             editorTabs.clear();
         }
         clearEditorToEmpty();
         refreshBacklinks(null);
+    }
+
+    /** Opens the storage the preferences name now, from a clean UI, and shows it everywhere. */
+    private void reloadBackendSession() {
+        resetUiForBackendReload();
+        disposeCurrentBackendSession();
+        initializeBackendSession();
+        bindBackendSession();
+        reloadPluginSystemForBackendSession();
+        refreshBackendSessionViews(true);
+        if (eventBus != null) {
+            eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
+        }
     }
 
     private void switchFilesystemVault(String newVaultPath) {
@@ -769,16 +875,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         long generation = beginBackendSessionGeneration();
         try {
             prefs.put("filesystem_path", newVaultPath);
-            resetUiForBackendReload();
-            disposeCurrentBackendSession();
-            initializeBackendSession();
-            bindBackendSession();
-            reloadPluginSystemForBackendSession();
-            refreshBackendSessionViews(true);
-            if (eventBus != null) {
-                eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
-            }
-            updateStatus(java.text.MessageFormat.format(getString("status.vault_switched"),
+            reloadBackendSession();
+            updateStatus(MessageFormat.format(getString("status.vault_switched"),
                     new File(newVaultPath).getName()));
             logger.info("Switched vault without restart: " + newVaultPath + " [session=" + generation + "]");
         } catch (Exception e) {
@@ -786,24 +884,16 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             prefs.put("filesystem_path", currentPath);
             try {
                 long rollbackGeneration = beginBackendSessionGeneration();
-                resetUiForBackendReload();
-                disposeCurrentBackendSession();
-                initializeBackendSession();
-                bindBackendSession();
-                reloadPluginSystemForBackendSession();
-                refreshBackendSessionViews(true);
-                if (eventBus != null) {
-                    eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
-                }
+                reloadBackendSession();
                 logger.info("Restored previous vault session after switch failure [session=" + rollbackGeneration + "]");
             } catch (Exception rollbackError) {
                 logger.log(Level.SEVERE, "Failed to restore previous vault after switch error", rollbackError);
             }
-            updateStatus(java.text.MessageFormat.format(getString("status.error_details"), e.getMessage()));
+            updateStatus(MessageFormat.format(getString("status.error_details"), e.getMessage()));
             showAlert(Alert.AlertType.ERROR,
                     getString("status.error"),
                     getString("status.error"),
-                    java.text.MessageFormat.format(getString("status.error_details"), e.getMessage()));
+                    MessageFormat.format(getString("status.error_details"), e.getMessage()));
         }
     }
 
@@ -825,7 +915,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     /** Registers global keyboard accelerators (command palette, quick-switcher, focus mode) on the primary scene. */
     private void initializeKeyboardShortcuts() {
         try {
-            javafx.scene.Scene scene = null;
+            Scene scene = null;
             if (mainSplitPane != null && mainSplitPane.getScene() != null) {
                 scene = mainSplitPane.getScene();
             }
@@ -845,11 +935,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             commandUI.initializeKeyboardShortcuts(scene, this::showCommandPalette, this::showQuickSwitcher);
 
             // Focus / writing mode: Cmd/Ctrl + Shift + F.
-            scene.getAccelerators().put(
-                    new javafx.scene.input.KeyCodeCombination(javafx.scene.input.KeyCode.F,
-                            javafx.scene.input.KeyCombination.SHORTCUT_DOWN,
-                            javafx.scene.input.KeyCombination.SHIFT_DOWN),
-                    this::handleFocusMode);
+            scene.getAccelerators().put(FocusModeSupport.SHORTCUT, this::handleFocusMode);
         } catch (Exception e) {
             logger.log(Level.WARNING, "Failed to initialize keyboard shortcuts", e);
         }
@@ -907,9 +993,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 return;
             }
 
-            pluginManager = new PluginManager(noteService, folderService, tagService, eventBus, commandPalette, this,
-                    this, this, editorHooks, this, this, this::handleUiNoteOpenRequest,
-                    this::handleUiHeadingNavigationRequest, this);
+            // What plugins add to the window lives in PluginUi; what they add to the editor and
+            // the reading view, in the editor.
+            pluginManager = new PluginManager(noteService, folderService, tagService, eventBus, commandPalette, pluginUi,
+                    pluginUi, editorController, editorHooks, pluginUi, editorController, this::handleUiNoteOpenRequest,
+                    this::handleUiHeadingNavigationRequest, pluginUi, pluginUi);
 
             PluginLifecycle.LoadResult pluginLoadResult = pluginLifecycle
                     .registerCoreAndExternalPlugins(pluginManager);
@@ -958,12 +1046,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
         uiEventSubscriptions.forEach(EventBus.Subscription::cancel);
         uiEventSubscriptions.clear();
+        uiEventSubscriptions.addAll(backlinksSupport.subscribe(eventBus));
         uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteDeletedEvent.class,
                 event -> handleUiNoteDeleted(event.getNoteId())));
         uiEventSubscriptions.add(eventBus.subscribe(FolderEvents.FolderDeletedEvent.class,
                 event -> handleUiFolderDeleted(event.getFolderId())));
-        uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.TrashItemDeletedEvent.class,
-                event -> handleUiTrashItemDeleted()));
         // Keep the editor tab in sync when its note is saved (clear dirty dot, refresh title).
         uiEventSubscriptions.add(eventBus.subscribe(NoteEvents.NoteSavedEvent.class, e -> {
             Note saved = e.getNote();
@@ -996,6 +1083,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                             this::handleAddTagToNote, this::removeTagFromNote);
                 }
                 pendingModifiedNoteId = saved.getId();
+                // What the note links to may have changed with this save.
+                refreshBacklinks(active);
             }
             refreshNotesGridIfActive();
         }));
@@ -1006,7 +1095,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         // the left status label (avoids the message being duplicated in both spots).
         if (noteCountLabel != null) {
             int count = notes != null ? notes.size() : 0;
-            noteCountLabel.setText(java.text.MessageFormat.format(getString("info.notes_count"), count));
+            noteCountLabel.setText(MessageFormat.format(getString("info.notes_count"), count));
         }
         if (statusMessage != null && !statusMessage.isBlank()) {
             updateStatus(statusMessage);
@@ -1017,20 +1106,14 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     void handleUiNoteDeleted(String noteId) {
         Note current = getCurrentNote();
         boolean wasActive = current != null && current.getId().equals(noteId);
+        if (wasActive && editorController != null) {
+            editorController.markClean(); // the note is gone; discard any edits
+        }
+        if (editorTabs != null) {
+            editorTabs.forget(noteId);
+        }
         if (editorTabs != null && editorTabs.isOpen(noteId)) {
-            String neighbor = editorTabs.neighborOf(noteId);
-            if (wasActive && editorController != null) {
-                editorController.markClean(); // the note is gone; discard any edits
-            }
-            editorTabs.removeTab(noteId);
-            if (wasActive) {
-                if (neighbor != null) {
-                    openNoteInTab(neighbor);
-                } else if (editorController != null) {
-                    editorController.loadNote(null);
-                    editorController.clearPreview();
-                }
-            }
+            tabsSupport.close(noteId);
         } else if (wasActive && editorController != null) {
             editorController.loadNote(null);
             editorController.clearPreview();
@@ -1043,23 +1126,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
     }
 
+    /** The sidebar reloads its own trees when it hears the deletion. */
     void handleUiFolderDeleted(String folderId) {
         if (currentFolder != null && currentFolder.getId().equals(folderId)) {
             currentFolder = null;
-        }
-        if (sidebarController != null) {
-            if (sidebarController.getFolderTreeView() != null) {
-                sidebarController.getFolderTreeView().refresh();
-            }
-            sidebarController.loadFolders();
-            sidebarController.loadTrashTree();
-        }
-    }
-
-    void handleUiTrashItemDeleted() {
-        if (sidebarController != null) {
-            sidebarController.loadTrashTree();
-            sidebarController.loadFolders();
         }
     }
 
@@ -1082,11 +1152,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             return;
         }
         currentFolder = null;
-        currentTag = tag;
-        currentFilterType = "tag";
         if (notesListController != null) {
             notesListController.loadNotesForTag(tag.getTitle());
         }
+        showResultsPanel();
     }
 
     void handleUiNoteOpenRequest(Note note) {
@@ -1148,6 +1217,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (editorTabs != null) {
             editorTabs.setDirty(note.getId(), dirty);
         }
+        refreshEditorIndicators();
         if (!dirty) {
             pendingModifiedNoteId = null;
             noteModifiedDebounce.stop();
@@ -1163,11 +1233,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
     }
 
-    private void publishNoteCreated(Note note) {
-        if (eventBus != null && note != null) {
-            eventBus.publish(new NoteEvents.NoteCreatedEvent(note));
-        }
-    }
 
     private void publishNoteSelected(Note note) {
         if (eventBus != null && note != null) {
@@ -1175,11 +1240,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
     }
 
-    private void publishNoteUpdated(Note note) {
-        if (eventBus != null && note != null) {
-            eventBus.publish(new NoteEvents.NoteUpdatedEvent(note));
-        }
-    }
 
     private void configureNoteModifiedDebounce() {
         noteModifiedDebounce.setOnFinished(e -> {
@@ -1199,7 +1259,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             }
             String query = pendingSearchText != null ? pendingSearchText : "";
             if (query.trim().isEmpty()) {
-                if ("search".equals(currentFilterType)) {
+                if (notesListController.isShowingSearch()) {
                     refreshNotesList();
                 }
                 return;
@@ -1238,13 +1298,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         UiPreferencesStore.UiPreferencesData uiPrefs = uiPreferences.load(prefs);
         autosaveEnabled = uiPrefs.autosaveEnabled();
         autosaveIdleMs = uiPrefs.autosaveIdleMs();
-        themeSource = uiPrefs.themeSource();
-        externalThemeId = uiPrefs.externalThemeId();
+        theme.loadPreferences(uiPrefs.themeSource(), uiPrefs.externalThemeId(),
+                uiPreferences.loadEnabledSnippets(prefs));
         notesListPreviewLines = uiPrefs.notesPreviewLines();
         uiFontSize = uiPrefs.uiFontSize();
         editorFontSize = uiPrefs.contentFontSize();
         uiAccentColor = uiPrefs.accentColor();
-        enabledSnippets = uiPreferences.loadEnabledSnippets(prefs);
         autosaveDebounce.setDuration(Duration.millis(autosaveIdleMs));
 
         if (sidebarController != null) {
@@ -1254,6 +1313,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (notesListController != null) {
             notesListController.setPreviewLines(notesListPreviewLines);
         }
+        if (editorTabs != null) {
+            editorTabs.setAlwaysNewTab(uiPrefs.alwaysOpenInNewTab());
+        }
         if (editorController != null) {
             editorController.applyLivePreviewPreference(uiPrefs.livePreviewEnabled());
             editorController.applyReadableLineLengthPreference(uiPrefs.readableLineLength());
@@ -1261,7 +1323,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         applyEditorControlsPresentation();
         applyUiZoom();
         applyEditorZoom();
-        Platform.runLater(this::applyThemeAndRefreshDependents);
+        refreshEditorIndicators();
+        Platform.runLater(theme::applyAndRefresh);
     }
 
     /**
@@ -1282,14 +1345,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                     UiPreferencesStore.DEFAULT_SPLIT_MAIN);
             persistDivider(contentSplitPane, UiPreferencesStore.SPLIT_CONTENT_KEY,
                     UiPreferencesStore.DEFAULT_SPLIT_CONTENT);
-            navigationCommand.showNavigationPanels(
-                    isStackedLayout,
-                    navSplitPane,
-                    sidebarController != null ? sidebarController.getSidebarPane() : null,
-                    mainSplitPane,
-                    notesPanel,
-                    contentSplitPane,
-                    toolbarController);
+            uiLayout.showNavigationPanels();
         });
     }
 
@@ -1324,7 +1380,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             alert.setTitle(getString("dialog.plugin_manager.title"));
             alert.setHeaderText(getString("dialog.plugin_manager.not_initialized_header"));
             alert.setContentText(getString("dialog.plugin_manager.restart_required_content"));
-            com.example.jylos.ui.UiDialogs.apply(alert.getDialogPane());
+            UiDialogs.apply(alert.getDialogPane());
             alert.showAndWait();
         }
     }
@@ -1333,192 +1389,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private void handlePluginManager(ActionEvent event) {
         showPluginManager();
     }
-    @Override
-    public void registerMenuItem(String pluginId, String category, String itemName, Runnable action) {
-        registerMenuItem(pluginId, category, itemName, null, action);
-    }
-
-    @Override
-    public void registerMenuItem(String pluginId, String category, String itemName, String shortcut, Runnable action) {
-        pluginUi.registerMenuItem(
-                pluginId,
-                category,
-                itemName,
-                shortcut,
-                action,
-                toolbarController,
-                pluginCategoryMenus,
-                pluginMenuItems);
-    }
-
-    @Override
-    public void addMenuSeparator(String pluginId, String category) {
-        pluginUi.addMenuSeparator(pluginId, category, pluginCategoryMenus, pluginMenuItems);
-    }
-
-    @Override
-    public void removePluginMenuItems(String pluginId) {
-        pluginUi.removePluginMenuItems(
-                pluginId,
-                toolbarController,
-                pluginCategoryMenus,
-                pluginMenuItems);
-    }
-
-    @Override
-    public void registerNoteContextMenuItem(String pluginId, String label, java.util.function.Consumer<Note> action) {
-        pluginNoteContextMenuItems.computeIfAbsent(pluginId, k -> new ArrayList<>())
-                .add(new com.example.jylos.plugin.NoteContextMenuEntry(pluginId, label, action));
-    }
-
-    @Override
-    public void removePluginNoteContextMenuItems(String pluginId) {
-        pluginNoteContextMenuItems.remove(pluginId);
-    }
-
-    @Override
-    public List<com.example.jylos.plugin.NoteContextMenuEntry> getNoteContextMenuItems() {
-        List<com.example.jylos.plugin.NoteContextMenuEntry> all = new ArrayList<>();
-        for (List<com.example.jylos.plugin.NoteContextMenuEntry> entries : pluginNoteContextMenuItems.values()) {
-            all.addAll(entries);
-        }
-        return all;
-    }
-
-    @Override
-    public boolean isPluginEnabled(String pluginId) {
-        return pluginManager != null && pluginManager.isPluginEnabled(pluginId);
-    }
-
-
-    @Override
-    public void registerSidePanel(String pluginId, String panelId, String title, javafx.scene.Node content,
-            String icon) {
-        pluginUi.registerSidePanel(
-                pluginId,
-                panelId,
-                title,
-                content,
-                icon,
-                pluginPanelsContainer,
-                pluginPanels,
-                pluginPanelIds);
-    }
-
-    @Override
-    public void removeSidePanel(String pluginId, String panelId) {
-        pluginUi.removeSidePanel(
-                pluginId,
-                panelId,
-                pluginPanelsContainer,
-                pluginPanels,
-                pluginPanelIds);
-    }
-
-    @Override
-    public void removeAllSidePanels(String pluginId) {
-        pluginUi.removeAllSidePanels(
-                pluginId,
-                pluginPanelsContainer,
-                pluginPanels,
-                pluginPanelIds);
-    }
-
-    @Override
-    public void setPluginPanelsVisible(boolean visible) {
-        pluginUi.setPluginPanelsVisible(visible, pluginPanelsContainer);
-    }
-
-    @Override
-    public boolean isPluginPanelsVisible() {
-        return pluginUi.isPluginPanelsVisible(pluginPanelsContainer);
-    }
-
-    // ── ToolbarRegistry (plugin toolbar buttons) ─────────────────────────────
-
-    @Override
-    public void registerToolbarButton(String pluginId, String buttonId, String tooltip,
-            String iconLiteral, Runnable action) {
-        if (pluginId == null || buttonId == null || action == null) {
-            return;
-        }
-        HBox container = toolbarController != null ? toolbarController.getPluginToolbarContainer() : null;
-        if (container == null) {
-            return;
-        }
-        Platform.runLater(() -> {
-            Button button = new Button();
-            button.getStyleClass().add("toolbar-btn");
-            // Stable per-plugin id so re-registration replaces instead of duplicating.
-            button.setId("plugin-toolbar-" + pluginId + "-" + buttonId);
-            if (tooltip != null && !tooltip.isBlank()) {
-                button.setTooltip(new Tooltip(tooltip));
-            }
-            if (iconLiteral != null && !iconLiteral.isBlank()) {
-                org.kordamp.ikonli.javafx.FontIcon icon = new org.kordamp.ikonli.javafx.FontIcon(iconLiteral);
-                icon.getStyleClass().add("feather-icon");
-                icon.setIconSize(16);
-                button.setGraphic(icon);
-            } else {
-                button.setText(tooltip != null ? tooltip : buttonId);
-            }
-            button.setOnAction(e -> action.run());
-
-            container.getChildren().removeIf(n -> button.getId().equals(n.getId()));
-            container.getChildren().add(button);
-            pluginToolbarButtons.computeIfAbsent(pluginId, k -> new ArrayList<>()).add(button);
-            container.setVisible(true);
-            container.setManaged(true);
-        });
-    }
-
-    @Override
-    public void removeToolbarButtons(String pluginId) {
-        HBox container = toolbarController != null ? toolbarController.getPluginToolbarContainer() : null;
-        List<javafx.scene.Node> buttons = pluginToolbarButtons.remove(pluginId);
-        if (container == null || buttons == null) {
-            return;
-        }
-        Platform.runLater(() -> {
-            container.getChildren().removeAll(buttons);
-            boolean empty = container.getChildren().isEmpty();
-            container.setVisible(!empty);
-            container.setManaged(!empty);
-        });
-    }
-
-
-    public void registerStatusBarItem(String pluginId, String itemId, javafx.scene.Node content) {
-        pluginUi.registerStatusBarItem(
-                pluginId,
-                itemId,
-                content,
-                pluginStatusBarContainer,
-                pluginStatusBarItems,
-                pluginStatusBarItemIds);
-    }
-
-    public void removeStatusBarItem(String pluginId, String itemId) {
-        pluginUi.removeStatusBarItem(
-                pluginId,
-                itemId,
-                pluginStatusBarContainer,
-                pluginStatusBarItems,
-                pluginStatusBarItemIds);
-    }
-
-    public void updateStatusBarItem(String pluginId, String itemId, javafx.scene.Node content) {
-        pluginUi.updateStatusBarItem(pluginId, itemId, content, pluginStatusBarItems);
-    }
-
-    public void removeAllStatusBarItems(String pluginId) {
-        pluginUi.removeAllStatusBarItems(
-                pluginId,
-                pluginStatusBarContainer,
-                pluginStatusBarItems,
-                pluginStatusBarItemIds);
-    }
-
     public PluginManager getPluginManager() {
         return pluginManager;
     }
@@ -1532,7 +1402,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             return;
         }
         logger.warning("Unknown command: " + result.resolvedToken());
-        updateStatus(java.text.MessageFormat.format(getString("status.unknown_command"), result.resolvedToken()));
+        updateStatus(MessageFormat.format(getString("status.unknown_command"), result.resolvedToken()));
     }
 
     private boolean executePluginCommandToken(String token) {
@@ -1561,116 +1431,114 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 this::resolveCommandAction);
     }
 
+    /** Palette commands that are also menu or toolbar actions: one handler for both. */
+    private static final Map<String, SystemActionEvent.ActionType> COMMAND_ACTIONS = Map.ofEntries(
+            Map.entry("cmd.new_note", SystemActionEvent.ActionType.NEW_NOTE),
+            Map.entry("cmd.new_tab", SystemActionEvent.ActionType.NEW_TAB),
+            Map.entry("cmd.new_canvas", SystemActionEvent.ActionType.NEW_CANVAS),
+            Map.entry("cmd.new_kanban_board", SystemActionEvent.ActionType.NEW_KANBAN_BOARD),
+            Map.entry("cmd.new_folder", SystemActionEvent.ActionType.NEW_FOLDER),
+            Map.entry("cmd.save_all", SystemActionEvent.ActionType.SAVE_ALL),
+            Map.entry("cmd.import", SystemActionEvent.ActionType.IMPORT),
+            Map.entry("cmd.export", SystemActionEvent.ActionType.EXPORT),
+            Map.entry("cmd.undo", SystemActionEvent.ActionType.UNDO),
+            Map.entry("cmd.redo", SystemActionEvent.ActionType.REDO),
+            Map.entry("cmd.find", SystemActionEvent.ActionType.FIND),
+            Map.entry("cmd.replace", SystemActionEvent.ActionType.REPLACE),
+            Map.entry("cmd.cut", SystemActionEvent.ActionType.CUT),
+            Map.entry("cmd.copy", SystemActionEvent.ActionType.COPY),
+            Map.entry("cmd.paste", SystemActionEvent.ActionType.PASTE),
+            Map.entry("cmd.toggle_sidebar", SystemActionEvent.ActionType.TOGGLE_SIDEBAR),
+            Map.entry("cmd.toggle_info_panel", SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL),
+            Map.entry("cmd.toggle_reading_view", SystemActionEvent.ActionType.TOGGLE_READING_MODE),
+            Map.entry("cmd.toggle_source_mode", SystemActionEvent.ActionType.TOGGLE_SOURCE_MODE),
+            Map.entry("cmd.split_mode", SystemActionEvent.ActionType.SPLIT_VIEW_MODE),
+            Map.entry("cmd.zoom_in", SystemActionEvent.ActionType.ZOOM_IN),
+            Map.entry("cmd.zoom_out", SystemActionEvent.ActionType.ZOOM_OUT),
+            Map.entry("cmd.reset_zoom", SystemActionEvent.ActionType.RESET_ZOOM),
+            Map.entry("cmd.graph_view", SystemActionEvent.ActionType.GRAPH_VIEW),
+            Map.entry("cmd.knowledge_insights", SystemActionEvent.ActionType.KNOWLEDGE_INSIGHTS),
+            Map.entry("cmd.vault_cleanup", SystemActionEvent.ActionType.VAULT_CLEANUP),
+            Map.entry("cmd.import_obsidian_bookmarks", SystemActionEvent.ActionType.IMPORT_OBSIDIAN_BOOKMARKS),
+            Map.entry("cmd.import_obsidian_settings", SystemActionEvent.ActionType.IMPORT_OBSIDIAN_SETTINGS),
+            Map.entry("cmd.workspace_save", SystemActionEvent.ActionType.WORKSPACE_SAVE),
+            Map.entry("cmd.workspace_save_as", SystemActionEvent.ActionType.WORKSPACE_SAVE_AS),
+            Map.entry("cmd.workspace_open", SystemActionEvent.ActionType.WORKSPACE_OPEN),
+            Map.entry("cmd.workspace_manage", SystemActionEvent.ActionType.WORKSPACE_MANAGE),
+            Map.entry("cmd.git_panel", SystemActionEvent.ActionType.GIT_PANEL),
+            Map.entry("cmd.git_sync", SystemActionEvent.ActionType.GIT_SYNC),
+            Map.entry("cmd.git_commit_push", SystemActionEvent.ActionType.GIT_COMMIT_PUSH),
+            Map.entry("cmd.git_pull", SystemActionEvent.ActionType.GIT_PULL),
+            Map.entry("cmd.git_init", SystemActionEvent.ActionType.GIT_INIT),
+            Map.entry("cmd.git_add_remote", SystemActionEvent.ActionType.GIT_ADD_REMOTE),
+            Map.entry("cmd.quick_switcher", SystemActionEvent.ActionType.QUICK_SWITCHER),
+            Map.entry("cmd.daily_note", SystemActionEvent.ActionType.DAILY_NOTE),
+            Map.entry("cmd.new_from_template", SystemActionEvent.ActionType.NEW_FROM_TEMPLATE),
+            Map.entry("cmd.insert_template", SystemActionEvent.ActionType.INSERT_TEMPLATE),
+            Map.entry("cmd.insert_current_date", SystemActionEvent.ActionType.INSERT_CURRENT_DATE),
+            Map.entry("cmd.insert_current_time", SystemActionEvent.ActionType.INSERT_CURRENT_TIME),
+            Map.entry("cmd.export_vault", SystemActionEvent.ActionType.EXPORT_VAULT),
+            Map.entry("cmd.tag_manager", SystemActionEvent.ActionType.TAGS_MANAGER),
+            Map.entry("cmd.preferences", SystemActionEvent.ActionType.PREFERENCES),
+            Map.entry("cmd.toggle_favorite", SystemActionEvent.ActionType.TOGGLE_FAVORITE),
+            Map.entry("cmd.refresh", SystemActionEvent.ActionType.REFRESH_NOTES),
+            Map.entry("cmd.documentation", SystemActionEvent.ActionType.DOCUMENTATION),
+            Map.entry("cmd.about", SystemActionEvent.ActionType.ABOUT),
+            Map.entry("cmd.focus_mode", SystemActionEvent.ActionType.FOCUS_MODE),
+            Map.entry("cmd.kanban_view", SystemActionEvent.ActionType.KANBAN_VIEW),
+            Map.entry("cmd.note_history", SystemActionEvent.ActionType.NOTE_HISTORY),
+            Map.entry("cmd.toggle_private", SystemActionEvent.ActionType.PRIVATE_TOGGLE),
+            Map.entry("cmd.lock_notes", SystemActionEvent.ActionType.NOTES_LOCK),
+            Map.entry("cmd.unlock_notes", SystemActionEvent.ActionType.NOTES_UNLOCK),
+            Map.entry("cmd.navigate_back", SystemActionEvent.ActionType.NAVIGATE_BACK),
+            Map.entry("cmd.navigate_forward", SystemActionEvent.ActionType.NAVIGATE_FORWARD),
+            Map.entry("cmd.close_note", SystemActionEvent.ActionType.CLOSE_NOTE),
+            Map.entry("cmd.switch_storage", SystemActionEvent.ActionType.SWITCH_STORAGE),
+            Map.entry("cmd.check_updates", SystemActionEvent.ActionType.CHECK_UPDATES),
+            Map.entry("cmd.toggle_pin", SystemActionEvent.ActionType.TOGGLE_PIN),
+            Map.entry("cmd.toggle_notes_list", SystemActionEvent.ActionType.TOGGLE_NOTES_LIST),
+            Map.entry("cmd.toggle_tags", SystemActionEvent.ActionType.TOGGLE_TAGS),
+            Map.entry("cmd.toggle_format_toolbar", SystemActionEvent.ActionType.TOGGLE_FORMAT_TOOLBAR),
+            Map.entry("cmd.new_tag", SystemActionEvent.ActionType.NEW_TAG),
+            Map.entry("cmd.list_view", SystemActionEvent.ActionType.LIST_VIEW),
+            Map.entry("cmd.grid_view", SystemActionEvent.ActionType.GRID_VIEW),
+            Map.entry("cmd.switch_layout", SystemActionEvent.ActionType.SWITCH_LAYOUT),
+            Map.entry("cmd.editor_zoom_in", SystemActionEvent.ActionType.ZOOM_EDITOR_IN),
+            Map.entry("cmd.editor_zoom_out", SystemActionEvent.ActionType.ZOOM_EDITOR_OUT),
+            Map.entry("cmd.editor_reset_zoom", SystemActionEvent.ActionType.RESET_EDITOR_ZOOM),
+            Map.entry("cmd.import_obsidian", SystemActionEvent.ActionType.IMPORT_OBSIDIAN),
+            Map.entry("cmd.import_enex", SystemActionEvent.ActionType.IMPORT_ENEX));
+
     /** Returns the {@link Runnable} bound to {@code commandId}, or {@code null} for unknown IDs (used by the command registry). */
     private Runnable resolveCommandAction(String commandId) {
         if (commandId == null) {
             return null;
         }
+        // A palette command that is also a menu or toolbar action runs that action's handler.
+        initializeSystemActionHandlers();
+        SystemActionEvent.ActionType action = COMMAND_ACTIONS.get(commandId);
+        if (action != null) {
+            return systemActionHandlers.get(action);
+        }
+        SystemActionEvent.ActionType format = CommandRegistry.FORMAT_COMMANDS.get(commandId);
+        if (format != null) {
+            return () -> formatInEditor(format);
+        }
         switch (commandId) {
-            case "cmd.new_note":
-                return () -> handleNewNote(null);
-            case "cmd.new_canvas":
-                return () -> handleNewCanvas(null);
-            case "cmd.new_folder":
-                return () -> handleNewFolder(null);
             case "cmd.save":
                 return () -> handleSave(null);
-            case "cmd.save_all":
-                return () -> handleSaveAll(null);
-            case "cmd.import":
-                return () -> handleImport(null);
-            case "cmd.export":
-                return () -> handleExport(null);
             case "cmd.delete_note":
                 return () -> handleDelete(null);
-            case "cmd.undo":
-                return () -> handleUndo(null);
-            case "cmd.redo":
-                return () -> handleRedo(null);
-            case "cmd.find":
-                return () -> handleFind(null);
-            case "cmd.replace":
-                return () -> handleReplace(null);
-            case "cmd.cut":
-                return () -> handleCut(null);
-            case "cmd.copy":
-                return () -> handleCopy(null);
-            case "cmd.paste":
-                return () -> handlePaste(null);
-            case "cmd.bold":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.BOLD);
-            case "cmd.italic":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.ITALIC);
-            case "cmd.underline":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.UNDERLINE);
-            case "cmd.insert_link":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.LINK);
-            case "cmd.insert_rich_link":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.RICH_LINK);
-            case "cmd.insert_image":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.IMAGE);
-            case "cmd.insert_todo":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.TODO_LIST);
-            case "cmd.insert_list":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.NUMBERED_LIST);
-            case "cmd.toggle_sidebar":
-                return () -> handleToggleSidebar(null);
-            case "cmd.toggle_info_panel":
-                return () -> handleToggleRightPanel(null);
-            case "cmd.toggle_reading_view":
-                return () -> handleToggleReadingMode(null);
-            case "cmd.toggle_source_mode":
-                return this::handleToggleSourceMode;
-            case "cmd.split_mode":
-                return () -> handleSplitViewMode(null);
-            case "cmd.zoom_in":
-                return () -> handleZoomIn(null);
-            case "cmd.zoom_out":
-                return () -> handleZoomOut(null);
-            case "cmd.reset_zoom":
-                return () -> handleResetZoom(null);
             case "cmd.theme_light":
                 return () -> handleLightTheme(null);
             case "cmd.theme_dark":
                 return () -> handleDarkTheme(null);
             case "cmd.theme_system":
                 return () -> handleSystemTheme(null);
-            case "cmd.graph_view":
-                return overlaySupport::toggleGraph;
-            case "cmd.knowledge_insights":
-                return this::showKnowledgeInsights;
-            case "cmd.workspace_save":
-                return workspaceController::saveCurrent;
-            case "cmd.workspace_save_as":
-                return workspaceController::saveCurrentAs;
-            case "cmd.workspace_open":
-                return workspaceController::openWorkspaceDialog;
-            case "cmd.workspace_manage":
-                return workspaceController::manageDialog;
-            case "cmd.git_panel":
-                return gitController::showSyncPanel;
-            case "cmd.git_sync":
-                return gitController::sync;
-            case "cmd.git_commit_push":
-                return gitController::commitPush;
-            case "cmd.git_pull":
-                return gitController::pull;
-            case "cmd.git_init":
-                return gitController::init;
-            case "cmd.git_add_remote":
-                return gitController::addRemote;
-            case "cmd.quick_switcher":
-                return this::showQuickSwitcher;
             case "cmd.global_search":
                 return () -> handleSearch(null);
-            case "cmd.daily_note":
-                return this::handleDailyNote;
-            case "cmd.new_from_template":
-                return this::handleNewFromTemplate;
-            case "cmd.export_vault":
-                return this::handleExportVault;
             case "cmd.goto_all_notes":
-                return this::goToAllNotes;
+                return this::loadAllNotes;
             case "cmd.goto_favorites":
                 return () -> {
                     if (sidebarController != null) {
@@ -1683,78 +1551,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                         sidebarController.loadRecentNotes();
                     }
                 };
-            case "cmd.tag_manager":
-                return () -> handleTagsManager(null);
-            case "cmd.preferences":
-                return () -> handlePreferences(null);
-            case "cmd.toggle_favorite":
-                return () -> handleToggleFavorite(null);
-            case "cmd.refresh":
-                return () -> handleRefresh(null);
             case "cmd.plugins.manage":
                 return this::showPluginManager;
             case "cmd.keyboard_shortcuts":
                 return () -> handleKeyboardShortcuts(null);
-            case "cmd.documentation":
-                return () -> handleDocumentation(null);
-            case "cmd.about":
-                return () -> handleAbout(null);
-            case "cmd.focus_mode":
-                return this::handleFocusMode;
-            case "cmd.kanban_view":
-                return overlaySupport::toggleKanban;
-            case "cmd.note_history":
-                return historySupport::showHistoryDialog;
-            case "cmd.toggle_private":
-                return this::handleTogglePrivate;
-            case "cmd.lock_notes":
-                return this::handleLockNotes;
-            case "cmd.unlock_notes":
-                return this::handleUnlockNotes;
-            case "cmd.navigate_back":
-                return this::navigateBack;
-            case "cmd.navigate_forward":
-                return this::navigateForward;
-            case "cmd.close_note":
-                return this::handleCloseNote;
-            case "cmd.switch_storage":
-                return this::handleSwitchStorage;
-            case "cmd.check_updates":
-                return this::checkForUpdatesManually;
-            case "cmd.toggle_pin":
-                return () -> handleTogglePin(null);
-            case "cmd.toggle_notes_list":
-                return () -> handleToggleNotesPanel(null);
-            case "cmd.toggle_tags":
-                return () -> handleToggleTags(null);
-            case "cmd.new_tag":
-                return () -> handleNewTag(null);
-            case "cmd.list_view":
-                return () -> handleListView(null);
-            case "cmd.grid_view":
-                return () -> handleGridView(null);
-            case "cmd.switch_layout":
-                return () -> handleViewLayoutSwitch(null);
-            case "cmd.editor_zoom_in":
-                return () -> handleEditorZoomIn(null);
-            case "cmd.editor_zoom_out":
-                return () -> handleEditorZoomOut(null);
-            case "cmd.editor_reset_zoom":
-                return () -> handleEditorResetZoom(null);
-            case "cmd.import_obsidian":
-                return importSupport::importObsidianVault;
-            case "cmd.import_enex":
-                return importSupport::importEnex;
-            case "cmd.strike":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.STRIKE);
-            case "cmd.highlight":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.HIGHLIGHT);
-            case "cmd.quote":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.QUOTE);
-            case "cmd.code":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.CODE);
-            case "cmd.insert_bullet_list":
-                return () -> publishEditorAction(SystemActionEvent.ActionType.BULLET_LIST);
             default:
                 return null;
         }
@@ -1777,8 +1577,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         systemActionHandlers.put(SystemActionEvent.ActionType.SAVE_ALL, () -> handleSaveAll(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.IMPORT, () -> handleImport(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.EXPORT, () -> handleExport(null));
-        systemActionHandlers.put(SystemActionEvent.ActionType.DAILY_NOTE, this::handleDailyNote);
-        systemActionHandlers.put(SystemActionEvent.ActionType.NEW_FROM_TEMPLATE, this::handleNewFromTemplate);
+        noteCreationSupport.register(systemActionHandlers);
         systemActionHandlers.put(SystemActionEvent.ActionType.EXPORT_VAULT, this::handleExportVault);
         systemActionHandlers.put(SystemActionEvent.ActionType.EXIT, () -> handleExit(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.UNDO, () -> handleUndo(null));
@@ -1804,7 +1603,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         systemActionHandlers.put(SystemActionEvent.ActionType.PREFERENCES, () -> handlePreferences(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.SWITCH_STORAGE, this::handleSwitchStorage);
         systemActionHandlers.put(SystemActionEvent.ActionType.DOCUMENTATION, () -> handleDocumentation(null));
-        systemActionHandlers.put(SystemActionEvent.ActionType.CHECK_UPDATES, this::checkForUpdatesManually);
+        systemActionHandlers.put(SystemActionEvent.ActionType.CHECK_UPDATES, updateNotifications::checkManually);
         systemActionHandlers.put(SystemActionEvent.ActionType.ABOUT, () -> handleAbout(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.SORT_FOLDERS, () -> sidebarController.handleSortFolders(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.EXPAND_ALL_FOLDERS,
@@ -1814,28 +1613,23 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         systemActionHandlers.put(SystemActionEvent.ActionType.SORT_TRASH, () -> sidebarController.handleSortTrash(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.EMPTY_TRASH, () -> sidebarController.handleEmptyTrash(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.REFRESH_NOTES, () -> handleRefresh(null));
-        systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_TAGS, () -> handleToggleTags(null));
-        systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_READING_MODE, () -> handleToggleReadingMode(null));
+        EditorCommandSupport.register(systemActionHandlers, () -> editorController);
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_SOURCE_MODE, this::handleToggleSourceMode);
-        systemActionHandlers.put(SystemActionEvent.ActionType.SPLIT_VIEW_MODE, () -> handleSplitViewMode(null));
+        systemActionHandlers.put(SystemActionEvent.ActionType.SPLIT_VIEW_MODE, this::handleSplitViewMode);
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_PIN, () -> handleTogglePin(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_FAVORITE, () -> handleToggleFavorite(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL, () -> handleToggleRightPanel(null));
-        systemActionHandlers.put(SystemActionEvent.ActionType.NAVIGATE_BACK,    this::navigateBack);
-        systemActionHandlers.put(SystemActionEvent.ActionType.NAVIGATE_FORWARD, this::navigateForward);
-        systemActionHandlers.put(SystemActionEvent.ActionType.GRAPH_VIEW, overlaySupport::toggleGraph);
+        tabsSupport.register(systemActionHandlers);
         systemActionHandlers.put(SystemActionEvent.ActionType.KNOWLEDGE_INSIGHTS, this::showKnowledgeInsights);
-        systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_SAVE, workspaceController::saveCurrent);
-        systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_SAVE_AS, workspaceController::saveCurrentAs);
-        systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_OPEN, workspaceController::openWorkspaceDialog);
-        systemActionHandlers.put(SystemActionEvent.ActionType.WORKSPACE_MANAGE, workspaceController::manageDialog);
+        workspaceController.register(systemActionHandlers);
+        vaultCleanup.register(systemActionHandlers, () -> noteService, this::getString, this::updateStatus, this::getMainWindow);
+        obsidian.register(systemActionHandlers, () -> noteService, () -> vaultSettings, this::getString,
+                this::updateStatus, () -> handleRefresh(null), this::getMainWindow);
         systemActionHandlers.put(SystemActionEvent.ActionType.FOCUS_MODE, this::handleFocusMode);
-        systemActionHandlers.put(SystemActionEvent.ActionType.KANBAN_VIEW, overlaySupport::toggleKanban);
-        systemActionHandlers.put(SystemActionEvent.ActionType.PRIVATE_TOGGLE, this::handleTogglePrivate);
-        systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_UNLOCK, this::handleUnlockNotes);
-        systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_LOCK, this::handleLockNotes);
-        systemActionHandlers.put(SystemActionEvent.ActionType.IMPORT_OBSIDIAN, importSupport::importObsidianVault);
-        systemActionHandlers.put(SystemActionEvent.ActionType.IMPORT_ENEX, importSupport::importEnex);
+        systemActionHandlers.put(SystemActionEvent.ActionType.PRIVATE_TOGGLE, () -> privacySupport.toggle(getCurrentNote()));
+        systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_UNLOCK, privacySupport::unlockAll);
+        systemActionHandlers.put(SystemActionEvent.ActionType.NOTES_LOCK, privacySupport::lockAll);
+        importSupport.register(systemActionHandlers);
         systemActionHandlers.put(SystemActionEvent.ActionType.NOTE_HISTORY, historySupport::showHistoryDialog);
         systemActionHandlers.put(SystemActionEvent.ActionType.QUICK_SWITCHER, this::showQuickSwitcher);
         systemActionHandlers.put(SystemActionEvent.ActionType.CLOSE_NOTE, this::handleCloseNote);
@@ -1843,74 +1637,28 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         systemActionHandlers.put(SystemActionEvent.ActionType.GIT_SYNC, gitController::sync);
         systemActionHandlers.put(SystemActionEvent.ActionType.GIT_COMMIT_PUSH, gitController::commitPush);
         systemActionHandlers.put(SystemActionEvent.ActionType.GIT_PULL, gitController::pull);
+        systemActionHandlers.put(SystemActionEvent.ActionType.GIT_HISTORY, gitController::showHistoryDialog);
         systemActionHandlers.put(SystemActionEvent.ActionType.GIT_INIT, gitController::init);
         systemActionHandlers.put(SystemActionEvent.ActionType.GIT_ADD_REMOTE, gitController::addRemote);
     }
 
-    // ------------------------------------------------------------------
-    // Navigation history
-    // ------------------------------------------------------------------
-
-    /** Pops the most recent entry from the back-stack, pushes the current note onto the forward-stack, and loads the target note. */
-    private void navigateBack() {
-        if (navBackStack.isEmpty()) return;
-        String currentId = (getCurrentNote() != null) ? getCurrentNote().getId() : null;
-        String targetId  = navBackStack.pollLast();
-        if (currentId != null) {
-            if (navForwardStack.size() >= NAV_MAX_HISTORY) navForwardStack.pollFirst();
-            navForwardStack.addLast(currentId);
-        }
-        loadNoteById(targetId);
-    }
-
-    /** Pops the most recent entry from the forward-stack, pushes the current note onto the back-stack, and loads the target note. */
-    private void navigateForward() {
-        if (navForwardStack.isEmpty()) return;
-        String currentId = (getCurrentNote() != null) ? getCurrentNote().getId() : null;
-        String targetId  = navForwardStack.pollLast();
-        if (currentId != null) {
-            if (navBackStack.size() >= NAV_MAX_HISTORY) navBackStack.pollFirst();
-            navBackStack.addLast(currentId);
-        }
-        loadNoteById(targetId);
-    }
-
-    /** Loads the note identified by {@code noteId} into the editor without recording a new navigation event. */
-    private void loadNoteById(String noteId) {
-        if (noteId == null || noteService == null) return;
-        navJumping = true;
-        try {
-            noteService.getNoteById(noteId).ifPresent(note -> {
-                loadNoteInEditor(note);
-                if (notesListView != null) notesListView.getSelectionModel().select(note);
-            });
-        } finally {
-            navJumping = false;
-            updateNavigationButtons();
-        }
-    }
-
-    /** Pushes {@code previousNoteId} onto the back-stack and clears the forward-stack, unless a programmatic jump is in progress. */
-    private void recordNavigation(String previousNoteId) {
-        if (navJumping || previousNoteId == null) return;
-        if (navBackStack.size() >= NAV_MAX_HISTORY) navBackStack.pollFirst();
-        navBackStack.addLast(previousNoteId);
-        navForwardStack.clear();
-        updateNavigationButtons();
-    }
+    // ── Navigation history (per tab, in TabsSupport) ─────────────────────────
 
     /** Syncs the back/forward toolbar-button states to reflect whether the respective navigation stacks are non-empty. */
     private void updateNavigationButtons() {
+        boolean back = editorTabs != null && editorTabs.canGoBack();
+        boolean forward = editorTabs != null && editorTabs.canGoForward();
         if (editorController != null) {
-            editorController.updateNavigationState(!navBackStack.isEmpty(), !navForwardStack.isEmpty());
+            editorController.updateNavigationState(back, forward);
+        }
+        if (graphViewController != null) {
+            graphViewController.updateNavigationState(back, forward);
         }
     }
 
-    // ------------------------------------------------------------------
-
     private Stage getPrimaryStage() {
         if (mainSplitPane != null && mainSplitPane.getScene() != null) {
-            javafx.stage.Window window = mainSplitPane.getScene().getWindow();
+            Window window = mainSplitPane.getScene().getWindow();
             if (window instanceof Stage stage) {
                 return stage;
             }
@@ -1939,7 +1687,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             return;
         }
         notesListController.initializeNotesGrid();
-        applyViewMode();
+        refreshEditorIndicators();
         applyEditorControlsPresentation();
     }
 
@@ -1981,21 +1729,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         uiInitialization.updateToolbarOverflow(toolbarController, width);
     }
 
-    private void applyViewMode() {
-        uiLayout.applyViewMode(
-                currentViewMode,
-                editorController.getEditorPreviewSplitPane(),
-                editorController.getEditorPane(),
-                editorController.getPreviewPane(),
-                this::refreshEditorPreview);
-        // "Read" mode (preview-only) makes the properties panel read-only with
-        // clickable internal links; editor/split modes keep it editable.
-        if (editorController != null) {
-            editorController.setReadOnlyView(currentViewMode == UiLayout.ViewMode.PREVIEW_ONLY);
-            editorController.updateReadingModeControl(currentViewMode == UiLayout.ViewMode.EDITOR_ONLY);
-        }
-    }
-
     private void applyEditorControlsPresentation() {
         if (editorController == null) {
             return;
@@ -2003,39 +1736,25 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         editorController.applyHeaderControlsPresentation();
     }
 
-    @FXML
-    private void handleToggleReadingMode(ActionEvent event) {
-        currentViewMode = currentViewMode == UiLayout.ViewMode.EDITOR_ONLY
-                ? UiLayout.ViewMode.PREVIEW_ONLY
-                : UiLayout.ViewMode.EDITOR_ONLY;
-        applyViewMode();
-        updateStatus(getString(currentViewMode == UiLayout.ViewMode.EDITOR_ONLY
-                ? "status.mode_editor"
-                : "status.mode_preview"));
-    }
-
-    @FXML
-    private void handleSplitViewMode(ActionEvent event) {
-        currentViewMode = UiLayout.ViewMode.SPLIT;
-        applyViewMode();
-        updateStatus(getString("status.mode_split"));
+    private void handleSplitViewMode() {
+        if (editorController != null) {
+            editorController.setViewMode(EditorController.ViewMode.SPLIT);
+            updateStatus(getString("status.mode_split"));
+        }
     }
 
     /** Makes source-mode changes visible when invoked from the reading-only surface. */
     private void handleToggleSourceMode() {
-        if (currentViewMode == UiLayout.ViewMode.PREVIEW_ONLY) {
-            currentViewMode = UiLayout.ViewMode.EDITOR_ONLY;
-            applyViewMode();
+        if (editorController.getViewMode() == EditorController.ViewMode.PREVIEW_ONLY) {
+            editorController.setViewMode(EditorController.ViewMode.EDITOR_ONLY);
         }
         editorController.toggleLivePreview();
+        refreshEditorIndicators();
     }
 
     @FXML
     private void handleToggleRightPanel(ActionEvent event) {
-        uiLayout.toggleRightPanel(centerRightSplitPane, rightPanel,
-                toolbarController != null ? toolbarController.getRightPanelToggleBtn() : null,
-                getCurrentNote(),
-                () -> updateNoteMetadata(getCurrentNote()));
+        uiLayout.toggleRightPanel(getCurrentNote(), () -> updateNoteMetadata(getCurrentNote()));
     }
 
     private void initializeRightPanelSections() {
@@ -2061,62 +1780,43 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
      * for an overlay it can no longer reach.
      */
     private void updateRightPanelContext() {
-        boolean graph = overlaySupport.isGraphVisible();
-        boolean editorContext = !graph && !overlaySupport.isKanbanVisible();
-        setSectionShown(noteInfoSection, editorContext);
-        setSectionShown(backlinksSection, editorContext);
-        setSectionShown(graphInfoSection, graph);
+        boolean graph = tabsSupport.isGraphVisible();
+        boolean editorContext = !graph;
+        UiNodes.show(noteInfoSection, editorContext);
+        UiNodes.show(backlinksSection, editorContext);
+        UiNodes.show(graphInfoSection, graph);
     }
 
-    private static void setSectionShown(VBox section, boolean shown) {
-        if (section != null) {
-            section.setVisible(shown);
-            section.setManaged(shown);
-        }
-    }
 
     /** Refreshes the graph baseline section's node/edge counts (graph rebuild callback). */
     private void updateGraphInfoSection(GraphData data) {
         if (graphNodeCountLabel != null) {
-            graphNodeCountLabel.setText(java.text.MessageFormat.format(
+            graphNodeCountLabel.setText(MessageFormat.format(
                     getString("info.graph_nodes"), data != null ? data.nodes().size() : 0));
         }
         if (graphEdgeCountLabel != null) {
-            graphEdgeCountLabel.setText(java.text.MessageFormat.format(
+            graphEdgeCountLabel.setText(MessageFormat.format(
                     getString("info.graph_edges"), data != null ? data.edges().size() : 0));
         }
     }
 
     private void initializeRightPanelVisibility() {
-        if (rightPanel != null) {
-            rightPanel.setVisible(true);
-            rightPanel.setManaged(true);
-            rightPanel.setMinWidth(0);
-            rightPanel.setMaxWidth(0);
-            rightPanel.setPrefWidth(0);
-        }
-        if (toolbarController != null && toolbarController.getRightPanelToggleBtn() != null) {
-            toolbarController.getRightPanelToggleBtn().setSelected(false);
-        }
+        uiLayout.collapseRightPanel();
         updateRightPanelContext();
     }
 
-    /** Resets the filter state and asks {@link NotesListController} to display every note. */
+    /**
+     * Shows every note, unfiltered: resets the folder filter and asks {@link NotesListController}
+     * for every note (the sidebar has no "All Notes" row; the vault root with "show subfolders
+     * recursively" covers it).
+     */
     private void loadAllNotes() {
         if (notesListController != null) {
             currentFolder = null;
-            currentTag = null;
-            currentFilterType = "all";
             notesListController.loadAllNotes();
         }
     }
 
-    /** Shows every note, unfiltered — the sidebar no longer has a dedicated "All Notes"
-     *  row to select for this (selecting the vault root with the notes panel's "show
-     *  subfolders recursively" toggle on now covers that), so this loads directly. */
-    private void goToAllNotes() {
-        loadAllNotes();
-    }
 
     /** Updates the active folder filter and ensures the notes panel is visible, expanding collapsed splits as needed. */
     private void handleFolderSelection(Folder folder) {
@@ -2124,36 +1824,17 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             if (folder == null) {
                 return;
             }
+            if (uiLayout.isExplorer()) {
+                // The Explorer tree browses folders itself; the notes panel only shows results.
+                currentFolder = folder;
+                return;
+            }
             currentFolder = folder;
-            currentTag = null;
-            currentFilterType = "folder";
             if (notesListController != null) {
                 notesListController.loadNotesForFolder(folder);
             }
 
-            if (notesPanel == null) {
-                return;
-            }
-            if (isStackedLayout) {
-                double[] positions = navSplitPane != null ? navSplitPane.getDividerPositions() : new double[0];
-                boolean dividerCollapsed = positions != null && positions.length > 0 && positions[0] > 0.95;
-                if (notesPanel.getMaxWidth() < 10 || dividerCollapsed) {
-                    notesPanel.setMinWidth(180);
-                    notesPanel.setMaxWidth(Double.MAX_VALUE);
-                    if (navSplitPane != null) {
-                        navSplitPane.setDividerPositions(0.5);
-                    }
-                }
-            } else if (notesPanel.getMaxWidth() < 10) {
-                notesPanel.setMinWidth(180);
-                notesPanel.setMaxWidth(Double.MAX_VALUE);
-                if (contentSplitPane != null) {
-                    contentSplitPane.setDividerPositions(0.25);
-                }
-            }
-            if (toolbarController != null && toolbarController.getNotesPanelToggleBtn() != null) {
-                toolbarController.getNotesPanelToggleBtn().setSelected(true);
-            }
+            uiLayout.revealNotesPanel();
         } catch (Exception e) {
             logger.severe("Failed to handle folder selection "
                     + (folder != null ? folder.getTitle() : "null") + ": " + e.getMessage());
@@ -2164,7 +1845,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private void handleCloseNote() {
         // With tabs, "close note" closes the active tab (and activates a neighbour).
         if (editorTabs != null && editorTabs.getActiveId() != null) {
-            closeTab(editorTabs.getActiveId());
+            tabsSupport.close(editorTabs.getActiveId());
             return;
         }
         if (!confirmLeaveCurrent()) {
@@ -2176,6 +1857,35 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     /** Delegates note word/character count display to {@link StatusBarSupport}. */
     private void updateNoteStats(Note note) {
         statusBarSupport.updateNoteStats(note);
+        refreshEditorIndicators();
+    }
+
+    /** Shows the open note's save state and the editor mode in the status bar. */
+    private void refreshEditorIndicators() {
+        boolean livePreview = editorController == null || editorController.isLivePreviewEnabled();
+        // A view's tab (the graph) shows no note, even with one loaded behind it.
+        statusBarSupport.updateEditorIndicators(getCurrentNote() != null && !tabsSupport.isViewActive(), isModified(),
+                StatusBarSupport.EditorMode.of(editorController != null ? editorController.getViewMode()
+                        : EditorController.ViewMode.EDITOR_ONLY, livePreview), autosaveEnabled, autosaveIdleMs);
+    }
+
+    /** Switches the editor to the mode picked from the status bar. */
+    private void applyEditorMode(StatusBarSupport.EditorMode mode) {
+        if (editorController == null || mode == null) {
+            return;
+        }
+        switch (mode) {
+            case READING -> editorController.setViewMode(EditorController.ViewMode.PREVIEW_ONLY);
+            case SPLIT -> editorController.setViewMode(EditorController.ViewMode.SPLIT);
+            case LIVE_PREVIEW, SOURCE -> {
+                editorController.setViewMode(EditorController.ViewMode.EDITOR_ONLY);
+                if (editorController.isLivePreviewEnabled() != (mode == StatusBarSupport.EditorMode.LIVE_PREVIEW)) {
+                    editorController.toggleLivePreview();
+                }
+            }
+        }
+        // Switching Live Preview keeps the view mode, so nothing else redraws the indicator.
+        refreshEditorIndicators();
     }
 
     /** Updates the storage-type indicator label in the status bar. */
@@ -2185,38 +1895,55 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     /** Click on the storage indicator → open the storage switcher (Obsidian-style). */
     @FXML
-    private void handleStorageClick(javafx.scene.input.MouseEvent event) {
+    private void handleStorageClick(MouseEvent event) {
         handleSwitchStorage();
     }
 
-    // ------------------------------------------------------------------
-    // Git vault synchronization — logic lives in GitController; these are the
-    // FXML-bound status-bar click handlers, which simply delegate.
-    // ------------------------------------------------------------------
+    // ── Git vault synchronization ───────────────────────────────────────
+    // The logic lives in GitController; these FXML status-bar click handlers delegate.
 
-    @FXML private void handleGitStatusClick(javafx.scene.input.MouseEvent event)  {
-        gitController.showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget.BRANCH);
+    @FXML private void handleGitStatusClick(MouseEvent event)  {
+        // Right click opens the entry's context menu (changes, commit, history), not the panel.
+        if (event != null && event.getButton() != MouseButton.PRIMARY) {
+            return;
+        }
+        gitController.showSyncPanel(GitSyncPanel.FocusTarget.BRANCH);
     }
-    @FXML private void handleGitInitClick(javafx.scene.input.MouseEvent event)    { gitController.init(); }
-    @FXML private void handleGitRemoteClick(javafx.scene.input.MouseEvent event)  { gitController.addRemote(); }
-    @FXML private void handleGitCommitClick(javafx.scene.input.MouseEvent event)  {
-        gitController.showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget.COMMIT);
+    @FXML private void handleGitInitClick(MouseEvent event)    { gitController.init(); }
+    @FXML private void handleGitRemoteClick(MouseEvent event)  { gitController.addRemote(); }
+    @FXML private void handleGitCommitClick(MouseEvent event)  {
+        gitController.showSyncPanel(GitSyncPanel.FocusTarget.COMMIT);
     }
-    @FXML private void handleGitChangesClick(javafx.scene.input.MouseEvent event) {
-        gitController.showSyncPanel(com.example.jylos.ui.components.GitSyncPanel.FocusTarget.CHANGES);
+    @FXML private void handleGitChangesClick(MouseEvent event) {
+        gitController.showSyncPanel(GitSyncPanel.FocusTarget.CHANGES);
     }
-    @FXML private void handleGitHistoryClick(javafx.scene.input.MouseEvent event) { gitController.showHistoryDialog(); }
+    @FXML private void handleGitHistoryClick(MouseEvent event) { gitController.showHistoryDialog(); }
 
     /** Applies the active theme stylesheet to a dialog and sets its owner window. */
     private void styleDialog(Dialog<?> dialog) {
-        javafx.scene.Scene scene = mainSplitPane != null ? mainSplitPane.getScene() : null;
+        Scene scene = mainSplitPane != null ? mainSplitPane.getScene() : null;
         if (scene != null) {
             dialog.initOwner(scene.getWindow());
         }
-        com.example.jylos.ui.UiDialogs.apply(dialog);
+        UiDialogs.apply(dialog);
     }
 
+    /** Opens {@code note} in the active tab (or activates its tab when it is already open). */
     void loadNoteInEditor(Note note) {
+        loadNoteInEditor(note, EditorTabsModel.OpenTarget.CURRENT_TAB);
+    }
+
+    /** Opens {@code note} in a new tab right after the active one (Cmd/Ctrl+click, middle click). */
+    void openNoteInNewTab(Note note) {
+        loadNoteInEditor(note, EditorTabsModel.OpenTarget.NEW_TAB);
+    }
+
+    /**
+     * Loads {@code note} into the editor. {@code target} decides its tab: the active tab's
+     * note is replaced ({@code CURRENT_TAB}) or a tab is added ({@code NEW_TAB}); a note
+     * that already has a tab just activates it. See {@link EditorTabsModel}.
+     */
+    void loadNoteInEditor(Note note, EditorTabsModel.OpenTarget target) {
         if (note != null && note.getId() != null && noteService != null) {
             note = noteService.getNoteById(note.getId()).orElse(note);
         }
@@ -2228,12 +1955,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                 note = noteService.getNoteById(note.getId()).orElse(note);
             }
         }
-        // Record the note we're leaving in the back-navigation stack.
         Note leaving = getCurrentNote();
-        if (leaving != null && note != null && !leaving.getId().equals(note.getId())) {
-            recordNavigation(leaving.getId());
-        }
-
         if (isModified() && leaving != null && !confirmLeaveCurrent()) {
             return;
         }
@@ -2252,9 +1974,12 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
 
         if (editorTabs != null) {
-            editorTabs.ensureTab(activeNote.getId(), activeNote.getTitle());
-            editorTabs.setActive(activeNote.getId());
+            editorTabs.open(activeNote.getId(), activeNote.getTitle(), NoteIcons.tabIconFor(activeNote), target);
             editorTabs.setDirty(activeNote.getId(), false);
+        }
+        tabsSupport.noteShown();
+        if (sidebarController != null) {
+            sidebarController.setExplorerActiveNote(activeNote.getId());
         }
 
         publishNoteSelected(activeNote);
@@ -2265,7 +1990,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         // Attachments (PDF/images) show a native viewer — skip the Markdown-only work
         // (tags, preview render, word stats, favorite/pin toggles).
         if (editorController.isViewingAttachment()) {
-            updateStatus(java.text.MessageFormat.format(getString("status.note_loaded"), activeNote.getTitle()));
+            clearStatusOnNoteOpen();
             return;
         }
 
@@ -2274,12 +1999,19 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         editorController.ensurePreviewWebViewThemeClass();
         refreshEditorPreview();
 
-        updateStatus(java.text.MessageFormat.format(getString("status.note_loaded"), activeNote.getTitle()));
+        clearStatusOnNoteOpen();
     }
 
-    // ============================================================
-    // Editor tabs (multiple open notes)
-    // ============================================================
+    /**
+     * Opening a note clears the status message instead of saying "Note loaded: title": the
+     * title is already in the tab, the title field and the path above the editor, and the old
+     * message (a search, an error) no longer applies to what is on screen.
+     */
+    private void clearStatusOnNoteOpen() {
+        updateStatus("");
+    }
+
+    // ── Editor tabs (multiple open notes) ────────────────────────────────────
 
     /** Loads the note with {@code noteId} into the editor (used by tab selection). */
     private void openNoteInTab(String noteId) {
@@ -2287,31 +2019,6 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             return;
         }
         noteService.getNoteById(noteId).ifPresent(this::loadNoteInEditor);
-    }
-
-    /**
-     * Closes a tab. For the active tab this prompts to save unsaved changes, then
-     * activates a neighbouring tab (or empties the editor when none remain). Non-active
-     * tabs are always clean in the single-editor model, so they close immediately.
-     */
-    private void closeTab(String noteId) {
-        if (editorTabs == null || noteId == null) {
-            return;
-        }
-        if (!noteId.equals(editorTabs.getActiveId())) {
-            editorTabs.removeTab(noteId);
-            return;
-        }
-        if (!confirmLeaveCurrent()) {
-            return; // user cancelled
-        }
-        String neighbor = editorTabs.neighborOf(noteId);
-        editorTabs.removeTab(noteId);
-        if (neighbor != null) {
-            openNoteInTab(neighbor); // editor is clean now → no second save prompt
-        } else {
-            clearEditorToEmpty();
-        }
     }
 
     /**
@@ -2337,6 +2044,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
 
     /** Resets the editor to the empty state (no note open). */
     private void clearEditorToEmpty() {
+        if (sidebarController != null) {
+            sidebarController.setExplorerActiveNote(null);
+        }
         if (editorController != null) {
             editorController.loadNote(null);
             editorController.clearPreview();
@@ -2361,6 +2071,35 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     }
 
     /** Recomputes (off the FX thread) and renders the backlinks for {@code note}. */
+    /**
+     * Follows a link clicked in the editor or the reading view: opens the note it names
+     * (resolved by path from the open note; a link with only {@code #section} stays in the
+     * open note), in a new tab when {@code newTab} (Cmd/Ctrl+click), and, when the link names
+     * a heading or a block, scrolls there.
+     */
+    private void openLink(String link, boolean newTab) {
+        Note current = getCurrentNote();
+        String subpath = WikiLinkResolver.subpathOf(link);
+        boolean sameNote = link != null && link.strip().startsWith("#") && current != null;
+        Optional<Note> target = sameNote ? Optional.of(current)
+                : noteService.resolveLink(link, current != null ? current.getId() : null);
+        if (target.isEmpty()) {
+            updateStatus("Note not found: " + link);
+            return;
+        }
+        if (newTab && !sameNote) {
+            openNoteInNewTab(target.get());
+        } else if (!sameNote) {
+            handleUiNoteOpenRequest(target.get());
+        }
+        Note opened = getCurrentNote();
+        if (subpath == null || opened == null || !Objects.equals(opened.getId(), target.get().getId())) {
+            return;
+        }
+        NoteAnchors.locate(opened.getContent(), subpath)
+                .ifPresent(anchor -> editorController.navigateToHeading(anchor.offset(), anchor.elementId()));
+    }
+
     private void refreshBacklinks(Note note) {
         backlinksSupport.refresh(note);
     }
@@ -2370,18 +2109,19 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             return;
         }
         currentFolder = null;
-        currentTag = new Tag(tagName);
-        currentFilterType = "tag";
         if (notesListController != null) {
             notesListController.loadNotesForTag(tagName);
         }
+        showResultsPanel();
     }
 
     /** Sets the filter type to "search" and delegates full-text search to {@link NotesListController}. */
     private void performSearch(String searchText) {
         if (notesListController != null) {
-            currentFilterType = "search";
             notesListController.performSearch(searchText);
+            if (searchText != null && !searchText.isBlank()) {
+                showResultsPanel();
+            }
         }
     }
 
@@ -2407,152 +2147,13 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         updateNoteMetadata(getCurrentNote());
     }
 
-    @Override
-    public void registerPreviewEnhancer(String pluginId, PreviewEnhancer enhancer) {
-        if (editorController != null) {
-            editorController.registerPreviewEnhancer(pluginId, enhancer);
-        }
-    }
-
-    @Override
-    public void unregisterPreviewEnhancer(String pluginId) {
-        if (editorController != null) {
-            editorController.unregisterPreviewEnhancer(pluginId);
-        }
-    }
-
-    @Override
-    public void registerEditorBlockRenderer(String pluginId, String language,
-            com.example.jylos.plugin.EditorBlockRenderer renderer) {
-        if (editorController != null) {
-            editorController.registerEditorBlockRenderer(pluginId, language, renderer);
-        }
-    }
-
-    @Override
-    public void unregisterEditorBlockRenderers(String pluginId) {
-        if (editorController != null) {
-            editorController.unregisterEditorBlockRenderers(pluginId);
-        }
-    }
-
     void updateStatus(String message) {
-        statusLabel.setText(message);
-        // The label truncates with an ellipsis when narrow; expose the full text on hover.
-        statusLabel.setTooltip(message != null && message.length() > 40 ? new Tooltip(message) : null);
-    }
-
-    private void checkForUpdatesAtStartup() {
-        updateChecker.checkForUpdateAsync(VersionConfig.getVersion(), updateCheckExecutor)
-                .thenAccept(optionalRelease -> optionalRelease.ifPresent(release ->
-                        Platform.runLater(() -> showUpdateNotification(release))));
-    }
-
-    private void checkForUpdatesManually() {
-        updateStatus(getString("update.checking"));
-        updateChecker.checkLatestAsync(VersionConfig.getVersion(), updateCheckExecutor)
-                .thenAccept(result -> Platform.runLater(() -> {
-                    if (result.failed()) {
-                        updateStatus(getString("update.failed"));
-                    } else if (result.release().isPresent()) {
-                        showUpdateNotification(result.release().get());
-                    } else {
-                        updateStatus(getString("update.none"));
-                    }
-                }));
-    }
-
-    private void showUpdateNotification(UpdateChecker.ReleaseInfo release) {
-        if (centerStack == null || release == null) {
-            return;
-        }
-        availableUpdate = release;
-        showUpdateIndicator(release);
-        if (updateToast != null) {
-            centerStack.getChildren().remove(updateToast);
-        }
-
-        HBox toast = new HBox(12);
-        toast.getStyleClass().add("update-toast");
-        toast.setAlignment(Pos.CENTER_LEFT);
-        toast.setMaxWidth(420);
-        toast.setMaxHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
-        toast.setMinHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
-        toast.setPickOnBounds(false);
-
-        Label icon = new Label("!");
-        icon.getStyleClass().add("update-toast-icon");
-
-        VBox content = new VBox(4);
-        content.setAlignment(Pos.CENTER_LEFT);
-        Label title = new Label(java.text.MessageFormat.format(
-                getString("update.available.title"), release.tagName()));
-        title.getStyleClass().add("update-toast-title");
-        Label message = new Label(getString("update.available.message"));
-        message.getStyleClass().add("update-toast-message");
-
-        HBox links = new HBox(12);
-        links.setAlignment(Pos.CENTER_LEFT);
-
-        // REMOVABLE: in-app updater (see docs/PACKAGING.md, "In-app updater (unsigned
-        // builds)"). To revert to the old behavior, delete this Hyperlink and its
-        // "links" HBox wrapper, and go back to adding the plain "link" below directly
-        // to content.getChildren() as the toast's only action.
-        Hyperlink installLink = new Hyperlink(getString("update.install.button"));
-        installLink.getStyleClass().add("update-toast-link");
-        installLink.setOnAction(event -> {
-            hideUpdateToast(toast);
-            updateInstallSupport.installUpdate(release);
-        });
-
-        Hyperlink link = new Hyperlink(getString("update.available.download"));
-        link.getStyleClass().add("update-toast-link");
-        link.setOnAction(event -> openExternalUrl(release.htmlUrl()));
-
-        links.getChildren().addAll(installLink, link);
-        content.getChildren().addAll(title, message, links);
-        HBox.setHgrow(content, javafx.scene.layout.Priority.ALWAYS);
-
-        Button closeButton = new Button("×");
-        closeButton.getStyleClass().addAll("toolbar-btn", "update-toast-close");
-
-        toast.getChildren().addAll(icon, content, closeButton);
-        closeButton.setOnAction(event -> hideUpdateToast(toast));
-
-        StackPane.setAlignment(toast, Pos.BOTTOM_RIGHT);
-        StackPane.setMargin(toast, new javafx.geometry.Insets(0, 18, 18, 0));
-        centerStack.getChildren().add(toast);
-        updateToast = toast;
-
-        PauseTransition autoHide = new PauseTransition(Duration.seconds(12));
-        autoHide.setOnFinished(event -> hideUpdateToast(toast));
-        autoHide.play();
+        StatusBarSupport.showMessage(statusLabel, statusMessageSeparator, message);
     }
 
     @FXML
     private void handleUpdateIndicatorClick() {
-        if (availableUpdate != null) {
-            showUpdateNotification(availableUpdate);
-        }
-    }
-
-    private void showUpdateIndicator(UpdateChecker.ReleaseInfo release) {
-        if (updateIndicator == null || release == null) {
-            return;
-        }
-        updateIndicator.setVisible(true);
-        updateIndicator.setManaged(true);
-        updateIndicator.setTooltip(new Tooltip(java.text.MessageFormat.format(
-                getString("update.indicator.tooltip"), release.tagName())));
-    }
-
-    private void hideUpdateToast(javafx.scene.Node toast) {
-        if (centerStack != null && toast != null) {
-            centerStack.getChildren().remove(toast);
-        }
-        if (updateToast == toast) {
-            updateToast = null;
-        }
+        updateNotifications.onIndicatorClicked();
     }
 
     private void openExternalUrl(String url) {
@@ -2570,7 +2171,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         ButtonType cancelButton = new ButtonType(getString("action.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
 
         alert.getButtonTypes().setAll(saveButton, dontSaveButton, cancelButton);
-        com.example.jylos.ui.UiDialogs.apply(alert.getDialogPane());
+        UiDialogs.apply(alert.getDialogPane());
         Optional<ButtonType> result = alert.showAndWait();
         if (result.isEmpty()) {
             return SaveDialogDecision.CANCEL;
@@ -2626,23 +2227,26 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     }
 
     /** Opens today's daily note ({@code yyyy-MM-dd}), creating it (from a "daily" template if any). */
-    private void handleDailyNote() {
-        noteCreationSupport.openDailyNote();
-    }
-
-    /** Lets the user pick a template (notes under a "Templates" folder) and create a note from it. */
-    private void handleNewFromTemplate() {
-        noteCreationSupport.createFromTemplate();
-    }
-
     @FXML
     void handleNewFolder(ActionEvent event) {
         boolean createInRoot = currentFolder == null;
+        // In the Explorer, as in Obsidian: the folder is created as "Sin nombre" and renamed in its row.
+        if (sidebarController != null && sidebarController.isExplorerMode()) {
+            FolderOperations.FolderCreationResult untitled = folderOperations.createUntitledFolder(
+                    getString("app.untitled_folder"), currentFolder, createInRoot);
+            if (!untitled.success() || untitled.folder() == null) {
+                updateStatus(getString("status.error_creating_folder"));
+                return;
+            }
+            sidebarController.renameInExplorer(untitled.folder());
+            sidebarController.loadFolders();
+            return;
+        }
         TextInputDialog dialog = new TextInputDialog("");
         dialog.setTitle(getString("dialog.new_folder.title"));
         dialog.setHeaderText(createInRoot
                 ? getString("dialog.new_folder.header_root")
-                : java.text.MessageFormat.format(getString("dialog.new_folder.header_sub"), currentFolder.getTitle()));
+                : MessageFormat.format(getString("dialog.new_folder.header_sub"), currentFolder.getTitle()));
         dialog.setContentText(getString("dialog.new_folder.content"));
         dialog.getDialogPane().setMinWidth(380);
         styleDialog(dialog);
@@ -2657,7 +2261,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (!creation.success() || creation.folder() == null) {
             String detail = creation.errorMessage();
             updateStatus(detail != null && !detail.isBlank()
-                    ? java.text.MessageFormat.format(getString("status.error_details"), detail)
+                    ? MessageFormat.format(getString("status.error_details"), detail)
                     : getString("status.error_creating_folder"));
             return;
         }
@@ -2668,7 +2272,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (sidebarController.getFolderTreeView() != null) {
             sidebarController.getFolderTreeView().refresh();
         }
-        updateStatus(java.text.MessageFormat.format(getString("status.folder_created"), creation.folder().getTitle()));
+        updateStatus(MessageFormat.format(getString("status.folder_created"), creation.folder().getTitle()));
     }
 
     @FXML
@@ -2712,25 +2316,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     }
 
     /** Refreshes the notes list according to the active filter (all / folder / tag / search) and view mode. */
+    /** Loads again what the notes list shows (the list keeps which filter that is). */
     private void refreshNotesList() {
-        if (notesListController == null) {
-            return;
+        if (notesListController != null) {
+            notesListController.refreshCurrentView();
         }
-        String searchText = toolbarController != null && toolbarController.getSearchField() != null
-                ? toolbarController.getSearchField().getText()
-                : "";
-        notesListController.refreshNotesList(
-                currentFilterType,
-                currentFolder,
-                currentTag,
-                searchText,
-                notesListController.isGridViewActive(),
-                () -> {
-                    if (sidebarController != null) {
-                        sidebarController.loadFavorites();
-                    }
-                },
-                this::refreshNotesGridIfActive);
     }
 
     @FXML
@@ -2759,6 +2349,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     /** Cancels all event subscriptions, shuts down plugins, closes the executor and the database connection in orderly fashion. */
     public void shutdownApplication() {
         try {
+            workspaceController.saveSession(); // first, while the tabs are all there
             uiEventSubscriptions.forEach(EventBus.Subscription::cancel);
             uiEventSubscriptions.clear();
             if (systemActionSubscription != null) {
@@ -2772,7 +2363,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             if (pluginManager != null) {
                 pluginManager.shutdownAll();
             }
-            com.example.jylos.plugin.PluginLoader.closeAllClassLoaders();
+            PluginLoader.closeAllClassLoaders();
             if (editorController != null) {
                 editorController.teardown();
             }
@@ -2788,9 +2379,9 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             if (backlinkService != null) {
                 backlinkService.shutdown();
             }
-            com.example.jylos.service.NoteTitleIndex.getInstance().shutdown();
+            NoteTitleIndex.getInstance().shutdown();
             quickSwitcherExecutor.shutdownNow();
-            updateCheckExecutor.shutdownNow();
+            updateNotifications.shutdown();
 
             if (connection != null && !connection.isClosed()) {
                 SQLiteDB db = SQLiteDB.getInstance();
@@ -2821,43 +2412,55 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         alert.setTitle(title);
         alert.setHeaderText(header);
         alert.setContentText(content);
-        com.example.jylos.ui.UiDialogs.apply(alert.getDialogPane());
+        UiDialogs.apply(alert.getDialogPane());
         alert.showAndWait();
     }
 
     @FXML
     private void handleUndo(ActionEvent event) {
-        editorController.performUndo();
+        inEditor(EditorController::performUndo);
     }
 
     @FXML
     private void handleRedo(ActionEvent event) {
-        editorController.performRedo();
+        inEditor(EditorController::performRedo);
     }
 
     @FXML
     private void handleCut(ActionEvent event) {
-        editorController.performCut();
+        inEditor(EditorController::performCut);
     }
 
     @FXML
     private void handleCopy(ActionEvent event) {
-        editorController.performCopy();
+        inEditor(EditorController::performCopy);
     }
 
     @FXML
     private void handlePaste(ActionEvent event) {
-        editorController.performPaste();
+        inEditor(EditorController::performPaste);
     }
 
     @FXML
     private void handleFind(ActionEvent event) {
-        editorController.performFind(this::getString, this::updateStatus);
+        inEditor(editor -> editor.performFind(this::getString, this::updateStatus));
     }
 
     @FXML
     private void handleReplace(ActionEvent event) {
-        editorController.performReplace(this::getString, this::updateStatus);
+        inEditor(editor -> editor.performReplace(this::getString, this::updateStatus));
+    }
+
+    /** Whether the editor is on screen: not with a view's tab (the graph) in front of its note. */
+    private boolean editorInFront() {
+        return editorController != null && !tabsSupport.isViewActive();
+    }
+
+    /** Runs an editing command (undo, paste, find…) on the editor when it is on screen. */
+    private void inEditor(Consumer<EditorController> command) {
+        if (editorInFront()) {
+            command.accept(editorController);
+        }
     }
 
     /** Toggles focus / writing mode (logic + state in {@link FocusModeSupport}). */
@@ -2865,13 +2468,11 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         focusModeSupport.toggle();
     }
 
-    // ------------------------------------------------------------------
-    // Workspaces — capture/restore the working context (logic in WorkspaceController)
-    // ------------------------------------------------------------------
+    // ── Workspaces — capture/restore the working context (logic in WorkspaceController) ───
 
     /** Snapshots the current tabs, active note and basic layout into a live workspace. */
-    private com.example.jylos.workspace.Workspace captureLiveWorkspace() {
-        java.util.List<String> openIds = editorTabs != null ? editorTabs.getOpenIds() : java.util.List.of();
+    private Workspace captureLiveWorkspace() {
+        List<String> openIds = editorTabs != null ? editorTabs.getOpenIds() : List.of();
         String activeId = editorTabs != null ? editorTabs.getActiveId() : null;
         double splitMain = mainSplitPane != null && mainSplitPane.getDividers().size() > 0
                 ? mainSplitPane.getDividerPositions()[0] : UiPreferencesStore.DEFAULT_SPLIT_MAIN;
@@ -2880,59 +2481,18 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         boolean sidebarVisible = sidebarController != null && sidebarController.getSidebarPane() != null
                 && sidebarController.getSidebarPane().isVisible();
         String storageMode = prefs.get("storage_type", System.getProperty("jylos.storage", "sqlite"));
-        return com.example.jylos.workspace.WorkspaceService.liveState(openIds, activeId,
-                currentViewMode.name(), sidebarVisible, focusModeSupport.isActive(),
+        return WorkspaceService.liveState(openIds, activeId,
+                editorController != null ? editorController.getViewMode().name()
+                        : EditorController.ViewMode.EDITOR_ONLY.name(), sidebarVisible, focusModeSupport.isActive(),
                 splitMain, splitContent, storageMode);
     }
 
-    /**
-     * Restores a workspace: reopens its still-existing notes as tabs, activates the saved
-     * active note, and reapplies the basic layout. Missing notes are skipped with a
-     * non-blocking status warning; a storage-mode mismatch is also flagged. Existing tabs
-     * are kept (open is additive — it never closes notes you already had open).
-     */
-    private void applyWorkspace(com.example.jylos.workspace.Workspace ws) {
-        if (ws == null || noteService == null) {
-            return;
-        }
-        String storageMode = prefs.get("storage_type", System.getProperty("jylos.storage", "sqlite"));
-        if (ws.storageMode() != null && !ws.storageMode().isBlank()
-                && !ws.storageMode().equalsIgnoreCase(storageMode)) {
-            updateStatus(getString("workspace.status.storage_mismatch"));
-        }
-
-        int missing = 0;
-        String lastOpened = null;
-        for (String id : ws.openNoteIds()) {
-            java.util.Optional<Note> note = noteService.getNoteById(id);
-            if (note.isPresent()) {
-                loadNoteInEditor(note.get());
-                lastOpened = id;
-            } else {
-                missing++;
-            }
-        }
-        // Activate the saved active note when it still exists, else the last one opened.
-        String target = ws.activeNoteId() != null && noteService.getNoteById(ws.activeNoteId()).isPresent()
-                ? ws.activeNoteId() : lastOpened;
-        if (target != null) {
-            openNoteInTab(target);
-        }
-
-        applyWorkspaceLayout(ws);
-
-        if (missing > 0) {
-            updateStatus(java.text.MessageFormat.format(getString("workspace.status.missing"), missing));
-        } else {
-            updateStatus(java.text.MessageFormat.format(getString("workspace.status.opened"), ws.name()));
-        }
-    }
-
     /** Reapplies a workspace's basic layout (view mode, focus, splits, sidebar). */
-    private void applyWorkspaceLayout(com.example.jylos.workspace.Workspace ws) {
+    private void applyWorkspaceLayout(Workspace ws) {
         try {
-            currentViewMode = UiLayout.ViewMode.valueOf(ws.viewMode());
-            applyViewMode();
+            if (editorController != null) {
+                editorController.setViewMode(EditorController.ViewMode.valueOf(ws.viewMode()));
+            }
         } catch (IllegalArgumentException | NullPointerException ignored) {
             // unknown/blank view mode → leave the current one
         }
@@ -2947,7 +2507,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
         boolean sidebarVisible = sidebarController != null && sidebarController.getSidebarPane() != null
                 && sidebarController.getSidebarPane().isVisible();
-        if (sidebarVisible != ws.sidebarVisible() && !isStackedLayout) {
+        if (sidebarVisible != ws.sidebarVisible() && !uiLayout.isStacked()) {
             handleToggleSidebar(null);
         }
     }
@@ -2962,29 +2522,23 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (noteService == null || tagService == null) {
             return;
         }
-        var service = new com.example.jylos.insights.KnowledgeInsightsService(noteService, tagService);
-        javafx.scene.Scene scene = centerStack != null ? centerStack.getScene() : null;
-        new com.example.jylos.ui.components.KnowledgeInsightsPanel(
+        var service = new KnowledgeInsightsService(noteService, tagService);
+        Scene scene = centerStack != null ? centerStack.getScene() : null;
+        new KnowledgeInsightsPanel(
                 service, this::getString, this::openNoteInTab, scene).show();
     }
 
     void handleToggleSidebar(ActionEvent event) {
-        navigationCommand.toggleSidebar(
-                isStackedLayout,
-                navSplitPane,
-                sidebarController.getSidebarPane(),
-                mainSplitPane,
-                toolbarController);
+        uiLayout.toggleSidebar();
     }
 
     @FXML
     void handleToggleNotesPanel(ActionEvent event) {
-        navigationCommand.toggleNotesPanel(
-                isStackedLayout,
-                notesPanel,
-                contentSplitPane,
-                toolbarController,
-                () -> handleToggleSidebar(event));
+        if (uiLayout.isExplorer()) {
+            closeResultsPanel();
+            return;
+        }
+        uiLayout.toggleNotesPanel();
     }
 
     @FXML
@@ -3014,7 +2568,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     private void applyUiZoom() {
         if (toolbarController != null && toolbarController.getToolbarHBox() != null
                 && toolbarController.getToolbarHBox().getScene() != null) {
-            javafx.scene.Scene scene = toolbarController.getToolbarHBox().getScene();
+            Scene scene = toolbarController.getToolbarHBox().getScene();
             StringBuilder style = new StringBuilder("-fx-font-size: ").append(uiFontSize).append("px;");
             if (uiAccentColor != null && !uiAccentColor.isBlank()) {
                 style.append(" -fx-accent: ").append(uiAccentColor).append(';')
@@ -3022,12 +2576,15 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
                      .append(" -fx-selected-bg: ").append(uiAccentColor).append(';');
             }
             scene.getRoot().setStyle(style.toString());
+            // Icons and icon buttons are sized in pixels: rescale them for this font too.
+            UiSizeScale.apply(scene, uiFontSize, uiPreferences.loadIconSize(prefs).factor());
+            UiNodes.setStyleClass(scene.getRoot(), "colored-icons", uiPreferences.loadColoredIcons(prefs));
             // Every other CSS rule in the theme derives its own font-size from this root's
             // via `em` units, so a Dialog (its own separate Scene/root — JavaFX dialogs don't
             // inherit the main window's root) needs this same inline style re-captured right
             // away, not just on the next theme switch, or a dialog opened right after a live
             // zoom change would still render at the old size.
-            com.example.jylos.ui.UiDialogs.syncFromScene(scene);
+            UiDialogs.syncFromScene(scene);
         }
         // Keep the persisted font size in sync so Ctrl+/- zoom survives a restart.
         prefs.putInt(UiPreferencesStore.UI_FONT_SIZE_KEY, (int) Math.round(uiFontSize));
@@ -3061,283 +2618,115 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         uiPreferences.saveContentFontSize(prefs, (int) Math.round(editorFontSize));
     }
 
+    /** Layout command and menu: moves on to the next layout. */
     @FXML
     void handleViewLayoutSwitch(ActionEvent event) {
-        isStackedLayout = navigationCommand.switchLayout(
-                isStackedLayout,
-                mainSplitPane,
-                contentSplitPane,
-                navSplitPane,
-                sidebarController.getSidebarPane(),
-                notesPanel,
-                editor,
-                toolbarController);
+        setLayoutMode(uiLayout.mode().next());
     }
 
-    @FXML
-    private void handleToggleTags(ActionEvent event) {
-        if (editorController == null) {
+    /** Switches to {@code mode}, stores it and says so in the status bar. */
+    void setLayoutMode(LayoutMode mode) {
+        if (mode == null) {
             return;
         }
-        boolean show = true;
-        ToggleButton toggleBtn = editorController.getToggleTagsBtn();
-        VBox tagsBox = editorController.getTagsContainer();
-        if (toggleBtn != null) {
-            show = toggleBtn.isSelected();
-        } else if (tagsBox != null) {
-            show = !tagsBox.isVisible();
+        uiPreferences.saveLayoutMode(prefs, mode);
+        applyLayoutMode(mode, false);
+        updateStatus(getString(switch (mode) {
+            case EXPLORER -> "status.layout_explorer";
+            case CLASSIC_STACKED -> "status.layout_stacked";
+            case CLASSIC_COLUMNS -> "status.layout_column";
+        }));
+    }
+
+    /** Rearranges the window for {@code mode}; in the Explorer, with or without the results panel. */
+    private void applyLayoutMode(LayoutMode mode, boolean showResults) {
+        uiLayout.arrange(mode, showResults);
+        LayoutMode layoutMode = uiLayout.mode();
+        if (layoutMode.isExplorer() && notesListController != null && notesListController.isGridViewActive()
+                && eventBus != null) {
+            // Results are a list; the grid belongs to browsing a folder.
+            eventBus.publish(new SystemActionEvent(SystemActionEvent.ActionType.LIST_VIEW));
         }
-        if (tagsBox != null) {
-            tagsBox.setVisible(show);
-            tagsBox.setManaged(show);
-            updateStatus(show ? getString("status.tags_bar_shown") : getString("status.tags_bar_hidden"));
+        if (sidebarController != null) {
+            sidebarController.setExplorerMode(layoutMode.isExplorer());
+        }
+        if (editorController != null) {
+            // The folder path in the title row reveals the note where there is a tree of notes.
+            editorController.setPathRevealAction(layoutMode.isExplorer() && sidebarController != null
+                    ? sidebarController::revealExplorerActiveNote : null);
+        }
+        if (notesListController != null) {
+            notesListController.setResultsPanelMode(layoutMode.isExplorer());
+        }
+        if (toolbarController != null) {
+            toolbarController.showLayoutMode(layoutMode);
+        }
+    }
+
+    /** Explorer layout: opens the notes panel next to the editor to show tag or search results. */
+    private void showResultsPanel() {
+        if (uiLayout.isExplorer() && !uiLayout.resultsShown()) {
+            applyLayoutMode(LayoutMode.EXPLORER, true);
+        }
+    }
+
+    /** Explorer layout: closes the results panel. */
+    void closeResultsPanel() {
+        if (uiLayout.isExplorer() && uiLayout.resultsShown()) {
+            applyLayoutMode(LayoutMode.EXPLORER, false);
         }
     }
 
     private static final Preferences prefs = Preferences.userNodeForPackage(MainController.class);
 
-    private String currentTheme = prefs.get("theme", "light"); // Load from preferences
-
     @FXML
     private void handleLightTheme(ActionEvent event) {
-        currentTheme = themeCommand.setLightTheme(prefs);
-        updateThemeMenuSelection();
-        applyThemeAndRefreshDependents();
-        updateStatus(getString("status.theme_light"));
+        theme.setLight();
     }
 
     @FXML
     private void handleDarkTheme(ActionEvent event) {
-        currentTheme = themeCommand.setDarkTheme(prefs);
-        updateThemeMenuSelection();
-        applyThemeAndRefreshDependents();
-        updateStatus(getString("status.theme_dark"));
+        theme.setDark();
     }
 
     @FXML
     private void handleSystemTheme(ActionEvent event) {
-        ThemeCommand.SystemThemeResult result = themeCommand.setSystemTheme(prefs);
-        currentTheme = result.currentTheme();
-        updateThemeMenuSelection();
-        applyThemeAndRefreshDependents();
-        updateStatus(java.text.MessageFormat.format(getString("status.theme_system"), result.detectedTheme()));
-    }
-
-    /** Applies the resolved theme stylesheet to the scene and synchronizes dialog stylesheets via {@link com.example.jylos.ui.UiDialogs}. */
-    private void applyTheme() {
-        if (mainSplitPane == null || editorController == null) {
-            return;
-        }
-        javafx.scene.Scene scene = mainSplitPane.getScene();
-        if (scene == null) {
-            Platform.runLater(this::applyTheme);
-            return;
-        }
-        Runnable refreshPreview = getCurrentNote() != null ? this::refreshEditorPreview : null;
-        themeCommand.applyTheme(
-                scene,
-                currentTheme,
-                themeSource,
-                externalThemeId,
-                themeCatalog,
-                getClass(),
-                editorController.getPreviewWebView(),
-                refreshPreview,
-                cssSnippetCatalog.resolveEnabledUris(enabledSnippets));
-        // Make modals/alerts follow the active theme (JavaFX dialogs don't inherit
-        // the scene's stylesheets on their own).
-        com.example.jylos.ui.UiDialogs.syncFromScene(scene);
+        theme.setSystem();
     }
 
     /**
      * Applies the persisted theme after the scene is attached but before the first
      * window paint, avoiding a visible flash from the default stylesheet.
      */
-    public void applyInitialThemeBeforeShow() {
-        applyTheme();
+    public void applyInitialThemeBeforeShow(Scene scene) {
+        theme.applyBeforeShow(scene);
+        // The saved interface font: initialize() runs before the window has its scene.
+        applyUiZoom();
         if (editorController != null) {
             editorController.applyEditorTheme(isDarkThemeActive(), uiAccentColor);
         }
-        syncSystemThemeMonitoring();
-    }
-
-    /** Applies the theme, refreshes all theme-dependent UI elements, and updates the system-theme monitor state. */
-    private void applyThemeAndRefreshDependents() {
-        applyTheme();
-        refreshUiThemeDependents();
-        syncSystemThemeMonitoring();
-    }
-
-    /** Enables or disables the OS system-theme monitor based on whether the "system" built-in mode is currently active. */
-    private void syncSystemThemeMonitoring() {
-        systemThemeMonitor.setActive(ThemeCommand.isSystemBuiltinMode(currentTheme, themeSource));
     }
 
     private void installSystemThemeFocusRefresh() {
         Platform.runLater(() -> {
-            if (mainSplitPane == null || mainSplitPane.getScene() == null) {
-                return;
+            if (mainSplitPane != null && mainSplitPane.getScene() != null) {
+                theme.followSystemOnFocus(mainSplitPane.getScene().getWindow());
             }
-            javafx.stage.Window window = mainSplitPane.getScene().getWindow();
-            if (window == null) {
-                return;
-            }
-            window.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
-                if (!Boolean.TRUE.equals(isFocused)) {
-                    return;
-                }
-                if (!ThemeCommand.isSystemBuiltinMode(currentTheme, themeSource)) {
-                    return;
-                }
-                systemThemeMonitor.refreshOnFocus();
-                applyThemeAndRefreshDependents();
-            });
         });
     }
 
-    /** Refreshes theme-sensitive UI sub-systems: editor preview, notes grid and the graph overlay. */
+    /** Redraws what depends on the theme: the editor and its reading view, the notes grid, the graph. */
     private void refreshUiThemeDependents() {
         if (editorController != null) {
             editorController.applyEditorTheme(isDarkThemeActive(), uiAccentColor);
             editorController.refreshPreview(isDarkThemeActive());
         }
         refreshNotesGridIfActive();
-        overlaySupport.applyGraphThemeIfVisible();
+        tabsSupport.applyGraphThemeIfVisible();
     }
 
-    // ============================================================
-    // Private (encrypted) notes — Fase 4
-    // ============================================================
-
-    /** Toggles the current note between private (encrypted body) and public. */
-    private void handleTogglePrivate() {
-        Note note = getCurrentNote();
-        if (note == null || note.getId() == null) {
-            updateStatus(getString("status.no_note_selected"));
-            return;
-        }
-        toggleNotePrivacy(note);
-    }
-
-    /**
-     * Turns {@code target} private (encrypt its body) or public (decrypt and store as
-     * plaintext). Works for any note — the current editor note or one picked from a list's
-     * context menu — and acquires/reveals the key only as the chosen direction needs:
-     * making private needs the key to encrypt; making public needs to read (reveal) the note.
-     */
-    void toggleNotePrivacy(Note target) {
-        if (target == null || target.getId() == null || noteService == null) {
-            updateStatus(getString("status.no_note_selected"));
-            return;
-        }
-        EncryptionService enc = EncryptionService.getInstance();
-        boolean makePrivate = !target.isPrivate();
-
-        if (makePrivate) {
-            if (!enc.isConfigured()) {
-                if (!privacySupport.setupMasterPassword()) {
-                    return;
-                }
-            } else if (!privacySupport.ensureKey()) {
-                return; // need the key to encrypt
-            }
-        } else if (!enc.canRead(target.getId()) && !privacySupport.promptRevealNote(target.getId())) {
-            return; // need to decrypt the note to turn it public
-        }
-
-        // Resolve the plaintext body. For the open note use the live editor text, but never
-        // persist the 🔒 placeholder — fall back to the (now readable) stored content.
-        Note current = getCurrentNote();
-        boolean isCurrent = current != null && target.getId().equals(current.getId());
-        String content = isCurrent ? editorController.getCurrentContent() : null;
-        if (content == null || NoteService.LOCKED_PLACEHOLDER.equals(content)) {
-            content = noteService.getNoteById(target.getId()).map(Note::getContent).orElse(content);
-        }
-        if (content == null || NoteService.LOCKED_PLACEHOLDER.equals(content)) {
-            updateStatus(getString("status.unlock_failed"));
-            return;
-        }
-
-        target.setPrivate(makePrivate);
-        target.setContent(content);
-        noteService.updateNote(target); // NoteService encrypts when private + key held
-        if (makePrivate) {
-            enc.reveal(target.getId()); // keep it readable this session (just created it)
-        }
-        eventBus.publish(new NoteEvents.NoteSavedEvent(target));
-        // Reflect the new state in the editor when this is the open note.
-        if (isCurrent) {
-            noteService.getNoteById(target.getId()).ifPresent(editorController::loadNote);
-        }
-        refreshNotesList();
-        updateStatus(getString(makePrivate ? "status.note_private_on" : "status.note_private_off"));
-    }
-
-    /** Global unlock: prompts for the master password and reveals all private notes. */
-    private void handleUnlockNotes() {
-        EncryptionService enc = EncryptionService.getInstance();
-        if (!enc.isConfigured()) {
-            updateStatus(getString("status.no_private_notes"));
-            return;
-        }
-        if (enc.isUnlocked()) {
-            updateStatus(getString("status.unlocked"));
-            return;
-        }
-        if (privacySupport.promptUnlockAll()) {
-            // Reload the open note so a previously-locked body shows decrypted.
-            Note current = getCurrentNote();
-            if (current != null && current.isPrivate() && current.getId() != null) {
-                noteService.getNoteById(current.getId()).ifPresent(editorController::loadNote);
-            }
-            refreshNotesList();
-        }
-    }
-
-    /** Locks encryption: private notes become unreadable until unlocked again. */
-    private void handleLockNotes() {
-        EncryptionService enc = EncryptionService.getInstance();
-        if (!enc.isConfigured()) {
-            updateStatus(getString("status.no_private_notes"));
-            return;
-        }
-        enc.lock();
-        // Reload the open private note straight to its 🔒 placeholder (no unlock prompt).
-        Note current = getCurrentNote();
-        if (current != null && current.isPrivate() && current.getId() != null) {
-            noteService.getNoteById(current.getId()).ifPresent(editorController::loadNote);
-        }
-        // Full-text search keeps decrypted bodies cached while unlocked; this event makes
-        // every listener drop them, so a locked note can no longer be found by its text.
-        if (eventBus != null) {
-            eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
-        }
-        refreshNotesList();
-        updateStatus(getString("status.notes_locked"));
-    }
-
-
-    /** Delegates OS dark/light detection to {@link ThemeCommand} and returns "dark" or "light". */
-    private String detectSystemTheme() {
-        return themeCommand.detectSystemTheme();
-    }
-
-    /** Returns "external" when an external theme is selected, otherwise delegates to {@link ThemeCommand#resolveThemeToApply}. */
-    private String resolveThemeToApply() {
-        if (UiPreferencesStore.THEME_SOURCE_EXTERNAL.equals(themeSource)) {
-            return "external";
-        }
-        return themeCommand.resolveThemeToApply(currentTheme);
-    }
-
-    /** Returns {@code true} when the currently active theme (built-in or external) renders as a dark UI. */
     private boolean isDarkThemeActive() {
-        ThemeCatalog.ThemeDescriptor external = null;
-        if (UiPreferencesStore.THEME_SOURCE_EXTERNAL.equals(
-                ThemeCommand.effectiveThemeSource(currentTheme, themeSource))) {
-            external = themeCatalog.findById(themeCatalog.getAvailableThemes(), externalThemeId);
-        }
-        return themeCommand.resolveDarkUi(currentTheme, themeSource, external);
+        return theme.isDark();
     }
 
     @FXML
@@ -3359,42 +2748,45 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         UiPreferencesStore.UiPreferencesData currentUiPrefs = new UiPreferencesStore.UiPreferencesData(
                 autosaveEnabled,
                 autosaveIdleMs,
-                themeSource,
-                externalThemeId,
+                theme.source(),
+                theme.externalId(),
                 notesListPreviewLines,
                 (int) Math.round(uiFontSize),
                 uiAccentColor,
                 uiPreferences.loadLivePreviewEnabled(prefs),
                 uiPreferences.loadReadableLineLength(prefs),
                 (int) Math.round(editorFontSize),
-                uiPreferences.loadShowFolderNoteCounts(prefs));
-        List<ThemeCatalog.ThemeDescriptor> themes = themeCatalog.getAvailableThemes();
+                uiPreferences.loadShowFolderNoteCounts(prefs),
+                uiPreferences.load(prefs).alwaysOpenInNewTab());
         Optional<DialogSupport.PreferencesDialogResult> result = dialogSupport.showPreferences(
                 currentUiPrefs,
-                themes,
-                cssSnippetCatalog,
-                enabledSnippets);
+                theme.catalog(),
+                theme.snippetCatalog(),
+                theme.enabledSnippets(),
+                uiLayout.mode(),
+                uiPreferences.loadShowFormatToolbar(prefs),
+                uiPreferences.loadIconSize(prefs),
+                uiPreferences.loadColoredIcons(prefs),
+                VaultSettingsSupport.forVault(vaultSettings, noteService, this::getString, resources));
         if (result.isEmpty()) {
             return;
         }
         DialogSupport.PreferencesDialogResult values = result.get();
-        UiPreferencesStore.UiPreferencesData newPrefs = new UiPreferencesStore.UiPreferencesData(
-                values.autosaveEnabled(),
-                values.autosaveIdleMs(),
-                values.themeSource(),
-                values.externalThemeId(),
-                values.notesPreviewLines(),
-                values.uiFontSize(),
-                values.accentColor(),
-                values.livePreviewEnabled(),
-                values.readableLineLength(),
-                values.contentFontSize(),
-                values.showFolderNoteCounts());
-        uiPreferences.save(prefs, newPrefs);
+        VaultSettingsSupport.save(vaultSettings, values.vaultSettings());
+        uiPreferences.save(prefs, values.uiPreferences());
         uiPreferences.saveEnabledSnippets(prefs, values.enabledSnippets());
+        uiPreferences.saveIconSize(prefs, values.iconSize());
+        uiPreferences.saveColoredIcons(prefs, values.coloredIcons());
         applyUiPreferencesFromStore();
         updateThemeMenuSelection();
-        syncSystemThemeMonitoring();
+        theme.syncSystemMonitoring();
+        uiPreferences.saveShowFormatToolbar(prefs, values.showFormatToolbar());
+        if (editorController != null) {
+            editorController.formatToolbar().setVisible(values.showFormatToolbar());
+        }
+        if (values.layoutMode() != null && values.layoutMode() != uiLayout.mode()) {
+            setLayoutMode(values.layoutMode());
+        }
         updateStatus(getString("status.preferences_saved"));
     }
 
@@ -3427,28 +2819,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
         }
         refreshOpenNoteAfterStorageRefresh();
-        navigationCommand.refreshByContext(
-                currentFilterType,
-                currentFolder,
-                currentTag,
-                notesListView,
-                noteCountLabel,
-                this::refreshNotesList,
-                this::handleFolderSelection,
-                this::loadNotesForTag,
-                filterType -> toolbarController != null && toolbarController.getSearchField() != null
-                        ? toolbarController.getSearchField().getText()
-                        : "",
-                this::performSearch,
-                message -> {
-                    if ("favorites".equals(currentFilterType)) {
-                        currentFilterType = "favorites";
-                        currentFolder = null;
-                        currentTag = null;
-                        sortNotes(sortComboBox.getValue());
-                    }
-                    updateStatus(message);
-                });
+        // The refresh event above makes the notes list load again what it shows.
     }
 
     private void refreshOpenNoteAfterStorageRefresh() {
@@ -3457,7 +2828,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         if (current == null || current.getId() == null || noteService == null || editorController == null) {
             return;
         }
-        java.util.Optional<Note> refreshed = noteService.getNoteById(current.getId());
+        Optional<Note> refreshed = noteService.getNoteById(current.getId());
         if (refreshed.isEmpty()) {
             handleMissingOpenNoteAfterStorageRefresh(current);
             return;
@@ -3483,7 +2854,7 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         }
         String activeId = editorTabs.getActiveId();
         for (String openId : new ArrayList<>(editorTabs.getOpenIds())) {
-            if (Objects.equals(openId, activeId)) {
+            if (Objects.equals(openId, activeId) || ViewTabs.isView(openId)) {
                 continue;
             }
             Optional<Note> refreshed = noteService.getNoteById(openId);
@@ -3505,14 +2876,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
             return;
         }
         if (editorTabs != null && editorTabs.isOpen(missingNote.getId())) {
-            String neighbor = editorTabs.neighborOf(missingNote.getId());
-            editorTabs.removeTab(missingNote.getId());
-            if (neighbor != null) {
-                openNoteInTab(neighbor);
-                return;
-            }
+            tabsSupport.close(missingNote.getId());
+        } else {
+            clearEditorToEmpty();
         }
-        clearEditorToEmpty();
         updateStatus(getString("status.open_note_missing_closed"));
     }
 
@@ -3525,23 +2892,10 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         toggleFavorite(getCurrentNote());
     }
 
+    /** The notes list owns the favourite and pin marks (see {@link NotesListController#toggleFavorite}). */
     private void toggleFavorite(Note note) {
-        if (note == null)
-            return;
-        try {
-            boolean newState = noteService.toggleFavorite(note);
-            if (getCurrentNote() != null && getCurrentNote().getId().equals(note.getId())) {
-                editorController.syncFavoritePinButtons(this::getString);
-            }
-            if (eventBus != null) {
-                eventBus.publish(new NoteEvents.NoteSavedEvent(note));
-            }
-            if ("favorites".equals(currentFilterType)) {
-                refreshNotesList();
-            }
-            updateStatus(getString(newState ? "status.note_marked_favorite" : "status.note_unmarked_favorite"));
-        } catch (Exception e) {
-            updateStatus(getString("status.fav_error"));
+        if (notesListController != null) {
+            notesListController.toggleFavorite(note);
         }
     }
 
@@ -3555,23 +2909,8 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
     }
 
     private void togglePin(Note note) {
-        if (note == null)
-            return;
-        try {
-            boolean newState = noteService.togglePinned(note);
-            if (getCurrentNote() != null && getCurrentNote().getId().equals(note.getId())) {
-                editorController.syncFavoritePinButtons(this::getString);
-            }
-            if (eventBus != null) {
-                eventBus.publish(new NoteEvents.NoteSavedEvent(note));
-            }
-            if (notesListController != null) {
-                notesListController.resortVisibleNotes();
-            }
-            refreshNotesGridIfActive();
-            updateStatus(getString(newState ? "status.note_pinned" : "status.note_unpinned"));
-        } catch (Exception e) {
-            updateStatus(getString("status.pin_error"));
+        if (notesListController != null) {
+            notesListController.togglePin(note);
         }
     }
 
@@ -3591,15 +2930,13 @@ public class MainController implements PluginMenuRegistry, SidePanelRegistry, Pr
         updateStatus(getString("status.saved_all"));
     }
 
-    /** Publishes a {@link SystemActionEvent} of the given type to the editor via the event bus. */
-    private void publishEditorAction(SystemActionEvent.ActionType actionType) {
-        if (editorController != null && eventBus != null && actionType != null) {
-            editorController.publishAction(eventBus, actionType);
-        }
+    /** Runs a palette formatting command (bold, a list, a link…) in the editor, when it is on screen. */
+    private void formatInEditor(SystemActionEvent.ActionType actionType) {
+        inEditor(editor -> editor.applyFormat(actionType));
     }
 
     private void handleSystemAction(SystemActionEvent event) {
-        javafx.application.Platform.runLater(() -> {
+        Platform.runLater(() -> {
             if (event == null || event.getActionType() == null) {
                 return;
             }

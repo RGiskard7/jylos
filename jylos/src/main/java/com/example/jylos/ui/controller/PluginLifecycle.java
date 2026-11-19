@@ -9,9 +9,14 @@ import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginLoader;
 import com.example.jylos.plugin.PluginManager;
+import com.example.jylos.plugin.PluginOrigin;
+import com.example.jylos.plugin.mermaid.MermaidPlugin;
 
 /**
  * Loads the core and external plugins and registers them with the {@link PluginManager}.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.3.0
  */
 class PluginLifecycle {
 
@@ -25,13 +30,13 @@ class PluginLifecycle {
             return new LoadResult(0, List.of("PluginManager is null"));
         }
 
-        pluginManager.registerPlugin(new com.example.jylos.plugin.mermaid.MermaidPlugin());
+        pluginManager.registerPlugin(new MermaidPlugin(), PluginOrigin.CORE);
 
         PluginLoader.PluginLoadReport pluginLoadReport = PluginLoader.loadExternalPluginsWithReport();
         int registeredCount = 0;
 
         for (Plugin plugin : pluginLoadReport.getPlugins()) {
-            if (pluginManager.registerPlugin(plugin)) {
+            if (pluginManager.registerPlugin(plugin, pluginLoadReport.originOf(plugin))) {
                 registeredCount++;
             } else {
                 logger.warning("Failed to register external plugin: " + plugin.getName());

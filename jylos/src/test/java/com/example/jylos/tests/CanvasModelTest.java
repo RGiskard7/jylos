@@ -289,4 +289,66 @@ class CanvasModelTest {
         assertTrue(out.contains("\"b\""));
         assertTrue(!out.contains("e1") && !out.contains("e2"), out);
     }
+
+    private static final String THREE_CARDS = """
+            {"nodes":[
+              {"id":"a","type":"text","x":0,"y":0,"width":100,"height":50,"text":"A","color":"2","extra":"kept"},
+              {"id":"b","type":"file","x":200,"y":0,"width":100,"height":50,"file":"Notas/B.md"},
+              {"id":"c","type":"text","x":400,"y":0,"width":100,"height":50,"text":"C"}
+            ],"edges":[
+              {"id":"ab","fromNode":"a","fromSide":"right","toNode":"b","toSide":"left","label":"sigue"},
+              {"id":"bc","fromNode":"b","toNode":"c"}
+            ]}""";
+
+    @Test
+    void copyingCardsTakesThemWithTheEdgesBetweenThemOnly() {
+        CanvasModel.Document doc = CanvasModel.Document.parse(THREE_CARDS);
+        CanvasModel.Document copied = CanvasModel.Document.parse(doc.copyFragment(java.util.List.of("a", "b")));
+
+        assertEquals(java.util.List.of("a", "b"), copied.nodes().stream().map(CanvasNode::id).toList());
+        assertEquals(java.util.List.of("ab"), copied.edges().stream().map(CanvasModel.CanvasEdge::id).toList(),
+                "bc leaves the copy: c was not copied");
+        assertEquals(3, doc.nodes().size(), "copying leaves the canvas as it was");
+    }
+
+    @Test
+    void pastingAddsNewCardsWithNewIdsMovedAndConnectedAmongThemselves() {
+        CanvasModel.Document source = CanvasModel.Document.parse(THREE_CARDS);
+        String fragment = source.copyFragment(java.util.List.of("a", "b"));
+        CanvasModel.Document target = CanvasModel.Document.parse(THREE_CARDS);
+
+        java.util.List<String> pasted = target.pasteFragment(fragment, 30, 40);
+
+        assertEquals(2, pasted.size());
+        assertTrue(java.util.Collections.disjoint(pasted, java.util.List.of("a", "b", "c")), "new ids: " + pasted);
+        assertEquals(5, target.nodes().size());
+        CanvasNode a2 = target.nodes().stream().filter(n -> n.id().equals(pasted.get(0))).findFirst().orElseThrow();
+        CanvasNode b2 = target.nodes().stream().filter(n -> n.id().equals(pasted.get(1))).findFirst().orElseThrow();
+        assertEquals(30, a2.x());
+        assertEquals(40, a2.y());
+        assertEquals(230, b2.x());
+        assertEquals("A", a2.text());
+        assertEquals("2", a2.color());
+        assertEquals("Notas/B.md", b2.file());
+        assertEquals(2, target.toJson().split("\"extra\"", -1).length - 1,
+                "unknown fields travel too: the original card and its copy");
+
+        CanvasModel.CanvasEdge copy = target.edges().stream()
+                .filter(e -> e.fromNode().equals(a2.id())).findFirst().orElseThrow();
+        assertEquals(b2.id(), copy.toNode());
+        assertEquals("right", copy.fromSide());
+        assertEquals("sigue", copy.label());
+        assertTrue(!copy.id().equals("ab"), "the edge gets a new id too");
+        assertEquals(3, target.edges().size());
+    }
+
+    @Test
+    void pastingSomethingThatIsNotACanvasFragmentChangesNothing() {
+        CanvasModel.Document doc = CanvasModel.Document.parse(THREE_CARDS);
+        String before = doc.toJson();
+        for (String junk : new String[] {null, "", "hola", "{\"nodes\":[]}", "[1,2]"}) {
+            assertEquals(java.util.List.of(), doc.pasteFragment(junk, 30, 30), "pasting " + junk);
+        }
+        assertEquals(before, doc.toJson());
+    }
 }

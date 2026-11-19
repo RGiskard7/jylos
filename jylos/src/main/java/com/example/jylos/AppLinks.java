@@ -3,13 +3,20 @@ package com.example.jylos;
 import java.util.List;
 import java.util.function.UnaryOperator;
 
-/** The project's public links, and the runtime details people are asked for in bug reports. */
+/**
+ * The project's public links, and the runtime details people are asked for in bug reports.
+ *
+ * @author Edu Díaz (RGiskard7)
+ * @since 2.5.8
+ */
 public final class AppLinks {
 
     public static final String WEBSITE = "https://jylos.es";
     public static final String REPOSITORY = "https://github.com/RGiskard7/jylos";
     public static final String ISSUES = REPOSITORY + "/issues";
     public static final String LICENSE = REPOSITORY + "/blob/main/LICENSE";
+    /** What Jylos bundles from others (Twemoji) and under which licenses. */
+    public static final String THIRD_PARTY = REPOSITORY + "/blob/main/THIRD-PARTY-NOTICES.md";
 
     private AppLinks() {
     }
