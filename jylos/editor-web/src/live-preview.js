@@ -1229,7 +1229,11 @@ function buildDecorations(view, layoutGeneration = 0) {
         }
 
         if (LINE_MARKS.includes(node.name)) {
-          if (!lineRevealed(state, node.from)) {
+          // A heading underlined with --- or === shows its line under the cursor anywhere in the heading.
+          const heading = node.name === "HeaderMark" && /^SetextHeading[12]$/.test(node.node.parent?.name || "")
+            ? node.node.parent : null;
+          const shown = heading ? revealed(state, heading.from, heading.to) : lineRevealed(state, node.from);
+          if (!shown) {
             decorations.push(Decoration.replace({}).range(node.from, node.to));
             replacements.push({ from: node.from, to: node.to });
           }

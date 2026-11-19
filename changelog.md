@@ -39,7 +39,8 @@
     - un clic bajo una imagen, una fórmula o un bloque renderizado caía en otra línea;
     - el cursor dentro de un elemento no mostraba su Markdown;
     - bajo cada imagen aparecía su nombre de fichero;
-    - Cmd/Ctrl+clic en un enlace recién editado abría el destino anterior.
+    - Cmd/Ctrl+clic en un enlace recién editado abría el destino anterior;
+    - en un título subrayado con `---` o `===`, el subrayado no se veía con el cursor en la línea del texto.
 
 - **Bóveda compatible con Obsidian:**
   - **Jylos ya no escribe nada suyo en las notas**, como Obsidian: antes añadía `id`, `title`, `created`, `modified`, `favorite`, `pinned` y `deleted` a cada nota que guardaba, y Obsidian los mostraba como propiedades. El favorito y el fijado se guardan ahora en `.jylos/`, dentro de la bóveda, y siguen a la nota al renombrarla, moverla o pasarla por la papelera; marcar un favorito no toca el fichero de la nota. Una nota guardada por una versión anterior pierde esos campos la próxima vez que se guarda, pero no su favorito, su fijado ni su `created`; los mismos campos escritos por el usuario son suyos y se conservan.
