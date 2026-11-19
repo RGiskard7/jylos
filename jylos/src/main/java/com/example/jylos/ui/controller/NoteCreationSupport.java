@@ -5,9 +5,11 @@ import java.text.MessageFormat;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -23,6 +25,7 @@ import com.example.jylos.service.NoteService;
 import com.example.jylos.service.templates.DailyNotePlanner;
 import com.example.jylos.service.templates.TemplateEngine;
 import com.example.jylos.service.templates.TemplateLibrary;
+import com.example.jylos.service.templates.TemplaterDialect;
 import com.example.jylos.ui.components.QuickSwitcher;
 import com.example.jylos.util.KanbanModel;
 import com.example.jylos.util.UntitledNames;
@@ -136,9 +139,73 @@ final class NoteCreationSupport {
             updateStatus(getString("templates.status.no_note"));
             return;
         }
-        String text = templates().render(templates().text(template), open.getCurrentNote().getTitle());
-        if (open.insertTemplate(text) == EditorTemplateSupport.Outcome.INVALID_PROPERTIES) {
+        Note note = open.getCurrentNote();
+        String text = templates().text(template);
+        List<String> unsupported = new ArrayList<>();
+        EditorTemplateSupport.Outcome outcome;
+        try {
+            outcome = open.insertTemplate(selection -> {
+                TemplatesSupport.Rendered written = templates().write(text, templates().target(note, selection),
+                        templates().templater());
+                unsupported.addAll(written.unsupported());
+                return new EditorTemplateSupport.Written(written.text(), written.cursor());
+            });
+        } catch (TemplaterDialect.Failure e) {
+            updateStatus(failure(e));
+            return;
+        }
+        if (outcome == EditorTemplateSupport.Outcome.INVALID_PROPERTIES) {
             updateStatus(getString("templates.status.invalid_properties"));
+        } else {
+            reportUnsupported(unsupported);
+        }
+    }
+
+    /** What to tell when Templater stopped a template. */
+    private String failure(TemplaterDialect.Failure failure) {
+        return getString("templater.status.failed." + failure.reason().name().toLowerCase(Locale.ROOT));
+    }
+
+    /** Tells which Templater tags were left as they are, if any. */
+    private void reportUnsupported(List<String> unsupported) {
+        if (!unsupported.isEmpty()) {
+            updateStatus(MessageFormat.format(getString("templater.status.unsupported"),
+                    String.join(", ", new LinkedHashSet<>(unsupported))));
+        }
+    }
+
+    /** The path in the vault of a note called {@code name} in {@code folder} ({@code null}: the root). */
+    private String pathIn(Folder folder, String name) {
+        String folderPath = folder != null && noteService != null ? noteService.folderPath(folder.getId()) : "";
+        return (folderPath.isEmpty() ? "" : folderPath + "/") + name + ".md";
+    }
+
+    /**
+     * What Templater writes in an empty note made in {@code folder}: its folder's template, when
+     * the vault has Templater write the notes made in it; {@code ""} for none. {@code null} when
+     * that template stopped or is missing (said).
+     */
+    private String folderTemplate(Folder folder, String name) {
+        if (!templates().templaterOnCreate()) {
+            return "";
+        }
+        String folderPath = folder != null && noteService != null ? noteService.folderPath(folder.getId()) : "";
+        Optional<String> template = templates().folderTemplate(folderPath);
+        if (template.isEmpty()) {
+            return "";
+        }
+        if (templates().noteAt(template.get()).isEmpty()) {
+            updateStatus(MessageFormat.format(getString("templater.status.folder_template_missing"), template.get()));
+            return null;
+        }
+        try {
+            TemplatesSupport.Rendered written = templates().templater(templates().textAt(template.get()),
+                    templates().newNote(pathIn(folder, name)));
+            reportUnsupported(written.unsupported());
+            return written.text();
+        } catch (TemplaterDialect.Failure e) {
+            updateStatus(failure(e));
+            return null;
         }
     }
 
@@ -216,7 +283,9 @@ final class NoteCreationSupport {
 
     /** Creates a regular note in the explicit folder chosen by a contextual action. */
     void createNewNoteInFolder(Folder folder) {
-        if (createAndOpenNote(untitledTitle(folder), "", folder, "status.note_created")) {
+        String title = untitledTitle(folder);
+        String content = folderTemplate(folder, title);
+        if (createAndOpenNote(title, content != null ? content : "", folder, "status.note_created")) {
             Platform.runLater(beginTitleRename);
         }
     }
@@ -261,7 +330,9 @@ final class NoteCreationSupport {
         if (title == null || title.isBlank()) {
             return;
         }
-        createAndOpenNote(title.strip(), "", newNoteFolder(), "status.note_created");
+        Folder folder = newNoteFolder();
+        String content = folderTemplate(folder, title.strip());
+        createAndOpenNote(title.strip(), content != null ? content : "", folder, "status.note_created");
     }
 
     void createNewCanvas() {
@@ -323,11 +394,28 @@ final class NoteCreationSupport {
                     publishOpen(noteService.getNoteById(note.getId()).orElse(note)));
             return;
         }
-        String content = plan.template() == null ? ""
-                : TemplateEngine.render(vault.textAt(plan.template()), TemplateEngine.variables(plan.name(), now),
-                        VaultSettings.DEFAULT_DATE_FORMAT, VaultSettings.DEFAULT_TIME_FORMAT, now, vault.language());
         Folder folder = plan.folder().isEmpty() ? null : noteOperations.folderMaking(plan.folder());
-        createAndOpenNote(plan.fileName(), content, folder, "status.note_created");
+        String content;
+        List<String> unsupported = List.of();
+        if (plan.template() == null) {
+            content = folderTemplate(folder, plan.fileName());
+        } else {
+            content = TemplateEngine.render(vault.textAt(plan.template()), TemplateEngine.variables(plan.name(), now),
+                    VaultSettings.DEFAULT_DATE_FORMAT, VaultSettings.DEFAULT_TIME_FORMAT, now, vault.language());
+            if (vault.templaterOnCreate()) {
+                // As Templater does to a note just made: its own tags are written too.
+                try {
+                    TemplatesSupport.Rendered written = vault.templater(content, vault.newNote(plan.path()));
+                    content = written.text();
+                    unsupported = written.unsupported();
+                } catch (TemplaterDialect.Failure e) {
+                    updateStatus(failure(e));
+                }
+            }
+        }
+        if (createAndOpenNote(plan.fileName(), content != null ? content : "", folder, "status.note_created")) {
+            reportUnsupported(unsupported);
+        }
     }
 
     /** "New from template": picks one of the vault's templates and creates a note from it. */
@@ -343,8 +431,18 @@ final class NoteCreationSupport {
      */
     void createFromTemplate(TemplateLibrary.Template template) {
         String name = template.name().substring(template.name().lastIndexOf('/') + 1);
-        String content = templates().render(templates().text(template), name);
-        createAndOpenNote(name, content, newNoteFolder(), "status.note_created");
+        Folder folder = newNoteFolder();
+        TemplatesSupport.Rendered written;
+        try {
+            written = templates().write(templates().text(template), templates().newNote(pathIn(folder, name)),
+                    templates().templater());
+        } catch (TemplaterDialect.Failure e) {
+            updateStatus(failure(e));
+            return;
+        }
+        if (createAndOpenNote(name, written.text(), folder, "status.note_created")) {
+            reportUnsupported(written.unsupported());
+        }
     }
 
     private boolean createAndOpenNote(String title, String content, Folder folder, String successStatusKey) {

@@ -3,8 +3,11 @@ package com.example.jylos.util;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoField;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -210,6 +213,170 @@ public final class MomentFormat {
     private static int weeksInYear(int year, int dow, int doy) {
         int days = LocalDate.of(year, 1, 1).lengthOfYear();
         return (days - firstWeekOffset(year, dow, doy) + firstWeekOffset(year + 1, dow, doy)) / 7;
+    }
+
+    /** The day a week starts on in {@code language}, as moment counts it: 0 Sunday, 1 Monday. */
+    public static int firstDayOfWeek(Locale language) {
+        return Names.of(language).dow;
+    }
+
+    private static final Pattern ISO = Pattern.compile(
+            "(\\d{4})-(\\d\\d)-(\\d\\d)(?:[T ](\\d\\d):(\\d\\d)(?::(\\d\\d)(?:[.,](\\d+))?)?)?(Z|[+-]\\d\\d:?\\d\\d)?");
+
+    /**
+     * {@code text} read as moment reads it ({@code moment(text, format)}, not strict): each symbol
+     * of {@code format} takes the first text that matches it in what is left; what is missing is
+     * taken from {@code now} for the parts before the first one given, and is the first day or
+     * zero after it; a date out of range (30 February) is no date. With no format, ISO 8601.
+     *
+     * @return the date, in {@code now}'s zone, or empty when it is not one
+     */
+    public static Optional<ZonedDateTime> parse(String text, String format, Locale language, ZonedDateTime now) {
+        if (text == null) {
+            return Optional.empty();
+        }
+        Names names = Names.of(language);
+        Integer[] parts = new Integer[7]; // year, month (0-11), day, hour, minute, second, millisecond
+        Boolean pm = null;
+        if (format == null || format.isEmpty()) {
+            Matcher iso = ISO.matcher(text.strip());
+            if (!iso.matches()) {
+                return Optional.empty();
+            }
+            for (int i = 0; i < 6; i++) {
+                String part = iso.group(i + 1);
+                parts[i] = part == null ? null : Integer.parseInt(part) - (i == 1 ? 1 : 0);
+            }
+            if (iso.group(7) != null) {
+                parts[6] = Integer.parseInt((iso.group(7) + "00").substring(0, 3));
+            }
+        } else {
+            String rest = text;
+            boolean any = false;
+            Matcher tokens = TOKENS.matcher(expandLongFormats(format, names));
+            while (tokens.find()) {
+                String token = tokens.group();
+                Pattern pattern = parsePattern(token, names);
+                Matcher found = pattern.matcher(rest);
+                if (!found.find()) {
+                    continue;
+                }
+                String value = found.group();
+                rest = rest.substring(found.end());
+                Integer[] before = parts.clone();
+                Boolean meridiem = readToken(token, value, names, parts);
+                if (meridiem != null) {
+                    pm = meridiem;
+                }
+                any |= meridiem != null || !Arrays.equals(before, parts);
+            }
+            if (!any) {
+                return Optional.empty();
+            }
+        }
+        if (pm != null && parts[3] != null) {
+            if (pm && parts[3] < 12) {
+                parts[3] += 12;
+            } else if (!pm && parts[3] == 12) {
+                parts[3] = 0;
+            }
+        }
+        int[] current = {now.getYear(), now.getMonthValue() - 1, now.getDayOfMonth()};
+        int i = 0;
+        for (; i < 3 && parts[i] == null; i++) {
+            parts[i] = current[i];
+        }
+        for (; i < 7; i++) {
+            if (parts[i] == null) {
+                parts[i] = i == 2 ? 1 : 0;
+            }
+        }
+        int year = parts[0];
+        int month = parts[1];
+        if (month < 0 || month > 11) {
+            return Optional.empty();
+        }
+        int length = LocalDate.of(year, month + 1, 1).lengthOfMonth();
+        boolean midnight = parts[3] == 24 && parts[4] == 0 && parts[5] == 0 && parts[6] == 0;
+        if (parts[2] < 1 || parts[2] > length || parts[3] < 0 || (parts[3] > 23 && !midnight) || parts[4] < 0
+                || parts[4] > 59 || parts[5] < 0 || parts[5] > 59 || parts[6] < 0 || parts[6] > 999) {
+            return Optional.empty();
+        }
+        ZonedDateTime date = LocalDate.of(year, month + 1, parts[2]).atStartOfDay(now.getZone())
+                .plusHours(parts[3]).plusMinutes(parts[4]).plusSeconds(parts[5]).plusNanos(parts[6] * 1_000_000L);
+        return Optional.of(date);
+    }
+
+    /** What moment's lenient parser looks for for {@code token}. */
+    private static Pattern parsePattern(String token, Names names) {
+        String regex = switch (token) {
+            case "YYYY", "YYYYY", "YYYYYY", "gggg", "GGGG" -> "[+-]?\\d{1,6}";
+            case "Y" -> "[+-]?\\d+";
+            case "YY", "M", "MM", "D", "DD", "H", "HH", "h", "hh", "k", "kk", "m", "mm", "s", "ss", "w", "ww", "W",
+                    "WW", "d", "e", "E", "Q" -> "\\d\\d?";
+            case "DDD", "DDDD" -> "\\d{1,3}";
+            case "Do" -> "\\d{1,2}(?:º|th|st|nd|rd)?";
+            case "MMM", "MMMM" -> names(names.months, names.monthsShort, names.monthsShortWithoutDot);
+            case "dd", "ddd", "dddd" -> names(names.weekdays, names.weekdaysShort, names.weekdaysMin);
+            case "a", "A" -> "[AaPp]\\.?[Mm]?\\.?";
+            case "X" -> "[+-]?\\d+(?:\\.\\d{1,3})?";
+            case "x" -> "[+-]?\\d+";
+            case "Z", "ZZ" -> "Z|[+-]\\d\\d:?\\d\\d";
+            default -> token.startsWith("S") && token.chars().allMatch(c -> c == 'S') ? "\\d+"
+                    : Pattern.quote(ESCAPED.matcher(token).lookingAt() ? token.replaceAll("^\\[|\\]$", "")
+                            : token.replace("\\", ""));
+        };
+        return Pattern.compile(regex, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    }
+
+    /** Any of {@code lists}' names, the longest first. */
+    @SafeVarargs
+    private static String names(List<String>... lists) {
+        List<String> all = new ArrayList<>();
+        for (List<String> list : lists) {
+            if (list != null) {
+                list.forEach(name -> all.add(Pattern.quote(name)));
+            }
+        }
+        all.sort((a, b) -> b.length() - a.length());
+        return String.join("|", all);
+    }
+
+    /** Puts what {@code value} says for {@code token} in {@code parts}; for a meridiem, whether it is pm. */
+    private static Boolean readToken(String token, String value, Names names, Integer[] parts) {
+        switch (token) {
+            case "YYYY", "YYYYY", "YYYYYY", "Y" -> parts[0] = Integer.parseInt(value.replace("+", ""));
+            case "YY" -> {
+                int two = Integer.parseInt(value);
+                parts[0] = two + (two > 68 ? 1900 : 2000);
+            }
+            case "M", "MM" -> parts[1] = Integer.parseInt(value) - 1;
+            case "MMM", "MMMM" -> parts[1] = monthOf(value, names);
+            case "D", "DD", "Do" -> parts[2] = Integer.parseInt(value.replaceAll("\\D", ""));
+            case "H", "HH", "h", "hh", "k", "kk" -> parts[3] = Integer.parseInt(value);
+            case "m", "mm" -> parts[4] = Integer.parseInt(value);
+            case "s", "ss" -> parts[5] = Integer.parseInt(value);
+            case "a", "A" -> {
+                return Character.toLowerCase(value.charAt(0)) == 'p';
+            }
+            default -> {
+                if (token.startsWith("S") && token.chars().allMatch(c -> c == 'S')) {
+                    parts[6] = Integer.parseInt((value + "00").substring(0, 3));
+                }
+            }
+        }
+        return null;
+    }
+
+    private static int monthOf(String value, Names names) {
+        String name = value.toLowerCase(Locale.ROOT);
+        for (int i = 0; i < 12; i++) {
+            if (names.months.get(i).equalsIgnoreCase(name) || names.monthsShort.get(i).equalsIgnoreCase(name)
+                    || names.monthsShortWithoutDot != null && names.monthsShortWithoutDot.get(i).equalsIgnoreCase(name)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /** moment's data for one language: names, ordinals, weeks and long formats. */

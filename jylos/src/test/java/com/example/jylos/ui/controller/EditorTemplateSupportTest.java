@@ -48,7 +48,7 @@ class EditorTemplateSupportTest {
         @Override
         public void replaceSelection(String value, int cursorOffset) {
             text = text.substring(0, from) + value + text.substring(to);
-            from = to = from + value.length();
+            from = to = from + (cursorOffset >= 0 ? cursorOffset : value.length());
         }
     }
 
@@ -114,6 +114,18 @@ class EditorTemplateSupportTest {
 
         assertEquals(EditorTemplateSupport.Outcome.NO_NOTE, outcome);
         assertEquals("Texto", editor.text);
+    }
+
+    @Test
+    void theTemplateIsWrittenForTheSelectionAndLeavesTheCursorWhereItSays() {
+        Note note = FrontmatterHandler.parse("Uno dos tres\n");
+        FakeEditor editor = new FakeEditor(note.getContent(), 4, 7);
+
+        support(editor, note).insertTemplate(selection ->
+                new EditorTemplateSupport.Written("---\nx: 1\n---\n[" + selection + "] fin", 13 + selection.length() + 2));
+
+        assertEquals("Uno [dos] fin tres\n", editor.text, "the selection, read before it is replaced");
+        assertEquals(4 + "[dos]".length(), editor.from, "the cursor where the template put it, past its properties");
     }
 
     @Test

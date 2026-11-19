@@ -2,6 +2,7 @@ package com.example.jylos.data.dao.filesystem;
 
 import static org.yaml.snakeyaml.nodes.Tag.NULL;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -15,7 +16,10 @@ import java.util.regex.Pattern;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.AbstractConstruct;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
+import org.yaml.snakeyaml.nodes.Node;
+import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.representer.Representer;
 import org.yaml.snakeyaml.resolver.Resolver;
 
@@ -632,7 +636,7 @@ public final class FrontmatterHandler {
     private static Yaml newYamlParser() {
         LoaderOptions loaderOptions = new LoaderOptions();
         DumperOptions dumperOptions = createDumperOptions();
-        return new Yaml(new SafeConstructor(loaderOptions), new Representer(dumperOptions), dumperOptions,
+        return new Yaml(new FrontmatterConstructor(loaderOptions), new Representer(dumperOptions), dumperOptions,
                 loaderOptions, new FrontmatterResolver());
     }
 
@@ -640,7 +644,7 @@ public final class FrontmatterHandler {
         DumperOptions options = createDumperOptions();
         LoaderOptions loaderOptions = new LoaderOptions();
         // The reader's resolver: a date stays plain text ("created: 2026-01-01"), as Obsidian writes it.
-        return new Yaml(new SafeConstructor(loaderOptions), new EmptyNullRepresenter(options), options, loaderOptions,
+        return new Yaml(new FrontmatterConstructor(loaderOptions), new EmptyNullRepresenter(options), options, loaderOptions,
                 new FrontmatterResolver());
     }
 
@@ -803,16 +807,52 @@ public final class FrontmatterHandler {
      * Java date-serialization format; coercing it to {@code Date} changes the value
      * and breaks round-trips with external Markdown tools.
      */
+    /**
+     * What a plain value is, as Obsidian reads it: YAML 1.2's core schema. {@code no},
+     * {@code yes}, {@code on}, {@code 10:30} or {@code 1_000} are text, not a boolean or a number
+     * as in YAML 1.1; a date is text too.
+     */
     private static final class FrontmatterResolver extends Resolver {
+        private static final Pattern CORE_BOOL = Pattern.compile("^(?:true|True|TRUE|false|False|FALSE)$");
+        private static final Pattern CORE_INT = Pattern.compile("^(?:[-+]?[0-9]+|0o[0-7]+|0x[0-9a-fA-F]+)$");
+        private static final Pattern CORE_FLOAT = Pattern.compile(
+                "^(?:[-+]?(?:\\.[0-9]+|[0-9]+(?:\\.[0-9]*)?)(?:[eE][-+]?[0-9]+)?|[-+]?\\.(?:inf|Inf|INF)|\\.(?:nan|NaN|NAN))$");
+        private static final Pattern CORE_NULL = Pattern.compile("^(?:~|null|Null|NULL)$");
+
         @Override
         protected void addImplicitResolvers() {
-            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.BOOL, BOOL, "yYnNtTfFoO", 10);
-            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.INT, INT, "-+0123456789");
-            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.FLOAT, FLOAT, "-+0123456789.");
+            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.BOOL, CORE_BOOL, "tTfF", 10);
+            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.INT, CORE_INT, "-+0123456789");
+            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.FLOAT, CORE_FLOAT, "-+0123456789.");
             addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.MERGE, MERGE, "<", 10);
-            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.NULL, NULL, "~nN\0", 10);
+            addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.NULL, CORE_NULL, "~nN", 10);
             addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.NULL, EMPTY, null, 10);
             addImplicitResolver(org.yaml.snakeyaml.nodes.Tag.YAML, YAML, "!&*", 10);
+        }
+    }
+
+    /** Builds YAML 1.2's integers: {@code 0123} is 123 (not octal, as in YAML 1.1), {@code 0o17} is 15. */
+    private static final class FrontmatterConstructor extends SafeConstructor {
+        FrontmatterConstructor(LoaderOptions options) {
+            super(options);
+            this.yamlConstructors.put(org.yaml.snakeyaml.nodes.Tag.INT, new AbstractConstruct() {
+                @Override
+                public Object construct(Node node) {
+                    String text = constructScalar((ScalarNode) node);
+                    BigInteger value;
+                    if (text.startsWith("0x")) {
+                        value = new BigInteger(text.substring(2), 16);
+                    } else if (text.startsWith("0o")) {
+                        value = new BigInteger(text.substring(2), 8);
+                    } else {
+                        value = new BigInteger(text.startsWith("+") ? text.substring(1) : text);
+                    }
+                    if (value.bitLength() < 32) {
+                        return value.intValue();
+                    }
+                    return value.bitLength() < 64 ? (Object) value.longValue() : value;
+                }
+            });
         }
     }
 

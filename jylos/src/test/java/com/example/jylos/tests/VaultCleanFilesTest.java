@@ -90,6 +90,26 @@ class VaultCleanFilesTest {
         assertEquals("---\ndescription: otra\ncategory:\nrelated:\ntags:\n---\ntexto cambiado\n", file("Nota.md"));
     }
 
+    /**
+     * Properties are read as Obsidian reads them, YAML 1.2: {@code no}, {@code yes}, {@code on},
+     * {@code 10:30} and {@code 1_000} are text, not a boolean or a number, and stay as they are
+     * when another property changes; {@code true}, {@code 12} and {@code 1.5} are a boolean and numbers.
+     */
+    @Test
+    void propertiesAreReadAsObsidianReadsThem() throws Exception {
+        String rest = "firmado: no\nlisto: yes\nluz: on\nhora: 10:30\nmil: 1_000\nbin: 0b101\nok: true\nn: 12\nx: 1.5\n";
+        Files.writeString(vault.resolve("Nota.md"), "---\ndescription: algo\n" + rest + "---\ntexto\n", StandardCharsets.UTF_8);
+        NoteDAOFileSystem dao = new NoteDAOFileSystem(vault.toString());
+        Note note = dao.getNoteById("Nota.md");
+
+        assertEquals("no", note.getCustomProperties().get("firmado"));
+        assertEquals("10:30", note.getCustomProperties().get("hora"));
+        note.getCustomProperties().put("description", "otra");
+        dao.updateNote(note);
+
+        assertEquals("---\ndescription: otra\n" + rest + "---\ntexto\n", file("Nota.md"));
+    }
+
     @Test
     void aNoteWithoutPropertiesStaysWithoutThemAndANewOneHasNone() throws Exception {
         Files.writeString(vault.resolve("Simple.md"), "Solo texto.\n", StandardCharsets.UTF_8);

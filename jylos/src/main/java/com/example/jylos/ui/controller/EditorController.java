@@ -1491,9 +1491,9 @@ public class EditorController implements PreviewEnhancerRegistry,
         formatting.openSearch(true);
     }
 
-    /** Inserts a written template at the cursor, its properties in the note's: Obsidian's "Insert template". */
-    public EditorTemplateSupport.Outcome insertTemplate(String text) {
-        return templates.insertTemplate(text);
+    /** Inserts the template {@code write} writes for the selection, its properties in the note's: "Insert template". */
+    public EditorTemplateSupport.Outcome insertTemplate(Function<String, EditorTemplateSupport.Written> write) {
+        return templates.insertTemplate(write);
     }
 
     /** Writes {@code text} at the cursor of the note open for editing; {@code false} with none. */

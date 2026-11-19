@@ -71,4 +71,20 @@ class TemplatesSupportTest {
         assertEquals("19/11/2026", support.date());
         assertEquals("14:05", support.time());
     }
+
+    /** Templater's cursor marks are taken out; the cursor goes to the first in order. */
+    @Test
+    void theCursorGoesToTheFirstMarkInOrder() throws Exception {
+        VaultSettingsStore settings = new VaultSettingsStore(vault.resolve(".jylos/settings.json"));
+        TemplatesSupport support = support(settings);
+
+        TemplatesSupport.Rendered written = support.write(
+                "a<% tp.file.cursor(2) %>b<% tp.file.cursor(1) %>c<% tp.file.cursor() %>d", support.newNote("Nota.md"), true);
+        TemplatesSupport.Rendered without = support.write("x<% tp.file.cursor() %>", support.newNote("Nota.md"), false);
+
+        assertEquals("abcd", written.text());
+        assertEquals(3, written.cursor(), "the unnumbered one, first");
+        assertEquals("x<% tp.file.cursor() %>", without.text(), "without Templater, as it is");
+        assertEquals(-1, without.cursor());
+    }
 }

@@ -88,6 +88,50 @@ class TemplateInsertIntegrationTest {
         assertEquals(List.of(), statuses, "nothing to report");
     }
 
+    /** With Templater, its tags are written for the open note, as Templater's own "Insert template". */
+    @Test
+    void withTemplaterItsTagsAreWrittenForTheOpenNote(@TempDir Path vault) throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        Files.createDirectories(vault.resolve("Plantillas"));
+        Files.writeString(vault.resolve("Plantillas/acta.md"),
+                "---\nsemana: <% tp.date.now(\"[S]W\") %>\n---\n## <% tp.file.title %> <% tp.frontmatter.estado %>\n",
+                StandardCharsets.UTF_8);
+        Files.writeString(vault.resolve("Nota.md"), "---\nestado: hecho\n---\nTexto\n", StandardCharsets.UTF_8);
+        VaultSettingsStore settings = new VaultSettingsStore(vault.resolve(".jylos/settings.json"));
+        settings.set(VaultSettings.defaults().withTemplates(new Templates("Plantillas", null, null))
+                .withTemplater(new VaultSettings.Templater(true, false, List.of())));
+        NoteService notes = new NoteService(new NoteDAOFileSystem(vault.toString()),
+                new FolderDAOFileSystem(vault.toString()));
+
+        EditorController editor = onFx(() -> {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/jylos/ui/view/EditorView.fxml"), ES);
+            new Scene(new Pane((Parent) loader.load()), 900, 600);
+            EditorController controller = loader.getController();
+            controller.wire(EventBus.getInstance(), notes, null, loader.getResources(), note -> { }, status -> { },
+                    List::of, false, enabled -> { }, null, null, null);
+            controller.loadNote(notes.getNoteById("Nota.md").orElseThrow());
+            return controller;
+        });
+        waitUntil(() -> onFx(() -> "Texto\n".equals(editor.getCurrentContent())));
+        onFx(() -> {
+            NoteCreationSupport creation = new NoteCreationSupport();
+            creation.wire(notes, null, () -> true, ES::getString, status -> { }, () -> null, () -> null,
+                    note -> { }, note -> { }, id -> { }, () -> { }, () -> { });
+            creation.useVault(() -> settings, () -> editor, () -> null, () -> ES);
+            creation.insertTemplate(creation.templates().listing().find("acta").orElseThrow());
+            return null;
+        });
+        waitUntil(() -> onFx(() -> editor.getCurrentContent().contains("## Nota")));
+        onFx(() -> {
+            editor.handleSave();
+            return null;
+        });
+
+        String saved = Files.readString(vault.resolve("Nota.md"), StandardCharsets.UTF_8);
+        assertTrue(saved.startsWith("---\nestado: hecho\nsemana: S"), saved);
+        assertTrue(saved.endsWith("---\n## Nota hecho\nTexto\n"), saved);
+    }
+
     /** A template's {@code title:} is a property, as in Obsidian: the note keeps its name and file. */
     @Test
     void aTitlePropertyDoesNotRenameTheNote(@TempDir Path vault) throws Exception {
