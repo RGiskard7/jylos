@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.imageio.ImageIO;
 
@@ -33,6 +34,7 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBase;
+import javafx.scene.control.Label;
 import javafx.scene.control.Toggle;
 import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.BorderStroke;
@@ -74,6 +76,7 @@ class FlatButtonsComponentsTest {
         Path png = tempDir.resolve("img.png");
         ImageIO.write(new BufferedImage(40, 30, BufferedImage.TYPE_INT_RGB), "png", png.toFile());
 
+        AtomicReference<Pane> shown = new AtomicReference<>();
         List<String> offenders = onFx(() -> {
             ResourceBundle bundle = ResourceBundle.getBundle("com.example.jylos.i18n.messages",
                     Locale.forLanguageTag("es"));
@@ -109,6 +112,7 @@ class FlatButtonsComponentsTest {
                         () -> { }, k -> k);
             };
             Pane host = new Pane(content);
+            shown.set(host);
             Scene scene = new Scene(host, 1100, 700);
             scene.getStylesheets().add(getClass().getResource("/com/example/jylos/ui/css/" + theme).toExternalForm());
             Stage stage = new Stage();
@@ -141,7 +145,30 @@ class FlatButtonsComponentsTest {
             return out;
         });
 
+        if ("pdf".equals(view)) {
+            closeWhenLoaded(shown.get());
+        }
+
         assertEquals(List.of("checked true"), offenders);
+    }
+
+    /**
+     * The PDF viewer reads its file in the background (its page count, "/ 0", changes once it
+     * has) and keeps the document open while it is shown; it closes it when taken out of its
+     * window. Done here once it has loaded, so the
+     * file is no longer open when the temporary folder is deleted (Windows refuses to delete an
+     * open file).
+     */
+    private static void closeWhenLoaded(Pane host) throws Exception {
+        long deadline = System.nanoTime() + 20_000_000_000L;
+        while (!onFx(() -> all(host).stream().anyMatch(n -> n instanceof Label l && l.getText() != null && l.getText().matches("/ [1-9]\\d*")))) {
+            assertTrue(System.nanoTime() < deadline, "the PDF viewer loaded its document");
+            Thread.sleep(50);
+        }
+        onFx(() -> {
+            host.getChildren().clear();
+            return null;
+        });
     }
 
     private static List<Node> all(Parent root) {
