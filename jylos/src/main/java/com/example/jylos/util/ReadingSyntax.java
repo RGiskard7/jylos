@@ -191,7 +191,7 @@ public final class ReadingSyntax {
         Matcher m = TAG.matcher(markdown);
         StringBuilder out = new StringBuilder(markdown.length());
         while (m.find()) {
-            if (excluded.get(m.start())) {
+            if (excluded.get(m.start()) || !isTagName(m.group(1))) {
                 continue;
             }
             String name = m.group(1);
@@ -214,11 +214,16 @@ public final class ReadingSyntax {
         BitSet excluded = notTaggable(markdown);
         Matcher m = TAG.matcher(markdown);
         while (m.find()) {
-            if (!excluded.get(m.start())) {
+            if (!excluded.get(m.start()) && isTagName(m.group(1))) {
                 found.add(m.group(1));
             }
         }
         return found;
+    }
+
+    /** As in Obsidian, a tag has at least one character that is not a number: {@code #1984} is not one. */
+    private static boolean isTagName(String name) {
+        return !name.codePoints().allMatch(Character::isDigit);
     }
 
     /** Code, links, URLs and HTML tags: where a {@code #} does not start a tag. */

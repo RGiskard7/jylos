@@ -10,6 +10,8 @@ const FOOTNOTE_REF = /\[\^([^\]\s]+)\](?!:)/g;
 const INLINE_FOOTNOTE = /\^\[[^\]\n]+\]/g;
 const FOOTNOTE_DEF = /^[ \t]{0,3}\[\^([^\]\s]+)\]:/;
 const TAG = /(?<![^\s])#([\p{L}\p{N}_/-]+)/gu;
+/** As in Obsidian (and ReadingSyntax in Java), a tag has a character that is not a number: #1984 is not one. */
+const ONLY_DIGITS = /^\p{Nd}+$/u;
 const BLOCK_ID = /(?:^|[ \t]+)\^[A-Za-z0-9-]+[ \t]*$/;
 const INLINE_MATH = /(?<![\\$])\$(?![\s$])([^$\n]+?)(?<![\s\\])\$(?![$\d])/g;
 
@@ -1054,6 +1056,7 @@ function lineSpans(state, tree, line) {
   for (const match of line.text.matchAll(TAG)) {
     const from = line.from + match.index;
     const to = from + match[0].length;
+    if (ONLY_DIGITS.test(match[1])) continue;
     if (free(from, to) && !inLink(tree, from)) spans.push({ kind: "tag", from, to, text: match[0] });
   }
   const blockId = line.text.match(BLOCK_ID);

@@ -1,10 +1,12 @@
 package com.example.jylos.data.dao.interfaces;
 
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
+import com.example.jylos.data.dao.ExternalChanges;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Folder;
@@ -231,6 +233,26 @@ public interface NoteDAO {
      */
     default Optional<String> derived(String id, String key, Function<String, String> fromText) {
         return Optional.empty();
+    }
+
+    /**
+     * Ends the storage's session (another vault is opened, or the app closes): what it keeps
+     * pending is written now, and nothing is written afterwards. Nothing to do by default.
+     */
+    default void close() {
+        // Nothing pending.
+    }
+
+    /**
+     * Applies the files a watcher reported as changed outside the app (folder vaults): each
+     * one is listed again, added or removed, without walking the storage. Storages without
+     * files have nothing to apply.
+     *
+     * @param paths files and folders reported, absolute
+     * @return what changed
+     */
+    default ExternalChanges applyExternalChanges(Collection<Path> paths) {
+        return ExternalChanges.NONE;
     }
 
     /**

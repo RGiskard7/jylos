@@ -46,6 +46,8 @@ Bundled as JavaScript in the editor and the reading view.
 | [Gson](https://github.com/google/gson) 2.11.0, Error Prone annotations 2.27.0 | Google LLC | [Apache-2.0](licenses/Apache-2.0.txt) |
 | [Ikonli](https://kordamp.org/ikonli/) 12.3.1 (core, JavaFX, Bootstrap Icons and Feather packs) | Andres Almiray | [Apache-2.0](licenses/Apache-2.0.txt) |
 | [SnakeYAML](https://bitbucket.org/snakeyaml/snakeyaml) 2.2 | SnakeYAML authors | [Apache-2.0](licenses/Apache-2.0.txt) |
+| [directory-watcher](https://github.com/gmethvin/directory-watcher) 0.19.0 | Greg Methvin and contributors | [Apache-2.0](licenses/Apache-2.0.txt) |
+| [JNA](https://github.com/java-native-access/jna) 5.16.0 (`jna`, with its native `jnidispatch` libraries) | Timothy Wall and JNA contributors | [Apache-2.0](licenses/Apache-2.0.txt) or [LGPL-2.1 or later](licenses/LGPL-2.1.txt), at the user's choice; distributed here under Apache-2.0 |
 | [SQLite JDBC](https://github.com/xerial/sqlite-jdbc) 3.46.0.0 | Taro L. Saito and contributors | [Apache-2.0](licenses/Apache-2.0.txt); the SQLite library it embeds is in the public domain |
 | [TwelveMonkeys ImageIO](https://github.com/haraldk/TwelveMonkeys) 3.15.3 (`imageio-webp` and its common modules) | Harald Kuhr | [BSD-3-Clause](licenses/BSD-3-Clause.txt) |
 | [ControlsFX](https://controlsfx.github.io) 11.1.2 | ControlsFX | [BSD-3-Clause](licenses/BSD-3-Clause.txt) |

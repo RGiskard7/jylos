@@ -176,6 +176,13 @@
             <artifactId>gson</artifactId>
             <version>2.11.0</version>
         </dependency>
+        <!-- Watches a folder vault for changes made outside the app (FSEvents on macOS via JNA,
+             the JDK WatchService elsewhere). -->
+        <dependency>
+            <groupId>io.methvin</groupId>
+            <artifactId>directory-watcher</artifactId>
+            <version>0.19.0</version>
+        </dependency>
 
         <!-- YAML frontmatter parsing/serialization -->
         <dependency>

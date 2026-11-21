@@ -339,6 +339,7 @@ public class MainController {
     private final UpdateNotificationSupport updateNotifications = new UpdateNotificationSupport();
     private final AtomicLong quickSwitcherLoadVersion = new AtomicLong(0);
     private final AtomicLong backendSessionGeneration = new AtomicLong(0);
+    private final VaultWatchSupport vaultWatch = new VaultWatchSupport();
     private volatile List<Note> quickSwitcherNotesCache = List.of();
     private volatile long activeBackendSessionGeneration = 0L;
     private int notesListPreviewLines = UiPreferencesStore.DEFAULT_NOTES_PREVIEW_LINES;
@@ -787,6 +788,7 @@ public class MainController {
     }
 
     private void disposeCurrentBackendSession() {
+        vaultWatch.endSession(noteDAO);
         if (noteDAO != null) {
             noteDAO.setOnContentLoaded(null);
         }
@@ -2301,7 +2303,13 @@ public class MainController {
         } catch (Exception e) {
             logger.log(Level.WARNING, "Failed to refresh UI after vault content load", e);
         }
+        vaultWatch.start(noteService, generation, this::isActiveBackendSession, eventBus,
+                new VaultWatchSupport.Editor(this::getCurrentNote, this::isModified, this::refreshOpenNoteAfterStorageRefresh,
+                        this::refreshInactiveOpenTabsAfterStorageRefresh,
+                        () -> updateStatus(getString("status.open_note_changed_outside"))),
+                () -> handleRefresh(null));
     }
+
 
     /** Refreshes the notes list according to the active filter (all / folder / tag / search) and view mode. */
     /** Loads again what the notes list shows (the list keeps which filter that is). */
@@ -2337,6 +2345,7 @@ public class MainController {
     /** Cancels all event subscriptions, shuts down plugins, closes the executor and the database connection in orderly fashion. */
     public void shutdownApplication() {
         try {
+            vaultWatch.endSession(noteDAO);
             workspaceController.saveSession(); // first, while the tabs are all there
             uiEventSubscriptions.forEach(EventBus.Subscription::cancel);
             uiEventSubscriptions.clear();

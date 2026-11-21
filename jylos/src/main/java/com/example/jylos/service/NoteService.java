@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -20,6 +21,7 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.data.dao.ExternalChanges;
 import com.example.jylos.data.dao.filesystem.FrontmatterHandler;
 import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
@@ -556,6 +558,29 @@ public class NoteService {
      * Reloads storage-backed caches after an explicit user refresh. In filesystem
      * mode this picks up out-of-process edits made by tools such as Obsidian.
      */
+    /**
+     * Applies what a watcher saw change in a folder vault outside the app (see
+     * {@link NoteDAO#applyExternalChanges}). When a folder may have come or gone, the folder list
+     * is read again (folders only, no notes) and the result says whether it changed.
+     */
+    public ExternalChanges applyExternalChanges(Collection<Path> paths) {
+        ExternalChanges changes = noteDAO.applyExternalChanges(paths);
+        if (!changes.foldersMayHaveChanged() || folderDAO == null) {
+            return changes;
+        }
+        Set<String> before = folderIds();
+        folderDAO.refreshCache();
+        return changes.withFolders(!before.equals(folderIds()));
+    }
+
+    private Set<String> folderIds() {
+        Set<String> ids = new HashSet<>();
+        for (Folder folder : folderDAO.fetchAllFoldersAsList()) {
+            ids.add(folder.getId());
+        }
+        return ids;
+    }
+
     public void refreshStorageCache() {
         noteDAO.refreshCache();
         if (folderDAO != null) {

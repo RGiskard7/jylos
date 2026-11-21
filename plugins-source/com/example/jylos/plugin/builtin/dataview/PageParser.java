@@ -9,6 +9,7 @@ import java.util.regex.Pattern;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
+import com.example.jylos.service.TagService;
 
 /**
  * Extracts query-visible metadata from a note's raw Markdown.
@@ -41,7 +42,6 @@ final class PageParser {
     private static final Pattern INLINE_FIELD_LINE = Pattern.compile("^([A-Za-z0-9_][\\w \\-/]*?)::\\s*(.*)$");
     private static final Pattern INLINE_FIELD_BRACKET =
             Pattern.compile("[\\[(]([A-Za-z0-9_][\\w \\-/]*?)::\\s*([^\\])]*)[\\])]");
-    private static final Pattern TAG = Pattern.compile("(?<![\\w&])#([A-Za-z0-9_][\\w/\\-]*)");
     private static final Pattern WIKI_LINK = Pattern.compile("\\[\\[([^\\[\\]\\n]+?)\\]\\]");
 
     /**
@@ -49,7 +49,7 @@ final class PageParser {
      * bump it whenever the patterns above, {@link #mayMatter} or {@code parseBody} change, so
      * summaries made with the old rules are made again.
      */
-    static final String SUMMARY_KEY = "dataview@1";
+    static final String SUMMARY_KEY = "dataview@2";
 
     private PageParser() {
     }
@@ -63,7 +63,7 @@ final class PageParser {
         return trimmed.startsWith("```") || trimmed.startsWith("~~~")
                 || TASK_LINE.matcher(line).matches()
                 || line.contains("::") // every inline field, own line or bracketed, has it
-                || TAG.matcher(line).find()
+                || !TagService.inlineTagsOf(line).isEmpty()
                 || WIKI_LINK.matcher(line).find();
     }
 
@@ -332,10 +332,10 @@ final class PageParser {
         return cleaned.toString();
     }
 
+    /** The vault's own rule ({@link TagService#inlineTagsOf}), so a query finds the tags the app shows. */
     private static void collectTags(String text, List<String> tags) {
-        Matcher matcher = TAG.matcher(text);
-        while (matcher.find()) {
-            addTag(tags, matcher.group(1));
+        for (String tag : TagService.inlineTagsOf(text)) {
+            addTag(tags, tag);
         }
     }
 

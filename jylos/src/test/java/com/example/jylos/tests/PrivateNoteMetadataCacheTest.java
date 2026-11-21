@@ -48,8 +48,8 @@ class PrivateNoteMetadataCacheTest {
         Files.createDirectories(vault);
         Path cache = root.resolve("cache/vault.json");
         EncryptionService.getInstance().configure("clave-de-prueba".toCharArray());
-        NoteService first = new NoteService(new NoteDAOFileSystem(vault.toString(), false, cache),
-                new FolderDAOFileSystem(vault.toString()));
+        NoteDAOFileSystem firstDao = new NoteDAOFileSystem(vault.toString(), false, cache);
+        NoteService first = new NoteService(firstDao, new FolderDAOFileSystem(vault.toString()));
         first.createNote(new Note("EnlaceOculto", ""));
         first.createNote(new Note("Abierta", "Texto [[EnlaceOculto]]"));
         Note secret = new Note("Privada", "borrador");
@@ -57,6 +57,7 @@ class PrivateNoteMetadataCacheTest {
         secret = first.createNote(secret);
         secret.setContent(SECRET + " [[EnlaceOculto]] ![[oculta.png]] #oculta");
         first.updateNote(secret);
+        firstDao.close(); // the session ends, as when the app opens the vault again
         EventBus.getInstance().clear();
 
         NoteDAOFileSystem dao = new NoteDAOFileSystem(vault.toString(), true, cache);

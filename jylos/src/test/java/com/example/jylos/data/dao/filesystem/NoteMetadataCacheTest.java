@@ -136,6 +136,33 @@ class NoteMetadataCacheTest {
         assertTrue(Files.readString(cache, StandardCharsets.UTF_8).contains("Nueva.md"), "written a moment later");
     }
 
+    /**
+     * Closing the vault's session writes what the cache has pending at once, and nothing later:
+     * a write scheduled by the closed session must not overwrite the file of the next one.
+     */
+    @Test
+    void closingWritesWhatIsPendingAtOnceAndNothingLater(@TempDir Path root) throws Exception {
+        Path vault = write(root.resolve("vault"), fixtures());
+        Path cache = root.resolve("cache/vault.json");
+        NoteDAOFileSystem first = loaded(vault, cache);
+        first.createNote(new Note("Escrita", "en la primera sesión"));
+
+        first.close();
+
+        assertTrue(Files.readString(cache, StandardCharsets.UTF_8).contains("Escrita.md"), "written at once");
+        EventBus.getInstance().clear();
+        NoteDAOFileSystem second = loaded(vault, cache);
+        second.derived("Tarea.md", "segunda@1", text -> "de la segunda");
+        second.close();
+        // Something of the closed session still touches its cache (a late query, say).
+        first.derived("Tarea.md", "vieja@1", text -> "de la primera");
+        Thread.sleep(2500); // past when a write it scheduled would be due
+
+        String stored = Files.readString(cache, StandardCharsets.UTF_8);
+        assertTrue(stored.contains("segunda@1") && !stored.contains("vieja@1"),
+                "the first session wrote nothing after it closed");
+    }
+
     /** A {@code #tag} far into a note is one of its tags, as in Obsidian, not only those of its start. */
     @Test
     void aTagFarIntoANoteIsListed(@TempDir Path root) throws Exception {

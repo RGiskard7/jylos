@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
 
 /**
@@ -93,6 +95,17 @@ class ReadingSyntaxTest {
     void aTagInsideALinkTextOrAnHtmlAttributeIsNotATag() {
         String md = "[ver #dentro](Nota.md) y [[Nota|alias #dentro]] y <span title=\"a #dentro\">x</span>";
         assertEquals(md, ReadingSyntax.tags(md));
+    }
+
+    /** As in Obsidian, a tag has at least one character that is not a number: #1984 is not one. */
+    @Test
+    void aTagMadeOnlyOfDigitsIsNotATag() {
+        String md = "Año #1984, #2024 y #٣٤ no; #y1984 #1984a #2024-review #año sí";
+
+        assertEquals(List.of("y1984", "1984a", "2024-review", "año"), ReadingSyntax.inlineTags(md));
+        String out = ReadingSyntax.tags(md);
+        assertTrue(out.startsWith("Año #1984, #2024 y #٣٤ no; " + tag("y1984")), out);
+        assertTrue(out.endsWith(tag("año") + " sí"), out);
     }
 
     @Test

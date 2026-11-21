@@ -316,6 +316,7 @@ public final class DataviewPluginTest {
 
         System.out.println("\n-- DataviewIndex resilience to unparseable notes --");
         checkIndexSkipsUnparseableNotesWithoutFailingTheWholeVault();
+        checkTagsFollowTheVaultsRule();
         checkASummaryParsesLikeTheText();
         checkTheIndexOfAnUnchangedVaultReadsNoNote();
         checkAPageFromTheCacheIsThePageOfTheWholeNote();
@@ -399,6 +400,21 @@ public final class DataviewPluginTest {
                     .append(',').append(task.pageTitle()).append(',').append(task.fields()).append(']');
         }
         return out.toString();
+    }
+
+    /**
+     * A page's tags are the vault's (and Obsidian's): not in code, links or URLs, not only
+     * digits, and any letter counts.
+     */
+    private static void checkTagsFollowTheVaultsRule() {
+        System.out.println("\n-- tags --");
+        Note note = new Note("t.md", "T", "Con #canción y #y1984 y #área/sub\n"
+                + "No: #1984, `#codigo`, [x](#ancla), https://x.org/#frag, [[Nota#Sección]]\n"
+                + "- [ ] tarea #entarea\nclave:: valor #encampo\n");
+        Page page = PageParser.parse(note, "", "t.md");
+        check("tags as the vault finds them",
+                page.tags().equals(List.of("#canción", "#y1984", "#área/sub", "#entarea", "#encampo")),
+                String.valueOf(page.tags()));
     }
 
     /** The summary kept in the vault's cache gives the page the whole text gives. */

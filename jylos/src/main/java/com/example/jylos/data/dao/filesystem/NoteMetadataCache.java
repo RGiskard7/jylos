@@ -47,7 +47,7 @@ public final class NoteMetadataCache {
     static final int PREVIEW_CHARS = 900;
 
     /** Bumped whenever what an entry holds, or how it is found, changes: older entries are read again. */
-    static final int FORMAT = 1;
+    static final int FORMAT = 2;
 
     /**
      * What the vault knows of a note without opening it.
@@ -178,6 +178,13 @@ public final class NoteMetadataCache {
             dirty = true;
         }
         return kept[0];
+    }
+
+    /** Forgets the entry of {@code id} (its note was deleted). */
+    public void remove(String id) {
+        if (id != null && entries.remove(id) != null) {
+            dirty = true;
+        }
     }
 
     /** Forgets every entry whose id is not in {@code ids} (notes deleted or renamed). */

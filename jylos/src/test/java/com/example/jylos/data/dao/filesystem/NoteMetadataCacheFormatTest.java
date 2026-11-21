@@ -39,14 +39,13 @@ class NoteMetadataCacheFormatTest {
     void whatTheCacheFindsInAFileIsPinnedToItsFormat() {
         NoteMetadataCache.Metadata found = NoteMetadataCache.Metadata.of(FILE);
 
-        assertEquals(1, NoteMetadataCache.FORMAT, "bumped: update the expectations below to the new rules");
+        assertEquals(2, NoteMetadataCache.FORMAT, "bumped: update the expectations below to the new rules");
         assertEquals(List.of("Índice", "B", "Destino", "Otra", "Carpeta/Nota", "Incrustada"), found.links(),
                 "links changed: bump NoteMetadataCache.FORMAT");
         assertEquals(List.of("foto.png", "doc.pdf", "Lienzo.canvas"), found.fileLinks(),
                 "file links changed: bump NoteMetadataCache.FORMAT");
-        // "123": today's rule (ReadingSyntax.inlineTags) takes an all-digit #123 as a tag;
-        // Obsidian does not. Changing that is a rule change: bump FORMAT with it.
-        assertEquals(List.of("etiqueta", "anidada/sub", "con-guion", "123", "final"), found.inlineTags(),
+        // #123 is not a tag, as in Obsidian (FORMAT 2; FORMAT 1 took it as one).
+        assertEquals(List.of("etiqueta", "anidada/sub", "con-guion", "final"), found.inlineTags(),
                 "tags changed: bump NoteMetadataCache.FORMAT");
         assertEquals(FILE.substring(4, FILE.indexOf("---\nTexto")), found.yaml(),
                 "properties block changed: bump NoteMetadataCache.FORMAT");
