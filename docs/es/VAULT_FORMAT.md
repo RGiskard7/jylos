@@ -29,9 +29,7 @@ Lo escribe `FrontmatterHandler.generate(nota, ficheroAnterior)`, llamado desde
   `FrontmatterConstructor`): solo `true`/`false` son booleanos; `no`, `yes`, `on`, `10:30` o
   `1_000` son texto; `0123` es 123, `0x1F` y `0o17` llevan su prefijo. Al volver a escribir:
   listas con la sangría de Obsidian (`  - x`), una propiedad vacía como `clave:`, una fecha sin
-  comillas, un valor que el campo de Jylos (`author`, `status`, `source_url`) lee igual que el
-  escrito se copia tal cual (una lista sigue siendo lista), y unas propiedades nuevas van justo
-  antes del texto, sin línea en blanco.
+  comillas, y unas propiedades nuevas van justo antes del texto, sin línea en blanco.
 - **Las propiedades que añade una plantilla** (`FrontmatterHandler.mergeProperties`, la regla
   de Obsidian: las nuevas al final en su orden, listas unidas sin repetir, un valor vacío de la
   plantilla no pisa) se guardan en `Note.addedFrontmatter` hasta el siguiente guardado: así un
@@ -44,7 +42,8 @@ Lo escribe `FrontmatterHandler.generate(nota, ficheroAnterior)`, llamado desde
 |-------|-------------|
 | `tags`, `aliases`/`alias` | Etiquetas y alias de enlace, como en Obsidian |
 | `private: true` | El texto va cifrado (`JENC1:…`); solo se escribe si es verdadero |
-| `status`, `author`, `source_url`, `is_todo`, `todo_due`, `todo_completed` | Solo si tienen valor |
+| `author`, `status`, `source_url` | Propiedades como cualquier otra: se ven, se editan y se quitan en el panel de propiedades, y Dataview las lee; de ellas salen el autor, el estado y la fuente de la nota |
+| `is_todo`, `todo_due`, `todo_completed` | Solo si tienen valor |
 | `created` | Se muestra como fecha de creación si está; nunca se añade (si no, se usa la del fichero) |
 | cualquier otra | Propiedades del usuario, con sus tipos YAML |
 

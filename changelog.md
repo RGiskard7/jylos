@@ -8,6 +8,7 @@
   - el tamaño tras la barra: `![[foto.png|300]]` a 300 px de ancho, `![[foto.png|300x100]]` con ancho y alto, y `![texto|200](foto.png)` igual en Markdown.
 - **Grupos de color del grafo:** una consulta con comillas, como la escribe Obsidian (`path:"30 Recursos"`, `file:"Mi nota"`), ya colorea sus notas; antes no coloreaba ninguna.
 - **Dataview:** `LIST campo` muestra cada nota enlazada y su valor («Dune: Frank Herbert»), como Dataview; `LIST WITHOUT ID campo`, solo el valor.
+- **Propiedades `author`, `status` y `source_url`:** en una bóveda de carpetas son propiedades como cualquier otra, como en Obsidian. El panel de propiedades las muestra y permite editarlas y quitarlas, y Dataview las lee (`TABLE author, status`, `WHERE status = "leyendo"`); antes Jylos las guardaba aparte y no aparecían en ninguno de los dos.
 - **Corregido:** en Windows, un PDF abierto en Jylos ya no impide moverlo, renombrarlo o borrarlo; el visor lo lee entero y no lo deja abierto.
 
 ## [2.6.0] - 2026-11-16

@@ -15,6 +15,7 @@ import java.util.ResourceBundle;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
+import com.example.jylos.data.dao.filesystem.FrontmatterHandler;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.tests.FxTestSupport;
 
@@ -171,6 +172,24 @@ class PropertiesPanelTest {
                 "button true panel true dot true tip Propiedades (1)",
                 "button true panel true dot false tip Propiedades",
                 "button false panel false dot false tip Propiedades"), seen);
+    }
+
+    /** {@code author}, {@code status} and {@code source_url} are properties like any other, as in Obsidian. */
+    @Test
+    void authorStatusAndSourceUrlAreShownAsProperties() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> rows = onFx(() -> {
+            Parent root = loadEditor();
+            Note note = FrontmatterHandler.parse("---\nauthor: Frank Herbert\nstatus: leyendo\n"
+                    + "source_url: https://example.org\nprivate: false\ntags:\n  - libro\n---\ntexto\n");
+            note.setId("Dune.md");
+            controller(root).loadNote(note);
+            ((ToggleButton) root.lookup("#togglePropertiesBtn")).fire();
+            return rowKeys(root);
+        });
+
+        assertEquals(List.of("author", "status", "source_url"), rows);
     }
 
     /** A property is added in the panel itself: a new row whose name and value are typed in place. */

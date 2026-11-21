@@ -26,9 +26,8 @@ Written by `FrontmatterHandler.generate(note, previousFile)`, called from
 - **YAML is read and written as Obsidian does, YAML 1.2 core** (`FrontmatterResolver`,
   `FrontmatterConstructor`): only `true`/`false` are booleans; `no`, `yes`, `on`, `10:30` or
   `1_000` are text; `0123` is 123, `0x1F` and `0o17` have their prefix. When written again:
-  lists with Obsidian's indentation (`  - x`), an empty property as `key:`, a date unquoted, a
-  value Jylos' field (`author`, `status`, `source_url`) reads as written is copied as it is (a
-  list stays a list), and new properties go right before the text, with no blank line.
+  lists with Obsidian's indentation (`  - x`), an empty property as `key:`, a date unquoted,
+  and new properties go right before the text, with no blank line.
 - **Properties a template adds** (`FrontmatterHandler.mergeProperties`, Obsidian's rule: new
   ones at the end in their order, lists joined without repeats, a template's empty value does
   not overwrite) are kept in `Note.addedFrontmatter` until the next save: a template's `title`,
@@ -41,7 +40,8 @@ Written by `FrontmatterHandler.generate(note, previousFile)`, called from
 |-----|---------|
 | `tags`, `aliases`/`alias` | Tags and link aliases, as in Obsidian |
 | `private: true` | The text is encrypted (`JENC1:…`); written only when true |
-| `status`, `author`, `source_url`, `is_todo`, `todo_due`, `todo_completed` | Written only when set |
+| `author`, `status`, `source_url` | Properties like any other: shown, edited and removed in the properties panel and seen by Dataview; the note's author, status and source are read from them |
+| `is_todo`, `todo_due`, `todo_completed` | Written only when set |
 | `created` | Shown as the creation date when present; never added (the file's date is used otherwise) |
 | anything else | User properties, kept with their YAML types |
 

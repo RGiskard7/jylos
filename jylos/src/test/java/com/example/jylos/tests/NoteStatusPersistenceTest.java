@@ -19,9 +19,9 @@ import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
 import com.example.jylos.data.models.Note;
 
 /**
- * The Kanban board groups notes by their workflow {@code status}, which must persist.
- * These tests cover the filesystem vault path (frontmatter round-trip); the SQLite
- * column is exercised by the DAO integration tests.
+ * A note's {@code status} persists. In a folder vault it is a property like any other, as in
+ * Obsidian, also read into the note's field; these tests cover that path (frontmatter
+ * round-trip), the SQLite column is exercised by the DAO integration tests.
  */
 class NoteStatusPersistenceTest {
 
@@ -33,9 +33,8 @@ class NoteStatusPersistenceTest {
         Note parsed = FrontmatterHandler.parse(FrontmatterHandler.generate(note));
 
         assertEquals("doing", parsed.getStatus(), "status must survive a frontmatter round-trip");
-        // status is a system key — it must NOT leak into custom properties.
-        assertNull(parsed.getCustomProperties().get("status"),
-                "status should be a first-class field, not a custom property");
+        // A property like any other, as in Obsidian: shown and edited as one.
+        assertEquals("doing", parsed.getCustomProperties().get("status"), "status is a property too");
     }
 
     @Test

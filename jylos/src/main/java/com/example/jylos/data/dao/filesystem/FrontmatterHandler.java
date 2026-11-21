@@ -51,12 +51,21 @@ public final class FrontmatterHandler {
     private static final List<String> JYLOS_FIELDS = List.of(
             "id", "title", "created", "modified", "favorite", "pinned", "deleted", "deleted_date");
 
-    /** Keys consumed by the fixed Note schema — never exposed as custom properties. */
+    /**
+     * Jylos' own keys: read into the note's fields and never shown or edited as properties
+     * ({@code private} marks an encrypted note, {@code tags} has its own bar).
+     */
     private static final List<String> SYSTEM_KEYS = List.of(
             "id", "title", "created", "modified",
             "favorite", "pinned", "deleted", "deleted_date",
-            "author", "source_url", "tags", "status", "private",
+            "tags", "private",
             "is_todo", "todo_due", "todo_completed");
+
+    /**
+     * Properties like any other, as in Obsidian (shown, edited, seen by Dataview), that Jylos
+     * also reads into the note's own fields for storages without properties (SQLite).
+     */
+    private static final List<String> FIELD_PROPERTIES = List.of("author", "status", "source_url");
 
     private FrontmatterHandler() {
         // utility class
@@ -141,12 +150,12 @@ public final class FrontmatterHandler {
                 root.put(key, previous.get(key));
             }
         }
-        putKeeping(root, previous, "status", note.getStatus());
+        putUnlessAProperty(root, previous, note, "status", note.getStatus());
         if (note.isPrivate()) {
             root.put("private", true);
         }
-        putKeeping(root, previous, "author", note.getAuthor());
-        putKeeping(root, previous, "source_url", note.getSourceUrl());
+        putUnlessAProperty(root, previous, note, "author", note.getAuthor());
+        putUnlessAProperty(root, previous, note, "source_url", note.getSourceUrl());
 
         List<String> tags = propertyTags(note, previousFile);
         Object writtenTags = previous.get("tags");
@@ -219,6 +228,23 @@ public final class FrontmatterHandler {
      * the way the note's field was read from it, so {@code author:} written as a list of one
      * stays a list.
      */
+    /**
+     * {@code author}, {@code status} or {@code source_url} from the note's field, only when the
+     * note's properties do not have it: when they do (edited, or taken out in the properties
+     * panel) they decide, as for any property. A value set from code on a note without it is
+     * written.
+     */
+    private static void putUnlessAProperty(Map<String, Object> root, Map<String, Object> previous, Note note,
+            String key, String value) {
+        boolean aProperty = (note.getCustomProperties() != null && note.getCustomProperties().containsKey(key))
+                || (note.getStructuredFrontmatterProperties() != null
+                        && note.getStructuredFrontmatterProperties().containsKey(key))
+                || note.getDisplayableFrontmatterPropertyKeys().contains(key);
+        if (!aProperty) {
+            putKeeping(root, previous, key, value);
+        }
+    }
+
     private static void putKeeping(Map<String, Object> root, Map<String, Object> previous, String key, String value) {
         if (value == null || value.isBlank()) {
             return;
@@ -417,7 +443,7 @@ public final class FrontmatterHandler {
     }
 
     /** Fields Jylos reads into its own strings, written back as the template wrote them while they are the same. */
-    private static final List<String> WRITTEN_AS_IS = List.of("author", "status", "source_url");
+    private static final List<String> WRITTEN_AS_IS = FIELD_PROPERTIES;
 
     /**
      * {@code root} with what a template added ({@link Note#getAddedFrontmatter}): a property the
