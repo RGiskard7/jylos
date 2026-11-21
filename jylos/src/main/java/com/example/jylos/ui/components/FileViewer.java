@@ -4,6 +4,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -229,7 +230,9 @@ public final class FileViewer {
         Task<PdfSession> task = new Task<>() {
             @Override
             protected PdfSession call() throws Exception {
-                PDDocument document = PDDocument.load(path.toFile());
+                // Read whole: PDFBox keeps a file it loads open while the document lives, and
+                // Windows then refuses to move, rename or delete it while it is shown.
+                PDDocument document = PDDocument.load(Files.readAllBytes(path));
                 return new PdfSession(document);
             }
         };

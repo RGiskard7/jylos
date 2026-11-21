@@ -105,7 +105,10 @@ final class QueryEngine {
 
     private ResultRow project(Ast.Query query, Row row, DqlEvaluator evaluator) {
         List<Object> values = new ArrayList<>();
-        if (query.kind() == Ast.Kind.TABLE && !query.withoutId()) {
+        // The note's link leads a TABLE row, and a LIST item with a field (as Dataview: "Dune:
+        // Frank Herbert"); WITHOUT ID leaves it out.
+        boolean listsAField = query.kind() == Ast.Kind.LIST && !query.columns().isEmpty();
+        if ((query.kind() == Ast.Kind.TABLE || listsAField) && !query.withoutId()) {
             values.add(row.page().link());
         }
         for (Ast.Column column : query.columns()) {

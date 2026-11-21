@@ -187,6 +187,15 @@ public final class DataviewPluginTest {
         check("FLATTEN + filter on binding",
                 flattened.contains("classic") && !flattened.contains("scifi"), flattened);
 
+        // As in Dataview: LIST with a field shows each note's link and the value; WITHOUT ID,
+        // only the value.
+        String listField = run(source, "LIST author FROM #book WHERE file.name = \"Dune\"", dune);
+        check("LIST field: the note's link, then its value",
+                listField.matches("(?s).*<li><a class=\"wikilink\"[^>]*>Dune</a>: Frank Herbert</li>.*"), listField);
+        String listWithoutId = run(source, "LIST WITHOUT ID author FROM #book WHERE file.name = \"Dune\"", dune);
+        check("LIST WITHOUT ID field: only the value",
+                listWithoutId.contains("<li>Frank Herbert</li>"), listWithoutId);
+
         System.out.println("\n-- TASK --");
         String tasks = run(source, "TASK WHERE !completed", dune);
         check("task query filters incomplete", tasks.contains("Re-read part two")

@@ -150,6 +150,9 @@ public final class Transclusion {
             titlePart = titlePart.substring(0, pipe);
         }
         String link = titlePart.trim();
+        if (AttachmentType.fromName(link) == AttachmentType.IMAGE) {
+            return image(link, pipe >= 0 ? ref.substring(ref.indexOf('|') + 1).trim() : "");
+        }
         String title = WikiLinkResolver.extractTitle(link);
         String display = heading != null && !heading.isEmpty() ? title + " › " + heading : title;
 
@@ -270,6 +273,20 @@ public final class Transclusion {
             return sb.toString();
         }
         return null;
+    }
+
+    /** {@code |300}, {@code |300x100}: the size Obsidian gives an embedded image. */
+    private static final Pattern IMAGE_SIZE = Pattern.compile("\\d+(?:\\s*x\\s*\\d+)?");
+
+    /**
+     * {@code ![[foto.png]]} is the image itself, as in Obsidian, not an embedded note. Its
+     * path is resolved, and found by name if need be, where local images are inlined; a size
+     * after {@code |} is kept in its alternative text as {@code ![text|300](…)} writes it.
+     */
+    private static String image(String link, String after) {
+        String alt = IMAGE_SIZE.matcher(after).matches() ? "|" + after : after;
+        String src = link.replace("%", "%25").replace(" ", "%20");
+        return "<img src=\"" + MarkdownProcessor.escapeHtml(src) + "\" alt=\"" + MarkdownProcessor.escapeHtml(alt) + "\">";
     }
 
     private static String notice(String cssClass, String display, String reason) {

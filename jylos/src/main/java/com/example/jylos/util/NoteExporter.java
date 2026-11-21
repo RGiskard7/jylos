@@ -6,6 +6,7 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.function.Function;
 
 import org.jsoup.Jsoup;
@@ -71,10 +72,21 @@ public final class NoteExporter {
     public static void exportHtml(Note note, File target, Path baseDir,
             Function<String, String> embeddedContentResolver, Path imageContainmentRoot,
             LinkIndex links) throws Exception {
+        exportHtml(note, target, baseDir, embeddedContentResolver, imageContainmentRoot, links, null);
+    }
+
+    /**
+     * Same, with {@code imageLocator} finding by name, as Obsidian does, an image that is not
+     * where its path says ({@code ![[foto.png]]} with the image in another folder).
+     */
+    public static void exportHtml(Note note, File target, Path baseDir,
+            Function<String, String> embeddedContentResolver, Path imageContainmentRoot,
+            LinkIndex links, Function<String, Optional<Path>> imageLocator) throws Exception {
         // The note as context, so its links resolve from its own folder, as in the reading view.
         String html = MarkdownPreview.buildPreviewHtml(content(note), false, null,
                 new MarkdownPreview.PreviewOptions(baseDir, embeddedContentResolver,
-                        new PreviewContext(note, false), false, 0, imageContainmentRoot, links));
+                        new PreviewContext(note, false), false, 0, imageContainmentRoot, links)
+                        .withImageLocator(imageLocator));
         Files.writeString(target.toPath(), html, StandardCharsets.UTF_8);
     }
 
@@ -106,8 +118,20 @@ public final class NoteExporter {
     public static void exportPdf(Note note, File target, String baseUri,
             Function<String, String> embeddedContentResolver, LinkIndex links)
             throws Exception {
-        String xhtml = buildPrintHtml(note, new MarkdownPreview.PreviewOptions(null, embeddedContentResolver,
-                new PreviewContext(note, false), false, 0, null, links));
+        exportPdf(note, target, baseUri, embeddedContentResolver, links, null, null, null);
+    }
+
+    /**
+     * Same, with the note's folder, the vault and {@code imageLocator}: the note's images are
+     * written into the page, those found by name too ({@code ![[foto.png]]} in another folder),
+     * and never one outside the vault.
+     */
+    public static void exportPdf(Note note, File target, String baseUri,
+            Function<String, String> embeddedContentResolver, LinkIndex links, Path baseDir,
+            Path imageContainmentRoot, Function<String, Optional<Path>> imageLocator) throws Exception {
+        String xhtml = buildPrintHtml(note, new MarkdownPreview.PreviewOptions(baseDir, embeddedContentResolver,
+                new PreviewContext(note, false), false, 0, imageContainmentRoot, links)
+                .withImageLocator(imageLocator));
         Document jsoupDoc = Jsoup.parse(xhtml);
         jsoupDoc.outputSettings()
                 .syntax(Document.OutputSettings.Syntax.xml)

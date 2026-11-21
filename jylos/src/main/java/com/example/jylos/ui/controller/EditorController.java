@@ -557,7 +557,7 @@ public class EditorController implements PreviewEnhancerRegistry,
             }, SystemBrowser::open);
             noteContentArea.setImageSourceResolver(
                     source -> MarkdownPreview.resolveImageSource(source, preview.imageBaseDir(),
-                            preview.imageContainmentRoot()));
+                            preview.imageContainmentRoot(), preview.imageLocator()));
             noteContentArea.setTextChangeListener(content -> {
                 if (currentNote != null) {
                     reevaluateModifiedState();

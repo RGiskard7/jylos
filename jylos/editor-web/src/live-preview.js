@@ -452,16 +452,37 @@ export function imageConverted(id, png) {
   done?.(png || "");
 }
 
+// Obsidian's image size: "300" or "300x100" after the | of ![[image|…]] or of ![text|…](image).
+const IMAGE_SIZE = /^(\d+)(?:\s*x\s*(\d+))?$/;
+
+/** An embed's text after |: a size, or the image's alternative text. */
+function wikiImageText(after) {
+  const size = after.match(IMAGE_SIZE);
+  return size ? { alt: "", width: size[1], height: size[2] } : { alt: after, width: null, height: null };
+}
+
+/** A Markdown image's text: "text|300" is the text and a size, as Obsidian reads it. */
+function markdownImageText(label) {
+  const bar = label.lastIndexOf("|");
+  const size = bar >= 0 ? label.slice(bar + 1).trim().match(IMAGE_SIZE) : null;
+  return size
+    ? { alt: label.slice(0, bar).trim(), width: size[1], height: size[2] }
+    : { alt: label, width: null, height: null };
+}
+
 class ImageWidget extends WidgetType {
-  constructor(source, alt, from) {
+  constructor(source, text, from) {
     super();
     this.source = source;
-    this.alt = alt;
+    this.alt = text.alt;
+    this.width = text.width;
+    this.height = text.height;
     this.from = from;
   }
 
   eq(other) {
-    return this.source === other.source && this.alt === other.alt;
+    return this.source === other.source && this.alt === other.alt
+      && this.width === other.width && this.height === other.height;
   }
 
   get estimatedHeight() {
@@ -474,6 +495,8 @@ class ImageWidget extends WidgetType {
     const entry = imageEntry(view, this.source);
     const image = document.createElement("img");
     image.alt = this.alt;
+    if (this.width) image.style.width = `${this.width}px`;
+    if (this.height) image.style.height = `${this.height}px`;
     const known = imageHeights.get(this.source);
     if (known) figure.style.minHeight = `${known}px`;
     image.addEventListener("load", () => {
@@ -944,7 +967,7 @@ function wikiReplacement(match, from) {
   const target = targetPart.trim();
   if (embed && IMAGE_EXTENSION.test(target.split("#", 1)[0])) {
     return Decoration.replace({
-      widget: new ImageWidget(target, (aliasPart || "").trim(), from)
+      widget: new ImageWidget(target, wikiImageText((aliasPart || "").trim()), from)
     }).range(from, from + match.length);
   }
   const label = (aliasPart || targetPart).trim();
@@ -1153,7 +1176,7 @@ function buildDecorations(view, layoutGeneration = 0) {
           const image = linkParts(state, node, true);
           if (image) {
             decorations.push(Decoration.replace({
-              widget: new ImageWidget(image.target, image.label, node.from)
+              widget: new ImageWidget(image.target, markdownImageText(image.label), node.from)
             }).range(node.from, node.to));
             replacements.push({ from: node.from, to: node.to });
             return false;

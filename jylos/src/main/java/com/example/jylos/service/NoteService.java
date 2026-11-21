@@ -29,6 +29,7 @@ import com.example.jylos.data.models.Tag;
 import com.example.jylos.exceptions.NoteException;
 import com.example.jylos.util.AttachmentType;
 import com.example.jylos.util.NoteAnchors;
+import com.example.jylos.util.PathContainment;
 
 /**
  * Service layer for note-related business logic.
@@ -685,6 +686,23 @@ public class NoteService {
             target = target.substring(0, target.length() - 3);
         }
         return findNoteByTitle(target);
+    }
+
+    /**
+     * The file of an attachment a note names ({@code foto.png}, {@code img/foto.png}), found as
+     * Obsidian finds it: in the note's folder first, otherwise the one with the shortest path in
+     * the vault. Empty for a note, a missing file, a path outside the vault or a vault that is
+     * not a folder.
+     */
+    public Optional<Path> resolveAttachmentPath(String link, String sourceNoteId) {
+        Optional<Path> root = getStorageRoot();
+        if (link == null || link.isBlank() || root.isEmpty() || !AttachmentType.isAttachment(link.strip())) {
+            return Optional.empty();
+        }
+        return linkIndex().resolveId(link.strip(), sourceNoteId)
+                .filter(AttachmentType::isAttachment)
+                .map(id -> root.get().resolve(id).normalize())
+                .filter(file -> PathContainment.isInside(root.get(), file) && Files.isRegularFile(file));
     }
 
     /** The vault-wide link index: the warm one of the title index, or a fresh one. */

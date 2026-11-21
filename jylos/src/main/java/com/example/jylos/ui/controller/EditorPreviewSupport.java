@@ -5,8 +5,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
@@ -182,7 +184,8 @@ public final class EditorPreviewSupport {
                     LinkIndex links = notes != null ? notes.linkIndex() : null;
                     return MarkdownPreview.buildPreviewHtml(content, darkTheme, renderEnhancers,
                             new MarkdownPreview.PreviewOptions(baseDir, link -> embedContent(link, note),
-                                    context, readable, fontSize, containmentRoot, links, palette));
+                                    context, readable, fontSize, containmentRoot, links, palette)
+                                    .withImageLocator(imageLocator(notes, noteId)));
                 }
                 return MarkdownPreview.buildEmptyHtml(darkTheme, palette);
             }
@@ -257,6 +260,19 @@ public final class EditorPreviewSupport {
                 .flatMap(note -> notes.getNoteById(note.getId()))
                 .map(Note::getContent)
                 .orElse(null);
+    }
+
+    /**
+     * Finds an image the open note names that is not where its path says, as Obsidian does:
+     * by its name, in the note's folder first, else the shortest path in the vault.
+     */
+    Function<String, Optional<Path>> imageLocator() {
+        Note note = host.currentNote();
+        return imageLocator(host.noteService(), note != null ? note.getId() : null);
+    }
+
+    private static Function<String, Optional<Path>> imageLocator(NoteService notes, String noteId) {
+        return name -> notes != null ? notes.resolveAttachmentPath(name, noteId) : Optional.empty();
     }
 
     /** Folder of the open note: where its relative image paths start (editor and reading view). */

@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+- **Imágenes como en Obsidian:**
+  - `![[foto.png]]` encuentra la imagen por su nombre aunque esté en otra carpeta: primero la de la carpeta de la nota y, si no, la de ruta más corta de la bóveda. Vale en el editor, la vista de lectura, las miniaturas de Kanban y al exportar a HTML y a PDF, y nunca se lee una imagen de fuera de la bóveda;
+  - la vista de lectura dibuja `![[foto.png]]` como imagen; antes lo mostraba como una nota incrustada que no existía;
+  - el tamaño tras la barra: `![[foto.png|300]]` a 300 px de ancho, `![[foto.png|300x100]]` con ancho y alto, y `![texto|200](foto.png)` igual en Markdown.
+- **Grupos de color del grafo:** una consulta con comillas, como la escribe Obsidian (`path:"30 Recursos"`, `file:"Mi nota"`), ya colorea sus notas; antes no coloreaba ninguna.
+- **Dataview:** `LIST campo` muestra cada nota enlazada y su valor («Dune: Frank Herbert»), como Dataview; `LIST WITHOUT ID campo`, solo el valor.
+- **Corregido:** en Windows, un PDF abierto en Jylos ya no impide moverlo, renombrarlo o borrarlo; el visor lo lee entero y no lo deja abierto.
+
 ## [2.6.0] - 2026-11-16
 
 - **Nuevo diseño Explorador:** un solo árbol en la barra lateral con las carpetas y las notas juntas. **Las instalaciones nuevas empiezan en Explorador; si actualizas, sigues en el diseño clásico hasta que lo cambies** con el botón de diseño de la barra superior (Explorador, clásico en columnas o clásico apilado) o en Preferencias. El diseño elegido se recuerda; antes volvía siempre a columnas.
