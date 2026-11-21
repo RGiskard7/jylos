@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.example.jylos.data.dao.filesystem.FolderDAOFileSystem;
-import com.example.jylos.data.dao.filesystem.LinkCache;
+import com.example.jylos.data.dao.filesystem.NoteMetadataCache;
 import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
 import com.example.jylos.data.dao.filesystem.TagDAOFileSystem;
 import com.example.jylos.data.models.Note;
@@ -54,7 +54,6 @@ class PropertyLinksTest {
         Files.createDirectories(vault.resolve("Carpeta"));
         write("Carpeta/C", "");
         NoteDAOFileSystem dao = new NoteDAOFileSystem(vault.toString());
-        dao.indexLongNotes();
 
         for (String id : List.of("Corta.md", "Larga.md")) {
             Note listed = dao.fetchAllNotes().stream().filter(n -> n.getId().equals(id)).findFirst().orElseThrow();
@@ -118,7 +117,7 @@ class PropertyLinksTest {
         Files.writeString(cacheFile, "{\"Larga.md\":{\"modified\":" + modified + ",\"size\":" + size
                 + ",\"links\":[\"D\"]}}", StandardCharsets.UTF_8);
 
-        assertTrue(LinkCache.load(cacheFile).get("Larga.md", modified, size).isEmpty(),
+        assertTrue(NoteMetadataCache.load(cacheFile).get("Larga.md", modified, size).isEmpty(),
                 "an entry from before property links counted is not used");
     }
 

@@ -3,6 +3,7 @@ package com.example.jylos.data.dao.interfaces;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.data.models.Note;
@@ -204,14 +205,25 @@ public interface NoteDAO {
     }
 
     /**
-     * Registers a callback invoked, off the UI thread, when a background pass has indexed the
-     * links of notes that the list only read in part (file-based storage with long notes).
-     * Backends that always know a note's links have nothing to report: no-op by default.
+     * Waits, at most {@code timeoutMs}, for a deferred background content load to finish.
+     * Backends that load synchronously are always loaded.
      *
-     * @param callback action to run (may be {@code null} to clear)
+     * @return true when the notes are loaded
      */
-    default void setOnLinksIndexed(Runnable callback) {
-        // No-op: links are always complete.
+    default boolean awaitContentLoaded(long timeoutMs) throws InterruptedException {
+        return true;
+    }
+
+    /**
+     * A value worked out by {@code fromText} from the text of note {@code id} (without its
+     * properties), kept by storages that cache what their notes say so it is worked out again
+     * only when the note changes. Empty when the storage keeps nothing for that note (the
+     * caller then works it out from the note itself); the default keeps nothing.
+     *
+     * @param key names the value and the rules it was worked out with, e.g. {@code "dataview@1"}
+     */
+    default Optional<String> derived(String id, String key, Function<String, String> fromText) {
+        return Optional.empty();
     }
 
     /**

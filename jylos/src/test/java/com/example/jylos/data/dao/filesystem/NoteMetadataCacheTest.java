@@ -1,0 +1,140 @@
+package com.example.jylos.data.dao.filesystem;
+
+import static com.example.jylos.data.dao.filesystem.ListedNoteCharacterizationTest.FILLER;
+import static com.example.jylos.data.dao.filesystem.ListedNoteCharacterizationTest.expected;
+import static com.example.jylos.data.dao.filesystem.ListedNoteCharacterizationTest.fixtures;
+import static com.example.jylos.data.dao.filesystem.ListedNoteCharacterizationTest.listed;
+import static com.example.jylos.data.dao.filesystem.ListedNoteCharacterizationTest.loaded;
+import static com.example.jylos.data.dao.filesystem.ListedNoteCharacterizationTest.shape;
+import static com.example.jylos.data.dao.filesystem.ListedNoteCharacterizationTest.write;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import com.example.jylos.data.models.Note;
+import com.example.jylos.data.models.Tag;
+import com.example.jylos.event.EventBus;
+
+/**
+ * The second time a vault opens, a note whose file has the same modified time and size is
+ * listed from the cache without reading the file (as Obsidian does): with iCloud, reading an
+ * offloaded note downloads it. What is listed is exactly what reading the file gives.
+ */
+class NoteMetadataCacheTest {
+
+    @AfterEach
+    void clearEventBus() {
+        EventBus.getInstance().clear();
+    }
+
+    @Test
+    void anUnchangedNoteIsListedFromTheCacheWithoutReadingItsFile(@TempDir Path root) throws Exception {
+        Path vault = write(root.resolve("vault"), fixtures());
+        Path cache = root.resolve("cache/vault.json");
+        Map<String, Map<String, Object>> first = new LinkedHashMap<>();
+        NoteDAOFileSystem cold = loaded(vault, cache);
+        for (String id : fixtures().keySet()) {
+            first.put(id, shape(listed(cold, id)));
+        }
+        EventBus.getInstance().clear();
+
+        // Same size and modified time, other bytes: only a read of the file can tell.
+        for (String id : fixtures().keySet()) {
+            sameSizeOtherBytes(vault.resolve(id));
+        }
+        NoteDAOFileSystem warm = loaded(vault, cache);
+
+        for (String id : fixtures().keySet()) {
+            assertEquals(first.get(id), shape(listed(warm, id)), id);
+        }
+    }
+
+    @Test
+    void aNoteChangedOutsideTheAppIsReadAgain(@TempDir Path root) throws Exception {
+        Path vault = write(root.resolve("vault"), fixtures());
+        Path cache = root.resolve("cache/vault.json");
+        loaded(vault, cache);
+        EventBus.getInstance().clear();
+
+        Path otherSize = vault.resolve("Sin propiedades.md");
+        Files.writeString(otherSize, "Nuevo #cambiado [[Nuevo]]\n", StandardCharsets.UTF_8);
+        Path sameSize = vault.resolve("Tarea.md");
+        FileTime before = Files.getLastModifiedTime(sameSize);
+        String text = Files.readString(sameSize, StandardCharsets.UTF_8).replace("Hacer algo", "Hecho algo");
+        Files.writeString(sameSize, text, StandardCharsets.UTF_8);
+        Files.setLastModifiedTime(sameSize, FileTime.fromMillis(before.toMillis() + 2000));
+        NoteDAOFileSystem warm = loaded(vault, cache);
+
+        assertEquals(expected(vault, "Sin propiedades.md"), shape(listed(warm, "Sin propiedades.md")));
+        assertEquals(expected(vault, "Tarea.md"), shape(listed(warm, "Tarea.md")));
+        assertTrue(listed(warm, "Tarea.md").getContent().startsWith("Hecho algo"));
+    }
+
+    @Test
+    void aDeletedNoteLeavesTheCacheFile(@TempDir Path root) throws Exception {
+        Path vault = write(root.resolve("vault"), fixtures());
+        Path cache = root.resolve("cache/vault.json");
+        loaded(vault, cache);
+        EventBus.getInstance().clear();
+        assertTrue(Files.readString(cache, StandardCharsets.UTF_8).contains("Tarea.md"), "cached at first");
+
+        Files.delete(vault.resolve("Tarea.md"));
+        loaded(vault, cache);
+
+        String stored = Files.readString(cache, StandardCharsets.UTF_8);
+        assertFalse(stored.contains("Tarea.md"), stored.length() > 300 ? stored.substring(0, 300) : stored);
+        assertTrue(stored.contains("Propiedades.md"), "the others stay");
+    }
+
+    @Test
+    void anUnreadableCacheIsBuiltAgainFromTheFiles(@TempDir Path root) throws Exception {
+        Path vault = write(root.resolve("vault"), fixtures());
+        Path cache = root.resolve("cache/vault.json");
+        Files.createDirectories(cache.getParent());
+        Files.writeString(cache, "{ esto no es json", StandardCharsets.UTF_8);
+
+        NoteDAOFileSystem dao = loaded(vault, cache);
+
+        for (String id : fixtures().keySet()) {
+            assertEquals(expected(vault, id), shape(listed(dao, id)), id);
+        }
+        assertTrue(Files.readString(cache, StandardCharsets.UTF_8).contains("Propiedades.md"), "written again");
+    }
+
+    /** A {@code #tag} far into a note is one of its tags, as in Obsidian, not only those of its start. */
+    @Test
+    void aTagFarIntoANoteIsListed(@TempDir Path root) throws Exception {
+        Path vault = write(root.resolve("vault"), Map.of(
+                "Corta.md", "palabra ".repeat(200) + "#lejana\n",
+                "Larga.md", "---\ntags:\n  - arriba\n---\n" + FILLER + "\n#alfinal\n"));
+
+        NoteDAOFileSystem dao = loaded(vault, root.resolve("cache/vault.json"));
+
+        assertEquals(List.of("lejana"), tags(listed(dao, "Corta.md")));
+        assertEquals(List.of("alfinal", "arriba"), tags(listed(dao, "Larga.md")));
+    }
+
+    private static List<String> tags(Note note) {
+        return note.getTags().stream().map(Tag::getTitle).sorted().toList();
+    }
+
+    private static void sameSizeOtherBytes(Path file) throws Exception {
+        FileTime modified = Files.getLastModifiedTime(file);
+        byte[] bytes = new byte[(int) Files.size(file)];
+        java.util.Arrays.fill(bytes, (byte) 'x');
+        Files.write(file, bytes);
+        Files.setLastModifiedTime(file, modified);
+    }
+}

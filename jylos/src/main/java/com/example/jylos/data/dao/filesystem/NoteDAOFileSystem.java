@@ -25,6 +25,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -68,25 +69,17 @@ public class NoteDAOFileSystem implements NoteDAO {
     // Index: folderId -> notes (direct children only)
     private final Map<String, List<Note>> notesByFolderIndex = new ConcurrentHashMap<>();
     private static final long PRUNE_INTERVAL_MS = 3000L;
-    /** Bytes read when building list/preview summaries (frontmatter + body head). */
+    /** Bytes read to tell whether a note in the trash is private. */
     private static final int LIGHTWEIGHT_READ_BYTES = 16_384;
-    /** Body characters kept on cached notes for the notes list preview. */
-    private static final int LIGHTWEIGHT_BODY_CHARS = 900;
     private volatile long lastPruneTimestampMs = 0L;
 
-    // Notes longer than the head read for the list: their links come from the persistent
-    // cache, or from a full read in the background (see indexLongNotes).
-    /** Reads the stored cache; called once, on first use (see {@link #linkCache()}). */
-    private final Supplier<LinkCache> linkCacheLoader;
-    private final Object linkCacheLock = new Object();
-    private volatile LinkCache linkCache;
-    /** Long notes whose links so far cover only the head read. */
-    private final Set<String> pendingLongNotes = ConcurrentHashMap.newKeySet();
-    /** Every long note of the vault, to drop the cache entries of notes that are gone. */
-    private final Set<String> longNoteIds = ConcurrentHashMap.newKeySet();
-    private final AtomicBoolean longNoteIndexingScheduled = new AtomicBoolean();
-    private volatile boolean autoIndexLongNotes;
-    private volatile Runnable onLinksIndexed;
+    // What each note says, kept between sessions so an unchanged note is not read again
+    // (see NoteMetadataCache).
+    /** Reads the stored cache; called once, on first use (see {@link #metadataCache()}). */
+    private final Supplier<NoteMetadataCache> metadataCacheLoader;
+    private final Object metadataCacheLock = new Object();
+    private volatile NoteMetadataCache metadataCache;
+    private final AtomicBoolean metadataCacheSaveScheduled = new AtomicBoolean();
     private volatile boolean notesByFolderIndexDirty = true;
 
     // Deferred (background) content-load coordination — see the two-arg constructor.
@@ -119,23 +112,23 @@ public class NoteDAOFileSystem implements NoteDAO {
     }
 
     /**
-     * @param linkCacheFile where the links of long notes are kept between sessions, or
-     *        {@code null} to index them again on every start (see {@link LinkCache})
+     * @param metadataCacheFile where what each note says is kept between sessions, or
+     *        {@code null} to read every note on every start (see {@link NoteMetadataCache})
      */
-    public NoteDAOFileSystem(String rootDirectory, boolean deferContentLoad, Path linkCacheFile) {
+    public NoteDAOFileSystem(String rootDirectory, boolean deferContentLoad, Path metadataCacheFile) {
         this(rootDirectory, deferContentLoad,
-                () -> linkCacheFile != null ? LinkCache.load(linkCacheFile) : LinkCache.inMemory());
+                () -> metadataCacheFile != null ? NoteMetadataCache.load(metadataCacheFile)
+                        : NoteMetadataCache.inMemory());
     }
 
     /**
-     * @param linkCacheLoader reads the stored link cache. With a deferred load it runs on the
+     * @param metadataCacheLoader reads the stored cache. With a deferred load it runs on the
      *        background loader: the vault is opened on the JavaFX thread while the window is
      *        built, and the cache of a big vault is megabytes of JSON.
      */
     NoteDAOFileSystem(String rootDirectory, boolean deferContentLoad,
-            Supplier<LinkCache> linkCacheLoader) {
-        this.linkCacheLoader = linkCacheLoader;
-        this.autoIndexLongNotes = deferContentLoad;
+            Supplier<NoteMetadataCache> metadataCacheLoader) {
+        this.metadataCacheLoader = metadataCacheLoader;
         this.rootPath = Paths.get(rootDirectory);
         this.metadataStore = new FileSystemDocumentMetadataStore(this.rootPath);
         if (!Files.exists(rootPath)) {
@@ -164,93 +157,47 @@ public class NoteDAOFileSystem implements NoteDAO {
     public void refreshCache() {
         metadataStore.clearCache();
         rebuildCache(this::createLightweightNote);
-        scheduleLongNoteIndexing();
+        keepOnlyListedNotesInMetadataCache();
     }
 
-    /** The link cache, read from disk the first time it is needed. */
-    private LinkCache linkCache() {
-        LinkCache cache = linkCache;
+    /** The metadata cache, read from disk the first time it is needed. */
+    private NoteMetadataCache metadataCache() {
+        NoteMetadataCache cache = metadataCache;
         if (cache == null) {
-            synchronized (linkCacheLock) {
-                cache = linkCache;
+            synchronized (metadataCacheLock) {
+                cache = metadataCache;
                 if (cache == null) {
-                    cache = linkCacheLoader.get();
-                    linkCache = cache;
+                    cache = metadataCacheLoader.get();
+                    metadataCache = cache;
                 }
             }
         }
         return cache;
     }
 
-    /** Long notes whose links still cover only the head read; {@link #indexLongNotes()} reads them in full. */
-    public int pendingLongNoteCount() {
-        return pendingLongNotes.size();
+    /** Drops the cached notes no longer in the vault and writes the cache if it changed. */
+    private void keepOnlyListedNotesInMetadataCache() {
+        NoteMetadataCache cache = metadataCache();
+        cache.retainOnly(Set.copyOf(idToPathMap.keySet()));
+        cache.save();
     }
 
-    /** Called (off the FX thread) after {@link #indexLongNotes()} found links the list had not read. */
-    @Override
-    public void setOnLinksIndexed(Runnable callback) {
-        this.onLinksIndexed = callback;
-    }
-
-    /**
-     * Reads in full every long note whose links are not in the cache, stores the result (in
-     * memory, on the cached notes, and on disk) and reports it through
-     * {@link #setOnLinksIndexed(Runnable)} when anything was read. Slow on a big or
-     * cloud-backed vault, so it runs on a background thread after the list has loaded.
-     *
-     * @return how many notes were read
-     */
-    public int indexLongNotes() {
-        int indexed = 0;
-        for (String id : new ArrayList<>(pendingLongNotes)) {
-            Path path = idToPathMap.get(id);
-            if (path == null) {
-                pendingLongNotes.remove(id);
-                continue;
-            }
-            try {
-                // Stat before reading: if the file changes meanwhile the entry is merely
-                // outdated and the next start reads it again.
-                BasicFileAttributes attrs =
-                        Files.readAttributes(path, BasicFileAttributes.class);
-                String content = Files.readString(path, StandardCharsets.UTF_8);
-                List<String> links = FrontmatterHandler.linksOf(content);
-                linkCache().put(id, attrs.lastModifiedTime().toMillis(), attrs.size(), links);
-                cachedNotes.computeIfPresent(id, (key, note) -> {
-                    note.setLinkTargets(links);
-                    return note;
-                });
-                indexed++;
-            } catch (IOException | RuntimeException e) {
-                logger.log(Level.FINE, "Could not index links of " + id, e);
-            }
-            pendingLongNotes.remove(id);
-        }
-        linkCache().retainOnly(longNoteIds);
-        linkCache().save();
-        Runnable callback = onLinksIndexed;
-        if (indexed > 0 && callback != null) {
-            runCallbackSafely(callback);
-        }
-        return indexed;
-    }
-
-    /** Runs {@link #indexLongNotes()} once on a daemon thread, if the DAO indexes on its own. */
-    private void scheduleLongNoteIndexing() {
-        if (!autoIndexLongNotes || pendingLongNotes.isEmpty()
-                || !longNoteIndexingScheduled.compareAndSet(false, true)) {
+    /** Writes the metadata cache a little later, once, however many notes change meanwhile. */
+    private void saveMetadataCacheSoon() {
+        if (!metadataCacheSaveScheduled.compareAndSet(false, true)) {
             return;
         }
-        Thread indexer = new Thread(() -> {
+        Thread saver = new Thread(() -> {
             try {
-                indexLongNotes();
-            } finally {
-                longNoteIndexingScheduled.set(false);
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
-        }, "vault-long-note-indexer");
-        indexer.setDaemon(true);
-        indexer.start();
+            metadataCacheSaveScheduled.set(false);
+            metadataCache().save();
+        }, "vault-metadata-cache-save");
+        saver.setDaemon(true);
+        saver.start();
     }
 
     @Override
@@ -305,8 +252,6 @@ public class NoteDAOFileSystem implements NoteDAO {
         try {
             idToPathMap.clear();
             cachedNotes.clear();
-            pendingLongNotes.clear();
-            longNoteIds.clear();
             try (Stream<Path> walk = Files.walk(rootPath)) {
                 // Parallel walk for faster initial load of thousands of files.
                 walk.filter(Files::isRegularFile)
@@ -343,7 +288,7 @@ public class NoteDAOFileSystem implements NoteDAO {
     private void startBackgroundContentLoad() {
         Thread loader = new Thread(() -> {
             try {
-                linkCache();   // here, before the notes that need it are read, and off the UI thread
+                metadataCache();   // here, before the notes that need it are read, and off the UI thread
                 List<Map.Entry<String, Path>> snapshot = new ArrayList<>(idToPathMap.entrySet());
                 int threads = Math.max(4, Math.min(32, Runtime.getRuntime().availableProcessors() * 4));
                 ExecutorService pool = Executors.newFixedThreadPool(threads, r -> {
@@ -376,11 +321,10 @@ public class NoteDAOFileSystem implements NoteDAO {
                 }
                 notesByFolderIndexDirty = true;
                 logger.info("Vault content load complete (" + snapshot.size() + " notes)");
+                keepOnlyListedNotesInMetadataCache();
             } finally {
                 markContentLoaded();
             }
-            // After the list is usable: reading long notes in full may block on a cloud download.
-            scheduleLongNoteIndexing();
         }, "vault-content-loader-main");
         loader.setDaemon(true);
         loader.start();
@@ -439,7 +383,12 @@ public class NoteDAOFileSystem implements NoteDAO {
         return note;
     }
 
-    /** Reads up to {@link #LIGHTWEIGHT_READ_BYTES} of the file to populate title, frontmatter, body preview and link targets. */
+    /**
+     * The note the list shows: its properties, the start of its text, its tags and its links.
+     * They come from the metadata cache when the file has the modified time and size they were
+     * read from, without reading it; otherwise the file is read whole once and the cache keeps
+     * what it says.
+     */
     private Note createLightweightNote(String id, Path path) {
         String filename = path.getFileName().toString();
         if (isCanvasFile(filename)) {
@@ -459,45 +408,95 @@ public class NoteDAOFileSystem implements NoteDAO {
             return attachment;
         }
 
-        if (!Files.exists(path)) {
+        BasicFileAttributes attrs;
+        try {
+            attrs = Files.readAttributes(path, BasicFileAttributes.class);
+        } catch (IOException e) {
             return new Note(id, title, "");
         }
-
         try {
-            String head = readFileHead(path, LIGHTWEIGHT_READ_BYTES);
-            Note note = FrontmatterHandler.parseLightweight(head, LIGHTWEIGHT_BODY_CHARS);
+            NoteMetadataCache.Metadata metadata = metadataOf(id, path, attrs);
+            Note note = FrontmatterHandler.parseLightweight(metadata.lightweight());
             note.setId(id);
             note.setTitle(title);
             note.setContentComplete(false);
             metadataStore.applyNoteMarks(id, note);
-            applyFileTimestampsIfMissing(note, path);
-            // Index outgoing links from the (untruncated) content head already read, so the
-            // backlink index needs no second full-file read per note — critical on large or
-            // cloud-backed vaults where each read can block on an on-demand download.
-            List<String> links = FrontmatterHandler.linksOf(head);
-            // A longer file has links the head does not show: take them from the cache when the
-            // file is unchanged, and queue it for a full read in the background otherwise.
-            BasicFileAttributes attrs =
-                    Files.readAttributes(path, BasicFileAttributes.class);
-            if (attrs.size() > LIGHTWEIGHT_READ_BYTES && filename.endsWith(".md")) {
-                longNoteIds.add(id);
-                Optional<List<String>> cached =
-                        linkCache().get(id, attrs.lastModifiedTime().toMillis(), attrs.size());
-                if (cached.isPresent()) {
-                    links = cached.get();
-                    pendingLongNotes.remove(id);
-                } else {
-                    pendingLongNotes.add(id);
-                }
+            applyFileTimestampsIfMissing(note, attrs);
+            note.setLinkTargets(metadata.links());
+            // The text of a private note is encrypted on disk: what it says is not known here.
+            if (!note.isPrivate()) {
+                note.setFileLinkTargets(metadata.fileLinks());
+                note.setMetadataComplete(true);
             }
-            note.setLinkTargets(links);
             return note;
         } catch (IOException | RuntimeException e) {
             logger.log(Level.FINE, "Failed lightweight read for: " + path, e);
             Note fallback = new Note(id, title, "");
             fallback.setContentComplete(false);
-            applyFileTimestampsIfMissing(fallback, path);
+            applyFileTimestampsIfMissing(fallback, attrs);
             return fallback;
+        }
+    }
+
+    /** What the note of {@code path} says: from the cache, or read from the file and cached. */
+    private NoteMetadataCache.Metadata metadataOf(String id, Path path, BasicFileAttributes attrs)
+            throws IOException {
+        long modified = attrs.lastModifiedTime().toMillis();
+        long size = attrs.size();
+        Optional<NoteMetadataCache.Metadata> cached = metadataCache().get(id, modified, size);
+        if (cached.isPresent()) {
+            return cached.get();
+        }
+        // Read after the stat: if the file changes meanwhile, the entry does not match it and
+        // the note is read again next time.
+        NoteMetadataCache.Metadata read = NoteMetadataCache.Metadata.of(readText(path));
+        metadataCache().put(id, modified, size, read);
+        return read;
+    }
+
+    /** The whole file as UTF-8, a malformed byte read as U+FFFD (as the list always read it). */
+    private static String readText(Path path) throws IOException {
+        return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+    }
+
+    /**
+     * A value worked out from the text of note {@code id} (without its properties) under
+     * {@code key}: kept in the metadata cache with the note, and worked out again only when the
+     * file changes. Empty for a note that is not a Markdown file of the vault, or that is
+     * private: its text is encrypted on disk, and what it says is never kept.
+     */
+    @Override
+    public Optional<String> derived(String id, String key, Function<String, String> fromText) {
+        Path path = id != null ? idToPathMap.get(FileSystemNames.normalizeId(id)) : null;
+        if (path == null || !path.getFileName().toString().endsWith(".md")) {
+            return Optional.empty();
+        }
+        String noteId = FileSystemNames.normalizeId(id);
+        try {
+            BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
+            long modified = attrs.lastModifiedTime().toMillis();
+            long size = attrs.size();
+            NoteMetadataCache cache = metadataCache();
+            Optional<String> stored = cache.derived(noteId, modified, size, key);
+            if (stored.isPresent()) {
+                return stored;
+            }
+            String text = readText(path);
+            NoteMetadataCache.Metadata metadata = NoteMetadataCache.Metadata.of(text);
+            if (metadata.yaml() != null && FrontmatterHandler.parseLightweight(metadata.lightweight()).isPrivate()) {
+                return Optional.empty();
+            }
+            String value = fromText.apply(FrontmatterHandler.bodyOf(text));
+            if (cache.get(noteId, modified, size).isEmpty()) {
+                cache.put(noteId, modified, size, metadata);
+            }
+            if (value != null && cache.putDerived(noteId, modified, size, key, value)) {
+                saveMetadataCacheSoon();
+            }
+            return Optional.ofNullable(value);
+        } catch (IOException | RuntimeException e) {
+            logger.log(Level.FINE, "Could not work out " + key + " for " + id, e);
+            return Optional.empty();
         }
     }
 
@@ -535,15 +534,18 @@ public class NoteDAOFileSystem implements NoteDAO {
     /** Fills in missing {@code createdDate} / {@code modifiedDate} on {@code note} from the file's OS attributes. */
     private void applyFileTimestampsIfMissing(Note note, Path path) {
         try {
-            BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
-            if (note.getCreatedDate() == null || note.getCreatedDate().isBlank()) {
-                note.setCreatedDate(DateTimeFormatter.ISO_INSTANT.format(attrs.creationTime().toInstant()));
-            }
-            if (note.getModifiedDate() == null || note.getModifiedDate().isBlank()) {
-                note.setModifiedDate(DateTimeFormatter.ISO_INSTANT.format(attrs.lastModifiedTime().toInstant()));
-            }
+            applyFileTimestampsIfMissing(note, Files.readAttributes(path, BasicFileAttributes.class));
         } catch (IOException e) {
             logger.log(Level.FINE, "Could not read file timestamps for: " + path, e);
+        }
+    }
+
+    private static void applyFileTimestampsIfMissing(Note note, BasicFileAttributes attrs) {
+        if (note.getCreatedDate() == null || note.getCreatedDate().isBlank()) {
+            note.setCreatedDate(DateTimeFormatter.ISO_INSTANT.format(attrs.creationTime().toInstant()));
+        }
+        if (note.getModifiedDate() == null || note.getModifiedDate().isBlank()) {
+            note.setModifiedDate(DateTimeFormatter.ISO_INSTANT.format(attrs.lastModifiedTime().toInstant()));
         }
     }
 

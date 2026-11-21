@@ -245,7 +245,8 @@ public class TagService {
             return new ArrayList<>();
         }
         List<Tag> noteTags = note.getTags();
-        if (noteTags != null && !noteTags.isEmpty()) {
+        // A note listed from its whole file has all its tags, even when it has none.
+        if (noteTags != null && (!noteTags.isEmpty() || note.isMetadataComplete())) {
             return noteTags;
         }
         return noteDAO.fetchTags(note.getId());

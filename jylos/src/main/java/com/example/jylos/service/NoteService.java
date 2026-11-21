@@ -15,6 +15,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -237,6 +238,44 @@ public class NoteService {
      * @param id The note ID
      * @return Optional containing the note if found
      */
+    /**
+     * Waits, at most {@code timeoutMs}, for the storage to finish loading its notes in the
+     * background, so a caller that needs every note (the graph) takes them from the load instead
+     * of reading every file itself.
+     *
+     * @return true when the notes are loaded
+     */
+    public boolean awaitContentLoaded(long timeoutMs) {
+        try {
+            return noteDAO.awaitContentLoaded(timeoutMs);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    /**
+     * A value {@code fromText} works out from the text of {@code note} (without its
+     * properties), as a plugin's index needs it: kept by the storage with what it knows of the
+     * note, so it is worked out again only when the note's file changes. Otherwise (SQLite, a
+     * private note: what it says is never kept) it is worked out from the note read whole.
+     *
+     * @param key names the value and the rules it was worked out with, e.g. {@code "dataview@1"}
+     * @return the value; empty when the note cannot be read
+     */
+    public Optional<String> derived(Note note, String key, Function<String, String> fromText) {
+        if (note == null || note.getId() == null) {
+            return Optional.empty();
+        }
+        if (!note.isPrivate()) {
+            Optional<String> kept = noteDAO.derived(note.getId(), key, fromText);
+            if (kept.isPresent()) {
+                return kept;
+            }
+        }
+        return getNoteById(note.getId()).map(full -> fromText.apply(full.getContent() != null ? full.getContent() : ""));
+    }
+
     public Optional<Note> getNoteById(String id) {
         Note note = noteDAO.getNoteById(id);
         if (note != null) {

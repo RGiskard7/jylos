@@ -48,6 +48,14 @@ final class PageParser {
     }
 
     static Page parse(Note note, String folderName, String path) {
+        return parse(note, folderName, path, -1);
+    }
+
+    /**
+     * @param textLength the length of the note's text when its content is a {@link PageSummary}
+     *                   of it; negative to take the content's own
+     */
+    static Page parse(Note note, String folderName, String path, long textLength) {
         String raw = note.getContent() == null ? "" : note.getContent();
 
         Map<String, Object> fields = new LinkedHashMap<>();
@@ -99,7 +107,7 @@ final class PageParser {
                 folderName,
                 DqlValue.asDate(note.getCreatedDate()),
                 DqlValue.asDate(note.getModifiedDate()),
-                raw.length(),
+                textLength >= 0 ? textLength : raw.length(),
                 note.isFavorite(),
                 note.isPinned(),
                 tags,

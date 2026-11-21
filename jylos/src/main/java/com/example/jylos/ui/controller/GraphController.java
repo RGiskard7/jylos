@@ -711,6 +711,9 @@ public class GraphController {
         Task<GraphData> task = new Task<>() {
             @Override
             protected GraphData call() {
+                // During the vault's load its notes have no links yet: wait for them rather
+                // than read every file here (with iCloud that downloads the whole vault).
+                graphBuilder.awaitNotesLoaded();
                 return (local && rootId != null)
                         ? graphBuilder.buildLocalGraph(rootId, localOptions, options)
                         : graphBuilder.buildGlobalGraph(options);

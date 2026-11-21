@@ -9,6 +9,8 @@
 - **Grupos de color del grafo:** una consulta con comillas, como la escribe Obsidian (`path:"30 Recursos"`, `file:"Mi nota"`), ya colorea sus notas; antes no coloreaba ninguna.
 - **Dataview:** `LIST campo` muestra cada nota enlazada y su valor («Dune: Frank Herbert»), como Dataview; `LIST WITHOUT ID campo`, solo el valor.
 - **Propiedades `author`, `status` y `source_url`:** en una bóveda de carpetas son propiedades como cualquier otra, como en Obsidian. El panel de propiedades las muestra y permite editarlas y quitarlas, y Dataview las lee (`TABLE author, status`, `WHERE status = "leyendo"`); antes Jylos las guardaba aparte y no aparecían en ninguno de los dos.
+- **Arranque y grafo más rápidos en bóvedas grandes o en iCloud:** Jylos guarda, fuera de la bóveda, lo que necesita de cada nota (propiedades, vista previa, etiquetas y enlaces) junto con su fecha y tamaño, como hace Obsidian. Al abrir la bóveda solo lee las notas nuevas o cambiadas; una nota sin cambios no se lee, así que iCloud no descarga la bóveda entera. El grafo, Insights, la búsqueda por enlaces y Dataview salen de esa caché en lugar de leer todas las notas otra vez.
+- **Corregido:** las `#etiquetas` escritas más allá del principio de una nota (los primeros 900 caracteres) no aparecían en el panel de etiquetas, en `tag:`, en el grafo ni en Insights.
 - **Corregido:** en Windows, un PDF abierto en Jylos ya no impide moverlo, renombrarlo o borrarlo; el visor lo lee entero y no lo deja abierto.
 
 ## [2.6.0] - 2026-11-16

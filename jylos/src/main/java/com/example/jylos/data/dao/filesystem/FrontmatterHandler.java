@@ -305,6 +305,45 @@ public final class FrontmatterHandler {
         return properties != null && (booleanValue(properties.get("favorite")) || booleanValue(properties.get("pinned")));
     }
 
+    /**
+     * What the notes list keeps of a file: its properties as written, the start of its text,
+     * and the {@code #tags} of the whole text (a tag far into a note is still one of its tags).
+     *
+     * @param yaml       the properties, without the {@code ---} lines; {@code null} when there are none
+     * @param body       the first characters of the text
+     * @param inlineTags the {@code #tags} of the whole text
+     */
+    public record Lightweight(String yaml, String body, List<String> inlineTags) {
+    }
+
+    /** The part of {@code fileContent} the list needs, with at most {@code maxBodyChars} of its text. */
+    public static Lightweight lightweight(String fileContent, int maxBodyChars) {
+        String file = fileContent != null ? fileContent : "";
+        int limit = Math.max(0, maxBodyChars);
+        FrontmatterBlock block = extractLeadingFrontmatter(file);
+        String text = block != null ? block.body() : file;
+        String body = limit > 0 && text.length() > limit ? text.substring(0, limit) : text;
+        List<String> tags = text.isBlank() ? List.of() : List.copyOf(ReadingSyntax.inlineTags(text));
+        return new Lightweight(block != null ? block.yaml() : null, body, tags);
+    }
+
+    /** The note the list shows for {@code parts}: as {@link #parseLightweight(String, int)}, with every tag. */
+    public static Note parseLightweight(Lightweight parts) {
+        Note note = parts.yaml() != null
+                ? buildNote(parseYaml(parts.yaml()), parts.body(), false)
+                : new Note("Untitled", parts.body());
+        for (String tag : parts.inlineTags()) {
+            note.addTag(new Tag(tag));
+        }
+        return note;
+    }
+
+    /** The text of a file, without its properties block. */
+    public static String bodyOf(String fileContent) {
+        FrontmatterBlock block = fileContent != null ? extractLeadingFrontmatter(fileContent) : null;
+        return block != null ? block.body() : fileContent != null ? fileContent : "";
+    }
+
     public static Note parseLightweight(String fileContent, int maxBodyChars) {
         if (fileContent == null || fileContent.isEmpty()) {
             return new Note("", "");
@@ -553,6 +592,11 @@ public final class FrontmatterHandler {
     }
 
     private static Note buildNote(Map<String, Object> all, String body) {
+        return buildNote(all, body, true);
+    }
+
+    /** @param inlineTags whether to take the {@code #tags} of {@code body} (false when the caller has them) */
+    private static Note buildNote(Map<String, Object> all, String body, boolean inlineTags) {
         String id = stringValue(all.get("id"));
         String title = stringValue(all.get("title"));
         String created = stringValue(all.get("created"));
@@ -576,7 +620,9 @@ public final class FrontmatterHandler {
         for (String name : toStringList(all.get("tags"))) {
             note.addTag(new Tag(name));
         }
-        extractInlineTags(body, note);
+        if (inlineTags) {
+            extractInlineTags(body, note);
+        }
 
         Map<String, String> custom = new LinkedHashMap<>();
         Map<String, Object> structured = new LinkedHashMap<>();

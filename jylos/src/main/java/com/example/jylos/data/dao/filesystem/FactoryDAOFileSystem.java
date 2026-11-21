@@ -1,11 +1,14 @@
 package com.example.jylos.data.dao.filesystem;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 
+import com.example.jylos.AppDataDirectory;
 import com.example.jylos.data.dao.FolderColorStore;
 import com.example.jylos.data.dao.VaultSettingsStore;
 import com.example.jylos.data.dao.interfaces.EncryptionKeyDAO;
@@ -35,7 +38,7 @@ public class FactoryDAOFileSystem extends FactoryDAO {
 
     public FactoryDAOFileSystem(String rootDirectory) {
         // Deferred loading keeps large or cloud-backed vaults responsive at startup.
-        this.noteDAO = new NoteDAOFileSystem(rootDirectory, true, linkCacheFile(rootDirectory));
+        this.noteDAO = new NoteDAOFileSystem(rootDirectory, true, metadataCacheFile(rootDirectory));
         this.folderDAO = new FolderDAOFileSystem(rootDirectory);
         // A folder renamed or moved changes the paths of the notes inside it: both DAOs follow it.
         FileSystemPathRedirects redirects = new FileSystemPathRedirects();
@@ -49,18 +52,24 @@ public class FactoryDAOFileSystem extends FactoryDAO {
     }
 
     /**
-     * Where the links of this vault's long notes are cached: one file per vault in the app's
-     * cache folder, named after a hash of the vault path (as Obsidian keeps its index outside
-     * the vault, so nothing is added to the user's notes folder).
+     * Where what this vault's notes say is cached (see {@link NoteMetadataCache}): one file per
+     * vault in the app's cache folder, named after a hash of the vault path (as Obsidian keeps
+     * its index outside the vault, so nothing is added to the user's notes folder). The links
+     * cache older versions kept beside it is removed: this one holds them.
      */
-    static Path linkCacheFile(String rootDirectory) {
+    static Path metadataCacheFile(String rootDirectory) {
         try {
             String key = Path.of(rootDirectory).toAbsolutePath().normalize().toString();
             byte[] hash = MessageDigest.getInstance("SHA-256")
                     .digest(key.getBytes(StandardCharsets.UTF_8));
             String name = HexFormat.of().formatHex(hash, 0, 8) + ".json";
-            return Path.of(com.example.jylos.AppDataDirectory.layout().cacheDir().toString(),
-                    "links", name);
+            Path cacheDir = AppDataDirectory.layout().cacheDir();
+            try {
+                Files.deleteIfExists(cacheDir.resolve("links").resolve(name));
+            } catch (IOException e) {
+                // Only a leftover cache file: nothing depends on it.
+            }
+            return cacheDir.resolve("metadata").resolve(name);
         } catch (NoSuchAlgorithmException | RuntimeException e) {
             return null;
         }
