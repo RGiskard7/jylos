@@ -171,7 +171,7 @@ It also installs a `.desktop` entry and the icon.
 It follows the releases by itself: after publishing one, the `nix-package` job of
 `release-jylos.yml` points `jylos.nix` at the new `.deb` (its `version` and the `hash`, the
 `sha256` in SRI form), builds the flake and opens a pull request with the change, to review and
-merge. `nix.yml` builds the flake on every change to `packaging/nix/`. A package built from source (`maven.buildMavenPackage`) would also cover
+merge. A package built from source (`maven.buildMavenPackage`) would also cover
 ARM, but needs every Maven dependency fetched ahead, the plugins' own included.
 
 Check it with Docker (also on Apple Silicon, emulated):

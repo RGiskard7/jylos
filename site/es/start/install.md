@@ -21,7 +21,16 @@ En Linux `x86_64`, un flake instala el paquete de la versión publicada (datos e
 nix run "github:RGiskard7/jylos?dir=packaging/nix"
 ```
 
-Con Wayland, Jylos funciona a través de XWayland, como toda app JavaFX. La configuración para NixOS está en [packaging/nix](https://github.com/RGiskard7/jylos/tree/main/packaging/nix).
+Para dejarlo en tu perfil: `nix profile install "github:RGiskard7/jylos?dir=packaging/nix"`. En NixOS, como entrada de un flake:
+
+```nix
+inputs.jylos.url = "github:RGiskard7/jylos?dir=packaging/nix";
+# …
+environment.systemPackages = [ inputs.jylos.packages.x86_64-linux.default ];
+```
+
+- **Las actualizaciones** llegan con el flake, no desde la app: su actualizador no encuentra paquete para NixOS.
+- **Wayland:** JavaFX solo dibuja con X11, así que Jylos funciona a través de XWayland, que debe estar activado.
 
 ## Ejecutar con JBang
 
