@@ -241,14 +241,14 @@ final class TabsSupport {
      *
      * @return how many of its notes no longer exist
      */
-    /** The back and forward of each open tab, in their order (to keep them in a workspace). */
+    /** The back and forward of each open tab, and whether it is pinned, in their order (to keep them in a workspace). */
     List<TabHistory> histories() {
         EditorTabs strip = tabs.get();
         if (strip == null) {
             return List.of();
         }
         return strip.getOpenIds().stream()
-                .map(id -> new TabHistory(strip.backOf(id), strip.forwardOf(id)))
+                .map(id -> new TabHistory(strip.backOf(id), strip.forwardOf(id), strip.isPinned(id)))
                 .toList();
     }
 
@@ -318,6 +318,9 @@ final class TabsSupport {
         EditorTabs strip = tabs.get();
         if (strip != null && strip.isOpen(id)) {
             strip.setHistory(id, reopenable(history.back()), reopenable(history.forward()));
+            if (history.pinned()) {
+                strip.pin(id);
+            }
         }
     }
 

@@ -33,7 +33,7 @@ class IconSizesTest {
     private static final String[] VIEWS = {"ToolbarView", "SidebarView", "EditorView", "NotesListView"};
 
     /** The sizes before icons followed the interface font, at its default 13 px. */
-    private static final String AT_13 = "fth-share-2=17, fth-file-plus=17, fth-folder-plus=17, fth-hash=17, "
+    private static final String AT_13 = "fth-home=17, fth-share-2=17, fth-file-plus=17, fth-folder-plus=17, fth-hash=17, "
             + "fth-search=17, fth-sidebar=17, fth-list=17, fth-layout=17, fth-sidebar=17, fth-more-horizontal=17, "
             + "fth-folder=16, fth-tag=16, fth-clock=16, fth-star=16, fth-trash-2=16, fth-filter=16, fth-trash-2=16, "
             + "fth-filter=16, fth-filter=16, fth-filter=16, fth-filter=16, fth-crosshair=16, fth-chevrons-down=16, "

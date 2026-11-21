@@ -368,9 +368,28 @@ class TabsSupportTest {
         });
 
         assertEquals(List.of(
-                "tabs [A.md] active A.md graph hidden [TabHistory[back=[GRAPH, B.md], forward=[]]]",
+                "tabs [A.md] active A.md graph hidden [TabHistory[back=[GRAPH, B.md], forward=[], pinned=false]]",
                 "tabs [B.md] active B.md graph hidden",
-                "tabs [GRAPH] active GRAPH graph shown [TabHistory[back=[], forward=[A.md, B.md]]]"), seen);
+                "tabs [GRAPH] active GRAPH graph shown [TabHistory[back=[], forward=[A.md, B.md], pinned=false]]"), seen);
+    }
+
+    /** Pinned tabs are kept with the workspace (and the last session) and come back pinned, first. */
+    @Test
+    void aWorkspaceReopensItsPinnedTabsPinned() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            Fixture f = new Fixture();
+            f.views.restoreTabs(List.of("A.md", ViewTabs.GRAPH, "B.md"), "B.md", List.of(
+                    new TabHistory(List.of(), List.of(), true),
+                    new TabHistory(List.of(), List.of(), true),
+                    new TabHistory(List.of(), List.of(), false)));
+            return List.of(f.tabs.pinnedIds().toString().replace(ViewTabs.GRAPH, "GRAPH"),
+                    f.views.histories().stream().map(TabHistory::pinned).toList().toString(),
+                    f.tabs.getActiveId());
+        });
+
+        assertEquals(List.of("[A.md, GRAPH]", "[true, true, false]", "B.md"), seen);
     }
 
     /**

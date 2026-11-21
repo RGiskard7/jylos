@@ -20,6 +20,9 @@ import java.util.Objects;
  *   <li>unlike Obsidian, an id is never in two tabs: opening one that already has a tab
  *       activates it, and going back to one takes it from the tab that had it;</li>
  *   <li>with "always open in a new tab" every open behaves like {@code NEW_TAB}.</li>
+ *   <li>a pinned tab, as in Obsidian, keeps what it shows: what is opened from it goes to a
+ *       new tab. Pinned tabs go first, in the order they were pinned, and a new tab never
+ *       goes among them; closing "the others" leaves them.</li>
  * </ul>
  * Back and forward go through what the active tab showed, up to {@value #MAX_HISTORY} steps.
  *
@@ -39,6 +42,7 @@ public final class EditorTabsModel {
     /** A tab: what it shows, and what it showed before and after it. */
     private static final class Tab {
         String id;
+        boolean pinned;
         final Deque<String> back = new ArrayDeque<>();
         final Deque<String> forward = new ArrayDeque<>();
 
@@ -68,14 +72,14 @@ public final class EditorTabsModel {
             return;
         }
         boolean activeIsEmpty = active != null && ViewTabs.isEmptyTab(active.id);
-        boolean inPlace = target == OpenTarget.CURRENT_TAB && !alwaysNewTab;
+        boolean inPlace = target == OpenTarget.CURRENT_TAB && !alwaysNewTab && !(active != null && active.pinned);
         if (active != null && (inPlace || activeIsEmpty)) {
             show(active, id);
             return;
         }
         Tab tab = new Tab(id);
         int activeIndex = active != null ? tabs.indexOf(active) : -1;
-        tabs.add(activeIndex >= 0 ? activeIndex + 1 : tabs.size(), tab);
+        tabs.add(activeIndex >= 0 ? Math.max(activeIndex + 1, pinnedCount()) : tabs.size(), tab);
         active = tab;
     }
 
@@ -98,9 +102,14 @@ public final class EditorTabsModel {
         if (from.isEmpty()) {
             return null;
         }
-        String target = from.pollLast();
-        push(to, active.id);
+        String target = from.peekLast();
         Tab other = find(target);
+        if (other != null && other.pinned) {
+            active = other; // a pinned tab keeps what it shows: it comes forward instead
+            return target;
+        }
+        from.pollLast();
+        push(to, active.id);
         if (other != null) {
             tabs.remove(other); // an id is in one tab only
         }
@@ -119,6 +128,50 @@ public final class EditorTabsModel {
     /** "Always open in a new tab" preference. */
     public void setAlwaysNewTab(boolean alwaysNewTab) {
         this.alwaysNewTab = alwaysNewTab;
+    }
+
+    /**
+     * Pins {@code id}'s tab: it goes after the tabs already pinned. A new, empty tab is not
+     * pinned (it shows nothing to keep).
+     */
+    public void pin(String id) {
+        Tab tab = find(id);
+        if (tab == null || tab.pinned || ViewTabs.isEmptyTab(tab.id)) {
+            return;
+        }
+        tabs.remove(tab);
+        tabs.add(pinnedCount(), tab);
+        tab.pinned = true;
+    }
+
+    /** Unpins {@code id}'s tab: it goes first among the tabs not pinned. */
+    public void unpin(String id) {
+        Tab tab = find(id);
+        if (tab == null || !tab.pinned) {
+            return;
+        }
+        tabs.remove(tab);
+        tab.pinned = false;
+        tabs.add(pinnedCount(), tab);
+    }
+
+    public boolean isPinned(String id) {
+        Tab tab = find(id);
+        return tab != null && tab.pinned;
+    }
+
+    /** The pinned tabs, in order. */
+    public List<String> pinnedIds() {
+        return tabs.stream().filter(tab -> tab.pinned).map(tab -> tab.id).toList();
+    }
+
+    /** What "close the others" closes from {@code id}'s tab: every tab but it and the pinned ones. */
+    public List<String> othersToClose(String id) {
+        return tabs.stream().filter(tab -> !tab.pinned && !Objects.equals(tab.id, id)).map(tab -> tab.id).toList();
+    }
+
+    private int pinnedCount() {
+        return (int) tabs.stream().filter(tab -> tab.pinned).count();
     }
 
     /** Removes the tab; when it was the active one, no tab is active afterwards. */

@@ -142,9 +142,9 @@ class UiControllerCompositionGuardTest {
     @Test
     void theBiggestControllersDoNotGrow() throws IOException {
         Map<String, Integer> ceilings = Map.of(
-                "MainController.java", 2378,
+                "MainController.java", 2309,
                 "EditorController.java", 1252,
-                "SidebarController.java", 1813,
+                "SidebarController.java", 1809,
                 "NotesListController.java", 1290);
         for (Map.Entry<String, Integer> ceiling : ceilings.entrySet()) {
             Path file = Path.of("src/main/java/com/example/jylos/ui/controller", ceiling.getKey());

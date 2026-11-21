@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
@@ -18,9 +19,13 @@ import com.example.jylos.data.models.VaultSettings.DailyNotes;
 import com.example.jylos.data.models.VaultSettings.FolderTemplate;
 import com.example.jylos.data.models.VaultSettings.NewNoteLocation;
 import com.example.jylos.data.models.VaultSettings.NewNotes;
+import com.example.jylos.data.models.VaultSettings.Startup;
+import com.example.jylos.data.models.VaultSettings.StartupFront;
+import com.example.jylos.data.models.VaultSettings.StartupTabs;
 import com.example.jylos.data.models.VaultSettings.Templater;
 import com.example.jylos.data.models.VaultSettings.Templates;
 import com.example.jylos.tests.FxTestSupport;
+import com.example.jylos.ui.components.InputSuggest;
 import com.example.jylos.ui.components.SettingsPane;
 
 import javafx.scene.Node;
@@ -76,6 +81,37 @@ class VaultSettingsSupportTest {
                 .withObsidianImportAsked(true), saved);
     }
 
+    /** What opens with the vault: the home page (a note or a canvas) and the two choices, shown and saved. */
+    @Test
+    void whatOpensWithTheVaultIsShownAndSaved() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        List<Object> seen = onFx(() -> {
+            VaultSettingsSupport section = new VaultSettingsSupport(CURRENT.withStartup(
+                    new Startup("Inicio.md", StartupTabs.LAST_SESSION, StartupFront.LAST_ACTIVE)),
+                    List.of("Plantillas"), List.of("Inicio.md"), List.of("Inicio.md", "Panel.canvas"),
+                    ES::getString, Locale.forLanguageTag("es"), () -> ZonedDateTime.now());
+            Parent page = page(section);
+            List<Object> out = new java.util.ArrayList<>();
+            out.add(text(page, "pref.vault.startup_home"));
+            TextField home = field(page, "pref.vault.startup_home");
+            InputSuggest suggest = InputSuggest.of(home).orElseThrow();
+            home.setText("");
+            suggest.show();
+            out.add(suggest.shown());
+            home.setText("pan"); // out of a window the field has no focus: ask, as typing does
+            suggest.show();
+            out.add(suggest.shown());
+            home.setText("Panel.canvas");
+            choice(page, "pref.vault.startup_tabs").getSelectionModel().select(1);
+            choice(page, "pref.vault.startup_front").getSelectionModel().select(2);
+            out.add(section.edited().startup());
+            return out;
+        });
+
+        assertEquals(List.of("Inicio.md", List.of("Inicio.md", "Panel.canvas"), List.of("Panel.canvas"),
+                new Startup("Panel.canvas", StartupTabs.PINNED, StartupFront.HOME)), seen);
+    }
+
     @Test
     void aDateFormatShowsWhatItWrites() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
@@ -96,8 +132,8 @@ class VaultSettingsSupportTest {
             VaultSettingsSupport section = section();
             Parent page = page(section);
             button(page, ES.getString("pref.vault.folder_templates_add")).fire();
-            List<TextField> fields = page.lookupAll(".vault-folder-template .combo-box-base").stream()
-                    .map(node -> ((ComboBox<?>) node).getEditor()).toList();
+            List<TextField> fields = page.lookupAll(".vault-folder-template .vault-path").stream()
+                    .map(node -> (TextField) node).toList();
             assertEquals(4, fields.size(), "two rows, a folder and a template each");
             fields.get(2).setText("Reuniones");
             fields.get(3).setText("Plantillas/acta.md");

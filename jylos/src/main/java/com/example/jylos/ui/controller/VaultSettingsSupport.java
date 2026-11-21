@@ -15,10 +15,14 @@ import com.example.jylos.data.models.VaultSettings.DailyNotes;
 import com.example.jylos.data.models.VaultSettings.FolderTemplate;
 import com.example.jylos.data.models.VaultSettings.NewNoteLocation;
 import com.example.jylos.data.models.VaultSettings.NewNotes;
+import com.example.jylos.data.models.VaultSettings.Startup;
+import com.example.jylos.data.models.VaultSettings.StartupFront;
+import com.example.jylos.data.models.VaultSettings.StartupTabs;
 import com.example.jylos.data.models.VaultSettings.Templater;
 import com.example.jylos.data.models.VaultSettings.Templates;
 import com.example.jylos.service.LinkIndex;
 import com.example.jylos.service.NoteService;
+import com.example.jylos.ui.components.InputSuggest;
 import com.example.jylos.ui.components.SettingsPane;
 import com.example.jylos.util.MomentFormat;
 
@@ -34,8 +38,9 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 /**
- * Preferences > Vault: the open vault's own settings ({@link VaultSettings}): its templates
- * folder and their date and time formats, its daily note, where new notes go, and Templater.
+ * Preferences > Vault: the open vault's own settings ({@link VaultSettings}): what opens with it
+ * and its home page, its templates folder and their date and time formats, its daily note,
+ * where new notes go, and Templater.
  * A folder or a note is typed or chosen from the vault's; a date format shows what it writes
  * today. Nothing is kept until the window is saved: {@link #edited} gives what it shows.
  *
@@ -47,18 +52,22 @@ final class VaultSettingsSupport {
     private final VaultSettings current;
     private final List<String> folders;
     private final List<String> notes;
+    private final List<String> homes;
     private final Function<String, String> i18n;
     private final Locale language;
     private final Supplier<ZonedDateTime> now;
 
-    private final ComboBox<String> templatesFolder;
+    private final TextField home;
+    private final ComboBox<String> startupTabs = new ComboBox<>();
+    private final ComboBox<String> startupFront = new ComboBox<>();
+    private final TextField templatesFolder;
     private final TextField dateFormat = new TextField();
     private final TextField timeFormat = new TextField();
     private final TextField dailyFormat = new TextField();
-    private final ComboBox<String> dailyFolder;
-    private final ComboBox<String> dailyTemplate;
+    private final TextField dailyFolder;
+    private final TextField dailyTemplate;
     private final ComboBox<String> newLocation = new ComboBox<>();
-    private final ComboBox<String> newFolder;
+    private final TextField newFolder;
     private final CheckBox templaterEnabled = new CheckBox();
     private final CheckBox templaterTrigger = new CheckBox();
     private final VBox folderTemplates = new VBox();
@@ -75,12 +84,27 @@ final class VaultSettingsSupport {
      */
     VaultSettingsSupport(VaultSettings current, List<String> folders, List<String> notes,
             Function<String, String> i18n, Locale language, Supplier<ZonedDateTime> now) {
+        this(current, folders, notes, notes, i18n, language, now);
+    }
+
+    /**
+     * @param homes the vault's notes and canvases, by path, to choose the home page from
+     */
+    VaultSettingsSupport(VaultSettings current, List<String> folders, List<String> notes, List<String> homes,
+            Function<String, String> i18n, Locale language, Supplier<ZonedDateTime> now) {
         this.current = current != null ? current : VaultSettings.defaults();
         this.folders = folders != null ? folders : List.of();
         this.notes = notes != null ? notes : List.of();
+        this.homes = homes != null ? homes : List.of();
         this.i18n = i18n;
         this.language = language;
         this.now = now;
+        home = choosing(this.homes);
+        startupTabs.getItems().setAll(i18n.apply("pref.vault.startup_tabs.last_session"),
+                i18n.apply("pref.vault.startup_tabs.pinned"));
+        startupFront.getItems().setAll(i18n.apply("pref.vault.startup_front.last_active"),
+                i18n.apply("pref.vault.startup_front.new_tab"), i18n.apply("pref.vault.startup_front.home"),
+                i18n.apply("pref.vault.startup_front.today"));
         templatesFolder = choosing(this.folders);
         dailyFolder = choosing(this.folders);
         dailyTemplate = choosing(this.notes);
@@ -103,11 +127,13 @@ final class VaultSettingsSupport {
         }
         List<String> folderPaths = notes.folderPaths().stream().sorted(String.CASE_INSENSITIVE_ORDER).toList();
         LinkIndex links = notes.linkIndex();
-        List<String> notePaths = notes.getAllNotes().stream()
-                .map(note -> links.pathOf(note.getId()))
-                .filter(path -> path != null && path.endsWith(".md")).sorted(String.CASE_INSENSITIVE_ORDER).toList();
+        List<String> paths = notes.getAllNotes().stream().map(note -> links.pathOf(note.getId()))
+                .filter(path -> path != null).sorted(String.CASE_INSENSITIVE_ORDER).toList();
+        List<String> notePaths = paths.stream().filter(path -> path.endsWith(".md")).toList();
+        List<String> homePaths = paths.stream().filter(path -> path.endsWith(".md") || path.endsWith(".canvas")).toList();
         Locale language = resources != null ? resources.getLocale() : Locale.getDefault();
-        return new VaultSettingsSupport(store.get(), folderPaths, notePaths, i18n, language, ZonedDateTime::now);
+        return new VaultSettingsSupport(store.get(), folderPaths, notePaths, homePaths, i18n, language,
+                ZonedDateTime::now);
     }
 
     /** Keeps {@code edited} as the vault's settings, when there is a vault and the section was shown. */
@@ -123,6 +149,10 @@ final class VaultSettingsSupport {
         add.setOnAction(e -> addFolderTemplate(new FolderTemplate("", "")));
         pane.addSection(i18n.apply("dialog.preferences.section.vault"))
                 .resettable(resetLabel, () -> show(VaultSettings.defaults()))
+                .subheading(i18n.apply("pref.vault.startup"))
+                .row(i18n.apply("pref.vault.startup_home"), i18n.apply("pref.vault.startup_home_desc"), home)
+                .row(i18n.apply("pref.vault.startup_tabs"), i18n.apply("pref.vault.startup_tabs_desc"), startupTabs)
+                .row(i18n.apply("pref.vault.startup_front"), i18n.apply("pref.vault.startup_front_desc"), startupFront)
                 .subheading(i18n.apply("pref.vault.templates"))
                 .row(i18n.apply("pref.vault.templates_folder"), i18n.apply("pref.vault.templates_folder_desc"),
                         templatesFolder)
@@ -165,18 +195,24 @@ final class VaultSettingsSupport {
                         timeFormat.getText().strip()))
                 .withDaily(new DailyNotes(value(dailyFolder), dailyFormat.getText().strip(), value(dailyTemplate)))
                 .withNewNotes(new NewNotes(location, value(newFolder)))
-                .withTemplater(new Templater(templaterEnabled.isSelected(), templaterTrigger.isSelected(), byFolder));
+                .withTemplater(new Templater(templaterEnabled.isSelected(), templaterTrigger.isSelected(), byFolder))
+                .withStartup(new Startup(value(home),
+                        StartupTabs.values()[Math.max(0, startupTabs.getSelectionModel().getSelectedIndex())],
+                        StartupFront.values()[Math.max(0, startupFront.getSelectionModel().getSelectedIndex())]));
     }
 
     private void show(VaultSettings settings) {
-        templatesFolder.getEditor().setText(settings.templates().folder());
+        home.setText(settings.startup().home());
+        startupTabs.getSelectionModel().select(settings.startup().tabs().ordinal());
+        startupFront.getSelectionModel().select(settings.startup().front().ordinal());
+        templatesFolder.setText(settings.templates().folder());
         dateFormat.setText(settings.templates().dateFormat());
         timeFormat.setText(settings.templates().timeFormat());
         dailyFormat.setText(settings.daily().format());
-        dailyFolder.getEditor().setText(settings.daily().folder());
-        dailyTemplate.getEditor().setText(settings.daily().template());
+        dailyFolder.setText(settings.daily().folder());
+        dailyTemplate.setText(settings.daily().template());
         newLocation.getSelectionModel().select(settings.newNotes().location().ordinal());
-        newFolder.getEditor().setText(settings.newNotes().folder());
+        newFolder.setText(settings.newNotes().folder());
         newFolder.setDisable(settings.newNotes().location() != NewNoteLocation.FOLDER);
         templaterEnabled.setSelected(settings.templater().enabled());
         templaterTrigger.setSelected(settings.templater().triggerOnCreate());
@@ -186,12 +222,12 @@ final class VaultSettingsSupport {
     }
 
     private void addFolderTemplate(FolderTemplate template) {
-        ComboBox<String> folder = choosing(folders);
+        TextField folder = choosing(folders);
         folder.setPromptText(i18n.apply("pref.vault.folder_templates_folder"));
-        folder.getEditor().setText(template.folder());
-        ComboBox<String> note = choosing(notes);
+        folder.setText(template.folder());
+        TextField note = choosing(notes);
         note.setPromptText(i18n.apply("pref.vault.folder_templates_template"));
-        note.getEditor().setText(template.template());
+        note.setText(template.template());
         HBox.setHgrow(folder, Priority.ALWAYS);
         HBox.setHgrow(note, Priority.ALWAYS);
         folder.setMaxWidth(Double.MAX_VALUE);
@@ -210,7 +246,7 @@ final class VaultSettingsSupport {
     }
 
     /** One row of the folder templates: its folder and its template. */
-    private record FolderTemplateRow(ComboBox<String> folder, ComboBox<String> template) {
+    private record FolderTemplateRow(TextField folder, TextField template) {
     }
 
     /** {@code format} with what it writes now under it, kept up to date as it is typed. */
@@ -226,18 +262,19 @@ final class VaultSettingsSupport {
         return box;
     }
 
-    /** A field to type a path in or choose one of {@code choices}. */
-    private static ComboBox<String> choosing(List<String> choices) {
-        ComboBox<String> combo = new ComboBox<>();
-        combo.setEditable(true);
-        combo.getItems().setAll(choices);
-        combo.setVisibleRowCount(12);
-        combo.getStyleClass().add("vault-path");
-        return combo;
+    /**
+     * A field to type a path in, with the paths of {@code choices} that match what is typed
+     * suggested under it, as in Obsidian's settings ({@link InputSuggest}).
+     */
+    private static TextField choosing(List<String> choices) {
+        TextField field = new TextField();
+        field.getStyleClass().add("vault-path");
+        new InputSuggest(field, InputSuggest.fuzzy(() -> choices));
+        return field;
     }
 
-    private static String value(ComboBox<String> combo) {
-        String text = combo.getEditor().getText();
+    private static String value(TextField field) {
+        String text = field.getText();
         return text != null ? text.strip() : "";
     }
 }

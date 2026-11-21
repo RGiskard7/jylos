@@ -1150,6 +1150,17 @@
 .editor-tab-close:hover {
     -fx-text-fill: -fx-danger;
 }
+/* A pinned tab shows a pin instead of the cross; a click on it unpins the tab. */
+.editor-tab-pin {
+    -fx-cursor: hand;
+    -fx-padding: 0 2 0 2;
+}
+.editor-tab-pin .ikonli-font-icon {
+    -fx-icon-color: -fx-text-faint;
+}
+.editor-tab-pin:hover .ikonli-font-icon {
+    -fx-icon-color: -fx-accent;
+}
 
 /* ── Kanban board overlay ─────────────────────────────────────────────── */
 .kanban-board {

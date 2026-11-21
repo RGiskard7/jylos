@@ -67,6 +67,7 @@
                  focus mode hides this menu bar. -->
             <MenuItem text="%action.focus_mode" onAction="#handleFocusMode"/>
             <SeparatorMenuItem/>
+            <MenuItem fx:id="homeMenuItem" text="%action.go_home" onAction="#handleGoHome" visible="false"/>
             <MenuItem fx:id="graphViewMenuItem" text="%action.graph_view" onAction="#handleGraphView" accelerator="Shortcut+G"/>
             <MenuItem fx:id="kanbanViewMenuItem" text="%action.kanban_view" onAction="#handleKanbanView" accelerator="Shortcut+K"/>
             <MenuItem text="%action.knowledge_insights" onAction="#handleKnowledgeInsights" accelerator="Shortcut+Shift+K"/>
@@ -143,6 +144,13 @@
         <padding>
             <Insets top="4" right="16" bottom="4" left="16"/>
         </padding>
+
+        <Button fx:id="homeBtn" onAction="#handleGoHome" styleClass="toolbar-btn" visible="false" managed="false">
+            <tooltip><Tooltip text="%tooltip.go_home"/></tooltip>
+            <graphic>
+                <FontIcon iconLiteral="fth-home" styleClass="feather-icon"/>
+            </graphic>
+        </Button>
 
         <Button fx:id="graphViewBtn" onAction="#handleGraphView" styleClass="toolbar-btn">
             <tooltip><Tooltip text="%action.graph_view"/></tooltip>

@@ -340,6 +340,7 @@ public class MainController {
     private final AtomicLong quickSwitcherLoadVersion = new AtomicLong(0);
     private final AtomicLong backendSessionGeneration = new AtomicLong(0);
     private final VaultWatchSupport vaultWatch = new VaultWatchSupport();
+    private final StartupSupport startupSupport = new StartupSupport();
     private volatile List<Note> quickSwitcherNotesCache = List.of();
     private volatile long activeBackendSessionGeneration = 0L;
     private int notesListPreviewLines = UiPreferencesStore.DEFAULT_NOTES_PREVIEW_LINES;
@@ -425,7 +426,7 @@ public class MainController {
 
             refreshBackendSessionViews(false);
             // The tabs open when the app last closed, and the workspace in use, come back.
-            Platform.runLater(workspaceController::restoreSession);
+            Platform.runLater(() -> startupSupport.start(workspaceController));
 
             Platform.runLater(this::initializeKeyboardShortcuts);
 
@@ -724,6 +725,10 @@ public class MainController {
                         sidebarController.loadRecentNotes();
                     }
                 });
+        startupSupport.wire(new StartupSupport.Host(() -> vaultSettings != null ? vaultSettings.get() : null,
+                path -> noteCreationSupport.templates().noteAt(path), this::loadNoteInEditor, this::openNoteInNewTab,
+                tabsSupport::newTab, noteCreationSupport::openDailyNote, this::updateStatus, this::getString,
+                available -> toolbarController.setHomeAvailable(available)));
         workspaceController.wire(new WorkspaceController.Host(this::captureLiveWorkspace, tabsSupport::histories,
                 tabsSupport::closeAll, tabsSupport::restoreTabs, this::applyWorkspaceLayout),
                 this::getString, this::updateStatus, sceneSupplier, prefs, statusBar);
@@ -844,6 +849,7 @@ public class MainController {
         if (eventBus != null) {
             eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
         }
+        startupSupport.front(); // what the new vault puts in front (its tabs are not the last session's)
     }
 
     private void switchFilesystemVault(String newVaultPath) {
@@ -1421,84 +1427,6 @@ public class MainController {
                 this::resolveCommandAction);
     }
 
-    /** Palette commands that are also menu or toolbar actions: one handler for both. */
-    private static final Map<String, SystemActionEvent.ActionType> COMMAND_ACTIONS = Map.ofEntries(
-            Map.entry("cmd.new_note", SystemActionEvent.ActionType.NEW_NOTE),
-            Map.entry("cmd.new_tab", SystemActionEvent.ActionType.NEW_TAB),
-            Map.entry("cmd.new_canvas", SystemActionEvent.ActionType.NEW_CANVAS),
-            Map.entry("cmd.new_kanban_board", SystemActionEvent.ActionType.NEW_KANBAN_BOARD),
-            Map.entry("cmd.new_folder", SystemActionEvent.ActionType.NEW_FOLDER),
-            Map.entry("cmd.save_all", SystemActionEvent.ActionType.SAVE_ALL),
-            Map.entry("cmd.import", SystemActionEvent.ActionType.IMPORT),
-            Map.entry("cmd.export", SystemActionEvent.ActionType.EXPORT),
-            Map.entry("cmd.undo", SystemActionEvent.ActionType.UNDO),
-            Map.entry("cmd.redo", SystemActionEvent.ActionType.REDO),
-            Map.entry("cmd.find", SystemActionEvent.ActionType.FIND),
-            Map.entry("cmd.replace", SystemActionEvent.ActionType.REPLACE),
-            Map.entry("cmd.cut", SystemActionEvent.ActionType.CUT),
-            Map.entry("cmd.copy", SystemActionEvent.ActionType.COPY),
-            Map.entry("cmd.paste", SystemActionEvent.ActionType.PASTE),
-            Map.entry("cmd.toggle_sidebar", SystemActionEvent.ActionType.TOGGLE_SIDEBAR),
-            Map.entry("cmd.toggle_info_panel", SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL),
-            Map.entry("cmd.toggle_reading_view", SystemActionEvent.ActionType.TOGGLE_READING_MODE),
-            Map.entry("cmd.toggle_source_mode", SystemActionEvent.ActionType.TOGGLE_SOURCE_MODE),
-            Map.entry("cmd.split_mode", SystemActionEvent.ActionType.SPLIT_VIEW_MODE),
-            Map.entry("cmd.zoom_in", SystemActionEvent.ActionType.ZOOM_IN),
-            Map.entry("cmd.zoom_out", SystemActionEvent.ActionType.ZOOM_OUT),
-            Map.entry("cmd.reset_zoom", SystemActionEvent.ActionType.RESET_ZOOM),
-            Map.entry("cmd.graph_view", SystemActionEvent.ActionType.GRAPH_VIEW),
-            Map.entry("cmd.knowledge_insights", SystemActionEvent.ActionType.KNOWLEDGE_INSIGHTS),
-            Map.entry("cmd.vault_cleanup", SystemActionEvent.ActionType.VAULT_CLEANUP),
-            Map.entry("cmd.import_obsidian_bookmarks", SystemActionEvent.ActionType.IMPORT_OBSIDIAN_BOOKMARKS),
-            Map.entry("cmd.import_obsidian_settings", SystemActionEvent.ActionType.IMPORT_OBSIDIAN_SETTINGS),
-            Map.entry("cmd.workspace_save", SystemActionEvent.ActionType.WORKSPACE_SAVE),
-            Map.entry("cmd.workspace_save_as", SystemActionEvent.ActionType.WORKSPACE_SAVE_AS),
-            Map.entry("cmd.workspace_open", SystemActionEvent.ActionType.WORKSPACE_OPEN),
-            Map.entry("cmd.workspace_manage", SystemActionEvent.ActionType.WORKSPACE_MANAGE),
-            Map.entry("cmd.git_panel", SystemActionEvent.ActionType.GIT_PANEL),
-            Map.entry("cmd.git_sync", SystemActionEvent.ActionType.GIT_SYNC),
-            Map.entry("cmd.git_commit_push", SystemActionEvent.ActionType.GIT_COMMIT_PUSH),
-            Map.entry("cmd.git_pull", SystemActionEvent.ActionType.GIT_PULL),
-            Map.entry("cmd.git_init", SystemActionEvent.ActionType.GIT_INIT),
-            Map.entry("cmd.git_add_remote", SystemActionEvent.ActionType.GIT_ADD_REMOTE),
-            Map.entry("cmd.quick_switcher", SystemActionEvent.ActionType.QUICK_SWITCHER),
-            Map.entry("cmd.daily_note", SystemActionEvent.ActionType.DAILY_NOTE),
-            Map.entry("cmd.new_from_template", SystemActionEvent.ActionType.NEW_FROM_TEMPLATE),
-            Map.entry("cmd.insert_template", SystemActionEvent.ActionType.INSERT_TEMPLATE),
-            Map.entry("cmd.insert_current_date", SystemActionEvent.ActionType.INSERT_CURRENT_DATE),
-            Map.entry("cmd.insert_current_time", SystemActionEvent.ActionType.INSERT_CURRENT_TIME),
-            Map.entry("cmd.export_vault", SystemActionEvent.ActionType.EXPORT_VAULT),
-            Map.entry("cmd.tag_manager", SystemActionEvent.ActionType.TAGS_MANAGER),
-            Map.entry("cmd.preferences", SystemActionEvent.ActionType.PREFERENCES),
-            Map.entry("cmd.toggle_favorite", SystemActionEvent.ActionType.TOGGLE_FAVORITE),
-            Map.entry("cmd.refresh", SystemActionEvent.ActionType.REFRESH_NOTES),
-            Map.entry("cmd.documentation", SystemActionEvent.ActionType.DOCUMENTATION),
-            Map.entry("cmd.about", SystemActionEvent.ActionType.ABOUT),
-            Map.entry("cmd.focus_mode", SystemActionEvent.ActionType.FOCUS_MODE),
-            Map.entry("cmd.kanban_view", SystemActionEvent.ActionType.KANBAN_VIEW),
-            Map.entry("cmd.note_history", SystemActionEvent.ActionType.NOTE_HISTORY),
-            Map.entry("cmd.toggle_private", SystemActionEvent.ActionType.PRIVATE_TOGGLE),
-            Map.entry("cmd.lock_notes", SystemActionEvent.ActionType.NOTES_LOCK),
-            Map.entry("cmd.unlock_notes", SystemActionEvent.ActionType.NOTES_UNLOCK),
-            Map.entry("cmd.navigate_back", SystemActionEvent.ActionType.NAVIGATE_BACK),
-            Map.entry("cmd.navigate_forward", SystemActionEvent.ActionType.NAVIGATE_FORWARD),
-            Map.entry("cmd.close_note", SystemActionEvent.ActionType.CLOSE_NOTE),
-            Map.entry("cmd.switch_storage", SystemActionEvent.ActionType.SWITCH_STORAGE),
-            Map.entry("cmd.check_updates", SystemActionEvent.ActionType.CHECK_UPDATES),
-            Map.entry("cmd.toggle_pin", SystemActionEvent.ActionType.TOGGLE_PIN),
-            Map.entry("cmd.toggle_notes_list", SystemActionEvent.ActionType.TOGGLE_NOTES_LIST),
-            Map.entry("cmd.toggle_tags", SystemActionEvent.ActionType.TOGGLE_TAGS),
-            Map.entry("cmd.toggle_format_toolbar", SystemActionEvent.ActionType.TOGGLE_FORMAT_TOOLBAR),
-            Map.entry("cmd.new_tag", SystemActionEvent.ActionType.NEW_TAG),
-            Map.entry("cmd.list_view", SystemActionEvent.ActionType.LIST_VIEW),
-            Map.entry("cmd.grid_view", SystemActionEvent.ActionType.GRID_VIEW),
-            Map.entry("cmd.switch_layout", SystemActionEvent.ActionType.SWITCH_LAYOUT),
-            Map.entry("cmd.editor_zoom_in", SystemActionEvent.ActionType.ZOOM_EDITOR_IN),
-            Map.entry("cmd.editor_zoom_out", SystemActionEvent.ActionType.ZOOM_EDITOR_OUT),
-            Map.entry("cmd.editor_reset_zoom", SystemActionEvent.ActionType.RESET_EDITOR_ZOOM),
-            Map.entry("cmd.import_obsidian", SystemActionEvent.ActionType.IMPORT_OBSIDIAN),
-            Map.entry("cmd.import_enex", SystemActionEvent.ActionType.IMPORT_ENEX));
-
     /** Returns the {@link Runnable} bound to {@code commandId}, or {@code null} for unknown IDs (used by the command registry). */
     private Runnable resolveCommandAction(String commandId) {
         if (commandId == null) {
@@ -1506,7 +1434,7 @@ public class MainController {
         }
         // A palette command that is also a menu or toolbar action runs that action's handler.
         initializeSystemActionHandlers();
-        SystemActionEvent.ActionType action = COMMAND_ACTIONS.get(commandId);
+        SystemActionEvent.ActionType action = CommandRegistry.ACTION_COMMANDS.get(commandId);
         if (action != null) {
             return systemActionHandlers.get(action);
         }
@@ -1610,6 +1538,7 @@ public class MainController {
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_FAVORITE, () -> handleToggleFavorite(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL, () -> handleToggleRightPanel(null));
         tabsSupport.register(systemActionHandlers);
+        startupSupport.register(systemActionHandlers);
         systemActionHandlers.put(SystemActionEvent.ActionType.KNOWLEDGE_INSIGHTS, this::showKnowledgeInsights);
         workspaceController.register(systemActionHandlers);
         vaultCleanup.register(systemActionHandlers, () -> noteService, this::getString, this::updateStatus, this::getMainWindow);
@@ -2771,6 +2700,7 @@ public class MainController {
         }
         DialogSupport.PreferencesDialogResult values = result.get();
         VaultSettingsSupport.save(vaultSettings, values.vaultSettings());
+        startupSupport.refreshHome(); // a home page chosen or cleared shows or hides the house
         uiPreferences.save(prefs, values.uiPreferences());
         uiPreferences.saveEnabledSnippets(prefs, values.enabledSnippets());
         uiPreferences.saveIconSize(prefs, values.iconSize());

@@ -16,7 +16,9 @@ import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
 import javafx.event.Event;
 import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
@@ -133,6 +135,68 @@ class EditorTabsTest {
     /** The text a label actually draws, ellipsis included. */
     private static String shownText(Node label) {
         return label.lookup(".text") instanceof Text text ? text.getText() : "<none>";
+    }
+
+    /**
+     * A tab's menu pins and unpins it, closes it, and closes the others but the pinned ones. A
+     * pinned tab goes first and shows a pin, which unpins it, instead of the close cross.
+     */
+    @Test
+    void theTabMenuPinsClosesAndClosesTheOthersButThePinned() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            HBox bar = new HBox();
+            EditorTabs[] holder = new EditorTabs[1];
+            List<String> events = new ArrayList<>();
+            holder[0] = new EditorTabs(bar, bar, new EditorTabs.Listener() {
+                @Override public void onSelect(String noteId) {
+                    events.add("select " + noteId);
+                    holder[0].open(noteId, null, OpenTarget.CURRENT_TAB);
+                }
+                @Override public void onClose(String noteId) {
+                    events.add("close " + noteId);
+                    holder[0].removeTab(noteId);
+                }
+            }, key -> key);
+            EditorTabs tabs = holder[0];
+            tabs.open("a", "Alpha", OpenTarget.NEW_TAB);
+            tabs.open("b", "Beta", OpenTarget.NEW_TAB);
+            tabs.open("c", "Gamma", OpenTarget.NEW_TAB);
+            tabs.open("d", "Delta", OpenTarget.NEW_TAB);
+            List<String> out = new ArrayList<>();
+
+            out.add(items(tabs.menuFor("b")));
+            fire(tabs.menuFor("b"), "tab.pin");
+            out.add(render(bar) + " pinned " + tabs.pinnedIds());
+            HBox pinned = (HBox) bar.getChildren().get(0);
+            out.add("pin " + pinned.lookup(".editor-tab-pin").isVisible() + " cross "
+                    + pinned.lookup(".editor-tab-close").isVisible());
+            out.add(items(tabs.menuFor("b")));
+
+            fire(tabs.menuFor("c"), "tab.close_others");
+            out.add(render(bar) + " " + events);
+
+            click(pinned.lookup(".editor-tab-pin"), MouseButton.PRIMARY);
+            out.add(render(bar) + " pinned " + tabs.pinnedIds());
+            return out;
+        });
+
+        assertEquals(List.of(
+                "tab.pin, tab.close, tab.close_others",
+                "Beta, Alpha, Gamma, *Delta pinned [b]",
+                "pin true cross false",
+                "tab.unpin, tab.close, tab.close_others",
+                "Beta, *Gamma [select c, close a, close d]",
+                "Beta, *Gamma pinned []"), seen);
+    }
+
+    private static String items(ContextMenu menu) {
+        return String.join(", ", menu.getItems().stream().map(MenuItem::getText).toList());
+    }
+
+    private static void fire(ContextMenu menu, String text) {
+        menu.getItems().stream().filter(item -> text.equals(item.getText())).findFirst().orElseThrow().fire();
     }
 
     private static String render(HBox bar) {

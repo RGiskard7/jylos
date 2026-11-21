@@ -1082,6 +1082,10 @@ public class SidebarController {
     public void teardown() {
         eventSubscriptions.forEach(EventBus.Subscription::cancel);
         eventSubscriptions.clear();
+        // A reload still pending would run on a loader already stopped.
+        List.of(foldersFilterDebounce, trashFilterDebounce, foldersReloadDebounce, trashReloadDebounce,
+                tagsReloadDebounce, recentFavoritesReloadDebounce, noteCountRebuildDebounce, explorerRefreshDebounce)
+                .forEach(PauseTransition::stop);
         sidebarLoadExecutor.shutdownNow();
     }
 
@@ -1142,20 +1146,13 @@ public class SidebarController {
 
     private FolderTreeBuildResult buildFolderTreeResult(List<Folder> folders, String filter, boolean filterActive,
             Set<String> expandedIds, boolean sortAscending) {
-        Map<String, Folder> foldersById = new HashMap<>();
-        for (Folder folder : folders) {
-            if (folder != null && folder.getId() != null) {
-                foldersById.put(normalizeId(folder.getId()), folder);
-            }
-        }
-
         Map<String, String> parentById = new HashMap<>();
         for (Folder folder : folders) {
             if (folder == null || folder.getId() == null) {
                 continue;
             }
             String folderId = normalizeId(folder.getId());
-            String parentId = resolveParentId(folder, foldersById);
+            String parentId = resolveParentId(folder);
             if (parentId != null && !parentId.isBlank()) {
                 parentById.put(folderId, normalizeId(parentId));
             }
@@ -1332,7 +1329,7 @@ public class SidebarController {
         }
     }
 
-    private String resolveParentId(Folder folder, Map<String, Folder> foldersById) {
+    private String resolveParentId(Folder folder) {
         if (folder == null || folder.getId() == null) {
             return null;
         }

@@ -28,6 +28,7 @@ import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.TextField;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
@@ -122,10 +123,8 @@ class PreferencesResetTest {
             SettingsPane settings = (SettingsPane) preferences.getContent();
             settings.showSection(settings.sectionTitles().size() - 1);
             preferences.applyCss();
-            @SuppressWarnings("unchecked")
-            ComboBox<String> folder = (ComboBox<String>) control(preferences,
-                    es.getString("pref.vault.templates_folder"));
-            folder.getEditor().setText("Modelos");
+            TextField folder = (TextField) control(preferences, es.getString("pref.vault.templates_folder"));
+            folder.setText("Modelos");
             for (Node node : preferences.lookupAll(".button")) {
                 if (node instanceof Button button && es.getString("action.save").equals(button.getText())) {
                     button.fire();

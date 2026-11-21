@@ -94,6 +94,11 @@ public class ToolbarController {
     /** Opens the graph; with Cmd/Ctrl or the middle button, in a new tab. */
     @FXML
     private Button graphViewBtn;
+    /** Opens the vault's home page; with Cmd/Ctrl or the middle button, in a new tab. Shown only with one. */
+    @FXML
+    private Button homeBtn;
+    @FXML
+    private MenuItem homeMenuItem;
     @FXML
     private ToggleButton rightPanelToggleBtn;
     @FXML
@@ -142,6 +147,9 @@ public class ToolbarController {
         }
         if (graphViewBtn != null) {
             NewTabGesture.onButton(graphViewBtn, () -> publishEvent(SystemActionEvent.ActionType.GRAPH_VIEW_NEW_TAB));
+        }
+        if (homeBtn != null) {
+            NewTabGesture.onButton(homeBtn, () -> publishEvent(SystemActionEvent.ActionType.GO_HOME_NEW_TAB));
         }
     }
 
@@ -319,6 +327,21 @@ public class ToolbarController {
     @FXML
     private void handleGraphView(ActionEvent event) {
         publishEvent(SystemActionEvent.ActionType.GRAPH_VIEW);
+    }
+
+    @FXML
+    private void handleGoHome(ActionEvent event) {
+        publishEvent(SystemActionEvent.ActionType.GO_HOME);
+    }
+
+    /** Shows the house and its View menu item when the vault has a home page; without one, as before there was any. */
+    public void setHomeAvailable(boolean available) {
+        if (homeBtn != null) {
+            UiNodes.show(homeBtn, available);
+        }
+        if (homeMenuItem != null) {
+            homeMenuItem.setVisible(available);
+        }
     }
 
     @FXML

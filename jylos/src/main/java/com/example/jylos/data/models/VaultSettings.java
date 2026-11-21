@@ -14,11 +14,12 @@ import java.util.function.UnaryOperator;
  * @param newNotes            where a new note is created
  * @param templater           Templater's syntax and its templates by folder
  * @param obsidianImportAsked whether importing Obsidian's settings has already been offered
+ * @param startup             what opens with the vault, and its home page
  * @author Edu Díaz (RGiskard7)
  * @since 2.6.0
  */
 public record VaultSettings(Templates templates, DailyNotes daily, NewNotes newNotes, Templater templater,
-        boolean obsidianImportAsked) {
+        boolean obsidianImportAsked, Startup startup) {
 
     /** The date format of templates and daily notes when none is set: Obsidian's. */
     public static final String DEFAULT_DATE_FORMAT = "YYYY-MM-DD";
@@ -30,31 +31,36 @@ public record VaultSettings(Templates templates, DailyNotes daily, NewNotes newN
         daily = daily != null ? daily : new DailyNotes("", null, "");
         newNotes = newNotes != null ? newNotes : new NewNotes(null, "");
         templater = templater != null ? templater : new Templater(false, false, null);
+        startup = startup != null ? startup : new Startup("", null, null);
     }
 
     /** No setting chosen. */
     public static VaultSettings defaults() {
-        return new VaultSettings(null, null, null, null, false);
+        return new VaultSettings(null, null, null, null, false, null);
     }
 
     public VaultSettings withTemplates(Templates value) {
-        return new VaultSettings(value, daily, newNotes, templater, obsidianImportAsked);
+        return new VaultSettings(value, daily, newNotes, templater, obsidianImportAsked, startup);
     }
 
     public VaultSettings withDaily(DailyNotes value) {
-        return new VaultSettings(templates, value, newNotes, templater, obsidianImportAsked);
+        return new VaultSettings(templates, value, newNotes, templater, obsidianImportAsked, startup);
     }
 
     public VaultSettings withNewNotes(NewNotes value) {
-        return new VaultSettings(templates, daily, value, templater, obsidianImportAsked);
+        return new VaultSettings(templates, daily, value, templater, obsidianImportAsked, startup);
     }
 
     public VaultSettings withTemplater(Templater value) {
-        return new VaultSettings(templates, daily, newNotes, value, obsidianImportAsked);
+        return new VaultSettings(templates, daily, newNotes, value, obsidianImportAsked, startup);
     }
 
     public VaultSettings withObsidianImportAsked(boolean value) {
-        return new VaultSettings(templates, daily, newNotes, templater, value);
+        return new VaultSettings(templates, daily, newNotes, templater, value, startup);
+    }
+
+    public VaultSettings withStartup(Startup value) {
+        return new VaultSettings(templates, daily, newNotes, templater, obsidianImportAsked, value);
     }
 
     /** These settings with every path under the folder {@code from} now under {@code to}. */
@@ -66,7 +72,7 @@ public record VaultSettings(Templates templates, DailyNotes daily, NewNotes newN
                 new NewNotes(newNotes.location(), move.apply(newNotes.folder())),
                 new Templater(templater.enabled(), templater.triggerOnCreate(), templater.folderTemplates().stream()
                         .map(t -> new FolderTemplate(move.apply(t.folder()), move.apply(t.template()))).toList()),
-                obsidianImportAsked);
+                obsidianImportAsked, new Startup(move.apply(startup.home()), startup.tabs(), startup.front()));
     }
 
     private static String moved(String path, String from, String to) {
@@ -110,6 +116,34 @@ public record VaultSettings(Templates templates, DailyNotes daily, NewNotes newN
             folder = orEmpty(folder);
             format = orDefault(format, DEFAULT_DATE_FORMAT);
             template = orEmpty(template);
+        }
+    }
+
+    /** Which tabs open with the vault: those of the last session, or only the pinned ones. */
+    public enum StartupTabs {
+        LAST_SESSION, PINNED
+    }
+
+    /**
+     * What is in front when the vault opens: the tab that was active, a new tab, the home page,
+     * or today's daily note.
+     */
+    public enum StartupFront {
+        LAST_ACTIVE, NEW_TAB, HOME, TODAY
+    }
+
+    /**
+     * What opens with the vault.
+     *
+     * @param home  the home page: a note or a canvas of the vault ({@code ""}: none)
+     * @param tabs  which tabs of the last session open again
+     * @param front what is in front once they have
+     */
+    public record Startup(String home, StartupTabs tabs, StartupFront front) {
+        public Startup {
+            home = orEmpty(home);
+            tabs = tabs != null ? tabs : StartupTabs.LAST_SESSION;
+            front = front != null ? front : StartupFront.LAST_ACTIVE;
         }
     }
 

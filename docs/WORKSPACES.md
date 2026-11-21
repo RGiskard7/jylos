@@ -34,7 +34,7 @@ again saves the workspace in use (when that is on) and brings them back.
 
 - **name**, plus an id and created/updated timestamps
 - **open tabs** (note ids and the graph, in order) and the **active tab**
-- **each tab's back and forward**, up to 20 steps each (in `workspace-history.dat`)
+- **each tab's back and forward**, up to 20 steps each, and **whether it is pinned** (in `workspace-history.dat`)
 - **view mode** — editor / split / preview
 - **basic layout** — focus mode on/off, sidebar visible/hidden, and the two split-pane
   divider positions (sidebar|content and notes-list|editor)
@@ -51,6 +51,17 @@ selection are not stored either.
   everything), and the workspace's tabs open with their history.
 - **The last session comes back.** On closing, the open tabs, their history and the workspace
   in use are kept in `session.dat` and `session-history.dat`; the next start reopens them.
+  What it reopens is a vault setting (Preferences > Vault > *When the vault opens*,
+  `VaultSettings.startup`): all the tabs of the last time or only the pinned ones, and in
+  front the tab that was active, a new tab, the home page or today's daily note
+  (`StartupSupport`). Opening another vault applies only what goes in front.
+- **Pinned tabs.** A tab's menu (right click) pins it: pinned tabs go first, show a pin instead
+  of the close cross (a click on it unpins), and keep what they show: what is opened from one
+  goes to a new tab, back and forward bring a pinned tab forward instead of taking its note,
+  and *Close others* leaves them (`EditorTabsModel`).
+- **Home page.** A note or a canvas of the vault (Preferences > Vault), opened with *Go to
+  home page*: the house in the top bar (Cmd/Ctrl or middle click: in a new tab), the View menu
+  or the command palette. The house and its menu item show only when the vault has a home page.
 - **Missing notes don't fail.** A note that no longer exists is skipped, in the tabs and in
   their history; when opening a workspace, a status message says how many were skipped.
 - **Storage mismatch.** If a workspace was saved in a different storage mode, a
@@ -66,7 +77,7 @@ All in `<appData>/data/`:
 | File | Content |
 |------|---------|
 | `workspaces.dat` | One workspace per line (`Workspace.serialize()`). Its shape is unchanged, so older versions still read it. |
-| `workspace-history.dat` | One line per workspace id: each tab's back and forward, in the order of its tabs. |
+| `workspace-history.dat` | One line per workspace id: each tab's back and forward, in the order of its tabs, and a third part `pinned` for a pinned tab (older versions read the first two and leave it). |
 | `session.dat`, `session-history.dat` | The last session, in the same shapes; its id and name are the workspace in use. Also the tabs of "No workspace", under the id `jylos:no-workspace`. |
 
 ## Architecture

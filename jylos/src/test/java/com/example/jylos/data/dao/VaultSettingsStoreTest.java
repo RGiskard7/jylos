@@ -17,6 +17,9 @@ import com.example.jylos.data.models.VaultSettings.DailyNotes;
 import com.example.jylos.data.models.VaultSettings.FolderTemplate;
 import com.example.jylos.data.models.VaultSettings.NewNoteLocation;
 import com.example.jylos.data.models.VaultSettings.NewNotes;
+import com.example.jylos.data.models.VaultSettings.Startup;
+import com.example.jylos.data.models.VaultSettings.StartupFront;
+import com.example.jylos.data.models.VaultSettings.StartupTabs;
 import com.example.jylos.data.models.VaultSettings.Templater;
 import com.example.jylos.data.models.VaultSettings.Templates;
 
@@ -66,6 +69,21 @@ class VaultSettingsStoreTest {
         assertEquals(new NewNotes(NewNoteLocation.CURRENT, ""), settings.newNotes());
     }
 
+    /** What opens with the vault: by default the last session, as before; a file of an older version reads so. */
+    @Test
+    void whatOpensWithTheVaultIsKeptAndAnOlderFileReadsAsTheLastSession(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("settings.json");
+        Files.writeString(file, "{\"templates\": {\"folder\": \"Modelos\"}}", StandardCharsets.UTF_8);
+        assertEquals(new Startup("", StartupTabs.LAST_SESSION, StartupFront.LAST_ACTIVE),
+                new VaultSettingsStore(file).get().startup());
+
+        new VaultSettingsStore(file).set(VaultSettings.defaults()
+                .withStartup(new Startup("Inicio/Panel.canvas", StartupTabs.PINNED, StartupFront.HOME)));
+
+        assertEquals(new Startup("Inicio/Panel.canvas", StartupTabs.PINNED, StartupFront.HOME),
+                new VaultSettingsStore(file).get().startup());
+    }
+
     @Test
     void anUnreadableFileIsIgnoredAndReplacedOnTheNextChange(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("settings.json");
@@ -86,7 +104,8 @@ class VaultSettingsStoreTest {
                 .withTemplates(new Templates("Plantillas", "YYYY-MM-DD", "HH:mm"))
                 .withDaily(new DailyNotes("Plantillas viejas", "YYYY-MM-DD", "Plantillas/Sub/diaria.md"))
                 .withNewNotes(new NewNotes(NewNoteLocation.FOLDER, "Plantillas"))
-                .withTemplater(new Templater(true, true, List.of(new FolderTemplate("Plantillas/Sub", "x.md")))));
+                .withTemplater(new Templater(true, true, List.of(new FolderTemplate("Plantillas/Sub", "x.md"))))
+                .withStartup(new Startup("Plantillas/Inicio.md", StartupTabs.LAST_SESSION, StartupFront.HOME)));
 
         store.movePath("Plantillas", "Archivo/Modelos");
 
@@ -96,5 +115,6 @@ class VaultSettingsStoreTest {
         assertEquals("Archivo/Modelos/Sub/diaria.md", moved.daily().template());
         assertEquals("Archivo/Modelos", moved.newNotes().folder());
         assertEquals(List.of(new FolderTemplate("Archivo/Modelos/Sub", "x.md")), moved.templater().folderTemplates());
+        assertEquals("Archivo/Modelos/Inicio.md", moved.startup().home());
     }
 }

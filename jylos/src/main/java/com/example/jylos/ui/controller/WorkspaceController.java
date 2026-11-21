@@ -12,6 +12,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import java.util.prefs.Preferences;
 
 import org.kordamp.ikonli.javafx.FontIcon;
@@ -85,6 +86,16 @@ public final class WorkspaceController {
      */
     record Host(Supplier<Workspace> liveState, Supplier<List<TabHistory>> history, BooleanSupplier closeAllTabs,
             TabsRestorer restoreTabs, Consumer<Workspace> applyLayout) {
+    }
+
+    /**
+     * The tabs the last session left, in order, with the history of each.
+     *
+     * @param ids       what each tab showed
+     * @param activeId  the one in front, or null
+     * @param histories each tab's back and forward and whether it was pinned, in the order of {@code ids}
+     */
+    record SessionTabs(List<String> ids, String activeId, List<TabHistory> histories) {
     }
 
     /** Reopens tabs in order, with the history of each; returns how many of their notes are gone. */
@@ -255,12 +266,21 @@ public final class WorkspaceController {
 
     /** At startup: reopens the last session's tabs and its workspace in use, once. */
     void restoreSession() {
+        restoreSession(UnaryOperator.identity());
+    }
+
+    /**
+     * At startup: reopens what {@code keep} keeps of the last session's tabs (all of them, or
+     * the pinned ones only), and its workspace in use, once.
+     */
+    void restoreSession(UnaryOperator<SessionTabs> keep) {
         if (sessionRestored || host == null) {
             return;
         }
         sessionRestored = true;
         session.load().ifPresent(last -> {
-            host.restoreTabs().restore(last.openNoteIds(), last.activeNoteId(), session.history());
+            SessionTabs tabs = keep.apply(new SessionTabs(last.openNoteIds(), last.activeNoteId(), session.history()));
+            host.restoreTabs().restore(tabs.ids(), tabs.activeId(), tabs.histories());
             service.findById(last.id()).ifPresent(ws -> setCurrent(ws.id(), ws.name()));
         });
     }
