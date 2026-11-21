@@ -49,12 +49,17 @@ final class SaveConflictSupport {
 
     /**
      * Pure decision. {@code baseline} is the file as it was when the editor loaded or last
-     * saved the note; {@code current} is the file now. A missing baseline (SQLite, no file)
-     * or a file deleted on disk has nothing to lose, so the save proceeds.
+     * saved the note; {@code current} is the file now. A missing baseline (SQLite, no file) has
+     * nothing to compare, so the save proceeds. A file gone from disk has nothing to lose: a
+     * manual save puts it back, but the autosave pauses instead of bringing back, on its own,
+     * a note deleted or moved outside the app (the editor follows a move a moment later).
      */
     static Decision decide(FileFingerprint baseline, Optional<FileFingerprint> current, boolean autosave) {
-        if (baseline == null || current == null || current.isEmpty()) {
+        if (baseline == null || current == null) {
             return Decision.PROCEED;
+        }
+        if (current.isEmpty()) {
+            return autosave ? Decision.CONFLICT_PAUSE : Decision.PROCEED;
         }
         // Content decides: a file merely touched (e.g. by a sync client) is not a conflict.
         if (baseline.sameContentAs(current.get())) {

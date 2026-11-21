@@ -23,7 +23,9 @@ final class ExternalChangeSupport {
          */
         WARN,
         /** Deleted outside: handled as a missing note (kept if it has unsaved edits). */
-        MISSING
+        MISSING,
+        /** Moved or renamed outside: the editor follows it to its new path, unsaved edits and all. */
+        FOLLOW
     }
 
     private ExternalChangeSupport() {
@@ -36,6 +38,9 @@ final class ExternalChangeSupport {
     static OpenNote react(ExternalChanges changes, String currentId, boolean modified) {
         if (currentId == null) {
             return OpenNote.KEEP;
+        }
+        if (changes.renamed().containsKey(currentId)) {
+            return OpenNote.FOLLOW;
         }
         if (changes.deleted().contains(currentId)) {
             return OpenNote.MISSING;

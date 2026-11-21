@@ -2306,7 +2306,8 @@ public class MainController {
         vaultWatch.start(noteService, generation, this::isActiveBackendSession, eventBus,
                 new VaultWatchSupport.Editor(this::getCurrentNote, this::isModified, this::refreshOpenNoteAfterStorageRefresh,
                         this::refreshInactiveOpenTabsAfterStorageRefresh,
-                        () -> updateStatus(getString("status.open_note_changed_outside"))),
+                        () -> updateStatus(getString("status.open_note_changed_outside")),
+                        (from, to, title) -> editorTabs.rebindId(from, to, title), editorController::syncCurrentNoteIdentity),
                 () -> handleRefresh(null));
     }
 

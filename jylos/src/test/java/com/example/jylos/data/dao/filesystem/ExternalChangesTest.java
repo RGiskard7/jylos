@@ -102,6 +102,80 @@ class ExternalChangesTest {
         assertEquals(expected(vault, "C.md"), shape(listed(dao, "C.md")));
     }
 
+    /**
+     * Moving a file keeps its modified time and size: a note gone and one come with the same
+     * ones, in the same batch, is the note moved. It is not read again (it may be only in
+     * iCloud): what the vault knew of it moves with it.
+     */
+    @Test
+    void aNoteMovedOutsideIsFollowedWithoutReadingIt() throws Exception {
+        Path a = vault.resolve("A.md");
+        Map<String, Object> before = shape(listed(dao, "A.md"));
+        Path moved = vault.resolve("Libros/A movida.md");
+        Files.move(a, moved);
+        sameSizeOtherBytes(moved);
+
+        ExternalChanges changes = dao.applyExternalChanges(List.of(moved, a));
+
+        assertEquals(Map.of("A.md", "Libros/A movida.md"), changes.renamed());
+        Map<String, Object> after = shape(listed(dao, "Libros/A movida.md"));
+        after.put("title", before.get("title"));
+        assertEquals(before, after, "what the vault knew of it, not the file's bytes");
+    }
+
+    /**
+     * The list drops notes whose file is gone on its own (every few seconds, as it is read):
+     * a note moved outside and dropped that way before the watcher's batch arrives is still
+     * found moved.
+     */
+    @Test
+    void aMoveIsFoundEvenIfTheListDroppedTheOldNoteFirst() throws Exception {
+        Path b = vault.resolve("B.md");
+        Path moved = vault.resolve("B movida.md");
+        Files.move(b, moved);
+        dao.fetchAllNotes(); // drops B.md, whose file is gone
+
+        ExternalChanges changes = dao.applyExternalChanges(List.of(b, moved));
+
+        assertEquals(Map.of("B.md", "B movida.md"), changes.renamed());
+    }
+
+    @Test
+    void aFolderRenamedOutsideMovesItsNotes() throws Exception {
+        Files.move(vault.resolve("Libros"), vault.resolve("Lecturas"));
+
+        ExternalChanges changes = dao.applyExternalChanges(List.of(vault.resolve("Libros"), vault.resolve("Lecturas")));
+
+        assertEquals(Map.of("Libros/Dune.md", "Lecturas/Dune.md", "Libros/Fundación.md", "Lecturas/Fundación.md"),
+                changes.renamed());
+    }
+
+    /** Two notes with the same modified time and size: which went where cannot be told, so nothing is guessed. */
+    @Test
+    void anAmbiguousMoveIsNotGuessed() throws Exception {
+        Path b = vault.resolve("B.md");
+        Path b2 = vault.resolve("B2.md");
+        Files.writeString(b2, Files.readString(b));
+        Files.setLastModifiedTime(b2, Files.getLastModifiedTime(b));
+        dao.applyExternalChanges(List.of(b2));
+        Files.move(b, vault.resolve("X.md"));
+        Files.move(b2, vault.resolve("Y.md"));
+
+        ExternalChanges changes = dao.applyExternalChanges(
+                List.of(b, b2, vault.resolve("X.md"), vault.resolve("Y.md")));
+
+        assertEquals(Map.of(), changes.renamed());
+        assertEquals(Set.of("B.md", "B2.md"), changes.deleted());
+        assertEquals(Set.of("X.md", "Y.md"), changes.created());
+    }
+
+    private static void sameSizeOtherBytes(Path file) throws Exception {
+        FileTime modified = Files.getLastModifiedTime(file);
+        int size = (int) Files.size(file);
+        Files.write(file, "#z ".repeat(size / 3 + 1).substring(0, size).getBytes(StandardCharsets.US_ASCII));
+        Files.setLastModifiedTime(file, modified);
+    }
+
     @Test
     void aFolderAddedOrDeletedOutsideBringsOrTakesItsNotes() throws Exception {
         Path nueva = vault.resolve("Nueva");

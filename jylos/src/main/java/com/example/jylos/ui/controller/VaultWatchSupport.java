@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.LongPredicate;
 import java.util.function.Supplier;
 import java.util.logging.Level;
@@ -43,9 +44,18 @@ final class VaultWatchSupport {
      *                         and the other tabs (what the Refresh button does to them)
      * @param refreshTabs      re-reads the inactive tabs only, closing those whose note is gone
      * @param warnChanged      tells the open note changed outside while it has unsaved edits
+     * @param rebindTab        gives the tab of a note moved outside its new id and title
+     * @param followOpenNote   makes the editor show the open note under its new id and title, as
+     *                         when the app renames it itself (unsaved edits stay)
      */
     record Editor(Supplier<Note> current, BooleanSupplier modified, Runnable refreshOpenNotes, Runnable refreshTabs,
-            Runnable warnChanged) {
+            Runnable warnChanged, TabRebind rebindTab, Consumer<Note> followOpenNote) {
+    }
+
+    /** Gives the tab of note {@code oldId} the id {@code newId} and the title {@code title}. */
+    @FunctionalInterface
+    interface TabRebind {
+        void rebind(String oldId, String newId, String title);
     }
 
     private VaultWatcher watcher;
@@ -97,8 +107,13 @@ final class VaultWatchSupport {
     static void show(ExternalChanges changes, EventBus eventBus, Editor editor) {
         eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
         Note current = editor.current().get();
-        switch (ExternalChangeSupport.react(changes, current != null ? current.getId() : null,
-                editor.modified().getAsBoolean())) {
+        String currentId = current != null ? current.getId() : null;
+        changes.renamed().forEach((from, to) -> editor.rebindTab().rebind(from, to, titleOf(to)));
+        switch (ExternalChangeSupport.react(changes, currentId, editor.modified().getAsBoolean())) {
+            case FOLLOW -> {
+                editor.followOpenNote().accept(movedTo(current, changes.renamed().get(currentId)));
+                editor.refreshTabs().run();
+            }
             case RELOAD, MISSING -> editor.refreshOpenNotes().run();
             case WARN -> {
                 editor.refreshTabs().run();
@@ -106,6 +121,24 @@ final class VaultWatchSupport {
             }
             case KEEP -> editor.refreshTabs().run();
         }
+    }
+
+    /** The title the vault lists a note under: its file name, without {@code .md} for a note. */
+    private static String titleOf(String id) {
+        String name = id.substring(id.lastIndexOf('/') + 1);
+        return name.endsWith(".md") ? name.substring(0, name.length() - 3) : name;
+    }
+
+    /** {@code note} as it is after its file moved to {@code id}: same marks, new id and title. */
+    private static Note movedTo(Note note, String id) {
+        Note moved = new Note(id, titleOf(id), note.getContent());
+        moved.setFavorite(note.isFavorite());
+        moved.setPinned(note.isPinned());
+        moved.setPrivate(note.isPrivate());
+        moved.setDeleted(note.isDeleted());
+        moved.setDeletedDate(note.getDeletedDate());
+        moved.setStatus(note.getStatus());
+        return moved;
     }
 
     /** Stops watching; nothing is reported afterwards. */

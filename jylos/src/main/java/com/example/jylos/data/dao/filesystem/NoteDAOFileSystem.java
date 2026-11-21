@@ -13,8 +13,10 @@ import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -100,6 +102,13 @@ public class NoteDAOFileSystem implements NoteDAO {
      * its content off the disk) and is not read.
      */
     private final Map<String, FileStamp> knownStamps = new ConcurrentHashMap<>();
+
+    /**
+     * While a batch of outside changes is applied: the notes that left the list, by the modified
+     * time and size they had ("" when two had the same ones). Moving a file keeps both, so a note
+     * that arrives with them is that note moved: it takes what the cache knew of it, unread.
+     */
+    private final Map<FileStamp, String> leftThisBatch = new ConcurrentHashMap<>();
     private volatile boolean notesByFolderIndexDirty = true;
 
     // Deferred (background) content-load coordination — see the two-arg constructor.
@@ -495,6 +504,13 @@ public class NoteDAOFileSystem implements NoteDAO {
         if (cached.isPresent()) {
             return cached.get();
         }
+        String movedFrom = leftThisBatch.get(FileStamp.of(attrs));
+        Optional<NoteMetadataCache.Metadata> moved = movedFrom != null && !movedFrom.isEmpty()
+                ? metadataCache().get(movedFrom, modified, size) : Optional.empty();
+        if (moved.isPresent()) {
+            metadataCache().put(id, modified, size, moved.get());
+            return moved.get();
+        }
         // Read after the stat: if the file changes meanwhile, the entry does not match it and
         // the note is read again next time.
         NoteMetadataCache.Metadata read = NoteMetadataCache.Metadata.of(readText(path));
@@ -565,10 +581,14 @@ public class NoteDAOFileSystem implements NoteDAO {
         Set<String> changed = new LinkedHashSet<>();
         Set<String> deleted = new LinkedHashSet<>();
         boolean folders = false;
+        Map<String, String> renamed = new LinkedHashMap<>();
         Path root = rootPath.toAbsolutePath().normalize();
+        // What is gone first: a note moved in this batch then arrives with what it had.
+        List<Path> ordered = new ArrayList<>(paths);
+        ordered.sort(Comparator.comparing(reported -> Files.exists(reported) ? 1 : 0));
         FileSystemIoLock.LOCK.lock();
         try {
-            for (Path reported : paths) {
+            for (Path reported : ordered) {
                 Path path = reported.toAbsolutePath().normalize();
                 if (!path.startsWith(root) || FileSystemNames.isHiddenWithinVault(root, path)
                         || path.getFileName().toString().endsWith(".tmp")) {
@@ -602,14 +622,18 @@ public class NoteDAOFileSystem implements NoteDAO {
                         listAgain(root, path, created, changed);
                     }
                 } else {
+                    // Known by its date and size even if the list already dropped it (see
+                    // pruneStaleCacheEntries): a move is still found.
                     String id = FileSystemNames.normalizeId(root.relativize(path).toString());
-                    if (idToPathMap.containsKey(id)) {
+                    if (idToPathMap.containsKey(id) || knownStamps.containsKey(id)) {
                         unlist(id);
                         deleted.add(id);
                         continue;
                     }
                     String inside = id + "/";
-                    for (String known : new ArrayList<>(idToPathMap.keySet())) {
+                    Set<String> knownIds = new HashSet<>(idToPathMap.keySet());
+                    knownIds.addAll(knownStamps.keySet());
+                    for (String known : knownIds) {
                         if (known.startsWith(inside)) {
                             unlist(known);
                             deleted.add(known);
@@ -622,16 +646,43 @@ public class NoteDAOFileSystem implements NoteDAO {
                     }
                 }
             }
+            renamed.putAll(movesIn(created));
+            for (String gone : deleted) {
+                metadataCache().remove(gone);
+            }
             if (!created.isEmpty() || !changed.isEmpty() || !deleted.isEmpty()) {
                 notesByFolderIndexDirty = true;
             }
         } finally {
+            leftThisBatch.clear();
             FileSystemIoLock.LOCK.unlock();
         }
         if (!created.isEmpty() || !changed.isEmpty() || !deleted.isEmpty()) {
             saveMetadataCacheSoon();
         }
-        return new ExternalChanges(created, changed, deleted, folders);
+        return new ExternalChanges(created, changed, deleted, folders, renamed);
+    }
+
+    /**
+     * The notes of this batch that moved: one gone and one {@code created} with the same modified
+     * time and size, and no other with them. When it cannot be told which went where, none.
+     */
+    private Map<String, String> movesIn(Set<String> created) {
+        Map<FileStamp, List<String>> arrived = new HashMap<>();
+        for (String id : created) {
+            FileStamp stamp = knownStamps.get(id);
+            if (stamp != null) {
+                arrived.computeIfAbsent(stamp, key -> new ArrayList<>()).add(id);
+            }
+        }
+        Map<String, String> moves = new LinkedHashMap<>();
+        leftThisBatch.forEach((stamp, from) -> {
+            List<String> to = arrived.get(stamp);
+            if (!from.isEmpty() && to != null && to.size() == 1) {
+                moves.put(from, to.get(0));
+            }
+        });
+        return moves;
     }
 
     /** Whether the vault lists a file of this kind: a note or an attachment. */
@@ -664,11 +715,17 @@ public class NoteDAOFileSystem implements NoteDAO {
         return id;
     }
 
-    /** Takes the note {@code id} out of the list and the cache. */
+    /**
+     * Takes the note {@code id} out of the list, keeping its modified time and size for this
+     * batch (see {@link #leftThisBatch}); its cache entry goes at the end of the batch.
+     */
     private void unlist(String id) {
         idToPathMap.remove(id);
         cachedNotes.remove(id);
-        forgetFile(id);
+        FileStamp stamp = knownStamps.remove(id);
+        if (stamp != null) {
+            leftThisBatch.merge(stamp, id, (first, second) -> "");
+        }
     }
 
     /** The whole file as UTF-8, a malformed byte read as U+FFFD (as the list always read it). */
@@ -1273,6 +1330,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                 // Remove from cache (by exact and normalized key/path)
                 idToPathMap.remove(id);
                 idToPathMap.remove(normalizedId);
+                knownStamps.remove(normalizedId);
                 cachedNotes.remove(id);
                 cachedNotes.remove(normalizedId);
                 final Path sourcePathFinal = sourcePath;
@@ -1430,6 +1488,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                 Files.delete(path);
                 idToPathMap.remove(id);
                 idToPathMap.remove(normalizedId);
+                knownStamps.remove(normalizedId);
                 cachedNotes.remove(id);
                 cachedNotes.remove(normalizedId);
                 notesByFolderIndexDirty = true;
