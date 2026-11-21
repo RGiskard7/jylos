@@ -127,7 +127,7 @@ final class DataviewIndex implements PageSource {
             // changed (with iCloud, reading an offloaded note downloads it).
             if (listed.isMetadataComplete()) {
                 try {
-                    Optional<String> summary = noteService.derived(listed, PageSummary.KEY, PageSummary::of);
+                    Optional<String> summary = noteService.derived(listed, PageParser.SUMMARY_KEY, PageSummary::of);
                     if (summary.isPresent()) {
                         Page page = PageParser.parse(PageSummary.note(listed, summary.get()),
                                 foldersByNoteId.getOrDefault(id, ""), pathOf(listed),

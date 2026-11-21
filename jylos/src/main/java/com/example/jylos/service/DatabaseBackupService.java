@@ -37,11 +37,19 @@ public final class DatabaseBackupService {
     }
 
     /**
+     * The app's SQLite database ({@code database.db} in the app's data folder), whether or not
+     * it exists: what a backup copies.
+     */
+    public static File databaseFile() {
+        return new File(AppDataDirectory.getDataDirectory(), "database.db");
+    }
+
+    /**
      * Copies {@code data/database.db} into {@code backups/} if the source exists.
      * Keeps at most {@value #MAX_RETAINED_BACKUPS} backup files (oldest removed first).
      */
     public static void createStartupBackupIfNeeded() {
-        File sourceDb = new File(AppDataDirectory.getDataDirectory(), "database.db");
+        File sourceDb = databaseFile();
         if (!sourceDb.isFile()) {
             return;
         }

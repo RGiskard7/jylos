@@ -143,7 +143,9 @@ public class NoteDAOFileSystem implements NoteDAO {
             refreshCacheMetadataOnly();
             startBackgroundContentLoad();
         } else {
-            refreshCache();
+            metadataStore.clearCache();
+            rebuildCache(this::createLightweightNote);
+            keepOnlyListedNotesInMetadataCache();
             markContentLoaded();
         }
     }
@@ -157,7 +159,10 @@ public class NoteDAOFileSystem implements NoteDAO {
     public void refreshCache() {
         metadataStore.clearCache();
         rebuildCache(this::createLightweightNote);
-        keepOnlyListedNotesInMetadataCache();
+        // Called on the JavaFX thread by a refresh: the cache file (megabytes on a big vault)
+        // is written on a background thread.
+        metadataCache().retainOnly(Set.copyOf(idToPathMap.keySet()));
+        saveMetadataCacheSoon();
     }
 
     /** The metadata cache, read from disk the first time it is needed. */
@@ -175,7 +180,10 @@ public class NoteDAOFileSystem implements NoteDAO {
         return cache;
     }
 
-    /** Drops the cached notes no longer in the vault and writes the cache if it changed. */
+    /**
+     * Drops the cached notes no longer in the vault and writes the cache if it changed, on the
+     * calling thread: the loader's (background, or the synchronous constructor's).
+     */
     private void keepOnlyListedNotesInMetadataCache() {
         NoteMetadataCache cache = metadataCache();
         cache.retainOnly(Set.copyOf(idToPathMap.keySet()));
@@ -314,7 +322,7 @@ public class NoteDAOFileSystem implements NoteDAO {
                 } finally {
                     pool.shutdown();
                     try {
-                        pool.awaitTermination(10, TimeUnit.MINUTES);
+                        pool.awaitTermination(CONTENT_LOAD_LIMIT_MS, TimeUnit.MILLISECONDS);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                     }

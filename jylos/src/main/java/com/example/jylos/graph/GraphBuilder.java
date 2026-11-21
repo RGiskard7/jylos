@@ -14,6 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.service.LinkIndex;
@@ -82,9 +83,12 @@ public class GraphBuilder {
         }
     }
 
-    /** Waits (off the FX thread) for the vault to finish loading its notes and their links. */
+    /**
+     * Waits (off the FX thread) for the vault to finish loading its notes and their links, as
+     * long as the load itself may take; past that, the build reads what it lacks.
+     */
     public void awaitNotesLoaded() {
-        noteService.awaitContentLoaded(10 * 60_000L);
+        noteService.awaitContentLoaded(NoteDAO.CONTENT_LOAD_LIMIT_MS);
     }
 
     /** Clears the whole link cache (e.g. folder deletion or storage switch). */

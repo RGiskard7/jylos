@@ -205,6 +205,13 @@ public interface NoteDAO {
     }
 
     /**
+     * The longest a deferred background content load reads before it gives up on the files left
+     * (a cloud download that never ends must not hold the vault forever); what waits for the
+     * load waits as long.
+     */
+    long CONTENT_LOAD_LIMIT_MS = 10 * 60_000L;
+
+    /**
      * Waits, at most {@code timeoutMs}, for a deferred background content load to finish.
      * Backends that load synchronously are always loaded.
      *

@@ -1,7 +1,5 @@
 package com.example.jylos.plugin.builtin.dataview;
 
-import java.util.regex.Pattern;
-
 import com.example.jylos.data.models.Note;
 
 /**
@@ -16,13 +14,6 @@ import com.example.jylos.data.models.Note;
  */
 final class PageSummary {
 
-    /** Names the summary and its rules in the vault's cache: bump it when they change. */
-    static final String KEY = "dataview@1";
-
-    private static final Pattern FRONTMATTER = Pattern.compile("^---\\r?\\n(.*?)\\r?\\n---\\s*?(\\r?\\n|$)",
-            Pattern.DOTALL);
-    private static final Pattern TASK_LINE = Pattern.compile("^(\\s*)[-*+]\\s+\\[(.)\\]\\s*(.*)$");
-
     private PageSummary() {
     }
 
@@ -30,7 +21,7 @@ final class PageSummary {
     static String of(String text) {
         String body = text != null ? text : "";
         StringBuilder summary = new StringBuilder().append(body.length()).append('\n');
-        if (FRONTMATTER.matcher(body).find()) {
+        if (PageParser.FRONTMATTER.matcher(body).find()) {
             // A properties block in the text itself is read by PageParser: kept whole.
             return summary.append(body).toString();
         }
@@ -39,19 +30,11 @@ final class PageSummary {
             if (i > 0) {
                 summary.append('\n');
             }
-            if (matters(lines[i])) {
+            if (PageParser.mayMatter(lines[i])) {
                 summary.append(lines[i]);
             }
         }
         return summary.toString();
-    }
-
-    /** Whether PageParser can find anything on {@code line}, or it opens or closes a code block. */
-    private static boolean matters(String line) {
-        String trimmed = line.trim();
-        return trimmed.startsWith("```") || trimmed.startsWith("~~~")
-                || line.contains("::") || line.indexOf('#') >= 0 || line.contains("[[")
-                || TASK_LINE.matcher(line).matches();
     }
 
     /**

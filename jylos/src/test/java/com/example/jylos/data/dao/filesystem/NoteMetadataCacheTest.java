@@ -113,6 +113,29 @@ class NoteMetadataCacheTest {
         assertTrue(Files.readString(cache, StandardCharsets.UTF_8).contains("Propiedades.md"), "written again");
     }
 
+    /**
+     * A refresh (the toolbar button, on the JavaFX thread) lists the new notes at once and
+     * writes the cache file, megabytes on a big vault, a moment later on another thread.
+     */
+    @Test
+    void aRefreshWritesTheCacheLaterNotOnTheCallingThread(@TempDir Path root) throws Exception {
+        Path vault = write(root.resolve("vault"), fixtures());
+        Path cache = root.resolve("cache/vault.json");
+        NoteDAOFileSystem dao = loaded(vault, cache);
+        Files.writeString(vault.resolve("Nueva.md"), "Nueva [[Destino]]\n", StandardCharsets.UTF_8);
+
+        dao.refreshCache();
+
+        assertEquals(List.of("Destino"), listed(dao, "Nueva.md").getLinkTargets(), "listed at once");
+        assertFalse(Files.readString(cache, StandardCharsets.UTF_8).contains("Nueva.md"), "not written yet");
+        long deadline = System.currentTimeMillis() + 10_000;
+        while (!Files.readString(cache, StandardCharsets.UTF_8).contains("Nueva.md")
+                && System.currentTimeMillis() < deadline) {
+            Thread.sleep(100);
+        }
+        assertTrue(Files.readString(cache, StandardCharsets.UTF_8).contains("Nueva.md"), "written a moment later");
+    }
+
     /** A {@code #tag} far into a note is one of its tags, as in Obsidian, not only those of its start. */
     @Test
     void aTagFarIntoANoteIsListed(@TempDir Path root) throws Exception {

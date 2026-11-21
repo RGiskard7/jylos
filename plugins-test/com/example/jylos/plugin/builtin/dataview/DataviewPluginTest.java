@@ -318,6 +318,7 @@ public final class DataviewPluginTest {
         checkIndexSkipsUnparseableNotesWithoutFailingTheWholeVault();
         checkASummaryParsesLikeTheText();
         checkTheIndexOfAnUnchangedVaultReadsNoNote();
+        checkAPageFromTheCacheIsThePageOfTheWholeNote();
 
         System.out.println("\n========================================");
         System.out.println("passed: " + passed + "   failed: " + failed);
@@ -463,6 +464,54 @@ public final class DataviewPluginTest {
                     "\n    first:  " + first + "\n    second: " + second);
         } catch (IOException | InterruptedException e) {
             check("Dataview cache test setup", false, e.toString());
+        }
+    }
+
+    /**
+     * With the real vault, a page built from the cached summary is the page the whole note
+     * gives (what the index built before the cache): dates, marks, size, fields, tasks, tags.
+     */
+    private static void checkAPageFromTheCacheIsThePageOfTheWholeNote() {
+        try {
+            Path root = Files.createTempDirectory("dataview-equal-");
+            Path vault = Files.createDirectories(root.resolve("vault"));
+            Files.createDirectories(vault.resolve("Libros"));
+            Files.writeString(vault.resolve("Libros/Dune.md"), "---\nauthor: Frank Herbert\nrating: 5\n"
+                    + "created: 2020-01-02T03:04:05Z\ntags:\n  - libro\n---\n\n# Dune\n\nestado:: leyendo\n"
+                    + "Texto [[Fundación]] #scifi y (nota:: buena)\n\n- [ ] Releer [due:: 2026-03-01]\n"
+                    + "    - [x] Hecho #hecho\n```\nno:: cuenta\n```\n" + "relleno ".repeat(2000) + "\nfinal:: lejos\n",
+                    StandardCharsets.UTF_8);
+            Files.writeString(vault.resolve("Fundación.md"), "# Fundación\r\nSin propiedades, con CRLF\r\n"
+                    + "- [/] A medias\r\nclave:: valor\r\n", StandardCharsets.UTF_8);
+            Files.writeString(vault.resolve("Vacía.md"), "", StandardCharsets.UTF_8);
+
+            com.example.jylos.event.EventBus.getInstance().clear();
+            NoteDAOFileSystem noteDAO = new NoteDAOFileSystem(vault.toString(), true, root.resolve("cache.json"));
+            noteDAO.awaitContentLoaded(20_000);
+            FolderDAOFileSystem folderDAO = new FolderDAOFileSystem(vault.toString());
+            NoteService notes = new NoteService(noteDAO, folderDAO);
+            List<Page> pages = new DataviewIndex(notes, new FolderService(folderDAO, noteDAO)).pages();
+
+            check("the index has every note", pages.size() == 3, String.valueOf(pages));
+            for (Page page : pages) {
+                Note whole = notes.getNoteById(page.id()).orElseThrow();
+                // As in Obsidian, file.ctime and file.mtime are the file's dates when the note's
+                // properties do not give them (a note read whole carries none of its own).
+                java.nio.file.attribute.BasicFileAttributes attrs = Files.readAttributes(
+                        vault.resolve(page.id()), java.nio.file.attribute.BasicFileAttributes.class);
+                if (whole.getCreatedDate() == null) {
+                    whole.setCreatedDate(attrs.creationTime().toInstant().toString());
+                }
+                if (whole.getModifiedDate() == null) {
+                    whole.setModifiedDate(attrs.lastModifiedTime().toInstant().toString());
+                }
+                String expected = describe(PageParser.parse(whole, page.folder(),
+                        String.valueOf(page.fileObject().get("path"))));
+                check("the cached page of " + page.id() + " is the whole note's", expected.equals(describe(page)),
+                        "\n    whole:  " + expected + "\n    cached: " + describe(page));
+            }
+        } catch (IOException | InterruptedException | RuntimeException e) {
+            check("Dataview equality test setup", false, e.toString());
         }
     }
 

@@ -35,7 +35,7 @@ import com.example.jylos.data.models.Tag;
  */
 final class PageParser {
 
-    private static final Pattern FRONTMATTER = Pattern.compile("^---\\r?\\n(.*?)\\r?\\n---\\s*?(\\r?\\n|$)",
+    static final Pattern FRONTMATTER = Pattern.compile("^---\\r?\\n(.*?)\\r?\\n---\\s*?(\\r?\\n|$)",
             Pattern.DOTALL);
     private static final Pattern TASK_LINE = Pattern.compile("^(\\s*)[-*+]\\s+\\[(.)\\]\\s*(.*)$");
     private static final Pattern INLINE_FIELD_LINE = Pattern.compile("^([A-Za-z0-9_][\\w \\-/]*?)::\\s*(.*)$");
@@ -44,7 +44,27 @@ final class PageParser {
     private static final Pattern TAG = Pattern.compile("(?<![\\w&])#([A-Za-z0-9_][\\w/\\-]*)");
     private static final Pattern WIKI_LINK = Pattern.compile("\\[\\[([^\\[\\]\\n]+?)\\]\\]");
 
+    /**
+     * Names the {@link PageSummary} kept in the vault's cache and the rules it was made with:
+     * bump it whenever the patterns above, {@link #mayMatter} or {@code parseBody} change, so
+     * summaries made with the old rules are made again.
+     */
+    static final String SUMMARY_KEY = "dataview@1";
+
     private PageParser() {
+    }
+
+    /**
+     * Whether {@link #parse} can find anything on {@code line} (a task, a field, a tag, a link)
+     * or it opens or closes a code block: what a {@link PageSummary} keeps of a text.
+     */
+    static boolean mayMatter(String line) {
+        String trimmed = line.trim();
+        return trimmed.startsWith("```") || trimmed.startsWith("~~~")
+                || TASK_LINE.matcher(line).matches()
+                || line.contains("::") // every inline field, own line or bracketed, has it
+                || TAG.matcher(line).find()
+                || WIKI_LINK.matcher(line).find();
     }
 
     static Page parse(Note note, String folderName, String path) {

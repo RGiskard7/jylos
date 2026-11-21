@@ -337,6 +337,14 @@ public class NoteService {
         return noteDAO instanceof NoteDAOFileSystem vault ? vault.cleanJylosFields(ids, backupDir) : 0;
     }
 
+    /**
+     * The file a folder vault holds for {@code note}: its properties and its text, as the vault
+     * writes them. For storages without files (SQLite), to export a note as Markdown.
+     */
+    public String asMarkdownFile(Note note) {
+        return FrontmatterHandler.generate(note);
+    }
+
     public Optional<Path> getStorageRoot() {
         return noteDAO.storageRoot();
     }
