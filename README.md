@@ -94,7 +94,7 @@ Prebuilt packages for all major platforms are available on the [Releases page](.
     - [JavaFX Parent-POM Warnings](#javafx-parent-pom-warnings)
   - [Contributing](#contributing)
     - [Changelog convention](#changelog-convention)
-  - [License](#license)
+  - [License and trademarks](#license-and-trademarks)
 
 ## Why Jylos
 
@@ -501,7 +501,7 @@ Repository root (contains the Maven module `jylos/` and `scripts/`):
 ├── themes/                             # theme sources → build-themes → jylos/themes/
 ├── resources/images/                   # README banner and screenshots
 ├── scripts/                            # build, launch, package, smoke tests
-├── docs/                                # technical docs (see docs/README.md)
+├── docs/                               # technical docs (see docs/README.md)
 ├── AGENTS.md
 ├── changelog.md
 ├── README.md

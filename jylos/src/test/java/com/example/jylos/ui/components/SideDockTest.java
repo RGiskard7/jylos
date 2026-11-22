@@ -2,6 +2,7 @@ package com.example.jylos.ui.components;
 
 import static com.example.jylos.tests.FxTestSupport.onFx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -401,6 +402,33 @@ class SideDockTest {
                 List.of("[Title a] chosen=Title a showing=[content a]", "[Title c] chosen=Title c showing=[content c]",
                         "[Title b] chosen=Title b showing=[content b]"),
                 "told [{a=0, b=1, c=0}, {a=0, b=2, c=1}]"), seen);
+    }
+
+    /** The line between two groups is a strip a few pixels tall, so the mouse can take it, in both themes. */
+    @Test
+    void theLineBetweenGroupsCanBeTakenWithTheMouse() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<Double> heights = onFx(() -> {
+            List<Double> out = new ArrayList<>();
+            for (String theme : List.of("dark-theme.css", "modern-theme.css")) {
+                SideDock dock = dockInWindow(300);
+                dock.getScene().getStylesheets()
+                        .add(SideDock.class.getResource("/com/example/jylos/ui/css/" + theme).toExternalForm());
+                add(dock, "a");
+                add(dock, "b");
+                dock.splitDown("b");
+                dock.applyCss();
+                dock.layout();
+                Node line = dock.lookup(".side-dock-split > .split-pane-divider");
+                out.add(line.localToScene(line.getLayoutBounds()).getHeight());
+            }
+            return out;
+        });
+
+        for (double height : heights) {
+            assertTrue(height >= 5 && height <= 10, "the strip is " + heights);
+        }
     }
 
     /** A group whose views are all closed goes; a view opened again comes back to its group. */

@@ -2242,9 +2242,11 @@
     -fx-padding: 0;
 }
 
+/* A strip easy to take with the mouse, the line in its middle. */
 .side-dock-split > .split-pane-divider {
-    -fx-background-color: -fx-fn-border-color;
-    -fx-padding: 1 0 0 0;
+    -fx-background-color: transparent, -fx-fn-border-color;
+    -fx-background-insets: 0, 3 0 3 0;
+    -fx-padding: 0 3 0 4;
 }
 
 

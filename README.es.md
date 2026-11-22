@@ -94,7 +94,7 @@ Los paquetes precompilados para las principales plataformas están disponibles e
     - [Warnings de parent-POM JavaFX](#warnings-de-parent-pom-javafx)
   - [Contribución](#contribución)
     - [Convenio del changelog](#convenio-del-changelog)
-  - [Licencia](#licencia)
+  - [Licencia y marcas](#licencia-y-marcas)
 
 ## Por qué Jylos
 
@@ -501,7 +501,7 @@ Raíz del repositorio (contiene el módulo Maven `jylos/` y `scripts/`):
 ├── themes/                             # fuentes → build-themes → jylos/themes/
 ├── resources/images/                   # banner y capturas del README
 ├── scripts/                            # build, launch, package, smoke tests
-├── docs/                                # documentación técnica (docs/README.md)
+├── docs/                               # documentación técnica (docs/README.md)
 ├── AGENTS.md
 ├── changelog.md
 ├── README.md
