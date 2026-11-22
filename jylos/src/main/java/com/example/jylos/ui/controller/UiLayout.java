@@ -245,7 +245,7 @@ class UiLayout {
      * stays reachable whichever center view is active.
      *
      * @param currentNote     the note in sight, or {@code null}
-     * @param refreshNoteInfo given that note when the panel opens with one in sight
+     * @param refreshNoteInfo given that note (or {@code null}) when the panel opens
      */
     void toggleRightPanel(Note currentNote, Consumer<Note> refreshNoteInfo) {
         VBox right = panes().right();
@@ -265,7 +265,8 @@ class UiLayout {
             collapse(right);
         }
         setRightPanelToggle(collapsed);
-        if (collapsed && currentNote != null && refreshNoteInfo != null) {
+        // Opened: what it shows works itself out, with no note in sight too (a view pinned to a note).
+        if (collapsed && refreshNoteInfo != null) {
             refreshNoteInfo.accept(currentNote);
         }
     }

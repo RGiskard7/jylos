@@ -3,6 +3,8 @@ package com.example.jylos.ui.controller;
 import static com.example.jylos.tests.FxTestSupport.onFx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -12,10 +14,16 @@ import java.util.prefs.Preferences;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import com.example.jylos.data.dao.filesystem.FolderDAOFileSystem;
+import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
 import com.example.jylos.data.models.Note;
+import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.SystemActionEvent.ActionType;
+import com.example.jylos.service.BacklinkService;
 import com.example.jylos.service.BacklinkService.OutgoingLink;
+import com.example.jylos.service.NoteService;
 import com.example.jylos.service.LinkOccurrences.Occurrence;
 import com.example.jylos.tests.FxTestSupport;
 import com.example.jylos.ui.components.LinksPanel;
@@ -26,7 +34,12 @@ import javafx.event.EventType;
 import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.Labeled;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.SplitPane;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
@@ -259,6 +272,163 @@ class RightPanelSupportTest {
 
         assertEquals(List.of("[backlinks, plugin:calendar:panel]"), seen);
         prefs.removeNode();
+    }
+
+    /**
+     * "Pin a copy" in the menu of a links view's tab makes a copy of that view, pinned to the
+     * note in sight, in a group of its own under the view's; the copies are kept for the next
+     * start, in their groups, and closing one takes it away for good. With no note in sight the
+     * entry cannot be used; a copy cannot be pinned again.
+     */
+    @Test
+    void aLinksViewIsPinnedToTheNoteInSightAsACopyBelowKeptForTheNextStart() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        Preferences prefs = freshPrefs();
+        Note[] inSight = {null};
+
+        List<String> seen = onFx(() -> {
+            List<String> out = new ArrayList<>();
+            SideDock dock = new SideDock();
+            RightPanelSupport support = new RightPanelSupport();
+            support.wire(dock, prefs, key -> key, links(), () -> true, () -> {
+            }, () -> {
+            });
+            support.pinWith(new BacklinksSupport(), () -> inSight[0]);
+            Stage stage = new Stage();
+            stage.setScene(new Scene(dock, 300, 400));
+            stage.show();
+            out.add("no note: " + pinItem(dock, RightPanelSupport.BACKLINKS).isDisable());
+            inSight[0] = new Note("Carpeta/Target.md", "Target", "");
+            MenuItem pin = pinItem(dock, RightPanelSupport.BACKLINKS);
+            out.add("note: " + pin.isDisable());
+            pin.fire();
+            String copy = dock.viewIds().get(dock.viewIds().size() - 1);
+            out.add(copy + " shown " + dock.shown() + " groups "
+                    + prefs.get(RightPanelSupport.GROUPS_KEY, "").replace("	", ":"));
+            out.add(prefs.get(RightPanelSupport.PINNED_KEY, "").replace("	", ":"));
+            out.add("the copy's menu: " + texts(dock.menuFor(copy)));
+            stage.close();
+
+            SideDock next = new SideDock();
+            RightPanelSupport nextSupport = new RightPanelSupport();
+            nextSupport.wire(next, prefs, key -> key, links(), () -> true, () -> {
+            }, () -> {
+            });
+            nextSupport.pinWith(new BacklinksSupport(), () -> null);
+            out.add("next start: " + next.viewIds() + " shown " + next.shown());
+            next.menuFor(copy).getItems().get(0).fire(); // Close
+            out.add("closed: " + next.viewIds() + " pinned [" + prefs.get(RightPanelSupport.PINNED_KEY, "") + "]");
+            return out;
+        });
+
+        assertEquals(List.of("no note: true", "note: false",
+                "backlinks@1 shown [backlinks, backlinks@1] groups backlinks@1:1",
+                "backlinks@1:backlinks:Carpeta/Target.md",
+                "the copy's menu: [side.close, side.split_down, side.move_up, -, side.backlinks, links.outgoing]",
+                "next start: [backlinks, outgoing-links, backlinks@1] shown [backlinks, backlinks@1]",
+                "closed: [backlinks, outgoing-links] pinned []"), seen);
+        prefs.removeNode();
+    }
+
+    /** A pinned copy whose note is renamed is named after it, at once, and kept so. */
+    @Test
+    void aPinnedCopyIsNamedAfterItsNoteWhenRenamed() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        Preferences prefs = freshPrefs();
+        prefs.put(RightPanelSupport.PINNED_KEY, "outgoing-links@3\toutgoing-links\tA/Viejo.md");
+
+        List<String> seen = onFx(() -> {
+            SideDock dock = new SideDock();
+            RightPanelSupport support = new RightPanelSupport();
+            support.wire(dock, prefs, key -> key, links(), () -> true, () -> {
+            }, () -> {
+            });
+            BacklinksSupport pins = new BacklinksSupport();
+            support.pinWith(pins, () -> null);
+            Stage stage = new Stage();
+            stage.setScene(new Scene(dock, 300, 400));
+            stage.show();
+            List<String> out = new ArrayList<>();
+            out.add(tooltips(dock) + " " + pinnedTo(dock));
+            pins.rebind("A/Viejo.md", "B/Nuevo.md");
+            out.add(tooltips(dock) + " " + pinnedTo(dock));
+            out.add(prefs.get(RightPanelSupport.PINNED_KEY, "").replace("\t", ":"));
+            stage.close();
+            return out;
+        });
+
+        assertEquals(List.of("[side.backlinks, links.outgoing, links.outgoing · Viejo] side.pinned_to",
+                "[side.backlinks, links.outgoing, links.outgoing · Nuevo] side.pinned_to",
+                "outgoing-links@3:outgoing-links:B/Nuevo.md"), seen);
+        prefs.removeNode();
+    }
+
+    /** A copy kept from last time works its links out when the panel is opened, not while it is closed. */
+    @Test
+    void aPinnedCopyIsWorkedOutWhenThePanelOpens(@TempDir Path vault) throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        Files.writeString(vault.resolve("Target.md"), "# T\n");
+        Files.writeString(vault.resolve("Fuente.md"), "[[Target]]\n");
+        NoteService notes = new NoteService(new NoteDAOFileSystem(vault.toString()),
+                new FolderDAOFileSystem(vault.toString()));
+        BacklinkService service = new BacklinkService(notes, EventBus.getInstance());
+        Preferences prefs = freshPrefs();
+        prefs.put(RightPanelSupport.PINNED_KEY, "backlinks@1\tbacklinks\tTarget.md");
+        prefs.put(RightPanelSupport.GROUPS_KEY, "backlinks@1\t1");
+        AtomicBoolean open = new AtomicBoolean(false);
+        RightPanelSupport support = new RightPanelSupport();
+        SideDock dock = new SideDock();
+        try {
+            onFx(() -> {
+                BacklinksSupport links = new BacklinksSupport();
+                links.wire(service, notes, k -> k, n -> { }, support::linksInSight);
+                support.wire(dock, prefs, key -> key, links.links(), open::get, () -> {
+                }, () -> {
+                });
+                Stage stage = new Stage();
+                stage.setScene(new Scene(dock, 300, 400));
+                stage.show();
+                support.pinWith(links, () -> null);
+                return null;
+            });
+            Thread.sleep(500);
+            List<String> closed = groupNames(dock);
+            onFx(() -> {
+                open.set(true);
+                support.panelOpened();
+                return null;
+            });
+            long deadline = System.currentTimeMillis() + 15_000;
+            while (!groupNames(dock).equals(List.of("Fuente")) && System.currentTimeMillis() < deadline) {
+                Thread.sleep(50);
+            }
+            assertEquals(List.of(List.of(), List.of("Fuente")), List.of(closed, groupNames(dock)));
+        } finally {
+            service.shutdown();
+            EventBus.getInstance().clear();
+            prefs.removeNode();
+        }
+    }
+
+    private static List<String> groupNames(SideDock dock) throws Exception {
+        return onFx(() -> dock.lookupAll(".links-group-name").stream().map(n -> ((Labeled) n).getText()).toList());
+    }
+
+    private static List<String> tooltips(SideDock dock) {
+        return dock.lookupAll(".side-dock-tab").stream().map(tab -> ((Button) tab).getTooltip().getText()).toList();
+    }
+
+    private static String pinnedTo(SideDock dock) {
+        return ((Label) dock.lookup(".side-dock-pinned-to")).getText();
+    }
+
+    private static MenuItem pinItem(SideDock dock, String id) {
+        return dock.menuFor(id).getItems().stream().filter(i -> i.getText() != null && i.getText().startsWith("side.pin_copy"))
+                .findFirst().orElseThrow();
+    }
+
+    private static List<String> texts(ContextMenu menu) {
+        return menu.getItems().stream().map(i -> i instanceof SeparatorMenuItem ? "-" : i.getText()).toList();
     }
 
     private static void mouse(Node target, EventType<MouseEvent> type, double x, double y) {

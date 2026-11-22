@@ -625,10 +625,10 @@ public class MainController {
                 MainController.this.refreshNotesList();
             }
         });
-        backlinksSupport.wire(backlinkService, noteService, this::getString, this::loadNoteInEditor,
-                rightPanelSupport::linksInSight);
+        backlinksSupport.wire(backlinkService, noteService, this::getString, this::loadNoteInEditor, rightPanelSupport::linksInSight);
         rightPanelSupport.wire(rightDock, prefs, this::getString, backlinksSupport.links(), uiLayout::isRightPanelOpen,
                 () -> backlinksSupport.refresh(tabsSupport.inSight(getCurrentNote())), () -> handleToggleRightPanel(null));
+        rightPanelSupport.pinWith(backlinksSupport, () -> tabsSupport.inSight(getCurrentNote()));
         backlinksSupport.setCreateNoteAction(noteCreationSupport::createNoteWithTitle);
         backlinksSupport.setStatusAction(this::updateStatus);
         // "Link" rewrote a mention in another note: tell the list, tabs and indexes it was saved.
@@ -1638,7 +1638,7 @@ public class MainController {
 
     @FXML
     private void handleToggleRightPanel(ActionEvent event) {
-        uiLayout.toggleRightPanel(tabsSupport.inSight(getCurrentNote()), backlinksSupport::refresh);
+        uiLayout.toggleRightPanel(tabsSupport.inSight(getCurrentNote()), note -> { backlinksSupport.refresh(note); rightPanelSupport.panelOpened(); });
     }
 
     /**
@@ -2151,7 +2151,7 @@ public class MainController {
                 new VaultWatchSupport.Editor(this::getCurrentNote, this::isModified, this::refreshOpenNoteAfterStorageRefresh,
                         this::refreshInactiveOpenTabsAfterStorageRefresh,
                         () -> updateStatus(getString("status.open_note_changed_outside")),
-                        (from, to, title) -> editorTabs.rebindId(from, to, title), editorController::syncCurrentNoteIdentity),
+                        (from, to, title) -> { editorTabs.rebindId(from, to, title); backlinksSupport.rebind(from, to); }, editorController::syncCurrentNoteIdentity),
                 () -> handleRefresh(null));
     }
 

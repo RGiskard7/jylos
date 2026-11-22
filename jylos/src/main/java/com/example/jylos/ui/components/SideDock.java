@@ -11,9 +11,11 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import com.example.jylos.ui.UiNodes;
 
+import javafx.geometry.BoundingBox;
 import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
@@ -31,6 +33,7 @@ import javafx.scene.control.Tooltip;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
@@ -46,8 +49,15 @@ import javafx.scene.shape.Rectangle;
  * <p>The panel can be split in groups, one over the other, each with its own row of tabs and
  * its own view shown, and a divider between them: "Split down" in a tab's menu puts its view
  * in a group of its own under its group, and a tab dropped on another group's row goes to that
- * group, as does a view moved up or down from its tab's menu. A group left without views goes;
+ * group, as does a view moved up or down from its tab's menu. A tab dropped on the top or the
+ * bottom of a group's view makes a group of its own above or below it, and on its middle joins
+ * that group. While a tab is dragged nothing moves: a mark shows where it would go, and it goes
+ * there when let go (let go away from the panel, it stays). A group left without views goes;
  * a view opened again comes back to its group.
+ *
+ * <p>The owner can add views of its own in a new group under another's
+ * ({@link #addViewInNewGroupBelow}), mark a view as disposable (closing it takes it away for
+ * good, {@link #setDisposable}) and add entries to a tab's menu ({@link #setMenuExtras}).
  *
  * <p>A tab is dragged along the row to move it; the views come in the order kept from last
  * time ({@link #setPreferredOrder}), a view not in it at the end, and in the group kept from
@@ -94,10 +104,28 @@ public final class SideDock extends VBox {
     };
     private Consumer<List<Double>> onDividersChanged = positions -> {
     };
-    /** The tab being dragged, whether it moved and whether it went to another group. */
+    private Consumer<String> onDiscarded = id -> {
+    };
+    private Function<String, List<MenuItem>> menuExtras = id -> List.of();
+    /** Views that go for good when closed, not listed to open again. */
+    private final Set<String> disposable = new HashSet<>();
+    /** The tab being dragged. */
     private String dragging;
-    private boolean dragMoved;
-    private boolean dragRegrouped;
+    /** Over the groups, the marks of where a dragged tab would go. */
+    private final Pane marks = new Pane();
+    private final Region zoneMark = new Region();
+    private final Region lineMark = new Region();
+
+    /** The part of a group's view, at its top and at its bottom, where a tab makes a group of its own. */
+    private static final double EDGE = 0.25;
+
+    /** Where a dragged tab would go: into a group's row (before {@code before}, or at its end), a new group, or a group's end. */
+    private enum DropKind {
+        ROW, ABOVE, BELOW, JOIN
+    }
+
+    private record Drop(DropKind kind, int group, String before) {
+    }
 
     /** A view: its tab, and its body (its actions bar, if any, over its content, which scrolls). */
     private record View(String id, String title, Button tab, VBox body) {
@@ -155,7 +183,17 @@ public final class SideDock extends VBox {
         VBox.setVgrow(split, Priority.ALWAYS);
         // How tall the groups are is told when a divider is let go, not while the panel lays out.
         split.addEventFilter(MouseEvent.MOUSE_RELEASED, e -> dividersLetGo());
-        getChildren().add(split);
+        zoneMark.getStyleClass().add("side-dock-drop-zone");
+        lineMark.getStyleClass().add("side-dock-drop-line");
+        for (Region mark : List.of(zoneMark, lineMark)) {
+            mark.setManaged(false);
+            mark.setVisible(false);
+        }
+        marks.getChildren().addAll(zoneMark, lineMark);
+        marks.setMouseTransparent(true);
+        StackPane layers = new StackPane(split, marks);
+        VBox.setVgrow(layers, Priority.ALWAYS);
+        getChildren().add(layers);
         layoutGroups();
     }
 
@@ -179,6 +217,52 @@ public final class SideDock extends VBox {
     public void setMoveTexts(String up, String down) {
         moveUpText = up;
         moveDownText = down;
+    }
+
+    /** Told the id of a disposable view closed, once it is gone. */
+    public void setOnDiscarded(Consumer<String> onDiscarded) {
+        this.onDiscarded = onDiscarded != null ? onDiscarded : id -> {
+        };
+    }
+
+    /** Entries of the owner's for the menu of a view's tab, after the panel's own (none for {@code null}). */
+    public void setMenuExtras(Function<String, List<MenuItem>> extras) {
+        menuExtras = extras != null ? extras : id -> List.of();
+    }
+
+    /**
+     * Closing the view {@code id} takes it away for good (it is not listed to open again). Its
+     * tab is wider, for an icon that carries a mark of what it is (a pin, on a copy).
+     */
+    public void setDisposable(String id) {
+        disposable.add(id);
+        View view = byId.get(id);
+        if (view != null && !view.tab().getStyleClass().contains("side-dock-tab-disposable")) {
+            view.tab().getStyleClass().add("side-dock-tab-disposable");
+        }
+    }
+
+    /** Names the view {@code id} anew: its tab's tooltip and its entry in the menus. */
+    public void setTitle(String id, String title) {
+        View view = byId.get(id);
+        if (view != null) {
+            byId.put(id, new View(id, title, view.tab(), view.body()));
+            view.tab().getTooltip().setText(title);
+        }
+    }
+
+    /**
+     * Adds a view in a group of its own right under the group of the view {@code under} (the
+     * groups under it go one down), chosen there. With no view {@code under}, as {@link #addView}.
+     */
+    public void addViewInNewGroupBelow(String under, String id, String title, Node icon, Node content, Node actions) {
+        addView(id, title, icon, content, actions);
+        Integer at = byId.containsKey(under) ? groupOf.get(under) : null;
+        if (at != null && !under.equals(id)) {
+            newGroup(id, at, true);
+            onOrderChanged.accept(viewIds());
+            onGroupsChanged.accept(new TreeMap<>(groupOf));
+        }
     }
 
     /** Told the id of each view chosen in its group, by a click or not. */
@@ -259,11 +343,9 @@ public final class SideDock extends VBox {
         });
         tab.addEventHandler(MouseEvent.MOUSE_PRESSED, e -> {
             dragging = id;
-            dragMoved = false;
-            dragRegrouped = false;
         });
         tab.addEventHandler(MouseEvent.MOUSE_DRAGGED, e -> dragTo(e.getSceneX(), e.getSceneY()));
-        tab.addEventHandler(MouseEvent.MOUSE_RELEASED, e -> endDrag());
+        tab.addEventHandler(MouseEvent.MOUSE_RELEASED, e -> endDrag(e.getSceneX(), e.getSceneY()));
 
         VBox padded = new VBox(content);
         padded.getStyleClass().add("side-dock-view");
@@ -390,18 +472,28 @@ public final class SideDock extends VBox {
         if (at == null || !byId.containsKey(id) || inRowOf(at).size() < 2) {
             return;
         }
-        groupOf.replaceAll((view, group) -> group > at ? group + 1 : group);
+        newGroup(id, at, true);
+        onGroupsChanged.accept(new TreeMap<>(groupOf));
+    }
+
+    /**
+     * Puts the view {@code id} in a new group of its own right above group {@code at} or right
+     * under it (the groups from there go one down), and chooses it there.
+     */
+    private void newGroup(String id, int at, boolean below) {
+        int target = below ? at + 1 : at;
+        groupOf.replaceAll((view, group) -> group >= target ? group + 1 : group);
         Map<Integer, Group> moved = new HashMap<>();
-        groups.forEach((index, group) -> moved.put(index > at ? index + 1 : index, group));
+        groups.forEach((index, group) -> moved.put(index >= target ? index + 1 : index, group));
         groups.clear();
         groups.putAll(moved);
-        groupOf.put(id, at + 1);
-        Group left = groups.get(at);
+        int from = groupOf.get(id);
+        groupOf.put(id, target);
+        Group left = groups.get(from);
         if (left != null && id.equals(left.chosen)) {
             left.chosen = null;
         }
         choose(id);
-        onGroupsChanged.accept(new TreeMap<>(groupOf));
     }
 
     /**
@@ -449,11 +541,17 @@ public final class SideDock extends VBox {
      * it down, move it to the group above or below (when there is one), then every view the
      * panel has, checked when open, to open or close it.
      */
-    ContextMenu menuFor(String id) {
+    public ContextMenu menuFor(String id) {
         ContextMenu menu = new ContextMenu();
         if (id != null) {
             MenuItem close = new MenuItem(closeText);
-            close.setOnAction(e -> setClosed(id, true));
+            close.setOnAction(e -> {
+                if (disposable.contains(id)) {
+                    discard(id);
+                } else {
+                    setClosed(id, true);
+                }
+            });
             MenuItem splitDown = new MenuItem(splitText);
             splitDown.setDisable(!groupOf.containsKey(id) || inRowOf(groupOf.get(id)).size() < 2);
             splitDown.setOnAction(e -> splitDown(id));
@@ -468,10 +566,11 @@ public final class SideDock extends VBox {
                 down.setOnAction(e -> moveToNextGroup(id, true));
                 menu.getItems().add(down);
             }
+            menu.getItems().addAll(menuExtras.apply(id));
             menu.getItems().add(new SeparatorMenuItem());
         }
         for (String viewId : order) {
-            if (hiddenByOwner.contains(viewId)) {
+            if (hiddenByOwner.contains(viewId) || disposable.contains(viewId)) {
                 continue;
             }
             CheckMenuItem item = new CheckMenuItem(byId.get(viewId).title());
@@ -487,6 +586,17 @@ public final class SideDock extends VBox {
             menu.getItems().add(item);
         }
         return menu;
+    }
+
+    /** Takes a disposable view away for good, and tells so. */
+    private void discard(String id) {
+        removeView(id);
+        disposable.remove(id);
+        groupOf.remove(id);
+        wanted.remove(id);
+        onOrderChanged.accept(viewIds());
+        onGroupsChanged.accept(new TreeMap<>(groupOf));
+        onDiscarded.accept(id);
     }
 
     private boolean inRow(String id) {
@@ -601,37 +711,97 @@ public final class SideDock extends VBox {
     }
 
     /**
-     * While a tab is dragged: over another group's row, it goes to that group, before the tab
-     * under the pointer (or at the end); along its own row, it takes the place of the tab under
-     * the pointer.
+     * While a tab is dragged: the mark of where it would go. Over its own tab there is none, so a
+     * click that slips a little shows nothing.
      */
     private void dragTo(double sceneX, double sceneY) {
         if (dragging == null) {
             return;
         }
+        showMark(dropAt(sceneX, sceneY));
+    }
+
+    /**
+     * Where the dragged tab would go with the pointer at a point of the scene, or {@code null}
+     * where it would change nothing. On a row of tabs: in another group's, before the tab under
+     * the pointer (or at its end); along its own, in the place of the tab under the pointer. On a
+     * group's view: at its top or its bottom, a group of its own there; on its middle, that
+     * group's end.
+     */
+    private Drop dropAt(double sceneX, double sceneY) {
         int from = groupOf.get(dragging);
         for (int index : shownGroups) {
             Group group = groups.get(index);
-            Bounds row = group.tabsRow.localToScene(group.tabsRow.getLayoutBounds());
-            if (index != from && row.contains(sceneX, sceneY)) {
-                dragMoved = true;
-                dragRegrouped = true;
-                regroup(dragging, index, tabUnder(index, sceneX));
-                return;
+            if (sceneBounds(group.tabsRow).contains(sceneX, sceneY)) {
+                String under = tabUnder(index, sceneX);
+                if (index == from && (under == null || under.equals(dragging))) {
+                    return null;
+                }
+                return new Drop(DropKind.ROW, index, under);
+            }
+            Bounds body = sceneBounds(group.views);
+            if (body.contains(sceneX, sceneY)) {
+                double at = (sceneY - body.getMinY()) / body.getHeight();
+                boolean edge = at < EDGE || at > 1 - EDGE;
+                if (index == from && (!edge || inRowOf(from).size() < 2)) {
+                    return null;
+                }
+                return new Drop(!edge ? DropKind.JOIN : at < EDGE ? DropKind.ABOVE : DropKind.BELOW, index, null);
             }
         }
-        String under = tabUnder(from, sceneX);
-        if (under != null && !under.equals(dragging)) {
-            move(dragging, order.indexOf(under));
-            dragMoved = true;
+        return null;
+    }
+
+    /** Over the half (or the whole) of the view a drop makes a group in or joins, or as a line between tabs. */
+    private void showMark(Drop drop) {
+        zoneMark.setVisible(false);
+        lineMark.setVisible(false);
+        if (drop == null) {
+            return;
         }
+        Group group = groups.get(drop.group());
+        if (drop.kind() == DropKind.ROW) {
+            Bounds row = sceneBounds(group.tabsRow);
+            double x = lineX(drop);
+            place(lineMark, x - 1, row.getMinY() + 4, 2, row.getHeight() - 8);
+            return;
+        }
+        Bounds body = sceneBounds(group.views);
+        double half = body.getHeight() / 2;
+        double top = drop.kind() == DropKind.BELOW ? body.getMinY() + half : body.getMinY();
+        place(zoneMark, body.getMinX(), top, body.getWidth(), drop.kind() == DropKind.JOIN ? body.getHeight() : half);
+    }
+
+    /** Where, along the row, the line of a drop on a row goes: between two tabs, or after the last one. */
+    private double lineX(Drop drop) {
+        double gap = groups.get(drop.group()).tabsBar.getSpacing() / 2;
+        if (drop.before() == null) {
+            List<String> row = inRowOf(drop.group());
+            if (row.isEmpty()) {
+                return sceneBounds(groups.get(drop.group()).tabsBar).getMinX() + 16;
+            }
+            return sceneBounds(byId.get(row.get(row.size() - 1)).tab()).getMaxX() + gap;
+        }
+        Bounds under = sceneBounds(byId.get(drop.before()).tab());
+        boolean after = drop.group() == groupOf.get(dragging)
+                && order.indexOf(drop.before()) > order.indexOf(dragging);
+        return after ? under.getMaxX() + gap : under.getMinX() - gap;
+    }
+
+    private void place(Region mark, double sceneX, double sceneY, double width, double height) {
+        Bounds at = marks.sceneToLocal(new BoundingBox(sceneX, sceneY, width, height));
+        mark.resizeRelocate(at.getMinX(), at.getMinY(), at.getWidth(), at.getHeight());
+        mark.setVisible(true);
+    }
+
+    private static Bounds sceneBounds(Node node) {
+        return node.localToScene(node.getLayoutBounds());
     }
 
     /** The view whose tab, in group {@code index}, is under {@code sceneX}. */
     private String tabUnder(int index, double sceneX) {
         for (String id : inRowOf(index)) {
-            Button tab = byId.get(id).tab();
-            Bounds bounds = tab.localToScene(tab.getLayoutBounds());
+            Bounds bounds = sceneBounds(byId.get(id).tab());
             if (sceneX >= bounds.getMinX() && sceneX <= bounds.getMaxX()) {
                 return id;
             }
@@ -650,16 +820,32 @@ public final class SideDock extends VBox {
         return at;
     }
 
-    private void endDrag() {
-        if (dragging != null && dragMoved) {
-            onOrderChanged.accept(viewIds());
+    /** Let go: the tab goes where its mark showed, and the new order (and groups) are told. */
+    private void endDrag(double sceneX, double sceneY) {
+        Drop drop = dragging != null ? dropAt(sceneX, sceneY) : null;
+        String id = dragging;
+        dragging = null;
+        showMark(null);
+        if (drop == null) {
+            return;
         }
-        if (dragging != null && dragRegrouped) {
+        boolean regrouped = drop.group() != groupOf.get(id) || drop.kind() != DropKind.ROW;
+        switch (drop.kind()) {
+            case ROW -> {
+                if (drop.group() == groupOf.get(id)) {
+                    move(id, order.indexOf(drop.before()));
+                } else {
+                    regroup(id, drop.group(), drop.before());
+                }
+            }
+            case ABOVE -> newGroup(id, drop.group(), false);
+            case BELOW -> newGroup(id, drop.group(), true);
+            case JOIN -> regroup(id, drop.group(), null);
+        }
+        onOrderChanged.accept(viewIds());
+        if (regrouped) {
             onGroupsChanged.accept(new TreeMap<>(groupOf));
         }
-        dragging = null;
-        dragMoved = false;
-        dragRegrouped = false;
     }
 
     private void move(String id, int to) {

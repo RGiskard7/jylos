@@ -569,6 +569,249 @@ class SideDockTest {
                 "shown [c, b]", 0.3, List.of(List.of(0.6))), seen);
     }
 
+    /**
+     * A tab dropped on the top or the bottom of a group's view makes a group of its own above or
+     * below that group, as Obsidian's; on its middle, it joins that group, at its end.
+     */
+    @Test
+    void aTabDroppedOnAGroupsEdgeMakesAGroupThereAndOnItsMiddleJoinsIt() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<Object> seen = onFx(() -> {
+            SideDock dock = dockInWindow(300);
+            add(dock, "a");
+            add(dock, "b");
+            add(dock, "c");
+            dock.splitDown("c");
+            List<String> told = new ArrayList<>();
+            dock.setOnGroupsChanged(groups -> told.add("groups " + groups));
+            dock.setOnOrderChanged(order -> told.add("order " + order));
+            List<Object> out = new ArrayList<>();
+            dropOn(dock, "a", 1, 0.1); // on the top of c's group
+            out.add(groups(dock));
+            dropOn(dock, "b", 2, 0.9); // the last of its group, on the bottom of c's: its group goes
+            out.add(groups(dock));
+            dropOn(dock, "b", 0, 0.5); // on the middle of a's group
+            out.add(groups(dock));
+            out.add(told);
+            return out;
+        });
+
+        assertEquals(List.of(
+                List.of("[Title b] chosen=Title b showing=[content b]",
+                        "[Title a] chosen=Title a showing=[content a]",
+                        "[Title c] chosen=Title c showing=[content c]"),
+                List.of("[Title a] chosen=Title a showing=[content a]",
+                        "[Title c] chosen=Title c showing=[content c]",
+                        "[Title b] chosen=Title b showing=[content b]"),
+                List.of("[Title a, Title b] chosen=Title b showing=[content b]",
+                        "[Title c] chosen=Title c showing=[content c]"),
+                List.of("order [a, b, c]", "groups {a=1, b=0, c=2}", "order [a, b, c]", "groups {a=1, b=3, c=2}",
+                        "order [a, b, c]", "groups {a=1, b=1, c=2}")),
+                seen);
+    }
+
+    /** Dropped on the edge of its own group, a tab splits it; alone in it, nothing happens. */
+    @Test
+    void aTabDroppedOnItsOwnGroupsEdgeSplitsItUnlessItIsAlone() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<Object> seen = onFx(() -> {
+            SideDock dock = dockInWindow(300);
+            add(dock, "a");
+            add(dock, "b");
+            add(dock, "c");
+            List<Object> out = new ArrayList<>();
+            dropOn(dock, "b", 0, 0.9);
+            out.add(groups(dock));
+            List<String> told = new ArrayList<>();
+            dock.setOnGroupsChanged(groups -> told.add("groups " + groups));
+            dock.setOnOrderChanged(order -> told.add("order " + order));
+            dropOn(dock, "b", 1, 0.1); // alone: its own top edge
+            dropOn(dock, "a", 0, 0.5); // the middle of its own group
+            out.add(groups(dock));
+            out.add("told " + told);
+            return out;
+        });
+
+        List<String> split = List.of("[Title a, Title c] chosen=Title a showing=[content a]",
+                "[Title b] chosen=Title b showing=[content b]");
+        assertEquals(List.of(split, split, "told []"), seen);
+    }
+
+    /**
+     * While a tab is dragged nothing moves: a mark shows where it would go, over the half of the
+     * group it would make a group in, or as a line between the tabs of the row it would join. Let
+     * go away from the panel, nothing moves and the mark goes; over its own tab there is none.
+     */
+    @Test
+    void whileATabIsDraggedAMarkShowsWhereItWouldGo() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<Object> seen = onFx(() -> {
+            SideDock dock = dockInWindow(300);
+            add(dock, "a");
+            add(dock, "b");
+            add(dock, "c");
+            dock.splitDown("c");
+            dock.applyCss();
+            dock.layout();
+            List<String> before = List.of(dock.viewIds().toString(), groups(dock).toString());
+            List<Object> out = new ArrayList<>();
+            Node source = tabOf(dock, "a");
+            Bounds start = source.localToScene(source.getLayoutBounds());
+            mouse(source, MouseEvent.MOUSE_PRESSED, start.getCenterX(), start.getCenterY());
+            mouse(source, MouseEvent.MOUSE_DRAGGED, start.getCenterX() + 2, start.getCenterY() + 1);
+            out.add("own tab: " + marks(dock));
+
+            Bounds lower = groupViews(dock, 1);
+            mouse(source, MouseEvent.MOUSE_DRAGGED, lower.getCenterX(), lower.getMinY() + lower.getHeight() * 0.1);
+            Bounds zone = shownBounds(dock, ".side-dock-drop-zone");
+            out.add("top of c's group: " + marks(dock) + ", over its top half: "
+                    + (near(zone.getMinY(), lower.getMinY()) && near(zone.getHeight(), lower.getHeight() / 2)
+                            && near(zone.getMinX(), lower.getMinX()) && near(zone.getWidth(), lower.getWidth())));
+            mouse(source, MouseEvent.MOUSE_DRAGGED, lower.getCenterX(), lower.getMinY() + lower.getHeight() * 0.5);
+            zone = shownBounds(dock, ".side-dock-drop-zone");
+            out.add("middle: " + marks(dock) + ", over it all: "
+                    + (near(zone.getMinY(), lower.getMinY()) && near(zone.getHeight(), lower.getHeight())));
+            Bounds c = tabOf(dock, "c").localToScene(tabOf(dock, "c").getLayoutBounds());
+            mouse(source, MouseEvent.MOUSE_DRAGGED, c.getMinX() + 2, c.getCenterY());
+            Bounds line = shownBounds(dock, ".side-dock-drop-line");
+            out.add("c's row: " + marks(dock) + ", before c: "
+                    + (line.getMaxX() <= c.getMinX() + 2 && line.getMinX() >= c.getMinX() - 8 && line.getWidth() > 0
+                            && line.getHeight() > 0));
+            out.add("nothing moved: " + List.of(dock.viewIds().toString(), groups(dock).toString()).equals(before));
+            mouse(source, MouseEvent.MOUSE_DRAGGED, -20, -20);
+            out.add("away: " + marks(dock));
+            mouse(source, MouseEvent.MOUSE_RELEASED, -20, -20);
+            dock.layout();
+            out.add("let go away, nothing moved: "
+                    + List.of(dock.viewIds().toString(), groups(dock).toString()).equals(before) + " " + marks(dock));
+            return out;
+        });
+
+        assertEquals(List.of("own tab: []", "top of c's group: [zone], over its top half: true",
+                "middle: [zone], over it all: true", "c's row: [line], before c: true", "nothing moved: true",
+                "away: []", "let go away, nothing moved: true []"), seen);
+    }
+
+    /**
+     * A view the owner marks as disposable is not listed to open again: closing it takes it away,
+     * and the owner is told. The owner can put a view in a new group under another's, and add its
+     * own entries to a tab's menu, after the panel's.
+     */
+    @Test
+    void aDisposableViewGoesWhenClosedAndTheOwnerAddsViewsBelowAndMenuEntries() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<Object> seen = onFx(() -> {
+            SideDock dock = dockInWindow(300);
+            dock.setSplitText("Split down");
+            dock.setMoveTexts("Move to the group above", "Move to the group below");
+            add(dock, "a");
+            add(dock, "b");
+            dock.setMenuExtras(id -> "a".equals(id) ? List.of(new MenuItem("Pin a copy")) : List.of());
+            dock.addViewInNewGroupBelow("a", "a@1", "Title a@1", new Label("icon"), new Label("content a@1"), null);
+            dock.setDisposable("a@1");
+            List<String> discarded = new ArrayList<>();
+            dock.setOnDiscarded(discarded::add);
+            List<Object> out = new ArrayList<>();
+            out.add(groups(dock));
+            out.add("shown " + dock.shown());
+            out.add(menuTexts(dock.menuFor("a")));
+            out.add(menuTexts(dock.menuFor("a@1")));
+            dock.menuFor("a@1").getItems().get(0).fire(); // Close
+            out.add(groups(dock));
+            out.add("ids " + dock.viewIds() + " discarded " + discarded + " closed " + dock.isClosed("a@1"));
+            return out;
+        });
+
+        assertEquals(List.of(
+                List.of("[Title a, Title b] chosen=Title a showing=[content a]",
+                        "[Title a@1] chosen=Title a@1 showing=[content a@1]"),
+                "shown [a, a@1]",
+                "[Close, Split down, Move to the group below, Pin a copy, -, [x] Title a, [x] Title b]",
+                "[Close, Split down, Move to the group above, -, [x] Title a, [x] Title b]",
+                List.of("[Title a, Title b] chosen=Title a showing=[content a]"),
+                "ids [a, b] discarded [a@1] closed false"), seen);
+    }
+
+    /** The tab of a disposable view (a copy, whose icon carries a mark) is wider than the others, in both themes. */
+    @Test
+    void aDisposableViewsTabIsWider() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<Double> widths = onFx(() -> {
+            List<Double> out = new ArrayList<>();
+            for (String theme : List.of("dark-theme.css", "modern-theme.css")) {
+                SideDock dock = dockInWindow(300);
+                dock.getScene().getStylesheets()
+                        .add(SideDock.class.getResource("/com/example/jylos/ui/css/" + theme).toExternalForm());
+                add(dock, "a");
+                add(dock, "b");
+                dock.setDisposable("b");
+                dock.applyCss();
+                dock.layout();
+                out.add(((Button) tabOf(dock, "a")).getWidth());
+                out.add(((Button) tabOf(dock, "b")).getWidth());
+            }
+            return out;
+        });
+
+        for (int i = 0; i < widths.size(); i += 2) {
+            assertTrue(widths.get(i) >= 24 && widths.get(i) <= 32 && widths.get(i + 1) >= 36 && widths.get(i + 1) <= 48,
+                    "a tab, a disposable one: " + widths);
+        }
+    }
+
+    /** Drags the tab of {@code from} onto group {@code group} (shown, top to bottom) at {@code fraction} of its view's height, and lets go. */
+    private static void dropOn(SideDock dock, String from, int group, double fraction) {
+        dock.applyCss();
+        dock.layout();
+        Node source = tabOf(dock, from);
+        Bounds start = source.localToScene(source.getLayoutBounds());
+        Bounds views = groupViews(dock, group);
+        double x = views.getCenterX();
+        double y = views.getMinY() + views.getHeight() * fraction;
+        mouse(source, MouseEvent.MOUSE_PRESSED, start.getCenterX(), start.getCenterY());
+        mouse(source, MouseEvent.MOUSE_DRAGGED, x, y);
+        mouse(source, MouseEvent.MOUSE_RELEASED, x, y);
+        dock.layout();
+    }
+
+    /** Where the view of the {@code index}th group shown is, in the scene. */
+    private static Bounds groupViews(SideDock dock, int index) {
+        List<Node> shown = new ArrayList<>();
+        for (Node group : dock.lookupAll(".side-dock-group")) {
+            if (visibleInScene(group)) {
+                shown.add(group.lookup(".side-dock-views"));
+            }
+        }
+        Node views = shown.get(index);
+        return views.localToScene(views.getLayoutBounds());
+    }
+
+    /** The marks showing: "zone", "line". */
+    private static List<String> marks(SideDock dock) {
+        List<String> out = new ArrayList<>();
+        for (String mark : List.of("zone", "line")) {
+            Node node = dock.lookup(".side-dock-drop-" + mark);
+            if (node != null && node.isVisible()) {
+                out.add(mark);
+            }
+        }
+        return out;
+    }
+
+    private static Bounds shownBounds(SideDock dock, String selector) {
+        Node node = dock.lookup(selector);
+        return node.localToScene(node.getLayoutBounds());
+    }
+
+    private static boolean near(double a, double b) {
+        return Math.abs(a - b) < 1.5;
+    }
+
     /** Presses on the tab of {@code from}, drags onto the tab of {@code to} (in any group) and lets go. */
     private static void dragOnto(SideDock dock, String from, String to) {
         dock.applyCss();

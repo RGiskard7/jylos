@@ -2249,6 +2249,39 @@
     -fx-padding: 0 3 0 4;
 }
 
+/* While a tab is dragged: where it would go, a part of a group or a line between tabs. */
+.side-dock-drop-zone {
+    -fx-background-color: -fx-accent-soft;
+    -fx-border-color: -fx-accent;
+    -fx-border-width: 1;
+    -fx-background-radius: 4;
+    -fx-border-radius: 4;
+}
+
+.side-dock-drop-line {
+    -fx-background-color: -fx-accent;
+    -fx-background-radius: 1;
+}
+
+/* A copy of a view pinned to a note: a pin on its tab's icon, and the note it shows over it. */
+.side-dock-pin-badge {
+    -fx-icon-color: -fx-accent;
+}
+
+.side-dock-pinned-to {
+    -fx-padding: 6 12 2 12;
+}
+
+.side-dock-pinned-to:hover {
+    -fx-underline: true;
+}
+
+.side-dock-tab.side-dock-tab-disposable {
+    -fx-min-width: 40;
+    -fx-pref-width: 40;
+    -fx-max-width: 40;
+}
+
 
 /* A view's own actions over its content (the links views': collapse, context, sort, filter). */
 .links-actions-bar {
