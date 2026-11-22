@@ -12,12 +12,19 @@ import org.junit.jupiter.api.Test;
 import com.example.jylos.tests.FxTestSupport;
 
 import javafx.event.Event;
+import javafx.event.EventType;
 import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckMenuItem;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.stage.Stage;
 
@@ -218,6 +225,152 @@ class SideDockTest {
         });
 
         assertEquals(List.of("links", "plugin", "outgoing"), ids);
+    }
+
+    /** Dragging a tab along the row moves it there, as Obsidian's; the new order is told (to keep it). */
+    @Test
+    void draggingATabMovesItAndTheNewOrderIsTold() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            SideDock dock = dockInWindow(400);
+            add(dock, "a");
+            add(dock, "b");
+            add(dock, "c");
+            List<List<String>> told = new ArrayList<>();
+            dock.setOnOrderChanged(told::add);
+            List<String> out = new ArrayList<>();
+            drag(dock, "a", "c");
+            out.add(dock.viewIds().toString());
+            drag(dock, "a", "b");
+            out.add(dock.viewIds().toString());
+            drag(dock, "b", "b"); // pressed and let go where it was: nothing moves
+            out.add(dock.viewIds() + " told " + told);
+            return out;
+        });
+
+        assertEquals(List.of("[b, c, a]", "[a, b, c]", "[a, b, c] told [[b, c, a], [a, b, c]]"), seen);
+    }
+
+    /** The order kept from last time places the views as they come, a plugin's too; an unknown one goes last. */
+    @Test
+    void theViewsComeInTheOrderKeptFromLastTime() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> ids = onFx(() -> {
+            SideDock dock = dockInWindow(300);
+            dock.setPreferredOrder(List.of("plugin", "b", "a"));
+            add(dock, "a");
+            add(dock, "b");
+            add(dock, "z");
+            add(dock, "plugin");
+            return dock.viewIds();
+        });
+
+        assertEquals(List.of("plugin", "b", "a", "z"), ids);
+    }
+
+    /**
+     * The tabs' menu closes a view (its tab leaves the row) and lists every view, to open a
+     * closed one again; what is closed is told (to keep it) and a view closed last time stays
+     * closed when it comes.
+     */
+    @Test
+    void aViewIsClosedFromItsTabsMenuAndOpenedAgainFromTheList() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            SideDock dock = dockInWindow(300);
+            dock.setCloseText("Close");
+            dock.setClosed("plugin", true); // closed last time, before it comes
+            add(dock, "a");
+            add(dock, "b");
+            add(dock, "plugin");
+            List<String> told = new ArrayList<>();
+            dock.setOnClosedChanged(closed -> told.add(closed.toString()));
+            dock.select("b");
+            List<String> out = new ArrayList<>();
+            out.add(menuTexts(dock.menuFor("b")) + " " + state(dock));
+            dock.menuFor("b").getItems().get(0).fire(); // Close
+            out.add(state(dock) + " closed=" + dock.isClosed("b"));
+            ((CheckMenuItem) dock.menuFor(null).getItems().stream()
+                    .filter(i -> "Title plugin".equals(i.getText())).findFirst().orElseThrow()).fire();
+            out.add(state(dock) + " told " + told);
+            return out;
+        });
+
+        assertEquals(List.of(
+                "[Close, -, [x] Title a, [x] Title b, [ ] Title plugin] [Title a, Title b] chosen=Title b showing=[content b]",
+                "[Title a] chosen=Title a showing=[content a] closed=true",
+                "[Title a, Title plugin] chosen=Title plugin showing=[content plugin] told [[b, plugin], [b]]"), seen);
+    }
+
+    /** A view's own bar of actions sits above its content and does not scroll with it; it shows with its view. */
+    @Test
+    void aViewsActionsBarShowsWithItAboveWhatScrolls() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            SideDock dock = dockInWindow(300);
+            Label actions = new Label("actions a");
+            dock.addView("a", "Title a", new Label("icon"), new Label("content a"), actions);
+            add(dock, "b");
+            List<String> out = new ArrayList<>();
+            boolean scrolled = false;
+            for (Node n = actions; n != null; n = n.getParent()) {
+                scrolled |= n instanceof ScrollPane;
+            }
+            out.add("in sight " + visibleInScene(actions) + ", scrolls " + scrolled);
+            dock.select("b");
+            out.add("in sight " + visibleInScene(actions));
+            return out;
+        });
+
+        assertEquals(List.of("in sight true, scrolls false", "in sight false"), seen);
+    }
+
+    private static String menuTexts(ContextMenu menu) {
+        List<String> out = new ArrayList<>();
+        for (MenuItem item : menu.getItems()) {
+            if (item instanceof SeparatorMenuItem) {
+                out.add("-");
+            } else if (item instanceof CheckMenuItem check) {
+                out.add((check.isSelected() ? "[x] " : "[ ] ") + check.getText());
+            } else {
+                out.add(item.getText());
+            }
+        }
+        return out.toString();
+    }
+
+    /** Presses on the tab of {@code from}, drags to the middle of the tab of {@code to} and lets go. */
+    private static void drag(SideDock dock, String from, String to) {
+        dock.applyCss();
+        dock.layout();
+        Node source = tabOf(dock, from);
+        Bounds start = source.localToScene(source.getLayoutBounds());
+        Bounds end = tabOf(dock, to).localToScene(tabOf(dock, to).getLayoutBounds());
+        double y = start.getCenterY();
+        mouse(source, MouseEvent.MOUSE_PRESSED, start.getCenterX(), y);
+        mouse(source, MouseEvent.MOUSE_DRAGGED, (start.getCenterX() + end.getCenterX()) / 2, y);
+        mouse(source, MouseEvent.MOUSE_DRAGGED, end.getCenterX(), y);
+        mouse(source, MouseEvent.MOUSE_RELEASED, end.getCenterX(), y);
+        dock.layout();
+    }
+
+    private static Node tabOf(SideDock dock, String id) {
+        for (Node node : dock.lookupAll(".side-dock-tab")) {
+            if (((Button) node).getTooltip().getText().equals("Title " + id)) {
+                return node;
+            }
+        }
+        throw new AssertionError("no tab " + id);
+    }
+
+    private static void mouse(Node target, EventType<MouseEvent> type, double sceneX, double sceneY) {
+        Event.fireEvent(target, new MouseEvent(type, sceneX, sceneY, sceneX, sceneY, MouseButton.PRIMARY, 1,
+                false, false, false, false, type != MouseEvent.MOUSE_RELEASED, false, false, false, false,
+                false, null));
     }
 
     private static void click(Button button) {

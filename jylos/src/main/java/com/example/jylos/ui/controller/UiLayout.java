@@ -252,7 +252,7 @@ class UiLayout {
         if (right == null) {
             return;
         }
-        boolean collapsed = !right.isManaged() || !right.isVisible() || right.getPrefWidth() < 10;
+        boolean collapsed = !isRightPanelOpen();
         if (collapsed) {
             UiNodes.show(right, true);
             right.setMinWidth(240);
@@ -268,6 +268,12 @@ class UiLayout {
         if (collapsed && currentNote != null && refreshNoteInfo != null) {
             refreshNoteInfo.run();
         }
+    }
+
+    /** Whether the right panel is open (not collapsed to zero width). */
+    boolean isRightPanelOpen() {
+        VBox right = panes != null ? panes.right() : null;
+        return right != null && right.isManaged() && right.isVisible() && right.getPrefWidth() >= 10;
     }
 
     /** Collapses the right panel to zero width; it stays in the scene, so it opens instantly. */

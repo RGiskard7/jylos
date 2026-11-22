@@ -2234,6 +2234,11 @@
     -fx-padding: 20 16;
 }
 
+/* A view's own actions over its content (the links views': collapse, context, sort, filter). */
+.links-actions-bar {
+    -fx-background-color: transparent;
+}
+
 /* A plugin tab whose icon is text (an emoji). */
 .side-dock-text-icon {
     -fx-font-size: 1.077em;

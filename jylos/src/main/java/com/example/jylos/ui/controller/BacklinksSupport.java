@@ -18,7 +18,6 @@ import com.example.jylos.service.NoteService;
 import com.example.jylos.ui.components.LinksPanel;
 
 import javafx.concurrent.Task;
-import javafx.scene.layout.VBox;
 
 /**
  * Feeds the right panel's two links views ({@link LinksPanel}) for the open note: the backlinks
@@ -87,14 +86,9 @@ final class BacklinksSupport {
         });
     }
 
-    /** The backlinks view (once wired). */
-    VBox backlinksView() {
+    /** The backlinks and outgoing links views, with their actions (once wired). */
+    LinksPanel links() {
         return panel;
-    }
-
-    /** The outgoing links view (once wired). */
-    VBox outgoingView() {
-        return panel != null ? panel.outgoingView() : null;
     }
 
     /**

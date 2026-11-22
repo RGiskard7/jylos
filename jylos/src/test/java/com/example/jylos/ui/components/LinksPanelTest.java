@@ -23,7 +23,9 @@ import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBase;
 import javafx.scene.control.Labeled;
+import javafx.scene.control.TextField;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.VBox;
@@ -198,6 +200,157 @@ class LinksPanelTest {
         for (double shortfall : shortfalls) {
             assertTrue(shortfall < 1, "button narrower than its text by " + shortfall);
         }
+    }
+
+    // ── the views' actions, as Obsidian's ──────────────────────────────────
+
+    /** "Collapse results" leaves only the notes, without their lines; again, the lines are back. */
+    @Test
+    void collapsingTheResultsLeavesOnlyTheNotes() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            LinksPanel panel = new LinksPanel(k -> k, new Recorder());
+            panel.showLinked(List.of(group("a.md", "A", "Uno [[T]]\nDos [[T]]"), group("b.md", "B", "Tres [[T]]")));
+            Parent all = new VBox(panel.backlinksActions(), panel);
+            List<String> out = new ArrayList<>();
+            out.add(shown(all, "links-match-row") + " rows, " + shown(all, "links-group-title") + " notes");
+            fire(all, "links-action-collapse");
+            out.add(shown(all, "links-match-row") + " rows, " + shown(all, "links-group-title") + " notes");
+            fire(all, "links-action-collapse");
+            out.add(shown(all, "links-match-row") + " rows");
+            return out;
+        });
+
+        assertEquals(List.of("3 rows, 2 notes", "0 rows, 2 notes", "3 rows"), seen);
+    }
+
+    /** "Show more context" shows each line whole, not the part around the link. */
+    @Test
+    void moreContextShowsTheWholeLine() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        String line = "x".repeat(120) + " [[T]] " + "y".repeat(120);
+
+        List<String> seen = onFx(() -> {
+            LinksPanel panel = new LinksPanel(k -> k, new Recorder());
+            panel.showLinked(List.of(group("a.md", "A", line)));
+            Parent all = new VBox(panel.backlinksActions(), panel);
+            List<String> out = new ArrayList<>();
+            out.add(rowText(all));
+            fire(all, "links-action-context");
+            out.add(rowText(all));
+            return out;
+        });
+
+        assertEquals("…" + "x".repeat(49) + " [[T]] " + "y".repeat(79) + "…", seen.get(0));
+        assertEquals(line, seen.get(1));
+    }
+
+    /** By name (A to Z, as Obsidian's default, or Z to A), or by when the notes were modified or created. */
+    @Test
+    void theNotesAreSortedAsChosen() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            LinksPanel panel = new LinksPanel(k -> k, new Recorder());
+            panel.showLinked(List.of(dated("Beta", "2026-01-02T00:00:00Z", "2025-03-01T00:00:00Z"),
+                    dated("alfa", "2026-03-01T00:00:00Z", "2025-01-01T00:00:00Z"),
+                    dated("Gamma", "2026-02-01T00:00:00Z", "2025-02-01T00:00:00Z")));
+            List<String> out = new ArrayList<>();
+            out.add(String.join(",", texts(panel, "links-group-name")));
+            for (String sort : List.of("links.sort.name_desc", "links.sort.modified_newest", "links.sort.created_oldest")) {
+                panel.sortMenu().getItems().stream().filter(i -> sort.equals(i.getText())).findFirst().orElseThrow().fire();
+                out.add(String.join(",", texts(panel, "links-group-name")));
+            }
+            return out;
+        });
+
+        assertEquals(List.of("alfa,Beta,Gamma", "Gamma,Beta,alfa", "alfa,Gamma,Beta", "alfa,Gamma,Beta"), seen);
+    }
+
+    /** The filter keeps the notes whose name or lines have what is typed, whatever the case; the count follows. */
+    @Test
+    void theFilterKeepsTheNotesWhoseNameOrLinesHaveWhatIsTyped() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            LinksPanel panel = new LinksPanel(k -> k, new Recorder());
+            panel.showLinked(List.of(group("a.md", "Recetas", "Pan [[T]]\nMás [[T]]"),
+                    group("b.md", "Viajes", "Un PUERTO y [[T]]")));
+            Parent all = new VBox(panel.backlinksActions(), panel);
+            TextField filter = (TextField) all.lookup(".links-filter");
+            List<String> out = new ArrayList<>();
+            out.add("filter shown " + filter.isVisible());
+            fire(all, "links-action-filter");
+            out.add("filter shown " + filter.isVisible());
+            filter.setText("rece");
+            out.add(String.join(",", texts(panel, "links-group-name")) + " " + String.join("|", texts(panel, "links-flair")));
+            filter.setText("puerto");
+            out.add(String.join(",", texts(panel, "links-group-name")));
+            fire(all, "links-action-filter"); // hiding it clears it
+            out.add(String.join(",", texts(panel, "links-group-name")));
+            return out;
+        });
+
+        assertEquals(List.of("filter shown false", "filter shown true", "Recetas 2|2", "Viajes", "Recetas,Viajes"), seen);
+    }
+
+    @Test
+    void theOutgoingLinksAreSortedAndFilteredToo() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            LinksPanel panel = new LinksPanel(k -> k, new Recorder());
+            panel.showOutgoing(List.of(new OutgoingLink("beta", note("b.md", "beta"), 1),
+                    new OutgoingLink("Alfa", note("a.md", "Alfa"), 1), new OutgoingLink("Gamma", null, 1)));
+            Parent all = new VBox(panel.outgoingActions(), panel.outgoingView());
+            List<String> out = new ArrayList<>();
+            out.add(String.join(",", texts(all, "links-outgoing-name")));
+            panel.outgoingSortMenu().getItems().stream().filter(i -> "links.sort.name_desc".equals(i.getText()))
+                    .findFirst().orElseThrow().fire();
+            out.add(String.join(",", texts(all, "links-outgoing-name")));
+            fire(all, "links-action-filter");
+            ((TextField) all.lookup(".links-filter")).setText("ALF");
+            out.add(String.join(",", texts(all, "links-outgoing-name")) + " " + String.join("|", texts(all, "links-flair")));
+            return out;
+        });
+
+        assertEquals(List.of("Alfa,beta,Gamma", "Gamma,beta,Alfa", "Alfa 1"), seen);
+    }
+
+    private static LinkGroup group(String id, String title, String text) {
+        return new LinkGroup(note(id, title), LinkOccurrences.links(text));
+    }
+
+    private static LinkGroup dated(String title, String modified, String created) {
+        Note note = note(title + ".md", title);
+        note.setModifiedDate(modified);
+        note.setCreatedDate(created);
+        return new LinkGroup(note, LinkOccurrences.links("[[T]]"));
+    }
+
+    private static int shown(Parent root, String styleClass) {
+        int count = 0;
+        for (Node node : root.lookupAll("." + styleClass)) {
+            boolean visible = true;
+            for (Node n = node; n != null && n != root; n = n.getParent()) {
+                visible &= n.isVisible();
+            }
+            count += visible ? 1 : 0;
+        }
+        return count;
+    }
+
+    private static void fire(Parent root, String styleClass) {
+        ((ButtonBase) root.lookup("." + styleClass)).fire();
+    }
+
+    private static String rowText(Parent root) {
+        StringBuilder text = new StringBuilder();
+        for (Node node : ((Parent) root.lookup(".links-match-flow")).getChildrenUnmodifiable()) {
+            text.append(((Text) node).getText());
+        }
+        return text.toString();
     }
 
     // ── helpers ─────────────────────────────────────────────────────────────

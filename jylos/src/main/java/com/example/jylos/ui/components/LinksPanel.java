@@ -1,8 +1,12 @@
 package com.example.jylos.ui.components;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import org.kordamp.ikonli.javafx.FontIcon;
 
@@ -14,8 +18,14 @@ import com.example.jylos.ui.UiNodes;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Side;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBase;
+import javafx.scene.control.CheckMenuItem;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.HBox;
@@ -64,6 +74,35 @@ public final class LinksPanel extends VBox {
     private final VBox outgoingView = new VBox(2);
     private boolean unlinkedRequested;
 
+    /** How the notes of the backlinks view are sorted (A to Z by default, as Obsidian's). */
+    public enum Sort {
+        NAME_ASC("links.sort.name_asc"),
+        NAME_DESC("links.sort.name_desc"),
+        MODIFIED_NEWEST("links.sort.modified_newest"),
+        MODIFIED_OLDEST("links.sort.modified_oldest"),
+        CREATED_NEWEST("links.sort.created_newest"),
+        CREATED_OLDEST("links.sort.created_oldest");
+
+        private final String key;
+
+        Sort(String key) {
+            this.key = key;
+        }
+    }
+
+    // What was last given, kept to draw it again as the actions change (null: nothing yet).
+    private List<LinkGroup> linkedGroups;
+    private List<LinkGroup> unlinkedGroups;
+    private List<OutgoingLink> outgoingLinks;
+    private boolean collapsed;
+    private boolean moreContext;
+    private Sort sort = Sort.NAME_ASC;
+    private Sort outgoingSort = Sort.NAME_ASC;
+    private final TextField filter = new TextField();
+    private final TextField outgoingFilter = new TextField();
+    private final VBox backlinksActions;
+    private final VBox outgoingActions;
+
     public LinksPanel(Function<String, String> i18n, Actions actions) {
         this.i18n = i18n;
         this.actions = actions;
@@ -76,7 +115,28 @@ public final class LinksPanel extends VBox {
         outgoingView.getStyleClass().add("links-panel");
         outgoingView.getChildren().add(outgoing);
         unlinked.onExpand = this::requestUnlinked;
+        backlinksActions = actionsBar(filter, this::drawBacklinks,
+                toggle("fth-chevrons-up", "links.collapse_results", "links-action-collapse", on -> {
+                    collapsed = on;
+                    drawBacklinks();
+                }),
+                toggle("fth-align-left", "links.more_context", "links-action-context", on -> {
+                    moreContext = on;
+                    drawBacklinks();
+                }),
+                sortButton(this::sortMenu));
+        outgoingActions = actionsBar(outgoingFilter, this::drawOutgoing, sortButton(this::outgoingSortMenu));
         reset();
+    }
+
+    /** The backlinks view's own actions: collapse results, more context, sort, filter. */
+    public VBox backlinksActions() {
+        return backlinksActions;
+    }
+
+    /** The outgoing links view's own actions: sort, filter. */
+    public VBox outgoingActions() {
+        return outgoingActions;
     }
 
     /** The other view: the notes the open note links to. */
@@ -86,6 +146,9 @@ public final class LinksPanel extends VBox {
 
     /** Empties the three sections and folds the unlinked one, for a note that was just opened. */
     public void reset() {
+        linkedGroups = null;
+        unlinkedGroups = null;
+        outgoingLinks = null;
         linked.clear();
         outgoing.clear();
         unlinked.clear();
@@ -94,11 +157,123 @@ public final class LinksPanel extends VBox {
     }
 
     public void showLinked(List<LinkGroup> groups) {
-        fillGroups(linked, groups, false, i18n.apply("info.no_backlinks"));
+        linkedGroups = groups != null ? groups : List.of();
+        drawBacklinks();
     }
 
     public void showUnlinked(List<LinkGroup> groups) {
-        fillGroups(unlinked, groups, true, i18n.apply("links.no_unlinked"));
+        unlinkedGroups = groups != null ? groups : List.of();
+        drawBacklinks();
+    }
+
+    /** Draws the backlinks given, as the actions say (what is not here yet stays as it is). */
+    private void drawBacklinks() {
+        if (linkedGroups != null) {
+            fillGroups(linked, arrange(linkedGroups), false, i18n.apply("info.no_backlinks"));
+        }
+        if (unlinkedGroups != null) {
+            fillGroups(unlinked, arrange(unlinkedGroups), true, i18n.apply("links.no_unlinked"));
+        }
+    }
+
+    /** The groups the filter keeps (by the note's name or its lines), in the order chosen. */
+    private List<LinkGroup> arrange(List<LinkGroup> groups) {
+        String wanted = filter.getText() != null ? filter.getText().strip().toLowerCase(Locale.ROOT) : "";
+        return groups.stream()
+                .filter(group -> wanted.isEmpty() || nameOf(group).toLowerCase(Locale.ROOT).contains(wanted)
+                        || group.occurrences().stream()
+                                .anyMatch(o -> o.lineText().toLowerCase(Locale.ROOT).contains(wanted)))
+                .sorted(order(sort))
+                .toList();
+    }
+
+    private Comparator<LinkGroup> order(Sort by) {
+        Comparator<String> newestFirst = Comparator.nullsLast(Comparator.<String>reverseOrder());
+        Comparator<String> oldestFirst = Comparator.nullsLast(Comparator.<String>naturalOrder());
+        return switch (by) {
+            case NAME_ASC -> Comparator.comparing(this::nameOf, String.CASE_INSENSITIVE_ORDER);
+            case NAME_DESC -> Comparator.comparing(this::nameOf, String.CASE_INSENSITIVE_ORDER.reversed());
+            case MODIFIED_NEWEST -> Comparator.comparing(g -> g.note().getModifiedDate(), newestFirst);
+            case MODIFIED_OLDEST -> Comparator.comparing(g -> g.note().getModifiedDate(), oldestFirst);
+            case CREATED_NEWEST -> Comparator.comparing(g -> g.note().getCreatedDate(), newestFirst);
+            case CREATED_OLDEST -> Comparator.comparing(g -> g.note().getCreatedDate(), oldestFirst);
+        };
+    }
+
+    private String nameOf(LinkGroup group) {
+        String title = group.note().getTitle();
+        return title != null && !title.isBlank() ? title : i18n.apply("app.untitled");
+    }
+
+    /** The backlinks' sort menu: by name, or by when the notes were modified or created. */
+    ContextMenu sortMenu() {
+        return sortMenu(List.of(Sort.values()), sort, chosen -> {
+            sort = chosen;
+            drawBacklinks();
+        });
+    }
+
+    /** The outgoing links' sort menu: by name. */
+    ContextMenu outgoingSortMenu() {
+        return sortMenu(List.of(Sort.NAME_ASC, Sort.NAME_DESC), outgoingSort, chosen -> {
+            outgoingSort = chosen;
+            drawOutgoing();
+        });
+    }
+
+    private ContextMenu sortMenu(List<Sort> sorts, Sort current, Consumer<Sort> choose) {
+        ContextMenu menu = new ContextMenu();
+        for (Sort option : sorts) {
+            CheckMenuItem item = new CheckMenuItem(i18n.apply(option.key));
+            item.setSelected(option == current);
+            item.setOnAction(e -> choose.accept(option));
+            menu.getItems().add(item);
+        }
+        return menu;
+    }
+
+    /** A view's actions: its buttons in a row, and under them its filter, shown by the last button. */
+    private VBox actionsBar(TextField field, Runnable redraw, ButtonBase... buttons) {
+        HBox row = new HBox(2);
+        row.setAlignment(Pos.CENTER);
+        row.getStyleClass().add("links-actions");
+        row.getChildren().addAll(buttons);
+        field.getStyleClass().addAll("search-field", "small-search", "links-filter");
+        field.setPromptText(i18n.apply("links.filter_prompt"));
+        field.textProperty().addListener((o, was, now) -> redraw.run());
+        UiNodes.show(field, false);
+        row.getChildren().add(toggle("fth-search", "links.filter", "links-action-filter", on -> {
+            UiNodes.show(field, on);
+            if (on) {
+                field.requestFocus();
+            } else {
+                field.clear(); // hiding the filter shows everything again
+            }
+        }));
+        VBox bar = new VBox(4, row, field);
+        bar.getStyleClass().add("links-actions-bar");
+        bar.setPadding(new Insets(6, 12, 2, 12));
+        return bar;
+    }
+
+    private ToggleButton toggle(String icon, String tooltip, String styleClass, Consumer<Boolean> onChange) {
+        ToggleButton button = new ToggleButton();
+        button.setGraphic(new FontIcon(icon));
+        button.getStyleClass().addAll("icon-btn", styleClass);
+        button.setTooltip(new Tooltip(i18n.apply(tooltip)));
+        button.setFocusTraversable(false);
+        button.selectedProperty().addListener((o, was, now) -> onChange.accept(now));
+        return button;
+    }
+
+    private Button sortButton(Supplier<ContextMenu> menu) {
+        Button button = new Button();
+        button.setGraphic(new FontIcon("fth-filter")); // the Explorer's sort button
+        button.getStyleClass().addAll("icon-btn", "links-action-sort");
+        button.setTooltip(new Tooltip(i18n.apply("links.sort")));
+        button.setFocusTraversable(false);
+        button.setOnAction(e -> menu.get().show(button, Side.BOTTOM, 0, 0));
+        return button;
     }
 
     public void showUnlinkedLoading() {
@@ -109,8 +284,23 @@ public final class LinksPanel extends VBox {
     }
 
     public void showOutgoing(List<OutgoingLink> links) {
+        outgoingLinks = links != null ? links : List.of();
+        drawOutgoing();
+    }
+
+    private void drawOutgoing() {
+        if (outgoingLinks == null) {
+            return;
+        }
+        String wanted = outgoingFilter.getText() != null
+                ? outgoingFilter.getText().strip().toLowerCase(Locale.ROOT) : "";
+        Comparator<OutgoingLink> byName = Comparator.comparing(OutgoingLink::name, String.CASE_INSENSITIVE_ORDER);
+        List<OutgoingLink> links = outgoingLinks.stream()
+                .filter(link -> wanted.isEmpty() || link.name().toLowerCase(Locale.ROOT).contains(wanted))
+                .sorted(outgoingSort == Sort.NAME_DESC ? byName.reversed() : byName)
+                .toList();
         outgoing.clear();
-        if (links == null || links.isEmpty()) {
+        if (links.isEmpty()) {
             outgoing.body.getChildren().add(empty(i18n.apply("links.no_outgoing")));
             return;
         }
@@ -186,6 +376,9 @@ public final class LinksPanel extends VBox {
         title.getChildren().addAll(label, count);
         title.setOnMouseClicked(e -> openOnPrimary(e.getButton(), group.note()));
         box.getChildren().add(title);
+        if (collapsed) {
+            return box; // "Collapse results": the notes only
+        }
 
         // Links share a row when they are on the same line; each mention has its own row
         // because each one has its own button.
@@ -204,7 +397,7 @@ public final class LinksPanel extends VBox {
             row.setAlignment(Pos.CENTER_LEFT);
             row.getStyleClass().add("links-match-row");
             TextFlow flow = new TextFlow();
-            for (Segment segment : segments(occurrence.lineText(), rowOccurrences)) {
+            for (Segment segment : segments(occurrence.lineText(), rowOccurrences, moreContext)) {
                 Text text = new Text(segment.text());
                 text.getStyleClass().add(segment.match() ? "links-match-highlight" : "links-match-text");
                 flow.getChildren().add(text);
@@ -247,10 +440,15 @@ public final class LinksPanel extends VBox {
      * line stays a short row. Matches are the highlighted segments.
      */
     static List<Segment> segments(String line, List<Occurrence> matches) {
+        return segments(line, matches, false);
+    }
+
+    /** As {@link #segments(String, List)}, or the whole line ("Show more context"). */
+    static List<Segment> segments(String line, List<Occurrence> matches, boolean wholeLine) {
         int first = matches.get(0).start();
         int last = matches.get(matches.size() - 1).end();
-        int from = Math.max(0, first - CONTEXT_BEFORE);
-        int to = Math.min(line.length(), last + CONTEXT_AFTER);
+        int from = wholeLine ? 0 : Math.max(0, first - CONTEXT_BEFORE);
+        int to = wholeLine ? line.length() : Math.min(line.length(), last + CONTEXT_AFTER);
         List<Segment> out = new ArrayList<>();
         String before = line.substring(from, first);
         out.add(new Segment(from > 0 ? "…" + before.stripLeading() : before, false));

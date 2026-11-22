@@ -627,10 +627,8 @@ public class MainController {
         });
         backlinksSupport.wire(backlinkService, noteService, this::getString, this::loadNoteInEditor,
                 rightPanelSupport::linksInSight);
-        rightPanelSupport.wire(rightDock, prefs, this::getString, backlinksSupport.backlinksView(),
-                backlinksSupport.outgoingView(),
-                () -> rightPanel != null && rightPanel.isVisible() && rightPanel.getPrefWidth() >= 10,
-                () -> refreshBacklinks(getCurrentNote()));
+        rightPanelSupport.wire(rightDock, prefs, this::getString, backlinksSupport.links(), uiLayout::isRightPanelOpen,
+                () -> refreshBacklinks(getCurrentNote()), () -> handleToggleRightPanel(null));
         backlinksSupport.setCreateNoteAction(noteCreationSupport::createNoteWithTitle);
         backlinksSupport.setStatusAction(this::updateStatus);
         // "Link" rewrote a mention in another note: tell the list, tabs and indexes it was saved.
@@ -1505,6 +1503,7 @@ public class MainController {
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL, () -> handleToggleRightPanel(null));
         tabsSupport.register(systemActionHandlers);
         startupSupport.register(systemActionHandlers);
+        rightPanelSupport.register(systemActionHandlers);
         systemActionHandlers.put(SystemActionEvent.ActionType.KNOWLEDGE_INSIGHTS, this::showKnowledgeInsights);
         workspaceController.register(systemActionHandlers);
         vaultCleanup.register(systemActionHandlers, () -> noteService, this::getString, this::updateStatus, this::getMainWindow);
