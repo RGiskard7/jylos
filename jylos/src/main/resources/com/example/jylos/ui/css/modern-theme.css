@@ -3677,18 +3677,32 @@
     -fx-font-size: 0.846em;
     -fx-font-style: italic;
 }
+/* Every level looks the same; the row's indent (set by the plugin) shows how deep it is.
+   No -fx-padding here: it would replace that indent. */
 .outline-item {
-    -fx-padding: 4 8;
     -fx-background-color: transparent;
     -fx-background-radius: 4;
     -fx-cursor: hand;
+}
+.outline-item:hover { -fx-background-color: -fx-hover-bg; }
+.outline-run { -fx-font-size: 0.923em; -fx-fill: -fx-text-muted; }
+.outline-item:hover .outline-run { -fx-fill: -fx-text-main; }
+.outline-run.outline-bold { -fx-font-weight: bold; }
+/* The system font has no italic JavaFX draws slanted on macOS ("System Italic" comes out
+   upright); Helvetica Neue has one there, and elsewhere a missing family falls back to the
+   system's own italic. */
+.outline-run.outline-italic { -fx-font-family: "Helvetica Neue"; -fx-font-style: italic; }
+.outline-run.outline-strikethrough { -fx-strikethrough: true; }
+.outline-chip {
+    -fx-font-size: 0.846em;
+    -fx-padding: 0 3 0 3;
+    -fx-background-radius: 3;
     -fx-text-fill: -fx-text-muted;
 }
-.outline-item:hover { -fx-background-color: -fx-hover-bg; -fx-text-fill: -fx-text-main; }
-.outline-h1 { -fx-font-size: 1em; -fx-font-weight: bold; -fx-text-fill: -fx-text-main; }
-.outline-h2 { -fx-font-size: 0.923em; -fx-font-weight: bold; -fx-text-fill: -fx-text-main; }
-.outline-h3 { -fx-font-size: 0.846em; -fx-font-weight: bold; -fx-text-fill: -fx-text-muted; }
-.outline-h4, .outline-h5, .outline-h6 { -fx-font-size: 0.846em; -fx-text-fill: -fx-text-muted; }
+.outline-chip.outline-bold { -fx-font-weight: bold; }
+.outline-chip.outline-italic { -fx-font-family: "Helvetica Neue"; -fx-font-style: italic; }
+.outline-chip.outline-code { -fx-font-family: monospace; -fx-background-color: -fx-header-bg; }
+.outline-chip.outline-highlight { -fx-background-color: #fff3a0; -fx-text-fill: #6b5800; }
 
 
 /* ════════════════════════════════════════════════════════════════════════

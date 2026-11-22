@@ -91,7 +91,8 @@ class TabsSupportTest {
             return List.of(inTheActiveTab, g.state());
         });
 
-        assertEquals(List.of("tabs [GRAPH, B.md] active GRAPH graph shown [confirm, changed]",
+        // Nothing follows a note while the graph is shown (the outline, the links, the counts).
+        assertEquals(List.of("tabs [GRAPH, B.md] active GRAPH graph shown [confirm, no note, changed]",
                 "tabs [A.md, GRAPH, B.md] active GRAPH graph shown"), seen);
     }
 
@@ -139,7 +140,7 @@ class TabsSupportTest {
         });
 
         assertEquals(List.of("tabs [A.md, GRAPH] active A.md graph hidden",
-                "tabs [A.md, GRAPH] active GRAPH graph shown", "[confirm, changed]"), seen);
+                "tabs [A.md, GRAPH] active GRAPH graph shown", "[confirm, no note, changed]"), seen);
     }
 
     /** Leaving a note with unsaved edits asks first, as switching notes does; cancelling stays. */
@@ -175,6 +176,34 @@ class TabsSupportTest {
         });
 
         assertEquals(List.of("graph hidden", "[confirm, show A.md, changed]"), seen);
+    }
+
+    /** The note loaded in the editor is not in sight while the graph or a new tab is in front of it. */
+    @Test
+    void theOpenNoteIsInSightOnlyWhileItsTabIsInFront() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            Fixture f = new Fixture();
+            f.notes("A.md");
+            Note a = new Note("A.md", "A", "");
+            f.tabs.open("A.md", "A", OpenTarget.CURRENT_TAB);
+            List<String> out = new ArrayList<>();
+            out.add("note: " + idOf(f.views.inSight(a)));
+            f.views.openGraph(OpenTarget.NEW_TAB);
+            out.add("graph: " + idOf(f.views.inSight(a)));
+            f.views.newTab();
+            out.add("new tab: " + idOf(f.views.inSight(a)));
+            f.views.select("A.md");
+            out.add("back on the note: " + idOf(f.views.inSight(a)));
+            return out;
+        });
+
+        assertEquals(List.of("note: A.md", "graph: null", "new tab: null", "back on the note: A.md"), seen);
+    }
+
+    private static String idOf(Note note) {
+        return note != null ? note.getId() : null;
     }
 
     @Test
@@ -222,7 +251,7 @@ class TabsSupportTest {
         });
 
         assertEquals(List.of("tabs [EMPTY] active EMPTY graph hidden [confirm, empty, changed]",
-                "tabs [GRAPH] active GRAPH graph shown [confirm, changed]"), seen);
+                "tabs [GRAPH] active GRAPH graph shown [confirm, no note, changed]"), seen);
     }
 
     /** As a link does: a note clicked in the graph takes its tab; with Cmd/Ctrl, a new tab. */
@@ -493,6 +522,7 @@ class TabsSupportTest {
                         views.noteShown();
                     },
                     () -> calls.add("empty"),
+                    () -> calls.add("no note"),
                     () -> calls.add("changed"),
                     boards -> calls.add("choose " + boards.stream().map(Note::getId).toList()));
         }

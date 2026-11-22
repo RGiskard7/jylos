@@ -244,10 +244,10 @@ class UiLayout {
      * (editor/graph/Kanban) in {@code centerRight}, not nested inside any one of them, so it
      * stays reachable whichever center view is active.
      *
-     * @param currentNote     the open note, or {@code null}
-     * @param refreshNoteInfo runs when the panel opens with a note open
+     * @param currentNote     the note in sight, or {@code null}
+     * @param refreshNoteInfo given that note when the panel opens with one in sight
      */
-    void toggleRightPanel(Note currentNote, Runnable refreshNoteInfo) {
+    void toggleRightPanel(Note currentNote, Consumer<Note> refreshNoteInfo) {
         VBox right = panes().right();
         if (right == null) {
             return;
@@ -266,7 +266,7 @@ class UiLayout {
         }
         setRightPanelToggle(collapsed);
         if (collapsed && currentNote != null && refreshNoteInfo != null) {
-            refreshNoteInfo.run();
+            refreshNoteInfo.accept(currentNote);
         }
     }
 

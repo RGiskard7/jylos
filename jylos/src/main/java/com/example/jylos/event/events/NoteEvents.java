@@ -58,7 +58,8 @@ public final class NoteEvents {
 
     /**
      * Event fired when the shell selects/opens a note and fan-out observers such as
-     * plugins need to react to the active note change.
+     * plugins need to react to the active note change. Its note is {@code null} when no note
+     * is in sight any more: the note was closed, or the graph or a new tab is in front.
      */
     public static class NoteSelectedEvent extends AppEvent {
         private final Note note;

@@ -53,12 +53,14 @@ final class TabsSupport {
      * @param openNoteInNewTab    opens a note in a new tab
      * @param openNote            opens a note in the active tab
      * @param showEmptyState      the editor shows its empty state (a new tab, or no tab left)
+     * @param noNoteShown         a view (the graph) is shown in place of a note: what follows the
+     *                            open note (the outline, the links, the counts) has none
      * @param tabsChanged         what is shown changed: the right panel, the status bar and the
      *                            back/forward buttons follow it
      * @param chooseBoard         asks which of these Kanban boards to open, or to make a new one
      */
     record Host(BooleanSupplier confirmLeaveCurrent, Consumer<String> showNote, Consumer<Note> openNoteInNewTab,
-            Consumer<Note> openNote, Runnable showEmptyState, Runnable tabsChanged,
+            Consumer<Note> openNote, Runnable showEmptyState, Runnable noNoteShown, Runnable tabsChanged,
             Consumer<List<Note>> chooseBoard) {
     }
 
@@ -145,6 +147,11 @@ final class TabsSupport {
     boolean isViewActive() {
         EditorTabs strip = tabs.get();
         return strip != null && ViewTabs.isView(strip.getActiveId());
+    }
+
+    /** {@code open}, the note loaded in the editor, unless a view (the graph, a new tab) is in front of it. */
+    Note inSight(Note open) {
+        return isViewActive() ? null : open;
     }
 
     /** True while the graph is on screen. */
@@ -408,6 +415,9 @@ final class TabsSupport {
         if (ViewTabs.GRAPH.equals(id)) {
             strip.open(id, getString("graph.title"), "fth-share-2", OpenTarget.CURRENT_TAB);
             showGraph();
+            if (host != null) {
+                host.noNoteShown().run();
+            }
         } else if (ViewTabs.isEmptyTab(id)) {
             strip.open(id, getString("tab.new_tab"), null, OpenTarget.CURRENT_TAB);
             hideViews();

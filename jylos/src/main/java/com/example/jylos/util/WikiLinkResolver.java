@@ -60,7 +60,7 @@ public final class WikiLinkResolver {
      *   <li>alias — optional, everything after {@code |} until {@code ]]}</li>
      * </ol>
      */
-    private static final Pattern WIKI_LINK = Pattern.compile(
+    static final Pattern WIKI_LINK = Pattern.compile(
             "\\[\\[([^\\[\\]|#\\n]+?)(?:#([^\\[\\]|\\n]+?))?(?:\\|([^\\[\\]\\n]+?))?\\]\\]");
 
     /**
@@ -513,17 +513,7 @@ public final class WikiLinkResolver {
                 m.appendReplacement(sb, Matcher.quoteReplacement(m.group(0)));
                 continue;
             }
-            String title = extractTitle(path);
-
-            // Determine display text
-            String label;
-            if (alias != null && !alias.isEmpty()) {
-                label = alias;
-            } else if (heading != null && !heading.isEmpty()) {
-                label = title + " › " + heading;
-            } else {
-                label = title;
-            }
+            String label = wikiLinkLabel(path, heading, alias);
 
             boolean found = exists != null && exists.test(path);
             String cssClass = found ? "wikilink" : "wikilink wikilink-new";
@@ -537,6 +527,18 @@ public final class WikiLinkResolver {
         }
         m.appendTail(sb);
         return sb.toString();
+    }
+
+    /**
+     * What a wiki-link to {@code path} shows in the reading view: its display text, or the
+     * note's title followed by {@code › heading}, or the title alone.
+     */
+    static String wikiLinkLabel(String path, String heading, String alias) {
+        if (alias != null && !alias.isEmpty()) {
+            return alias;
+        }
+        String title = extractTitle(path);
+        return heading != null && !heading.isEmpty() ? title + " › " + heading : title;
     }
 
     /**

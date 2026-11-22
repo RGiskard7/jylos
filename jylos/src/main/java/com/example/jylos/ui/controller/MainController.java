@@ -574,7 +574,7 @@ public class MainController {
         tabsSupport.wire(graphView, graphViewController, noteService,
                 this::isDarkThemeActive, this::getString, this::updateStatus, () -> editorTabs,
                 new TabsSupport.Host(this::confirmLeaveCurrent, this::openNoteInTab, this::openNoteInNewTab,
-                        this::handleUiNoteOpenRequest, this::clearEditorToEmpty, () -> {
+                        this::handleUiNoteOpenRequest, this::clearEditorToEmpty, this::noNoteInSight, () -> {
                             refreshEditorIndicators();
                             updateNavigationButtons();
                         },
@@ -628,7 +628,7 @@ public class MainController {
         backlinksSupport.wire(backlinkService, noteService, this::getString, this::loadNoteInEditor,
                 rightPanelSupport::linksInSight);
         rightPanelSupport.wire(rightDock, prefs, this::getString, backlinksSupport.links(), uiLayout::isRightPanelOpen,
-                () -> refreshBacklinks(getCurrentNote()), () -> handleToggleRightPanel(null));
+                () -> backlinksSupport.refresh(tabsSupport.inSight(getCurrentNote())), () -> handleToggleRightPanel(null));
         backlinksSupport.setCreateNoteAction(noteCreationSupport::createNoteWithTitle);
         backlinksSupport.setStatusAction(this::updateStatus);
         // "Link" rewrote a mention in another note: tell the list, tabs and indexes it was saved.
@@ -798,7 +798,6 @@ public class MainController {
             editorTabs.clear();
         }
         clearEditorToEmpty();
-        refreshBacklinks(null);
     }
 
     /** Opens the storage the preferences name now, from a clean UI, and shows it everywhere. */
@@ -957,7 +956,7 @@ public class MainController {
             pluginManager = new PluginManager(noteService, folderService, tagService, eventBus, commandPalette, pluginUi,
                     pluginUi, editorController, editorHooks, pluginUi, editorController, this::handleUiNoteOpenRequest,
                     this::handleUiHeadingNavigationRequest, pluginUi, pluginUi);
-            pluginManager.setOpenNote(this::getCurrentNote);
+            pluginManager.setOpenNote(() -> tabsSupport.inSight(getCurrentNote()));
 
             PluginLifecycle.LoadResult pluginLoadResult = pluginLifecycle
                     .registerCoreAndExternalPlugins(pluginManager);
@@ -1044,7 +1043,7 @@ public class MainController {
                 }
                 pendingModifiedNoteId = saved.getId();
                 // What the note links to may have changed with this save.
-                refreshBacklinks(active);
+                backlinksSupport.refresh(active);
             }
             refreshNotesGridIfActive();
         }));
@@ -1194,8 +1193,9 @@ public class MainController {
     }
 
 
+    /** Tells the plugins the note in sight; {@code null}: none (a closed note, the graph, a new tab). */
     private void publishNoteSelected(Note note) {
-        if (eventBus != null && note != null) {
+        if (eventBus != null) {
             eventBus.publish(new NoteEvents.NoteSelectedEvent(note));
         }
     }
@@ -1638,7 +1638,7 @@ public class MainController {
 
     @FXML
     private void handleToggleRightPanel(ActionEvent event) {
-        uiLayout.toggleRightPanel(getCurrentNote(), () -> refreshBacklinks(getCurrentNote()));
+        uiLayout.toggleRightPanel(tabsSupport.inSight(getCurrentNote()), backlinksSupport::refresh);
     }
 
     /**
@@ -1820,7 +1820,7 @@ public class MainController {
 
         publishNoteSelected(activeNote);
         updateNoteMetadata(activeNote);
-        refreshBacklinks(activeNote);
+        backlinksSupport.refresh(activeNote);
         editorController.syncFavoritePinButtons(this::getString);
 
         // Attachments (PDF/images) show a native viewer — skip the Markdown-only work
@@ -1891,8 +1891,15 @@ public class MainController {
             notesListController.getNotesListView().getSelectionModel().clearSelection();
         }
         updateNoteMetadata(null);
-        updateNoteStats(null);
+        noNoteInSight();
         updateStatus(getString("status.note_closed"));
+    }
+
+    /** No note in sight: what follows the open one (plugins, the links, the counts) has none. */
+    private void noNoteInSight() {
+        publishNoteSelected(null);
+        backlinksSupport.refresh(null);
+        updateNoteStats(null);
     }
 
     private void updateNoteMetadata(Note note) {
@@ -1929,10 +1936,6 @@ public class MainController {
         }
         NoteAnchors.locate(opened.getContent(), subpath)
                 .ifPresent(anchor -> editorController.navigateToHeading(anchor.offset(), anchor.elementId()));
-    }
-
-    private void refreshBacklinks(Note note) {
-        backlinksSupport.refresh(note);
     }
 
     private void loadNotesForTag(String tagName) {

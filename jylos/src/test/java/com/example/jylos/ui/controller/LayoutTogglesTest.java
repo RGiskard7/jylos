@@ -171,7 +171,7 @@ class LayoutTogglesTest {
         }
 
         void toggleRightPanel(Note note) {
-            layout.toggleRightPanel(note, () -> infoRefreshes++);
+            layout.toggleRightPanel(note, shown -> infoRefreshes++);
         }
 
         private void useStacked(boolean stacked) {
