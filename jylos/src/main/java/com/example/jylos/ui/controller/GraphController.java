@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.text.MessageFormat;
 import java.util.Locale;
 import java.util.Map;
 import java.util.MissingResourceException;
@@ -89,6 +90,8 @@ public class GraphController {
     @FXML private VBox graphRoot;
     @FXML private Label graphTitleLabel;
     @FXML private ToggleButton localGraphBtn;
+    /** How many notes and links the graph shown has (top of the settings panel). */
+    @FXML private Label graphStatsLabel;
     @FXML private ToggleButton showTagsBtn;
     @FXML private ToggleButton settingsBtn;
     @FXML private StackPane graphCanvasHolder;
@@ -144,8 +147,7 @@ public class GraphController {
     private BiConsumer<String, Boolean> onOpenNote;
     private Runnable onClose;
     private Supplier<String> currentNoteIdSupplier = () -> null;
-    /** Notified with the freshly built model after every rebuild, so the right panel's
-     *  baseline graph-info section can show live node/edge counts without polling. */
+    /** Notified with the freshly built model after every rebuild (tests wait for it). */
     private Consumer<GraphData> onDataBuilt = data -> { };
 
     /** True while the graph overlay is on screen (drives live refresh on edits). */
@@ -375,6 +377,15 @@ public class GraphController {
     private static String hex(Color color) {
         return String.format("#%02x%02x%02x", (int) Math.round(color.getRed() * 255),
                 (int) Math.round(color.getGreen() * 255), (int) Math.round(color.getBlue() * 255));
+    }
+
+    /** How many notes and links the graph shown has, at the top of its settings panel. */
+    private void showStats(GraphData data) {
+        if (graphStatsLabel == null || data == null) {
+            return;
+        }
+        graphStatsLabel.setText(MessageFormat.format(text("info.graph_nodes", "{0} nodes"), data.nodes().size())
+                + " · " + MessageFormat.format(text("info.graph_edges", "{0} links"), data.edges().size()));
     }
 
     private String text(String key, String fallback) {
@@ -724,6 +735,7 @@ public class GraphController {
             refreshFilterChoices(lastBuilt);
             applyView();
             applyColorGroups();
+            showStats(lastBuilt);
             onDataBuilt.accept(lastBuilt);
         });
         task.setOnFailed(e -> logger.log(Level.WARNING, "Graph build failed", task.getException()));

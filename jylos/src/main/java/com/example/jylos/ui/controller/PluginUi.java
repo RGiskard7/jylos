@@ -22,6 +22,7 @@ import com.example.jylos.plugin.SidePanelRegistry;
 import com.example.jylos.plugin.StatusBarRegistry;
 import com.example.jylos.plugin.ToolbarRegistry;
 import com.example.jylos.ui.UiNodes;
+import com.example.jylos.ui.components.SideDock;
 
 import javafx.application.Platform;
 import javafx.geometry.Orientation;
@@ -36,7 +37,6 @@ import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
 
 import org.kordamp.ikonli.javafx.FontIcon;
 
@@ -57,12 +57,14 @@ class PluginUi implements PluginMenuRegistry, SidePanelRegistry, ToolbarRegistry
     private Consumer<String> updateStatus = message -> { };
     private Supplier<PluginManager> pluginManagerSupplier = () -> null;
     private Supplier<ToolbarController> toolbar = () -> null;
-    private VBox pluginPanelsContainer;
+    private SideDock rightDock;
+    /** Whether the plugin panels' tabs are in the right panel (a plugin can hide them all). */
+    private boolean pluginPanelsShown = true;
     private HBox statusBarContainer;
 
     private final Map<String, Menu> pluginCategoryMenus = new HashMap<>();
     private final Map<String, List<MenuItem>> pluginMenuItems = new HashMap<>();
-    private final Map<String, VBox> pluginPanels = new HashMap<>();
+    /** pluginId → its panels' view ids in the right panel. */
     private final Map<String, List<String>> pluginPanelIds = new HashMap<>();
     /** pluginId → toolbar buttons. */
     private final Map<String, List<Node>> pluginToolbarButtons = new HashMap<>();
@@ -71,17 +73,17 @@ class PluginUi implements PluginMenuRegistry, SidePanelRegistry, ToolbarRegistry
 
     /**
      * @param toolbar               the toolbar, whose Plugins menu and plugin button area receive items
-     * @param pluginPanelsContainer the right panel's area for plugin side panels
+     * @param rightDock             the right panel, where each plugin side panel is a view
      * @param statusBarContainer    the status bar's area for plugin items
      */
     void wire(Function<String, String> i18n, Consumer<String> updateStatus,
             Supplier<PluginManager> pluginManagerSupplier, Supplier<ToolbarController> toolbar,
-            VBox pluginPanelsContainer, HBox statusBarContainer) {
+            SideDock rightDock, HBox statusBarContainer) {
         this.i18nFn = i18n;
         this.updateStatus = updateStatus;
         this.pluginManagerSupplier = pluginManagerSupplier;
         this.toolbar = toolbar != null ? toolbar : () -> null;
-        this.pluginPanelsContainer = pluginPanelsContainer;
+        this.rightDock = rightDock;
         this.statusBarContainer = statusBarContainer;
     }
 
@@ -184,89 +186,59 @@ class PluginUi implements PluginMenuRegistry, SidePanelRegistry, ToolbarRegistry
     @Override
     public void registerSidePanel(String pluginId, String panelId, String title, Node content, String icon) {
         Platform.runLater(() -> {
-            if (pluginPanelsContainer == null) {
-                logger.warning("Plugin panels container not available for registration: " + panelId);
+            if (rightDock == null) {
+                logger.warning("The right panel is not available for registration: " + panelId);
                 return;
             }
-
-            String fullPanelId = pluginId + ":" + panelId;
-
-            // Mirror the app's native collapsible section (e.g. "Note Info") so plugin
-            // panels look identical to the rest of the right panel — no inline styles.
-            VBox panelWrapper = new VBox();
-            panelWrapper.getStyleClass().addAll("panel-section", "plugin-panel");
-
-            HBox header = new HBox(6);
-            header.getStyleClass().add("section-header");
-            header.setAlignment(Pos.CENTER_LEFT);
-
-            Label collapseIcon = UiNodes.keepWhole(new Label("▼"));
-            collapseIcon.getStyleClass().add("collapse-icon");
-
-            header.getChildren().add(collapseIcon);
-
-            // The icon may be an Ikonli literal (e.g. "fth-calendar") → render it as a
-            // real icon; otherwise treat it as an emoji/text prefix on the title.
-            String iconLiteral = icon != null ? icon.trim() : "";
-            boolean rendered = false;
-            if (iconLiteral.matches("[a-z]{2,5}-[a-z0-9-]+")) {
-                try {
-                    FontIcon fontIcon =
-                            new FontIcon(iconLiteral);
-                    fontIcon.getStyleClass().add("feather-icon");
-                    header.getChildren().add(fontIcon);
-                    rendered = true;
-                } catch (Exception ignored) {
-                    // Not a known icon literal — fall back to text below.
-                }
+            // Each plugin panel is one view of the right panel, with its tab, as Obsidian's.
+            String viewId = viewId(pluginId, panelId);
+            rightDock.addView(viewId, title, panelIcon(icon), content);
+            List<String> ids = pluginPanelIds.computeIfAbsent(pluginId, k -> new ArrayList<>());
+            if (!ids.contains(viewId)) {
+                ids.add(viewId);
             }
-
-            String headerText = (!rendered && !iconLiteral.isEmpty() ? iconLiteral + " " : "") + title;
-            Label titleLabel = new Label(headerText);
-            titleLabel.getStyleClass().add("section-title");
-
-            header.getChildren().add(titleLabel);
-
-            VBox contentWrapper = new VBox();
-            contentWrapper.getStyleClass().add("section-content");
-            contentWrapper.getChildren().add(content);
-
-            header.setOnMouseClicked(e -> {
-                boolean expand = !contentWrapper.isVisible();
-                UiNodes.show(contentWrapper, expand);
-                collapseIcon.setText(expand ? "▼" : "▶");
-            });
-
-            panelWrapper.getChildren().addAll(header, contentWrapper);
-            pluginPanelsContainer.getChildren().add(panelWrapper);
-            pluginPanels.put(fullPanelId, panelWrapper);
-            pluginPanelIds.computeIfAbsent(pluginId, k -> new ArrayList<>()).add(fullPanelId);
-
-            UiNodes.show(pluginPanelsContainer, true);
-
+            rightDock.setShown(viewId, pluginPanelsShown);
             logger.fine("Registered side panel: " + title + " for plugin " + pluginId);
         });
+    }
+
+    /** The id of a plugin panel's view in the right panel. */
+    static String viewId(String pluginId, String panelId) {
+        return "plugin:" + pluginId + ":" + panelId;
+    }
+
+    /**
+     * The tab's icon: an Ikonli literal (e.g. "fth-calendar") as an icon; any other text (an
+     * emoji) as it is; none, a generic one.
+     */
+    private static Node panelIcon(String icon) {
+        String literal = icon != null ? icon.trim() : "";
+        if (literal.isEmpty() || literal.matches("[a-z]{2,5}-[a-z0-9-]+")) {
+            try {
+                FontIcon fontIcon = new FontIcon(literal.isEmpty() ? "fth-box" : literal);
+                fontIcon.setIconSize(16); // as the panel's own tabs
+                fontIcon.getStyleClass().add("feather-icon");
+                return fontIcon;
+            } catch (RuntimeException unknown) {
+                // Not a known icon literal: shown as text below.
+            }
+        }
+        Label text = new Label(literal.isEmpty() ? "?" : literal);
+        text.getStyleClass().add("side-dock-text-icon");
+        return text;
     }
 
     @Override
     public void removeSidePanel(String pluginId, String panelId) {
         Platform.runLater(() -> {
-            String fullPanelId = pluginId + ":" + panelId;
-            VBox panel = pluginPanels.remove(fullPanelId);
-            if (panel == null || pluginPanelsContainer == null) {
-                return;
-            }
-
-            pluginPanelsContainer.getChildren().remove(panel);
+            String viewId = viewId(pluginId, panelId);
             List<String> ids = pluginPanelIds.get(pluginId);
             if (ids != null) {
-                ids.remove(fullPanelId);
+                ids.remove(viewId);
             }
-
-            if (pluginPanelsContainer.getChildren().isEmpty()) {
-                UiNodes.show(pluginPanelsContainer, false);
+            if (rightDock != null) {
+                rightDock.removeView(viewId);
             }
-
             logger.info("Removed side panel: " + panelId);
         });
     }
@@ -275,37 +247,28 @@ class PluginUi implements PluginMenuRegistry, SidePanelRegistry, ToolbarRegistry
     public void removeAllSidePanels(String pluginId) {
         Platform.runLater(() -> {
             List<String> ids = pluginPanelIds.remove(pluginId);
-            if (ids == null || pluginPanelsContainer == null) {
+            if (ids == null || rightDock == null) {
                 return;
             }
-
-            for (String fullPanelId : ids) {
-                VBox panel = pluginPanels.remove(fullPanelId);
-                if (panel != null) {
-                    pluginPanelsContainer.getChildren().remove(panel);
-                }
-            }
-
-            if (pluginPanelsContainer.getChildren().isEmpty()) {
-                UiNodes.show(pluginPanelsContainer, false);
-            }
-
+            ids.forEach(rightDock::removeView);
             logger.info("Removed all side panels for plugin: " + pluginId);
         });
     }
 
+    /** Shows or hides the tabs of every plugin panel (a plugin's "show/hide panel" command). */
     @Override
     public void setPluginPanelsVisible(boolean visible) {
         Platform.runLater(() -> {
-            if (pluginPanelsContainer != null) {
-                UiNodes.show(pluginPanelsContainer, visible);
+            pluginPanelsShown = visible;
+            if (rightDock != null) {
+                pluginPanelIds.values().forEach(ids -> ids.forEach(id -> rightDock.setShown(id, visible)));
             }
         });
     }
 
     @Override
     public boolean isPluginPanelsVisible() {
-        return pluginPanelsContainer != null && pluginPanelsContainer.isVisible();
+        return pluginPanelsShown;
     }
 
     // ── Toolbar buttons ──────────────────────────────────────────────────────

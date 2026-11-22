@@ -24,11 +24,14 @@ import java.util.jar.Manifest;
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
 
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.example.jylos.AppDataDirectory;
 import com.example.jylos.data.models.Note;
+import com.example.jylos.event.EventBus;
+import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.plugin.EditorHook;
 import com.example.jylos.plugin.EditorHookRegistry;
 import com.example.jylos.plugin.NoteContextMenuEntry;
@@ -230,6 +233,77 @@ class PluginManagerLifecycleTest {
         assertEquals(0, secondPlugin.shutdownCalls);
 
         secondSession.enablePlugin(pluginId); // cleanup persisted disabled preference
+    }
+
+    /**
+     * A plugin that follows the open note (an outline, a word count) learns which note is open
+     * when it starts, not only when another note is opened: the tabs come back before the
+     * plugins start, and a plugin can be enabled with a note already open.
+     */
+    @Test
+    void aPluginThatFollowsTheOpenNoteIsToldWhichNoteIsOpenWhenItStarts() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        EventBus bus = EventBus.getInstance();
+        Preferences states = Preferences.userRoot().node("/com/example/jylos/test/" + UUID.randomUUID());
+        try {
+            List<String> told = FxTestSupport.onFx(() -> {
+                List<String> out = new ArrayList<>();
+                PluginManager manager = new PluginManager(null, null, null, bus, null,
+                        new RecordingMenuRegistry(), new RecordingSideRegistry(), new RecordingPreviewRegistry(),
+                        new RecordingHookRegistry(), new RecordingToolbarRegistry(), null, note -> {
+                        }, null, null, null);
+                manager.usePreferences(states);
+                manager.setOpenNote(() -> new Note("Abierta.md", "Abierta", "# Uno"));
+                manager.registerPlugin(new FollowingPlugin("outline", out));
+                manager.initializeAll();
+                out.add("--");
+                manager.registerPlugin(new FollowingPlugin("words", out));
+                manager.disablePlugin("words");
+                manager.enablePlugin("words");
+                manager.shutdownAll();
+                return out;
+            });
+
+            assertEquals(List.of("outline Abierta.md", "--", "outline Abierta.md", "words Abierta.md"), told);
+        } finally {
+            bus.clear();
+            states.removeNode();
+        }
+    }
+
+    /** Follows the open note, as the outline does: told each note selected. */
+    private static final class FollowingPlugin implements Plugin {
+        private final String id;
+        private final List<String> told;
+
+        private FollowingPlugin(String id, List<String> told) {
+            this.id = id;
+            this.told = told;
+        }
+
+        @Override
+        public String getId() {
+            return id;
+        }
+
+        @Override
+        public String getName() {
+            return id;
+        }
+
+        @Override
+        public String getVersion() {
+            return "1.0.0";
+        }
+
+        @Override
+        public void initialize(PluginContext context) {
+            context.subscribe(NoteEvents.NoteSelectedEvent.class, e -> told.add(id + " " + e.getNote().getId()));
+        }
+
+        @Override
+        public void shutdown() {
+        }
     }
 
     @Test

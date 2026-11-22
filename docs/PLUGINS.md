@@ -185,7 +185,7 @@ plugin out of the JAR mechanism (no independent enable/disable-by-file, no
 |-----|-------------------|
 | `registerCommand(...)` | Command-palette entries (optional shortcut) |
 | `registerMenuItem(...)` / `addMenuSeparator(...)` | Entries in the dynamic plugin menu |
-| `registerSidePanel(...)` | A JavaFX node in the right panel |
+| `registerSidePanel(panelId, title, content, icon)` | A view of the right panel, as Obsidian's: a tab with `icon` (a Feather literal like `fth-calendar`, an emoji, or none for a generic one) and `title` as its tooltip, showing `content` with its own scroll; the view chosen last is chosen again when the plugin comes back. `setPluginPanelsVisible(false)` takes every plugin's tab out of the row (and `true` brings them back) |
 | `registerPreviewEnhancer(...)` | CSS/JS injected into the Markdown preview, plus per-note HTML post-processing (below) |
 | `registerToolbarButton(buttonId, tooltip, iconLiteral, action)` | A button in the main toolbar (Feather icon literal like `fth-clock`, or text); removed automatically on disable |
 | `registerStatusBarItem(itemId, content)` | A node in the status bar, like Obsidian's `addStatusBarItem()`: keep the node to update it (e.g. a `Label` you `setText` on); the same `itemId` again replaces it; removed automatically on disable (`removeStatusBarItem(itemId)` / `removeStatusBarItems()` to take it out earlier) |

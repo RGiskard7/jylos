@@ -1766,15 +1766,6 @@
     -fx-padding: 0;
 }
 
-.info-label {
-    -fx-text-fill: -fx-text-faint;
-    color: -fx-text-faint;
-    -fx-font-size: 0.769em;
-    font-size: 0.769em;
-    -fx-font-weight: 600;
-    font-weight: 600;
-}
-
 .info-sublabel {
     -fx-text-fill: -fx-text-faint;
     color: -fx-text-faint;
@@ -2119,54 +2110,30 @@
     -fx-background-color: transparent;
 }
 
-.panel-content {
+/* The right panel's row of tabs (SideDock): the left panel's bar, scrolling sideways
+   without a scroll bar when its tabs do not fit. */
+.side-dock-tabs {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-padding: 0;
+}
+
+.side-dock-tabs > .viewport {
     -fx-background-color: transparent;
 }
 
-/* Panel Sections (Collapsible) */
-.panel-section {
-    -fx-background-color: transparent;
-    -fx-padding: 0 0 8 0;
-    -fx-border-color: transparent transparent #3a3a3a transparent;
-    -fx-border-width: 0 0 1 0;
+.side-dock-empty {
+    -fx-padding: 20 16;
 }
 
-.section-header {
-    -fx-padding: 10 8;
-    -fx-background-color: transparent;
-    -fx-cursor: hand;
-}
-
-.section-header:hover {
-    -fx-background-color: #2d2d2d;
-    -fx-background-radius: 4;
-}
-
-.collapse-icon {
-    -fx-text-fill: #888888;
-    -fx-font-size: 0.769em;
-    -fx-padding: 0 6 0 0;
-}
-
-.section-title {
-    -fx-text-fill: #c0c0c0;
-    -fx-font-size: 0.923em;
-    -fx-font-weight: normal;
-}
-
-.section-content {
-    -fx-background-color: transparent;
-    -fx-padding: 8 8 8 16;
+/* A plugin tab whose icon is text (an emoji). */
+.side-dock-text-icon {
+    -fx-font-size: 1.077em;
 }
 
 /* Info Labels in Panels */
-.info-label {
-    -fx-text-fill: #888888;
-    -fx-font-size: 0.692em;
-    -fx-font-weight: normal;
-    -fx-text-transform: uppercase;
-}
-
 .info-value {
     -fx-text-fill: #e0e0e0;
     -fx-font-size: 0.923em;
@@ -2518,11 +2485,6 @@
     background-color: derive(-fx-accent-hover, -20%);
 }
 
-.section-header .collapse-icon {
-    -fx-text-fill: -fx-text-muted;
-    -fx-font-size: 0.692em;
-}
-
 /* ═══════════════════════════════════════════════════════════════
    YAML PROPERTIES PANEL  (dark theme)
    ═══════════════════════════════════════════════════════════════ */
@@ -2736,6 +2698,13 @@
     -fx-font-size: 0.846em;
     -fx-font-weight: normal;
     -fx-text-fill: -fx-text-muted;
+}
+
+/* How many notes and links the graph shown has, at the top of its settings. */
+.graph-settings-stats {
+    -fx-text-fill: -fx-text-muted;
+    -fx-font-size: 0.846em;
+    -fx-padding: 0 0 6 0;
 }
 
 .graph-settings-label {

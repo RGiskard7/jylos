@@ -26,10 +26,11 @@ import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 
 /**
- * The links of the open note, in the right panel: the notes that link to it with the line of
- * each link, the notes that mention it without linking (loaded only when that section is
- * opened, with a button that turns each mention into a link), and the notes it links to.
- * Only draws what it is given; fetching and saving are the owner's job ({@link Actions}).
+ * The links of the open note, in two views of the right panel, as Obsidian's: this one, the
+ * backlinks (the notes that link to it with the line of each link, and the notes that mention
+ * it without linking, loaded only when that section is opened, with a button that turns each
+ * mention into a link), and {@link #outgoingView()}, the notes it links to. Only draws what it
+ * is given; fetching and saving are the owner's job ({@link Actions}).
  *
  * @author Edu Díaz (RGiskard7)
  * @since 2.6.0
@@ -60,6 +61,7 @@ public final class LinksPanel extends VBox {
     private final Section linked;
     private final Section unlinked;
     private final Section outgoing;
+    private final VBox outgoingView = new VBox(2);
     private boolean unlinkedRequested;
 
     public LinksPanel(Function<String, String> i18n, Actions actions) {
@@ -69,10 +71,17 @@ public final class LinksPanel extends VBox {
         setSpacing(2);
         linked = new Section(i18n.apply("links.linked_mentions"), true);
         unlinked = new Section(i18n.apply("links.unlinked_mentions"), false);
-        outgoing = new Section(i18n.apply("links.outgoing"), true);
-        getChildren().addAll(linked, unlinked, outgoing);
+        outgoing = new Section(i18n.apply("links.links"), true);
+        getChildren().addAll(linked, unlinked);
+        outgoingView.getStyleClass().add("links-panel");
+        outgoingView.getChildren().add(outgoing);
         unlinked.onExpand = this::requestUnlinked;
         reset();
+    }
+
+    /** The other view: the notes the open note links to. */
+    public VBox outgoingView() {
+        return outgoingView;
     }
 
     /** Empties the three sections and folds the unlinked one, for a note that was just opened. */

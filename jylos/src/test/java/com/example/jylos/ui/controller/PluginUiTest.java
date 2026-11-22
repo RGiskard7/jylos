@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.tests.FxTestSupport;
+import com.example.jylos.ui.components.SideDock;
 
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
@@ -23,7 +24,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
 
 /**
  * What a plugin adds to the window — a Plugins menu item, a side panel, a toolbar button, a
@@ -45,9 +45,8 @@ class PluginUiTest {
             loader.load();
             return loader.getController();
         });
-        VBox panels = onFx(VBox::new);
+        SideDock panels = onFx(SideDock::new);
         onFx(() -> {
-            panels.setVisible(false);
             ui.wire(key -> key + " {0}", status::add, () -> null, () -> toolbar, panels, new HBox());
             ui.registerMenuItem("demo", "Demo", "Saludar", () -> ran.add("menu"));
             ui.registerSidePanel("demo", "panel", "Panel", new Label("contenido"), "fth-star");
@@ -64,7 +63,7 @@ class PluginUiTest {
             MenuItem saludar = demo.getItems().get(0);
             out.add("menu " + saludar.getText());
             saludar.fire();
-            out.add("panels " + panels.getChildren().size() + ", shown " + panels.isVisible());
+            out.add("panels " + panels.viewIds() + ", chosen " + panels.selected().orElse(null));
             HBox buttons = toolbar.getPluginToolbarContainer();
             Button button = (Button) buttons.getChildren().stream()
                     .filter(n -> "plugin-toolbar-demo-boton".equals(n.getId())).findFirst().orElseThrow();
@@ -81,16 +80,17 @@ class PluginUiTest {
 
         List<String> after = onFx(() -> List.of(
                 "menu left " + toolbar.getPluginsMenu().getItems().stream().anyMatch(i -> "Demo".equals(i.getText())),
-                "panels " + panels.getChildren().size() + ", shown " + panels.isVisible(),
+                "panels " + panels.viewIds(),
                 "buttons " + toolbar.getPluginToolbarContainer().getChildren().stream()
                         .anyMatch(n -> "plugin-toolbar-demo-boton".equals(n.getId())),
                 "context " + ui.getNoteContextMenuItems().size()));
 
-        assertEquals(List.of("menu Saludar", "panels 1, shown true", "context Copiar"), shown);
+        assertEquals(List.of("menu Saludar", "panels [plugin:demo:panel], chosen plugin:demo:panel", "context Copiar"),
+                shown);
         // The menu item of a plugin that is not enabled does not run and says so.
         assertEquals(List.of("status.plugin_not_enabled demo"), status);
         assertEquals(List.of("button", "note Uno"), ran);
-        assertEquals(List.of("menu left false", "panels 0, shown false", "buttons false", "context 0"), after);
+        assertEquals(List.of("menu left false", "panels []", "buttons false", "context 0"), after);
     }
 
     /**

@@ -64,7 +64,8 @@ class BacklinksSupportTest {
         VBox content = new VBox();
         try {
             onFx(() -> {
-                support.wire(content, links, notes, k -> k, n -> events.add("open:" + n.getId()), () -> true);
+                support.wire(links, notes, k -> k, n -> events.add("open:" + n.getId()), () -> true);
+                content.getChildren().setAll(support.backlinksView(), support.outgoingView());
                 support.setCreateNoteAction(title -> events.add("create:" + title));
                 support.setMentionLinkedAction(n -> events.add("saved:" + n.getId()));
                 support.refresh(notes.getNoteById("Target.md").orElseThrow());
@@ -125,7 +126,8 @@ class BacklinksSupportTest {
         List<EventBus.Subscription> subscriptions = new ArrayList<>();
         try {
             onFx(() -> {
-                support.wire(content, links, notes, k -> k, n -> { }, () -> true);
+                support.wire(links, notes, k -> k, n -> { }, () -> true);
+                content.getChildren().setAll(support.backlinksView(), support.outgoingView());
                 subscriptions.addAll(support.subscribe(EventBus.getInstance()));
                 support.refresh(notes.getNoteById("A.md").orElseThrow());
                 return null;
@@ -182,7 +184,8 @@ class BacklinksSupportTest {
         VBox content = new VBox();
         try {
             onFx(() -> {
-                support.wire(content, links, notes, k -> k, n -> { }, () -> true);
+                support.wire(links, notes, k -> k, n -> { }, () -> true);
+                content.getChildren().setAll(support.backlinksView(), support.outgoingView());
                 support.refresh(notes.getNoteById("A.md").orElseThrow());   // slow: waits for the latch
                 support.refresh(notes.getNoteById("B.md").orElseThrow());
                 return null;

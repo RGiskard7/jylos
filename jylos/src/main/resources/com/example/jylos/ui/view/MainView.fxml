@@ -2,6 +2,7 @@
 
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import com.example.jylos.ui.components.SideDock?>
 <?import javafx.geometry.Insets?>
 <?import org.kordamp.ikonli.javafx.FontIcon?>
 
@@ -40,62 +41,10 @@
                 </SplitPane>
             </StackPane>
 
+            <!-- The right panel, as Obsidian's: a row of tabs, one per view (backlinks, outgoing
+                 links, and the plugins' views), and the chosen view under it. -->
             <VBox fx:id="rightPanel" styleClass="right-panel" minWidth="0" prefWidth="0" maxWidth="0">
-                <ScrollPane fitToWidth="true" hbarPolicy="NEVER" VBox.vgrow="ALWAYS" styleClass="panel-scroll">
-                    <VBox fx:id="rightPanelContent" spacing="0" styleClass="panel-content">
-                        <padding>
-                            <Insets top="8" right="12" bottom="16" left="12"/>
-                        </padding>
-
-                        <VBox fx:id="noteInfoSection" styleClass="panel-section">
-                            <HBox fx:id="noteInfoHeader" alignment="CENTER_LEFT" styleClass="section-header">
-                                <Label text="▶" fx:id="noteInfoCollapseIcon" styleClass="collapse-icon"/>
-                                <Label text="%section.note_info" styleClass="section-title"/>
-                            </HBox>
-                            <VBox fx:id="noteInfoContent" spacing="12" styleClass="section-content" visible="false" managed="false">
-                                <padding>
-                                    <Insets top="8" left="8"/>
-                                </padding>
-                                <VBox spacing="2">
-                                    <Label text="%info.created" styleClass="info-label"/>
-                                    <Label fx:id="infoCreatedLabel" text="-" styleClass="info-value"/>
-                                </VBox>
-                                <VBox spacing="2">
-                                    <Label text="%info.modified" styleClass="info-label"/>
-                                    <Label fx:id="infoModifiedLabel" text="-" styleClass="info-value"/>
-                                </VBox>
-                            </VBox>
-                        </VBox>
-
-                        <VBox fx:id="backlinksSection" styleClass="panel-section">
-                            <HBox fx:id="backlinksHeader" alignment="CENTER_LEFT" styleClass="section-header">
-                                <Label text="▶" fx:id="backlinksCollapseIcon" styleClass="collapse-icon"/>
-                                <Label text="%section.backlinks" styleClass="section-title"/>
-                            </HBox>
-                            <VBox fx:id="backlinksContent" spacing="2" styleClass="section-content" visible="false" managed="false">
-                                <padding>
-                                    <Insets top="8" left="8"/>
-                                </padding>
-                            </VBox>
-                        </VBox>
-
-                        <!-- Shown instead of note-info/backlinks while the graph overlay is active. -->
-                        <VBox fx:id="graphInfoSection" styleClass="panel-section" visible="false" managed="false">
-                            <HBox alignment="CENTER_LEFT" styleClass="section-header">
-                                <Label text="%section.graph_info" styleClass="section-title"/>
-                            </HBox>
-                            <VBox spacing="2" styleClass="section-content">
-                                <padding>
-                                    <Insets top="8" left="8"/>
-                                </padding>
-                                <Label fx:id="graphNodeCountLabel" text="-" styleClass="info-value"/>
-                                <Label fx:id="graphEdgeCountLabel" text="-" styleClass="info-value"/>
-                            </VBox>
-                        </VBox>
-
-                        <VBox fx:id="pluginPanelsContainer" spacing="0"/>
-                    </VBox>
-                </ScrollPane>
+                <SideDock fx:id="rightDock" VBox.vgrow="ALWAYS"/>
             </VBox>
         </SplitPane>
     </center>

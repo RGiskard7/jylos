@@ -67,6 +67,8 @@ public final class EditorTabs {
     private Button newTabButton;
     /** The tab menu shown, if any: one at a time. */
     private ContextMenu shownMenu;
+    /** What a tab's tooltip says about its note (null: its title). */
+    private Function<String, String> describer = id -> null;
 
     public EditorTabs(HBox container, Region visibilityNode, Listener listener,
             Function<String, String> i18n) {
@@ -108,6 +110,13 @@ public final class EditorTabs {
             // Title takes the remaining space and ellipsises rather than widening the tab.
             title.setMaxWidth(Double.MAX_VALUE);
             HBox.setHgrow(title, Priority.ALWAYS);
+            // Told when it shows, so it is never stale and follows the note when it moves.
+            Tooltip about = new Tooltip();
+            about.setOnShowing(e -> {
+                String told = describer.apply(this.noteId);
+                about.setText(told != null && !told.isBlank() ? told : title.getText());
+            });
+            title.setTooltip(about);
 
             close.getStyleClass().add("editor-tab-close");
             String closeText = i18n != null ? i18n.apply("tooltip.close_note") : null;
@@ -382,6 +391,14 @@ public final class EditorTabs {
      * Rebinds a tab from {@code oldId} to {@code newId}, preserving its visual order and
      * active state. Used when a filesystem-backed note is renamed and its path-based id changes.
      */
+    /**
+     * What a tab's tooltip says about its note, asked each time it shows (the note's path and
+     * dates, say); {@code null} from it, or no describer, shows the tab's title.
+     */
+    public void setDescriber(Function<String, String> describer) {
+        this.describer = describer != null ? describer : id -> null;
+    }
+
     public void rebindId(String oldId, String newId, String title) {
         if (oldId == null || newId == null) {
             return;

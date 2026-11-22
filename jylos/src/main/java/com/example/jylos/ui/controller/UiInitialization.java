@@ -6,13 +6,10 @@ import java.util.function.Function;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.scene.control.ComboBox;
-import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.ToggleButton;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 import com.example.jylos.ui.UiNodes;
 
@@ -72,36 +69,6 @@ class UiInitialization {
                 sorter.accept(newValue);
             }
         });
-    }
-
-    public void initializeRightPanelSections(HBox noteInfoHeader, VBox noteInfoContent, Label noteInfoCollapseIcon,
-            VBox pluginPanelsContainer) {
-        wireCollapsibleSection(noteInfoHeader, noteInfoContent, noteInfoCollapseIcon);
-
-        if (pluginPanelsContainer != null) {
-            UiNodes.show(pluginPanelsContainer, true);
-        }
-    }
-
-    /** Wires a header/content/icon trio as a click-to-collapse section. */
-    public void wireCollapsibleSection(HBox header, VBox content, Label collapseIcon) {
-        wireCollapsibleSection(header, content, collapseIcon, null);
-    }
-
-    /** Wires a header/content/icon trio as a click-to-collapse section. */
-    public void wireCollapsibleSection(HBox header, VBox content, Label collapseIcon, Consumer<Boolean> onToggle) {
-        if (header == null || content == null || collapseIcon == null) {
-            return;
-        }
-        header.setOnMouseClicked(e -> {
-            boolean expand = !content.isVisible();
-            UiNodes.show(content, expand);
-            collapseIcon.setText(expand ? "▼" : "▶");
-            if (onToggle != null) {
-                onToggle.accept(expand);
-            }
-        });
-        header.setStyle("-fx-cursor: hand;");
     }
 
     public void setupToolbarResponsiveness(ToolbarController toolbarController, Consumer<Double> widthConsumer) {

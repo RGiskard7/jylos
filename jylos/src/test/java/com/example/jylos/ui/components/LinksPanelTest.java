@@ -26,6 +26,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Labeled;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 
@@ -86,23 +87,26 @@ class LinksPanelTest {
             panel.showLinked(List.of(new LinkGroup(source, List.of(link))));
             panel.showOutgoing(List.of(new OutgoingLink("Existe", note("e.md", "Existe"), 2),
                     new OutgoingLink("Falta", null, 1)));
+            // The backlinks and the outgoing links are two views, each in its own tab.
+            Parent both = new VBox(panel, panel.outgoingView());
 
             List<String> out = new ArrayList<>();
-            out.add(String.join("|", texts(panel, "links-section-title")));
-            out.add(String.join("|", texts(panel, "links-flair")));          // 1 link, 1 group, 2 destinations
-            out.add(String.join("|", texts(panel, "links-group-name")));
-            out.add(String.join("|", texts(panel, "links-match-highlight")));
-            out.add(String.join("|", texts(panel, "links-outgoing-name")));
+            out.add(String.join("|", texts(panel, "links-section-title")) + " / "
+                    + String.join("|", texts(panel.outgoingView(), "links-section-title")));
+            out.add(String.join("|", texts(both, "links-flair")));          // 1 link, 1 group, 2 destinations
+            out.add(String.join("|", texts(both, "links-group-name")));
+            out.add(String.join("|", texts(both, "links-match-highlight")));
+            out.add(String.join("|", texts(both, "links-outgoing-name")));
 
-            click(panel.lookup(".links-group-title"));
-            click(panel.lookup(".links-match-row"));
-            for (Node row : panel.lookupAll(".links-outgoing-row")) {
+            click(both.lookup(".links-group-title"));
+            click(both.lookup(".links-match-row"));
+            for (Node row : both.lookupAll(".links-outgoing-row")) {
                 click(row);
             }
             return out;
         });
 
-        assertEquals("links.linked_mentions|links.unlinked_mentions|links.outgoing", seen.get(0));
+        assertEquals("links.linked_mentions|links.unlinked_mentions / links.links", seen.get(0));
         assertEquals("1|1|2", seen.get(1), "linked mentions flair, group flair, outgoing flair");
         assertEquals("Fuente", seen.get(2));
         assertEquals("[[Target]]", seen.get(3));

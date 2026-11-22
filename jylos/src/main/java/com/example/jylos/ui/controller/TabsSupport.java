@@ -1,6 +1,15 @@
 package com.example.jylos.ui.controller;
 
+import java.text.MessageFormat;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.format.FormatStyle;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
@@ -75,6 +84,61 @@ final class TabsSupport {
         this.tabs = tabs != null ? tabs : () -> null;
         this.host = host;
         UiNodes.show(graphView, false);
+        EditorTabs strip = this.tabs.get();
+        if (strip != null) {
+            strip.setDescriber(this::describe);
+        }
+    }
+
+    /** What the tab of {@code id} says when the pointer rests on it; null for a view's tab. */
+    private String describe(String id) {
+        if (noteService == null || id == null || ViewTabs.isView(id)) {
+            return null;
+        }
+        return describe(noteService.getNoteById(id).orElse(null), i18n, Locale.getDefault(), ZoneId.systemDefault());
+    }
+
+    /**
+     * A note's path, and when it was created and modified, in {@code locale} and {@code zone}
+     * (a date that does not parse is shown as stored; a missing one is left out).
+     */
+    static String describe(Note note, Function<String, String> i18n, Locale locale, ZoneId zone) {
+        if (note == null || note.getId() == null) {
+            return null;
+        }
+        StringBuilder text = new StringBuilder(note.getId());
+        appendDate(text, i18n.apply("tab.about_created"), note.getCreatedDate(), locale, zone);
+        appendDate(text, i18n.apply("tab.about_modified"), note.getModifiedDate(), locale, zone);
+        return text.toString();
+    }
+
+    private static void appendDate(StringBuilder text, String pattern, String stored, Locale locale, ZoneId zone) {
+        if (stored == null || stored.isBlank()) {
+            return;
+        }
+        text.append('\n').append(MessageFormat.format(pattern, readableDate(stored.strip(), locale, zone)));
+    }
+
+    /** An instant, a local date and time or a date, as the user reads them; anything else as it is. */
+    private static String readableDate(String stored, Locale locale, ZoneId zone) {
+        DateTimeFormatter dateTime = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+                .withLocale(locale);
+        try {
+            return Instant.parse(stored).atZone(zone).format(dateTime);
+        } catch (DateTimeParseException notAnInstant) {
+            // A local date and time, or a date alone, below.
+        }
+        try {
+            return LocalDateTime.parse(stored.replace(' ', 'T')).format(dateTime);
+        } catch (DateTimeParseException notADateTime) {
+            // A date alone, below.
+        }
+        try {
+            return LocalDate.parse(stored)
+                    .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale));
+        } catch (DateTimeParseException notADate) {
+            return stored;
+        }
     }
 
     /** True while a view's tab (the graph, a new tab), not a note's, is the active one. */

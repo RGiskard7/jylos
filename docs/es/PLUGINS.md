@@ -189,7 +189,7 @@ fichero independiente, sin `isPluginRemovable`) a cambio de disponibilidad incon
 |-----|-----|
 | `registerCommand(...)` | Paleta de comandos |
 | `registerMenuItem(...)` / `addMenuSeparator(...)` | Menú dinámico de plugins |
-| `registerSidePanel(...)` | Nodo JavaFX en panel derecho |
+| `registerSidePanel(panelId, title, content, icon)` | Una vista del panel derecho, como en Obsidian: una pestaña con `icon` (un literal Feather como `fth-calendar`, un emoji o nada para uno genérico) y `title` en su tooltip, que muestra `content` con su propio scroll; la vista elegida la última vez se vuelve a elegir cuando el plugin vuelve. `setPluginPanelsVisible(false)` quita de la fila las pestañas de todos los plugins (y `true` las devuelve) |
 | `registerPreviewEnhancer(...)` | CSS/JS en preview Markdown, más post-procesado de HTML por nota (abajo) |
 | `registerToolbarButton(...)` | Botón de toolbar |
 | `registerStatusBarItem(itemId, contenido)` | Nodo en la barra de estado, como `addStatusBarItem()` de Obsidian: se guarda el nodo para actualizarlo (p. ej. un `Label` con `setText`); el mismo `itemId` lo sustituye; se quita solo al desactivar el plugin (`removeStatusBarItem(itemId)` / `removeStatusBarItems()` para quitarlo antes) |

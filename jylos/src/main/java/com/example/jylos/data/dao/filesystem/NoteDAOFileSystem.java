@@ -1026,6 +1026,8 @@ public class NoteDAOFileSystem implements NoteDAO {
             // Override ID with our path-based ID
             note.setId(normalizedId);
             metadataStore.applyNoteMarks(normalizedId, note);
+            // The file's dates when its properties do not give them, as when the vault is listed.
+            applyFileTimestampsIfMissing(note, path);
 
             // Sync Title with Filename
             String filename = path.getFileName().toString();

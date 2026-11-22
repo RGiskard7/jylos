@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- **Panel derecho como el de Obsidian:** arriba, una fila de pestañas con icono, una por vista, alineada con la cabecera del editor; al pulsar una, el panel muestra solo esa vista, con su propio scroll. Si las pestañas no caben, la fila se desplaza en horizontal con la rueda. Las vistas son *Enlaces entrantes* (menciones con enlace y sin enlace), *Enlaces salientes* y las de los plugins: cada panel de plugin, como *Esquema* o *Calendario*, es una pestaña más en lugar de una sección apilada. La vista elegida se recuerda para la próxima vez, también la de un plugin. Los enlaces solo se calculan mientras una de sus vistas está a la vista.
+  - Las fechas de creación y modificación de una nota, que estaban en *Información de nota*, aparecen al dejar el puntero sobre su pestaña, junto con su ruta.
+  - El número de nodos y conexiones del grafo está ahora arriba del panel de ajustes del grafo.
+- **Corregido:** al abrir Jylos, *Esquema* decía «No se han encontrado encabezados» hasta abrir otra nota. Los plugins que siguen a la nota abierta (Esquema, Tiempo de lectura, Recuento de palabras) se enteran de cuál es al arrancar y al activarlos.
+- **Corregido:** en una bóveda de carpetas, una nota sin fechas en sus propiedades no tenía fechas al abrirla; ahora tiene las de su fichero, como al listar la bóveda.
 - **Cabeceras más compactas:** la cabecera del editor (título, ruta y botones), la del panel lateral y la de la lista de notas tienen menos margen arriba y abajo, como en Obsidian, y siguen igual de altas para que sus líneas inferiores coincidan, en el diseño Explorador y en los clásicos. La fila del filtro bajo la cabecera del panel lateral también es más compacta.
 - **Imágenes como en Obsidian:**
   - `![[foto.png]]` encuentra la imagen por su nombre aunque esté en otra carpeta: primero la de la carpeta de la nota y, si no, la de ruta más corta de la bóveda. Vale en el editor, la vista de lectura, las miniaturas de Kanban y al exportar a HTML y a PDF, y nunca se lee una imagen de fuera de la bóveda;

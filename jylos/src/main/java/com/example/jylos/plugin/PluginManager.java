@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 import com.example.jylos.config.LoggerConfig;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.event.EventBus;
+import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
@@ -72,6 +74,8 @@ public class PluginManager {
     private final StatusBarRegistry statusBarRegistry;
     private final EditorBlockRendererRegistry editorBlockRendererRegistry;
     private final Consumer<Note> noteOpenAction;
+    /** The note open in the editor, told to the plugins that start (see {@link #setOpenNote}). */
+    private Supplier<Note> openNote = () -> null;
     private final BiConsumer<Integer, String> editorNavigateAction;
 
     // Plugin storage
@@ -302,6 +306,24 @@ public class PluginManager {
             initializePlugin(plugin.getId());
         }
         logger.info("Initialized " + plugins.size() + " plugin(s)");
+        announceOpenNote();
+    }
+
+    /**
+     * The note open in the editor. The plugins that start (all of them at startup, or one
+     * enabled later) are told it as a {@link NoteEvents.NoteSelectedEvent}, as when a note is
+     * opened: the tabs come back before the plugins start, and a plugin that follows the open
+     * note (an outline, a word count) would otherwise show nothing until another note opens.
+     */
+    public void setOpenNote(Supplier<Note> openNote) {
+        this.openNote = openNote != null ? openNote : () -> null;
+    }
+
+    private void announceOpenNote() {
+        Note note = openNote.get();
+        if (eventBus != null && note != null) {
+            eventBus.publish(new NoteEvents.NoteSelectedEvent(note));
+        }
     }
 
     private List<Plugin> sortPluginsForInitialization() {
@@ -404,14 +426,19 @@ public class PluginManager {
         }
 
         states.setEnabled(pluginId, true);
+        boolean started = false;
         if (currentState == PluginState.REGISTERED || currentState == PluginState.DISABLED) {
             if (!initializePlugin(pluginId)) {
                 return false;
             }
+            started = true;
         }
 
         pluginStates.put(pluginId, PluginState.ENABLED);
         logger.info("Enabled plugin: " + pluginId);
+        if (started) {
+            announceOpenNote();
+        }
         return true;
     }
 

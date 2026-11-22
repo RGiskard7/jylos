@@ -34,7 +34,6 @@ import com.example.jylos.data.models.Tag;
 import com.example.jylos.data.models.interfaces.Component;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.FolderEvents;
-import com.example.jylos.graph.GraphData;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.insights.KnowledgeInsightsService;
@@ -54,6 +53,7 @@ import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.CommandPalette;
 import com.example.jylos.ui.components.EditorTabs;
+import com.example.jylos.ui.components.SideDock;
 import com.example.jylos.ui.components.EditorTabsModel;
 import com.example.jylos.ui.components.ViewTabs;
 import com.example.jylos.ui.components.GitSyncPanel;
@@ -168,41 +168,10 @@ public class MainController {
     private StackPane editorArea;
 
     private final FocusModeSupport focusModeSupport = new FocusModeSupport();
+    /** The right panel's views, in tabs (see {@link RightPanelSupport} and {@link PluginUi}). */
     @FXML
-    private VBox rightPanelContent;
-    @FXML
-    private VBox noteInfoSection;
-    @FXML
-    private HBox noteInfoHeader;
-    @FXML
-    private Label noteInfoCollapseIcon;
-    @FXML
-    private VBox noteInfoContent;
-
-    @FXML
-    private VBox backlinksSection;
-    @FXML
-    private HBox backlinksHeader;
-    @FXML
-    private Label backlinksCollapseIcon;
-    @FXML
-    private VBox backlinksContent;
-
-    /** Right-panel baseline content shown while the graph overlay is active instead
-     *  of note-info/backlinks — see {@link #updateRightPanelContext()}. Kanban has no
-     *  baseline section: the panel is simply empty (still reachable) while it's open. */
-    @FXML
-    private VBox graphInfoSection;
-    @FXML
-    private Label graphNodeCountLabel;
-    @FXML
-    private Label graphEdgeCountLabel;
-
-    @FXML
-    private Label infoCreatedLabel;
-    @FXML
-    private Label infoModifiedLabel;
-
+    private SideDock rightDock;
+    private final RightPanelSupport rightPanelSupport = new RightPanelSupport();
 
     @FXML
     private Label statusLabel;
@@ -268,9 +237,6 @@ public class MainController {
     // docs/PACKAGING.md, section "In-app updater (unsigned builds)".
     private final UpdateInstallSupport updateInstallSupport = new UpdateInstallSupport();
     private final HistorySupport historySupport = new HistorySupport();
-    /** The right panel's area for plugin side panels (see {@link PluginUi}). */
-    @FXML
-    private VBox pluginPanelsContainer;
     /** The status bar's area for plugin items (see {@link PluginUi}). */
     @FXML
     private HBox pluginStatusBarContainer;
@@ -375,7 +341,7 @@ public class MainController {
             initializeBackendSession();
             appSettings.wire(this::getString);
             pluginUi.wire(this::getString, this::updateStatus, this::getPluginManager, () -> toolbarController,
-                    pluginPanelsContainer, pluginStatusBarContainer);
+                    rightDock, pluginStatusBarContainer);
             uiInitialization.wire(this::getString, new UiInitialization.OverflowActions(
                     () -> handleNewNote(null),
                     () -> handleNewCanvas(null),
@@ -414,8 +380,7 @@ public class MainController {
 
             initializeSortOptions();
             initializeEditorPresentation();
-            initializeRightPanelSections();
-            initializeRightPanelVisibility();
+            uiLayout.collapseRightPanel();
             setupToolbarResponsiveness();
             initializeLanguageMenu();
             applyUiPreferencesFromStore();
@@ -610,7 +575,6 @@ public class MainController {
                 this::isDarkThemeActive, this::getString, this::updateStatus, () -> editorTabs,
                 new TabsSupport.Host(this::confirmLeaveCurrent, this::openNoteInTab, this::openNoteInNewTab,
                         this::handleUiNoteOpenRequest, this::clearEditorToEmpty, () -> {
-                            updateRightPanelContext();
                             refreshEditorIndicators();
                             updateNavigationButtons();
                         },
@@ -618,8 +582,7 @@ public class MainController {
         if (graphViewController != null) {
             graphViewController.wire(eventBus, noteService, tagService, resources,
                     tabsSupport::openNoteFromGraph, tabsSupport::closeGraph,
-                    () -> getCurrentNote() != null ? getCurrentNote().getId() : null,
-                    this::updateGraphInfoSection);
+                    () -> getCurrentNote() != null ? getCurrentNote().getId() : null, null);
         }
 
         statusBarSupport.wire(storageLabel, wordCountLabel, charCountLabel, statsSeparator,
@@ -662,10 +625,12 @@ public class MainController {
                 MainController.this.refreshNotesList();
             }
         });
-        backlinksSupport.wire(backlinksContent, backlinkService, noteService, this::getString,
-                this::loadNoteInEditor,
-                () -> backlinksSection != null && backlinksSection.isVisible() && backlinksSection.isManaged()
-                        && backlinksContent != null && backlinksContent.isVisible() && backlinksContent.isManaged());
+        backlinksSupport.wire(backlinkService, noteService, this::getString, this::loadNoteInEditor,
+                rightPanelSupport::linksInSight);
+        rightPanelSupport.wire(rightDock, prefs, this::getString, backlinksSupport.backlinksView(),
+                backlinksSupport.outgoingView(),
+                () -> rightPanel != null && rightPanel.isVisible() && rightPanel.getPrefWidth() >= 10,
+                () -> refreshBacklinks(getCurrentNote()));
         backlinksSupport.setCreateNoteAction(noteCreationSupport::createNoteWithTitle);
         backlinksSupport.setStatusAction(this::updateStatus);
         // "Link" rewrote a mention in another note: tell the list, tabs and indexes it was saved.
@@ -994,6 +959,7 @@ public class MainController {
             pluginManager = new PluginManager(noteService, folderService, tagService, eventBus, commandPalette, pluginUi,
                     pluginUi, editorController, editorHooks, pluginUi, editorController, this::handleUiNoteOpenRequest,
                     this::handleUiHeadingNavigationRequest, pluginUi, pluginUi);
+            pluginManager.setOpenNote(this::getCurrentNote);
 
             PluginLifecycle.LoadResult pluginLoadResult = pluginLifecycle
                     .registerCoreAndExternalPlugins(pluginManager);
@@ -1673,55 +1639,7 @@ public class MainController {
 
     @FXML
     private void handleToggleRightPanel(ActionEvent event) {
-        uiLayout.toggleRightPanel(getCurrentNote(), () -> updateNoteMetadata(getCurrentNote()));
-    }
-
-    private void initializeRightPanelSections() {
-        uiInitialization.initializeRightPanelSections(
-                noteInfoHeader,
-                noteInfoContent,
-                noteInfoCollapseIcon,
-                pluginPanelsContainer);
-        uiInitialization.wireCollapsibleSection(backlinksHeader, backlinksContent, backlinksCollapseIcon,
-                expand -> {
-                    if (expand) {
-                        refreshBacklinks(getCurrentNote());
-                    }
-                });
-    }
-
-    /**
-     * Switches the right panel's baseline section for whichever center view is
-     * active: note-info/backlinks for the editor, a stats summary for the graph.
-     * Kanban has no baseline section — the panel stays reachable but empty.
-     * Called after every graph/Kanban show or hide ({@link OverlaySupport}'s
-     * {@code onVisibilityChanged} callback) so the panel never shows stale content
-     * for an overlay it can no longer reach.
-     */
-    private void updateRightPanelContext() {
-        boolean graph = tabsSupport.isGraphVisible();
-        boolean editorContext = !graph;
-        UiNodes.show(noteInfoSection, editorContext);
-        UiNodes.show(backlinksSection, editorContext);
-        UiNodes.show(graphInfoSection, graph);
-    }
-
-
-    /** Refreshes the graph baseline section's node/edge counts (graph rebuild callback). */
-    private void updateGraphInfoSection(GraphData data) {
-        if (graphNodeCountLabel != null) {
-            graphNodeCountLabel.setText(MessageFormat.format(
-                    getString("info.graph_nodes"), data != null ? data.nodes().size() : 0));
-        }
-        if (graphEdgeCountLabel != null) {
-            graphEdgeCountLabel.setText(MessageFormat.format(
-                    getString("info.graph_edges"), data != null ? data.edges().size() : 0));
-        }
-    }
-
-    private void initializeRightPanelVisibility() {
-        uiLayout.collapseRightPanel();
-        updateRightPanelContext();
+        uiLayout.toggleRightPanel(getCurrentNote(), () -> refreshBacklinks(getCurrentNote()));
     }
 
     /**
@@ -1979,14 +1897,9 @@ public class MainController {
     }
 
     private void updateNoteMetadata(Note note) {
-        if (editorController == null) {
-            return;
+        if (editorController != null) {
+            editorController.updateNoteMetadata(note);
         }
-        editorController.updateNoteMetadata(
-                note,
-                editorController.getModifiedDateLabel(),
-                infoCreatedLabel,
-                infoModifiedLabel);
     }
 
     /** Recomputes (off the FX thread) and renders the backlinks for {@code note}. */

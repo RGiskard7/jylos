@@ -21,9 +21,9 @@ import javafx.concurrent.Task;
 import javafx.scene.layout.VBox;
 
 /**
- * Feeds the right-panel links section ({@link LinksPanel}) for the open note: the notes that
- * link to it, the notes that mention it without linking (searched only when that section is
- * opened) and the notes it links to. Everything is computed off the JavaFX thread by
+ * Feeds the right panel's two links views ({@link LinksPanel}) for the open note: the backlinks
+ * (the notes that link to it, and the notes that mention it without linking, searched only
+ * when that section is opened) and the outgoing links (the notes it links to). Everything is computed off the JavaFX thread by
  * {@link BacklinkService}; a result that arrives after a newer request is discarded. Clicking
  * an entry opens that note, a missing destination is created, and "Link" rewrites the
  * mention in its note.
@@ -33,7 +33,6 @@ import javafx.scene.layout.VBox;
  */
 final class BacklinksSupport {
 
-    private VBox backlinksContent;
     private LinksPanel panel;
     private BacklinkService backlinkService;
     private NoteService noteService;
@@ -50,42 +49,52 @@ final class BacklinksSupport {
     private final AtomicLong outgoingGeneration = new AtomicLong();
     private final AtomicLong unlinkedGeneration = new AtomicLong();
 
-    void wire(VBox backlinksContent, BacklinkService backlinkService, NoteService noteService,
+    /**
+     * @param backlinksVisible whether either view is in sight; while neither is, nothing is
+     *                         computed (a view brought into sight asks for a {@link #refresh})
+     */
+    void wire(BacklinkService backlinkService, NoteService noteService,
             Function<String, String> i18n, Consumer<Note> openNote, Supplier<Boolean> backlinksVisible) {
-        this.backlinksContent = backlinksContent;
         this.backlinkService = backlinkService;
         this.noteService = noteService;
         this.i18n = i18n;
         this.openNote = openNote;
         this.backlinksVisible = backlinksVisible != null ? backlinksVisible : () -> true;
-        if (backlinksContent != null) {
-            panel = new LinksPanel(this::getString, new LinksPanel.Actions() {
-                @Override
-                public void openNote(Note note) {
-                    open(note);
-                }
+        panel = new LinksPanel(this::getString, new LinksPanel.Actions() {
+            @Override
+            public void openNote(Note note) {
+                open(note);
+            }
 
-                @Override
-                public void openOutgoing(OutgoingLink link) {
-                    if (link.note() != null) {
-                        open(link.note());
-                    } else {
-                        createNote.accept(link.name());
-                    }
+            @Override
+            public void openOutgoing(OutgoingLink link) {
+                if (link.note() != null) {
+                    open(link.note());
+                } else {
+                    createNote.accept(link.name());
                 }
+            }
 
-                @Override
-                public void linkMention(Note source, Occurrence mention) {
-                    BacklinksSupport.this.linkMention(source, mention);
-                }
+            @Override
+            public void linkMention(Note source, Occurrence mention) {
+                BacklinksSupport.this.linkMention(source, mention);
+            }
 
-                @Override
-                public void unlinkedRequested() {
-                    loadUnlinked();
-                }
-            });
-            backlinksContent.getChildren().setAll(panel);
-        }
+            @Override
+            public void unlinkedRequested() {
+                loadUnlinked();
+            }
+        });
+    }
+
+    /** The backlinks view (once wired). */
+    VBox backlinksView() {
+        return panel;
+    }
+
+    /** The outgoing links view (once wired). */
+    VBox outgoingView() {
+        return panel != null ? panel.outgoingView() : null;
     }
 
     /**

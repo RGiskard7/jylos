@@ -213,7 +213,7 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 
 ### Productivity
 
-- **Links panel** in the right info panel: linked mentions with the line of each link, unlinked mentions with a **Link** button, and outgoing links (a missing one creates the note)
+- **Right panel** as Obsidian's: a row of tabs, one per view — **backlinks** (linked mentions with the line of each link, unlinked mentions with a **Link** button), **outgoing links** (a missing one creates the note) and the plugins' views (outline, calendar…)
 - **Daily note** and **new note from template** — see [Templates & daily note](#templates--daily-note)
 - Per-note and **bulk vault export** to HTML/PDF
 - Import/export of individual notes

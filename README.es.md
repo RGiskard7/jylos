@@ -213,7 +213,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 ### Productividad
 
-- **Panel de enlaces** en el panel derecho: menciones con enlace y la línea de cada una, menciones sin enlace con un botón **Enlazar**, y enlaces salientes (uno que no existe crea la nota)
+- **Panel derecho** como el de Obsidian: una fila de pestañas, una por vista — **enlaces entrantes** (menciones con enlace y la línea de cada una, menciones sin enlace con un botón **Enlazar**), **enlaces salientes** (uno que no existe crea la nota) y las vistas de los plugins (esquema, calendario…)
 - **Nota diaria** y **nueva nota desde plantilla** — ver [Plantillas y nota diaria](#plantillas-y-nota-diaria)
 - Exportación por nota y **exportación masiva** de la bóveda a HTML/PDF
 - Importar/exportar notas individuales

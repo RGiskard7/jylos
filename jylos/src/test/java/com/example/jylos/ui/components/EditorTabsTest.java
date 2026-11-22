@@ -15,16 +15,19 @@ import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
 
 import javafx.event.Event;
 import javafx.scene.Node;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
+import javafx.stage.WindowEvent;
 
 /** The rendered tab strip follows the tab rules and closes a tab on middle click. */
 class EditorTabsTest {
@@ -61,6 +64,42 @@ class EditorTabsTest {
                 "*Alpha, Xenon 2",
                 "Xenon 2 visible=true",
                 " visible=false"), seen);
+    }
+
+    /**
+     * A tab's tooltip says what the app tells about its note when it shows (its path and dates,
+     * say), so it is never stale, and follows the tab when its note moves; without anything to
+     * tell, the title.
+     */
+    @Test
+    void aTabsTooltipDescribesItsNoteWhenItShows() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            HBox bar = new HBox();
+            EditorTabs tabs = new EditorTabs(bar, bar, null, key -> key);
+            tabs.open("a.md", "Alpha", OpenTarget.CURRENT_TAB);
+            List<String> out = new ArrayList<>();
+            out.add(tooltipOf(bar, 0));
+            List<String> told = new ArrayList<>(List.of("first"));
+            tabs.setDescriber(id -> id + " (" + told.get(0) + ")");
+            out.add(tooltipOf(bar, 0));
+            told.set(0, "later");
+            tabs.rebindId("a.md", "Docs/a.md", "Alpha");
+            out.add(tooltipOf(bar, 0));
+            tabs.setDescriber(id -> null);
+            out.add(tooltipOf(bar, 0));
+            return out;
+        });
+
+        assertEquals(List.of("Alpha", "a.md (first)", "Docs/a.md (later)", "Alpha"), seen);
+    }
+
+    /** The text the tooltip of the {@code index}th tab has when it shows. */
+    private static String tooltipOf(HBox bar, int index) {
+        Tooltip tip = ((Label) ((Parent) bar.getChildren().get(index)).lookup(".editor-tab-title")).getTooltip();
+        tip.getOnShowing().handle(new WindowEvent(tip, WindowEvent.WINDOW_SHOWING));
+        return tip.getText();
     }
 
     @Test
