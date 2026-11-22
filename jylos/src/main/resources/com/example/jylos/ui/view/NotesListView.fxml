@@ -2,7 +2,6 @@
 
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<?import javafx.geometry.Insets?>
 <?import org.kordamp.ikonli.javafx.FontIcon?>
 
 <VBox fx:id="notesPanel" styleClass="notes-panel" minWidth="180" prefWidth="260" maxWidth="Infinity" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.jylos.ui.controller.NotesListController">
@@ -16,9 +15,8 @@
    </HBox>
 
     <HBox alignment="CENTER_LEFT" spacing="6" styleClass="notes-header">
-        <padding>
-            <Insets top="12" right="12" bottom="12" left="12"/>
-        </padding>
+        <!-- The themes set its padding (.notes-header): as tall as the side panel's header
+             and the editor's. -->
         <Label fx:id="notesPanelTitleLabel" text="%panel.notes.title" styleClass="panel-title"/>
         <Region HBox.hgrow="ALWAYS"/>
         <ComboBox fx:id="sortComboBox" prefWidth="120" styleClass="sort-combo"/>

@@ -29,24 +29,32 @@ import javafx.scene.layout.Priority;
 
 /**
  * The editor's bars line up with the rest of the window: its header is as tall as the side
- * panel's header next to it, and the format bar rests on the bottom edge with no gap below.
+ * panel's header and the notes list's header next to it, all three compact (little margin
+ * above and below their buttons, as Obsidian's, and so is the side panel's filter row under its
+ * header), and the format bar rests on the bottom edge
+ * with no gap below.
  */
 class EditorChromeAlignmentTest {
 
     @Test
-    void theEditorHeaderIsAsTallAsTheSidePanelHeaderAndTheFormatBarReachesTheBottom() throws Exception {
+    void theHeadersAreCompactAndEquallyTallAndTheFormatBarReachesTheBottom() throws Exception {
         Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
         for (String theme : new String[] {"modern-theme.css", "dark-theme.css"}) {
             List<Double> m = measure(theme);
             double editorHeader = m.get(0), sideHeader = m.get(1), formatBottom = m.get(2), editorBottom = m.get(3);
+            double notesHeader = m.get(4);
             assertTrue(sideHeader > 30, theme + ": side panel header not laid out: " + sideHeader);
+            assertTrue(sideHeader <= 38, theme + ": side panel header too tall: " + sideHeader);
             assertEquals(sideHeader, editorHeader, theme + ": editor header vs side panel header");
+            assertEquals(sideHeader, notesHeader, theme + ": notes list header vs side panel header");
+            double filterRow = m.get(5);
+            assertTrue(filterRow > 30 && filterRow <= 38, theme + ": side panel filter row not compact: " + filterRow);
             assertTrue(formatBottom > editorBottom - 100, theme + ": format bar not at the bottom: " + formatBottom);
             assertEquals(editorBottom, formatBottom, theme + ": gap under the format bar");
         }
     }
 
-    /** [editor header height, side panel header height, format bar bottom, editor bottom]. */
+    /** [editor header height, side panel header height, format bar bottom, editor bottom, notes list header height, side panel filter row height]. */
     private static List<Double> measure(String theme) throws Exception {
         AtomicReference<List<Double>> result = new AtomicReference<>();
         AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -62,7 +70,10 @@ class EditorChromeAlignmentTest {
                 Parent sidebar = new FXMLLoader(
                         EditorChromeAlignmentTest.class.getResource("/com/example/jylos/ui/view/SidebarView.fxml"), bundle)
                         .load();
-                HBox window = new HBox(sidebar, editor);
+                Parent notes = new FXMLLoader(
+                        EditorChromeAlignmentTest.class.getResource("/com/example/jylos/ui/view/NotesListView.fxml"), bundle)
+                        .load();
+                HBox window = new HBox(sidebar, notes, editor);
                 HBox.setHgrow(editor, Priority.ALWAYS);
                 Scene scene = new Scene(window, 1400, 900);
                 scene.getStylesheets().add(EditorChromeAlignmentTest.class
@@ -75,6 +86,8 @@ class EditorChromeAlignmentTest {
                 Node format = editor.lookup(".format-toolbar-container");
                 out.add(sceneBounds(format).getMaxY());
                 out.add(sceneBounds(editor).getMaxY());
+                out.add(notes.lookup(".notes-header").getLayoutBounds().getHeight());
+                out.add(sidebar.lookup(".sidebar-toolbar").getLayoutBounds().getHeight());
                 result.set(out);
             } catch (Throwable t) {
                 failure.set(t);

@@ -831,6 +831,8 @@
 }
 
 .notes-header {
+    /* As tall as the side panel's header and the editor's (their FXML padding). */
+    -fx-padding: 4 10;
     -fx-background-color: -fx-sidebar-bg;
     background-color: -fx-sidebar-bg;
     -fx-border-color: transparent transparent -fx-fn-border-color transparent;
@@ -2398,7 +2400,8 @@
     -fx-background-color: -fx-sidebar-bg;
     -fx-border-color: transparent transparent -fx-fn-border-color transparent;
     -fx-border-width: 0 0 1 0;
-    -fx-padding: 4px;
+    /* The filter row under the side panel's header: as compact as that header. */
+    -fx-padding: 4 10;
 }
 
 .small-search {
@@ -2411,8 +2414,6 @@
    UI POLISH OVERRIDES (COHERENCE + A11Y)
    ======================================== */
 
-.sidebar-toolbar,
-.notes-header,
 .panel-header,
 .status-bar {
     -fx-padding: 8 10;

@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- **Cabeceras más compactas:** la cabecera del editor (título, ruta y botones), la del panel lateral y la de la lista de notas tienen menos margen arriba y abajo, como en Obsidian, y siguen igual de altas para que sus líneas inferiores coincidan, en el diseño Explorador y en los clásicos. La fila del filtro bajo la cabecera del panel lateral también es más compacta.
 - **Imágenes como en Obsidian:**
   - `![[foto.png]]` encuentra la imagen por su nombre aunque esté en otra carpeta: primero la de la carpeta de la nota y, si no, la de ruta más corta de la bóveda. Vale en el editor, la vista de lectura, las miniaturas de Kanban y al exportar a HTML y a PDF, y nunca se lee una imagen de fuera de la bóveda;
   - la vista de lectura dibuja `![[foto.png]]` como imagen; antes lo mostraba como una nota incrustada que no existía;
