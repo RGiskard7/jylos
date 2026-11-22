@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.control.SplitPane;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
@@ -282,6 +284,7 @@ class SideDockTest {
         List<String> seen = onFx(() -> {
             SideDock dock = dockInWindow(300);
             dock.setCloseText("Close");
+            dock.setSplitText("Split down");
             dock.setClosed("plugin", true); // closed last time, before it comes
             add(dock, "a");
             add(dock, "b");
@@ -300,7 +303,7 @@ class SideDockTest {
         });
 
         assertEquals(List.of(
-                "[Close, -, [x] Title a, [x] Title b, [ ] Title plugin] [Title a, Title b] chosen=Title b showing=[content b]",
+                "[Close, Split down, -, [x] Title a, [x] Title b, [ ] Title plugin] [Title a, Title b] chosen=Title b showing=[content b]",
                 "[Title a] chosen=Title a showing=[content a] closed=true",
                 "[Title a, Title plugin] chosen=Title plugin showing=[content plugin] told [[b, plugin], [b]]"), seen);
     }
@@ -327,6 +330,228 @@ class SideDockTest {
         });
 
         assertEquals(List.of("in sight true, scrolls false", "in sight false"), seen);
+    }
+
+    // ── Groups: the panel split in rows of tabs, one over the other ──────────
+
+    /** What each group shows, top to bottom: its tabs, the one chosen and the view showing. */
+    private static List<String> groups(SideDock dock) {
+        dock.applyCss();
+        dock.layout();
+        List<String> out = new ArrayList<>();
+        for (Node group : dock.lookupAll(".side-dock-group")) {
+            if (!visibleInScene(group)) {
+                continue;
+            }
+            List<String> tabs = new ArrayList<>();
+            String chosen = null;
+            for (Node node : group.lookupAll(".side-dock-tab")) {
+                Button tab = (Button) node;
+                if (tab.isVisible()) {
+                    tabs.add(tab.getTooltip().getText());
+                    if (tab.getStyleClass().contains("sidebar-nav-btn-selected")) {
+                        chosen = tab.getTooltip().getText();
+                    }
+                }
+            }
+            List<String> showing = new ArrayList<>();
+            for (Node node : group.lookupAll(".label")) {
+                if (node instanceof Label label && label.getText().startsWith("content ") && visibleInScene(label)) {
+                    showing.add(label.getText());
+                }
+            }
+            out.add(tabs + " chosen=" + chosen + " showing=" + showing);
+        }
+        return out;
+    }
+
+    private static MenuItem splitItem(SideDock dock, String id) {
+        return dock.menuFor(id).getItems().stream().filter(i -> "Split down".equals(i.getText())).findFirst()
+                .orElseThrow();
+    }
+
+    /** "Split down" in a tab's menu puts its view in a group of its own under its group, as Obsidian's. */
+    @Test
+    void splittingAViewDownPutsItInAGroupOfItsOwnBelow() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<Object> seen = onFx(() -> {
+            SideDock dock = dockInWindow(300);
+            dock.setSplitText("Split down");
+            add(dock, "a");
+            add(dock, "b");
+            add(dock, "c");
+            List<Map<String, Integer>> told = new ArrayList<>();
+            dock.setOnGroupsChanged(told::add);
+            dock.select("b");
+            List<Object> out = new ArrayList<>();
+            splitItem(dock, "b").fire();
+            out.add(groups(dock));
+            out.add("shown " + dock.shown() + ", b alone can split: " + !splitItem(dock, "b").isDisable());
+            splitItem(dock, "c").fire(); // under its group, over b's
+            out.add(groups(dock));
+            out.add("told " + told);
+            return out;
+        });
+
+        assertEquals(List.of(
+                List.of("[Title a, Title c] chosen=Title a showing=[content a]",
+                        "[Title b] chosen=Title b showing=[content b]"),
+                "shown [a, b], b alone can split: false",
+                List.of("[Title a] chosen=Title a showing=[content a]", "[Title c] chosen=Title c showing=[content c]",
+                        "[Title b] chosen=Title b showing=[content b]"),
+                "told [{a=0, b=1, c=0}, {a=0, b=2, c=1}]"), seen);
+    }
+
+    /** A group whose views are all closed goes; a view opened again comes back to its group. */
+    @Test
+    void aGroupLeftWithoutViewsGoesAndAViewOpenedAgainReturnsToIt() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<Object> seen = onFx(() -> {
+            SideDock dock = dockInWindow(300);
+            add(dock, "a");
+            add(dock, "b");
+            dock.splitDown("b");
+            List<Object> out = new ArrayList<>();
+            dock.setClosed("b", true);
+            out.add(groups(dock));
+            dock.setClosed("b", false);
+            out.add(groups(dock));
+            return out;
+        });
+
+        assertEquals(List.of(List.of("[Title a] chosen=Title a showing=[content a]"),
+                List.of("[Title a] chosen=Title a showing=[content a]", "[Title b] chosen=Title b showing=[content b]")),
+                seen);
+    }
+
+    /**
+     * A tab's menu moves its view to the group above or below, at its end and chosen there,
+     * without dragging; each entry is there only when there is a group that way.
+     */
+    @Test
+    void aViewMovesToTheGroupAboveOrBelowFromItsTabsMenu() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<Object> seen = onFx(() -> {
+            SideDock dock = dockInWindow(300);
+            dock.setCloseText("Close");
+            dock.setSplitText("Split down");
+            dock.setMoveTexts("Move up", "Move down");
+            add(dock, "a");
+            add(dock, "b");
+            add(dock, "c");
+            List<Object> out = new ArrayList<>();
+            out.add("one group: " + menuTexts(dock.menuFor("a")));
+            dock.splitDown("c");
+            out.add("a: " + menuTexts(dock.menuFor("a")));
+            out.add("c: " + menuTexts(dock.menuFor("c")));
+            List<String> told = new ArrayList<>();
+            dock.setOnGroupsChanged(groups -> told.add("groups " + groups));
+            dock.setOnOrderChanged(order -> told.add("order " + order));
+            moveItem(dock, "c", "Move up").fire(); // its group goes
+            out.add(groups(dock));
+            dock.splitDown("a");
+            moveItem(dock, "b", "Move down").fire();
+            out.add(groups(dock));
+            out.add(told);
+            return out;
+        });
+
+        assertEquals(List.of(
+                "one group: [Close, Split down, -, [x] Title a, [x] Title b, [x] Title c]",
+                "a: [Close, Split down, Move down, -, [x] Title a, [x] Title b, [x] Title c]",
+                "c: [Close, Split down, Move up, -, [x] Title a, [x] Title b, [x] Title c]",
+                List.of("[Title a, Title b, Title c] chosen=Title c showing=[content c]"),
+                List.of("[Title c] chosen=Title c showing=[content c]",
+                        "[Title a, Title b] chosen=Title b showing=[content b]"),
+                List.of("order [a, b, c]", "groups {a=0, b=0, c=0}", "groups {a=1, b=0, c=0}", "order [a, b, c]",
+                        "groups {a=1, b=1, c=0}")),
+                seen);
+    }
+
+    private static MenuItem moveItem(SideDock dock, String id, String text) {
+        return dock.menuFor(id).getItems().stream().filter(i -> text.equals(i.getText())).findFirst().orElseThrow();
+    }
+
+    /** A tab dropped on another group's row goes to that group, before the tab it is dropped on. */
+    @Test
+    void draggingATabOntoAnotherGroupsRowMovesItThere() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<Object> seen = onFx(() -> {
+            SideDock dock = dockInWindow(300);
+            add(dock, "a");
+            add(dock, "b");
+            add(dock, "c");
+            dock.splitDown("c");
+            List<String> told = new ArrayList<>();
+            dock.setOnGroupsChanged(groups -> told.add("groups " + groups));
+            dock.setOnOrderChanged(order -> told.add("order " + order));
+            List<Object> out = new ArrayList<>();
+            dragOnto(dock, "a", "c");
+            out.add(groups(dock));
+            dragOnto(dock, "b", "a"); // the last of its group: the group goes
+            out.add(groups(dock));
+            out.add(told);
+            return out;
+        });
+
+        assertEquals(List.of(
+                List.of("[Title b] chosen=Title b showing=[content b]",
+                        "[Title a, Title c] chosen=Title a showing=[content a]"),
+                List.of("[Title b, Title a, Title c] chosen=Title b showing=[content b]"),
+                List.of("order [b, a, c]", "groups {a=1, b=0, c=1}", "order [b, a, c]", "groups {a=1, b=1, c=1}")),
+                seen);
+    }
+
+    /** The groups and how tall each is come from last time; a divider let go is told. */
+    @Test
+    void theGroupsAndTheirHeightsComeFromLastTime() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<Object> seen = onFx(() -> {
+            SideDock dock = new SideDock();
+            dock.setPreferredGroups(Map.of("b", 1));
+            dock.setPreferredDividers(List.of(0.3));
+            Stage stage = new Stage();
+            stage.setScene(new Scene(dock, 300, 400));
+            stage.show();
+            add(dock, "a");
+            add(dock, "b");
+            add(dock, "c");
+            dock.select("c");
+            List<Object> out = new ArrayList<>();
+            out.add(groups(dock));
+            out.add("shown " + dock.shown());
+            SplitPane split = (SplitPane) dock.lookup(".side-dock-split");
+            out.add(Math.round(split.getDividerPositions()[0] * 100) / 100.0);
+            List<List<Double>> told = new ArrayList<>();
+            dock.setOnDividersChanged(told::add);
+            split.setDividerPosition(0, 0.6);
+            mouse(split, MouseEvent.MOUSE_RELEASED, 10, 10);
+            out.add(told.stream().map(l -> l.stream().map(d -> Math.round(d * 100) / 100.0).toList()).toList());
+            return out;
+        });
+
+        assertEquals(List.of(
+                List.of("[Title a, Title c] chosen=Title c showing=[content c]",
+                        "[Title b] chosen=Title b showing=[content b]"),
+                "shown [c, b]", 0.3, List.of(List.of(0.6))), seen);
+    }
+
+    /** Presses on the tab of {@code from}, drags onto the tab of {@code to} (in any group) and lets go. */
+    private static void dragOnto(SideDock dock, String from, String to) {
+        dock.applyCss();
+        dock.layout();
+        Node source = tabOf(dock, from);
+        Bounds start = source.localToScene(source.getLayoutBounds());
+        Bounds end = tabOf(dock, to).localToScene(tabOf(dock, to).getLayoutBounds());
+        mouse(source, MouseEvent.MOUSE_PRESSED, start.getCenterX(), start.getCenterY());
+        mouse(source, MouseEvent.MOUSE_DRAGGED, end.getCenterX(), end.getCenterY());
+        mouse(source, MouseEvent.MOUSE_RELEASED, end.getCenterX(), end.getCenterY());
+        dock.layout();
     }
 
     private static String menuTexts(ContextMenu menu) {

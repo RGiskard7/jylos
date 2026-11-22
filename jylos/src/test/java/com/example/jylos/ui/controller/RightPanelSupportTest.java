@@ -27,6 +27,7 @@ import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
+import javafx.scene.control.SplitPane;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.stage.Stage;
@@ -178,6 +179,85 @@ class RightPanelSupportTest {
         });
 
         assertEquals(List.of("open true, outgoing-links, closed false", "open true, backlinks"), seen);
+        prefs.removeNode();
+    }
+
+    /**
+     * The groups the panel is split in, the view chosen in each and how tall they are, are kept
+     * for the next start; the links are in sight when one of their views shows in any group.
+     */
+    @Test
+    void theGroupsTheirViewsAndTheirHeightsAreKept() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        Preferences prefs = freshPrefs();
+
+        List<String> seen = onFx(() -> {
+            List<String> out = new ArrayList<>();
+            SideDock dock = new SideDock();
+            RightPanelSupport support = new RightPanelSupport();
+            support.wire(dock, prefs, key -> key, links(), () -> true, () -> {
+            }, () -> {
+            });
+            Stage stage = new Stage();
+            stage.setScene(new Scene(dock, 300, 400));
+            stage.show();
+            dock.addView("plugin:outline:panel", "Outline", new Label("o"), new Label("o"));
+            dock.splitDown(RightPanelSupport.OUTGOING);
+            dock.select("plugin:outline:panel");
+            out.add("shown " + dock.shown() + ", links in sight " + support.linksInSight());
+            dock.setClosed(RightPanelSupport.OUTGOING, true);
+            out.add("shown " + dock.shown() + ", links in sight " + support.linksInSight());
+            dock.setClosed(RightPanelSupport.OUTGOING, false);
+            SplitPane split = (SplitPane) dock.lookup(".side-dock-split");
+            split.setDividerPosition(0, 0.25);
+            mouse(split, MouseEvent.MOUSE_RELEASED, 10, 10);
+            out.add(prefs.get(RightPanelSupport.GROUPS_KEY, "").replace("\n", ",").replace("\t", ":") + " | "
+                    + prefs.get(RightPanelSupport.VIEW_KEY, "").replace("\n", ",") + " | "
+                    + prefs.get(RightPanelSupport.DIVIDERS_KEY, ""));
+            stage.close();
+
+            SideDock next = new SideDock();
+            new RightPanelSupport().wire(next, prefs, key -> key, links(), () -> true, () -> {
+            }, () -> {
+            });
+            Stage again = new Stage();
+            again.setScene(new Scene(next, 300, 400));
+            again.show();
+            next.addView("plugin:outline:panel", "Outline", new Label("o"), new Label("o"));
+            next.applyCss();
+            next.layout();
+            SplitPane nextSplit = (SplitPane) next.lookup(".side-dock-split");
+            out.add("next start: shown " + next.shown() + ", divider "
+                    + Math.round(nextSplit.getDividerPositions()[0] * 100) / 100.0);
+            again.close();
+            return out;
+        });
+
+        assertEquals(List.of("shown [plugin:outline:panel, outgoing-links], links in sight true",
+                "shown [plugin:outline:panel], links in sight false",
+                "outgoing-links:1 | plugin:outline:panel,outgoing-links | 0.25",
+                "next start: shown [plugin:outline:panel, outgoing-links], divider 0.25"), seen);
+        prefs.removeNode();
+    }
+
+    /** Each group shows again the view chosen in it last time, not its first one. */
+    @Test
+    void eachGroupShowsTheViewChosenInItLastTime() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        Preferences prefs = freshPrefs();
+        prefs.put(RightPanelSupport.GROUPS_KEY, "outgoing-links\t1\nplugin:calendar:panel\t1");
+        prefs.put(RightPanelSupport.VIEW_KEY, "backlinks\nplugin:calendar:panel");
+
+        List<String> seen = onFx(() -> {
+            SideDock dock = new SideDock();
+            new RightPanelSupport().wire(dock, prefs, key -> key, links(), () -> true, () -> {
+            }, () -> {
+            });
+            dock.addView("plugin:calendar:panel", "Calendar", new Label("c"), new Label("c"));
+            return List.of(dock.shown().toString());
+        });
+
+        assertEquals(List.of("[backlinks, plugin:calendar:panel]"), seen);
         prefs.removeNode();
     }
 

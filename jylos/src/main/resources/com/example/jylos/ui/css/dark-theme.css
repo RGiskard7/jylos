@@ -2128,6 +2128,20 @@
     -fx-padding: 20 16;
 }
 
+/* The groups the right panel is split in (SideDock), one over the other, with a thin line
+   between them that drags. */
+.side-dock-split {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.side-dock-split > .split-pane-divider {
+    -fx-background-color: -fx-fn-border-color;
+    -fx-padding: 1 0 0 0;
+}
+
+
 /* A view's own actions over its content (the links views': collapse, context, sort, filter). */
 .links-actions-bar {
     -fx-background-color: transparent;
