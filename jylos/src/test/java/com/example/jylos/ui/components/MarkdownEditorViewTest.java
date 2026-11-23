@@ -18,6 +18,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import com.example.jylos.tests.FxTestSupport;
+import com.example.jylos.ui.DeadKeyRepeats;
 
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
@@ -29,6 +30,9 @@ import javafx.scene.control.MenuItem;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.ContextMenuEvent;
+import javafx.scene.input.InputMethodEvent;
+import javafx.scene.input.InputMethodHighlight;
+import javafx.scene.input.InputMethodTextRun;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
@@ -407,6 +411,7 @@ class MarkdownEditorViewTest {
 
     private static MarkdownEditorView shownEditor(String text) throws Exception {
         MarkdownEditorView editor = FxTestSupport.onFx(() -> {
+            DeadKeyRepeats.installEverywhere(); // as the app does when it starts
             MarkdownEditorView view = new MarkdownEditorView();
             view.setEditable(true);
             Stage stage = new Stage();
@@ -542,5 +547,139 @@ class MarkdownEditorViewTest {
 
         assertTrue(fromTop >= 0 && fromTop <= 10, "the heading should be at the top of the editor, is at " + fromTop);
         assertEquals(heading, (int) FxTestSupport.onFx(editor::getCaretPosition));
+    }
+
+    /** An input method event as JavaFX gives it to the editor page: text being composed, text committed. */
+    private static InputMethodEvent im(String composed, String committed) {
+        List<InputMethodTextRun> runs = composed.isEmpty() ? List.of()
+                : List.of(new InputMethodTextRun(composed, InputMethodHighlight.UNSELECTED_RAW));
+        return new InputMethodEvent(InputMethodEvent.INPUT_METHOD_TEXT_CHANGED, runs, committed, composed.length());
+    }
+
+    /**
+     * A dead key pressed again and again (the grave accent, to open a code block on a Spanish
+     * keyboard) types one mark per press, as in any other app. On macOS, JavaFX gives the page
+     * every other press as a new composition without committing the one pending, recorded
+     * here as it came from a real keyboard: the page replaced the pending mark, and each such
+     * press was lost.
+     */
+    @Test
+    void aDeadKeyPressedAgainAndAgainTypesOneMarkPerPress() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+        MarkdownEditorView editor = shownEditor("");
+        FxTestSupport.onFx(() -> {
+            editor.requestFocus();
+            return null;
+        });
+        Thread.sleep(300);
+        List<InputMethodEvent> presses = List.of(
+                im("`", ""),                  // 1st press: pending
+                im("", "`"), im("`", ""),     // 2nd: the 1st committed, the 2nd pending
+                im("`", ""),                  // 3rd: pending again, the 2nd never committed
+                im("", "`"), im("`", ""),     // 4th
+                im("`", ""),                  // 5th
+                im("", "`"), im("", "\r"));  // Enter commits what is pending, then the line break, as recorded
+        for (InputMethodEvent event : presses) {
+            FxTestSupport.onFx(() -> {
+                for (Node node : editor.lookupAll("*")) {
+                    if (node instanceof WebView web) {
+                        Event.fireEvent(web, event);
+                    }
+                }
+                return null;
+            });
+            Thread.sleep(60);
+        }
+        Thread.sleep(300);
+
+        String typed = FxTestSupport.onFx(editor::getText);
+        assertEquals("`````\n", typed, "typed: " + typed.replace("\n", "\\n"));
+    }
+
+    /**
+     * Text an input method composes and recomposes (Japanese, say), the same text twice too (the
+     * caret moved in it), is not taken for repeated dead keys: nothing is committed before its time.
+     */
+    @Test
+    void aCompositionThatChangesIsStillOneComposition() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+        MarkdownEditorView editor = shownEditor("");
+        FxTestSupport.onFx(() -> {
+            editor.requestFocus();
+            return null;
+        });
+        Thread.sleep(300);
+        for (InputMethodEvent event : List.of(im("k", ""), im("か", ""), im("かn", ""), im("かん", ""),
+                im("かん", ""), im("", "缶"))) {
+            FxTestSupport.onFx(() -> {
+                for (Node node : editor.lookupAll("*")) {
+                    if (node instanceof WebView web) {
+                        Event.fireEvent(web, event);
+                    }
+                }
+                return null;
+            });
+            Thread.sleep(60);
+        }
+        Thread.sleep(300);
+
+        assertEquals("缶", FxTestSupport.onFx(editor::getText));
+    }
+
+    /** The circumflex macOS composes (a spacing modifier letter, not a symbol) repeats like the grave accent. */
+    @Test
+    void theCircumflexDeadKeyRepeatsToo() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+        MarkdownEditorView editor = shownEditor("");
+        FxTestSupport.onFx(() -> {
+            editor.requestFocus();
+            return null;
+        });
+        Thread.sleep(300);
+        for (InputMethodEvent event : List.of(im("ˆ", ""), im("", "ˆ"), im("ˆ", ""), im("ˆ", ""), im("", "ˆ"))) {
+            FxTestSupport.onFx(() -> {
+                for (Node node : editor.lookupAll("*")) {
+                    if (node instanceof WebView web) {
+                        Event.fireEvent(web, event);
+                    }
+                }
+                return null;
+            });
+            Thread.sleep(60);
+        }
+        Thread.sleep(300);
+
+        assertEquals("ˆˆˆ", FxTestSupport.onFx(editor::getText));
+    }
+
+    /**
+     * On layouts such as U.S. International the apostrophe and the double quote are dead keys
+     * too: pressed again and again they type one mark per press, like the accents.
+     */
+    @Test
+    void theApostropheAndQuoteDeadKeysRepeatToo() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+        MarkdownEditorView editor = shownEditor("");
+        FxTestSupport.onFx(() -> {
+            editor.requestFocus();
+            return null;
+        });
+        Thread.sleep(300);
+        for (InputMethodEvent event : List.of(
+                im("'", ""), im("", "'"), im("'", ""), im("'", ""), im("", "'"),
+                im("\"", ""), im("", "\""), im("\"", ""), im("\"", ""), im("", "\""))) {
+            FxTestSupport.onFx(() -> {
+                for (Node node : editor.lookupAll("*")) {
+                    if (node instanceof WebView web) {
+                        Event.fireEvent(web, event);
+                    }
+                }
+                return null;
+            });
+            Thread.sleep(60);
+        }
+        Thread.sleep(300);
+
+        assertEquals("\'\'\'\"\"\"", FxTestSupport.onFx(editor::getText));
     }
 }

@@ -28,6 +28,7 @@ import com.example.jylos.plugin.PluginManager;
 import com.example.jylos.plugin.PluginStates;
 import com.example.jylos.service.DatabaseBackupService;
 import com.example.jylos.ui.AppIconLoader;
+import com.example.jylos.ui.DeadKeyRepeats;
 import com.example.jylos.ui.StartupSplash;
 import com.example.jylos.ui.controller.MainController;
 import com.example.jylos.ui.preferences.UiPreferencesStore;
@@ -66,6 +67,9 @@ public class Main extends Application {
     @Override
     public void start(Stage primaryStage) {
         ensureDirectoriesExist();
+        // A dead key pressed again and again types one mark per press in every window (a JavaFX
+        // bug on macOS, see DeadKeyRepeats).
+        DeadKeyRepeats.installEverywhere();
 
         Preferences prefs = Preferences.userNodeForPackage(MainController.class);
         // Before anything else writes preferences: an empty node means a new install.
