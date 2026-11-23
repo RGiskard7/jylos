@@ -25,6 +25,9 @@ import java.util.Objects;
  *       goes among them; closing "the others" leaves them.</li>
  * </ul>
  * Back and forward go through what the active tab showed, up to {@value #MAX_HISTORY} steps.
+ * Each step keeps where its note was left ({@link NotePosition}), so going back or forward, or
+ * bringing a tab to the front, shows the note there again; a note opened in a tab starts at
+ * the top. Two visits to the same note are two steps, each with its own position.
  *
  * @since 2.6.0
  * @author Edu Díaz (RGiskard7)
@@ -39,12 +42,17 @@ public final class EditorTabsModel {
 
     private static final int MAX_HISTORY = 20;
 
-    /** A tab: what it shows, and what it showed before and after it. */
+    /** A step of a tab's history: what it showed, and where its note was left. */
+    private record Entry(String id, NotePosition position) {
+    }
+
+    /** A tab: what it shows and where, and what it showed before and after it. */
     private static final class Tab {
         String id;
+        NotePosition position;
         boolean pinned;
-        final Deque<String> back = new ArrayDeque<>();
-        final Deque<String> forward = new ArrayDeque<>();
+        final Deque<Entry> back = new ArrayDeque<>();
+        final Deque<Entry> forward = new ArrayDeque<>();
 
         Tab(String id) {
             this.id = id;
@@ -97,24 +105,27 @@ public final class EditorTabsModel {
         if (active == null) {
             return null;
         }
-        Deque<String> from = back ? active.back : active.forward;
-        Deque<String> to = back ? active.forward : active.back;
+        Deque<Entry> from = back ? active.back : active.forward;
+        Deque<Entry> to = back ? active.forward : active.back;
         if (from.isEmpty()) {
             return null;
         }
-        String target = from.peekLast();
-        Tab other = find(target);
+        Entry target = from.peekLast();
+        Tab other = find(target.id());
         if (other != null && other.pinned) {
             active = other; // a pinned tab keeps what it shows: it comes forward instead
-            return target;
+            return target.id();
         }
         from.pollLast();
-        push(to, active.id);
+        push(to, new Entry(active.id, active.position));
+        NotePosition position = target.position();
         if (other != null) {
-            tabs.remove(other); // an id is in one tab only
+            tabs.remove(other); // an id is in one tab only, and it was left there last
+            position = other.position;
         }
-        active.id = target;
-        return target;
+        active.id = target.id();
+        active.position = position;
+        return target.id();
     }
 
     public boolean canGoBack() {
@@ -189,14 +200,15 @@ public final class EditorTabsModel {
     /** A note that no longer exists leaves every tab's history. */
     public void forget(String id) {
         for (Tab tab : tabs) {
-            tab.back.removeIf(entry -> entry.equals(id));
-            tab.forward.removeIf(entry -> entry.equals(id));
+            tab.back.removeIf(entry -> entry.id().equals(id));
+            tab.forward.removeIf(entry -> entry.id().equals(id));
         }
     }
 
     /**
      * Gives {@code oldId} the id {@code newId} in its tab and in every history (a renamed
-     * file-backed note). If {@code newId} already has a tab, {@code oldId}'s tab is dropped.
+     * file-backed note), where it keeps its positions. If {@code newId} already has a tab,
+     * {@code oldId}'s tab is dropped.
      */
     public void rebind(String oldId, String newId) {
         if (oldId == null || newId == null || oldId.equals(newId)) {
@@ -217,6 +229,9 @@ public final class EditorTabsModel {
             }
         } else {
             tab.id = newId;
+            if (tab.position != null) {
+                tab.position = renamed(tab.position, newId);
+            }
         }
     }
 
@@ -257,18 +272,19 @@ public final class EditorTabsModel {
     /** What back goes through in {@code id}'s tab, the last one first reached; empty when it is not open. */
     public List<String> backOf(String id) {
         Tab tab = find(id);
-        return tab != null ? List.copyOf(tab.back) : List.of();
+        return tab != null ? ids(tab.back) : List.of();
     }
 
     /** What forward goes through in {@code id}'s tab, the last one first reached. */
     public List<String> forwardOf(String id) {
         Tab tab = find(id);
-        return tab != null ? List.copyOf(tab.forward) : List.of();
+        return tab != null ? ids(tab.forward) : List.of();
     }
 
     /**
      * Gives {@code id}'s tab this back and forward (a workspace or the last session reopening
-     * them), keeping the last {@value #MAX_HISTORY} of each. Nothing happens when it is not open.
+     * them), keeping the last {@value #MAX_HISTORY} of each; their notes start at the top.
+     * Nothing happens when it is not open.
      */
     public void setHistory(String id, List<String> back, List<String> forward) {
         Tab tab = find(id);
@@ -277,8 +293,28 @@ public final class EditorTabsModel {
         }
         tab.back.clear();
         tab.forward.clear();
-        back.forEach(entry -> push(tab.back, entry));
-        forward.forEach(entry -> push(tab.forward, entry));
+        back.forEach(entry -> push(tab.back, new Entry(entry, null)));
+        forward.forEach(entry -> push(tab.forward, new Entry(entry, null)));
+    }
+
+    /**
+     * Keeps where the note in {@code position} was left, in the tab that shows it. Nothing
+     * happens when no tab shows it (it was already left, or nothing was in sight).
+     */
+    public void remember(NotePosition position) {
+        Tab tab = position != null ? find(position.noteId()) : null;
+        if (tab != null) {
+            tab.position = position;
+        }
+    }
+
+    /**
+     * Where the note {@code id}'s tab shows was left, or {@code null} when it has to start at
+     * the top (it was just opened) or no tab shows it.
+     */
+    public NotePosition positionOf(String id) {
+        Tab tab = id != null ? find(id) : null;
+        return tab != null ? tab.position : null;
     }
 
     private Tab find(String id) {
@@ -292,21 +328,33 @@ public final class EditorTabsModel {
 
     /** The tab shows {@code id}; what it showed goes back, and what was forward is forgotten. */
     private static void show(Tab tab, String id) {
-        push(tab.back, tab.id);
+        push(tab.back, new Entry(tab.id, tab.position));
         tab.forward.clear();
         tab.id = id;
+        tab.position = null; // a note opened starts at the top
     }
 
-    private static void push(Deque<String> stack, String id) {
+    private static void push(Deque<Entry> stack, Entry entry) {
         if (stack.size() >= MAX_HISTORY) {
             stack.pollFirst();
         }
-        stack.addLast(id);
+        stack.addLast(entry);
     }
 
-    private static void replaceIn(Deque<String> stack, String oldId, String newId) {
-        List<String> entries = new ArrayList<>(stack);
+    private static List<String> ids(Deque<Entry> stack) {
+        return stack.stream().map(Entry::id).toList();
+    }
+
+    private static void replaceIn(Deque<Entry> stack, String oldId, String newId) {
+        List<Entry> entries = new ArrayList<>(stack);
         stack.clear();
-        entries.forEach(entry -> stack.addLast(entry.equals(oldId) ? newId : entry));
+        entries.forEach(entry -> stack.addLast(entry.id().equals(oldId)
+                ? new Entry(newId, entry.position() != null ? renamed(entry.position(), newId) : null)
+                : entry));
+    }
+
+    private static NotePosition renamed(NotePosition position, String newId) {
+        return new NotePosition(newId, position.editorTop(), position.editorOffset(), position.selectionAnchor(),
+                position.selectionHead(), position.readingY());
     }
 }

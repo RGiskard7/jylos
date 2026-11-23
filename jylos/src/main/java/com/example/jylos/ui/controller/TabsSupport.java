@@ -25,6 +25,7 @@ import com.example.jylos.ui.components.EditorTabs;
 import com.example.jylos.ui.components.EditorTabsModel;
 import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
 import com.example.jylos.ui.components.KanbanBoard;
+import com.example.jylos.ui.components.NotePosition;
 import com.example.jylos.ui.components.ViewTabs;
 import com.example.jylos.workspace.TabHistory;
 
@@ -58,10 +59,13 @@ final class TabsSupport {
      * @param tabsChanged         what is shown changed: the right panel, the status bar and the
      *                            back/forward buttons follow it
      * @param chooseBoard         asks which of these Kanban boards to open, or to make a new one
+     * @param notePosition        where the note in the editor is now, or {@code null} when there
+     *                            is none
+     * @param showNoteAt          shows the note in the editor there; {@code null} is its top
      */
     record Host(BooleanSupplier confirmLeaveCurrent, Consumer<String> showNote, Consumer<Note> openNoteInNewTab,
             Consumer<Note> openNote, Runnable showEmptyState, Runnable noNoteShown, Runnable tabsChanged,
-            Consumer<List<Note>> chooseBoard) {
+            Consumer<List<Note>> chooseBoard, Supplier<NotePosition> notePosition, Consumer<NotePosition> showNoteAt) {
     }
 
     private VBox graphView;
@@ -220,11 +224,17 @@ final class TabsSupport {
         noteService.getNoteById(noteId).ifPresent(newTab ? host.openNoteInNewTab() : host.openNote());
     }
 
-    /** A note's tab came to the front from anywhere (the sidebar, a link): the views hide. */
+    /**
+     * A note's tab came to the front from anywhere (the sidebar, a link): the views hide, and
+     * the note shows where its tab left it, or at its top when it was just opened there.
+     */
     void noteShown() {
         EditorTabs strip = tabs.get();
         if (strip != null && !strip.isOpen(ViewTabs.GRAPH)) {
             graphStarted = false; // its tab now shows something else
+        }
+        if (strip != null && host != null) {
+            host.showNoteAt().accept(strip.positionOf(strip.getActiveId()));
         }
         hideViews();
         tabsChanged();
@@ -455,7 +465,18 @@ final class TabsSupport {
         }
     }
 
-    private boolean leaveCurrent() {
+    /**
+     * Leaving what is in sight, before anything else is shown: its tab keeps where its note is,
+     * then its unsaved edits are asked about. Every way of showing something else goes through
+     * here first (the window's too, when it opens a note).
+     *
+     * @return {@code false} when the user cancels
+     */
+    boolean leaveCurrent() {
+        EditorTabs strip = tabs.get();
+        if (strip != null && host != null) {
+            strip.remember(host.notePosition().get());
+        }
         return host == null || host.confirmLeaveCurrent().getAsBoolean();
     }
 

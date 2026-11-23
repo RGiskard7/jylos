@@ -110,6 +110,9 @@ public final class EditorPreviewSupport {
     private boolean bridgeInstalled;
     private Double pendingScrollY;
     private String pendingNoteId;
+    /** Where the next page of {@link #requestedNoteId} has to show (see {@link #showAt}). */
+    private Double requestedScrollY;
+    private String requestedNoteId;
     private String renderedNoteId;
     /** A heading or block to scroll to once the page of {@link #pendingAnchorNoteId} loads. */
     private String pendingAnchor;
@@ -164,7 +167,14 @@ public final class EditorPreviewSupport {
         String content = host.liveContent();
         String noteId = note.getId();
         boolean preserveScroll = noteId != null && noteId.equals(renderedNoteId);
-        double scrollY = preserveScroll ? currentScrollY() : 0;
+        double scrollY;
+        if (noteId != null && noteId.equals(requestedNoteId)) {
+            scrollY = requestedScrollY;
+            requestedNoteId = null;
+            requestedScrollY = null;
+        } else {
+            scrollY = preserveScroll ? currentScrollY() : 0;
+        }
         // Captured on the FX thread so an enhancer post-processing this render always sees
         // the note this HTML came from, even if the user switches note mid-render.
         Collection<PreviewEnhancer> renderEnhancers = new ArrayList<>(enhancers.values());
@@ -232,6 +242,24 @@ public final class EditorPreviewSupport {
             }
         });
         grace.play();
+    }
+
+    /**
+     * The next page drawn for {@code noteId} shows at {@code scrollY} (where it was left, or 0:
+     * its top) instead of where the page on screen is. A jump to a heading still wins.
+     */
+    void showAt(String noteId, double scrollY) {
+        requestedNoteId = noteId;
+        requestedScrollY = Math.max(0, scrollY);
+    }
+
+    /** Where the reading view is scrolled while it shows {@code noteId}'s page; 0 otherwise. */
+    double scrollY(String noteId) {
+        HtmlView webView = host.previewWebView();
+        if (webView == null || noteId == null || !noteId.equals(renderedNoteId) || !host.previewShown()) {
+            return 0;
+        }
+        return currentScrollY();
     }
 
     private double currentScrollY() {

@@ -578,7 +578,7 @@ public class MainController {
                             refreshEditorIndicators();
                             updateNavigationButtons();
                         },
-                        kanbanPicker::show));
+                        kanbanPicker::show, () -> editorController.positions().where(), at -> editorController.positions().showAt(at)));
         if (graphViewController != null) {
             graphViewController.wire(eventBus, noteService, tagService, resources,
                     tabsSupport::openNoteFromGraph, tabsSupport::closeGraph,
@@ -1791,8 +1791,7 @@ public class MainController {
                 note = noteService.getNoteById(note.getId()).orElse(note);
             }
         }
-        Note leaving = getCurrentNote();
-        if (isModified() && leaving != null && !confirmLeaveCurrent()) {
+        if (!tabsSupport.leaveCurrent()) {
             return;
         }
 

@@ -142,6 +142,9 @@ public class EditorController implements PreviewEnhancerRegistry,
     private Consumer<String> tagLinkHandler;
     /** The reading view: renders, scroll, heading jumps, its page bridge and plugin enhancers. */
     private final EditorPreviewSupport preview = new EditorPreviewSupport(new PreviewHost());
+    /** Where the note in sight is in the editor and the reading view; see {@link NotePositionSupport}. */
+    private final NotePositionSupport positions = new NotePositionSupport(() -> currentNote, () -> this.viewingAttachment,
+            () -> this.noteContentArea, preview);
     /** Bold, headings, lists, and the link and image dialogs. */
     /** A board note shown as its board (Kanban), or as Markdown on request. */
     private final EditorKanbanSupport kanban = new EditorKanbanSupport(new EditorKanbanSupport.Host(
@@ -732,6 +735,11 @@ public class EditorController implements PreviewEnhancerRegistry,
 
 
     /** True while a non-editable attachment (PDF/image) is being shown. */
+    /** Where the note in the editor is, and showing it somewhere (the tabs keep it per note). */
+    NotePositionSupport positions() {
+        return positions;
+    }
+
     public boolean isViewingAttachment() {
         return viewingAttachment;
     }

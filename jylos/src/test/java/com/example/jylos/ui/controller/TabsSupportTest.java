@@ -34,6 +34,7 @@ import com.example.jylos.service.TagService;
 import com.example.jylos.tests.FxTestSupport;
 import com.example.jylos.ui.components.EditorTabs;
 import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
+import com.example.jylos.ui.components.NotePosition;
 import com.example.jylos.ui.components.ViewTabs;
 import com.example.jylos.workspace.TabHistory;
 import com.example.jylos.ui.graph.GraphCanvas;
@@ -493,12 +494,43 @@ class TabsSupportTest {
         assertEquals(123.0, (double) onFx(() -> f.canvasField("offsetX").get(f.canvas())), 1e-9);
     }
 
+    /**
+     * Leaving the note in sight keeps where it was in its tab; a note shown in a tab goes back
+     * there, and one just opened starts at the top (no position).
+     */
+    @Test
+    void theNoteLeftIsKeptWhereItWasAndANoteShownGoesBackThere() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            Fixture f = new Fixture();
+            f.tabs.open("A.md", "A", OpenTarget.CURRENT_TAB); // one tab
+            f.host.editor = new NotePosition("A.md", 30, 4, 31, 31, 300);
+            // B opened in the tab, as the window does it: leave A, show B
+            boolean left = f.views.leaveCurrent();
+            f.tabs.open("B.md", "B", OpenTarget.CURRENT_TAB);
+            f.views.noteShown();
+            f.host.editor = new NotePosition("B.md", 12, 0, 12, 15, 120);
+            f.views.back();
+            f.views.noteShown(); // what the window does once it shows the note back gives
+            f.host.editor = new NotePosition("A.md", 30, 4, 31, 31, 300);
+            f.views.forward();
+            f.views.noteShown();
+            return List.of(String.valueOf(left), String.valueOf(f.host.shownAt));
+        });
+
+        assertEquals(List.of("true", "[top, A.md@30, B.md@12]"), seen);
+    }
+
     /** What the window does for the tabs, written down, and done as the window does it. */
     private final class FakeHost {
         final List<String> calls = new ArrayList<>();
         final EditorTabs tabs;
         TabsSupport views;
         boolean leave = true;
+        /** Where the editor's note is now; {@code shownAt}: where it was asked to show each note. */
+        NotePosition editor;
+        final List<String> shownAt = new ArrayList<>();
 
         FakeHost(EditorTabs tabs) {
             this.tabs = tabs;
@@ -524,7 +556,9 @@ class TabsSupportTest {
                     () -> calls.add("empty"),
                     () -> calls.add("no note"),
                     () -> calls.add("changed"),
-                    boards -> calls.add("choose " + boards.stream().map(Note::getId).toList()));
+                    boards -> calls.add("choose " + boards.stream().map(Note::getId).toList()),
+                    () -> editor,
+                    at -> shownAt.add(at == null ? "top" : at.noteId() + "@" + at.editorTop()));
         }
     }
 

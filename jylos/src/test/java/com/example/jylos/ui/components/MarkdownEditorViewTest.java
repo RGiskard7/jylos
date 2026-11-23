@@ -2,6 +2,7 @@ package com.example.jylos.ui.components;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -10,6 +11,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
@@ -20,6 +22,7 @@ import com.example.jylos.tests.FxTestSupport;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.event.Event;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
@@ -32,6 +35,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.PickResult;
 import javafx.scene.layout.StackPane;
+import javafx.scene.web.WebView;
 import javafx.stage.PopupWindow;
 import javafx.stage.Stage;
 import javafx.stage.Window;
@@ -368,5 +372,175 @@ class MarkdownEditorViewTest {
         }
         stage.close();
         finished.countDown();
+    }
+
+    // ── Where a note is shown ────────────────────────────────────────────────
+
+    private static String lines(String name, int count) {
+        StringBuilder text = new StringBuilder();
+        for (int i = 1; i <= count; i++) {
+            text.append(name).append(" line ").append(i).append("\n\n");
+        }
+        return text.toString();
+    }
+
+    /** The editor page's own scroll, read from the page itself (not through the editor's API). */
+    private static double scrollTop(MarkdownEditorView editor) {
+        for (Node node : editor.lookupAll("*")) {
+            if (node instanceof WebView web) {
+                Object top = web.getEngine().executeScript("document.querySelector('.cm-scroller').scrollTop");
+                return ((Number) top).doubleValue();
+            }
+        }
+        throw new AssertionError("no editor page");
+    }
+
+    private static void waitFor(String what, BooleanSupplier condition) throws Exception {
+        for (int i = 0; i < 100; i++) {
+            if (FxTestSupport.onFx(condition::getAsBoolean)) {
+                return;
+            }
+            Thread.sleep(50);
+        }
+        throw new AssertionError("condition not reached in time: " + what);
+    }
+
+    private static MarkdownEditorView shownEditor(String text) throws Exception {
+        MarkdownEditorView editor = FxTestSupport.onFx(() -> {
+            MarkdownEditorView view = new MarkdownEditorView();
+            view.setEditable(true);
+            Stage stage = new Stage();
+            stage.setScene(new Scene(new StackPane(view), 800, 600));
+            stage.show();
+            view.setText(text);
+            return view;
+        });
+        CountDownLatch ready = new CountDownLatch(1);
+        FxTestSupport.onFx(() -> {
+            editor.whenReady(ready::countDown);
+            return null;
+        });
+        assertTrue(ready.await(EDITOR_LOAD_TIMEOUT_SECONDS, TimeUnit.SECONDS), "the editor page did not load");
+        return editor;
+    }
+
+    /** A note loaded in place of one scrolled down starts at its top, with the caret at its start. */
+    @Test
+    void aNoteShownWithNoPositionStartsAtItsTop() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+        String first = lines("first", 300);
+        MarkdownEditorView editor = shownEditor(first);
+        FxTestSupport.onFx(() -> {
+            editor.scrollToPosition(first.indexOf("first line 250"));
+            return null;
+        });
+        waitFor("scrolled down", () -> scrollTop(editor) > 2000);
+
+        FxTestSupport.onFx(() -> {
+            editor.setText(lines("second", 300));
+            editor.showViewPosition(null);
+            return null;
+        });
+        Thread.sleep(300); // a few frames: CodeMirror measures and scrolls on the next ones
+
+        assertEquals(List.of(0.0, 0), FxTestSupport.onFx(() -> List.of(scrollTop(editor), editor.getCaretPosition())));
+    }
+
+    /** Where a note was left (first line in sight, selection) is where it shows again after another note. */
+    @Test
+    void aNoteShownAtItsPositionShowsTheSameLineAndSelectionAgain() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+        String first = lines("first", 300);
+        MarkdownEditorView editor = shownEditor(first);
+        int caret = first.indexOf("first line 180");
+        FxTestSupport.onFx(() -> {
+            editor.scrollToPosition(caret);
+            return null;
+        });
+        waitFor("scrolled down", () -> scrollTop(editor) > 2000);
+        Thread.sleep(200);
+        double leftAt = FxTestSupport.onFx(() -> scrollTop(editor));
+        NotePosition left = FxTestSupport.onFx(() -> editor.viewPosition("first.md"));
+
+        FxTestSupport.onFx(() -> {
+            editor.setText(lines("second", 300));
+            editor.showViewPosition(null);
+            return null;
+        });
+        waitFor("the other note at its top", () -> scrollTop(editor) == 0);
+        FxTestSupport.onFx(() -> {
+            editor.setText(first);
+            editor.showViewPosition(left);
+            return null;
+        });
+        waitFor("back where it was", () -> Math.abs(scrollTop(editor) - leftAt) <= 2);
+        NotePosition back = FxTestSupport.onFx(() -> editor.viewPosition("first.md"));
+
+        assertNotNull(left);
+        assertTrue(left.editorTop() > 0 && left.editorTop() < caret, "the first line in sight, above the caret: " + left);
+        assertTrue(left.editorOffset() >= 0 && left.editorOffset() < 100, "less than a line past its top: " + left);
+        assertEquals(List.of(caret, caret), List.of(left.selectionAnchor(), left.selectionHead()));
+        assertEquals(List.of(left.editorTop(), caret, caret),
+                List.of(back.editorTop(), back.selectionAnchor(), back.selectionHead()));
+        assertEquals(left.editorOffset(), back.editorOffset(), 2.0);
+    }
+
+    /** A note left at its very top shows at its very top again, the space above its first line included. */
+    @Test
+    void aNoteLeftAtItsTopShowsAtItsTopAgain() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+        String first = lines("first", 300);
+        MarkdownEditorView editor = shownEditor(first);
+        Thread.sleep(200);
+        NotePosition left = FxTestSupport.onFx(() -> editor.viewPosition("first.md"));
+        FxTestSupport.onFx(() -> {
+            editor.setText(lines("second", 300));
+            editor.scrollToPosition(4000);
+            return null;
+        });
+        waitFor("the other note scrolled down", () -> scrollTop(editor) > 2000);
+
+        FxTestSupport.onFx(() -> {
+            editor.setText(first);
+            editor.showViewPosition(left);
+            return null;
+        });
+        Thread.sleep(300);
+
+        assertEquals(0.0, FxTestSupport.onFx(() -> scrollTop(editor)));
+    }
+
+    /**
+     * Going to a heading (a link to it, the outline) puts it at the top of the editor, as the
+     * reading view does, not just somewhere in sight (at the bottom, coming from above).
+     */
+    @Test
+    void goingToAHeadingPutsItAtTheTop() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+        String text = lines("before", 150) + "## Middle\n\n" + lines("after", 150);
+        MarkdownEditorView editor = shownEditor(text);
+        int heading = text.indexOf("## Middle");
+        FxTestSupport.onFx(() -> {
+            editor.scrollToPosition(heading);
+            return null;
+        });
+        waitFor("scrolled down", () -> scrollTop(editor) > 2000);
+        Thread.sleep(300);
+
+        double fromTop = FxTestSupport.onFx(() -> {
+            for (Node node : editor.lookupAll("*")) {
+                if (node instanceof WebView web) {
+                    return ((Number) web.getEngine().executeScript("(function(){"
+                            + "var top=document.querySelector('.cm-scroller').getBoundingClientRect().top;"
+                            + "var lines=document.querySelectorAll('.cm-line');"
+                            + "for(var i=0;i<lines.length;i++){if(lines[i].textContent.indexOf('Middle')>=0)"
+                            + "return lines[i].getBoundingClientRect().top-top;}return -1000;})()")).doubleValue();
+                }
+            }
+            throw new AssertionError("no editor page");
+        });
+
+        assertTrue(fromTop >= 0 && fromTop <= 10, "the heading should be at the top of the editor, is at " + fromTop);
+        assertEquals(heading, (int) FxTestSupport.onFx(editor::getCaretPosition));
     }
 }

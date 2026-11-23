@@ -414,6 +414,16 @@ public final class EditorTabs {
         render();
     }
 
+    /** Keeps where the note in {@code position} was left, in its tab (see {@link EditorTabsModel#remember}). */
+    public void remember(NotePosition position) {
+        model.remember(position);
+    }
+
+    /** Where {@code id}'s tab left its note, or {@code null}: its top (see {@link EditorTabsModel#positionOf}). */
+    public NotePosition positionOf(String id) {
+        return model.positionOf(id);
+    }
+
     /** Closes all tabs. */
     public void clear() {
         model.clear();
