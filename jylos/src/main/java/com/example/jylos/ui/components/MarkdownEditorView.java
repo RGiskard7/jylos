@@ -26,6 +26,7 @@ import com.example.jylos.util.WikiLinkResolver;
 import com.google.gson.Gson;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 import javafx.application.Platform;
 import javafx.scene.control.ContextMenu;
@@ -216,6 +217,31 @@ public final class MarkdownEditorView extends StackPane implements TextEditing {
         return intResult("window.JylosEditor.getSelectionTo()", getSelectionStart());
     }
 
+    /**
+     * Where the document is shown now, as the position of {@code noteId} (its reading scroll
+     * is not the editor's to know: 0); {@code null} before the editor page is ready.
+     */
+    public NotePosition viewPosition(String noteId) {
+        String json = stringResult("window.JylosEditor.getViewPosition()", null);
+        if (json == null) {
+            return null;
+        }
+        JsonObject at = JsonParser.parseString(json).getAsJsonObject();
+        return new NotePosition(noteId, at.get("top").getAsInt(), at.get("offset").getAsDouble(),
+                at.get("anchor").getAsInt(), at.get("head").getAsInt(), 0);
+    }
+
+    /**
+     * Shows the document where {@code position} says (its first line in sight and its
+     * selection), or at its top with the caret at its start for {@code null}.
+     */
+    public void showViewPosition(NotePosition position) {
+        String json = position == null ? "null" : GSON.toJson(Map.of("top", position.editorTop(),
+                "offset", position.editorOffset(), "anchor", position.selectionAnchor(),
+                "head", position.selectionHead()));
+        whenReady(() -> execute("window.JylosEditor.setViewPosition(" + json + ")"));
+    }
+
     public int getCaretPosition() {
         return intResult("window.JylosEditor.getCaretPosition()", 0);
     }
@@ -334,7 +360,10 @@ public final class MarkdownEditorView extends StackPane implements TextEditing {
         whenReady(() -> execute("window.JylosEditor.setFontSize(" + fontSize + ")"));
     }
 
-    /** Places the caret at the given character offset and scrolls it into view. */
+    /**
+     * Places the caret at the given character offset and scrolls its line to the top of the
+     * editor (going to a heading), or as near as the end of the document allows.
+     */
     public void scrollToPosition(int offset) {
         int safeOffset = Math.max(0, offset);
         whenReady(() -> execute("window.JylosEditor.scrollToOffset(" + safeOffset + ")"));

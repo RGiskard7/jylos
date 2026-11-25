@@ -142,6 +142,9 @@ public class EditorController implements PreviewEnhancerRegistry,
     private Consumer<String> tagLinkHandler;
     /** The reading view: renders, scroll, heading jumps, its page bridge and plugin enhancers. */
     private final EditorPreviewSupport preview = new EditorPreviewSupport(new PreviewHost());
+    /** Where the note in sight is in the editor and the reading view; see {@link NotePositionSupport}. */
+    private final NotePositionSupport positions = new NotePositionSupport(() -> currentNote, () -> this.viewingAttachment,
+            () -> this.noteContentArea, preview);
     /** Bold, headings, lists, and the link and image dialogs. */
     /** A board note shown as its board (Kanban), or as Markdown on request. */
     private final EditorKanbanSupport kanban = new EditorKanbanSupport(new EditorKanbanSupport.Host(
@@ -397,7 +400,6 @@ public class EditorController implements PreviewEnhancerRegistry,
             noteTitleField.selectAll();
         }
     }
-    public Label           getModifiedDateLabel()       { return modifiedDateLabel; }
     public HtmlView getPreviewWebView() { return previewWebView; }
 
     // ── FXML action handlers ─────────────────────────────────────────────────
@@ -557,7 +559,7 @@ public class EditorController implements PreviewEnhancerRegistry,
             }, SystemBrowser::open);
             noteContentArea.setImageSourceResolver(
                     source -> MarkdownPreview.resolveImageSource(source, preview.imageBaseDir(),
-                            preview.imageContainmentRoot()));
+                            preview.imageContainmentRoot(), preview.imageLocator()));
             noteContentArea.setTextChangeListener(content -> {
                 if (currentNote != null) {
                     reevaluateModifiedState();
@@ -733,6 +735,11 @@ public class EditorController implements PreviewEnhancerRegistry,
 
 
     /** True while a non-editable attachment (PDF/image) is being shown. */
+    /** Where the note in the editor is, and showing it somewhere (the tabs keep it per note). */
+    NotePositionSupport positions() {
+        return positions;
+    }
+
     public boolean isViewingAttachment() {
         return viewingAttachment;
     }
@@ -1288,14 +1295,10 @@ public class EditorController implements PreviewEnhancerRegistry,
         }
     }
 
-    public void updateNoteMetadata(Note note, Label modLabel, Label created, Label modified) {
-        if (note == null) {
-            setLabelSafe(modLabel, ""); setLabelSafe(created, "-"); setLabelSafe(modified, "-");
-            return;
-        }
-        setLabelSafe(modLabel, note.getModifiedDate() != null ? "Modified " + note.getModifiedDate() : "");
-        setLabelSafe(created,  orDash(note.getCreatedDate()));
-        setLabelSafe(modified, orDash(note.getModifiedDate()));
+    /** Shows when {@code note} was modified in the tags bar (nothing for no note). */
+    public void updateNoteMetadata(Note note) {
+        setLabelSafe(modifiedDateLabel,
+                note != null && note.getModifiedDate() != null ? "Modified " + note.getModifiedDate() : "");
     }
 
     // ── Preview, word count, editor chrome ───────────────────────────────────
@@ -1694,6 +1697,5 @@ public class EditorController implements PreviewEnhancerRegistry,
 
 
     private static String orEmpty(String s)  { return s != null ? s : ""; }
-    private static String orDash(String s)   { return (s != null && !s.isBlank()) ? s : "-"; }
     private static void setLabelSafe(Label l, String text) { if (l != null) l.setText(text); }
 }

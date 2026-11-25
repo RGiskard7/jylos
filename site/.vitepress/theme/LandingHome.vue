@@ -128,7 +128,7 @@ const en: Copy = {
   features: [
     { icon: "editor", title: "Markdown Editor", text: "WYSIWYG: type Markdown and it renders as you type — GFM tables, KaTeX math and emoji." },
     { icon: "wiki", title: "Wiki-links", text: "Wiki-link autocomplete, a links panel with linked and unlinked mentions, and click-to-open navigation." },
-    { icon: "graph", title: "Knowledge Graph", text: "Force-directed graph drawn as in Obsidian, with colour groups and local neighbourhood views." },
+    { icon: "graph", title: "Knowledge Graph", text: "Force-directed graph with colour groups and local neighbourhood views." },
     { icon: "board", title: "Canvas & Kanban", text: "Obsidian-compatible Canvas boards and Kanban workflows for projects and planning." },
     { icon: "git", title: "Git Sync", text: "Stage, commit, push and pull from a unified panel. Full Git integration in vault mode." },
     { icon: "lock", title: "AES-256 Encryption", text: "Encrypt note bodies with AES-256-GCM behind a master password, with delete protection." },
@@ -327,7 +327,7 @@ const es: Copy = {
   features: [
     { icon: "editor", title: "Editor Markdown", text: "WYSIWYG: escribe Markdown y se renderiza al instante — tablas GFM, fórmulas KaTeX y emoji." },
     { icon: "wiki", title: "Wiki-links", text: "Autocompletado de wiki-links, un panel de enlaces con menciones con y sin enlace, y navegación con un clic." },
-    { icon: "graph", title: "Grafo de conocimiento", text: "Grafo por fuerzas dibujado como en Obsidian, con grupos de color y vistas de vecindario local." },
+    { icon: "graph", title: "Grafo de conocimiento", text: "Grafo por fuerzas con grupos de color y vistas de vecindario local." },
     { icon: "board", title: "Canvas y Kanban", text: "Canvas compatible con Obsidian y flujos Kanban para proyectos y planificación." },
     { icon: "git", title: "Sincronización Git", text: "Prepara, confirma, haz push y pull desde un panel unificado. Integración Git completa en modo vault." },
     { icon: "lock", title: "Cifrado AES-256", text: "Cifra el contenido de las notas con AES-256-GCM tras una contraseña maestra, con protección de borrado." },

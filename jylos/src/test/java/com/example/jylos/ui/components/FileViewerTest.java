@@ -108,6 +108,41 @@ class FileViewerTest {
         });
     }
 
+    /**
+     * A PDF shown in the viewer can still be moved, renamed or deleted: the viewer reads it and
+     * lets go of the file. Windows refuses to move a file a program keeps open, so this only
+     * fails there when the viewer keeps it open (macOS and Linux allow it either way).
+     */
+    @Test
+    void aPdfShownCanStillBeMoved(@TempDir Path tempDir) throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+        Path pdf = tempDir.resolve("sample.pdf");
+        writePdf(pdf, 2);
+
+        Region viewer = onFx(() -> {
+            ResourceBundle bundle = ResourceBundle.getBundle("com.example.jylos.i18n.messages", Locale.ENGLISH);
+            Region region = FileViewer.forAttachment(pdf, AttachmentType.PDF, bundle);
+            Pane host = new Pane(region);
+            host.resize(900, 700);
+            new Scene(host, 900, 700);
+            host.applyCss();
+            host.layout();
+            return region;
+        });
+        assertTrue(awaitFx(() -> pageTotal(viewer) != null && "/ 2".equals(pageTotal(viewer).getText()), 5),
+                "the PDF was loaded");
+
+        Path moved = Files.move(pdf, tempDir.resolve("moved.pdf"));
+
+        assertTrue(Files.exists(moved) && Files.notExists(pdf), "the PDF moved while shown");
+        onFx(() -> {
+            if (viewer.getParent() instanceof Pane pane) {
+                pane.getChildren().remove(viewer);
+            }
+            return null;
+        });
+    }
+
     /** A WebP in the vault opens in the image viewer, though JavaFX's Image cannot decode WebP. */
     @Test
     void aWebpImageIsShown(@TempDir Path tempDir) throws Exception {

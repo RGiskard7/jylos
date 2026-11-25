@@ -1,15 +1,15 @@
 package com.example.jylos.data.dao.filesystem;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
+import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -21,13 +21,13 @@ import com.example.jylos.service.BacklinkService;
 import com.example.jylos.service.NoteService;
 
 /**
- * Notes longer than the 16 KB read for the list are indexed in full: a link past that point
- * counts as a backlink, the result is kept between sessions, and only files that changed are
- * read again.
+ * Notes longer than the start the list shows are read in full when the vault loads: a link
+ * past that point counts as a backlink, what was read is kept between sessions, and only files
+ * that changed are read again.
  */
 class LongNoteLinksTest {
 
-    private static final String FILLER = "palabra ".repeat(4000); // ~32 KB, past the 16 KB head
+    private static final String FILLER = "palabra ".repeat(4000); // ~32 KB, far past the preview
 
     @AfterEach
     void clearEventBus() {
@@ -35,58 +35,45 @@ class LongNoteLinksTest {
     }
 
     @Test
-    void aLinkPastTheHeadIsIndexedInTheBackground(@TempDir Path root) throws Exception {
+    void aLinkPastTheStartIsListed(@TempDir Path root) throws Exception {
         Path vault = vault(root, FILLER + "[[Tarde]]");
         NoteDAOFileSystem dao = new NoteDAOFileSystem(vault.toString(), false, root.resolve("cache/links.json"));
 
-        assertFalse(linksOf(dao, "Largo.md").contains("Tarde"), "the list only read the head");
-        assertEquals(1, dao.pendingLongNoteCount());
-
-        assertEquals(1, dao.indexLongNotes());
-
         assertTrue(linksOf(dao, "Largo.md").contains("Tarde"));
-        assertEquals(0, dao.pendingLongNoteCount());
-        assertEquals(0, dao.indexLongNotes(), "nothing left to read");
     }
 
     /**
      * The vault is opened on the JavaFX thread while the window is being built: the stored
-     * link cache (megabytes of JSON on a big vault) must be read by the background loader, not
+     * cache (megabytes of JSON on a big vault) must be read by the background loader, not
      * there, and still be read once and used.
      */
     @Test
-    void theLinkCacheIsReadByTheBackgroundLoaderNotWhereTheVaultIsOpened(@TempDir Path root) throws Exception {
+    void theCacheIsReadByTheBackgroundLoaderNotWhereTheVaultIsOpened(@TempDir Path root) throws Exception {
         Path vault = vault(root, FILLER + "[[Tarde]]");
         Path cacheFile = root.resolve("links.json");
         new NoteDAOFileSystem(vault.toString(), false, cacheFile);   // first start: reads in full, fills the cache
-        NoteDAOFileSystem first = new NoteDAOFileSystem(vault.toString(), false, cacheFile);
-        first.indexLongNotes();
+        sameSizeOtherBytes(vault.resolve("Largo.md"));
 
-        List<Thread> readers = new java.util.concurrent.CopyOnWriteArrayList<>();
+        List<Thread> readers = new CopyOnWriteArrayList<>();
         NoteDAOFileSystem dao = new NoteDAOFileSystem(vault.toString(), true, () -> {
             readers.add(Thread.currentThread());
-            return LinkCache.load(cacheFile);
+            return NoteMetadataCache.load(cacheFile);
         });
         assertTrue(dao.awaitContentLoaded(10_000));
 
         assertEquals(1, readers.size(), "the cache is read once");
         assertTrue(readers.get(0) != Thread.currentThread(), "not on the thread that opened the vault");
-        assertTrue(linksOf(dao, "Largo.md").contains("Tarde"), "the stored links are used");
-        assertEquals(0, dao.pendingLongNoteCount(), "nothing to read again");
+        assertTrue(linksOf(dao, "Largo.md").contains("Tarde"), "the stored links are used, not the file's bytes");
     }
 
     @Test
-    void theLinkPastTheHeadIsABacklink(@TempDir Path root) throws Exception {
+    void theLinkPastTheStartIsABacklink(@TempDir Path root) throws Exception {
         Path vault = vault(root, FILLER + "[[Tarde]]");
         NoteDAOFileSystem dao = new NoteDAOFileSystem(vault.toString(), false, root.resolve("links.json"));
         NoteService notes = new NoteService(dao, new FolderDAOFileSystem(vault.toString()));
         BacklinkService backlinks = new BacklinkService(notes, EventBus.getInstance());
         try {
             Note tarde = notes.getNoteById("Tarde.md").orElseThrow();
-            assertEquals(List.of(), backlinks.backlinksFor(tarde));
-
-            dao.indexLongNotes();
-            backlinks.invalidate();
 
             assertEquals(List.of("Largo"), backlinks.backlinksFor(tarde).stream().map(Note::getTitle).toList());
         } finally {
@@ -95,59 +82,34 @@ class LongNoteLinksTest {
     }
 
     @Test
-    void aSecondSessionStartsWithTheLinksAndReadsNothing(@TempDir Path root) throws Exception {
-        Path vault = vault(root, FILLER + "[[Tarde]]");
-        Path cache = root.resolve("cache/links.json");
-        new NoteDAOFileSystem(vault.toString(), false, cache).indexLongNotes();
-
-        NoteDAOFileSystem second = new NoteDAOFileSystem(vault.toString(), false, cache);
-
-        assertTrue(linksOf(second, "Largo.md").contains("Tarde"), "from the cache, with no indexing run");
-        assertEquals(0, second.pendingLongNoteCount());
-        assertEquals(0, second.indexLongNotes());
-    }
-
-    @Test
     void aFileChangedOutsideTheAppIsReadAgain(@TempDir Path root) throws Exception {
         Path vault = vault(root, FILLER + "[[Tarde]]");
         Path cache = root.resolve("links.json");
-        new NoteDAOFileSystem(vault.toString(), false, cache).indexLongNotes();
+        new NoteDAOFileSystem(vault.toString(), false, cache);
 
         Path largo = vault.resolve("Largo.md");
         Files.writeString(largo, FILLER + "[[Tarde]] y [[Otra]]", StandardCharsets.UTF_8);
         Files.setLastModifiedTime(largo, FileTime.fromMillis(System.currentTimeMillis() + 5000));
         NoteDAOFileSystem second = new NoteDAOFileSystem(vault.toString(), false, cache);
 
-        assertEquals(1, second.pendingLongNoteCount());
-        assertEquals(1, second.indexLongNotes());
-        assertTrue(linksOf(second, "Largo.md").containsAll(List.of("Tarde", "Otra")));
+        assertEquals(List.of("Tarde", "Otra"), linksOf(second, "Largo.md"));
     }
 
     @Test
-    void shortNotesAreNeverQueuedAndTheCallbackReportsTheIndexing(@TempDir Path root) throws Exception {
-        Path vault = vault(root, FILLER + "[[Tarde]]");
-        NoteDAOFileSystem dao = new NoteDAOFileSystem(vault.toString(), false, root.resolve("links.json"));
-        AtomicInteger fired = new AtomicInteger();
-        dao.setOnLinksIndexed(fired::incrementAndGet);
-
-        assertEquals(1, dao.pendingLongNoteCount(), "only Largo.md; Tarde.md is short");
-        dao.indexLongNotes();
-        dao.indexLongNotes();
-
-        assertEquals(1, fired.get(), "fired once, when something was indexed");
-    }
-
-    @Test
-    void deferredStartupIndexesLongNotesOnItsOwn(@TempDir Path root) throws Exception {
+    void deferredStartupListsTheLinksOfLongNotes(@TempDir Path root) throws Exception {
         Path vault = vault(root, FILLER + "[[Tarde]]");
         NoteDAOFileSystem dao = new NoteDAOFileSystem(vault.toString(), true, root.resolve("links.json"));
-        assertTrue(dao.awaitContentLoaded(10_000));
 
-        long deadline = System.currentTimeMillis() + 10_000;
-        while (!linksOf(dao, "Largo.md").contains("Tarde") && System.currentTimeMillis() < deadline) {
-            Thread.sleep(50);
-        }
+        assertTrue(dao.awaitContentLoaded(10_000));
         assertTrue(linksOf(dao, "Largo.md").contains("Tarde"));
+    }
+
+    private static void sameSizeOtherBytes(Path file) throws Exception {
+        FileTime modified = Files.getLastModifiedTime(file);
+        byte[] bytes = new byte[(int) Files.size(file)];
+        Arrays.fill(bytes, (byte) 'x');
+        Files.write(file, bytes);
+        Files.setLastModifiedTime(file, modified);
     }
 
     private static List<String> linksOf(NoteDAOFileSystem dao, String id) {

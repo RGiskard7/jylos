@@ -53,7 +53,7 @@ public final class GraphColorGroups {
         String label = node.label() == null ? "" : node.label().toLowerCase(Locale.ROOT);
         String path = node.id() == null ? "" : node.id().replace('\\', '/').toLowerCase(Locale.ROOT);
         if (q.startsWith("tag:")) {
-            String tag = q.substring(4).strip();
+            String tag = unquoted(q.substring(4));
             tag = tag.startsWith("#") ? tag.substring(1) : tag;
             if (tag.isEmpty()) {
                 return false;
@@ -73,13 +73,23 @@ public final class GraphColorGroups {
             return false;
         }
         if (q.startsWith("path:")) {
-            String text = q.substring(5).strip();
+            String text = unquoted(q.substring(5));
             return !text.isEmpty() && node.type() != GraphNode.Type.TAG && path.contains(text);
         }
         if (q.startsWith("file:")) {
-            String text = q.substring(5).strip();
+            String text = unquoted(q.substring(5));
             return !text.isEmpty() && node.type() != GraphNode.Type.TAG && label.contains(text);
         }
-        return !q.isEmpty() && (label.contains(q) || (node.type() != GraphNode.Type.TAG && path.contains(q)));
+        String text = unquoted(q);
+        return !text.isEmpty() && (label.contains(text) || (node.type() != GraphNode.Type.TAG && path.contains(text)));
+    }
+
+    /** The value as written, or what is between its quotes: Obsidian quotes one with spaces. */
+    private static String unquoted(String value) {
+        String text = value.strip();
+        if (text.length() >= 2 && text.startsWith("\"") && text.endsWith("\"")) {
+            return text.substring(1, text.length() - 1).strip();
+        }
+        return text;
     }
 }

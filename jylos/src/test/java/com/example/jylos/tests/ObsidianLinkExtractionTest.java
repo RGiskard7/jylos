@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.example.jylos.data.dao.filesystem.FrontmatterHandler;
-import com.example.jylos.data.dao.filesystem.LinkCache;
+import com.example.jylos.data.dao.filesystem.NoteMetadataCache;
 import com.example.jylos.service.LinkResolver;
 import com.example.jylos.util.WikiLinkResolver;
 
@@ -91,6 +91,6 @@ class ObsidianLinkExtractionTest {
         Files.writeString(cacheFile, "{\"Larga.md\":{\"modified\":10,\"size\":20,\"links\":[],\"format\":2}}",
                 StandardCharsets.UTF_8);
 
-        assertTrue(LinkCache.load(cacheFile).get("Larga.md", 10, 20).isEmpty());
+        assertTrue(NoteMetadataCache.load(cacheFile).get("Larga.md", 10, 20).isEmpty());
     }
 }

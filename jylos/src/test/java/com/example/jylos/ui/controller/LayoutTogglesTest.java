@@ -105,9 +105,10 @@ class LayoutTogglesTest {
             return out;
         });
 
-        // Opening refreshes the note's info only when a note is open.
-        assertEquals(List.of("right 300.0 button true info 1", "right 0.0 button false info 1",
-                "right 300.0 button true info 1"), seen);
+        // Opening tells what the panel shows to work itself out, with no note open too (a view
+        // pinned to a note does not depend on the open one).
+        assertEquals(List.of("right 300.0 button true info [Nota]", "right 0.0 button false info [Nota]",
+                "right 300.0 button true info [Nota, none]"), seen);
     }
 
     /** Picking a folder in the sidebar brings back a collapsed notes panel, which then lists it. */
@@ -142,7 +143,7 @@ class LayoutTogglesTest {
         final List<String> status = new ArrayList<>();
         final ToolbarController toolbar;
         final UiLayout layout = new UiLayout();
-        int infoRefreshes;
+        final List<String> infoRefreshes = new ArrayList<>();
 
         Panes() throws Exception {
             for (Region pane : List.of(sidebar, notes, nav)) {
@@ -171,7 +172,7 @@ class LayoutTogglesTest {
         }
 
         void toggleRightPanel(Note note) {
-            layout.toggleRightPanel(note, () -> infoRefreshes++);
+            layout.toggleRightPanel(note, shown -> infoRefreshes.add(shown != null ? shown.getTitle() : "none"));
         }
 
         private void useStacked(boolean stacked) {

@@ -187,6 +187,15 @@ public final class DataviewPluginTest {
         check("FLATTEN + filter on binding",
                 flattened.contains("classic") && !flattened.contains("scifi"), flattened);
 
+        // As in Dataview: LIST with a field shows each note's link and the value; WITHOUT ID,
+        // only the value.
+        String listField = run(source, "LIST author FROM #book WHERE file.name = \"Dune\"", dune);
+        check("LIST field: the note's link, then its value",
+                listField.matches("(?s).*<li><a class=\"wikilink\"[^>]*>Dune</a>: Frank Herbert</li>.*"), listField);
+        String listWithoutId = run(source, "LIST WITHOUT ID author FROM #book WHERE file.name = \"Dune\"", dune);
+        check("LIST WITHOUT ID field: only the value",
+                listWithoutId.contains("<li>Frank Herbert</li>"), listWithoutId);
+
         System.out.println("\n-- TASK --");
         String tasks = run(source, "TASK WHERE !completed", dune);
         check("task query filters incomplete", tasks.contains("Re-read part two")
@@ -307,6 +316,10 @@ public final class DataviewPluginTest {
 
         System.out.println("\n-- DataviewIndex resilience to unparseable notes --");
         checkIndexSkipsUnparseableNotesWithoutFailingTheWholeVault();
+        checkTagsFollowTheVaultsRule();
+        checkASummaryParsesLikeTheText();
+        checkTheIndexOfAnUnchangedVaultReadsNoNote();
+        checkAPageFromTheCacheIsThePageOfTheWholeNote();
 
         System.out.println("\n========================================");
         System.out.println("passed: " + passed + "   failed: " + failed);
@@ -370,6 +383,163 @@ public final class DataviewPluginTest {
         } catch (RuntimeException e) {
             check("build() does not throw when a note has unparseable frontmatter", false, e.toString());
         }
+    }
+
+    /** Everything a query can see of a page, inlinks aside (they come from the other pages). */
+    private static String describe(Page page) {
+        StringBuilder out = new StringBuilder(page.id()).append(" | ");
+        page.fileObject().forEach((key, value) -> {
+            if (!key.equals("tasks") && !key.equals("inlinks")) {
+                out.append(key).append('=').append(value).append("; ");
+            }
+        });
+        out.append("fields=").append(page.userFields()).append("; tasks=");
+        for (Task task : page.tasks()) {
+            out.append('[').append(task.text()).append(',').append(task.completed()).append(',')
+                    .append(task.status()).append(',').append(task.line()).append(',').append(task.indent())
+                    .append(',').append(task.pageTitle()).append(',').append(task.fields()).append(']');
+        }
+        return out.toString();
+    }
+
+    /**
+     * A page's tags are the vault's (and Obsidian's): not in code, links or URLs, not only
+     * digits, and any letter counts.
+     */
+    private static void checkTagsFollowTheVaultsRule() {
+        System.out.println("\n-- tags --");
+        Note note = new Note("t.md", "T", "Con #canción y #y1984 y #área/sub\n"
+                + "No: #1984, `#codigo`, [x](#ancla), https://x.org/#frag, [[Nota#Sección]]\n"
+                + "- [ ] tarea #entarea\nclave:: valor #encampo\n");
+        Page page = PageParser.parse(note, "", "t.md");
+        check("tags as the vault finds them",
+                page.tags().equals(List.of("#canción", "#y1984", "#área/sub", "#entarea", "#encampo")),
+                String.valueOf(page.tags()));
+    }
+
+    /** The summary kept in the vault's cache gives the page the whole text gives. */
+    private static void checkASummaryParsesLikeTheText() {
+        System.out.println("\n-- page summaries --");
+        List<String> texts = List.of(
+                "Texto sin nada.\nOtra línea.\n",
+                "status:: leído\nTexto #tema y [[Destino|alias]]\n\n- [ ] Tarea [due:: 2026-03-01] #urgente\n"
+                        + "    - [x] Hecha\n  - [/] A medias\n(campo:: valor) en línea\nFin\n",
+                "```dataview\nTABLE x FROM #nada\nclave:: no cuenta\n- [ ] no es tarea\n```\n"
+                        + "~~~\n#nada\n~~~\ndespués:: sí\n",
+                "Solo [[Uno]] y [[Dos#Sección]] enlaces\n\n\nY una línea más\r\nCon CRLF:: valor\r\n",
+                "---\nraro: sí\n---\nUn bloque de propiedades dentro del texto\n",
+                "",
+                "Línea 1\nLínea 2\n- [ ] Tarea en la línea 3\nLínea 4 #fin");
+        int n = 0;
+        for (String text : texts) {
+            n++;
+            Note full = new Note("n" + n + ".md", "Nota " + n, text, "2026-01-05T10:00:00Z", "2026-02-10T12:30:00Z");
+            full.setStructuredFrontmatterProperties(java.util.Map.of("rating", 4));
+            String expected = describe(PageParser.parse(full, "carpeta", "ruta/n" + n + ".md"));
+            String summary = PageSummary.of(text);
+            String actual = describe(PageParser.parse(PageSummary.note(full, summary), "carpeta",
+                    "ruta/n" + n + ".md", PageSummary.textLength(summary)));
+            check("summary " + n + " parses like the text", expected.equals(actual),
+                    "\n    text:    " + expected + "\n    summary: " + actual);
+        }
+    }
+
+    /**
+     * Once the vault has loaded, a query builds its pages from the cache: a note whose file did
+     * not change is not read. Its bytes are replaced by others of the same size and the file
+     * keeps its modified time; a read would find the tag {@code #z} in them.
+     */
+    private static void checkTheIndexOfAnUnchangedVaultReadsNoNote() {
+        try {
+            Path root = Files.createTempDirectory("dataview-cache-");
+            Path vault = Files.createDirectories(root.resolve("vault"));
+            Path cache = root.resolve("cache/vault.json");
+            Files.writeString(vault.resolve("Dune.md"), "---\nauthor: Frank Herbert\ntags:\n  - libro\n---\n"
+                    + "estado:: leyendo\n- [ ] Releer [due:: 2026-03-01]\nVer [[Fundación]]\n", StandardCharsets.UTF_8);
+            Files.writeString(vault.resolve("Fundación.md"), "Sin campos.\n" + "relleno ".repeat(3000)
+                    + "\nfinal:: lejos\n", StandardCharsets.UTF_8);
+
+            String first = describeAll(vault, cache);
+            Thread.sleep(3000); // the summaries are written a moment later
+            for (String name : List.of("Dune.md", "Fundación.md")) {
+                Path file = vault.resolve(name);
+                java.nio.file.attribute.FileTime modified = Files.getLastModifiedTime(file);
+                byte[] bytes = new byte[(int) Files.size(file)];
+                byte[] pattern = "#z ".getBytes(StandardCharsets.US_ASCII);
+                for (int i = 0; i < bytes.length; i++) {
+                    bytes[i] = pattern[i % pattern.length];
+                }
+                Files.write(file, bytes);
+                Files.setLastModifiedTime(file, modified);
+            }
+            String second = describeAll(vault, cache);
+
+            check("the first index sees fields and tasks far into a note",
+                    first.contains("estado=leyendo") && first.contains("final=lejos") && first.contains("Releer"), first);
+            check("an unchanged vault is indexed from the cache, reading no note", first.equals(second),
+                    "\n    first:  " + first + "\n    second: " + second);
+        } catch (IOException | InterruptedException e) {
+            check("Dataview cache test setup", false, e.toString());
+        }
+    }
+
+    /**
+     * With the real vault, a page built from the cached summary is the page the whole note
+     * gives (what the index built before the cache): dates, marks, size, fields, tasks, tags.
+     */
+    private static void checkAPageFromTheCacheIsThePageOfTheWholeNote() {
+        try {
+            Path root = Files.createTempDirectory("dataview-equal-");
+            Path vault = Files.createDirectories(root.resolve("vault"));
+            Files.createDirectories(vault.resolve("Libros"));
+            Files.writeString(vault.resolve("Libros/Dune.md"), "---\nauthor: Frank Herbert\nrating: 5\n"
+                    + "created: 2020-01-02T03:04:05Z\ntags:\n  - libro\n---\n\n# Dune\n\nestado:: leyendo\n"
+                    + "Texto [[Fundación]] #scifi y (nota:: buena)\n\n- [ ] Releer [due:: 2026-03-01]\n"
+                    + "    - [x] Hecho #hecho\n```\nno:: cuenta\n```\n" + "relleno ".repeat(2000) + "\nfinal:: lejos\n",
+                    StandardCharsets.UTF_8);
+            Files.writeString(vault.resolve("Fundación.md"), "# Fundación\r\nSin propiedades, con CRLF\r\n"
+                    + "- [/] A medias\r\nclave:: valor\r\n", StandardCharsets.UTF_8);
+            Files.writeString(vault.resolve("Vacía.md"), "", StandardCharsets.UTF_8);
+
+            com.example.jylos.event.EventBus.getInstance().clear();
+            NoteDAOFileSystem noteDAO = new NoteDAOFileSystem(vault.toString(), true, root.resolve("cache.json"));
+            noteDAO.awaitContentLoaded(20_000);
+            FolderDAOFileSystem folderDAO = new FolderDAOFileSystem(vault.toString());
+            NoteService notes = new NoteService(noteDAO, folderDAO);
+            List<Page> pages = new DataviewIndex(notes, new FolderService(folderDAO, noteDAO)).pages();
+
+            check("the index has every note", pages.size() == 3, String.valueOf(pages));
+            for (Page page : pages) {
+                Note whole = notes.getNoteById(page.id()).orElseThrow();
+                // As in Obsidian, file.ctime and file.mtime are the file's dates when the note's
+                // properties do not give them (a note read whole carries none of its own).
+                java.nio.file.attribute.BasicFileAttributes attrs = Files.readAttributes(
+                        vault.resolve(page.id()), java.nio.file.attribute.BasicFileAttributes.class);
+                if (whole.getCreatedDate() == null) {
+                    whole.setCreatedDate(attrs.creationTime().toInstant().toString());
+                }
+                if (whole.getModifiedDate() == null) {
+                    whole.setModifiedDate(attrs.lastModifiedTime().toInstant().toString());
+                }
+                String expected = describe(PageParser.parse(whole, page.folder(),
+                        String.valueOf(page.fileObject().get("path"))));
+                check("the cached page of " + page.id() + " is the whole note's", expected.equals(describe(page)),
+                        "\n    whole:  " + expected + "\n    cached: " + describe(page));
+            }
+        } catch (IOException | InterruptedException | RuntimeException e) {
+            check("Dataview equality test setup", false, e.toString());
+        }
+    }
+
+    private static String describeAll(Path vault, Path cache) throws InterruptedException {
+        com.example.jylos.event.EventBus.getInstance().clear();
+        NoteDAOFileSystem noteDAO = new NoteDAOFileSystem(vault.toString(), true, cache);
+        if (!noteDAO.awaitContentLoaded(20_000)) {
+            return "not loaded";
+        }
+        FolderDAOFileSystem folderDAO = new FolderDAOFileSystem(vault.toString());
+        DataviewIndex index = new DataviewIndex(new NoteService(noteDAO, folderDAO), new FolderService(folderDAO, noteDAO));
+        return index.pages().stream().map(DataviewPluginTest::describe).sorted().toList().toString();
     }
 
     private static Object eval(FakeSource source, Page page, String expression) {

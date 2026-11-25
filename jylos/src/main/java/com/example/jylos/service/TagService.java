@@ -12,6 +12,7 @@ import com.example.jylos.data.dao.interfaces.TagDAO;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.exceptions.DataAccessException;
+import com.example.jylos.util.ReadingSyntax;
 
 /**
  * Service layer for tag-related business logic.
@@ -43,6 +44,15 @@ public class TagService {
      * @param tagDAO  Data access object for tags
      * @param noteDAO Data access object for notes
      */
+    /**
+     * The {@code #tags} written in {@code markdown}, without the {@code #}, as the vault finds
+     * them (and Obsidian): not in code, links or URLs, and with a character that is not a
+     * number. For plugins that read a note's text, so they find the same tags as the app.
+     */
+    public static List<String> inlineTagsOf(String markdown) {
+        return ReadingSyntax.inlineTags(markdown);
+    }
+
     public TagService(TagDAO tagDAO, NoteDAO noteDAO) {
         this.tagDAO = tagDAO;
         this.noteDAO = noteDAO;
@@ -245,7 +255,8 @@ public class TagService {
             return new ArrayList<>();
         }
         List<Tag> noteTags = note.getTags();
-        if (noteTags != null && !noteTags.isEmpty()) {
+        // A note listed from its whole file has all its tags, even when it has none.
+        if (noteTags != null && (!noteTags.isEmpty() || note.isMetadataComplete())) {
             return noteTags;
         }
         return noteDAO.fetchTags(note.getId());

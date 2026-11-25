@@ -51,12 +51,21 @@ public final class FrontmatterHandler {
     private static final List<String> JYLOS_FIELDS = List.of(
             "id", "title", "created", "modified", "favorite", "pinned", "deleted", "deleted_date");
 
-    /** Keys consumed by the fixed Note schema — never exposed as custom properties. */
+    /**
+     * Jylos' own keys: read into the note's fields and never shown or edited as properties
+     * ({@code private} marks an encrypted note, {@code tags} has its own bar).
+     */
     private static final List<String> SYSTEM_KEYS = List.of(
             "id", "title", "created", "modified",
             "favorite", "pinned", "deleted", "deleted_date",
-            "author", "source_url", "tags", "status", "private",
+            "tags", "private",
             "is_todo", "todo_due", "todo_completed");
+
+    /**
+     * Properties like any other, as in Obsidian (shown, edited, seen by Dataview), that Jylos
+     * also reads into the note's own fields for storages without properties (SQLite).
+     */
+    private static final List<String> FIELD_PROPERTIES = List.of("author", "status", "source_url");
 
     private FrontmatterHandler() {
         // utility class
@@ -141,12 +150,12 @@ public final class FrontmatterHandler {
                 root.put(key, previous.get(key));
             }
         }
-        putKeeping(root, previous, "status", note.getStatus());
+        putUnlessAProperty(root, previous, note, "status", note.getStatus());
         if (note.isPrivate()) {
             root.put("private", true);
         }
-        putKeeping(root, previous, "author", note.getAuthor());
-        putKeeping(root, previous, "source_url", note.getSourceUrl());
+        putUnlessAProperty(root, previous, note, "author", note.getAuthor());
+        putUnlessAProperty(root, previous, note, "source_url", note.getSourceUrl());
 
         List<String> tags = propertyTags(note, previousFile);
         Object writtenTags = previous.get("tags");
@@ -219,6 +228,23 @@ public final class FrontmatterHandler {
      * the way the note's field was read from it, so {@code author:} written as a list of one
      * stays a list.
      */
+    /**
+     * {@code author}, {@code status} or {@code source_url} from the note's field, only when the
+     * note's properties do not have it: when they do (edited, or taken out in the properties
+     * panel) they decide, as for any property. A value set from code on a note without it is
+     * written.
+     */
+    private static void putUnlessAProperty(Map<String, Object> root, Map<String, Object> previous, Note note,
+            String key, String value) {
+        boolean aProperty = (note.getCustomProperties() != null && note.getCustomProperties().containsKey(key))
+                || (note.getStructuredFrontmatterProperties() != null
+                        && note.getStructuredFrontmatterProperties().containsKey(key))
+                || note.getDisplayableFrontmatterPropertyKeys().contains(key);
+        if (!aProperty) {
+            putKeeping(root, previous, key, value);
+        }
+    }
+
     private static void putKeeping(Map<String, Object> root, Map<String, Object> previous, String key, String value) {
         if (value == null || value.isBlank()) {
             return;
@@ -277,6 +303,45 @@ public final class FrontmatterHandler {
         FrontmatterBlock block = file != null ? extractLeadingFrontmatter(file) : null;
         Map<String, Object> properties = block != null ? readableYaml(block.yaml()) : null;
         return properties != null && (booleanValue(properties.get("favorite")) || booleanValue(properties.get("pinned")));
+    }
+
+    /**
+     * What the notes list keeps of a file: its properties as written, the start of its text,
+     * and the {@code #tags} of the whole text (a tag far into a note is still one of its tags).
+     *
+     * @param yaml       the properties, without the {@code ---} lines; {@code null} when there are none
+     * @param body       the first characters of the text
+     * @param inlineTags the {@code #tags} of the whole text
+     */
+    public record Lightweight(String yaml, String body, List<String> inlineTags) {
+    }
+
+    /** The part of {@code fileContent} the list needs, with at most {@code maxBodyChars} of its text. */
+    public static Lightweight lightweight(String fileContent, int maxBodyChars) {
+        String file = fileContent != null ? fileContent : "";
+        int limit = Math.max(0, maxBodyChars);
+        FrontmatterBlock block = extractLeadingFrontmatter(file);
+        String text = block != null ? block.body() : file;
+        String body = limit > 0 && text.length() > limit ? text.substring(0, limit) : text;
+        List<String> tags = text.isBlank() ? List.of() : List.copyOf(ReadingSyntax.inlineTags(text));
+        return new Lightweight(block != null ? block.yaml() : null, body, tags);
+    }
+
+    /** The note the list shows for {@code parts}: as {@link #parseLightweight(String, int)}, with every tag. */
+    public static Note parseLightweight(Lightweight parts) {
+        Note note = parts.yaml() != null
+                ? buildNote(parseYaml(parts.yaml()), parts.body(), false)
+                : new Note("Untitled", parts.body());
+        for (String tag : parts.inlineTags()) {
+            note.addTag(new Tag(tag));
+        }
+        return note;
+    }
+
+    /** The text of a file, without its properties block. */
+    public static String bodyOf(String fileContent) {
+        FrontmatterBlock block = fileContent != null ? extractLeadingFrontmatter(fileContent) : null;
+        return block != null ? block.body() : fileContent != null ? fileContent : "";
     }
 
     public static Note parseLightweight(String fileContent, int maxBodyChars) {
@@ -417,7 +482,7 @@ public final class FrontmatterHandler {
     }
 
     /** Fields Jylos reads into its own strings, written back as the template wrote them while they are the same. */
-    private static final List<String> WRITTEN_AS_IS = List.of("author", "status", "source_url");
+    private static final List<String> WRITTEN_AS_IS = FIELD_PROPERTIES;
 
     /**
      * {@code root} with what a template added ({@link Note#getAddedFrontmatter}): a property the
@@ -527,6 +592,11 @@ public final class FrontmatterHandler {
     }
 
     private static Note buildNote(Map<String, Object> all, String body) {
+        return buildNote(all, body, true);
+    }
+
+    /** @param inlineTags whether to take the {@code #tags} of {@code body} (false when the caller has them) */
+    private static Note buildNote(Map<String, Object> all, String body, boolean inlineTags) {
         String id = stringValue(all.get("id"));
         String title = stringValue(all.get("title"));
         String created = stringValue(all.get("created"));
@@ -550,7 +620,9 @@ public final class FrontmatterHandler {
         for (String name : toStringList(all.get("tags"))) {
             note.addTag(new Tag(name));
         }
-        extractInlineTags(body, note);
+        if (inlineTags) {
+            extractInlineTags(body, note);
+        }
 
         Map<String, String> custom = new LinkedHashMap<>();
         Map<String, Object> structured = new LinkedHashMap<>();

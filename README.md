@@ -94,7 +94,7 @@ Prebuilt packages for all major platforms are available on the [Releases page](.
     - [JavaFX Parent-POM Warnings](#javafx-parent-pom-warnings)
   - [Contributing](#contributing)
     - [Changelog convention](#changelog-convention)
-  - [License](#license)
+  - [License and trademarks](#license-and-trademarks)
 
 ## Why Jylos
 
@@ -110,16 +110,16 @@ In concrete terms:
 
 ## Overview
 
-Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like workflows:
+Jylos is a Java 21 + JavaFX 23 desktop application for linked Markdown notes:
 
 - CodeMirror 6 Markdown editor with Live Preview by default, a dedicated reading view, optional source mode and a linked side-by-side reading view (GFM, KaTeX math, emoji)
-- **Two layouts**: an **Explorer** tree with folders and notes together, in the style of Obsidian, or the **classic** folders | notes | editor columns (side by side or stacked). Pick one from the toolbar's layout button or in Preferences
+- **Two layouts**: an **Explorer** tree with folders and notes together, or the **classic** folders | notes | editor columns (side by side or stacked). Pick one from the toolbar's layout button or in Preferences
 - **Tabs that work like VS Code**: a click opens the note in the current tab; Cmd/Ctrl+click, middle click or "Open in new tab" opens another. The graph and Kanban boards open in tabs too, and **Jylos reopens your last session** on start
 - Folder hierarchy + tags + favorites + recent + trash
 - **Obsidian-compatible internal links** (`[[wiki-links]]`, `[label](note.md)`) with click-to-open in preview
 - **Knowledge graph** (global vault view or local neighbourhood around the open note)
 - **Links panel**: linked mentions, unlinked mentions (one click turns them into links) and outgoing links of the open note
-- **Templates as in Obsidian**, with optional **Templater** syntax, a **daily note**, and per-vault settings in Preferences → Vault
+- **Templates**, with optional **Templater** syntax, a **daily note**, and per-vault settings in Preferences → Vault
 - **Shares a vault with Obsidian**: Jylos writes nothing of its own into your notes, keeps properties as they were written, and can take Obsidian's template, daily-note and Templater settings and bookmarks (it only reads `.obsidian`)
 - **Kanban board** stored inside a note, and a distraction-free **focus / writing mode**
 - **Canvas editor**: open and edit Obsidian-compatible `.canvas` files on an infinite, pan/zoom surface — create/move/resize/colour text, link and group nodes, connect and delete edges (with arrowheads), and create new canvases; saves round-trip safely (unknown fields preserved)
@@ -166,7 +166,7 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 
 ### Task board (Kanban)
 
-- A board is a normal note whose Markdown body holds columns (`## Heading`) and text cards (`- card`), in the spirit of Obsidian's Kanban plugin
+- A board is a normal note whose Markdown body holds columns (`## Heading`) and text cards (`- card`)
 - Open with **View → Kanban Board** or **`Ctrl/Cmd+K`**; pick or create boards from the toolbar
 - Add/rename/delete columns, create/edit/delete cards, and **drag cards between columns**
 - A card can link to a note (`[[Title]]`) or be **converted into a note**
@@ -187,13 +187,13 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 - **Global graph**: all notes and resolved wiki-link edges; optional **tag nodes**, attachments, orphans and unresolved links
 - **Local graph**: the open note and its neighbours, 1 to 5 hops deep, with incoming, outgoing and neighbour links
 - **Color groups**: a query (text, `path:`, `file:` or `tag:`) with a colour; each note takes the first that matches
-- Forces, node sizes and drawing as in Obsidian: a note with many links stays bigger when zoomed out, hovering a note highlights only its links, and lines are a quiet grey
+- Forces, node sizes and drawing: a note with many links stays bigger when zoomed out, hovering a note highlights only its links, and lines are a quiet grey
 - Native **JavaFX Canvas** force simulation (Barnes–Hut repulsion, link springs, alpha cooling — idle graph uses no CPU)
 - Zoom/pan, drag nodes, **click a note node to open it**; forces, filters, groups and local-graph options are remembered
 
 ### Templates & daily note
 
-- **Templates folder** chosen in Preferences → Vault (subfolders included); **Edit → Insert Template…** writes a template at the cursor and merges its properties with the note's, as Obsidian does
+- **Templates folder** chosen in Preferences → Vault (subfolders included); **Edit → Insert Template…** writes a template at the cursor and merges its properties with the note's
 - Obsidian's variables: `{{title}}`, `{{date}}`, `{{time}}` and `{{date:FORMAT}}` with Obsidian's (moment) formats, in English and Spanish; plus **Insert current date / time**
 - **Daily note** (`Ctrl/Cmd+Shift+D`) with its own folder, name format (`YYYY/MM/DD` makes folders) and template; new notes can go to the folder in view, the vault root or a chosen folder
 - **Templater syntax** (optional): `tp.date`, `tp.file`, `tp.frontmatter` and `tp.system` with Templater's whitespace control, cursor placement and folder templates; anything that runs JavaScript is left as it is and reported
@@ -201,7 +201,7 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 
 ### Obsidian compatibility
 
-- Jylos and Obsidian can open the same vault: Jylos writes nothing of its own into notes (favourites and pinned notes live in `.jylos/`), keeps unchanged properties byte for byte and reads them as YAML 1.2, as Obsidian does
+- Jylos and Obsidian can open the same vault: Jylos writes nothing of its own into notes (favourites and pinned notes live in `.jylos/`), keeps unchanged properties byte for byte and reads them as YAML 1.2, so both apps read them the same way
 - **Tools → Clean Up Jylos Metadata…** removes the fields older versions wrote, with a backup of each note
 - **Tools → Import Obsidian Settings…** takes the templates, daily-note, new-note location and Templater settings of the plugins Obsidian has on; **Import Obsidian Bookmarks** turns bookmarks into favourites. `.obsidian` is only read
 - Guide: [Obsidian Compatibility](https://jylos.es/guides/obsidian-compatibility)
@@ -213,17 +213,17 @@ Jylos is a Java 21 + JavaFX 23 desktop application inspired by Obsidian-like wor
 
 ### Productivity
 
-- **Links panel** in the right info panel: linked mentions with the line of each link, unlinked mentions with a **Link** button, and outgoing links (a missing one creates the note)
+- **Right panel**: a row of tabs, one per view — **backlinks** (linked mentions with the line of each link, unlinked mentions with a **Link** button), **outgoing links** (a missing one creates the note) and the plugins' views (outline, calendar…)
 - **Daily note** and **new note from template** — see [Templates & daily note](#templates--daily-note)
 - Per-note and **bulk vault export** to HTML/PDF
 - Import/export of individual notes
-- **Import an Obsidian vault** (folder hierarchy, frontmatter and tags preserved; `.obsidian/` skipped) or an **Evernote `.enex`** export (ENML converted to Markdown, tags kept, attachments noted as placeholders) — File menu
+- **Import a vault**, any folder of Markdown notes, from Obsidian, Jylos or elsewhere (folder hierarchy, properties and tags preserved; folders starting with a dot, such as `.obsidian/`, skipped; images and other attachments are not copied), or an **Evernote `.enex`** export (ENML converted to Markdown, tags kept, attachments noted as placeholders) — File menu. Importing copies the notes, and importing the same vault again brings only what is not there yet; to work on a vault as it is, attachments included, open its folder as the vault instead
 - **Note version history** (Tools → Note History, `Ctrl/Cmd+Shift+H`): local snapshots taken before each save (coalesced, capped at 50 per note), with a line **diff** viewer and one-click **restore**; private notes' snapshots stay encrypted
 
 ### UI/UX
 
 - Light, dark, and **system** themes (OS theme polling when “System” is selected) + external CSS themes
-- **CSS snippets**: drop `.css` files into `snippets/` and toggle them in Preferences to tweak the UI over the active theme (Obsidian-style)
+- **CSS snippets**: drop `.css` files into `snippets/` and toggle them in Preferences to tweak the UI over the active theme
 - External themes in `themes/`: Gruvbox, Gruvbox Material, Nord, Catppuccin (Mocha and Latte), Rosé Pine (and Dawn) and Retro Phosphor — download them from the [themes page](https://jylos.es/guides/themes)
 - Optional **coloured icons** by type, a **colour per folder**, and an **icon size** apart from the text size; everything grows with the interface font
 - Configurable sidebar/editor button presentation (text/icons/auto)
@@ -501,7 +501,7 @@ Repository root (contains the Maven module `jylos/` and `scripts/`):
 ├── themes/                             # theme sources → build-themes → jylos/themes/
 ├── resources/images/                   # README banner and screenshots
 ├── scripts/                            # build, launch, package, smoke tests
-├── docs/                                # technical docs (see docs/README.md)
+├── docs/                               # technical docs (see docs/README.md)
 ├── AGENTS.md
 ├── changelog.md
 ├── README.md
@@ -533,7 +533,7 @@ Source packs live in `themes/<id>/` (`theme.properties` + `theme.css`). Developm
 
 ### CSS snippets
 
-Drop plain `.css` files into the `snippets/` folder to tweak the interface on top of the active theme (Obsidian-style), without authoring a full theme. Enable them in **Preferences → CSS snippets**; each enabled snippet is layered **after** the theme, so its rules win. Use **Open folder** in that dialog to reach the directory (`<appData>/snippets`). Snippet names must be simple `.css` filenames. Ready-made, theme-adaptive examples (Atom One, Nord, Solarized — each with a dark and light variant) live in [snippets-examples/](snippets-examples/). Snippets can branch on the `theme-dark` / `theme-light` class Jylos sets on the scene root (Obsidian-style), and the same layered styles are propagated to themed dialogs and command overlays such as the command palette and quick switcher.
+Drop plain `.css` files into the `snippets/` folder to tweak the interface on top of the active theme, without authoring a full theme. Enable them in **Preferences → CSS snippets**; each enabled snippet is layered **after** the theme, so its rules win. Use **Open folder** in that dialog to reach the directory (`<appData>/snippets`). Snippet names must be simple `.css` filenames. Ready-made, theme-adaptive examples (Atom One, Nord, Solarized — each with a dark and light variant) live in [snippets-examples/](snippets-examples/). Snippets can branch on the `theme-dark` / `theme-light` class Jylos sets on the scene root, and the same layered styles are propagated to themed dialogs and command overlays such as the command palette and quick switcher.
 
 ### Plugins
 

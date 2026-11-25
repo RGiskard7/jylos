@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -109,7 +110,16 @@ public class MarkdownPreview {
      */
     public record PreviewOptions(Path baseDir, Function<String, String> embeddedContentResolver,
             PreviewContext context, boolean readableLineLength, int contentFontSize,
-            Path imageContainmentRoot, LinkIndex links, ThemePalette palette) {
+            Path imageContainmentRoot, LinkIndex links, ThemePalette palette,
+            Function<String, Optional<Path>> imageLocator) {
+
+        /** Without finding images by name: only beside the note (or the path written). */
+        public PreviewOptions(Path baseDir, Function<String, String> embeddedContentResolver,
+                PreviewContext context, boolean readableLineLength, int contentFontSize,
+                Path imageContainmentRoot, LinkIndex links, ThemePalette palette) {
+            this(baseDir, embeddedContentResolver, context, readableLineLength, contentFontSize,
+                    imageContainmentRoot, links, palette, null);
+        }
 
         /** With the page's own colours. */
         public PreviewOptions(Path baseDir, Function<String, String> embeddedContentResolver,
@@ -126,12 +136,21 @@ public class MarkdownPreview {
 
         public PreviewOptions withBaseDir(Path dir) {
             return new PreviewOptions(dir, embeddedContentResolver, context, readableLineLength, contentFontSize,
-                    imageContainmentRoot, links, palette);
+                    imageContainmentRoot, links, palette, imageLocator);
         }
 
         public PreviewOptions withPalette(ThemePalette colours) {
             return new PreviewOptions(baseDir, embeddedContentResolver, context, readableLineLength, contentFontSize,
-                    imageContainmentRoot, links, colours);
+                    imageContainmentRoot, links, colours, imageLocator);
+        }
+
+        /**
+         * Finding an image that is not where its path says by its name, as Obsidian does (the
+         * attachment with that name in the note's folder, else the shortest path in the vault).
+         */
+        public PreviewOptions withImageLocator(Function<String, Optional<Path>> locator) {
+            return new PreviewOptions(baseDir, embeddedContentResolver, context, readableLineLength, contentFontSize,
+                    imageContainmentRoot, links, palette, locator);
         }
     }
 
@@ -189,7 +208,7 @@ public class MarkdownPreview {
 
         String html = MarkdownProcessor.markdownToHtml(raw) + footnotes.html();
         html = Transclusion.restore(html, embeds.embeds());
-        html = embedLocalImages(html, o.baseDir(), o.imageContainmentRoot());
+        html = embedLocalImages(html, o.baseDir(), o.imageContainmentRoot(), o.imageLocator());
         return emojifyToImages(html, isDarkTheme);
     }
 
@@ -963,6 +982,16 @@ public class MarkdownPreview {
      */
     public static String resolveImageSource(String source, Path baseDir,
             Path containmentRoot) {
+        return resolveImageSource(source, baseDir, containmentRoot, null);
+    }
+
+    /**
+     * Same as {@link #resolveImageSource(String, Path, Path)}, finding the image with
+     * {@code locator} (by its name, as Obsidian does) when it is not where its path says. What
+     * it finds is still only inlined inside {@code containmentRoot}.
+     */
+    public static String resolveImageSource(String source, Path baseDir, Path containmentRoot,
+            Function<String, Optional<Path>> locator) {
         String value = source != null ? source.trim() : "";
         if (value.isEmpty()) {
             return "";
@@ -976,6 +1005,9 @@ public class MarkdownPreview {
         try {
             String decoded = WikiLinkResolver.urlDecode(value);
             Path imagePath = baseDir.resolve(decoded).normalize();
+            if (!Files.isRegularFile(imagePath) && locator != null) {
+                imagePath = locator.apply(decoded).map(Path::normalize).orElse(imagePath);
+            }
             Path bound = containmentRoot != null ? containmentRoot : baseDir;
             if (!PathContainment.isInside(bound, imagePath)) {
                 logger.fine("Refusing to inline image outside the vault: " + value);
@@ -1000,13 +1032,19 @@ public class MarkdownPreview {
      * and {@code file:} sources are left untouched.
      */
     private static String embedLocalImages(String bodyHtml, Path baseDir,
-            Path containmentRoot) {
-        if (baseDir == null || bodyHtml == null || !bodyHtml.contains("<img")) {
+            Path containmentRoot, Function<String, Optional<Path>> locator) {
+        if (bodyHtml == null || !bodyHtml.contains("<img")) {
             return bodyHtml;
         }
         try {
             Document doc = Jsoup.parseBodyFragment(bodyHtml);
             boolean changed = false;
+            for (Element img : doc.select("img[src]:not(.emoji)")) {
+                changed |= applyObsidianSize(img);
+            }
+            if (baseDir == null) {
+                return changed ? doc.body().html() : bodyHtml;
+            }
             for (Element img : doc.select("img[src]")) {
                 String src = img.attr("src").trim();
                 if (src.isEmpty() || src.startsWith("data:") || src.startsWith("http://")
@@ -1014,7 +1052,7 @@ public class MarkdownPreview {
                     continue;
                 }
                 try {
-                    String resolved = resolveImageSource(src, baseDir, containmentRoot);
+                    String resolved = resolveImageSource(src, baseDir, containmentRoot, locator);
                     if (resolved.isEmpty()) {
                         continue;
                     }
@@ -1029,6 +1067,23 @@ public class MarkdownPreview {
             logger.warning("Image inlining failed: " + e.getMessage());
             return bodyHtml;
         }
+    }
+
+    /** {@code ![text|300](x.png)}, {@code ![text|300x100](x.png)}: Obsidian's size after the text. */
+    private static final Pattern IMAGE_SIZE = Pattern.compile("^(.*?)\\|\\s*(\\d+)(?:\\s*x\\s*(\\d+))?\\s*$");
+
+    /** Takes an image's size out of its alternative text, as Obsidian writes it; true if it had one. */
+    private static boolean applyObsidianSize(Element img) {
+        Matcher size = IMAGE_SIZE.matcher(img.attr("alt"));
+        if (!size.matches()) {
+            return false;
+        }
+        img.attr("alt", size.group(1).strip());
+        img.attr("width", size.group(2));
+        if (size.group(3) != null) {
+            img.attr("height", size.group(3));
+        }
+        return true;
     }
 
     private static String guessImageMime(String fileName) {

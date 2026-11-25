@@ -149,6 +149,11 @@ With `JYLOS_NOTARY_PROFILE` also set, the script submits the DMG with
 `xcrun notarytool submit --wait` and staples the ticket (`xcrun stapler staple`).
 Unset, the script behaves exactly as before (unsigned local build).
 
+Native code inside the jar: besides SQLite JDBC's libraries, JNA ships `libjnidispatch`
+(used on macOS to watch the vault with FSEvents) under `com/sun/jna/<platform>/`. Both are
+extracted to a temporary folder at run time, so a hardened-runtime signed build needs the
+same treatment for each (sign them, or allow unsigned executable memory / library loading).
+
 Icons (see `jylos/src/main/resources/app.properties` and [icons README](../jylos/src/main/resources/icons/README.md)):
 
 | Asset | File | Used when |

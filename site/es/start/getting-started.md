@@ -6,7 +6,7 @@ Un recorrido rápido por los flujos principales para que empieces a escribir ya.
 
 Jylos tiene dos diseños. Se cambia entre ellos con el botón de diseño, a la derecha de la barra superior, o en **Herramientas → Preferencias**; la elección se recuerda.
 
-- **Explorador** — la barra lateral muestra un solo árbol con tus carpetas y notas juntas, como en Obsidian. Un clic en una carpeta la despliega y un clic en una nota la abre. El panel de notas solo aparece al buscar o al elegir una etiqueta, para mostrar los resultados, y se cierra con su **✕**. Las instalaciones nuevas empiezan en este diseño.
+- **Explorador** — la barra lateral muestra un solo árbol con tus carpetas y notas juntas. Un clic en una carpeta la despliega y un clic en una nota la abre. El panel de notas solo aparece al buscar o al elegir una etiqueta, para mostrar los resultados, y se cierra con su **✕**. Las instalaciones nuevas empiezan en este diseño.
 - **Clásico** — carpetas, lista de notas y editor lado a lado (**columnas**), o las carpetas encima de la lista de notas (**apilado**). La lista de notas añade orden, vista de cuadrícula y la opción de incluir las notas de las subcarpetas.
 
 En los dos diseños:

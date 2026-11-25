@@ -4,8 +4,8 @@ English: [../VAULT_FORMAT.md](../VAULT_FORMAT.md)
 
 Una bóveda de carpetas es una carpeta de ficheros Markdown que también puede abrir Obsidian. La
 regla: **el fichero de una nota contiene solo lo que escribió el usuario**. El estado propio de
-Jylos va en `.jylos/`, como el de Obsidian va en `.obsidian/`, y Jylos nunca escribe en
-`.obsidian/`. Guía de uso: [site/es/guides/obsidian-compatibility.md](../../site/es/guides/obsidian-compatibility.md).
+Jylos va en `.jylos/`, y Jylos nunca escribe en `.obsidian/`, que es de
+Obsidian. Guía de uso: [site/es/guides/obsidian-compatibility.md](../../site/es/guides/obsidian-compatibility.md).
 
 ## El fichero de una nota
 
@@ -25,15 +25,13 @@ Lo escribe `FrontmatterHandler.generate(nota, ficheroAnterior)`, llamado desde
   de antes de editar) se queda en el texto; el texto de una nota privada va cifrado, así que
   todas sus etiquetas se quedan en `tags:`.
 - **La primera línea del texto nunca se toma como título**: el título es el nombre del fichero.
-- **El YAML se lee y se escribe como lo hace Obsidian, YAML 1.2 núcleo** (`FrontmatterResolver`,
+- **El YAML se lee y se escribe como YAML 1.2 núcleo, el que usa también Obsidian** (`FrontmatterResolver`,
   `FrontmatterConstructor`): solo `true`/`false` son booleanos; `no`, `yes`, `on`, `10:30` o
   `1_000` son texto; `0123` es 123, `0x1F` y `0o17` llevan su prefijo. Al volver a escribir:
   listas con la sangría de Obsidian (`  - x`), una propiedad vacía como `clave:`, una fecha sin
-  comillas, un valor que el campo de Jylos (`author`, `status`, `source_url`) lee igual que el
-  escrito se copia tal cual (una lista sigue siendo lista), y unas propiedades nuevas van justo
-  antes del texto, sin línea en blanco.
-- **Las propiedades que añade una plantilla** (`FrontmatterHandler.mergeProperties`, la regla
-  de Obsidian: las nuevas al final en su orden, listas unidas sin repetir, un valor vacío de la
+  comillas, y unas propiedades nuevas van justo antes del texto, sin línea en blanco.
+- **Las propiedades que añade una plantilla** (`FrontmatterHandler.mergeProperties`:
+  las nuevas al final en su orden, listas unidas sin repetir, un valor vacío de la
   plantilla no pisa) se guardan en `Note.addedFrontmatter` hasta el siguiente guardado: así un
   `title`, `created` o `favorite` de la plantilla es una propiedad del fichero y no cambia el
   nombre, las fechas ni las marcas de la nota.
@@ -42,9 +40,10 @@ Lo escribe `FrontmatterHandler.generate(nota, ficheroAnterior)`, llamado desde
 
 | Clave | Significado |
 |-------|-------------|
-| `tags`, `aliases`/`alias` | Etiquetas y alias de enlace, como en Obsidian |
+| `tags`, `aliases`/`alias` | Etiquetas y alias de enlace (las claves que lee también Obsidian) |
 | `private: true` | El texto va cifrado (`JENC1:…`); solo se escribe si es verdadero |
-| `status`, `author`, `source_url`, `is_todo`, `todo_due`, `todo_completed` | Solo si tienen valor |
+| `author`, `status`, `source_url` | Propiedades como cualquier otra: se ven, se editan y se quitan en el panel de propiedades, y Dataview las lee; de ellas salen el autor, el estado y la fuente de la nota |
+| `is_todo`, `todo_due`, `todo_completed` | Solo si tienen valor |
 | `created` | Se muestra como fecha de creación si está; nunca se añade (si no, se usa la del fichero) |
 | cualquier otra | Propiedades del usuario, con sus tipos YAML |
 

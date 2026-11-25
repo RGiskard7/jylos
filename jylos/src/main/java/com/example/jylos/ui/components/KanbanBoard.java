@@ -537,7 +537,7 @@ public final class KanbanBoard extends VBox {
 
     /** Matches the first image/PDF reference: {@code ![alt](file.png)} or {@code [[file.pdf]]}. */
     private static final Pattern ATTACHMENT_REF = Pattern.compile(
-            "!\\[[^\\]]*\\]\\(([^)\\s]+\\.(?:png|jpe?g|gif|pdf))\\)|\\[\\[([^\\]|]+\\.(?:png|jpe?g|gif|pdf))\\]\\]",
+            "!\\[[^\\]]*\\]\\(([^)\\s]+\\.(?:png|jpe?g|gif|pdf))\\)|\\[\\[([^\\]|]+\\.(?:png|jpe?g|gif|pdf))(?:\\|[^\\]]*)?\\]\\]",
             Pattern.CASE_INSENSITIVE);
 
     private static final double THUMB_WIDTH = 200;
@@ -595,6 +595,11 @@ public final class KanbanBoard extends VBox {
                             return candidate;
                         }
                     }
+                }
+                // As Obsidian: by its name, in the board's folder first, else the shortest path.
+                Optional<Path> byName = noteService.resolveAttachmentPath(ref, boardId);
+                if (byName.isPresent()) {
+                    return byName.get();
                 }
             }
         } catch (InvalidPathException ignored) {

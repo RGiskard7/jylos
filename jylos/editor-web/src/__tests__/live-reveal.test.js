@@ -135,6 +135,16 @@ describe("Obsidian inline syntax", () => {
     expect(tags).toEqual(["#proyecto", "#area/sub"]);
   });
 
+  it("does not take a hash and only digits as a tag, as Obsidian", () => {
+    const doc = "Año #1984, #2024 y #٣٤ no; #y1984 #1984a #2024-review #año sí";
+    const view = makeView(doc, doc.length, false);
+    const tags = [];
+    view.plugin(livePreviewPlugin).decorations.between(0, doc.length, (from, to, deco) => {
+      if (deco.spec.widget?.className === "cm-live-tag") tags.push(deco.spec.widget.text);
+    });
+    expect(tags).toEqual(["#y1984", "#1984a", "#2024-review", "#año"]);
+  });
+
   it("dims a block id at the end of a line", () => {
     const doc = "Un párrafo ^bloque-1\n\nprecio^2";
     const view = makeView(doc, doc.length, false);

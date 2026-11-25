@@ -13,9 +13,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.service.FolderService;
+import com.example.jylos.service.NoteService;
 
 import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
@@ -37,11 +39,13 @@ final class FolderTools {
     private FolderTools() {
     }
 
-    static List<SyncToolSpecification> build(FolderService folderService) {
+    /** @param changes told what each write changed, so the app shows it */
+    static List<SyncToolSpecification> build(FolderService folderService, NoteService noteService,
+            VaultChanges changes) {
         List<SyncToolSpecification> tools = new ArrayList<>();
         tools.add(listFolders(folderService));
-        tools.add(createFolder(folderService));
-        tools.add(deleteFolder(folderService));
+        tools.add(createFolder(folderService, changes));
+        tools.add(deleteFolder(folderService, noteService, changes));
         return tools;
     }
 
@@ -76,7 +80,7 @@ final class FolderTools {
 
     // ── create_folder ────────────────────────────────────────────────────────
 
-    private static SyncToolSpecification createFolder(FolderService folderService) {
+    private static SyncToolSpecification createFolder(FolderService folderService, VaultChanges changes) {
         Map<String, Object> schema = objectSchema(Map.of(
                 "name", stringProperty("Folder name."),
                 "parentId", stringProperty("Parent folder id from list_folders. "
@@ -119,6 +123,7 @@ final class FolderTools {
                         return errorResult("Could not create the folder '" + name
                                 + "' — a folder with that name may already exist there.");
                     }
+                    changes.foldersChanged();
                     return CallToolResult.builder()
                             .addTextContent("Created folder '" + created.getTitle() + "' (id: "
                                     + created.getId() + ")")
@@ -130,7 +135,8 @@ final class FolderTools {
 
     // ── delete_folder ────────────────────────────────────────────────────────
 
-    private static SyncToolSpecification deleteFolder(FolderService folderService) {
+    private static SyncToolSpecification deleteFolder(FolderService folderService, NoteService noteService,
+            VaultChanges changes) {
         Map<String, Object> schema = objectSchema(Map.of(
                 "id", stringProperty("Folder id, as returned by list_folders.")),
                 "id");
@@ -156,11 +162,14 @@ final class FolderTools {
                         return errorResult("No folder found for id '" + id + "'.");
                     }
                     String name = found.get().getTitle();
+                    // Its notes leave with it (or move, depending on the storage), unnamed here.
+                    Set<String> before = VaultChanges.noteIds(noteService);
                     try {
                         folderService.deleteFolder(id);
                     } catch (RuntimeException e) {
                         return errorResult("Could not delete the folder: " + e.getMessage());
                     }
+                    changes.between(before, VaultChanges.noteIds(noteService), true);
                     return CallToolResult.builder()
                             .addTextContent("Deleted folder '" + name + "'. Any notes it held are now at "
                                     + "the vault root.")

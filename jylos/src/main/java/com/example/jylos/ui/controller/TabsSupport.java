@@ -1,6 +1,15 @@
 package com.example.jylos.ui.controller;
 
+import java.text.MessageFormat;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.format.FormatStyle;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
@@ -16,6 +25,7 @@ import com.example.jylos.ui.components.EditorTabs;
 import com.example.jylos.ui.components.EditorTabsModel;
 import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
 import com.example.jylos.ui.components.KanbanBoard;
+import com.example.jylos.ui.components.NotePosition;
 import com.example.jylos.ui.components.ViewTabs;
 import com.example.jylos.workspace.TabHistory;
 
@@ -44,13 +54,18 @@ final class TabsSupport {
      * @param openNoteInNewTab    opens a note in a new tab
      * @param openNote            opens a note in the active tab
      * @param showEmptyState      the editor shows its empty state (a new tab, or no tab left)
+     * @param noNoteShown         a view (the graph) is shown in place of a note: what follows the
+     *                            open note (the outline, the links, the counts) has none
      * @param tabsChanged         what is shown changed: the right panel, the status bar and the
      *                            back/forward buttons follow it
      * @param chooseBoard         asks which of these Kanban boards to open, or to make a new one
+     * @param notePosition        where the note in the editor is now, or {@code null} when there
+     *                            is none
+     * @param showNoteAt          shows the note in the editor there; {@code null} is its top
      */
     record Host(BooleanSupplier confirmLeaveCurrent, Consumer<String> showNote, Consumer<Note> openNoteInNewTab,
-            Consumer<Note> openNote, Runnable showEmptyState, Runnable tabsChanged,
-            Consumer<List<Note>> chooseBoard) {
+            Consumer<Note> openNote, Runnable showEmptyState, Runnable noNoteShown, Runnable tabsChanged,
+            Consumer<List<Note>> chooseBoard, Supplier<NotePosition> notePosition, Consumer<NotePosition> showNoteAt) {
     }
 
     private VBox graphView;
@@ -75,12 +90,72 @@ final class TabsSupport {
         this.tabs = tabs != null ? tabs : () -> null;
         this.host = host;
         UiNodes.show(graphView, false);
+        EditorTabs strip = this.tabs.get();
+        if (strip != null) {
+            strip.setDescriber(this::describe);
+        }
+    }
+
+    /** What the tab of {@code id} says when the pointer rests on it; null for a view's tab. */
+    private String describe(String id) {
+        if (noteService == null || id == null || ViewTabs.isView(id)) {
+            return null;
+        }
+        return describe(noteService.getNoteById(id).orElse(null), i18n, Locale.getDefault(), ZoneId.systemDefault());
+    }
+
+    /**
+     * A note's path, and when it was created and modified, in {@code locale} and {@code zone}
+     * (a date that does not parse is shown as stored; a missing one is left out).
+     */
+    static String describe(Note note, Function<String, String> i18n, Locale locale, ZoneId zone) {
+        if (note == null || note.getId() == null) {
+            return null;
+        }
+        StringBuilder text = new StringBuilder(note.getId());
+        appendDate(text, i18n.apply("tab.about_created"), note.getCreatedDate(), locale, zone);
+        appendDate(text, i18n.apply("tab.about_modified"), note.getModifiedDate(), locale, zone);
+        return text.toString();
+    }
+
+    private static void appendDate(StringBuilder text, String pattern, String stored, Locale locale, ZoneId zone) {
+        if (stored == null || stored.isBlank()) {
+            return;
+        }
+        text.append('\n').append(MessageFormat.format(pattern, readableDate(stored.strip(), locale, zone)));
+    }
+
+    /** An instant, a local date and time or a date, as the user reads them; anything else as it is. */
+    private static String readableDate(String stored, Locale locale, ZoneId zone) {
+        DateTimeFormatter dateTime = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+                .withLocale(locale);
+        try {
+            return Instant.parse(stored).atZone(zone).format(dateTime);
+        } catch (DateTimeParseException notAnInstant) {
+            // A local date and time, or a date alone, below.
+        }
+        try {
+            return LocalDateTime.parse(stored.replace(' ', 'T')).format(dateTime);
+        } catch (DateTimeParseException notADateTime) {
+            // A date alone, below.
+        }
+        try {
+            return LocalDate.parse(stored)
+                    .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale));
+        } catch (DateTimeParseException notADate) {
+            return stored;
+        }
     }
 
     /** True while a view's tab (the graph, a new tab), not a note's, is the active one. */
     boolean isViewActive() {
         EditorTabs strip = tabs.get();
         return strip != null && ViewTabs.isView(strip.getActiveId());
+    }
+
+    /** {@code open}, the note loaded in the editor, unless a view (the graph, a new tab) is in front of it. */
+    Note inSight(Note open) {
+        return isViewActive() ? null : open;
     }
 
     /** True while the graph is on screen. */
@@ -149,11 +224,17 @@ final class TabsSupport {
         noteService.getNoteById(noteId).ifPresent(newTab ? host.openNoteInNewTab() : host.openNote());
     }
 
-    /** A note's tab came to the front from anywhere (the sidebar, a link): the views hide. */
+    /**
+     * A note's tab came to the front from anywhere (the sidebar, a link): the views hide, and
+     * the note shows where its tab left it, or at its top when it was just opened there.
+     */
     void noteShown() {
         EditorTabs strip = tabs.get();
         if (strip != null && !strip.isOpen(ViewTabs.GRAPH)) {
             graphStarted = false; // its tab now shows something else
+        }
+        if (strip != null && host != null) {
+            host.showNoteAt().accept(strip.positionOf(strip.getActiveId()));
         }
         hideViews();
         tabsChanged();
@@ -241,14 +322,14 @@ final class TabsSupport {
      *
      * @return how many of its notes no longer exist
      */
-    /** The back and forward of each open tab, in their order (to keep them in a workspace). */
+    /** The back and forward of each open tab, and whether it is pinned, in their order (to keep them in a workspace). */
     List<TabHistory> histories() {
         EditorTabs strip = tabs.get();
         if (strip == null) {
             return List.of();
         }
         return strip.getOpenIds().stream()
-                .map(id -> new TabHistory(strip.backOf(id), strip.forwardOf(id)))
+                .map(id -> new TabHistory(strip.backOf(id), strip.forwardOf(id), strip.isPinned(id)))
                 .toList();
     }
 
@@ -318,6 +399,9 @@ final class TabsSupport {
         EditorTabs strip = tabs.get();
         if (strip != null && strip.isOpen(id)) {
             strip.setHistory(id, reopenable(history.back()), reopenable(history.forward()));
+            if (history.pinned()) {
+                strip.pin(id);
+            }
         }
     }
 
@@ -341,6 +425,9 @@ final class TabsSupport {
         if (ViewTabs.GRAPH.equals(id)) {
             strip.open(id, getString("graph.title"), "fth-share-2", OpenTarget.CURRENT_TAB);
             showGraph();
+            if (host != null) {
+                host.noNoteShown().run();
+            }
         } else if (ViewTabs.isEmptyTab(id)) {
             strip.open(id, getString("tab.new_tab"), null, OpenTarget.CURRENT_TAB);
             hideViews();
@@ -378,7 +465,18 @@ final class TabsSupport {
         }
     }
 
-    private boolean leaveCurrent() {
+    /**
+     * Leaving what is in sight, before anything else is shown: its tab keeps where its note is,
+     * then its unsaved edits are asked about. Every way of showing something else goes through
+     * here first (the window's too, when it opens a note).
+     *
+     * @return {@code false} when the user cancels
+     */
+    boolean leaveCurrent() {
+        EditorTabs strip = tabs.get();
+        if (strip != null && host != null) {
+            strip.remember(host.notePosition().get());
+        }
         return host == null || host.confirmLeaveCurrent().getAsBoolean();
     }
 

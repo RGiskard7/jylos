@@ -1,6 +1,6 @@
 # Kanban
 
-A Kanban board is a normal note whose Markdown body holds columns and cards, in the spirit of Obsidian's Kanban plugin. A board note opens as its board, in its own tab like any note.
+A Kanban board is a normal note whose Markdown body holds columns and cards. A board note opens as its board, in its own tab like any note.
 
 ## Structure
 

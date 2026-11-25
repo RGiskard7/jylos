@@ -127,7 +127,15 @@ public class SystemActionEvent extends AppEvent {
         /** A new empty tab (the + after the tabs, Cmd/Ctrl+T). */
         NEW_TAB,
         /** A new Kanban board note in the current folder. */
-        NEW_KANBAN_BOARD
+        NEW_KANBAN_BOARD,
+        /** The vault's home page, in the active tab (or its own tab, if open). */
+        GO_HOME,
+        /** The vault's home page, in a new tab. */
+        GO_HOME_NEW_TAB,
+        /** The right panel open on the backlinks of the open note. */
+        SHOW_BACKLINKS,
+        /** The right panel open on the outgoing links of the open note. */
+        SHOW_OUTGOING_LINKS
     }
 
     private final ActionType actionType;

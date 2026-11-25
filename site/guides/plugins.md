@@ -4,7 +4,7 @@ import { data } from "../.vitepress/data/plugins.data.ts";
 
 # Plugins
 
-There are two kinds of plugins, as in Obsidian:
+There are two kinds of plugins:
 
 - **Core plugins** are Jylos's own. They come with the app, are updated with it, and you turn
   them on or off in **Tools → Manage plugins**.
@@ -53,7 +53,7 @@ A plugin extends `AbstractPlugin` and receives a `PluginContext` exposing these 
 - `registerSidePanel(...)` — a node in the right panel.
 - `registerPreviewEnhancer(...)` — CSS/JS and per-note HTML post-processing for the Markdown preview.
 - `registerToolbarButton(...)` — a button in the main toolbar.
-- `registerStatusBarItem(...)` — an item in the status bar, which the plugin keeps and updates (like Obsidian's `addStatusBarItem()`).
+- `registerStatusBarItem(...)` — an item in the status bar, which the plugin keeps and updates.
 - `registerEditorHook(...)` — `onBeforeTextInsert`, `onBeforeSave`, `onAfterSave`.
 - `registerEditorBlockRenderer(...)` — render a fenced block inline in Live Preview.
 - Event bus access, themed dialogs, progress dialogs and per-plugin preferences.

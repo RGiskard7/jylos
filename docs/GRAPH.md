@@ -74,8 +74,7 @@ Labels reveal progressively as zoom crosses the **label threshold** slider — f
 in rather than snapping on — and higher-degree nodes claim their spot first; any
 label that would overlap an already-placed one is skipped, so a dense area simply
 shows fewer labels instead of an unreadable pile of overlapping text. Hovering a
-node always shows only that node's own label, never its neighbours', matching
-Obsidian.
+node always shows only that node's own label, never its neighbours'.
 
 Label priority order is computed once per model build (`GraphCanvas.buildModel`),
 not per frame — node radius, which the order is based on, never changes after the

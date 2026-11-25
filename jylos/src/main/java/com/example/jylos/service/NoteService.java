@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -15,10 +16,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.data.dao.ExternalChanges;
 import com.example.jylos.data.dao.filesystem.FrontmatterHandler;
 import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
 import com.example.jylos.data.dao.interfaces.FolderDAO;
@@ -29,6 +32,7 @@ import com.example.jylos.data.models.Tag;
 import com.example.jylos.exceptions.NoteException;
 import com.example.jylos.util.AttachmentType;
 import com.example.jylos.util.NoteAnchors;
+import com.example.jylos.util.PathContainment;
 
 /**
  * Service layer for note-related business logic.
@@ -236,6 +240,44 @@ public class NoteService {
      * @param id The note ID
      * @return Optional containing the note if found
      */
+    /**
+     * Waits, at most {@code timeoutMs}, for the storage to finish loading its notes in the
+     * background, so a caller that needs every note (the graph) takes them from the load instead
+     * of reading every file itself.
+     *
+     * @return true when the notes are loaded
+     */
+    public boolean awaitContentLoaded(long timeoutMs) {
+        try {
+            return noteDAO.awaitContentLoaded(timeoutMs);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    /**
+     * A value {@code fromText} works out from the text of {@code note} (without its
+     * properties), as a plugin's index needs it: kept by the storage with what it knows of the
+     * note, so it is worked out again only when the note's file changes. Otherwise (SQLite, a
+     * private note: what it says is never kept) it is worked out from the note read whole.
+     *
+     * @param key names the value and the rules it was worked out with, e.g. {@code "dataview@1"}
+     * @return the value; empty when the note cannot be read
+     */
+    public Optional<String> derived(Note note, String key, Function<String, String> fromText) {
+        if (note == null || note.getId() == null) {
+            return Optional.empty();
+        }
+        if (!note.isPrivate()) {
+            Optional<String> kept = noteDAO.derived(note.getId(), key, fromText);
+            if (kept.isPresent()) {
+                return kept;
+            }
+        }
+        return getNoteById(note.getId()).map(full -> fromText.apply(full.getContent() != null ? full.getContent() : ""));
+    }
+
     public Optional<Note> getNoteById(String id) {
         Note note = noteDAO.getNoteById(id);
         if (note != null) {
@@ -295,6 +337,14 @@ public class NoteService {
     /** Cleans those notes, copying each to {@code backupDir} first; how many were cleaned. */
     public int cleanJylosFields(List<String> ids, Path backupDir) {
         return noteDAO instanceof NoteDAOFileSystem vault ? vault.cleanJylosFields(ids, backupDir) : 0;
+    }
+
+    /**
+     * The file a folder vault holds for {@code note}: its properties and its text, as the vault
+     * writes them. For storages without files (SQLite), to export a note as Markdown.
+     */
+    public String asMarkdownFile(Note note) {
+        return FrontmatterHandler.generate(note);
     }
 
     public Optional<Path> getStorageRoot() {
@@ -508,6 +558,29 @@ public class NoteService {
      * Reloads storage-backed caches after an explicit user refresh. In filesystem
      * mode this picks up out-of-process edits made by tools such as Obsidian.
      */
+    /**
+     * Applies what a watcher saw change in a folder vault outside the app (see
+     * {@link NoteDAO#applyExternalChanges}). When a folder may have come or gone, the folder list
+     * is read again (folders only, no notes) and the result says whether it changed.
+     */
+    public ExternalChanges applyExternalChanges(Collection<Path> paths) {
+        ExternalChanges changes = noteDAO.applyExternalChanges(paths);
+        if (!changes.foldersMayHaveChanged() || folderDAO == null) {
+            return changes;
+        }
+        Set<String> before = folderIds();
+        folderDAO.refreshCache();
+        return changes.withFolders(!before.equals(folderIds()));
+    }
+
+    private Set<String> folderIds() {
+        Set<String> ids = new HashSet<>();
+        for (Folder folder : folderDAO.fetchAllFoldersAsList()) {
+            ids.add(folder.getId());
+        }
+        return ids;
+    }
+
     public void refreshStorageCache() {
         noteDAO.refreshCache();
         if (folderDAO != null) {
@@ -685,6 +758,23 @@ public class NoteService {
             target = target.substring(0, target.length() - 3);
         }
         return findNoteByTitle(target);
+    }
+
+    /**
+     * The file of an attachment a note names ({@code foto.png}, {@code img/foto.png}), found as
+     * Obsidian finds it: in the note's folder first, otherwise the one with the shortest path in
+     * the vault. Empty for a note, a missing file, a path outside the vault or a vault that is
+     * not a folder.
+     */
+    public Optional<Path> resolveAttachmentPath(String link, String sourceNoteId) {
+        Optional<Path> root = getStorageRoot();
+        if (link == null || link.isBlank() || root.isEmpty() || !AttachmentType.isAttachment(link.strip())) {
+            return Optional.empty();
+        }
+        return linkIndex().resolveId(link.strip(), sourceNoteId)
+                .filter(AttachmentType::isAttachment)
+                .map(id -> root.get().resolve(id).normalize())
+                .filter(file -> PathContainment.isInside(root.get(), file) && Files.isRegularFile(file));
     }
 
     /** The vault-wide link index: the warm one of the title index, or a fresh one. */

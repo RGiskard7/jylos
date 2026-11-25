@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.example.jylos.data.models.Folder;
@@ -119,6 +120,25 @@ final class DataviewIndex implements PageSource {
             if (cached != null && Objects.equals(cached.modified(), modified)) {
                 built.add(cached.page());
                 continue;
+            }
+
+            // A note the vault listed from its whole file (or its cache of it) is parsed from
+            // the summary of its text kept with that cache: no file is read for it unless it
+            // changed (with iCloud, reading an offloaded note downloads it).
+            if (listed.isMetadataComplete()) {
+                try {
+                    Optional<String> summary = noteService.derived(listed, PageParser.SUMMARY_KEY, PageSummary::of);
+                    if (summary.isPresent()) {
+                        Page page = PageParser.parse(PageSummary.note(listed, summary.get()),
+                                foldersByNoteId.getOrDefault(id, ""), pathOf(listed),
+                                PageSummary.textLength(summary.get()));
+                        cache.put(id, new CachedPage(modified, page));
+                        built.add(page);
+                        continue;
+                    }
+                } catch (RuntimeException e) {
+                    // Read it whole below.
+                }
             }
 
             // The listed note carries a truncated body; the full read is what makes

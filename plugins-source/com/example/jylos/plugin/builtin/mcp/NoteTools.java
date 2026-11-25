@@ -19,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import com.example.jylos.data.models.Folder;
 import com.example.jylos.data.models.Note;
@@ -58,17 +59,19 @@ final class NoteTools {
     private NoteTools() {
     }
 
-    static List<SyncToolSpecification> build(NoteService noteService, FolderService folderService) {
+    /** @param changes told what each write changed, so the app shows it */
+    static List<SyncToolSpecification> build(NoteService noteService, FolderService folderService,
+            VaultChanges changes) {
         List<SyncToolSpecification> tools = new ArrayList<>();
         tools.add(listNotes(noteService));
         tools.add(searchNotes(noteService));
         tools.add(readNote(noteService));
-        tools.add(createNote(noteService));
-        tools.add(updateNote(noteService));
-        tools.add(renameNote(noteService));
-        tools.add(moveNote(noteService, folderService));
-        tools.add(deleteNote(noteService));
-        tools.add(restoreNote(noteService));
+        tools.add(createNote(noteService, changes));
+        tools.add(updateNote(noteService, changes));
+        tools.add(renameNote(noteService, changes));
+        tools.add(moveNote(noteService, folderService, changes));
+        tools.add(deleteNote(noteService, changes));
+        tools.add(restoreNote(noteService, changes));
         tools.add(listTrash(noteService));
         return tools;
     }
@@ -196,7 +199,7 @@ final class NoteTools {
 
     // ── create_note ──────────────────────────────────────────────────────────
 
-    private static SyncToolSpecification createNote(NoteService noteService) {
+    private static SyncToolSpecification createNote(NoteService noteService, VaultChanges changes) {
         Map<String, Object> schema = objectSchema(Map.of(
                 "title", stringProperty("Note title."),
                 "content", stringProperty("Initial Markdown content (optional).")),
@@ -220,6 +223,7 @@ final class NoteTools {
                     } catch (RuntimeException e) {
                         return errorResult("Could not create the note: " + e.getMessage());
                     }
+                    changes.created(created.getId());
                     return CallToolResult.builder()
                             .addTextContent("Created '" + displayTitle(created) + "' (id: " + created.getId() + ")")
                             .structuredContent(noteSummary(created))
@@ -230,7 +234,7 @@ final class NoteTools {
 
     // ── update_note ──────────────────────────────────────────────────────────
 
-    private static SyncToolSpecification updateNote(NoteService noteService) {
+    private static SyncToolSpecification updateNote(NoteService noteService, VaultChanges changes) {
         Map<String, Object> schema = objectSchema(Map.of(
                 "id", stringProperty("Note id, as returned by list_notes or search_notes."),
                 "content", stringProperty("New Markdown content, replacing the note in full.")),
@@ -267,6 +271,7 @@ final class NoteTools {
                     } catch (RuntimeException e) {
                         return errorResult("Could not update the note: " + e.getMessage());
                     }
+                    changes.changed(Set.of(note.getId()));
                     return CallToolResult.builder()
                             .addTextContent("Updated '" + displayTitle(note) + "' (id: " + note.getId() + ")")
                             .structuredContent(noteSummary(note))
@@ -277,7 +282,7 @@ final class NoteTools {
 
     // ── rename_note ──────────────────────────────────────────────────────────
 
-    private static SyncToolSpecification renameNote(NoteService noteService) {
+    private static SyncToolSpecification renameNote(NoteService noteService, VaultChanges changes) {
         Map<String, Object> schema = objectSchema(Map.of(
                 "id", stringProperty("Note id, as returned by list_notes or search_notes."),
                 "title", stringProperty("New title.")),
@@ -317,6 +322,7 @@ final class NoteTools {
                     } catch (RuntimeException e) {
                         return errorResult("Could not rename the note: " + e.getMessage());
                     }
+                    changes.moved(id, note.getId());
                     return CallToolResult.builder()
                             .addTextContent("Renamed to '" + displayTitle(note) + "' (new id: " + note.getId() + ")")
                             .structuredContent(noteSummary(note))
@@ -327,7 +333,8 @@ final class NoteTools {
 
     // ── move_note ────────────────────────────────────────────────────────────
 
-    private static SyncToolSpecification moveNote(NoteService noteService, FolderService folderService) {
+    private static SyncToolSpecification moveNote(NoteService noteService, FolderService folderService,
+            VaultChanges changes) {
         Map<String, Object> schema = objectSchema(Map.of(
                 "id", stringProperty("Note id, as returned by list_notes or search_notes."),
                 "folderId", stringProperty("Destination folder id from list_folders. "
@@ -381,6 +388,7 @@ final class NoteTools {
                     } catch (RuntimeException e) {
                         return errorResult("Could not move the note: " + e.getMessage());
                     }
+                    changes.moved(id, note.getId());
                     String where = destination != null ? "'" + destination.getTitle() + "'" : "the vault root";
                     return CallToolResult.builder()
                             .addTextContent("Moved '" + displayTitle(note) + "' to " + where
@@ -393,7 +401,7 @@ final class NoteTools {
 
     // ── delete_note ──────────────────────────────────────────────────────────
 
-    private static SyncToolSpecification deleteNote(NoteService noteService) {
+    private static SyncToolSpecification deleteNote(NoteService noteService, VaultChanges changes) {
         Map<String, Object> schema = objectSchema(Map.of(
                 "id", stringProperty("Note id, as returned by list_notes or search_notes.")),
                 "id");
@@ -428,6 +436,7 @@ final class NoteTools {
                     } catch (RuntimeException e) {
                         return errorResult("Could not delete the note: " + e.getMessage());
                     }
+                    changes.deleted(id);
                     return CallToolResult.builder()
                             .addTextContent("Moved '" + displayTitle(note) + "' to the trash. "
                                     + "Use restore_note with id '" + id + "' to undo this.")
@@ -439,7 +448,7 @@ final class NoteTools {
 
     // ── restore_note ─────────────────────────────────────────────────────────
 
-    private static SyncToolSpecification restoreNote(NoteService noteService) {
+    private static SyncToolSpecification restoreNote(NoteService noteService, VaultChanges changes) {
         Map<String, Object> schema = objectSchema(Map.of(
                 "id", stringProperty("Note id, as returned by list_trash.")),
                 "id");
@@ -470,11 +479,15 @@ final class NoteTools {
                         return errorResult("No note with id '" + id + "' is in the trash. "
                                 + "Use list_trash to get the id to restore.");
                     }
+                    // Where it goes back to is the storage's to decide (and may bring its
+                    // folder back), so what changed is read from the vault around it.
+                    Set<String> before = VaultChanges.noteIds(noteService);
                     try {
                         noteService.restoreNote(id);
                     } catch (RuntimeException e) {
                         return errorResult("Could not restore the note: " + e.getMessage());
                     }
+                    changes.between(before, VaultChanges.noteIds(noteService), true);
                     return CallToolResult.builder()
                             .addTextContent("Restored '" + displayTitle(trashed.get()) + "' from the trash.")
                             .structuredContent(Map.of("id", id, "restored", true))

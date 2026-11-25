@@ -17,6 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.example.jylos.tests.FxTestSupport;
 import com.example.jylos.workspace.SessionStore;
+import com.example.jylos.data.models.VaultSettings.StartupTabs;
 import com.example.jylos.workspace.TabHistory;
 import com.example.jylos.workspace.Workspace;
 import com.example.jylos.workspace.WorkspaceHistoryRepository;
@@ -231,6 +232,29 @@ class WorkspaceSwitchTest {
         assertEquals(List.of("before restoring false", "[] workspace.indicator.none",
                 "[restore [a.md, c.md] c.md 2] Escritura",
                 "[restore [a.md, c.md] c.md 2] workspace.indicator.none"), seen);
+    }
+
+    /** The next start may reopen only the pinned tabs of the last session, their history with them. */
+    @Test
+    void theNextStartCanReopenOnlyThePinnedTabs() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            Window first = new Window();
+            first.controller.restoreSession();
+            first.open = List.of("a.md", "b.md", "c.md");
+            first.history = List.of(new TabHistory(List.of(), List.of(), true),
+                    new TabHistory(List.of("x.md"), List.of(), false), new TabHistory(List.of("y.md"), List.of(), true));
+            first.controller.saveSession();
+
+            Window pinned = new Window();
+            pinned.controller.restoreSession(tabs -> StartupSupport.keep(tabs, StartupTabs.PINNED));
+            Window all = new Window();
+            all.controller.restoreSession(tabs -> StartupSupport.keep(tabs, StartupTabs.LAST_SESSION));
+            return List.of(pinned.calls.toString(), all.calls.toString());
+        });
+
+        assertEquals(List.of("[restore [a.md, c.md] c.md 2]", "[restore [a.md, b.md, c.md] c.md 3]"), seen);
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.example.jylos.ui.components;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -10,28 +11,35 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import com.example.jylos.tests.FxTestSupport;
+import com.example.jylos.ui.DeadKeyRepeats;
 
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.event.Event;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.ContextMenuEvent;
+import javafx.scene.input.InputMethodEvent;
+import javafx.scene.input.InputMethodHighlight;
+import javafx.scene.input.InputMethodTextRun;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.PickResult;
 import javafx.scene.layout.StackPane;
+import javafx.scene.web.WebView;
 import javafx.stage.PopupWindow;
 import javafx.stage.Stage;
 import javafx.stage.Window;
@@ -368,5 +376,310 @@ class MarkdownEditorViewTest {
         }
         stage.close();
         finished.countDown();
+    }
+
+    // ── Where a note is shown ────────────────────────────────────────────────
+
+    private static String lines(String name, int count) {
+        StringBuilder text = new StringBuilder();
+        for (int i = 1; i <= count; i++) {
+            text.append(name).append(" line ").append(i).append("\n\n");
+        }
+        return text.toString();
+    }
+
+    /** The editor page's own scroll, read from the page itself (not through the editor's API). */
+    private static double scrollTop(MarkdownEditorView editor) {
+        for (Node node : editor.lookupAll("*")) {
+            if (node instanceof WebView web) {
+                Object top = web.getEngine().executeScript("document.querySelector('.cm-scroller').scrollTop");
+                return ((Number) top).doubleValue();
+            }
+        }
+        throw new AssertionError("no editor page");
+    }
+
+    private static void waitFor(String what, BooleanSupplier condition) throws Exception {
+        for (int i = 0; i < 100; i++) {
+            if (FxTestSupport.onFx(condition::getAsBoolean)) {
+                return;
+            }
+            Thread.sleep(50);
+        }
+        throw new AssertionError("condition not reached in time: " + what);
+    }
+
+    private static MarkdownEditorView shownEditor(String text) throws Exception {
+        MarkdownEditorView editor = FxTestSupport.onFx(() -> {
+            DeadKeyRepeats.installEverywhere(); // as the app does when it starts
+            MarkdownEditorView view = new MarkdownEditorView();
+            view.setEditable(true);
+            Stage stage = new Stage();
+            stage.setScene(new Scene(new StackPane(view), 800, 600));
+            stage.show();
+            view.setText(text);
+            return view;
+        });
+        CountDownLatch ready = new CountDownLatch(1);
+        FxTestSupport.onFx(() -> {
+            editor.whenReady(ready::countDown);
+            return null;
+        });
+        assertTrue(ready.await(EDITOR_LOAD_TIMEOUT_SECONDS, TimeUnit.SECONDS), "the editor page did not load");
+        return editor;
+    }
+
+    /** A note loaded in place of one scrolled down starts at its top, with the caret at its start. */
+    @Test
+    void aNoteShownWithNoPositionStartsAtItsTop() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+        String first = lines("first", 300);
+        MarkdownEditorView editor = shownEditor(first);
+        FxTestSupport.onFx(() -> {
+            editor.scrollToPosition(first.indexOf("first line 250"));
+            return null;
+        });
+        waitFor("scrolled down", () -> scrollTop(editor) > 2000);
+
+        FxTestSupport.onFx(() -> {
+            editor.setText(lines("second", 300));
+            editor.showViewPosition(null);
+            return null;
+        });
+        Thread.sleep(300); // a few frames: CodeMirror measures and scrolls on the next ones
+
+        assertEquals(List.of(0.0, 0), FxTestSupport.onFx(() -> List.of(scrollTop(editor), editor.getCaretPosition())));
+    }
+
+    /** Where a note was left (first line in sight, selection) is where it shows again after another note. */
+    @Test
+    void aNoteShownAtItsPositionShowsTheSameLineAndSelectionAgain() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+        String first = lines("first", 300);
+        MarkdownEditorView editor = shownEditor(first);
+        int caret = first.indexOf("first line 180");
+        FxTestSupport.onFx(() -> {
+            editor.scrollToPosition(caret);
+            return null;
+        });
+        waitFor("scrolled down", () -> scrollTop(editor) > 2000);
+        Thread.sleep(200);
+        double leftAt = FxTestSupport.onFx(() -> scrollTop(editor));
+        NotePosition left = FxTestSupport.onFx(() -> editor.viewPosition("first.md"));
+
+        FxTestSupport.onFx(() -> {
+            editor.setText(lines("second", 300));
+            editor.showViewPosition(null);
+            return null;
+        });
+        waitFor("the other note at its top", () -> scrollTop(editor) == 0);
+        FxTestSupport.onFx(() -> {
+            editor.setText(first);
+            editor.showViewPosition(left);
+            return null;
+        });
+        waitFor("back where it was", () -> Math.abs(scrollTop(editor) - leftAt) <= 2);
+        NotePosition back = FxTestSupport.onFx(() -> editor.viewPosition("first.md"));
+
+        assertNotNull(left);
+        assertTrue(left.editorTop() > 0 && left.editorTop() < caret, "the first line in sight, above the caret: " + left);
+        assertTrue(left.editorOffset() >= 0 && left.editorOffset() < 100, "less than a line past its top: " + left);
+        assertEquals(List.of(caret, caret), List.of(left.selectionAnchor(), left.selectionHead()));
+        assertEquals(List.of(left.editorTop(), caret, caret),
+                List.of(back.editorTop(), back.selectionAnchor(), back.selectionHead()));
+        assertEquals(left.editorOffset(), back.editorOffset(), 2.0);
+    }
+
+    /** A note left at its very top shows at its very top again, the space above its first line included. */
+    @Test
+    void aNoteLeftAtItsTopShowsAtItsTopAgain() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+        String first = lines("first", 300);
+        MarkdownEditorView editor = shownEditor(first);
+        Thread.sleep(200);
+        NotePosition left = FxTestSupport.onFx(() -> editor.viewPosition("first.md"));
+        FxTestSupport.onFx(() -> {
+            editor.setText(lines("second", 300));
+            editor.scrollToPosition(4000);
+            return null;
+        });
+        waitFor("the other note scrolled down", () -> scrollTop(editor) > 2000);
+
+        FxTestSupport.onFx(() -> {
+            editor.setText(first);
+            editor.showViewPosition(left);
+            return null;
+        });
+        Thread.sleep(300);
+
+        assertEquals(0.0, FxTestSupport.onFx(() -> scrollTop(editor)));
+    }
+
+    /**
+     * Going to a heading (a link to it, the outline) puts it at the top of the editor, as the
+     * reading view does, not just somewhere in sight (at the bottom, coming from above).
+     */
+    @Test
+    void goingToAHeadingPutsItAtTheTop() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+        String text = lines("before", 150) + "## Middle\n\n" + lines("after", 150);
+        MarkdownEditorView editor = shownEditor(text);
+        int heading = text.indexOf("## Middle");
+        FxTestSupport.onFx(() -> {
+            editor.scrollToPosition(heading);
+            return null;
+        });
+        waitFor("scrolled down", () -> scrollTop(editor) > 2000);
+        Thread.sleep(300);
+
+        double fromTop = FxTestSupport.onFx(() -> {
+            for (Node node : editor.lookupAll("*")) {
+                if (node instanceof WebView web) {
+                    return ((Number) web.getEngine().executeScript("(function(){"
+                            + "var top=document.querySelector('.cm-scroller').getBoundingClientRect().top;"
+                            + "var lines=document.querySelectorAll('.cm-line');"
+                            + "for(var i=0;i<lines.length;i++){if(lines[i].textContent.indexOf('Middle')>=0)"
+                            + "return lines[i].getBoundingClientRect().top-top;}return -1000;})()")).doubleValue();
+                }
+            }
+            throw new AssertionError("no editor page");
+        });
+
+        assertTrue(fromTop >= 0 && fromTop <= 10, "the heading should be at the top of the editor, is at " + fromTop);
+        assertEquals(heading, (int) FxTestSupport.onFx(editor::getCaretPosition));
+    }
+
+    /** An input method event as JavaFX gives it to the editor page: text being composed, text committed. */
+    private static InputMethodEvent im(String composed, String committed) {
+        List<InputMethodTextRun> runs = composed.isEmpty() ? List.of()
+                : List.of(new InputMethodTextRun(composed, InputMethodHighlight.UNSELECTED_RAW));
+        return new InputMethodEvent(InputMethodEvent.INPUT_METHOD_TEXT_CHANGED, runs, committed, composed.length());
+    }
+
+    /**
+     * A dead key pressed again and again (the grave accent, to open a code block on a Spanish
+     * keyboard) types one mark per press, as in any other app. On macOS, JavaFX gives the page
+     * every other press as a new composition without committing the one pending, recorded
+     * here as it came from a real keyboard: the page replaced the pending mark, and each such
+     * press was lost.
+     */
+    @Test
+    void aDeadKeyPressedAgainAndAgainTypesOneMarkPerPress() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+        MarkdownEditorView editor = shownEditor("");
+        FxTestSupport.onFx(() -> {
+            editor.requestFocus();
+            return null;
+        });
+        Thread.sleep(300);
+        List<InputMethodEvent> presses = List.of(
+                im("`", ""),                  // 1st press: pending
+                im("", "`"), im("`", ""),     // 2nd: the 1st committed, the 2nd pending
+                im("`", ""),                  // 3rd: pending again, the 2nd never committed
+                im("", "`"), im("`", ""),     // 4th
+                im("`", ""),                  // 5th
+                im("", "`"), im("", "\r"));  // Enter commits what is pending, then the line break, as recorded
+        for (InputMethodEvent event : presses) {
+            FxTestSupport.onFx(() -> {
+                for (Node node : editor.lookupAll("*")) {
+                    if (node instanceof WebView web) {
+                        Event.fireEvent(web, event);
+                    }
+                }
+                return null;
+            });
+            Thread.sleep(60);
+        }
+        Thread.sleep(300);
+
+        String typed = FxTestSupport.onFx(editor::getText);
+        assertEquals("`````\n", typed, "typed: " + typed.replace("\n", "\\n"));
+    }
+
+    /**
+     * Text an input method composes and recomposes (Japanese, say), the same text twice too (the
+     * caret moved in it), is not taken for repeated dead keys: nothing is committed before its time.
+     */
+    @Test
+    void aCompositionThatChangesIsStillOneComposition() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+        MarkdownEditorView editor = shownEditor("");
+        FxTestSupport.onFx(() -> {
+            editor.requestFocus();
+            return null;
+        });
+        Thread.sleep(300);
+        for (InputMethodEvent event : List.of(im("k", ""), im("か", ""), im("かn", ""), im("かん", ""),
+                im("かん", ""), im("", "缶"))) {
+            FxTestSupport.onFx(() -> {
+                for (Node node : editor.lookupAll("*")) {
+                    if (node instanceof WebView web) {
+                        Event.fireEvent(web, event);
+                    }
+                }
+                return null;
+            });
+            Thread.sleep(60);
+        }
+        Thread.sleep(300);
+
+        assertEquals("缶", FxTestSupport.onFx(editor::getText));
+    }
+
+    /** The circumflex macOS composes (a spacing modifier letter, not a symbol) repeats like the grave accent. */
+    @Test
+    void theCircumflexDeadKeyRepeatsToo() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+        MarkdownEditorView editor = shownEditor("");
+        FxTestSupport.onFx(() -> {
+            editor.requestFocus();
+            return null;
+        });
+        Thread.sleep(300);
+        for (InputMethodEvent event : List.of(im("ˆ", ""), im("", "ˆ"), im("ˆ", ""), im("ˆ", ""), im("", "ˆ"))) {
+            FxTestSupport.onFx(() -> {
+                for (Node node : editor.lookupAll("*")) {
+                    if (node instanceof WebView web) {
+                        Event.fireEvent(web, event);
+                    }
+                }
+                return null;
+            });
+            Thread.sleep(60);
+        }
+        Thread.sleep(300);
+
+        assertEquals("ˆˆˆ", FxTestSupport.onFx(editor::getText));
+    }
+
+    /**
+     * On layouts such as U.S. International the apostrophe and the double quote are dead keys
+     * too: pressed again and again they type one mark per press, like the accents.
+     */
+    @Test
+    void theApostropheAndQuoteDeadKeysRepeatToo() throws Exception {
+        Assumptions.assumeTrue(fxRuntimeAvailable);
+        MarkdownEditorView editor = shownEditor("");
+        FxTestSupport.onFx(() -> {
+            editor.requestFocus();
+            return null;
+        });
+        Thread.sleep(300);
+        for (InputMethodEvent event : List.of(
+                im("'", ""), im("", "'"), im("'", ""), im("'", ""), im("", "'"),
+                im("\"", ""), im("", "\""), im("\"", ""), im("\"", ""), im("", "\""))) {
+            FxTestSupport.onFx(() -> {
+                for (Node node : editor.lookupAll("*")) {
+                    if (node instanceof WebView web) {
+                        Event.fireEvent(web, event);
+                    }
+                }
+                return null;
+            });
+            Thread.sleep(60);
+        }
+        Thread.sleep(300);
+
+        assertEquals("\'\'\'\"\"\"", FxTestSupport.onFx(editor::getText));
     }
 }

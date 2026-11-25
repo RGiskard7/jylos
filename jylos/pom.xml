@@ -33,7 +33,7 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <revision>2.6.0</revision>
+        <revision>2.7.0</revision>
         <javafx.version>23.0.2</javafx.version>
         <javafx.maven.plugin.version>0.0.8</javafx.maven.plugin.version>
         <release.version>${project.version}</release.version>
@@ -175,6 +175,13 @@
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>2.11.0</version>
+        </dependency>
+        <!-- Watches a folder vault for changes made outside the app (FSEvents on macOS via JNA,
+             the JDK WatchService elsewhere). -->
+        <dependency>
+            <groupId>io.methvin</groupId>
+            <artifactId>directory-watcher</artifactId>
+            <version>0.19.0</version>
         </dependency>
 
         <!-- YAML frontmatter parsing/serialization -->

@@ -54,9 +54,13 @@ class SaveConflictSupportTest {
     }
 
     @Test
-    void fileDeletedOnDiskProceedsAndRecreatesIt() {
-        // Nothing on disk to lose: saving puts the editor's text back.
+    void aFileGoneFromDiskIsRecreatedOnlyByAManualSave() {
+        // Nothing on disk to lose: saving by hand puts the editor's text back.
         assertEquals(SaveConflictSupport.Decision.PROCEED,
+                SaveConflictSupport.decide(OPENED, Optional.empty(), false));
+        // The autosave does not bring back, on its own, a file deleted or moved outside the
+        // app (from another device, say): it pauses, the edits stay in the editor.
+        assertEquals(SaveConflictSupport.Decision.CONFLICT_PAUSE,
                 SaveConflictSupport.decide(OPENED, Optional.empty(), true));
     }
 }

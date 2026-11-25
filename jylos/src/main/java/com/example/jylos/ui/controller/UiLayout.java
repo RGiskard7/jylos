@@ -244,15 +244,15 @@ class UiLayout {
      * (editor/graph/Kanban) in {@code centerRight}, not nested inside any one of them, so it
      * stays reachable whichever center view is active.
      *
-     * @param currentNote     the open note, or {@code null}
-     * @param refreshNoteInfo runs when the panel opens with a note open
+     * @param currentNote     the note in sight, or {@code null}
+     * @param refreshNoteInfo given that note (or {@code null}) when the panel opens
      */
-    void toggleRightPanel(Note currentNote, Runnable refreshNoteInfo) {
+    void toggleRightPanel(Note currentNote, Consumer<Note> refreshNoteInfo) {
         VBox right = panes().right();
         if (right == null) {
             return;
         }
-        boolean collapsed = !right.isManaged() || !right.isVisible() || right.getPrefWidth() < 10;
+        boolean collapsed = !isRightPanelOpen();
         if (collapsed) {
             UiNodes.show(right, true);
             right.setMinWidth(240);
@@ -265,9 +265,16 @@ class UiLayout {
             collapse(right);
         }
         setRightPanelToggle(collapsed);
-        if (collapsed && currentNote != null && refreshNoteInfo != null) {
-            refreshNoteInfo.run();
+        // Opened: what it shows works itself out, with no note in sight too (a view pinned to a note).
+        if (collapsed && refreshNoteInfo != null) {
+            refreshNoteInfo.accept(currentNote);
         }
+    }
+
+    /** Whether the right panel is open (not collapsed to zero width). */
+    boolean isRightPanelOpen() {
+        VBox right = panes != null ? panes.right() : null;
+        return right != null && right.isManaged() && right.isVisible() && right.getPrefWidth() >= 10;
     }
 
     /** Collapses the right panel to zero width; it stays in the scene, so it opens instantly. */

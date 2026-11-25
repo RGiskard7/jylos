@@ -34,7 +34,6 @@ import com.example.jylos.data.models.Tag;
 import com.example.jylos.data.models.interfaces.Component;
 import com.example.jylos.event.EventBus;
 import com.example.jylos.event.events.FolderEvents;
-import com.example.jylos.graph.GraphData;
 import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.event.events.SystemActionEvent;
 import com.example.jylos.insights.KnowledgeInsightsService;
@@ -54,6 +53,7 @@ import com.example.jylos.ui.UiDialogs;
 import com.example.jylos.ui.UiNodes;
 import com.example.jylos.ui.components.CommandPalette;
 import com.example.jylos.ui.components.EditorTabs;
+import com.example.jylos.ui.components.SideDock;
 import com.example.jylos.ui.components.EditorTabsModel;
 import com.example.jylos.ui.components.ViewTabs;
 import com.example.jylos.ui.components.GitSyncPanel;
@@ -168,41 +168,10 @@ public class MainController {
     private StackPane editorArea;
 
     private final FocusModeSupport focusModeSupport = new FocusModeSupport();
+    /** The right panel's views, in tabs (see {@link RightPanelSupport} and {@link PluginUi}). */
     @FXML
-    private VBox rightPanelContent;
-    @FXML
-    private VBox noteInfoSection;
-    @FXML
-    private HBox noteInfoHeader;
-    @FXML
-    private Label noteInfoCollapseIcon;
-    @FXML
-    private VBox noteInfoContent;
-
-    @FXML
-    private VBox backlinksSection;
-    @FXML
-    private HBox backlinksHeader;
-    @FXML
-    private Label backlinksCollapseIcon;
-    @FXML
-    private VBox backlinksContent;
-
-    /** Right-panel baseline content shown while the graph overlay is active instead
-     *  of note-info/backlinks — see {@link #updateRightPanelContext()}. Kanban has no
-     *  baseline section: the panel is simply empty (still reachable) while it's open. */
-    @FXML
-    private VBox graphInfoSection;
-    @FXML
-    private Label graphNodeCountLabel;
-    @FXML
-    private Label graphEdgeCountLabel;
-
-    @FXML
-    private Label infoCreatedLabel;
-    @FXML
-    private Label infoModifiedLabel;
-
+    private SideDock rightDock;
+    private final RightPanelSupport rightPanelSupport = new RightPanelSupport();
 
     @FXML
     private Label statusLabel;
@@ -268,9 +237,6 @@ public class MainController {
     // docs/PACKAGING.md, section "In-app updater (unsigned builds)".
     private final UpdateInstallSupport updateInstallSupport = new UpdateInstallSupport();
     private final HistorySupport historySupport = new HistorySupport();
-    /** The right panel's area for plugin side panels (see {@link PluginUi}). */
-    @FXML
-    private VBox pluginPanelsContainer;
     /** The status bar's area for plugin items (see {@link PluginUi}). */
     @FXML
     private HBox pluginStatusBarContainer;
@@ -339,6 +305,8 @@ public class MainController {
     private final UpdateNotificationSupport updateNotifications = new UpdateNotificationSupport();
     private final AtomicLong quickSwitcherLoadVersion = new AtomicLong(0);
     private final AtomicLong backendSessionGeneration = new AtomicLong(0);
+    private final VaultWatchSupport vaultWatch = new VaultWatchSupport();
+    private final StartupSupport startupSupport = new StartupSupport();
     private volatile List<Note> quickSwitcherNotesCache = List.of();
     private volatile long activeBackendSessionGeneration = 0L;
     private int notesListPreviewLines = UiPreferencesStore.DEFAULT_NOTES_PREVIEW_LINES;
@@ -373,7 +341,7 @@ public class MainController {
             initializeBackendSession();
             appSettings.wire(this::getString);
             pluginUi.wire(this::getString, this::updateStatus, this::getPluginManager, () -> toolbarController,
-                    pluginPanelsContainer, pluginStatusBarContainer);
+                    rightDock, pluginStatusBarContainer);
             uiInitialization.wire(this::getString, new UiInitialization.OverflowActions(
                     () -> handleNewNote(null),
                     () -> handleNewCanvas(null),
@@ -412,8 +380,7 @@ public class MainController {
 
             initializeSortOptions();
             initializeEditorPresentation();
-            initializeRightPanelSections();
-            initializeRightPanelVisibility();
+            uiLayout.collapseRightPanel();
             setupToolbarResponsiveness();
             initializeLanguageMenu();
             applyUiPreferencesFromStore();
@@ -424,7 +391,7 @@ public class MainController {
 
             refreshBackendSessionViews(false);
             // The tabs open when the app last closed, and the workspace in use, come back.
-            Platform.runLater(workspaceController::restoreSession);
+            Platform.runLater(() -> startupSupport.start(workspaceController));
 
             Platform.runLater(this::initializeKeyboardShortcuts);
 
@@ -607,17 +574,15 @@ public class MainController {
         tabsSupport.wire(graphView, graphViewController, noteService,
                 this::isDarkThemeActive, this::getString, this::updateStatus, () -> editorTabs,
                 new TabsSupport.Host(this::confirmLeaveCurrent, this::openNoteInTab, this::openNoteInNewTab,
-                        this::handleUiNoteOpenRequest, this::clearEditorToEmpty, () -> {
-                            updateRightPanelContext();
+                        this::handleUiNoteOpenRequest, this::clearEditorToEmpty, this::noNoteInSight, () -> {
                             refreshEditorIndicators();
                             updateNavigationButtons();
                         },
-                        kanbanPicker::show));
+                        kanbanPicker::show, () -> editorController.positions().where(), at -> editorController.positions().showAt(at)));
         if (graphViewController != null) {
             graphViewController.wire(eventBus, noteService, tagService, resources,
                     tabsSupport::openNoteFromGraph, tabsSupport::closeGraph,
-                    () -> getCurrentNote() != null ? getCurrentNote().getId() : null,
-                    this::updateGraphInfoSection);
+                    () -> getCurrentNote() != null ? getCurrentNote().getId() : null, null);
         }
 
         statusBarSupport.wire(storageLabel, wordCountLabel, charCountLabel, statsSeparator,
@@ -660,10 +625,10 @@ public class MainController {
                 MainController.this.refreshNotesList();
             }
         });
-        backlinksSupport.wire(backlinksContent, backlinkService, noteService, this::getString,
-                this::loadNoteInEditor,
-                () -> backlinksSection != null && backlinksSection.isVisible() && backlinksSection.isManaged()
-                        && backlinksContent != null && backlinksContent.isVisible() && backlinksContent.isManaged());
+        backlinksSupport.wire(backlinkService, noteService, this::getString, this::loadNoteInEditor, rightPanelSupport::linksInSight);
+        rightPanelSupport.wire(rightDock, prefs, this::getString, backlinksSupport.links(), uiLayout::isRightPanelOpen,
+                () -> backlinksSupport.refresh(tabsSupport.inSight(getCurrentNote())), () -> handleToggleRightPanel(null));
+        rightPanelSupport.pinWith(backlinksSupport, () -> tabsSupport.inSight(getCurrentNote()));
         backlinksSupport.setCreateNoteAction(noteCreationSupport::createNoteWithTitle);
         backlinksSupport.setStatusAction(this::updateStatus);
         // "Link" rewrote a mention in another note: tell the list, tabs and indexes it was saved.
@@ -722,7 +687,11 @@ public class MainController {
                         sidebarController.loadTags();
                         sidebarController.loadRecentNotes();
                     }
-                });
+                }, folder -> appSettings.openFolderAsVault(prefs, folder.toString(), this::switchFilesystemVault));
+        startupSupport.wire(new StartupSupport.Host(() -> vaultSettings != null ? vaultSettings.get() : null,
+                path -> noteCreationSupport.templates().noteAt(path), this::loadNoteInEditor, this::openNoteInNewTab,
+                tabsSupport::newTab, noteCreationSupport::openDailyNote, this::updateStatus, this::getString,
+                available -> toolbarController.setHomeAvailable(available)));
         workspaceController.wire(new WorkspaceController.Host(this::captureLiveWorkspace, tabsSupport::histories,
                 tabsSupport::closeAll, tabsSupport::restoreTabs, this::applyWorkspaceLayout),
                 this::getString, this::updateStatus, sceneSupplier, prefs, statusBar);
@@ -784,23 +753,12 @@ public class MainController {
             }
             Platform.runLater(() -> onVaultContentLoaded(generation));
         });
-        // Long notes are read in full in the background: once their links are known, backlinks
-        // and the title index are rebuilt from them.
-        noteDAO.setOnLinksIndexed(() -> {
-            if (!isActiveBackendSession(generation)) {
-                return;
-            }
-            if (backlinkService != null) {
-                backlinkService.invalidate();
-            }
-            NoteTitleIndex.getInstance().invalidate();
-        });
     }
 
     private void disposeCurrentBackendSession() {
+        vaultWatch.endSession(noteDAO);
         if (noteDAO != null) {
             noteDAO.setOnContentLoaded(null);
-            noteDAO.setOnLinksIndexed(null);
         }
         if (backlinkService != null) {
             backlinkService.shutdown();
@@ -840,7 +798,6 @@ public class MainController {
             editorTabs.clear();
         }
         clearEditorToEmpty();
-        refreshBacklinks(null);
     }
 
     /** Opens the storage the preferences name now, from a clean UI, and shows it everywhere. */
@@ -854,6 +811,7 @@ public class MainController {
         if (eventBus != null) {
             eventBus.publish(new NoteEvents.NotesRefreshRequestedEvent());
         }
+        startupSupport.front(); // what the new vault puts in front (its tabs are not the last session's)
     }
 
     private void switchFilesystemVault(String newVaultPath) {
@@ -998,6 +956,7 @@ public class MainController {
             pluginManager = new PluginManager(noteService, folderService, tagService, eventBus, commandPalette, pluginUi,
                     pluginUi, editorController, editorHooks, pluginUi, editorController, this::handleUiNoteOpenRequest,
                     this::handleUiHeadingNavigationRequest, pluginUi, pluginUi);
+            pluginManager.setOpenNote(() -> tabsSupport.inSight(getCurrentNote()));
 
             PluginLifecycle.LoadResult pluginLoadResult = pluginLifecycle
                     .registerCoreAndExternalPlugins(pluginManager);
@@ -1084,7 +1043,7 @@ public class MainController {
                 }
                 pendingModifiedNoteId = saved.getId();
                 // What the note links to may have changed with this save.
-                refreshBacklinks(active);
+                backlinksSupport.refresh(active);
             }
             refreshNotesGridIfActive();
         }));
@@ -1234,8 +1193,9 @@ public class MainController {
     }
 
 
+    /** Tells the plugins the note in sight; {@code null}: none (a closed note, the graph, a new tab). */
     private void publishNoteSelected(Note note) {
-        if (eventBus != null && note != null) {
+        if (eventBus != null) {
             eventBus.publish(new NoteEvents.NoteSelectedEvent(note));
         }
     }
@@ -1431,84 +1391,6 @@ public class MainController {
                 this::resolveCommandAction);
     }
 
-    /** Palette commands that are also menu or toolbar actions: one handler for both. */
-    private static final Map<String, SystemActionEvent.ActionType> COMMAND_ACTIONS = Map.ofEntries(
-            Map.entry("cmd.new_note", SystemActionEvent.ActionType.NEW_NOTE),
-            Map.entry("cmd.new_tab", SystemActionEvent.ActionType.NEW_TAB),
-            Map.entry("cmd.new_canvas", SystemActionEvent.ActionType.NEW_CANVAS),
-            Map.entry("cmd.new_kanban_board", SystemActionEvent.ActionType.NEW_KANBAN_BOARD),
-            Map.entry("cmd.new_folder", SystemActionEvent.ActionType.NEW_FOLDER),
-            Map.entry("cmd.save_all", SystemActionEvent.ActionType.SAVE_ALL),
-            Map.entry("cmd.import", SystemActionEvent.ActionType.IMPORT),
-            Map.entry("cmd.export", SystemActionEvent.ActionType.EXPORT),
-            Map.entry("cmd.undo", SystemActionEvent.ActionType.UNDO),
-            Map.entry("cmd.redo", SystemActionEvent.ActionType.REDO),
-            Map.entry("cmd.find", SystemActionEvent.ActionType.FIND),
-            Map.entry("cmd.replace", SystemActionEvent.ActionType.REPLACE),
-            Map.entry("cmd.cut", SystemActionEvent.ActionType.CUT),
-            Map.entry("cmd.copy", SystemActionEvent.ActionType.COPY),
-            Map.entry("cmd.paste", SystemActionEvent.ActionType.PASTE),
-            Map.entry("cmd.toggle_sidebar", SystemActionEvent.ActionType.TOGGLE_SIDEBAR),
-            Map.entry("cmd.toggle_info_panel", SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL),
-            Map.entry("cmd.toggle_reading_view", SystemActionEvent.ActionType.TOGGLE_READING_MODE),
-            Map.entry("cmd.toggle_source_mode", SystemActionEvent.ActionType.TOGGLE_SOURCE_MODE),
-            Map.entry("cmd.split_mode", SystemActionEvent.ActionType.SPLIT_VIEW_MODE),
-            Map.entry("cmd.zoom_in", SystemActionEvent.ActionType.ZOOM_IN),
-            Map.entry("cmd.zoom_out", SystemActionEvent.ActionType.ZOOM_OUT),
-            Map.entry("cmd.reset_zoom", SystemActionEvent.ActionType.RESET_ZOOM),
-            Map.entry("cmd.graph_view", SystemActionEvent.ActionType.GRAPH_VIEW),
-            Map.entry("cmd.knowledge_insights", SystemActionEvent.ActionType.KNOWLEDGE_INSIGHTS),
-            Map.entry("cmd.vault_cleanup", SystemActionEvent.ActionType.VAULT_CLEANUP),
-            Map.entry("cmd.import_obsidian_bookmarks", SystemActionEvent.ActionType.IMPORT_OBSIDIAN_BOOKMARKS),
-            Map.entry("cmd.import_obsidian_settings", SystemActionEvent.ActionType.IMPORT_OBSIDIAN_SETTINGS),
-            Map.entry("cmd.workspace_save", SystemActionEvent.ActionType.WORKSPACE_SAVE),
-            Map.entry("cmd.workspace_save_as", SystemActionEvent.ActionType.WORKSPACE_SAVE_AS),
-            Map.entry("cmd.workspace_open", SystemActionEvent.ActionType.WORKSPACE_OPEN),
-            Map.entry("cmd.workspace_manage", SystemActionEvent.ActionType.WORKSPACE_MANAGE),
-            Map.entry("cmd.git_panel", SystemActionEvent.ActionType.GIT_PANEL),
-            Map.entry("cmd.git_sync", SystemActionEvent.ActionType.GIT_SYNC),
-            Map.entry("cmd.git_commit_push", SystemActionEvent.ActionType.GIT_COMMIT_PUSH),
-            Map.entry("cmd.git_pull", SystemActionEvent.ActionType.GIT_PULL),
-            Map.entry("cmd.git_init", SystemActionEvent.ActionType.GIT_INIT),
-            Map.entry("cmd.git_add_remote", SystemActionEvent.ActionType.GIT_ADD_REMOTE),
-            Map.entry("cmd.quick_switcher", SystemActionEvent.ActionType.QUICK_SWITCHER),
-            Map.entry("cmd.daily_note", SystemActionEvent.ActionType.DAILY_NOTE),
-            Map.entry("cmd.new_from_template", SystemActionEvent.ActionType.NEW_FROM_TEMPLATE),
-            Map.entry("cmd.insert_template", SystemActionEvent.ActionType.INSERT_TEMPLATE),
-            Map.entry("cmd.insert_current_date", SystemActionEvent.ActionType.INSERT_CURRENT_DATE),
-            Map.entry("cmd.insert_current_time", SystemActionEvent.ActionType.INSERT_CURRENT_TIME),
-            Map.entry("cmd.export_vault", SystemActionEvent.ActionType.EXPORT_VAULT),
-            Map.entry("cmd.tag_manager", SystemActionEvent.ActionType.TAGS_MANAGER),
-            Map.entry("cmd.preferences", SystemActionEvent.ActionType.PREFERENCES),
-            Map.entry("cmd.toggle_favorite", SystemActionEvent.ActionType.TOGGLE_FAVORITE),
-            Map.entry("cmd.refresh", SystemActionEvent.ActionType.REFRESH_NOTES),
-            Map.entry("cmd.documentation", SystemActionEvent.ActionType.DOCUMENTATION),
-            Map.entry("cmd.about", SystemActionEvent.ActionType.ABOUT),
-            Map.entry("cmd.focus_mode", SystemActionEvent.ActionType.FOCUS_MODE),
-            Map.entry("cmd.kanban_view", SystemActionEvent.ActionType.KANBAN_VIEW),
-            Map.entry("cmd.note_history", SystemActionEvent.ActionType.NOTE_HISTORY),
-            Map.entry("cmd.toggle_private", SystemActionEvent.ActionType.PRIVATE_TOGGLE),
-            Map.entry("cmd.lock_notes", SystemActionEvent.ActionType.NOTES_LOCK),
-            Map.entry("cmd.unlock_notes", SystemActionEvent.ActionType.NOTES_UNLOCK),
-            Map.entry("cmd.navigate_back", SystemActionEvent.ActionType.NAVIGATE_BACK),
-            Map.entry("cmd.navigate_forward", SystemActionEvent.ActionType.NAVIGATE_FORWARD),
-            Map.entry("cmd.close_note", SystemActionEvent.ActionType.CLOSE_NOTE),
-            Map.entry("cmd.switch_storage", SystemActionEvent.ActionType.SWITCH_STORAGE),
-            Map.entry("cmd.check_updates", SystemActionEvent.ActionType.CHECK_UPDATES),
-            Map.entry("cmd.toggle_pin", SystemActionEvent.ActionType.TOGGLE_PIN),
-            Map.entry("cmd.toggle_notes_list", SystemActionEvent.ActionType.TOGGLE_NOTES_LIST),
-            Map.entry("cmd.toggle_tags", SystemActionEvent.ActionType.TOGGLE_TAGS),
-            Map.entry("cmd.toggle_format_toolbar", SystemActionEvent.ActionType.TOGGLE_FORMAT_TOOLBAR),
-            Map.entry("cmd.new_tag", SystemActionEvent.ActionType.NEW_TAG),
-            Map.entry("cmd.list_view", SystemActionEvent.ActionType.LIST_VIEW),
-            Map.entry("cmd.grid_view", SystemActionEvent.ActionType.GRID_VIEW),
-            Map.entry("cmd.switch_layout", SystemActionEvent.ActionType.SWITCH_LAYOUT),
-            Map.entry("cmd.editor_zoom_in", SystemActionEvent.ActionType.ZOOM_EDITOR_IN),
-            Map.entry("cmd.editor_zoom_out", SystemActionEvent.ActionType.ZOOM_EDITOR_OUT),
-            Map.entry("cmd.editor_reset_zoom", SystemActionEvent.ActionType.RESET_EDITOR_ZOOM),
-            Map.entry("cmd.import_obsidian", SystemActionEvent.ActionType.IMPORT_OBSIDIAN),
-            Map.entry("cmd.import_enex", SystemActionEvent.ActionType.IMPORT_ENEX));
-
     /** Returns the {@link Runnable} bound to {@code commandId}, or {@code null} for unknown IDs (used by the command registry). */
     private Runnable resolveCommandAction(String commandId) {
         if (commandId == null) {
@@ -1516,7 +1398,7 @@ public class MainController {
         }
         // A palette command that is also a menu or toolbar action runs that action's handler.
         initializeSystemActionHandlers();
-        SystemActionEvent.ActionType action = COMMAND_ACTIONS.get(commandId);
+        SystemActionEvent.ActionType action = CommandRegistry.ACTION_COMMANDS.get(commandId);
         if (action != null) {
             return systemActionHandlers.get(action);
         }
@@ -1620,6 +1502,8 @@ public class MainController {
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_FAVORITE, () -> handleToggleFavorite(null));
         systemActionHandlers.put(SystemActionEvent.ActionType.TOGGLE_RIGHT_PANEL, () -> handleToggleRightPanel(null));
         tabsSupport.register(systemActionHandlers);
+        startupSupport.register(systemActionHandlers);
+        rightPanelSupport.register(systemActionHandlers);
         systemActionHandlers.put(SystemActionEvent.ActionType.KNOWLEDGE_INSIGHTS, this::showKnowledgeInsights);
         workspaceController.register(systemActionHandlers);
         vaultCleanup.register(systemActionHandlers, () -> noteService, this::getString, this::updateStatus, this::getMainWindow);
@@ -1754,55 +1638,7 @@ public class MainController {
 
     @FXML
     private void handleToggleRightPanel(ActionEvent event) {
-        uiLayout.toggleRightPanel(getCurrentNote(), () -> updateNoteMetadata(getCurrentNote()));
-    }
-
-    private void initializeRightPanelSections() {
-        uiInitialization.initializeRightPanelSections(
-                noteInfoHeader,
-                noteInfoContent,
-                noteInfoCollapseIcon,
-                pluginPanelsContainer);
-        uiInitialization.wireCollapsibleSection(backlinksHeader, backlinksContent, backlinksCollapseIcon,
-                expand -> {
-                    if (expand) {
-                        refreshBacklinks(getCurrentNote());
-                    }
-                });
-    }
-
-    /**
-     * Switches the right panel's baseline section for whichever center view is
-     * active: note-info/backlinks for the editor, a stats summary for the graph.
-     * Kanban has no baseline section — the panel stays reachable but empty.
-     * Called after every graph/Kanban show or hide ({@link OverlaySupport}'s
-     * {@code onVisibilityChanged} callback) so the panel never shows stale content
-     * for an overlay it can no longer reach.
-     */
-    private void updateRightPanelContext() {
-        boolean graph = tabsSupport.isGraphVisible();
-        boolean editorContext = !graph;
-        UiNodes.show(noteInfoSection, editorContext);
-        UiNodes.show(backlinksSection, editorContext);
-        UiNodes.show(graphInfoSection, graph);
-    }
-
-
-    /** Refreshes the graph baseline section's node/edge counts (graph rebuild callback). */
-    private void updateGraphInfoSection(GraphData data) {
-        if (graphNodeCountLabel != null) {
-            graphNodeCountLabel.setText(MessageFormat.format(
-                    getString("info.graph_nodes"), data != null ? data.nodes().size() : 0));
-        }
-        if (graphEdgeCountLabel != null) {
-            graphEdgeCountLabel.setText(MessageFormat.format(
-                    getString("info.graph_edges"), data != null ? data.edges().size() : 0));
-        }
-    }
-
-    private void initializeRightPanelVisibility() {
-        uiLayout.collapseRightPanel();
-        updateRightPanelContext();
+        uiLayout.toggleRightPanel(tabsSupport.inSight(getCurrentNote()), note -> { backlinksSupport.refresh(note); rightPanelSupport.panelOpened(); });
     }
 
     /**
@@ -1955,8 +1791,7 @@ public class MainController {
                 note = noteService.getNoteById(note.getId()).orElse(note);
             }
         }
-        Note leaving = getCurrentNote();
-        if (isModified() && leaving != null && !confirmLeaveCurrent()) {
+        if (!tabsSupport.leaveCurrent()) {
             return;
         }
 
@@ -1984,7 +1819,7 @@ public class MainController {
 
         publishNoteSelected(activeNote);
         updateNoteMetadata(activeNote);
-        refreshBacklinks(activeNote);
+        backlinksSupport.refresh(activeNote);
         editorController.syncFavoritePinButtons(this::getString);
 
         // Attachments (PDF/images) show a native viewer — skip the Markdown-only work
@@ -2055,19 +1890,21 @@ public class MainController {
             notesListController.getNotesListView().getSelectionModel().clearSelection();
         }
         updateNoteMetadata(null);
-        updateNoteStats(null);
+        noNoteInSight();
         updateStatus(getString("status.note_closed"));
     }
 
+    /** No note in sight: what follows the open one (plugins, the links, the counts) has none. */
+    private void noNoteInSight() {
+        publishNoteSelected(null);
+        backlinksSupport.refresh(null);
+        updateNoteStats(null);
+    }
+
     private void updateNoteMetadata(Note note) {
-        if (editorController == null) {
-            return;
+        if (editorController != null) {
+            editorController.updateNoteMetadata(note);
         }
-        editorController.updateNoteMetadata(
-                note,
-                editorController.getModifiedDateLabel(),
-                infoCreatedLabel,
-                infoModifiedLabel);
     }
 
     /** Recomputes (off the FX thread) and renders the backlinks for {@code note}. */
@@ -2098,10 +1935,6 @@ public class MainController {
         }
         NoteAnchors.locate(opened.getContent(), subpath)
                 .ifPresent(anchor -> editorController.navigateToHeading(anchor.offset(), anchor.elementId()));
-    }
-
-    private void refreshBacklinks(Note note) {
-        backlinksSupport.refresh(note);
     }
 
     private void loadNotesForTag(String tagName) {
@@ -2313,7 +2146,14 @@ public class MainController {
         } catch (Exception e) {
             logger.log(Level.WARNING, "Failed to refresh UI after vault content load", e);
         }
+        vaultWatch.start(noteService, generation, this::isActiveBackendSession, eventBus,
+                new VaultWatchSupport.Editor(this::getCurrentNote, this::isModified, this::refreshOpenNoteAfterStorageRefresh,
+                        this::refreshInactiveOpenTabsAfterStorageRefresh,
+                        () -> updateStatus(getString("status.open_note_changed_outside")),
+                        (from, to, title) -> { editorTabs.rebindId(from, to, title); backlinksSupport.rebind(from, to); }, editorController::syncCurrentNoteIdentity),
+                () -> handleRefresh(null));
     }
+
 
     /** Refreshes the notes list according to the active filter (all / folder / tag / search) and view mode. */
     /** Loads again what the notes list shows (the list keeps which filter that is). */
@@ -2349,6 +2189,7 @@ public class MainController {
     /** Cancels all event subscriptions, shuts down plugins, closes the executor and the database connection in orderly fashion. */
     public void shutdownApplication() {
         try {
+            vaultWatch.endSession(noteDAO);
             workspaceController.saveSession(); // first, while the tabs are all there
             uiEventSubscriptions.forEach(EventBus.Subscription::cancel);
             uiEventSubscriptions.clear();
@@ -2773,6 +2614,7 @@ public class MainController {
         }
         DialogSupport.PreferencesDialogResult values = result.get();
         VaultSettingsSupport.save(vaultSettings, values.vaultSettings());
+        startupSupport.refreshHome(); // a home page chosen or cleared shows or hides the house
         uiPreferences.save(prefs, values.uiPreferences());
         uiPreferences.saveEnabledSnippets(prefs, values.enabledSnippets());
         uiPreferences.saveIconSize(prefs, values.iconSize());

@@ -1,9 +1,12 @@
 package com.example.jylos.data.dao.interfaces;
 
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
+import com.example.jylos.data.dao.ExternalChanges;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Folder;
@@ -194,24 +197,65 @@ public interface NoteDAO {
 
     /**
      * Registers a callback invoked once any <em>deferred</em> background content load
-     * finishes (file-based storage that builds its cache lazily). Implementations that
-     * load synchronously have nothing to defer, so the default is a no-op.
+     * finishes (file-based storage that builds its cache lazily), or at once if the content is
+     * already loaded. Implementations that load synchronously are always loaded, so the
+     * default runs it at once.
      *
      * @param callback action to run on completion (may be {@code null} to clear)
      */
     default void setOnContentLoaded(Runnable callback) {
-        // No-op: synchronous backends are already fully loaded.
+        if (callback != null) {
+            callback.run();
+        }
     }
 
     /**
-     * Registers a callback invoked, off the UI thread, when a background pass has indexed the
-     * links of notes that the list only read in part (file-based storage with long notes).
-     * Backends that always know a note's links have nothing to report: no-op by default.
-     *
-     * @param callback action to run (may be {@code null} to clear)
+     * The longest a deferred background content load reads before it gives up on the files left
+     * (a cloud download that never ends must not hold the vault forever); what waits for the
+     * load waits as long.
      */
-    default void setOnLinksIndexed(Runnable callback) {
-        // No-op: links are always complete.
+    long CONTENT_LOAD_LIMIT_MS = 10 * 60_000L;
+
+    /**
+     * Waits, at most {@code timeoutMs}, for a deferred background content load to finish.
+     * Backends that load synchronously are always loaded.
+     *
+     * @return true when the notes are loaded
+     */
+    default boolean awaitContentLoaded(long timeoutMs) throws InterruptedException {
+        return true;
+    }
+
+    /**
+     * A value worked out by {@code fromText} from the text of note {@code id} (without its
+     * properties), kept by storages that cache what their notes say so it is worked out again
+     * only when the note changes. Empty when the storage keeps nothing for that note (the
+     * caller then works it out from the note itself); the default keeps nothing.
+     *
+     * @param key names the value and the rules it was worked out with, e.g. {@code "dataview@1"}
+     */
+    default Optional<String> derived(String id, String key, Function<String, String> fromText) {
+        return Optional.empty();
+    }
+
+    /**
+     * Ends the storage's session (another vault is opened, or the app closes): what it keeps
+     * pending is written now, and nothing is written afterwards. Nothing to do by default.
+     */
+    default void close() {
+        // Nothing pending.
+    }
+
+    /**
+     * Applies the files a watcher reported as changed outside the app (folder vaults): each
+     * one is listed again, added or removed, without walking the storage. Storages without
+     * files have nothing to apply.
+     *
+     * @param paths files and folders reported, absolute
+     * @return what changed
+     */
+    default ExternalChanges applyExternalChanges(Collection<Path> paths) {
+        return ExternalChanges.NONE;
     }
 
     /**

@@ -94,7 +94,7 @@ Los paquetes precompilados para las principales plataformas están disponibles e
     - [Warnings de parent-POM JavaFX](#warnings-de-parent-pom-javafx)
   - [Contribución](#contribución)
     - [Convenio del changelog](#convenio-del-changelog)
-  - [Licencia](#licencia)
+  - [Licencia y marcas](#licencia-y-marcas)
 
 ## Por qué Jylos
 
@@ -110,16 +110,16 @@ En concreto:
 
 ## Resumen
 
-Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
+Jylos es una app de escritorio Java 21 + JavaFX 23 para notas Markdown enlazadas:
 
 - Editor Markdown CodeMirror 6 con vista previa en vivo por defecto, vista de lectura dedicada, modo fuente opcional y vista de lectura enlazada lado a lado (GFM, matemáticas KaTeX, emoji)
-- **Dos diseños**: un árbol **Explorador** con carpetas y notas juntas, al estilo de Obsidian, o el **clásico** en columnas carpetas | notas | editor (lado a lado o apiladas). Se elige con el botón de diseño de la barra superior o en Preferencias
+- **Dos diseños**: un árbol **Explorador** con carpetas y notas juntas, o el **clásico** en columnas carpetas | notas | editor (lado a lado o apiladas). Se elige con el botón de diseño de la barra superior o en Preferencias
 - **Pestañas como en VS Code**: un clic abre la nota en la pestaña actual; Cmd/Ctrl+clic, clic central o "Abrir en pestaña nueva" abren otra. El grafo y los tableros Kanban también se abren en pestañas, y **Jylos reabre la última sesión** al arrancar
 - Jerarquía de carpetas + etiquetas + favoritos + recientes + papelera
 - **Enlaces internos compatibles con Obsidian** (`[[wiki-links]]`, `[texto](nota.md)`) con clic en la vista previa
 - **Grafo de conocimiento** (vista global de la bóveda o grafo local alrededor de la nota abierta)
 - **Panel de enlaces**: menciones con enlace, menciones sin enlace (un clic las convierte en enlace) y enlaces salientes de la nota abierta
-- **Plantillas como las de Obsidian**, con la sintaxis de **Templater** opcional, **nota diaria** y ajustes de cada bóveda en Preferencias → Bóveda
+- **Plantillas**, con la sintaxis de **Templater** opcional, **nota diaria** y ajustes de cada bóveda en Preferencias → Bóveda
 - **Comparte bóveda con Obsidian**: Jylos no escribe nada suyo en las notas, deja las propiedades como estaban escritas y puede tomar de Obsidian los ajustes de plantillas, nota diaria y Templater y los marcadores (de `.obsidian` solo lee)
 - **Tablero Kanban** guardado dentro de una nota, y **modo concentración** sin distracciones
 - **Editor de Canvas**: abre y edita ficheros `.canvas` compatibles con Obsidian en un lienzo infinito con pan/zoom — crea/mueve/redimensiona/colorea nodos de texto, enlace y grupo, conecta y borra aristas (con flechas) y crea nuevos canvas; el guardado hace round-trip seguro (preserva campos desconocidos)
@@ -166,7 +166,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 ### Tablero Kanban
 
-- Un tablero es una nota normal cuyo cuerpo Markdown contiene columnas (`## Encabezado`) y tarjetas de texto (`- tarjeta`), al estilo del plugin Kanban de Obsidian
+- Un tablero es una nota normal cuyo cuerpo Markdown contiene columnas (`## Encabezado`) y tarjetas de texto (`- tarjeta`)
 - Abrir con **Ver → Tablero Kanban** o **`Ctrl/Cmd+K`**; elige o crea tableros desde la barra
 - Añadir/renombrar/borrar columnas, crear/editar/borrar tarjetas y **arrastrar tarjetas entre columnas**
 - Una tarjeta puede enlazar a una nota (`[[Título]]`) o **convertirse en nota**
@@ -187,13 +187,13 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 - **Grafo global**: todas las notas y aristas resueltas por wiki-links; nodos de **etiquetas**, adjuntos, huérfanas y enlaces no resueltos opcionales
 - **Grafo local**: la nota abierta y sus vecinas, de 1 a 5 saltos, con enlaces entrantes, salientes y entre vecinas
 - **Grupos de color**: una consulta (texto, `path:`, `file:` o `tag:`) con un color; cada nota toma el del primero que coincide
-- Fuerzas, tamaños y dibujo como en Obsidian: una nota con muchos enlaces sigue viéndose grande de lejos, al pasar el ratón se resaltan solo sus enlaces y las líneas son de un gris discreto
+- Fuerzas, tamaños y dibujo: una nota con muchos enlaces sigue viéndose grande de lejos, al pasar el ratón se resaltan solo sus enlaces y las líneas son de un gris discreto
 - Simulación de fuerzas en **Canvas JavaFX** (repulsión Barnes–Hut, muelles, enfriamiento de alpha — en reposo no consume CPU)
 - Zoom/pan, arrastrar nodos, **clic en nota para abrirla**; fuerzas, filtros, grupos y opciones del grafo local se recuerdan
 
 ### Plantillas y nota diaria
 
-- **Carpeta de plantillas** en Preferencias → Bóveda (con sus subcarpetas); **Edición → Insertar plantilla…** escribe una plantilla en el cursor y fusiona sus propiedades con las de la nota, como Obsidian
+- **Carpeta de plantillas** en Preferencias → Bóveda (con sus subcarpetas); **Edición → Insertar plantilla…** escribe una plantilla en el cursor y fusiona sus propiedades con las de la nota
 - Las variables de Obsidian: `{{title}}`, `{{date}}`, `{{time}}` y `{{date:FORMATO}}` con los formatos de Obsidian (moment), en inglés y español; además, **Insertar fecha / hora actual**
 - **Nota diaria** (`Ctrl/Cmd+Shift+D`) con su carpeta, su formato de nombre (`YYYY/MM/DD` crea carpetas) y su plantilla; las notas nuevas pueden ir a la carpeta que estás viendo, a la raíz o a una carpeta elegida
 - **Sintaxis de Templater** (opcional): `tp.date`, `tp.file`, `tp.frontmatter` y `tp.system` con el control de espacios de Templater, el cursor y las plantillas por carpeta; lo que ejecuta JavaScript se deja tal cual y se avisa
@@ -201,7 +201,7 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 ### Compatibilidad con Obsidian
 
-- Jylos y Obsidian pueden abrir la misma bóveda: Jylos no escribe nada suyo en las notas (favoritos y fijadas van en `.jylos/`), deja byte a byte las propiedades que no cambian y las lee como YAML 1.2, como Obsidian
+- Jylos y Obsidian pueden abrir la misma bóveda: Jylos no escribe nada suyo en las notas (favoritos y fijadas van en `.jylos/`), deja byte a byte las propiedades que no cambian y las lee como YAML 1.2, así que las dos apps las leen igual
 - **Herramientas → Limpiar metadatos de Jylos…** quita los campos que escribían versiones anteriores, con copia de cada nota
 - **Herramientas → Importar ajustes de Obsidian…** toma los ajustes de plantillas, nota diaria, ubicación de las notas nuevas y Templater de los plugins que Obsidian tiene activos; **Importar marcadores de Obsidian** convierte los marcadores en favoritos. De `.obsidian` solo se lee
 - Guía: [Compatibilidad con Obsidian](https://jylos.es/es/guides/obsidian-compatibility)
@@ -213,17 +213,17 @@ Jylos es una app Java 21 + JavaFX 23 inspirada en flujos tipo Obsidian:
 
 ### Productividad
 
-- **Panel de enlaces** en el panel derecho: menciones con enlace y la línea de cada una, menciones sin enlace con un botón **Enlazar**, y enlaces salientes (uno que no existe crea la nota)
+- **Panel derecho**: una fila de pestañas, una por vista — **enlaces entrantes** (menciones con enlace y la línea de cada una, menciones sin enlace con un botón **Enlazar**), **enlaces salientes** (uno que no existe crea la nota) y las vistas de los plugins (esquema, calendario…)
 - **Nota diaria** y **nueva nota desde plantilla** — ver [Plantillas y nota diaria](#plantillas-y-nota-diaria)
 - Exportación por nota y **exportación masiva** de la bóveda a HTML/PDF
 - Importar/exportar notas individuales
-- **Importar una bóveda de Obsidian** (jerarquía de carpetas, frontmatter y etiquetas preservados; `.obsidian/` se omite) o un export **`.enex` de Evernote** (ENML convertido a Markdown, etiquetas conservadas, adjuntos marcados como placeholder) — menú Archivo
+- **Importar una bóveda**, cualquier carpeta de notas Markdown, de Obsidian, de Jylos o de otra app (jerarquía de carpetas, propiedades y etiquetas preservadas; las carpetas que empiezan por punto, como `.obsidian/`, se omiten; las imágenes y demás adjuntos no se copian), o un export **`.enex` de Evernote** (ENML convertido a Markdown, etiquetas conservadas, adjuntos marcados como placeholder) — menú Archivo. Importar copia las notas, e importar otra vez la misma bóveda trae solo lo que aún no está; para trabajar con una bóveda tal como está, con sus adjuntos, abre su carpeta como bóveda
 - **Historial de versiones de nota** (Herramientas → Historial de la Nota, `Ctrl/Cmd+Shift+H`): snapshots locales antes de cada guardado (coalescidos, máximo 50 por nota), con visor de **diff** por líneas y **restauración** en un clic; los snapshots de notas privadas permanecen cifrados
 
 ### UI/UX
 
 - Temas claro, oscuro y **sistema** (sigue el SO cuando eliges Sistema) + temas CSS externos
-- **Snippets CSS**: coloca ficheros `.css` en `snippets/` y actívalos en Preferencias para retocar la interfaz sobre el tema activo (estilo Obsidian)
+- **Snippets CSS**: coloca ficheros `.css` en `snippets/` y actívalos en Preferencias para retocar la interfaz sobre el tema activo
 - Temas externos en `themes/`: Gruvbox, Gruvbox Material, Nord, Catppuccin (Mocha y Latte), Rosé Pine (y Dawn) y Retro Phosphor — se descargan en la [página de temas](https://jylos.es/es/guides/themes)
 - **Iconos de colores** por tipo (opcional), **color propio por carpeta** y **tamaño de iconos** aparte del texto; todo crece con la letra de la interfaz
 - Preferencias de botones lateral/editor (texto/iconos/auto)
@@ -501,7 +501,7 @@ Raíz del repositorio (contiene el módulo Maven `jylos/` y `scripts/`):
 ├── themes/                             # fuentes → build-themes → jylos/themes/
 ├── resources/images/                   # banner y capturas del README
 ├── scripts/                            # build, launch, package, smoke tests
-├── docs/                                # documentación técnica (docs/README.md)
+├── docs/                               # documentación técnica (docs/README.md)
 ├── AGENTS.md
 ├── changelog.md
 ├── README.md
@@ -533,7 +533,7 @@ Paquetes en `themes/<id>/` (`theme.properties` + `theme.css`). En desarrollo: `.
 
 ### Snippets CSS
 
-Coloca ficheros `.css` en la carpeta `snippets/` para retocar la interfaz sobre el tema activo (estilo Obsidian), sin crear un tema completo. Actívalos en **Preferencias → Snippets CSS**; cada snippet activo se superpone **después** del tema, así que sus reglas tienen prioridad. Usa **Abrir carpeta** en ese diálogo para llegar al directorio (`<appData>/snippets`). El nombre de un snippet debe ser un fichero `.css` simple. Hay ejemplos listos para usar y adaptables al tema (Atom One, Nord, Solarized — cada uno con variante clara y oscura) en [snippets-examples/](snippets-examples/). Los snippets pueden ramificar con la clase `theme-dark` / `theme-light` que Jylos pone en el root de la escena (estilo Obsidian), y esas mismas capas de estilo se propagan también a diálogos tematizados y overlays de comandos como la paleta y el quick switcher.
+Coloca ficheros `.css` en la carpeta `snippets/` para retocar la interfaz sobre el tema activo, sin crear un tema completo. Actívalos en **Preferencias → Snippets CSS**; cada snippet activo se superpone **después** del tema, así que sus reglas tienen prioridad. Usa **Abrir carpeta** en ese diálogo para llegar al directorio (`<appData>/snippets`). El nombre de un snippet debe ser un fichero `.css` simple. Hay ejemplos listos para usar y adaptables al tema (Atom One, Nord, Solarized — cada uno con variante clara y oscura) en [snippets-examples/](snippets-examples/). Los snippets pueden ramificar con la clase `theme-dark` / `theme-light` que Jylos pone en el root de la escena, y esas mismas capas de estilo se propagan también a diálogos tematizados y overlays de comandos como la paleta y el quick switcher.
 
 ### Plugins
 

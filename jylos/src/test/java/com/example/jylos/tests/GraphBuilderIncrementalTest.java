@@ -70,7 +70,9 @@ class GraphBuilderIncrementalTest {
         assertTrue(keys.contains("A->B"), "A->B kept");
         assertTrue(keys.contains("A->C"), "A->C added after invalidate; got: " + keys);
 
-        // A fresh builder (no cache) must agree — invalidation = full rebuild equivalence.
+        // A fresh builder must agree once the vault is read again (it takes the links the vault
+        // listed, as the list does: a change made outside the app shows after a refresh).
+        noteDao.refreshCache();
         GraphData fresh = new GraphBuilder(noteSvc, tagSvc).buildGlobalGraph(opts);
         assertEquals(edgeKeys(fresh, labelsById(fresh)), keys, "incremental == full rebuild");
     }

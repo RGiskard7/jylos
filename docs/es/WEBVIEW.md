@@ -9,7 +9,7 @@ Hay tres páginas HTML que dibuja el `WebView` de JavaFX:
 - las notas de versión que se muestran antes de actualizar (`UpdateInstallSupport`).
 
 El `WebView` usa el motor WebKit que trae JavaFX, que no es Chromium: le faltan formatos y
-comportamientos de navegador que Obsidian y otras apps Electron tienen sin hacer nada.
+comportamientos de navegador que las apps Electron tienen sin hacer nada.
 
 Esta página recoge esas carencias, qué hace Jylos con cada una y qué supondría cambiar de
 motor (JCEF).
@@ -24,6 +24,7 @@ motor (JCEF).
 | El propio WebKit anima el scroll | Un evento de rueda o trackpad no mueve nada durante 2 fotogramas y tarda unos 5 más en llegar (unos 100 ms en total). Sumado a la inercia del trackpad, se nota retraso. Medido con un evento de 100 px. | Nada en el editor; la vista de lectura multiplica el paso de rueda por 1,8. No hay API pública para quitar la animación. | `EditorPreviewSupport.installAcceleratedScroll` |
 | No hay composición por GPU; el scroll se repinta en el hilo de JavaFX | La fluidez depende del tamaño de la zona que se repinta | CodeMirror solo dibuja lo visible. Se recuerda la altura de los widgets para que el texto no salte. | `live-preview.js` (`imageHeights`, `blockHeights`) |
 | `KeyboardEvent.key` llega vacío en macOS | Los símbolos con Option (`[`, `{`, `@`…) disparaban atajos de CodeMirror | Los atajos que dependen del código de tecla no se usan al escribir | `editor.js` (`typingSafeKeymap`) |
+| En macOS, una tecla muerta pulsada varias veces seguidas (el acento grave en un teclado español) llega a la página, una vez de cada dos, como una composición nueva del método de entrada sin nada confirmado. Es un fallo de JavaFX, no solo del WebView: los `TextField` también pierden esas pulsaciones | La página sustituye la marca pendiente: tras las primeras pulsaciones no se puede escribir el ``` de un bloque de código | Si vuelve a componerse el mismo acento suelto (o el apóstrofo o las comillas, teclas muertas en U.S. International) sin nada confirmado, primero se confirma el pendiente. Obsidian, sobre Chromium, no necesita nada parecido. Las demás composiciones (japonés y otros métodos de entrada) pasan sin cambios. Informe, caso de prueba y cuándo quitarlo: [upstream/javafx-macos-dead-keys](upstream/javafx-macos-dead-keys.md) | `DeadKeyRepeats` (lo instala `Main` en cada ventana, así que cubre también los campos de texto de JavaFX) |
 | `document.hasFocus()` no responde como en un navegador | El `hasFocus` de CodeMirror se equivoca | El foco se sigue con los eventos focus y blur del contenido | `live-preview.js` (`editorFocusField`) |
 | No hay pegado nativo en `contentEditable` | Pegar no hace nada | Copiar, cortar y pegar pasan por el portapapeles de JavaFX en un filtro de teclado | `MarkdownEditorView.installDesktopEditingIntegration` |
 | Las páginas se cargan con `loadContent`: origen opaco, sin URL | No cargan recursos `file://` ni funcionan los saltos `#fragmento` | Las imágenes de la bóveda y las fuentes de KaTeX van incrustadas como `data:`; los saltos a anclas se hacen en JavaScript | `MarkdownPreview.resolveImageSource`, el manejador de clics de la vista de lectura |
@@ -61,7 +62,7 @@ midió lo que aportaría y lo que costaría:
 una aplicación Java. Lo usan los IDE de JetBrains para sus paneles web; CEF también está
 detrás de apps de escritorio como Spotify o Steam.
 
-**Qué arreglaría.** Es la misma familia de motor que el de Obsidian (Chromium), así que
+**Qué arreglaría.** Es Chromium, el motor de las apps Electron, así que
 traería:
 - WebP, AVIF y emojis completos (tonos de piel, banderas, familias);
 - el scroll nativo de un navegador;

@@ -6,6 +6,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Function;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
@@ -89,6 +91,11 @@ class DocumentSupport {
         return new ImportResult(imported, failed, failures);
     }
 
+    /** The images {@code note} names, found by name when not where their path says (as Obsidian). */
+    private Function<String, Optional<Path>> imageLocator(Note note) {
+        return name -> noteService != null ? noteService.resolveAttachmentPath(name, note.getId()) : Optional.empty();
+    }
+
     ExportResult exportNote(Note note, File targetFile) {
         if (note == null) {
             return new ExportResult(false, "Note is null");
@@ -104,14 +111,15 @@ class DocumentSupport {
                 NoteExporter.exportHtml(note, targetFile, baseDir,
                         link -> resolveEmbedContent(link, note),
                         noteService != null ? noteService.getStorageRoot().orElse(null) : null,
-                        noteService != null ? noteService.linkIndex() : null);
+                        noteService != null ? noteService.linkIndex() : null, imageLocator(note));
                 return new ExportResult(true, null);
             }
             if (name.endsWith(".pdf")) {
                 String baseUri = baseDir != null ? baseDir.toUri().toString() : null;
                 NoteExporter.exportPdf(note, targetFile, baseUri,
                         link -> resolveEmbedContent(link, note),
-                        noteService != null ? noteService.linkIndex() : null);
+                        noteService != null ? noteService.linkIndex() : null, baseDir,
+                        noteService != null ? noteService.getStorageRoot().orElse(null) : null, imageLocator(note));
                 return new ExportResult(true, null);
             }
             // Markdown / plain text (default).

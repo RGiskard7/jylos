@@ -21,10 +21,11 @@
 
     <!-- ── Editor Header ─────────────────────────────────────────────────── -->
     <HBox fx:id="editorHeaderBar" alignment="CENTER_LEFT" spacing="6" styleClass="editor-header">
-        <!-- Same vertical padding as the side panel's header (.sidebar-nav-bar), so both are
-             equally tall and their bottom lines meet. -->
+        <!-- Same vertical padding as the side panel's header (.sidebar-nav-bar) and the notes
+             list's (.notes-header), so all are equally tall and their bottom lines meet. Little
+             margin above and below the buttons, as Obsidian's headers. -->
         <padding>
-            <Insets top="8" right="16" bottom="8" left="16"/>
+            <Insets top="4" right="16" bottom="4" left="16"/>
         </padding>
 
         <!-- Navigation arrows (back / forward) — same corner as Obsidian -->

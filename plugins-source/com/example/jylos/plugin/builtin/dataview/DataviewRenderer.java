@@ -76,7 +76,7 @@ final class DataviewRenderer {
                 List<Object> values = row.values();
                 for (int i = 0; i < values.size(); i++) {
                     if (i > 0) {
-                        out.append(" — ");
+                        out.append(": ");
                     }
                     out.append(DqlValue.toHtml(values.get(i)));
                 }

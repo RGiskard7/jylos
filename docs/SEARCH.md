@@ -3,7 +3,7 @@
 Español: [es/SEARCH.md](es/SEARCH.md)
 
 Jylos search stays simple by default: type words and it matches note **titles and
-bodies**, exactly as before. Power users can add Gmail/Obsidian-style operators on top —
+bodies**, exactly as before. Power users can add search operators on top —
 mix freely, the rest of the query still works.
 
 ## Advanced Search Syntax

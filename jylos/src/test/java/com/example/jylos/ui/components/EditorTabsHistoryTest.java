@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -144,5 +145,102 @@ class EditorTabsHistoryTest {
 
         assertEquals("a2", tabs.back());
         assertNull(tabs.back());
+    }
+
+    // ── Where each note was left ─────────────────────────────────────────────
+
+    /** A note left at line {@code n}: its editor, its selection and its reading view there. */
+    private static NotePosition at(String id, int n) {
+        return new NotePosition(id, n, -n, n + 1, n + 2, n * 10.0);
+    }
+
+    @Test
+    void aNoteOpenedInTheTabStartsAtTheTopAndBackAndForwardReturnWhereEachWasLeft() {
+        EditorTabsModel tabs = new EditorTabsModel();
+        tabs.open("a", OpenTarget.CURRENT_TAB);
+        tabs.remember(at("a", 40));
+        tabs.open("b", OpenTarget.CURRENT_TAB);
+        NotePosition opened = tabs.positionOf("b");
+        tabs.remember(at("b", 7));
+
+        tabs.back();
+        NotePosition back = tabs.positionOf("a");
+        tabs.forward();
+
+        assertNull(opened, "a note just opened has no position: it starts at the top");
+        assertEquals(at("a", 40), back);
+        assertEquals(at("b", 7), tabs.positionOf("b"));
+    }
+
+    @Test
+    void twoVisitsToTheSameNoteKeepTheirOwnPositions() {
+        EditorTabsModel tabs = new EditorTabsModel();
+        tabs.open("a", OpenTarget.CURRENT_TAB);
+        tabs.remember(at("a", 1));
+        tabs.open("b", OpenTarget.CURRENT_TAB);
+        tabs.remember(at("b", 2));
+        tabs.open("a", OpenTarget.CURRENT_TAB);
+        NotePosition again = tabs.positionOf("a");
+        tabs.remember(at("a", 3));
+        tabs.open("b", OpenTarget.CURRENT_TAB);
+
+        List<NotePosition> backwards = new ArrayList<>();
+        while (tabs.canGoBack()) {
+            String id = tabs.back();
+            backwards.add(tabs.positionOf(id));
+        }
+
+        assertNull(again, "opening it again starts at the top too");
+        assertEquals(List.of(at("a", 3), at("b", 2), at("a", 1)), backwards);
+    }
+
+    @Test
+    void eachTabKeepsWhereItsNoteWasAndAPositionNobodyShowsIsIgnored() {
+        EditorTabsModel tabs = new EditorTabsModel();
+        tabs.open("a", OpenTarget.CURRENT_TAB);
+        tabs.remember(at("a", 5));
+        tabs.open("b", OpenTarget.NEW_TAB);
+        tabs.remember(at("b", 9));
+        tabs.remember(at("z", 99));
+
+        tabs.open("a", OpenTarget.CURRENT_TAB); // its tab, brought to the front
+
+        assertEquals(Arrays.asList(at("a", 5), at("b", 9)), Arrays.asList(tabs.positionOf("a"), tabs.positionOf("b")));
+        assertNull(tabs.positionOf("z"));
+        assertNull(tabs.positionOf(null));
+        tabs.remember(null); // no note in sight: nothing to keep
+        assertEquals(at("a", 5), tabs.positionOf("a"));
+    }
+
+    @Test
+    void goingBackToANoteOpenInAnotherTabTakesItsPositionToo() {
+        EditorTabsModel tabs = new EditorTabsModel();
+        tabs.open("a", OpenTarget.CURRENT_TAB);
+        tabs.remember(at("a", 1));
+        tabs.open("b", OpenTarget.CURRENT_TAB);
+        tabs.open("a", OpenTarget.NEW_TAB);
+        tabs.remember(at("a", 8)); // where it was left last, in the other tab
+        tabs.open("b", OpenTarget.CURRENT_TAB);
+
+        tabs.back();
+
+        assertEquals(at("a", 8), tabs.positionOf("a"));
+    }
+
+    @Test
+    void aRenamedNoteKeepsItsPositionInItsTabAndInTheHistory() {
+        EditorTabsModel tabs = new EditorTabsModel();
+        tabs.open("a", OpenTarget.CURRENT_TAB);
+        tabs.remember(at("a", 4));
+        tabs.open("b", OpenTarget.CURRENT_TAB);
+        tabs.remember(at("b", 6));
+
+        tabs.rebind("b", "b2");
+        NotePosition renamedInItsTab = tabs.positionOf("b2");
+        tabs.rebind("a", "a2");
+        tabs.back();
+
+        assertEquals(at("b2", 6), renamedInItsTab, "the same place, under the new name");
+        assertEquals(at("a2", 4), tabs.positionOf("a2"));
     }
 }

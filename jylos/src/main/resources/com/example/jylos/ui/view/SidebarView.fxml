@@ -8,14 +8,11 @@
 <VBox fx:id="sidebarPane" styleClass="sidebar" minWidth="200" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.jylos.ui.controller.SidebarController">
     <!-- Left-aligned navigation (replaces TabPane header) — same left margin as the
          main toolbar above. Top/bottom padding matches the notes list's own header
-         (NotesListView.fxml's notes-header) so the two side-by-side panel headers
-         land at the same height and their bottom borders line up — that header's
-         effective padding is 8 (its own "8 10" rule in modern-theme.css/dark-theme.css
-         wins over its FXML-declared Insets, same class of cascade gotcha fixed for
-         .sidebar-nav-bar's alignment/spacing above), not the 12 its FXML suggests. -->
+         (.notes-header, whose padding the themes set) and the editor's, so the
+         side-by-side headers land at the same height and their bottom borders line up. -->
     <HBox fx:id="sidebarNavBar" styleClass="sidebar-nav-bar" alignment="CENTER_LEFT" spacing="6" fillHeight="false">
         <padding>
-            <Insets top="8" right="16" bottom="8" left="16"/>
+            <Insets top="4" right="16" bottom="4" left="16"/>
         </padding>
         <Button fx:id="navFoldersBtn" onAction="#handleNavFolders" styleClass="sidebar-nav-btn, sidebar-nav-btn-selected">
             <tooltip><Tooltip text="%tab.folders"/></tooltip>

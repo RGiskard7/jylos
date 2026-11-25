@@ -5,8 +5,8 @@ A Jylos vault is a plain folder of Markdown files, the same as an Obsidian vault
 ## What both apps share
 
 - **The notes and their text**, including headings, lists, tasks, callouts, code and Mermaid diagrams.
-- **Properties** (the YAML at the top of a note). When you don't change them, Jylos saves them exactly as they were, with your comments, quotes and order. It reads them as Obsidian does (YAML 1.2): `no`, `yes`, `10:30` or `1_000` are text, not a boolean or a number; a list stays a list and an empty property stays empty.
-- **Templates**, with Obsidian's variables (<span v-pre>`{{date:YYYY-MM-DD}}`</span>…) and, if you turn it on, Templater's syntax (`<% tp.date.now() %>`). The daily note follows Obsidian's rules. See [Templates and Daily Note](/guides/templates).
+- **Properties** (the YAML at the top of a note). When you don't change them, Jylos saves them exactly as they were, with your comments, quotes and order. It reads them as YAML 1.2, so both apps read them the same way: `no`, `yes`, `10:30` or `1_000` are text, not a boolean or a number; a list stays a list and an empty property stays empty.
+- **Templates**, with Obsidian's variables (<span v-pre>`{{date:YYYY-MM-DD}}`</span>…) and, if you turn it on, Templater's syntax (`<% tp.date.now() %>`). The daily note is named and placed the same way in both apps. See [Templates and Daily Note](/guides/templates).
 - **Links**: `[[Note]]`, `[[Folder/Note]]`, `[[Note#Heading]]`, `[[Note|text]]`, embeds `![[…]]`, `aliases`, and links inside properties (`up: "[[Index]]"`).
 - **Tags**, written in the text (`#idea`) or in the `tags` property.
 - **Canvas files** (`.canvas`) and attachments.

@@ -1,6 +1,6 @@
 # Búsqueda
 
-La búsqueda de Jylos es simple por defecto: escribe palabras y coincide con **títulos y cuerpos** de notas. Los usuarios avanzados pueden añadir operadores al estilo Gmail/Obsidian y mezclarlos libremente.
+La búsqueda de Jylos es simple por defecto: escribe palabras y coincide con **títulos y cuerpos** de notas. Los usuarios avanzados pueden añadir operadores de búsqueda y mezclarlos libremente.
 
 ## Acceso rápido
 

@@ -6,7 +6,7 @@ The CodeMirror editor (`MarkdownEditorView`), the reading view (`EditorControlle
 `previewWebView`, filled by `MarkdownPreview`) and the release notes shown before an update
 (`UpdateInstallSupport`) are HTML pages drawn by JavaFX's `WebView`. That is the WebKit engine
 that comes with JavaFX. It is not Chromium: it lacks some formats and browser behaviour that
-Obsidian and other Electron apps get for free.
+Electron apps get for free.
 
 This page lists the known gaps, what Jylos does about each one, and what moving to another
 engine (JCEF) would involve.
@@ -21,6 +21,7 @@ engine (JCEF) would involve.
 | Scrolling is animated by WebKit itself | One wheel or trackpad event moves nothing for 2 frames, then takes about 5 more to arrive (about 100 ms in all). On top of the trackpad's own momentum this feels laggy. Measured with a 100 px event. | Nothing in the editor; the reading view multiplies wheel steps by 1.8. There is no public API to turn the animation off. | `EditorPreviewSupport.installAcceleratedScroll` |
 | No GPU compositing; scrolling repaints on the JavaFX Application Thread | Smoothness depends on the size of the page area that repaints | CodeMirror only draws the viewport. Widget heights are remembered so content does not jump. | `live-preview.js` (`imageHeights`, `blockHeights`) |
 | `KeyboardEvent.key` is empty on macOS | Option-key symbols (`[`, `{`, `@`…) matched CodeMirror shortcuts | Shortcuts that depend on key codes are kept off the typing path | `editor.js` (`typingSafeKeymap`) |
+| On macOS a dead key pressed again and again (the grave accent on a Spanish keyboard) reaches the page every other time as a new input method composition with nothing committed. A JavaFX bug, not WebView-specific: `TextField`s lose those keystrokes too | The page replaces the pending mark: after the first presses, a code fence (```) cannot be typed | When the same single spacing accent (or the apostrophe or double quote, dead keys on U.S. International) is composed again with nothing committed, the pending one is committed first. Obsidian, on Chromium, needs nothing of the kind. Other compositions (Japanese and other input methods) pass through untouched. Report, test case and when to remove it: [upstream/javafx-macos-dead-keys](upstream/javafx-macos-dead-keys/README.md) | `DeadKeyRepeats` (installed by `Main` on every window, so JavaFX text fields are covered too) |
 | `document.hasFocus()` does not answer as in a browser | CodeMirror's `hasFocus` is wrong | Focus is followed through the content's own focus and blur events | `live-preview.js` (`editorFocusField`) |
 | No native clipboard paste into `contentEditable` | Paste does nothing | Copy, cut and paste go through the JavaFX clipboard in a key filter | `MarkdownEditorView.installDesktopEditingIntegration` |
 | Pages are loaded with `loadContent`: opaque origin, no URL | `file://` resources and `#fragment` jumps don't work | Vault images and KaTeX fonts are inlined as `data:` URIs; anchor jumps are done in JavaScript | `MarkdownPreview.resolveImageSource`, the reading view's click handler |
@@ -57,7 +58,7 @@ what it would bring and what it would cost:
 Java application. JetBrains IDEs use it for their web-based panels; CEF itself is behind
 desktop apps such as Spotify and Steam.
 
-**What it would fix.** It is the same engine family as Obsidian's (Chromium), so it would
+**What it would fix.** It is Chromium, the engine of Electron apps, so it would
 bring:
 - WebP, AVIF and complete emoji (skin tones, flags, families);
 - browser-native scrolling;

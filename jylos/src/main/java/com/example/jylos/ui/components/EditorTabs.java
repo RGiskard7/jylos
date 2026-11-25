@@ -15,7 +15,9 @@ import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.HBox;
@@ -63,6 +65,10 @@ public final class EditorTabs {
     private final Map<String, TabNode> nodes = new HashMap<>();
     /** The + after the tabs, as in Obsidian; {@code null} until {@link #setNewTabAction}. */
     private Button newTabButton;
+    /** The tab menu shown, if any: one at a time. */
+    private ContextMenu shownMenu;
+    /** What a tab's tooltip says about its note (null: its title). */
+    private Function<String, String> describer = id -> null;
 
     public EditorTabs(HBox container, Region visibilityNode, Listener listener,
             Function<String, String> i18n) {
@@ -81,6 +87,9 @@ public final class EditorTabs {
         final HBox root = new HBox();
         final Label dot = UiNodes.keepWhole(new Label("●"));
         final Label title = new Label();
+        final Label close = UiNodes.keepWhole(new Label("×"));
+        /** Shown instead of {@link #close} while the tab is pinned; a click unpins it. */
+        final Label pin = new Label();
         String noteId;
 
         TabNode(String noteId, String titleText, String iconLiteral) {
@@ -101,8 +110,14 @@ public final class EditorTabs {
             // Title takes the remaining space and ellipsises rather than widening the tab.
             title.setMaxWidth(Double.MAX_VALUE);
             HBox.setHgrow(title, Priority.ALWAYS);
+            // Told when it shows, so it is never stale and follows the note when it moves.
+            Tooltip about = new Tooltip();
+            about.setOnShowing(e -> {
+                String told = describer.apply(this.noteId);
+                about.setText(told != null && !told.isBlank() ? told : title.getText());
+            });
+            title.setTooltip(about);
 
-            Label close = UiNodes.keepWhole(new Label("×"));
             close.getStyleClass().add("editor-tab-close");
             String closeText = i18n != null ? i18n.apply("tooltip.close_note") : null;
             close.setTooltip(new Tooltip(closeText != null ? closeText : "Close note"));
@@ -123,7 +138,26 @@ public final class EditorTabs {
                 }
                 root.getChildren().add(icon);
             }
-            root.getChildren().addAll(title, close);
+            FontIcon pinIcon = new FontIcon("bi-pin-angle"); // the pin of pinned notes in the list
+            pinIcon.getStyleClass().add("icon-12");
+            pin.setGraphic(pinIcon);
+            pin.getStyleClass().add("editor-tab-pin");
+            pin.setTooltip(new Tooltip(text("tab.unpin", "Unpin tab")));
+            pin.setOnMouseClicked(e -> {
+                e.consume();
+                unpin(this.noteId);
+            });
+            UiNodes.show(pin, false);
+
+            root.getChildren().addAll(title, close, pin);
+            root.setOnContextMenuRequested(e -> {
+                e.consume();
+                if (shownMenu != null) {
+                    shownMenu.hide();
+                }
+                shownMenu = menuFor(this.noteId);
+                shownMenu.show(root, e.getScreenX(), e.getScreenY());
+            });
             root.setOnMouseClicked(e -> {
                 if (listener == null) {
                     return;
@@ -137,10 +171,78 @@ public final class EditorTabs {
         }
     }
 
+    /** The menu of {@code id}'s tab: pin or unpin it, close it, close the others (not the pinned). */
+    ContextMenu menuFor(String id) {
+        MenuItem pinItem = new MenuItem(model.isPinned(id) ? text("tab.unpin", "Unpin tab") : text("tab.pin", "Pin tab"));
+        pinItem.setDisable(ViewTabs.isEmptyTab(id));
+        pinItem.setOnAction(e -> {
+            if (model.isPinned(id)) {
+                unpin(id);
+            } else {
+                pin(id);
+            }
+        });
+        MenuItem closeItem = new MenuItem(text("tab.close", "Close"));
+        closeItem.setOnAction(e -> {
+            if (listener != null) {
+                listener.onClose(id);
+            }
+        });
+        MenuItem othersItem = new MenuItem(text("tab.close_others", "Close others"));
+        othersItem.setOnAction(e -> closeOthers(id));
+        return new ContextMenu(pinItem, closeItem, othersItem);
+    }
+
+    /**
+     * Closes every tab but {@code id}'s and the pinned ones, through the listener (as a click on
+     * their cross). {@code id}'s tab is brought forward first; if that is refused (unsaved edits
+     * the user keeps), nothing is closed.
+     */
+    private void closeOthers(String id) {
+        if (listener == null) {
+            return;
+        }
+        if (!id.equals(model.getActiveId())) {
+            listener.onSelect(id);
+            if (!id.equals(model.getActiveId())) {
+                return;
+            }
+        }
+        for (String other : model.othersToClose(id)) {
+            listener.onClose(other);
+        }
+    }
+
+    private String text(String key, String fallback) {
+        String value = i18n != null ? i18n.apply(key) : null;
+        return value != null ? value : fallback;
+    }
+
     // ── Queries ──────────────────────────────────────────────────────────────
 
     public boolean isOpen(String id) {
         return model.isOpen(id);
+    }
+
+    public boolean isPinned(String id) {
+        return model.isPinned(id);
+    }
+
+    /** The pinned tabs, in order. */
+    public List<String> pinnedIds() {
+        return model.pinnedIds();
+    }
+
+    /** Pins {@code id}'s tab (see {@link EditorTabsModel#pin}). */
+    public void pin(String id) {
+        model.pin(id);
+        render();
+    }
+
+    /** Unpins {@code id}'s tab (see {@link EditorTabsModel#unpin}). */
+    public void unpin(String id) {
+        model.unpin(id);
+        render();
     }
 
     /** Open tab note ids in display order. */
@@ -289,6 +391,14 @@ public final class EditorTabs {
      * Rebinds a tab from {@code oldId} to {@code newId}, preserving its visual order and
      * active state. Used when a filesystem-backed note is renamed and its path-based id changes.
      */
+    /**
+     * What a tab's tooltip says about its note, asked each time it shows (the note's path and
+     * dates, say); {@code null} from it, or no describer, shows the tab's title.
+     */
+    public void setDescriber(Function<String, String> describer) {
+        this.describer = describer != null ? describer : id -> null;
+    }
+
     public void rebindId(String oldId, String newId, String title) {
         if (oldId == null || newId == null) {
             return;
@@ -302,6 +412,16 @@ public final class EditorTabs {
         model.rebind(oldId, newId);
         setTitle(newId, title);
         render();
+    }
+
+    /** Keeps where the note in {@code position} was left, in its tab (see {@link EditorTabsModel#remember}). */
+    public void remember(NotePosition position) {
+        model.remember(position);
+    }
+
+    /** Where {@code id}'s tab left its note, or {@code null}: its top (see {@link EditorTabsModel#positionOf}). */
+    public NotePosition positionOf(String id) {
+        return model.positionOf(id);
     }
 
     /** Closes all tabs. */
@@ -325,10 +445,16 @@ public final class EditorTabs {
         }
         String activeId = model.getActiveId();
         nodes.forEach((id, node) -> {
-            node.root.getStyleClass().remove("active");
+            node.root.getStyleClass().removeAll("active", "pinned");
             if (id.equals(activeId)) {
                 node.root.getStyleClass().add("active");
             }
+            boolean pinned = model.isPinned(id);
+            if (pinned) {
+                node.root.getStyleClass().add("pinned");
+            }
+            UiNodes.show(node.pin, pinned);
+            UiNodes.show(node.close, !pinned);
         });
         updateVisibility();
     }

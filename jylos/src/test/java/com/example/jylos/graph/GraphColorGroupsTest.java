@@ -44,6 +44,16 @@ class GraphColorGroupsTest {
         assertEquals(Set.of("ghost:idea"), matching("idea"));
     }
 
+    /** Obsidian writes a value with spaces between quotes: {@code path:"30 Resources"}. */
+    @Test
+    void aQuotedValueIsReadWithoutItsQuotes() {
+        assertEquals(Set.of("Trabajo/Acta.md", "Trabajo/Plan.md"), matching("path:\"trabajo/\""));
+        assertEquals(Set.of("Trabajo/Plan.md"), matching("file:\"plan\""));
+        assertEquals(Set.of("Casa/Compra.md"), matching("tag:\"#casa\""));
+        assertEquals(Set.of("Trabajo/Acta.md", "Trabajo/Plan.md"), matching("\"trabajo\""), "a plain quoted query");
+        assertEquals(Set.of(), matching("path:\"\""), "empty between the quotes: nothing");
+    }
+
     @Test
     void anEmptyQueryColoursNothing() {
         assertEquals(Set.of(), matching("  "));

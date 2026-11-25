@@ -476,12 +476,51 @@ function replaceRange(from, to, text, anchor = -1) {
   view.focus();
 }
 
+// Going to a heading (a link to it, the outline): the caret there and that line at the top,
+// as the reading view does, not merely somewhere in sight.
 function scrollToOffset(pos) {
   if (!view) return false;
   const safePos = Math.max(0, Math.min(Number(pos) || 0, view.state.doc.length));
-  view.dispatch({ selection: EditorSelection.cursor(safePos), scrollIntoView: true, userEvent: "select" });
+  view.dispatch({
+    selection: EditorSelection.cursor(safePos),
+    effects: EditorView.scrollIntoView(safePos, { y: "start", yMargin: 10 }),
+    userEvent: "select"
+  });
   view.focus();
   return true;
+}
+
+// Where the document is shown: the start of the first line in sight, how many px of it are
+// above the editor's top edge (negative while the padding above the first line shows), and
+// the selection. A note left and shown again later (back,
+// forward, its tab) goes back there; a note just opened starts at its top.
+function getViewPosition() {
+  if (!view) return null;
+  const edge = view.scrollDOM.getBoundingClientRect().top;
+  const line = view.lineBlockAtHeight(Math.max(0, edge - view.documentTop));
+  // Measured from the caret's box at the line's start, which is what scrollIntoView lines up
+  // again; negative above the first line, while the editor's top padding was in sight.
+  const caret = view.coordsAtPos(line.from, 1);
+  const offset = caret ? edge - caret.top : edge - view.documentTop - line.top;
+  const range = view.state.selection.main;
+  return JSON.stringify({ top: line.from, offset, anchor: range.anchor, head: range.head });
+}
+
+function setViewPosition(position) {
+  if (!view) return;
+  const length = view.state.doc.length;
+  const clamp = value => Math.max(0, Math.min(Number(value) || 0, length));
+  if (!position) {
+    view.dispatch({ selection: EditorSelection.cursor(0) });
+    view.scrollDOM.scrollTop = 0;
+    return;
+  }
+  // As CodeMirror's own scroll snapshots: that line at the top, the same px past it, which
+  // holds even while the heights of the lines not drawn yet are only estimated.
+  view.dispatch({
+    selection: EditorSelection.single(clamp(position.anchor), clamp(position.head)),
+    effects: EditorView.scrollIntoView(clamp(position.top), { y: "start", yMargin: -(Number(position.offset) || 0) })
+  });
 }
 
 window.JylosEditor = {
@@ -497,6 +536,8 @@ window.JylosEditor = {
   replaceSelection,
   replaceRange,
   scrollToOffset,
+  getViewPosition,
+  setViewPosition,
   focus: () => view?.focus(),
   undo: () => Boolean(view && !view.state.readOnly && undo(view)),
   redo: () => Boolean(view && !view.state.readOnly && redo(view)),

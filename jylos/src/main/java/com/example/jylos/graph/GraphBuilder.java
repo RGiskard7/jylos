@@ -14,6 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 import com.example.jylos.config.LoggerConfig;
+import com.example.jylos.data.dao.interfaces.NoteDAO;
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
 import com.example.jylos.service.LinkIndex;
@@ -58,6 +59,13 @@ public class GraphBuilder {
     private record CachedLinks(String modified, List<String> targets, List<String> files) {
     }
 
+    /**
+     * Notes invalidated one by one ({@link #invalidateNote}): their file may have changed since
+     * the vault listed them, so they are read again instead of taken from the listing, until the
+     * whole graph is invalidated (the vault was read again).
+     */
+    private final Set<String> readAgain = ConcurrentHashMap.newKeySet();
+
     public GraphBuilder(NoteService noteService, TagService tagService) {
         this.noteService = noteService;
         this.tagService = tagService;
@@ -71,19 +79,30 @@ public class GraphBuilder {
     public void invalidateNote(String id) {
         if (id != null) {
             linkCache.remove(id);
+            readAgain.add(id);
         }
+    }
+
+    /**
+     * Waits (off the FX thread) for the vault to finish loading its notes and their links, as
+     * long as the load itself may take; past that, the build reads what it lacks.
+     */
+    public void awaitNotesLoaded() {
+        noteService.awaitContentLoaded(NoteDAO.CONTENT_LOAD_LIMIT_MS);
     }
 
     /** Clears the whole link cache (e.g. folder deletion or storage switch). */
     public void invalidateAll() {
         linkCache.clear();
+        readAgain.clear();
     }
 
     /**
-     * Returns the internal-link targets of a note, reading its <em>full</em> content
-     * (filesystem {@code getAllNotes} returns a truncated body, which would drop
-     * links located deeper in long notes — the cause of a sparser-than-Obsidian
-     * graph). Results are cached per note id and validated by {@code modified}.
+     * Returns the internal-link targets of a note, of its <em>full</em> content: those the
+     * vault listed from the whole file when it has them ({@link Note#isMetadataComplete()}),
+     * else read from the note (filesystem {@code getAllNotes} returns a truncated body, which
+     * would drop links located deeper in long notes). Reads are cached per note id and
+     * validated by {@code modified}.
      */
     private List<String> linkTargetsFor(Note note) {
         return linksOf(note).targets();
@@ -97,6 +116,11 @@ public class GraphBuilder {
     private CachedLinks linksOf(Note note) {
         String id = note.getId();
         String modified = note.getModifiedDate();
+        if (note.isMetadataComplete() && note.getLinkTargets() != null && note.getFileLinkTargets() != null
+                && !readAgain.contains(id)) {
+            // The vault read them from the whole file (or its cache of it): nothing to read.
+            return new CachedLinks(modified, note.getLinkTargets(), note.getFileLinkTargets());
+        }
         CachedLinks cached = linkCache.get(id);
         if (cached != null && Objects.equals(cached.modified(), modified)) {
             return cached;

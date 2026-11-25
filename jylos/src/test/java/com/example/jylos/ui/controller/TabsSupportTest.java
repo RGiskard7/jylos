@@ -34,6 +34,7 @@ import com.example.jylos.service.TagService;
 import com.example.jylos.tests.FxTestSupport;
 import com.example.jylos.ui.components.EditorTabs;
 import com.example.jylos.ui.components.EditorTabsModel.OpenTarget;
+import com.example.jylos.ui.components.NotePosition;
 import com.example.jylos.ui.components.ViewTabs;
 import com.example.jylos.workspace.TabHistory;
 import com.example.jylos.ui.graph.GraphCanvas;
@@ -91,7 +92,8 @@ class TabsSupportTest {
             return List.of(inTheActiveTab, g.state());
         });
 
-        assertEquals(List.of("tabs [GRAPH, B.md] active GRAPH graph shown [confirm, changed]",
+        // Nothing follows a note while the graph is shown (the outline, the links, the counts).
+        assertEquals(List.of("tabs [GRAPH, B.md] active GRAPH graph shown [confirm, no note, changed]",
                 "tabs [A.md, GRAPH, B.md] active GRAPH graph shown"), seen);
     }
 
@@ -139,7 +141,7 @@ class TabsSupportTest {
         });
 
         assertEquals(List.of("tabs [A.md, GRAPH] active A.md graph hidden",
-                "tabs [A.md, GRAPH] active GRAPH graph shown", "[confirm, changed]"), seen);
+                "tabs [A.md, GRAPH] active GRAPH graph shown", "[confirm, no note, changed]"), seen);
     }
 
     /** Leaving a note with unsaved edits asks first, as switching notes does; cancelling stays. */
@@ -175,6 +177,34 @@ class TabsSupportTest {
         });
 
         assertEquals(List.of("graph hidden", "[confirm, show A.md, changed]"), seen);
+    }
+
+    /** The note loaded in the editor is not in sight while the graph or a new tab is in front of it. */
+    @Test
+    void theOpenNoteIsInSightOnlyWhileItsTabIsInFront() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            Fixture f = new Fixture();
+            f.notes("A.md");
+            Note a = new Note("A.md", "A", "");
+            f.tabs.open("A.md", "A", OpenTarget.CURRENT_TAB);
+            List<String> out = new ArrayList<>();
+            out.add("note: " + idOf(f.views.inSight(a)));
+            f.views.openGraph(OpenTarget.NEW_TAB);
+            out.add("graph: " + idOf(f.views.inSight(a)));
+            f.views.newTab();
+            out.add("new tab: " + idOf(f.views.inSight(a)));
+            f.views.select("A.md");
+            out.add("back on the note: " + idOf(f.views.inSight(a)));
+            return out;
+        });
+
+        assertEquals(List.of("note: A.md", "graph: null", "new tab: null", "back on the note: A.md"), seen);
+    }
+
+    private static String idOf(Note note) {
+        return note != null ? note.getId() : null;
     }
 
     @Test
@@ -222,7 +252,7 @@ class TabsSupportTest {
         });
 
         assertEquals(List.of("tabs [EMPTY] active EMPTY graph hidden [confirm, empty, changed]",
-                "tabs [GRAPH] active GRAPH graph shown [confirm, changed]"), seen);
+                "tabs [GRAPH] active GRAPH graph shown [confirm, no note, changed]"), seen);
     }
 
     /** As a link does: a note clicked in the graph takes its tab; with Cmd/Ctrl, a new tab. */
@@ -368,9 +398,28 @@ class TabsSupportTest {
         });
 
         assertEquals(List.of(
-                "tabs [A.md] active A.md graph hidden [TabHistory[back=[GRAPH, B.md], forward=[]]]",
+                "tabs [A.md] active A.md graph hidden [TabHistory[back=[GRAPH, B.md], forward=[], pinned=false]]",
                 "tabs [B.md] active B.md graph hidden",
-                "tabs [GRAPH] active GRAPH graph shown [TabHistory[back=[], forward=[A.md, B.md]]]"), seen);
+                "tabs [GRAPH] active GRAPH graph shown [TabHistory[back=[], forward=[A.md, B.md], pinned=false]]"), seen);
+    }
+
+    /** Pinned tabs are kept with the workspace (and the last session) and come back pinned, first. */
+    @Test
+    void aWorkspaceReopensItsPinnedTabsPinned() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            Fixture f = new Fixture();
+            f.views.restoreTabs(List.of("A.md", ViewTabs.GRAPH, "B.md"), "B.md", List.of(
+                    new TabHistory(List.of(), List.of(), true),
+                    new TabHistory(List.of(), List.of(), true),
+                    new TabHistory(List.of(), List.of(), false)));
+            return List.of(f.tabs.pinnedIds().toString().replace(ViewTabs.GRAPH, "GRAPH"),
+                    f.views.histories().stream().map(TabHistory::pinned).toList().toString(),
+                    f.tabs.getActiveId());
+        });
+
+        assertEquals(List.of("[A.md, GRAPH]", "[true, true, false]", "B.md"), seen);
     }
 
     /**
@@ -445,12 +494,43 @@ class TabsSupportTest {
         assertEquals(123.0, (double) onFx(() -> f.canvasField("offsetX").get(f.canvas())), 1e-9);
     }
 
+    /**
+     * Leaving the note in sight keeps where it was in its tab; a note shown in a tab goes back
+     * there, and one just opened starts at the top (no position).
+     */
+    @Test
+    void theNoteLeftIsKeptWhereItWasAndANoteShownGoesBackThere() throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+
+        List<String> seen = onFx(() -> {
+            Fixture f = new Fixture();
+            f.tabs.open("A.md", "A", OpenTarget.CURRENT_TAB); // one tab
+            f.host.editor = new NotePosition("A.md", 30, 4, 31, 31, 300);
+            // B opened in the tab, as the window does it: leave A, show B
+            boolean left = f.views.leaveCurrent();
+            f.tabs.open("B.md", "B", OpenTarget.CURRENT_TAB);
+            f.views.noteShown();
+            f.host.editor = new NotePosition("B.md", 12, 0, 12, 15, 120);
+            f.views.back();
+            f.views.noteShown(); // what the window does once it shows the note back gives
+            f.host.editor = new NotePosition("A.md", 30, 4, 31, 31, 300);
+            f.views.forward();
+            f.views.noteShown();
+            return List.of(String.valueOf(left), String.valueOf(f.host.shownAt));
+        });
+
+        assertEquals(List.of("true", "[top, A.md@30, B.md@12]"), seen);
+    }
+
     /** What the window does for the tabs, written down, and done as the window does it. */
     private final class FakeHost {
         final List<String> calls = new ArrayList<>();
         final EditorTabs tabs;
         TabsSupport views;
         boolean leave = true;
+        /** Where the editor's note is now; {@code shownAt}: where it was asked to show each note. */
+        NotePosition editor;
+        final List<String> shownAt = new ArrayList<>();
 
         FakeHost(EditorTabs tabs) {
             this.tabs = tabs;
@@ -474,8 +554,11 @@ class TabsSupportTest {
                         views.noteShown();
                     },
                     () -> calls.add("empty"),
+                    () -> calls.add("no note"),
                     () -> calls.add("changed"),
-                    boards -> calls.add("choose " + boards.stream().map(Note::getId).toList()));
+                    boards -> calls.add("choose " + boards.stream().map(Note::getId).toList()),
+                    () -> editor,
+                    at -> shownAt.add(at == null ? "top" : at.noteId() + "@" + at.editorTop()));
         }
     }
 

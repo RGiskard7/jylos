@@ -1,6 +1,6 @@
 # Search
 
-Jylos search stays simple by default: type words and it matches note **titles and bodies**. Power users can add Gmail/Obsidian-style operators on top, and mix them freely.
+Jylos search stays simple by default: type words and it matches note **titles and bodies**. Power users can add search operators on top, and mix them freely.
 
 ## Quick access
 

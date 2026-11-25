@@ -203,6 +203,17 @@ A private note's content is never returned or editable over MCP, even if it happ
 be unlocked in the desktop app's current session. That covers every route: reading,
 searching, editing, renaming, moving, tagging and deleting all refuse it.
 
+What a tool writes shows in the app at once, as a change made outside it does: the
+explorer, the notes list, tags and graph follow it, and so does the note open in the
+editor (reloaded, followed to its new name, or, with unsaved edits, kept with a warning).
+The tools write through the app's own storage, so the folder watcher takes their writes
+for the app's own; each write tool publishes `NoteEvents.ExternalNoteChangesEvent` with
+what it changed instead. A tool that fails or is refused publishes nothing. A run of writes
+(an agent saving many notes one after another) is shown once, when it pauses for 400 ms (or
+2 s after the first at most), so the lists are not rebuilt once per note. The plugin test
+fails if a tool the server declares as writing (`readOnlyHint: false`) has no check of what
+it reports, so a new write tool cannot forget it.
+
 ### Deliberately not exposed
 
 **Nothing irreversible.** Deleting is available, but only the recoverable kind: a deleted

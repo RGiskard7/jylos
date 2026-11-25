@@ -43,12 +43,15 @@ public final class PluginApiSurface {
             "com.example.jylos.graph.");
 
     /**
-     * Individual classes, outside the packages above, that are still sanctioned.
+     * Individual classes, outside the packages above, that are still sanctioned, with the
+     * classes nested in them ({@code Outer$Inner}).
      */
     public static final Set<String> ALLOWED_CLASSES = Set.of(
             "com.example.jylos.util.MarkdownProcessor",
             "com.example.jylos.util.WikiLinkResolver",
-            "com.example.jylos.util.AttachmentType");
+            "com.example.jylos.util.AttachmentType",
+            "com.example.jylos.util.NoteAnchors",
+            "com.example.jylos.util.InlineMarkdown");
 
     /**
      * Whether {@code className} (a binary class name, e.g. {@code "com.example.jylos.data.models.Note"})
@@ -71,6 +74,8 @@ public final class PluginApiSurface {
                 return true;
             }
         }
-        return ALLOWED_CLASSES.contains(className);
+        // A nested class (a record or enum the class gives back) goes with the class it is in.
+        int nested = className.indexOf('$');
+        return ALLOWED_CLASSES.contains(nested < 0 ? className : className.substring(0, nested));
     }
 }

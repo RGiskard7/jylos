@@ -65,9 +65,6 @@ class AppSettings {
 
         String newType = "sqlite";
         String customPath = "";
-        boolean changed = false;
-
-        String currentType = prefs.get("storage_type", "sqlite");
         String currentPath = prefs.get("filesystem_path", "");
 
         if (result.get() == sqliteBtn) {
@@ -90,9 +87,28 @@ class AppSettings {
             customPath = selectedDirectory.getAbsolutePath();
         }
 
-        StorageSwitchPlan plan = planStorageSwitch(currentType, currentPath, newType, customPath);
-        changed = plan.changed();
-        if (!changed) {
+        applyStorageSwitch(prefs, newType, customPath, reloadVaultAction);
+    }
+
+    /**
+     * Opens the folder {@code folder} as the vault, as choosing it in the storage dialog does:
+     * at once from another folder vault, after a restart from the database.
+     */
+    void openFolderAsVault(Preferences prefs, String folder, Consumer<String> reloadVaultAction) {
+        applyStorageSwitch(prefs, "filesystem", folder, reloadVaultAction);
+    }
+
+    /**
+     * Makes {@code newType} (with {@code newPath}, for a folder vault) the storage: a folder
+     * vault opens at once in place of another; any other change is saved and takes a restart,
+     * which the user is told.
+     */
+    private void applyStorageSwitch(Preferences prefs, String newType, String newPath,
+            Consumer<String> reloadVaultAction) {
+        String currentType = prefs.get("storage_type", "sqlite");
+        String currentPath = prefs.get("filesystem_path", "");
+        StorageSwitchPlan plan = planStorageSwitch(currentType, currentPath, newType, newPath);
+        if (!plan.changed()) {
             return;
         }
 

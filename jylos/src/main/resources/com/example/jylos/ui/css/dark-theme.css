@@ -826,6 +826,8 @@
 }
 
 .notes-header {
+    /* As tall as the side panel's header and the editor's (their FXML padding). */
+    -fx-padding: 4 10;
     -fx-background-color: -fx-sidebar-bg;
     background-color: -fx-sidebar-bg;
     -fx-border-color: transparent transparent -fx-fn-border-color transparent;
@@ -1087,6 +1089,17 @@
 }
 .editor-tab-close:hover {
     -fx-text-fill: -fx-danger;
+}
+/* A pinned tab shows a pin instead of the cross; a click on it unpins the tab. */
+.editor-tab-pin {
+    -fx-cursor: hand;
+    -fx-padding: 0 2 0 2;
+}
+.editor-tab-pin .ikonli-font-icon {
+    -fx-icon-color: -fx-text-faint;
+}
+.editor-tab-pin:hover .ikonli-font-icon {
+    -fx-icon-color: -fx-accent;
 }
 
 /* ── Kanban board overlay ─────────────────────────────────────────────── */
@@ -1753,15 +1766,6 @@
     -fx-padding: 0;
 }
 
-.info-label {
-    -fx-text-fill: -fx-text-faint;
-    color: -fx-text-faint;
-    -fx-font-size: 0.769em;
-    font-size: 0.769em;
-    -fx-font-weight: 600;
-    font-weight: 600;
-}
-
 .info-sublabel {
     -fx-text-fill: -fx-text-faint;
     color: -fx-text-faint;
@@ -2106,54 +2110,84 @@
     -fx-background-color: transparent;
 }
 
-.panel-content {
+/* The right panel's row of tabs (SideDock): the left panel's bar, scrolling sideways
+   without a scroll bar when its tabs do not fit. */
+.side-dock-tabs {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-padding: 0;
+}
+
+.side-dock-tabs > .viewport {
     -fx-background-color: transparent;
 }
 
-/* Panel Sections (Collapsible) */
-.panel-section {
-    -fx-background-color: transparent;
-    -fx-padding: 0 0 8 0;
-    -fx-border-color: transparent transparent #3a3a3a transparent;
-    -fx-border-width: 0 0 1 0;
+.side-dock-empty {
+    -fx-padding: 20 16;
 }
 
-.section-header {
-    -fx-padding: 10 8;
+/* The groups the right panel is split in (SideDock), one over the other, with a thin line
+   between them that drags. */
+.side-dock-split {
     -fx-background-color: transparent;
-    -fx-cursor: hand;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
 }
 
-.section-header:hover {
-    -fx-background-color: #2d2d2d;
+/* A strip easy to take with the mouse, the line in its middle. */
+.side-dock-split > .split-pane-divider {
+    -fx-background-color: transparent, -fx-fn-border-color;
+    -fx-background-insets: 0, 3 0 3 0;
+    -fx-padding: 0 3 0 4;
+}
+
+/* While a tab is dragged: where it would go, a part of a group or a line between tabs. */
+.side-dock-drop-zone {
+    -fx-background-color: -fx-accent-soft;
+    -fx-border-color: -fx-accent;
+    -fx-border-width: 1;
     -fx-background-radius: 4;
+    -fx-border-radius: 4;
 }
 
-.collapse-icon {
-    -fx-text-fill: #888888;
-    -fx-font-size: 0.769em;
-    -fx-padding: 0 6 0 0;
+.side-dock-drop-line {
+    -fx-background-color: -fx-accent;
+    -fx-background-radius: 1;
 }
 
-.section-title {
-    -fx-text-fill: #c0c0c0;
-    -fx-font-size: 0.923em;
-    -fx-font-weight: normal;
+/* A copy of a view pinned to a note: a pin on its tab's icon, and the note it shows over it. */
+.side-dock-pin-badge {
+    -fx-icon-color: -fx-accent;
 }
 
-.section-content {
+.side-dock-pinned-to {
+    -fx-padding: 6 12 2 12;
+}
+
+.side-dock-pinned-to:hover {
+    -fx-underline: true;
+}
+
+.side-dock-tab.side-dock-tab-disposable {
+    -fx-min-width: 40;
+    -fx-pref-width: 40;
+    -fx-max-width: 40;
+}
+
+
+/* A view's own actions over its content (the links views': collapse, context, sort, filter). */
+.links-actions-bar {
     -fx-background-color: transparent;
-    -fx-padding: 8 8 8 16;
+}
+
+/* A plugin tab whose icon is text (an emoji). */
+.side-dock-text-icon {
+    -fx-font-size: 1.077em;
 }
 
 /* Info Labels in Panels */
-.info-label {
-    -fx-text-fill: #888888;
-    -fx-font-size: 0.692em;
-    -fx-font-weight: normal;
-    -fx-text-transform: uppercase;
-}
-
 .info-value {
     -fx-text-fill: #e0e0e0;
     -fx-font-size: 0.923em;
@@ -2236,7 +2270,8 @@
     -fx-background-color: -fx-sidebar-bg;
     -fx-border-color: transparent transparent -fx-fn-border-color transparent;
     -fx-border-width: 0 0 1 0;
-    -fx-padding: 4px;
+    /* The filter row under the side panel's header: as compact as that header. */
+    -fx-padding: 4 10;
 }
 
 .small-search {
@@ -2249,8 +2284,6 @@
    UI POLISH OVERRIDES (COHERENCE + A11Y)
    ======================================== */
 
-.sidebar-toolbar,
-.notes-header,
 .panel-header,
 .status-bar {
     -fx-padding: 8 10;
@@ -2506,11 +2539,6 @@
     background-color: derive(-fx-accent-hover, -20%);
 }
 
-.section-header .collapse-icon {
-    -fx-text-fill: -fx-text-muted;
-    -fx-font-size: 0.692em;
-}
-
 /* ═══════════════════════════════════════════════════════════════
    YAML PROPERTIES PANEL  (dark theme)
    ═══════════════════════════════════════════════════════════════ */
@@ -2724,6 +2752,13 @@
     -fx-font-size: 0.846em;
     -fx-font-weight: normal;
     -fx-text-fill: -fx-text-muted;
+}
+
+/* How many notes and links the graph shown has, at the top of its settings. */
+.graph-settings-stats {
+    -fx-text-fill: -fx-text-muted;
+    -fx-font-size: 0.846em;
+    -fx-padding: 0 0 6 0;
 }
 
 .graph-settings-label {
@@ -3558,18 +3593,32 @@
     -fx-font-size: 0.846em;
     -fx-font-style: italic;
 }
+/* Every level looks the same; the row's indent (set by the plugin) shows how deep it is.
+   No -fx-padding here: it would replace that indent. */
 .outline-item {
-    -fx-padding: 4 8;
     -fx-background-color: transparent;
     -fx-background-radius: 4;
     -fx-cursor: hand;
+}
+.outline-item:hover { -fx-background-color: -fx-hover-bg; }
+.outline-run { -fx-font-size: 0.923em; -fx-fill: -fx-text-muted; }
+.outline-item:hover .outline-run { -fx-fill: -fx-text-main; }
+.outline-run.outline-bold { -fx-font-weight: bold; }
+/* The system font has no italic JavaFX draws slanted on macOS ("System Italic" comes out
+   upright); Helvetica Neue has one there, and elsewhere a missing family falls back to the
+   system's own italic. */
+.outline-run.outline-italic { -fx-font-family: "Helvetica Neue"; -fx-font-style: italic; }
+.outline-run.outline-strikethrough { -fx-strikethrough: true; }
+.outline-chip {
+    -fx-font-size: 0.846em;
+    -fx-padding: 0 3 0 3;
+    -fx-background-radius: 3;
     -fx-text-fill: -fx-text-muted;
 }
-.outline-item:hover { -fx-background-color: -fx-hover-bg; -fx-text-fill: -fx-text-main; }
-.outline-h1 { -fx-font-size: 1em; -fx-font-weight: bold; -fx-text-fill: -fx-text-main; }
-.outline-h2 { -fx-font-size: 0.923em; -fx-font-weight: bold; -fx-text-fill: -fx-text-main; }
-.outline-h3 { -fx-font-size: 0.846em; -fx-font-weight: bold; -fx-text-fill: -fx-text-muted; }
-.outline-h4, .outline-h5, .outline-h6 { -fx-font-size: 0.846em; -fx-text-fill: -fx-text-muted; }
+.outline-chip.outline-bold { -fx-font-weight: bold; }
+.outline-chip.outline-italic { -fx-font-family: "Helvetica Neue"; -fx-font-style: italic; }
+.outline-chip.outline-code { -fx-font-family: monospace; -fx-background-color: -fx-header-bg; }
+.outline-chip.outline-highlight { -fx-background-color: #564a00; -fx-text-fill: #ffd700; }
 
 
 /* ════════════════════════════════════════════════════════════════════════

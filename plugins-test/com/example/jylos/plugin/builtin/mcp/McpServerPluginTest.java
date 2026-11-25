@@ -12,16 +12,27 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
+import com.example.jylos.data.dao.ExternalChanges;
 import com.example.jylos.data.dao.filesystem.FolderDAOFileSystem;
 import com.example.jylos.data.dao.filesystem.NoteDAOFileSystem;
 import com.example.jylos.data.dao.filesystem.TagDAOFileSystem;
 import com.example.jylos.event.EventBus;
+import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginContext;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
+
+import javafx.application.Platform;
 
 /**
  * Loads the built {@code McpServerPlugin.jar} the same way {@code PluginLoader} does —
@@ -67,6 +78,17 @@ public final class McpServerPluginTest {
         TagService tagService = new TagService(tagDAO, noteDAO);
         EventBus eventBus = EventBus.getInstance();
 
+        // The app learns what a tool changed through the event bus, which hands events to the
+        // JavaFX thread: the toolkit runs, as in the app, so that path is the real one.
+        CountDownLatch toolkitReady = new CountDownLatch(1);
+        Platform.startup(toolkitReady::countDown);
+        toolkitReady.await(10, TimeUnit.SECONDS);
+        BlockingQueue<ExternalChanges> reported = new LinkedBlockingQueue<>();
+        // Every tool that writes must tell the app what it changed: each one's check is noted here
+        // and, at the end, compared with the tools the server declares as writing.
+        Set<String> reportChecked = new TreeSet<>();
+        eventBus.subscribe(NoteEvents.ExternalNoteChangesEvent.class, event -> reported.add(event.getChanges()));
+
         System.setProperty("jylos.mcp.port", TEST_PORT);
         HttpClient http = HttpClient.newHttpClient();
 
@@ -97,6 +119,7 @@ public final class McpServerPluginTest {
 
             System.out.println("\n-- MCP protocol over real HTTP --");
             String sessionId = null;
+            Set<String> writeTools = new TreeSet<>();
             try {
                 HttpResponse<String> init = post(http, """
                         {"jsonrpc":"2.0","id":1,"method":"initialize","params":{
@@ -133,6 +156,12 @@ public final class McpServerPluginTest {
                 check("create_note reports success", created.body().contains("\"isError\":false"), created.body());
                 check("the note actually exists on disk",
                         Files.exists(vault.resolve("From Test.md")), vault.toString());
+                ExternalChanges afterCreate = next(reported);
+                reportChecked.add("create_note");
+                check("create_note tells the app which note it created",
+                        afterCreate != null && afterCreate.created().equals(Set.of("From Test.md"))
+                                && afterCreate.changed().isEmpty() && afterCreate.deleted().isEmpty(),
+                        String.valueOf(afterCreate));
 
                 HttpResponse<String> listed = post(http,
                         "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":{"
@@ -148,9 +177,11 @@ public final class McpServerPluginTest {
                         sessionId);
                 check("reading a missing note is a tool error, not a protocol failure",
                         missing.statusCode() == 200 && missing.body().contains("\"isError\":true"), missing.body());
+                check("reading tells the app nothing", nothingReported(reported), String.valueOf(reported));
 
                 check("tools declare protocol annotations so a client knows what each one does",
                         list.body().contains("readOnlyHint"), list.body());
+                writeTools.addAll(writeTools(list.body()));
 
                 System.out.println("\n-- DNS-rebinding protection (Origin validation) --");
                 // The spec makes Origin validation a MUST precisely because binding to
@@ -188,31 +219,75 @@ public final class McpServerPluginTest {
                         renamed.body());
                 check("rename_note reports the new id",
                         renamed.body().contains("Renamed Note.md"), renamed.body());
+                ExternalChanges afterRename = next(reported);
+                reportChecked.add("rename_note");
+                check("rename_note tells the app the note moved, from its old id to its new one",
+                        afterRename != null
+                                && afterRename.renamed().equals(Map.of("From Test.md", "Renamed Note.md"))
+                                && afterRename.deleted().equals(Set.of("From Test.md"))
+                                && afterRename.created().equals(Set.of("Renamed Note.md")),
+                        String.valueOf(afterRename));
+
+                HttpResponse<String> updated = call(http, sessionId, 9, "update_note",
+                        "\"id\":\"Renamed Note.md\",\"content\":\"updated body\"");
+                check("update_note succeeds", updated.body().contains("\"isError\":false"), updated.body());
+                ExternalChanges afterUpdate = next(reported);
+                reportChecked.add("update_note");
+                check("update_note tells the app which note changed",
+                        afterUpdate != null && afterUpdate.changed().equals(Set.of("Renamed Note.md"))
+                                && afterUpdate.created().isEmpty() && afterUpdate.deleted().isEmpty(),
+                        String.valueOf(afterUpdate));
 
                 HttpResponse<String> folder = call(http, sessionId, 11, "create_folder", "\"name\":\"Archive\"");
                 check("create_folder creates the directory",
                         Files.isDirectory(vault.resolve("Archive")), folder.body());
+                ExternalChanges afterFolder = next(reported);
+                reportChecked.add("create_folder");
+                check("create_folder tells the app the folders changed",
+                        afterFolder != null && afterFolder.foldersMayHaveChanged(), String.valueOf(afterFolder));
 
                 HttpResponse<String> moved = call(http, sessionId, 12, "move_note",
                         "\"id\":\"Renamed Note.md\",\"folderId\":\"Archive\"");
                 check("move_note moves the file into the folder",
                         Files.exists(vault.resolve("Archive").resolve("Renamed Note.md")), moved.body());
+                ExternalChanges afterMove = next(reported);
+                reportChecked.add("move_note");
+                check("move_note tells the app the note moved, from its old id to its new one",
+                        afterMove != null
+                                && afterMove.renamed().equals(Map.of("Renamed Note.md", "Archive/Renamed Note.md")),
+                        String.valueOf(afterMove));
 
                 HttpResponse<String> tagged = call(http, sessionId, 13, "add_tag",
                         "\"id\":\"Archive/Renamed Note.md\",\"tag\":\"reviewed\"");
                 check("add_tag succeeds", tagged.body().contains("\"isError\":false"), tagged.body());
                 check("add_tag is reflected in the note's tags",
                         tagged.body().contains("reviewed"), tagged.body());
+                ExternalChanges afterTag = next(reported);
+                reportChecked.add("add_tag");
+                check("add_tag tells the app which note changed",
+                        afterTag != null && afterTag.changed().equals(Set.of("Archive/Renamed Note.md")),
+                        String.valueOf(afterTag));
 
                 HttpResponse<String> untagged = call(http, sessionId, 14, "remove_tag",
                         "\"id\":\"Archive/Renamed Note.md\",\"tag\":\"reviewed\"");
                 check("remove_tag succeeds", untagged.body().contains("\"isError\":false"), untagged.body());
+                ExternalChanges afterUntag = next(reported);
+                reportChecked.add("remove_tag");
+                check("remove_tag tells the app which note changed",
+                        afterUntag != null && afterUntag.changed().equals(Set.of("Archive/Renamed Note.md")),
+                        String.valueOf(afterUntag));
 
                 HttpResponse<String> deleted = call(http, sessionId, 15, "delete_note",
                         "\"id\":\"Archive/Renamed Note.md\"");
                 check("delete_note reports success", deleted.body().contains("\"isError\":false"), deleted.body());
                 check("delete_note takes the file out of the vault",
                         !Files.exists(vault.resolve("Archive").resolve("Renamed Note.md")), deleted.body());
+                ExternalChanges afterDelete = next(reported);
+                reportChecked.add("delete_note");
+                check("delete_note tells the app which note is gone",
+                        afterDelete != null && afterDelete.deleted().equals(Set.of("Archive/Renamed Note.md"))
+                                && afterDelete.created().isEmpty(),
+                        String.valueOf(afterDelete));
 
                 HttpResponse<String> trash = call(http, sessionId, 16, "list_trash", "");
                 check("the deleted note is in the trash, not gone",
@@ -225,6 +300,7 @@ public final class McpServerPluginTest {
                         "\"id\":\"Archive/Renamed Note.md\"");
                 check("restoring with a pre-deletion id is refused, not silently ignored",
                         staleRestore.body().contains("\"isError\":true"), staleRestore.body());
+                check("a refused write tells the app nothing", nothingReported(reported), String.valueOf(reported));
 
                 // Taken from the listing rather than hardcoded: this is exactly the flow a
                 // client follows, and it keeps the test honest about where the id comes from.
@@ -238,15 +314,31 @@ public final class McpServerPluginTest {
                         restored.body());
                 check("the restored note is back on disk",
                         Files.exists(vault.resolve("Archive").resolve("Renamed Note.md")), restored.body());
+                ExternalChanges afterRestore = next(reported);
+                reportChecked.add("restore_note");
+                check("restore_note tells the app which note is back",
+                        afterRestore != null && afterRestore.created().equals(Set.of("Archive/Renamed Note.md")),
+                        String.valueOf(afterRestore));
 
                 HttpResponse<String> renamedTag = call(http, sessionId, 19, "rename_tag",
                         "\"tag\":\"project\",\"newName\":\"work\"");
                 check("rename_tag succeeds", renamedTag.body().contains("\"isError\":false"), renamedTag.body());
+                ExternalChanges afterTagRename = next(reported);
+                reportChecked.add("rename_tag");
+                check("rename_tag tells the app which notes carried the tag",
+                        afterTagRename != null && afterTagRename.changed().equals(Set.of("Existing.md")),
+                        String.valueOf(afterTagRename));
 
                 HttpResponse<String> deletedFolder = call(http, sessionId, 20, "delete_folder",
                         "\"id\":\"Archive\"");
                 check("delete_folder reports success",
                         deletedFolder.body().contains("\"isError\":false"), deletedFolder.body());
+                ExternalChanges afterFolderDelete = next(reported);
+                reportChecked.add("delete_folder");
+                check("delete_folder tells the app the folders changed and which notes left with it",
+                        afterFolderDelete != null && afterFolderDelete.foldersMayHaveChanged()
+                                && afterFolderDelete.deleted().contains("Archive/Renamed Note.md"),
+                        String.valueOf(afterFolderDelete));
 
                 System.out.println("\n-- private notes stay private --");
                 // The vault is a different trust boundary from an MCP client: a note the
@@ -269,6 +361,8 @@ public final class McpServerPluginTest {
                         "\"id\":\"Secret.md\"");
                 check("delete_note refuses a private note",
                         deletePrivate.body().contains("\"isError\":true"), deletePrivate.body());
+                check("refused writes to a private note tell the app nothing", nothingReported(reported),
+                        String.valueOf(reported));
                 check("the private note is untouched on disk",
                         Files.readString(vault.resolve("Secret.md"), StandardCharsets.UTF_8)
                                 .contains("sensitivemarkerword"), vault.toString());
@@ -328,6 +422,10 @@ public final class McpServerPluginTest {
                         "\"id\":\"Existing.md\",\"folderId\":\"no-such-folder\"");
                 check("moving into a folder that does not exist is a tool error",
                         badFolder.body().contains("\"isError\":true"), badFolder.body());
+                check("failed writes tell the app nothing", nothingReported(reported), String.valueOf(reported));
+                check("every tool that writes has its report to the app checked",
+                        !writeTools.isEmpty() && writeTools.equals(reportChecked),
+                        "writing: " + writeTools + ", checked: " + reportChecked);
             } finally {
                 plugin.shutdown();
             }
@@ -339,6 +437,8 @@ public final class McpServerPluginTest {
         System.out.println("\n========================================");
         System.out.println("passed: " + passed + "   failed: " + failed);
         System.out.println("========================================");
+        // Platform.startup's FX thread is not a daemon: without this the JVM never exits.
+        Platform.exit();
         if (failed > 0) {
             System.exit(1);
         }
@@ -417,6 +517,39 @@ public final class McpServerPluginTest {
         int valueStart = start + "\"id\":\"".length();
         int end = body.indexOf('"', valueStart);
         return end > valueStart ? body.substring(valueStart, end) : null;
+    }
+
+    /**
+     * The tools a tools/list response declares as writing ({@code "readOnlyHint":false}). Plain
+     * string scanning, like the rest of this test: each tool's own fields run from its
+     * {@code "name":"…"} to the next tool's (an input property called "name" is an object there,
+     * never a string).
+     */
+    private static Set<String> writeTools(String body) {
+        Set<String> tools = new TreeSet<>();
+        String marker = "\"name\":\"";
+        int at = body.indexOf(marker);
+        while (at >= 0) {
+            int nameStart = at + marker.length();
+            String name = body.substring(nameStart, body.indexOf('"', nameStart));
+            int next = body.indexOf(marker, nameStart);
+            String fields = body.substring(nameStart, next < 0 ? body.length() : next);
+            if (fields.contains("\"readOnlyHint\":false")) {
+                tools.add(name);
+            }
+            at = next;
+        }
+        return tools;
+    }
+
+    /** The next change a tool told the app about, or null if none came. */
+    private static ExternalChanges next(BlockingQueue<ExternalChanges> reported) throws InterruptedException {
+        return reported.poll(5, TimeUnit.SECONDS);
+    }
+
+    /** Whether no change reached the app (none pending, none arriving shortly). */
+    private static boolean nothingReported(BlockingQueue<ExternalChanges> reported) throws InterruptedException {
+        return reported.poll(500, TimeUnit.MILLISECONDS) == null;
     }
 
     private static boolean containsAll(String haystack, String... needles) {

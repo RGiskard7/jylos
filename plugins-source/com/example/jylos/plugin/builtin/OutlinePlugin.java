@@ -1,11 +1,14 @@
 package com.example.jylos.plugin.builtin;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.ResourceBundle;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.event.EventBus;
@@ -13,24 +16,32 @@ import com.example.jylos.event.events.NoteEvents;
 import com.example.jylos.plugin.Plugin;
 import com.example.jylos.plugin.PluginContext;
 import com.example.jylos.plugin.PluginI18n;
+import com.example.jylos.util.InlineMarkdown;
+import com.example.jylos.util.InlineMarkdown.Run;
+import com.example.jylos.util.InlineMarkdown.Style;
 import com.example.jylos.util.MarkdownProcessor;
+import com.example.jylos.util.NoteAnchors;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.Text;
+import javafx.scene.text.TextFlow;
 
 /**
  * Outline Plugin - Shows document structure (headers) in the side panel.
  * 
  * <p>This is a classic Obsidian-style plugin that displays:</p>
  * <ul>
- *   <li>All headers (H1-H6) from the current note</li>
- *   <li>Hierarchical indentation based on header level</li>
+ *   <li>All headers (H1-H6) from the current note, as the reading view shows them: bold,
+ *       italic, code, struck through, highlighted, links by their text, without the marks</li>
+ *   <li>Each nested under the heading above it</li>
  *   <li>Click to navigate to that header</li>
- *   <li>Real-time updates as you type</li>
+ *   <li>Updated when another note is opened and when the note is saved</li>
  * </ul>
  * 
  * @author Edu Díaz (RGiskard7)
@@ -45,7 +56,6 @@ public class OutlinePlugin implements Plugin {
     private static final String AUTHOR = "Edu Díaz";
     
     private static final String PANEL_ID = "outline-panel";
-    private static final Pattern HEADER_PATTERN = Pattern.compile("^(#{1,6})\\s+(.+)$", Pattern.MULTILINE);
     
     private PluginContext context;
     private VBox outlineContent;
@@ -177,7 +187,7 @@ public class OutlinePlugin implements Plugin {
             return;
         }
         
-        List<HeaderEntry> headers = parseHeaders(content);
+        List<Entry> headers = entries(content);
         
         if (headers.isEmpty()) {
             emptyLabel.setVisible(true);
@@ -188,50 +198,92 @@ public class OutlinePlugin implements Plugin {
         emptyLabel.setVisible(false);
         emptyLabel.setManaged(false);
         
-        for (HeaderEntry header : headers) {
-            Label headerLabel = createHeaderLabel(header);
-            headersList.getChildren().add(headerLabel);
+        for (Entry header : headers) {
+            headersList.getChildren().add(createHeaderRow(header));
         }
+    }
+
+    /**
+     * A heading in the outline.
+     *
+     * @param level  1 to 6
+     * @param depth  how many headings above it hold it (a lower level, before it)
+     * @param runs   its text as it shows, piece by piece
+     * @param offset character offset of its line in the note
+     * @param anchor the id the reading view gives it, numbered when repeated ({@code ""} if none)
+     */
+    record Entry(int level, int depth, List<Run> runs, int offset, String anchor) {
+    }
+
+    /**
+     * The headings of a note, outside code, in order; each nested under the last one of a
+     * lower level, and with the id the reading view gives it (the same text twice: the
+     * second gets {@code -1}).
+     */
+    static List<Entry> entries(String content) {
+        List<Entry> entries = new ArrayList<>();
+        Deque<Integer> above = new ArrayDeque<>();
+        Map<String, Integer> seen = new HashMap<>();
+        for (NoteAnchors.Heading heading : NoteAnchors.headings(content)) {
+            List<Run> runs = InlineMarkdown.runs(heading.title());
+            if (runs.isEmpty()) {
+                continue;
+            }
+            while (!above.isEmpty() && above.peek() >= heading.level()) {
+                above.pop();
+            }
+            StringBuilder text = new StringBuilder();
+            runs.forEach(run -> text.append(run.text()));
+            String base = MarkdownProcessor.slugifyHeading(text.toString());
+            String anchor = "";
+            if (!base.isEmpty()) {
+                int occurrence = seen.merge(base, 1, Integer::sum) - 1;
+                anchor = occurrence == 0 ? base : base + "-" + occurrence;
+            }
+            entries.add(new Entry(heading.level(), above.size(), runs, heading.offset(), anchor));
+            above.push(heading.level());
+        }
+        return entries;
     }
     
     /**
-     * Parses headers from markdown content.
+     * A clickable row for a header: its text as it shows, indented by how deep it is.
      */
-    private List<HeaderEntry> parseHeaders(String content) {
-        List<HeaderEntry> headers = new ArrayList<>();
-        Matcher matcher = HEADER_PATTERN.matcher(content);
-        
-        while (matcher.find()) {
-            int level = matcher.group(1).length();
-            String text = matcher.group(2).trim();
-            int position = matcher.start();
-            headers.add(new HeaderEntry(level, text, position));
+    private HBox createHeaderRow(Entry header) {
+        TextFlow flow = new TextFlow();
+        flow.getStyleClass().add("outline-text");
+        for (Run run : header.runs()) {
+            flow.getChildren().add(piece(run));
         }
-        
-        return headers;
-    }
-    
-    /**
-     * Creates a clickable label for a header.
-     */
-    private Label createHeaderLabel(HeaderEntry header) {
-        Label label = new Label(header.text);
-        
-        // Indent based on level
-        int indent = (header.level - 1) * 12;
-        label.setPadding(new Insets(4, 8, 4, 8 + indent));
-        
-        // Use CSS classes for styling
-        label.getStyleClass().add("outline-item");
-        label.getStyleClass().add("outline-h" + header.level);
-        label.setMaxWidth(Double.MAX_VALUE);
+        HBox row = new HBox(flow);
+        HBox.setHgrow(flow, Priority.ALWAYS);
+        row.setPadding(new Insets(3, 8, 3, 8 + header.depth() * 14));
+        row.getStyleClass().addAll("outline-item", "outline-h" + header.level());
+        row.setMaxWidth(Double.MAX_VALUE);
         
         // Click to jump to this header — the raw-source offset if the editor is
-        // showing, or the matching #anchor if the rendered Preview is showing.
-        String slug = MarkdownProcessor.slugifyHeading(header.text);
-        label.setOnMouseClicked(e -> context.navigateToHeading(header.position, slug));
-        
-        return label;
+        // showing, or its #anchor if the rendered Preview is showing.
+        row.setOnMouseClicked(e -> context.navigateToHeading(header.offset(), header.anchor()));
+        return row;
+    }
+
+    /** A piece of a heading: code and highlights on their own background, the rest as text. */
+    private static Node piece(Run run) {
+        List<String> classes = new ArrayList<>();
+        for (Style style : run.styles()) {
+            classes.add("outline-" + style.name().toLowerCase(Locale.ROOT));
+        }
+        if (run.styles().contains(Style.CODE) || run.styles().contains(Style.HIGHLIGHT)) {
+            Label label = new Label(run.text());
+            label.getStyleClass().add("outline-chip");
+            label.getStyleClass().addAll(classes);
+            label.setMinWidth(Label.USE_PREF_SIZE);
+            return label;
+        }
+        Text text = new Text(run.text());
+        text.getStyleClass().add("outline-run");
+        text.getStyleClass().addAll(classes);
+        return text;
     }
     
     /**
@@ -245,21 +297,6 @@ public class OutlinePlugin implements Plugin {
             context.showInfo(tr("outline.title", "Outline"), null, tr("outline.info.refreshed", "Outline refreshed!"));
         } else {
             context.showInfo(tr("outline.title", "Outline"), null, tr("outline.info.noNote", "No note selected"));
-        }
-    }
-    
-    /**
-     * Header entry data class.
-     */
-    private static class HeaderEntry {
-        final int level;
-        final String text;
-        final int position;
-        
-        HeaderEntry(int level, String text, int position) {
-            this.level = level;
-            this.text = text;
-            this.position = position;
         }
     }
 }

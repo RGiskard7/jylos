@@ -64,7 +64,8 @@ class BacklinksSupportTest {
         VBox content = new VBox();
         try {
             onFx(() -> {
-                support.wire(content, links, notes, k -> k, n -> events.add("open:" + n.getId()), () -> true);
+                support.wire(links, notes, k -> k, n -> events.add("open:" + n.getId()), () -> true);
+                content.getChildren().setAll(support.links(), support.links().outgoingView());
                 support.setCreateNoteAction(title -> events.add("create:" + title));
                 support.setMentionLinkedAction(n -> events.add("saved:" + n.getId()));
                 support.refresh(notes.getNoteById("Target.md").orElseThrow());
@@ -125,7 +126,8 @@ class BacklinksSupportTest {
         List<EventBus.Subscription> subscriptions = new ArrayList<>();
         try {
             onFx(() -> {
-                support.wire(content, links, notes, k -> k, n -> { }, () -> true);
+                support.wire(links, notes, k -> k, n -> { }, () -> true);
+                content.getChildren().setAll(support.links(), support.links().outgoingView());
                 subscriptions.addAll(support.subscribe(EventBus.getInstance()));
                 support.refresh(notes.getNoteById("A.md").orElseThrow());
                 return null;
@@ -182,7 +184,8 @@ class BacklinksSupportTest {
         VBox content = new VBox();
         try {
             onFx(() -> {
-                support.wire(content, links, notes, k -> k, n -> { }, () -> true);
+                support.wire(links, notes, k -> k, n -> { }, () -> true);
+                content.getChildren().setAll(support.links(), support.links().outgoingView());
                 support.refresh(notes.getNoteById("A.md").orElseThrow());   // slow: waits for the latch
                 support.refresh(notes.getNoteById("B.md").orElseThrow());
                 return null;
@@ -194,6 +197,174 @@ class BacklinksSupportTest {
             assertEquals(List.of("FromB"), texts(content, "links-group-name"));
         } finally {
             releaseA.countDown();
+            links.shutdown();
+        }
+    }
+
+    /**
+     * A copy pinned to a note shows that note's links whatever note is open, and its links open
+     * notes as the panel's do; the panel that follows the open note goes on following it.
+     */
+    @Test
+    void aPinnedCopyKeepsShowingItsNoteWhileTheOpenNoteChanges(@TempDir Path vault) throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        write(vault, "Target.md", "[[Existe]]\n");
+        write(vault, "Existe.md", "# Existe\n");
+        write(vault, "Fuente.md", "Aquí [[Target]] fin\n");
+        write(vault, "B.md", "# B\n");
+        write(vault, "FromB.md", "[[B]]\n");
+        NoteService notes = new NoteService(new NoteDAOFileSystem(vault.toString()),
+                new FolderDAOFileSystem(vault.toString()));
+        BacklinkService links = new BacklinkService(notes, EventBus.getInstance());
+        List<String> events = new ArrayList<>();
+        BacklinksSupport support = new BacklinksSupport();
+        VBox main = new VBox();
+        VBox pinnedBack = new VBox();
+        VBox pinnedOut = new VBox();
+        try {
+            onFx(() -> {
+                support.wire(links, notes, k -> k, n -> events.add("open:" + n.getId()), () -> true);
+                support.setOnPinnedShown((copy, note) -> events.add(copy + " shows " + (note != null ? note.getId() : null)));
+                main.getChildren().setAll(support.links(), support.links().outgoingView());
+                pinnedBack.getChildren().setAll(
+                        support.pinnedPanel("backlinks@1", RightPanelSupport.BACKLINKS, "Target.md", () -> true));
+                pinnedOut.getChildren().setAll(support.pinnedPanel("outgoing-links@2", RightPanelSupport.OUTGOING,
+                        "Target.md", () -> true).outgoingView());
+                support.refresh(notes.getNoteById("Target.md").orElseThrow());
+                support.refreshPinned("backlinks@1");
+                support.refreshPinned("outgoing-links@2");
+                return null;
+            });
+            waitFor(() -> texts(pinnedBack, "links-group-name").equals(List.of("Fuente"))
+                    && texts(pinnedOut, "links-outgoing-name").equals(List.of("Existe"))
+                    && texts(main, "links-group-name").equals(List.of("Fuente")));
+
+            onFx(() -> {
+                support.refresh(notes.getNoteById("B.md").orElseThrow());
+                return null;
+            });
+            waitFor(() -> texts(main, "links-group-name").equals(List.of("FromB")));
+            Thread.sleep(300);
+            assertEquals(List.of("Fuente"), texts(pinnedBack, "links-group-name"));
+            assertEquals(List.of("Existe"), texts(pinnedOut, "links-outgoing-name"));
+
+            onFx(() -> {
+                click(pinnedBack.lookup(".links-group-title"));
+                return null;
+            });
+            assertEquals(List.of("backlinks@1 shows Target.md", "outgoing-links@2 shows Target.md", "open:Fuente.md"),
+                    events);
+        } finally {
+            links.shutdown();
+        }
+    }
+
+    /**
+     * A pinned copy follows its note when it is renamed, and says so; one whose note is not there
+     * shows nothing and tells it is missing; one out of sight works nothing out.
+     */
+    @Test
+    void aPinnedCopyFollowsARenameTellsAMissingNoteAndWorksOnlyInSight(@TempDir Path vault) throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        write(vault, "Nuevo.md", "# Nuevo\n");
+        write(vault, "Fuente.md", "[[Nuevo]]\n");
+        NoteService notes = new NoteService(new NoteDAOFileSystem(vault.toString()),
+                new FolderDAOFileSystem(vault.toString()));
+        List<String> asked = new ArrayList<>();
+        BacklinkService links = new BacklinkService(notes, EventBus.getInstance()) {
+            @Override
+            public List<LinkGroup> backlinkGroups(Note target) {
+                asked.add(target.getId());
+                return super.backlinkGroups(target);
+            }
+
+            @Override
+            public List<BacklinkService.OutgoingLink> outgoingLinks(Note source) {
+                asked.add("outgoing of " + source.getId());
+                return super.outgoingLinks(source);
+            }
+        };
+        List<String> told = new ArrayList<>();
+        boolean[] inSight = {false};
+        BacklinksSupport support = new BacklinksSupport();
+        VBox pinned = new VBox();
+        List<EventBus.Subscription> subscriptions = new ArrayList<>();
+        try {
+            onFx(() -> {
+                support.wire(links, notes, k -> k, n -> { }, () -> false);
+                support.setOnPinnedShown((copy, note) -> told.add(copy + " shows " + (note != null ? note.getId() : null)));
+                support.setOnPinnedRebound((copy, noteId) -> told.add(copy + " now " + noteId));
+                subscriptions.addAll(support.subscribe(EventBus.getInstance()));
+                pinned.getChildren().setAll(
+                        support.pinnedPanel("backlinks@1", RightPanelSupport.BACKLINKS, "Viejo.md", () -> inSight[0]));
+                support.refreshPinned("backlinks@1"); // out of sight: nothing
+                inSight[0] = true;
+                support.refreshPinned("backlinks@1"); // Viejo.md is not there
+                return null;
+            });
+            assertEquals(List.of(), asked);
+            assertEquals(List.of("backlinks@1 shows null"), told);
+
+            // Viejo.md was renamed to Nuevo.md and saved.
+            EventBus.getInstance().publish(
+                    new NoteEvents.NoteSavedEvent(notes.getNoteById("Nuevo.md").orElseThrow(), "Viejo.md"));
+            waitFor(() -> texts(pinned, "links-group-name").equals(List.of("Fuente")));
+            assertEquals(List.of("backlinks@1 shows null", "backlinks@1 now Nuevo.md", "backlinks@1 shows Nuevo.md"),
+                    told);
+            assertEquals("Nuevo.md", support.pinnedNoteId("backlinks@1"));
+            assertEquals(List.of("Nuevo.md"), asked, "a backlinks copy works out its backlinks, not where its note links");
+
+            onFx(() -> {
+                support.forget("backlinks@1");
+                return null;
+            });
+            int before = asked.size();
+            EventBus.getInstance().publish(new NoteEvents.NoteSavedEvent(notes.getNoteById("Fuente.md").orElseThrow()));
+            Thread.sleep(300);
+            assertEquals(before, asked.size(), "a copy forgotten works nothing out");
+            assertEquals(null, support.pinnedNoteId("backlinks@1"));
+        } finally {
+            subscriptions.forEach(EventBus.Subscription::cancel);
+            links.shutdown();
+        }
+    }
+
+    /**
+     * The notes loaded again (as when the vault has just been read, its links indexed): the
+     * copies in sight work their links out again, as the start may have asked before the index
+     * was there.
+     */
+    @Test
+    void thePinnedCopiesInSightAreWorkedOutAgainWhenTheNotesAreLoadedAgain(@TempDir Path vault) throws Exception {
+        Assumptions.assumeTrue(FxTestSupport.isFxRuntimeAvailable());
+        write(vault, "Target.md", "# T\n");
+        write(vault, "Fuente.md", "[[Target]]\n");
+        NoteService notes = new NoteService(new NoteDAOFileSystem(vault.toString()),
+                new FolderDAOFileSystem(vault.toString()));
+        List<String> asked = new ArrayList<>();
+        BacklinkService links = new BacklinkService(notes, EventBus.getInstance()) {
+            @Override
+            public List<LinkGroup> backlinkGroups(Note target) {
+                asked.add(target.getId());
+                return super.backlinkGroups(target);
+            }
+        };
+        BacklinksSupport support = new BacklinksSupport();
+        List<EventBus.Subscription> subscriptions = new ArrayList<>();
+        try {
+            onFx(() -> {
+                support.wire(links, notes, k -> k, n -> { }, () -> false);
+                subscriptions.addAll(support.subscribe(EventBus.getInstance()));
+                support.pinnedPanel("backlinks@1", RightPanelSupport.BACKLINKS, "Target.md", () -> true);
+                support.pinnedPanel("backlinks@2", RightPanelSupport.BACKLINKS, "Fuente.md", () -> false);
+                return null;
+            });
+            EventBus.getInstance().publish(new NoteEvents.NotesRefreshRequestedEvent());
+            waitFor(() -> !asked.isEmpty());
+            Thread.sleep(300);
+            assertEquals(List.of("Target.md"), asked, "only the copy in sight");
+        } finally {
+            subscriptions.forEach(EventBus.Subscription::cancel);
             links.shutdown();
         }
     }

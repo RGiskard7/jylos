@@ -53,7 +53,7 @@ The status bar shows whether the open note is **Saved** or **Unsaved**; its tool
 
 - Export a note, or the whole vault, to HTML or PDF.
 - Import an individual note.
-- Import an **Obsidian vault** (folder hierarchy, frontmatter and tags preserved; `.obsidian/` skipped) or an **Evernote `.enex`** export (ENML converted to Markdown, tags kept) from the File menu. To work on an Obsidian vault without importing it, open its folder as a vault: see [Obsidian Compatibility](/guides/obsidian-compatibility).
+- Import a **vault**, any folder of Markdown notes, from Obsidian, Jylos or elsewhere (folder hierarchy, properties and tags preserved; folders starting with a dot, such as `.obsidian/`, skipped; images and other attachments are not copied), or an **Evernote `.enex`** export (ENML converted to Markdown, tags kept) from the File menu. To work on a vault as it is, attachments included, open its folder as a vault instead of importing it: see [Obsidian Compatibility](/guides/obsidian-compatibility).
 
 ## Organize
 

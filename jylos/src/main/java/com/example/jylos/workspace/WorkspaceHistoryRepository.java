@@ -15,8 +15,10 @@ import com.example.jylos.AppDataDirectory;
 import com.example.jylos.config.LoggerConfig;
 
 /**
- * The back and forward of each tab of each workspace, in Jylos' local app data, one line per
- * workspace: its id, then each tab's history in the order of its {@link Workspace#openNoteIds()}.
+ * The back and forward of each tab of each workspace, and whether it is pinned, in Jylos' local
+ * app data, one line per workspace: its id, then each tab's in the order of its
+ * {@link Workspace#openNoteIds()}. A tab is its back, its forward and, when pinned, a third
+ * part: versions that do not know it read the first two and leave it.
  *
  * <p>Kept apart from {@code workspaces.dat} so that file keeps the shape older versions read:
  * a workspace with one more field would be dropped by them as corrupt. A line that does not
@@ -38,6 +40,8 @@ public final class WorkspaceHistoryRepository {
     private static final String SIDE = "\u001C";
     /** Between the entries of a back or a forward. */
     private static final String ENTRY = "\u001E";
+    /** The third part of a pinned tab. */
+    private static final String PINNED = "pinned";
 
     private final Path file;
     private final Object fileLock = new Object();
@@ -121,7 +125,8 @@ public final class WorkspaceHistoryRepository {
     private static String serializeTabs(List<TabHistory> tabs) {
         List<String> parts = new ArrayList<>();
         for (TabHistory tab : tabs) {
-            parts.add(String.join(ENTRY, tab.back()) + SIDE + String.join(ENTRY, tab.forward()));
+            parts.add(String.join(ENTRY, tab.back()) + SIDE + String.join(ENTRY, tab.forward())
+                    + (tab.pinned() ? SIDE + PINNED : ""));
         }
         return String.join(TAB, parts);
     }
@@ -133,7 +138,8 @@ public final class WorkspaceHistoryRepository {
         }
         for (String tab : text.split(TAB, -1)) {
             String[] sides = tab.split(SIDE, -1);
-            tabs.add(new TabHistory(entries(sides[0]), sides.length > 1 ? entries(sides[1]) : List.of()));
+            tabs.add(new TabHistory(entries(sides[0]), sides.length > 1 ? entries(sides[1]) : List.of(),
+                    sides.length > 2 && PINNED.equals(sides[2])));
         }
         return tabs;
     }

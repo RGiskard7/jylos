@@ -79,6 +79,18 @@ public class Note extends LeafModel implements Serializable {
 	 */
 	private transient List<String> linkTargets = null;
 	/**
+	 * Links of the text to files that are not notes (images, PDFs, canvases), when the
+	 * storage read them from the whole file; {@code null} when unknown. Transient, like
+	 * {@link #linkTargets}.
+	 */
+	private transient List<String> fileLinkTargets = null;
+	/**
+	 * True when this listed note's tags, {@link #linkTargets} and {@link #fileLinkTargets}
+	 * cover its whole file, though its content is only a preview: what uses them needs not
+	 * read the note. Never true for a private note, whose text is encrypted on disk.
+	 */
+	private transient boolean metadataComplete = false;
+	/**
 	 * False for lightweight list/cache reads that intentionally keep only a content
 	 * preview. Persistence code uses this flag to reject unsafe rewrites of missing
 	 * vault files from partial data.
@@ -136,6 +148,8 @@ public class Note extends LeafModel implements Serializable {
 		// Any cached link index is derived from the content; mutating the content
 		// invalidates it so consumers re-derive (see linkTargets / getLinkTargets()).
 		this.linkTargets = null;
+		this.fileLinkTargets = null;
+		this.metadataComplete = false;
 		this.contentComplete = true;
 	}
 
@@ -381,6 +395,24 @@ public class Note extends LeafModel implements Serializable {
 	 */
 	public void setLinkTargets(List<String> linkTargets) {
 		this.linkTargets = linkTargets;
+	}
+
+	/** See {@link #fileLinkTargets}; {@code null} when unknown. */
+	public List<String> getFileLinkTargets() {
+		return fileLinkTargets;
+	}
+
+	public void setFileLinkTargets(List<String> fileLinkTargets) {
+		this.fileLinkTargets = fileLinkTargets;
+	}
+
+	/** See {@link #metadataComplete}. */
+	public boolean isMetadataComplete() {
+		return metadataComplete;
+	}
+
+	public void setMetadataComplete(boolean metadataComplete) {
+		this.metadataComplete = metadataComplete;
 	}
 
 	@Override

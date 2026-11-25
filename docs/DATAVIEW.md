@@ -144,10 +144,14 @@ used as prose is never mangled.
 ## Indexing and performance
 
 Queries need each note's **full** body — an inline field or task can sit anywhere in the
-file, while the notes list only holds a truncated head. The plugin therefore keeps a warm
-index: each note is read and parsed once, cached against its modified timestamp, and
-re-read only when it changes. The first query after startup pays the full read; later ones
-are map lookups. Note events invalidate only the affected note.
+file, while the notes list only holds a truncated head. In a folder vault the plugin keeps,
+with the vault's metadata cache, a summary of each note: the length of its text and the lines
+that can hold a task, a field, a tag or a link, on their own line numbers, plus the code
+fences. It is worked out when a note is read and again only when its file changes, so after a
+restart queries read no unchanged note. In memory, pages are cached against the note's
+modified timestamp; later queries are map lookups. Note events invalidate only the affected
+note. A note the vault could not list from its file (SQLite storage, a note whose properties
+cannot be read) is read whole, as before.
 
 **Private notes are excluded** from the index by design: a query renders into a preview
 that may be exported or shared, so surfacing the contents of a note marked private would
