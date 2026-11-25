@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -347,7 +348,7 @@ public class AutoBackupPlugin implements Plugin {
                 try {
                     Optional<Path> file = notes.getNoteFilePath(listed.getId());
                     if (file.isPresent()) {
-                        Files.copy(file.get(), inside(base, listed.getId()), StandardCopyOption.COPY_ATTRIBUTES);
+                        copyAsItIs(file.get(), inside(base, listed.getId()));
                         written++;
                     } else if (listed.isPrivate()) {
                         skippedPrivate++;
@@ -377,7 +378,7 @@ public class AutoBackupPlugin implements Plugin {
         static boolean exportNote(NoteService notes, Note note, Path out) throws IOException {
             Optional<Path> file = notes.getNoteFilePath(note.getId());
             if (file.isPresent()) {
-                Files.copy(file.get(), out, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+                copyAsItIs(file.get(), out, StandardCopyOption.REPLACE_EXISTING);
                 return true;
             }
             if (note.isPrivate()) {
@@ -416,13 +417,25 @@ public class AutoBackupPlugin implements Plugin {
                         Files.createDirectories(to);
                     } else {
                         Files.createDirectories(to.getParent());
-                        Files.copy(path, to, StandardCopyOption.COPY_ATTRIBUTES);
+                        copyAsItIs(path, to);
                     }
                 }
                 return true;
             } catch (IOException | RuntimeException e) {
                 return false;
             }
+        }
+
+        /**
+         * Copies {@code source} to {@code target} with its attributes and its exact modified time.
+         * On Linux {@code COPY_ATTRIBUTES} keeps the time only to the microsecond, while the file
+         * system keeps nanoseconds, so the time is set again from the source.
+         */
+        private static void copyAsItIs(Path source, Path target, StandardCopyOption... options) throws IOException {
+            StandardCopyOption[] all = Arrays.copyOf(options, options.length + 1);
+            all[options.length] = StandardCopyOption.COPY_ATTRIBUTES;
+            Files.copy(source, target, all);
+            Files.setLastModifiedTime(target, Files.getLastModifiedTime(source));
         }
 
         /** A file name for {@code title} not used yet in this backup (names compare without case). */
