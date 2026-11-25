@@ -1,6 +1,8 @@
 {
-  "updatedAt": "2026-07-17T15:40:09.960Z",
+  "updatedAt": "2026-11-25T16:22:00.000Z",
   "command": "update",
-  "gitHead": "8d94733945d2c27f7ced0b029bf7ac1390954379",
-  "model": "deepseek/deepseek-v4-flash"
+  "gitHead": "828fb2e8fe943ee6230a931b0761619c281a5de7",
+  "model": "deepseek/deepseek-v4-flash",
+  "noop": true,
+  "reason": "Only .github/workflows/openwiki-update.yml changed, which is CI/ops configuration not documented in the wiki. All existing wiki pages remain accurate."
 }
