@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-11-25
+
 - **Panel derecho con pestañas:** arriba, una fila de pestañas con icono, una por vista, alineada con la cabecera del editor; al pulsar una, el panel muestra solo esa vista, con su propio scroll. Si las pestañas no caben, la fila se desplaza en horizontal con la rueda. Las vistas son *Enlaces entrantes* (menciones con enlace y sin enlace), *Enlaces salientes* y las de los plugins: cada panel de plugin, como *Esquema* o *Calendario*, es una pestaña más en lugar de una sección apilada. La vista elegida se recuerda para la próxima vez, también la de un plugin. Los enlaces solo se calculan mientras una de sus vistas está a la vista.
   - Las fechas de creación y modificación de una nota, que estaban en *Información de nota*, aparecen al dejar el puntero sobre su pestaña, junto con su ruta.
   - El número de nodos y conexiones del grafo está ahora arriba del panel de ajustes del grafo.
