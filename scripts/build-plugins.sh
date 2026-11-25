@@ -308,6 +308,19 @@ for bundle_dir in $BUNDLE_DIRS; do
                 rm -rf "$UNPACK_DIR/META-INF/services"
             fi
         fi
+        # Each dependency's licence and notice files keep its own folder: they share
+        # names (LICENSE, NOTICE...), so merged at the root only the last one would stay,
+        # and the others' licences, which must travel with their code, would be lost.
+        LIB_NOTICES="$CLASSES_DIR/META-INF/third-party/$(basename "$lib" .jar)"
+        for candidate in "$UNPACK_DIR"/* "$UNPACK_DIR"/META-INF/*; do
+            [ -f "$candidate" ] || continue
+            case "$(basename "$candidate" | tr '[:upper:]' '[:lower:]')" in
+                license*|notice*|*-license|*-license.*|*-notice|*-notice.*|copying*|about.html)
+                    mkdir -p "$LIB_NOTICES"
+                    mv "$candidate" "$LIB_NOTICES/"
+                    ;;
+            esac
+        done
         # A dependency's module descriptor is meaningless on the classpath and would
         # collide with another dependency's.
         rm -f "$UNPACK_DIR/module-info.class"

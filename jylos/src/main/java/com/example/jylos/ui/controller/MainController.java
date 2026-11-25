@@ -687,7 +687,7 @@ public class MainController {
                         sidebarController.loadTags();
                         sidebarController.loadRecentNotes();
                     }
-                });
+                }, folder -> appSettings.openFolderAsVault(prefs, folder.toString(), this::switchFilesystemVault));
         startupSupport.wire(new StartupSupport.Host(() -> vaultSettings != null ? vaultSettings.get() : null,
                 path -> noteCreationSupport.templates().noteAt(path), this::loadNoteInEditor, this::openNoteInNewTab,
                 tabsSupport::newTab, noteCreationSupport::openDailyNote, this::updateStatus, this::getString,

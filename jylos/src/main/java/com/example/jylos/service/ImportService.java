@@ -6,8 +6,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 
@@ -44,6 +47,10 @@ import com.example.jylos.util.EnexConverter;
  * through {@link NoteService}/{@link FolderService}, so both SQLite and vault modes
  * work the same.</p>
  *
+ * <p>Importing a vault again brings only what is not there yet: a folder already at the same
+ * place is used as it is, and a note whose title is already in that folder is left alone,
+ * whatever it says now in either place (counted in {@link ImportResult#notesSkipped()}).</p>
+ *
  * @author Edu Díaz (RGiskard7)
  * @since 2.0.0
  */
@@ -59,14 +66,20 @@ public class ImportService {
      *
      * @param notesImported number of notes imported successfully
      * @param foldersCreated number of folders created during the import
+     * @param notesSkipped number of notes left alone because they were already there
      * @param errors non-fatal per-note errors encountered during the import
      */
-    public record ImportResult(int notesImported, int foldersCreated, List<String> errors) {
+    public record ImportResult(int notesImported, int foldersCreated, int notesSkipped, List<String> errors) {
     }
 
     public ImportService(NoteService noteService, FolderService folderService) {
         this.noteService = noteService;
         this.folderService = folderService;
+    }
+
+    /** The folder of the vault the notes are imported into, or none with the database. */
+    public Optional<Path> storageRoot() {
+        return noteService.getStorageRoot();
     }
 
     // ── Obsidian vault ───────────────────────────────────────────────────────
@@ -79,7 +92,11 @@ public class ImportService {
         List<String> errors = new ArrayList<>();
         int notes = 0;
         int folders = 0;
-        Map<String, Folder> folderCache = new HashMap<>();
+        int skipped = 0;
+        // What is there before this run: the notes of a vault imported earlier are not brought
+        // twice, while two notes of this vault with the same title in one folder still are.
+        Map<String, Folder> folderCache = existingFoldersByPath();
+        Set<String> existingNotes = existingNoteKeys();
 
         try (Stream<Path> walk = Files.walk(vaultDir)) {
             List<Path> mdFiles = walk
@@ -111,6 +128,10 @@ public class ImportService {
                     }
 
                     Path relParent = vaultDir.relativize(file).getParent();
+                    if (existingNotes.contains(noteKey(folderKey(relParent), title))) {
+                        skipped++;
+                        continue;
+                    }
                     Folder target = null;
                     if (relParent != null) {
                         int before = folderCache.size();
@@ -131,7 +152,53 @@ public class ImportService {
         } catch (IOException e) {
             errors.add("walk: " + e.getMessage());
         }
-        return new ImportResult(notes, folders, errors);
+        return new ImportResult(notes, folders, skipped, errors);
+    }
+
+    /** The folders there now, by their path in the vault ({@code projects/inner}). */
+    private Map<String, Folder> existingFoldersByPath() {
+        Map<String, Folder> byPath = new HashMap<>();
+        for (Folder folder : folderService.getAllFolders()) {
+            String path = folder != null ? noteService.folderPath(folder.getId()) : "";
+            if (!path.isEmpty()) {
+                byPath.putIfAbsent(path, folder);
+            }
+        }
+        return byPath;
+    }
+
+    /** The notes there now, as {@link #noteKey}: their folder's path and their title. */
+    private Set<String> existingNoteKeys() {
+        List<Note> notes = noteService.getAllNotes();
+        LinkIndex paths = noteService.buildLinkIndex(notes);
+        Set<String> keys = new HashSet<>();
+        for (Note note : notes) {
+            String path = note.getId() != null ? paths.pathOf(note.getId()) : null;
+            if (path != null && note.getTitle() != null) {
+                int slash = path.lastIndexOf('/');
+                keys.add(noteKey(slash > 0 ? path.substring(0, slash) : "", note.getTitle()));
+            }
+        }
+        return keys;
+    }
+
+    /** A folder of the vault being imported, as the path {@link NoteService#folderPath} gives. */
+    private static String folderKey(Path relParent) {
+        if (relParent == null) {
+            return "";
+        }
+        StringBuilder key = new StringBuilder();
+        for (Path part : relParent) {
+            if (key.length() > 0) {
+                key.append('/');
+            }
+            key.append(part);
+        }
+        return key.toString();
+    }
+
+    private static String noteKey(String folderPath, String title) {
+        return folderPath + "\n" + title;
     }
 
     /** True when any path segment between the vault root and the file starts with a dot. */
@@ -223,7 +290,7 @@ public class ImportService {
             errors.add(enexFile.getFileName() + ": " + e.getMessage());
             logger.warning("ENEX import failed: " + e.getMessage());
         }
-        return new ImportResult(notes, 0, errors);
+        return new ImportResult(notes, 0, 0, errors);
     }
 
     private static String textOf(Element parent, String tag) {

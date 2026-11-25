@@ -2,7 +2,7 @@
 
 English: [../SEARCH.md](../SEARCH.md)
 
-La búsqueda simple busca texto en títulos y cuerpos. Los usuarios avanzados pueden añadir operadores estilo Gmail/Obsidian.
+La búsqueda simple busca texto en títulos y cuerpos. Los usuarios avanzados pueden añadir operadores de búsqueda.
 
 ## Sintaxis avanzada
 

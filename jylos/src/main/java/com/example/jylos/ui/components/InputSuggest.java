@@ -27,7 +27,7 @@ import javafx.stage.Popup;
  * when nothing is picked, so a path that is not among the suggestions can still be written.
  *
  * @author Edu Díaz (RGiskard7)
- * @since 2.6.1
+ * @since 2.7.0
  */
 public final class InputSuggest {
 

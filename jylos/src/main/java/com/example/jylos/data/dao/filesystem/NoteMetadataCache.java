@@ -36,7 +36,7 @@ import com.google.gson.reflect.TypeToken;
  * cache.</p>
  *
  * @author Edu Díaz (RGiskard7)
- * @since 2.6.1
+ * @since 2.7.0
  */
 public final class NoteMetadataCache {
 

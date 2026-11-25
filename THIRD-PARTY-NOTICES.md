@@ -64,5 +64,25 @@ The icon fonts in the Ikonli packs are [Bootstrap Icons](https://icons.getbootst
 code is at the link above. The classes keep their original package names inside the Jylos JAR,
 so it can be replaced with another build of the library.
 
+## MCP Server plugin
+
+The MCP Server plugin (`plugins/McpServerPlugin.jar`) carries these libraries inside its JAR. Each
+one's own license and notice files, where it ships them, are kept in the plugin JAR under
+`META-INF/third-party/<library>/`.
+
+| Component | Copyright | License |
+|---|---|---|
+| [MCP Java SDK](https://github.com/modelcontextprotocol/java-sdk) 2.0.0 (`mcp-core`, `mcp-json-jackson3`) | © 2025 the original author or authors | [MIT](licenses/MIT.txt) |
+| [Eclipse Jetty](https://jetty.org) 12.1.12 (`jetty-server`, `-http`, `-io`, `-util`, `-security`, `-session`, `-ee11-servlet`) | Mort Bay Consulting Pty Ltd and others | Dual EPL-2.0 or Apache-2.0, used under [Apache-2.0](licenses/Apache-2.0.txt) |
+| [Jakarta Servlet API](https://github.com/jakartaee/servlet) 6.1.0 | Its authors (see its repository) | Dual EPL-2.0 or GPL-2.0 with the Classpath Exception, used under [GPL-2.0 with the Classpath Exception](licenses/GPL-2.0-with-Classpath-exception.txt) |
+| [Jackson](https://github.com/FasterXML/jackson) 3.0.3 (`jackson-core`, `jackson-databind`, `jackson-dataformat-yaml`) and `jackson-annotations` 2.20 | Tatu Saloranta and contributors | [Apache-2.0](licenses/Apache-2.0.txt) |
+| [FastDoubleParser](https://github.com/wrandelshofer/FastDoubleParser), inside `jackson-core` (with code from [fast_float](https://github.com/fastfloat/fast_float), © 2021 The fast_float authors) | © 2024 Werner Randelshofer | [MIT](licenses/MIT.txt) |
+| [Reactor Core](https://projectreactor.io) 3.7.0 | Its authors | [Apache-2.0](licenses/Apache-2.0.txt) |
+| [Reactive Streams](https://www.reactive-streams.org) 1.0.4 | Its authors | [MIT-0](licenses/MIT-0.txt) |
+| [json-schema-validator](https://github.com/networknt/json-schema-validator) 3.0.0 | Its authors | [Apache-2.0](licenses/Apache-2.0.txt) |
+| [SnakeYAML Engine](https://bitbucket.org/snakeyaml/snakeyaml-engine) 2.10 | SnakeYAML authors | [Apache-2.0](licenses/Apache-2.0.txt) |
+| [ITU](https://github.com/ethlo/itu) 1.14.0 | Its authors | [Apache-2.0](licenses/Apache-2.0.txt) |
+| [SLF4J](https://www.slf4j.org) 2.0.16 (`slf4j-api`) | QOS.ch Sarl | [MIT](licenses/MIT.txt) |
+
 The installers built with `jpackage` also include a Java runtime from the JDK. Its own notices
 are in the runtime's `legal/` folder.

@@ -347,6 +347,18 @@ foreach ($bundleDir in $BundleDirs) {
                 Remove-Item -Path $UnpackServices -Recurse -Force
             }
         }
+        # Each dependency's licence and notice files keep its own folder: they share
+        # names (LICENSE, NOTICE...), so merged at the root only the last one would stay,
+        # and the others' licences, which must travel with their code, would be lost.
+        $LibNotices = Join-Path $ClassesDir ("META-INF\third-party\" + [System.IO.Path]::GetFileNameWithoutExtension($lib))
+        $NoticeCandidates = @(Get-ChildItem -Path $UnpackDir -File)
+        if (Test-Path $UnpackMetaInf) { $NoticeCandidates += @(Get-ChildItem -Path $UnpackMetaInf -File) }
+        foreach ($candidate in $NoticeCandidates) {
+            if ($candidate.Name -match '^(license|notice|copying)|-(license|notice)($|\.)|^about\.html$') {
+                New-Item -ItemType Directory -Path $LibNotices -Force | Out-Null
+                Move-Item -Path $candidate.FullName -Destination $LibNotices -Force
+            }
+        }
         # A dependency's module descriptor is meaningless on the classpath and would
         # collide with another dependency's.
         $ModuleInfo = Join-Path $UnpackDir "module-info.class"

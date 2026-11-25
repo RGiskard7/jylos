@@ -12,9 +12,11 @@ import static com.example.jylos.plugin.builtin.mcp.McpSupport.stringProperty;
 import static com.example.jylos.plugin.builtin.mcp.McpSupport.writes;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import com.example.jylos.data.models.Note;
 import com.example.jylos.data.models.Tag;
@@ -41,12 +43,14 @@ final class TagTools {
     private TagTools() {
     }
 
-    static List<SyncToolSpecification> build(NoteService noteService, TagService tagService) {
+    /** @param changes told what each write changed, so the app shows it */
+    static List<SyncToolSpecification> build(NoteService noteService, TagService tagService,
+            VaultChanges changes) {
         List<SyncToolSpecification> tools = new ArrayList<>();
         tools.add(listTags(tagService));
-        tools.add(addTag(noteService, tagService));
-        tools.add(removeTag(noteService, tagService));
-        tools.add(renameTag(tagService));
+        tools.add(addTag(noteService, tagService, changes));
+        tools.add(removeTag(noteService, tagService, changes));
+        tools.add(renameTag(noteService, tagService, changes));
         return tools;
     }
 
@@ -80,7 +84,8 @@ final class TagTools {
 
     // ── add_tag ──────────────────────────────────────────────────────────────
 
-    private static SyncToolSpecification addTag(NoteService noteService, TagService tagService) {
+    private static SyncToolSpecification addTag(NoteService noteService, TagService tagService,
+            VaultChanges changes) {
         Map<String, Object> schema = objectSchema(Map.of(
                 "id", stringProperty("Note id, as returned by list_notes or search_notes."),
                 "tag", stringProperty("Tag name, without the leading '#'.")),
@@ -119,6 +124,7 @@ final class TagTools {
                     } catch (RuntimeException e) {
                         return errorResult("Could not add the tag: " + e.getMessage());
                     }
+                    changes.changed(Set.of(note.getId()));
                     return CallToolResult.builder()
                             .addTextContent("Added #" + tagName + " to '" + displayTitle(note) + "'")
                             .structuredContent(noteSummary(note))
@@ -129,7 +135,8 @@ final class TagTools {
 
     // ── remove_tag ───────────────────────────────────────────────────────────
 
-    private static SyncToolSpecification removeTag(NoteService noteService, TagService tagService) {
+    private static SyncToolSpecification removeTag(NoteService noteService, TagService tagService,
+            VaultChanges changes) {
         Map<String, Object> schema = objectSchema(Map.of(
                 "id", stringProperty("Note id, as returned by list_notes or search_notes."),
                 "tag", stringProperty("Tag name, without the leading '#'.")),
@@ -176,6 +183,7 @@ final class TagTools {
                     } catch (RuntimeException e) {
                         return errorResult("Could not remove the tag: " + e.getMessage());
                     }
+                    changes.changed(Set.of(note.getId()));
                     return CallToolResult.builder()
                             .addTextContent("Removed #" + tagName + " from '" + displayTitle(note) + "'")
                             .structuredContent(noteSummary(note))
@@ -186,7 +194,8 @@ final class TagTools {
 
     // ── rename_tag ───────────────────────────────────────────────────────────
 
-    private static SyncToolSpecification renameTag(TagService tagService) {
+    private static SyncToolSpecification renameTag(NoteService noteService, TagService tagService,
+            VaultChanges changes) {
         Map<String, Object> schema = objectSchema(Map.of(
                 "tag", stringProperty("Current tag name, without the leading '#'."),
                 "newName", stringProperty("New tag name, without the leading '#'.")),
@@ -208,6 +217,11 @@ final class TagTools {
                     if (existing.isEmpty()) {
                         return errorResult("No tag named #" + tagName + " in this vault.");
                     }
+                    // The notes that carry it change; read before, while they still carry it.
+                    Set<String> tagged = new HashSet<>();
+                    for (Note note : noteService.getNotesByTag(existing.get())) {
+                        tagged.add(note.getId());
+                    }
                     try {
                         tagService.renameTag(existing.get(), newName);
                     } catch (IllegalArgumentException e) {
@@ -216,6 +230,7 @@ final class TagTools {
                     } catch (RuntimeException e) {
                         return errorResult("Could not rename the tag: " + e.getMessage());
                     }
+                    changes.changed(tagged);
                     return CallToolResult.builder()
                             .addTextContent("Renamed #" + tagName + " to #" + newName)
                             .structuredContent(Map.of("previous", tagName, "title", newName))

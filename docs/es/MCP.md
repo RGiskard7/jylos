@@ -208,6 +208,19 @@ El contenido de una nota privada nunca se devuelve ni es editable vía MCP, aunq
 desbloqueada en la sesión actual de la app de escritorio. Eso cubre todas las vías: leer,
 buscar, editar, renombrar, mover, etiquetar y borrar la rechazan por igual.
 
+Lo que escribe una herramienta se ve en la app al momento, igual que un cambio hecho fuera
+de ella: el explorador, la lista de notas, las etiquetas y el grafo lo siguen, y también la
+nota abierta en el editor (se recarga, se sigue a su nuevo nombre o, si tiene cambios sin
+guardar, se conserva con un aviso). Las herramientas escriben con el almacenamiento de la
+propia app, así que el vigilante de la carpeta toma esas escrituras por suyas; por eso cada
+herramienta que escribe publica `NoteEvents.ExternalNoteChangesEvent` con lo que cambió. Una
+herramienta que falla o se rechaza no publica nada. Una tanda de escrituras (un agente
+guardando muchas notas seguidas) se muestra una sola vez, cuando para 400 ms (o como mucho
+2 s después de la primera), así que las listas no se reconstruyen una vez por nota. El test
+del plugin falla si una herramienta que el servidor declara de escritura
+(`readOnlyHint: false`) no tiene comprobado lo que avisa, así que una herramienta nueva no
+puede olvidarlo.
+
 ### Deliberadamente no expuesto
 
 **Nada irreversible.** Borrar sí está disponible, pero solo del tipo recuperable: una nota

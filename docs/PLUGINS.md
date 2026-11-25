@@ -5,7 +5,7 @@ Español: [es/PLUGINS.md](es/PLUGINS.md)
 ## Model
 
 Plugins are JAR files loaded at startup; the core app does not import concrete plugin classes.
-As in Obsidian, there are two kinds:
+There are two kinds:
 
 - **Core plugins** are Jylos's own (`plugins-source/`, plus Mermaid compiled into the app; the
   list is `CorePlugins`). They come with the installation, next to the app (jpackage
@@ -128,6 +128,14 @@ The build handles the parts of merging that silently break otherwise:
   finds every provider when two dependencies register for the same service.
 - **`module-info.class`** from dependencies is dropped: meaningless on the classpath, and
   two dependencies would collide on it.
+- **License and notice files** (`LICENSE*`, `NOTICE*`, `*-LICENSE`, `COPYING*`, `about.html`)
+  go to `META-INF/third-party/<dependency>/`, one folder per JAR. They share names, so merged
+  at the root only the last one would survive, and the others' licenses, which must travel
+  with their code, would be lost.
+
+A core plugin that packs dependencies also lists them, with their versions and licenses, in
+[`THIRD-PARTY-NOTICES.md`](../THIRD-PARTY-NOTICES.md), adding the text of any new license to
+`licenses/`.
 
 Two caveats worth knowing:
 
@@ -185,14 +193,15 @@ plugin out of the JAR mechanism (no independent enable/disable-by-file, no
 |-----|-------------------|
 | `registerCommand(...)` | Command-palette entries (optional shortcut) |
 | `registerMenuItem(...)` / `addMenuSeparator(...)` | Entries in the dynamic plugin menu |
-| `registerSidePanel(panelId, title, content, icon)` | A view of the right panel, as Obsidian's: a tab with `icon` (a Feather literal like `fth-calendar`, an emoji, or none for a generic one) and `title` as its tooltip, showing `content` with its own scroll; the view chosen last is chosen again when the plugin comes back. `setPluginPanelsVisible(false)` takes every plugin's tab out of the row (and `true` brings them back) |
+| `registerSidePanel(panelId, title, content, icon)` | A view of the right panel: a tab with `icon` (a Feather literal like `fth-calendar`, an emoji, or none for a generic one) and `title` as its tooltip, showing `content` with its own scroll; the view chosen last is chosen again when the plugin comes back. `setPluginPanelsVisible(false)` takes every plugin's tab out of the row (and `true` brings them back) |
 | `registerPreviewEnhancer(...)` | CSS/JS injected into the Markdown preview, plus per-note HTML post-processing (below) |
 | `registerToolbarButton(buttonId, tooltip, iconLiteral, action)` | A button in the main toolbar (Feather icon literal like `fth-clock`, or text); removed automatically on disable |
-| `registerStatusBarItem(itemId, content)` | A node in the status bar, like Obsidian's `addStatusBarItem()`: keep the node to update it (e.g. a `Label` you `setText` on); the same `itemId` again replaces it; removed automatically on disable (`removeStatusBarItem(itemId)` / `removeStatusBarItems()` to take it out earlier) |
+| `registerStatusBarItem(itemId, content)` | A node in the status bar: keep the node to update it (e.g. a `Label` you `setText` on); the same `itemId` again replaces it; removed automatically on disable (`removeStatusBarItem(itemId)` / `removeStatusBarItems()` to take it out earlier) |
 | `registerEditorHook(EditorHook)` | Editor lifecycle hooks (below) |
 | `registerEditorBlockRenderer(language, renderer)` | Renders a fenced block inline in the editor's Live Preview |
 | `requestOpenNote(note)` | Ask the shell owner to open a note directly in the editor UI |
 | `requestRefreshNotes()` | Ask the shell to fan out a notes refresh event |
+| `publish(new NoteEvents.ExternalNoteChangesEvent(created, changed, deleted, foldersChanged, renamed))` | Tell the app which notes your plugin created, changed, moved (old id to new id) or deleted through the services. Writes made that way go through the app's own storage, so the folder watcher takes them for the app's own and nothing in the window follows them until a refresh: this event makes the explorer, lists, tags, graph and the note open in the editor follow them, as with a change made outside the app (reloaded, followed to its new name, or kept with a warning if it has unsaved edits). A run of them is shown once, when it pauses. Publish it once the write is done, and only if it succeeded. The MCP server plugin does it for every tool that writes |
 | `subscribe(...)` / `publish(...)` | Typed `EventBus` access; subscriptions are cancelled automatically on disable |
 | `showInfo(title, header, content)` / `showError(title, message)` | A themed, read-only info/error `Alert` — the content renders as plain text, not selectable |
 | `showCopyableInfo(title, header, content)` | Same as `showInfo`, but the content is a real, selectable/copyable text area (plus a "Copy" button) — use this instead of `showInfo` for anything meant to be pasted elsewhere (a template snippet, a URL) |

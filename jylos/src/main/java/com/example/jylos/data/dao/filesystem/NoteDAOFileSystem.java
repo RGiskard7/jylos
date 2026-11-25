@@ -904,6 +904,9 @@ public class NoteDAOFileSystem implements NoteDAO {
                 } else {
                     // Also clears marks left by a note that was at this path before.
                     metadataStore.persistNoteMarks(note, FrontmatterHandler.claimsMarks(fileContent));
+                    // Its tags are the ones its text has, inline #tags included, as after an edit
+                    // (see updateNote): a note created with its text already written has them now.
+                    note.setTags(FrontmatterHandler.parse(fileContent).getTags());
                 }
                 idToPathMap.put(relativePath, filePath);
                 cachedNotes.put(relativePath, note);

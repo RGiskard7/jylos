@@ -9,7 +9,7 @@ Hay tres páginas HTML que dibuja el `WebView` de JavaFX:
 - las notas de versión que se muestran antes de actualizar (`UpdateInstallSupport`).
 
 El `WebView` usa el motor WebKit que trae JavaFX, que no es Chromium: le faltan formatos y
-comportamientos de navegador que Obsidian y otras apps Electron tienen sin hacer nada.
+comportamientos de navegador que las apps Electron tienen sin hacer nada.
 
 Esta página recoge esas carencias, qué hace Jylos con cada una y qué supondría cambiar de
 motor (JCEF).
@@ -62,7 +62,7 @@ midió lo que aportaría y lo que costaría:
 una aplicación Java. Lo usan los IDE de JetBrains para sus paneles web; CEF también está
 detrás de apps de escritorio como Spotify o Steam.
 
-**Qué arreglaría.** Es la misma familia de motor que el de Obsidian (Chromium), así que
+**Qué arreglaría.** Es Chromium, el motor de las apps Electron, así que
 traería:
 - WebP, AVIF y emojis completos (tonos de piel, banderas, familias);
 - el scroll nativo de un navegador;

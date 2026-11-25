@@ -68,8 +68,10 @@ public class McpServerPlugin implements Plugin {
     @Override
     public void initialize(PluginContext context) {
         this.context = context;
+        // What a tool writes reaches the window as a change made outside it would: the vault
+        // watcher cannot tell these writes from the app's own.
         this.server = new JylosMcpServer(context.getNoteService(), context.getFolderService(),
-                context.getTagService());
+                context.getTagService(), context::publish);
 
         // Started off the UI thread: binding the port and starting the HTTP server takes a few
         // hundred milliseconds, which would freeze the window while the app starts.

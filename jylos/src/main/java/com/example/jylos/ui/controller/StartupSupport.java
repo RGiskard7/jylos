@@ -23,7 +23,7 @@ import com.example.jylos.workspace.TabHistory;
  * page, a note or a canvas, at any time.
  *
  * @author Edu Díaz (RGiskard7)
- * @since 2.6.1
+ * @since 2.7.0
  */
 final class StartupSupport {
 

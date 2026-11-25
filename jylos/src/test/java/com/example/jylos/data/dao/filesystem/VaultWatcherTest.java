@@ -27,14 +27,28 @@ class VaultWatcherTest {
     @TempDir
     Path vault;
 
+    /**
+     * The file itself is reported, not only the vault. The library starts listening a moment
+     * after it starts, on another thread, and a write in between is not reported by itself (the
+     * check of the whole vault covers it, see the test below); so the file is written again
+     * until the watcher, listening by then, reports it.
+     */
     @Test
     void aFileWrittenOutsideIsReported() throws Exception {
         List<Set<Path>> batches = new CopyOnWriteArrayList<>();
         try (VaultWatcher watcher = VaultWatcher.start(vault, batches::add, () -> { })) {
             Path note = vault.resolve("Nueva.md");
-            Files.writeString(note, "fuera\n");
+            long deadline = System.currentTimeMillis() + WAIT_MS;
+            int writes = 0;
+            while (!reported(batches).contains(note) && System.currentTimeMillis() < deadline) {
+                Files.writeString(note, "fuera " + ++writes + "\n");
+                long next = System.currentTimeMillis() + 1000;
+                while (!reported(batches).contains(note) && System.currentTimeMillis() < next) {
+                    Thread.sleep(50);
+                }
+            }
 
-            assertTrue(waitFor(() -> reported(batches).contains(note)), "reported: " + batches);
+            assertTrue(reported(batches).contains(note), "reported after " + writes + " writes: " + batches);
         }
     }
 

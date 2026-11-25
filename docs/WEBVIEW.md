@@ -6,7 +6,7 @@ The CodeMirror editor (`MarkdownEditorView`), the reading view (`EditorControlle
 `previewWebView`, filled by `MarkdownPreview`) and the release notes shown before an update
 (`UpdateInstallSupport`) are HTML pages drawn by JavaFX's `WebView`. That is the WebKit engine
 that comes with JavaFX. It is not Chromium: it lacks some formats and browser behaviour that
-Obsidian and other Electron apps get for free.
+Electron apps get for free.
 
 This page lists the known gaps, what Jylos does about each one, and what moving to another
 engine (JCEF) would involve.
@@ -58,7 +58,7 @@ what it would bring and what it would cost:
 Java application. JetBrains IDEs use it for their web-based panels; CEF itself is behind
 desktop apps such as Spotify and Steam.
 
-**What it would fix.** It is the same engine family as Obsidian's (Chromium), so it would
+**What it would fix.** It is Chromium, the engine of Electron apps, so it would
 bring:
 - WebP, AVIF and complete emoji (skin tones, flags, families);
 - browser-native scrolling;

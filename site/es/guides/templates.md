@@ -2,7 +2,7 @@
 
 ::: v-pre
 
-Jylos escribe las plantillas como Obsidian: con la sintaxis de su plugin Plantillas y, si la activas, con la de Templater. Una misma plantilla da el mismo resultado en las dos apps. Todo se configura en **Preferencias → Bóveda**, y cada bóveda tiene sus propios ajustes.
+Jylos entiende las plantillas escritas para Obsidian: la sintaxis de su plugin Plantillas y, si la activas, la de Templater. Una misma plantilla da el mismo resultado en las dos apps. Todo se configura en **Preferencias → Bóveda**, y cada bóveda tiene sus propios ajustes.
 
 ## Dónde están las plantillas
 
@@ -32,7 +32,7 @@ Los formatos son los de Obsidian: `YYYY` (año), `MM` y `MMMM` (mes en número y
 
 - **Su nombre** es la fecha de hoy con el formato de la nota diaria. Un formato con barras, como `YYYY/MM/DD`, la guarda en carpetas, que se crean si faltan.
 - **Su carpeta** es la de las notas diarias; si no hay, la de las notas nuevas cuando es una carpeta concreta; si no, la raíz de la bóveda.
-- **Su plantilla** se escribe al crearla. En ella, `{{title}}` es el nombre de la nota, y `{{date}}` y `{{time}}` usan los formatos fijos `YYYY-MM-DD` y `HH:mm`, como en Obsidian. Sin plantilla elegida se usa la nota `daily` de la carpeta de plantillas, si existe; si no, la nota se crea vacía.
+- **Su plantilla** se escribe al crearla. En ella, `{{title}}` es el nombre de la nota, y `{{date}}` y `{{time}}` usan los formatos fijos `YYYY-MM-DD` y `HH:mm`. Sin plantilla elegida se usa la nota `daily` de la carpeta de plantillas, si existe; si no, la nota se crea vacía.
 
 Si la carpeta o la plantilla elegidas no están en la bóveda, Jylos lo dice y no crea nada.
 

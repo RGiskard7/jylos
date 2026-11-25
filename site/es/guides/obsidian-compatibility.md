@@ -5,8 +5,8 @@ Una bóveda de Jylos es una carpeta de ficheros Markdown, igual que una de Obsid
 ## Lo que comparten las dos apps
 
 - **Las notas y su texto**, con encabezados, listas, tareas, callouts, código y diagramas Mermaid.
-- **Las propiedades** (el YAML del principio de la nota). Si no las cambias, Jylos las guarda exactamente como estaban, con tus comentarios, comillas y orden. Las lee como Obsidian (YAML 1.2): `no`, `yes`, `10:30` o `1_000` son texto, no un booleano ni un número; una lista sigue siendo lista y una propiedad vacía sigue vacía.
-- **Las plantillas**, con las variables de Obsidian (<span v-pre>`{{date:YYYY-MM-DD}}`</span>…) y, si lo activas, la sintaxis de Templater (`<% tp.date.now() %>`). La nota diaria sigue las reglas de Obsidian. Consulta [Plantillas y nota diaria](/es/guides/templates).
+- **Las propiedades** (el YAML del principio de la nota). Si no las cambias, Jylos las guarda exactamente como estaban, con tus comentarios, comillas y orden. Las lee como YAML 1.2, así que las dos apps las leen igual: `no`, `yes`, `10:30` o `1_000` son texto, no un booleano ni un número; una lista sigue siendo lista y una propiedad vacía sigue vacía.
+- **Las plantillas**, con las variables de Obsidian (<span v-pre>`{{date:YYYY-MM-DD}}`</span>…) y, si lo activas, la sintaxis de Templater (`<% tp.date.now() %>`). La nota diaria se nombra y se coloca igual en las dos apps. Consulta [Plantillas y nota diaria](/es/guides/templates).
 - **Los enlaces**: `[[Nota]]`, `[[Carpeta/Nota]]`, `[[Nota#Encabezado]]`, `[[Nota|texto]]`, incrustaciones `![[…]]`, `aliases` y enlaces dentro de propiedades (`up: "[[Índice]]"`).
 - **Las etiquetas**, escritas en el texto (`#idea`) o en la propiedad `tags`.
 - **Los lienzos** (`.canvas`) y los adjuntos.

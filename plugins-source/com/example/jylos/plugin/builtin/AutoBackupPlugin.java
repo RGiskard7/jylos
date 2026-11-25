@@ -318,7 +318,7 @@ public class AutoBackupPlugin implements Plugin {
      * and the database copy keeps it encrypted.</li>
      * </ul>
      *
-     * @since 2.6.1
+     * @since 2.7.0
      */
     static final class NoteBackup {
 

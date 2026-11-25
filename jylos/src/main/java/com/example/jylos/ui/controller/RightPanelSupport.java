@@ -40,7 +40,7 @@ import javafx.scene.layout.VBox;
  * note when it is renamed. The copies are kept for the next start; closing one takes it away.
  *
  * @author Edu Díaz (RGiskard7)
- * @since 2.6.1
+ * @since 2.7.0
  */
 final class RightPanelSupport {
 

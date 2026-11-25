@@ -15,7 +15,7 @@ import java.util.Set;
  * @param renamed               notes moved or renamed, old id to new id (also among
  *                              {@code deleted} and {@code created})
  * @author Edu Díaz (RGiskard7)
- * @since 2.6.1
+ * @since 2.7.0
  */
 public record ExternalChanges(Set<String> created, Set<String> changed, Set<String> deleted,
         boolean foldersMayHaveChanged, Map<String, String> renamed) {

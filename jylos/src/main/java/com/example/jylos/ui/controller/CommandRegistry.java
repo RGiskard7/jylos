@@ -227,7 +227,7 @@ class CommandRegistry {
             new CommandDef("cmd.editor_zoom_in", "Zoom In (Editor Font)"),
             new CommandDef("cmd.editor_zoom_out", "Zoom Out (Editor Font)"),
             new CommandDef("cmd.editor_reset_zoom", "Reset Editor Font Zoom"),
-            new CommandDef("cmd.import_obsidian", "Import Obsidian Vault…"),
+            new CommandDef("cmd.import_obsidian", "Import Vault…"),
             new CommandDef("cmd.import_enex", "Import Evernote (.enex)…"),
             new CommandDef("cmd.strike", "Strikethrough"),
             new CommandDef("cmd.highlight", "Highlight"),

@@ -3,7 +3,7 @@
 English: [../PLUGINS.md](../PLUGINS.md)
 
 Los plugins son JARs que se cargan al arrancar; el core no importa clases concretas de plugins.
-Como en Obsidian, hay dos tipos:
+Hay dos tipos:
 
 - **Plugins principales:** los de Jylos (`plugins-source/`, más Mermaid compilado en la app;
   la lista está en `CorePlugins`). Vienen con la instalación, junto a la app (jpackage
@@ -129,6 +129,14 @@ El build resuelve las partes del mezclado que si no fallarían en silencio:
   el mismo servicio.
 - Se descarta el **`module-info.class`** de las dependencias: no significa nada en el
   classpath y dos dependencias colisionarían en él.
+- Los **ficheros de licencia y de avisos** (`LICENSE*`, `NOTICE*`, `*-LICENSE`, `COPYING*`,
+  `about.html`) van a `META-INF/third-party/<dependencia>/`, una carpeta por JAR. Comparten
+  nombre, así que mezclados en la raíz solo quedaría el último, y se perderían las licencias
+  de los demás, que tienen que viajar con su código.
+
+Un plugin del núcleo que empaqueta dependencias las lista también, con sus versiones y
+licencias, en [`THIRD-PARTY-NOTICES.md`](../../THIRD-PARTY-NOTICES.md), y añade a `licenses/` el
+texto de cualquier licencia nueva.
 
 Dos advertencias a tener presentes:
 
@@ -189,14 +197,15 @@ fichero independiente, sin `isPluginRemovable`) a cambio de disponibilidad incon
 |-----|-----|
 | `registerCommand(...)` | Paleta de comandos |
 | `registerMenuItem(...)` / `addMenuSeparator(...)` | Menú dinámico de plugins |
-| `registerSidePanel(panelId, title, content, icon)` | Una vista del panel derecho, como en Obsidian: una pestaña con `icon` (un literal Feather como `fth-calendar`, un emoji o nada para uno genérico) y `title` en su tooltip, que muestra `content` con su propio scroll; la vista elegida la última vez se vuelve a elegir cuando el plugin vuelve. `setPluginPanelsVisible(false)` quita de la fila las pestañas de todos los plugins (y `true` las devuelve) |
+| `registerSidePanel(panelId, title, content, icon)` | Una vista del panel derecho: una pestaña con `icon` (un literal Feather como `fth-calendar`, un emoji o nada para uno genérico) y `title` en su tooltip, que muestra `content` con su propio scroll; la vista elegida la última vez se vuelve a elegir cuando el plugin vuelve. `setPluginPanelsVisible(false)` quita de la fila las pestañas de todos los plugins (y `true` las devuelve) |
 | `registerPreviewEnhancer(...)` | CSS/JS en preview Markdown, más post-procesado de HTML por nota (abajo) |
 | `registerToolbarButton(...)` | Botón de toolbar |
-| `registerStatusBarItem(itemId, contenido)` | Nodo en la barra de estado, como `addStatusBarItem()` de Obsidian: se guarda el nodo para actualizarlo (p. ej. un `Label` con `setText`); el mismo `itemId` lo sustituye; se quita solo al desactivar el plugin (`removeStatusBarItem(itemId)` / `removeStatusBarItems()` para quitarlo antes) |
+| `registerStatusBarItem(itemId, contenido)` | Nodo en la barra de estado: se guarda el nodo para actualizarlo (p. ej. un `Label` con `setText`); el mismo `itemId` lo sustituye; se quita solo al desactivar el plugin (`removeStatusBarItem(itemId)` / `removeStatusBarItems()` para quitarlo antes) |
 | `registerEditorHook(EditorHook)` | Hooks del editor |
 | `registerEditorBlockRenderer(language, renderer)` | Renderiza un bloque cercado dentro del Live Preview del editor |
 | `requestOpenNote(note)` | Pedir al shell abrir nota |
 | `requestRefreshNotes()` | Pedir refresh fan-out |
+| `publish(new NoteEvents.ExternalNoteChangesEvent(created, changed, deleted, foldersChanged, renamed))` | Decir a la app qué notas creó, cambió, movió (id antiguo a id nuevo) o borró tu plugin con los servicios. Esas escrituras pasan por el almacenamiento de la propia app, así que el vigilante de la carpeta las toma por suyas y nada en la ventana las sigue hasta refrescar: este evento hace que el explorador, las listas, las etiquetas, el grafo y la nota abierta en el editor las sigan, como un cambio hecho fuera de la app (se recarga, se sigue a su nuevo nombre o, con cambios sin guardar, se conserva con un aviso). Varios seguidos se muestran una vez, cuando paran. Publícalo cuando la escritura haya terminado, y solo si salió bien. El plugin servidor MCP lo hace en cada herramienta que escribe |
 | `subscribe(...)` / `publish(...)` | Eventos tipados; las suscripciones se cancelan solas al deshabilitar |
 | `showInfo(title, header, content)` / `showError(title, message)` | Un `Alert` de información/error, con tema aplicado, de solo lectura — el contenido se muestra como texto plano, no seleccionable |
 | `showCopyableInfo(title, header, content)` | Igual que `showInfo`, pero el contenido es un área de texto real, seleccionable/copiable (más un botón "Copy") — úsalo en vez de `showInfo` para cualquier cosa pensada para pegarse en otro sitio (un fragmento de plantilla, una URL) |

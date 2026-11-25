@@ -6,7 +6,7 @@ A quick tour of the core workflows so you can start writing immediately.
 
 Jylos has two layouts. Switch between them with the layout button at the right of the toolbar, or in **Tools → Preferences**; your choice is remembered.
 
-- **Explorer** — the left sidebar shows one tree with your folders and notes together, as in Obsidian. Click a folder to expand it and a note to open it. The notes panel only appears when you search or pick a tag, to show the results, and closes with its **✕**. New installations start in this layout.
+- **Explorer** — the left sidebar shows one tree with your folders and notes together. Click a folder to expand it and a note to open it. The notes panel only appears when you search or pick a tag, to show the results, and closes with its **✕**. New installations start in this layout.
 - **Classic** — folders, the notes list and the editor side by side (**columns**), or the folders above the notes list (**stacked**). The notes list adds sorting, a grid view and the option to include notes from subfolders.
 
 In both layouts:

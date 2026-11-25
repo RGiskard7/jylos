@@ -10,7 +10,7 @@ import com.example.jylos.data.models.Note;
  * page as parsing the text.
  *
  * @author Edu Díaz (RGiskard7)
- * @since 2.6.1
+ * @since 2.7.0
  */
 final class PageSummary {
 

@@ -66,7 +66,7 @@ import javafx.scene.shape.Rectangle;
  * last time, a plugin's that registers later) is so when it comes.
  *
  * @author Edu Díaz (RGiskard7)
- * @since 2.6.1
+ * @since 2.7.0
  */
 public final class SideDock extends VBox {
 

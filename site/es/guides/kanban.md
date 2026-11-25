@@ -1,6 +1,6 @@
 # Kanban
 
-Un tablero Kanban es una nota normal cuyo cuerpo Markdown guarda columnas y tarjetas, en el espíritu del plugin Kanban de Obsidian. Una nota-tablero se abre como tablero, en su propia pestaña como cualquier nota.
+Un tablero Kanban es una nota normal cuyo cuerpo Markdown guarda columnas y tarjetas. Una nota-tablero se abre como tablero, en su propia pestaña como cualquier nota.
 
 ## Estructura
 

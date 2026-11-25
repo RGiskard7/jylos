@@ -2,7 +2,7 @@
 
 ::: v-pre
 
-Jylos writes templates as Obsidian does: with the syntax of its Templates plugin and, if you turn it on, with Templater's. The same template gives the same result in both apps. Everything is set in **Preferences → Vault**, and each vault has its own settings.
+Jylos understands templates written for Obsidian: the syntax of its Templates plugin and, if you turn it on, Templater's. The same template gives the same result in both apps. Everything is set in **Preferences → Vault**, and each vault has its own settings.
 
 ## Where templates are
 
@@ -32,7 +32,7 @@ Formats are Obsidian's: `YYYY` (year), `MM` and `MMMM` (month as a number and by
 
 - **Its name** is today in the daily note's format. A format with slashes, such as `YYYY/MM/DD`, keeps it in folders, made if missing.
 - **Its folder** is the daily notes folder; without one, the new notes folder when that is a given folder; else the vault's root.
-- **Its template** is written when it is created. In it, `{{title}}` is the note's name, and `{{date}}` and `{{time}}` use the fixed formats `YYYY-MM-DD` and `HH:mm`, as in Obsidian. With no template chosen, the `daily` note of the templates folder is used if there is one; otherwise the note is created empty.
+- **Its template** is written when it is created. In it, `{{title}}` is the note's name, and `{{date}}` and `{{time}}` use the fixed formats `YYYY-MM-DD` and `HH:mm`. With no template chosen, the `daily` note of the templates folder is used if there is one; otherwise the note is created empty.
 
 If the chosen folder or template is not in the vault, Jylos says so and creates nothing.
 

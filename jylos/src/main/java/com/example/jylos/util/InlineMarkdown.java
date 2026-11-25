@@ -26,7 +26,7 @@ import org.commonmark.parser.Parser;
  * read: the text is taken as one paragraph.
  *
  * @author Edu Díaz (RGiskard7)
- * @since 2.6.1
+ * @since 2.7.0
  */
 public final class InlineMarkdown {
 

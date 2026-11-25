@@ -47,7 +47,7 @@ import io.methvin.watcher.visitor.FileTreeVisitor;
  * </ul>
  *
  * @author Edu Díaz (RGiskard7)
- * @since 2.6.1
+ * @since 2.7.0
  */
 public final class VaultWatcher implements AutoCloseable {
 

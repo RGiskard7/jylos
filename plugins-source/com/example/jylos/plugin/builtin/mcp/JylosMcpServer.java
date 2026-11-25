@@ -3,9 +3,11 @@ package com.example.jylos.plugin.builtin.mcp;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.example.jylos.event.events.NoteEvents.ExternalNoteChangesEvent;
 import com.example.jylos.service.FolderService;
 import com.example.jylos.service.NoteService;
 import com.example.jylos.service.TagService;
@@ -55,15 +57,19 @@ final class JylosMcpServer {
     private final NoteService noteService;
     private final FolderService folderService;
     private final TagService tagService;
+    private final VaultChanges changes;
 
     private Server jettyServer;
     private McpSyncServer mcpServer;
     private int boundPort = -1;
 
-    JylosMcpServer(NoteService noteService, FolderService folderService, TagService tagService) {
+    /** @param onChange gets what each write tool changed, once it is done */
+    JylosMcpServer(NoteService noteService, FolderService folderService, TagService tagService,
+            Consumer<ExternalNoteChangesEvent> onChange) {
         this.noteService = noteService;
         this.folderService = folderService;
         this.tagService = tagService;
+        this.changes = new VaultChanges(onChange);
     }
 
     /**
@@ -169,9 +175,9 @@ final class JylosMcpServer {
     /** Every tool this server exposes, grouped by the part of the vault it works on. */
     private List<SyncToolSpecification> allTools() {
         List<SyncToolSpecification> tools = new ArrayList<>();
-        tools.addAll(NoteTools.build(noteService, folderService));
-        tools.addAll(FolderTools.build(folderService));
-        tools.addAll(TagTools.build(noteService, tagService));
+        tools.addAll(NoteTools.build(noteService, folderService, changes));
+        tools.addAll(FolderTools.build(folderService, noteService, changes));
+        tools.addAll(TagTools.build(noteService, tagService, changes));
         return tools;
     }
 

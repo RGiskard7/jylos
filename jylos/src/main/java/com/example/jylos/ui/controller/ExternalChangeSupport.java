@@ -7,7 +7,7 @@ import com.example.jylos.data.dao.ExternalChanges;
  * touched it makes it react, so a sync of other notes never moves what is being read or written.
  *
  * @author Edu Díaz (RGiskard7)
- * @since 2.6.1
+ * @since 2.7.0
  */
 final class ExternalChangeSupport {
 
